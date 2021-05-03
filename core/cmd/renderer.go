@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -78,8 +77,10 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderConfiguration(*typed)
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
-	case *webpresenters.LogResource:
-		return rt.renderLogResource(*typed)
+	case *webpresenters.ServiceLogConfigResource:
+		return rt.renderLogPkgConfig(*typed)
+	case *[]VRFKeyPresenter:
+		return rt.renderVRFKeys(*typed)
 	case TableRenderer:
 		return typed.RenderTable(rt)
 	default:
@@ -87,14 +88,36 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 	}
 }
 
-func (rt RendererTable) renderLogResource(logResource webpresenters.LogResource) error {
-	table := rt.newTable([]string{"ID", "Level", "SqlEnabled"})
-	table.Append([]string{
-		logResource.ID,
-		logResource.Level,
-		strconv.FormatBool(logResource.SqlEnabled),
-	})
-	render("Logs", table)
+func (rt RendererTable) renderLogPkgConfig(serviceLevelLog webpresenters.ServiceLogConfigResource) error {
+	table := rt.newTable([]string{"ID", "Service", "LogLevel"})
+	for i, svcName := range serviceLevelLog.ServiceName {
+		table.Append([]string{
+			serviceLevelLog.ID,
+			svcName,
+			serviceLevelLog.LogLevel[i],
+		})
+	}
+
+	render("ServiceLogConfig", table)
+	return nil
+}
+
+func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
+	var rows [][]string
+
+	for _, key := range keys {
+		rows = append(rows, []string{
+			key.Compressed,
+			key.Uncompressed,
+			key.Hash,
+			key.FriendlyCreatedAt(),
+			key.FriendlyUpdatedAt(),
+			key.FriendlyDeletedAt(),
+		})
+	}
+
+	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows, rt.Writer)
+
 	return nil
 }
 

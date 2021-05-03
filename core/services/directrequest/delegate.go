@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -130,9 +129,9 @@ func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle,
-			Logs: []generated.AbigenLog{
-				oracle_wrapper.OracleOracleRequest{},
-				oracle_wrapper.OracleCancelOracleRequest{},
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.onChainJobSpecID)}},
+				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.onChainJobSpecID)}},
 			},
 			NumConfirmations: 1,
 		})
