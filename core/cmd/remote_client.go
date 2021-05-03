@@ -490,8 +490,8 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var lR webpresenters.LogResource
-	err = cli.renderAPIResponse(resp, &lR)
+	var svcLogConfig webpresenters.ServiceLogConfigResource
+	err = cli.renderAPIResponse(resp, &svcLogConfig)
 	return err
 }
 
@@ -526,8 +526,42 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var lR webpresenters.LogResource
-	err = cli.renderAPIResponse(resp, &lR)
+	var svcLogConfig webpresenters.ServiceLogConfigResource
+	err = cli.renderAPIResponse(resp, &svcLogConfig)
+	return err
+}
+
+// SetLogPkg sets the package log filter on the node
+func (cli *Client) SetLogPkg(c *clipkg.Context) (err error) {
+	pkg := strings.Split(c.String("pkg"), ",")
+	level := strings.Split(c.String("level"), ",")
+
+	serviceLogLevel := make([][2]string, len(pkg))
+	for i, p := range pkg {
+		serviceLogLevel[i][0] = p
+		serviceLogLevel[i][1] = level[i]
+	}
+
+	request := web.LogPatchRequest{ServiceLogLevel: serviceLogLevel}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "set pkg specific logging levels"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var svcLogConfig webpresenters.ServiceLogConfigResource
+	err = cli.renderAPIResponse(resp, &svcLogConfig)
+
 	return err
 }
 
