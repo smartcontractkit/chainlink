@@ -98,10 +98,7 @@ func (ec *ethConfirmer) Disconnect() {
 // - Now we finish head 41
 // - We move straight on to processing head 45
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	wasOverCapacity := ec.mb.Deliver(head)
-	if wasOverCapacity {
-		logger.Warn("EthConfirmer: head mailbox is over capacity - dropped the oldest unprocessed head")
-	}
+	ec.mb.Deliver(head)
 }
 
 func (ec *ethConfirmer) Start() error {

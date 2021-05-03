@@ -83,10 +83,7 @@ func (hr *HeadBroadcaster) Connect(head *models.Head) error {
 func (hr *HeadBroadcaster) Disconnect() {}
 
 func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
-	wasOverCapacity := hr.mailbox.Deliver(head)
-	if wasOverCapacity {
-		logger.Error("HeadBroadcaster: head mailbox is over capacity - dropped the oldest unprocessed head")
-	}
+	hr.mailbox.Deliver(head)
 }
 
 func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe func()) {
