@@ -653,6 +653,10 @@ func (c Config) EthGasPriceDefault() *big.Int {
 	return chainSpecificConfig(c).EthGasPriceDefault
 }
 
+func (c Config) EthGasLimitMultiplier() float32 {
+	return (float32)(c.getWithFallback("EthGasLimitMultiplier", parseF32).(float64))
+}
+
 // SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
 func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 	if c.runtimeStore == nil {
@@ -1457,6 +1461,11 @@ func parseUint32(s string) (interface{}, error) {
 
 func parseUint64(s string) (interface{}, error) {
 	v, err := strconv.ParseUint(s, 10, 64)
+	return v, err
+}
+
+func parseF32(s string) (interface{}, error) {
+	v, err := strconv.ParseFloat(s, 32)
 	return v, err
 }
 
