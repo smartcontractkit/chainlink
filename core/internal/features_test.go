@@ -772,6 +772,92 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
+func TestIntegration_ExternalInitiator_WithMultiplyAndBridge(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMockCalls()
+
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	eiCreate := map[string]string{
+		"name": "someCoin",
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+
+	eia := &auth.Token{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
+
+	// HTTP passthrough
+	var httpCalled bool
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			httpCalled = true
+			body, err2 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err2)
+			requestStr := string(body)
+			require.Equal(t, `{"result":"4200000000"}`, requestStr)
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, `4200000000`)
+		}))
+	defer func() {
+		mockServer.Close()
+		assert.True(t, httpCalled, "expected http server to be called")
+	}()
+
+	// Bridge
+	var bridgeCalled bool
+	bridgeServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			bridgeCalled = true
+			body, err2 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err2)
+			json := models.MustParseJSON(body)
+			require.Equal(t, `{"result":"4200000000"}`, json.Get("data").Raw)
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, err)
+			io.WriteString(w, json.String())
+		}))
+	u, _ := url.Parse(bridgeServer.URL)
+	app.Store.CreateBridgeType(&models.BridgeType{
+		Name: models.TaskType("custombridge"),
+		URL:  models.WebURL(*u),
+	})
+	defer func() {
+		bridgeServer.Close()
+		assert.True(t, bridgeCalled, "expected bridge server to be called")
+	}()
+
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/external_initiator_job_multiply.json")
+	var jobSpec models.JobSpec
+	err = json.Unmarshal(buffer, &jobSpec)
+	require.NoError(t, err)
+	httpParams, err := jobSpec.Tasks[1].Params.Add("post", mockServer.URL)
+	require.NoError(t, err)
+	jobSpec.Tasks[1].Params = httpParams
+
+	jobSpec = cltest.CreateJobSpecViaWeb(t, app, jobSpec)
+
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, `{"result": 42}`)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
+	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
+
+	jobRun, err = app.Store.FindJobRun(jobRun.ID)
+	require.NoError(t, err)
+	finalResult := jobRun.Result
+
+	assert.Equal(t, `{"result": "4200000000"}`, finalResult.Data.Raw)
+}
+
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
