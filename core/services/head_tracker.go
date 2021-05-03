@@ -515,10 +515,7 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	} else if err != nil {
 		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
 	}
-	wasOverCapacity := ht.backfillMB.Deliver(headWithChain)
-	if wasOverCapacity {
-		logger.Error("HeadTracker: head mailbox is over capacity - dropped the oldest unprocessed head")
-	}
+	ht.backfillMB.Deliver(headWithChain)
 
 	ht.onNewLongestChain(ctx, headWithChain)
 	return nil

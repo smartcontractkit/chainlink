@@ -110,10 +110,7 @@ func (gu *gasUpdater) Disconnect() {
 // OnNewLongestChain recalculates and sets global gas price if a new head comes
 // in and we are not currently fetching
 func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
-	wasOverCapacity := gu.mb.Deliver(head)
-	if wasOverCapacity {
-		logger.Error("GasUpdater: head mailbox is over capacity - dropped the oldest unprocessed head")
-	}
+	gu.mb.Deliver(head)
 }
 
 func (gu *gasUpdater) Start() error {
