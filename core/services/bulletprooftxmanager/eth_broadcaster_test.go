@@ -259,6 +259,43 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	ethClient.AssertExpectations(t)
 }
 
+func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	store.KeyStore.Unlock(cltest.Password)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ETH_GAS_LIMIT_MULTIPLIER", "1.3")
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	eb, cleanup := cltest.NewEthBroadcaster(t, store, config)
+	defer cleanup()
+
+	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		assert.Equal(t, uint64(1600), tx.Gas())
+		return true
+	})).Return(nil).Once()
+
+	tx := models.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411"),
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          assets.NewEthValue(242),
+		GasLimit:       1231,
+		CreatedAt:      time.Unix(0, 0),
+		State:          models.EthTxUnstarted,
+	}
+	require.NoError(t, store.DB.Save(&tx).Error)
+
+	// Do the thing
+	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+	ethClient.AssertExpectations(t)
+}
+
 func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	var err error
 	store, cleanup := cltest.NewStore(t)
