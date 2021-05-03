@@ -311,6 +311,7 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Config           *TestConfig
+	Logger           *logger.Logger
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -1089,7 +1090,7 @@ func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
-	status models.RunStatus,
+	wantStatus models.RunStatus,
 
 ) models.JobRun {
 	t.Helper()
@@ -1099,8 +1100,13 @@ func WaitForJobRunStatus(
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		st := jr.GetStatus()
+		if wantStatus != models.RunStatusErrored {
+			if st == models.RunStatusErrored {
+				t.Fatalf("waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
+			}
+		}
 		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(wantStatus))
 	return jr
 }
 
@@ -1209,7 +1215,7 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 	return prs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
@@ -1221,7 +1227,11 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, j
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
-					completed = append(completed, prs[i])
+					// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+					// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+					if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
+						completed = append(completed, prs[i])
+					}
 				}
 			}
 		}

@@ -439,6 +439,96 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	helper.stop()
 }
 
+func TestBroadcaster_FilterByTopicValues(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 0
+	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(3))
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := newBlocks(t, 20)
+
+	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
+	field1Value1 := cltest.NewHash()
+	field1Value2 := cltest.NewHash()
+	field2Value1 := cltest.NewHash()
+	field2Value2 := cltest.NewHash()
+	addr1SentLogs := []types.Log{
+		blocks.logOnBlockNumWithTopics(1, 0, contract1.Address(), []common.Hash{topic, field1Value1, field2Value1}),
+		blocks.logOnBlockNumWithTopics(1, 1, contract1.Address(), []common.Hash{topic, field1Value2, field2Value2}),
+		blocks.logOnBlockNumWithTopics(2, 0, contract1.Address(), []common.Hash{topic, cltest.NewHash(), field2Value2}),
+		blocks.logOnBlockNumWithTopics(2, 1, contract1.Address(), []common.Hash{topic, field1Value2, cltest.NewHash()}),
+	}
+
+	listener0 := helper.newLogListener("listener 0")
+	listener1 := helper.newLogListener("listener 1")
+	listener2 := helper.newLogListener("listener 2")
+	listener3 := helper.newLogListener("listener 3")
+	listener4 := helper.newLogListener("listener 4")
+
+	helper.registerWithTopicValues(listener0, contract1, 1,
+		map[common.Hash][][]log.Topic{
+			topic: {}, // no filters, so all values allowed
+		},
+	)
+	helper.registerWithTopicValues(listener1, contract1, 1,
+		map[common.Hash][][]log.Topic{
+			topic: {{} /**/, {}}, // two empty filters, so all values allowed
+		},
+	)
+	helper.registerWithTopicValues(listener2, contract1, 1,
+		map[common.Hash][][]log.Topic{
+			topic: {
+				{log.Topic(field1Value1), log.Topic(field1Value2)} /**/, {log.Topic(field2Value1), log.Topic(field2Value2)}, // two values for each field allowed
+			},
+		},
+	)
+	helper.registerWithTopicValues(listener3, contract1, 1,
+		map[common.Hash][][]log.Topic{
+			topic: {
+				{log.Topic(field1Value1), log.Topic(field1Value2)} /**/, {}, // two values allowed for field 1, and any values for field 2
+			},
+		},
+	)
+	helper.registerWithTopicValues(listener4, contract1, 1,
+		map[common.Hash][][]log.Topic{
+			topic: {
+				{log.Topic(field1Value1)} /**/, {log.Topic(field2Value1)}, // some values allowed
+			},
+		},
+	)
+
+	cleanup, headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       5,
+		BackfillDepth:  10,
+		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		Hashes:         blocks.hashesMap(),
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	chRawLogs := <-helper.chchRawLogs
+
+	for _, log := range addr1SentLogs {
+		chRawLogs <- log
+	}
+
+	<-headsDone
+
+	require.Equal(t, 4, len(listener0.received.uniqueLogs))
+	require.Equal(t, 4, len(listener1.received.uniqueLogs))
+	require.Equal(t, 2, len(listener2.received.uniqueLogs))
+	require.Equal(t, 3, len(listener3.received.uniqueLogs))
+	require.Equal(t, 1, len(listener4.received.uniqueLogs))
+
+	helper.stop()
+}
+
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testing.T) {
 	t.Parallel()
 
@@ -1034,15 +1124,19 @@ func pickLogs(t *testing.T, allLogs map[uint]types.Log, indices []uint) []types.
 }
 
 func requireBroadcastCount(t *testing.T, store *strpkg.Store, expectedCount int) {
-	t.Helper()
 	g := gomega.NewGomegaWithT(t)
+
+	var lastCount int
+	var lastCountPointer = &lastCount
+	*lastCountPointer += 1
 	comparisonFunc := func() bool {
 		var count struct{ Count int }
 		err := store.DB.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
 		require.NoError(t, err)
+		*lastCountPointer += count.Count
 		return count.Count == expectedCount
 	}
-	require.Eventually(t, comparisonFunc, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, comparisonFunc, 5*time.Second, 10*time.Millisecond, "last value was: %v", *lastCountPointer)
 	g.Consistently(comparisonFunc).Should(gomega.Equal(true))
 }
 
