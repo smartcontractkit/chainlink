@@ -667,6 +667,16 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // Special cases:
 // ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
 // ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
+//
+// Examples:
+//
+// Transaction sending:
+// A transaction is sent at block height 42
+//
+// ETH_FINALITY_DEPTH is set to 5
+// A re-org occurs at height 44 starting at block 41, transaction is marked for rebroadcast
+// A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
+// A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
 func (c Config) EthFinalityDepth() uint {
 	if c.viper.IsSet(EnvVarName("EthFinalityDepth")) {
 		return uint(c.viper.GetUint64(EnvVarName("EthFinalityDepth")))
