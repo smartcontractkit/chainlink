@@ -117,7 +117,7 @@ type ConfigSchema struct {
 	ORMMaxIdleConns                           int             `env:"ORM_MAX_IDLE_CONNS" default:"10"`
 	ORMMaxOpenConns                           int             `env:"ORM_MAX_OPEN_CONNS" default:"20"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
-	OptimismGasFees                           bool            `env:"OPTIMISM_GAS_FEES" default:"false"`
+	OptimismGasFees                           bool            `env:"OPTIMISM_GAS_FEES"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
 	P2PBootstrapPeers                         []string        `env:"P2P_BOOTSTRAP_PEERS"`
