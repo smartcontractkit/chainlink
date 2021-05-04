@@ -35,8 +35,7 @@ func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 // getAndCheckJobSpec(c) returns a validated job spec from c, or errors. The
 // httpStatus return value is only meaningful on error, and in that case
 // reflects the type of failure to be reported back to the client.
-func (jsc *JobSpecsController) getAndCheckJobSpec(
-	c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
+func (jsc *JobSpecsController) getAndCheckJobSpec(c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
 	var jsr models.JobSpecRequest
 	if err := c.ShouldBindJSON(&jsr); err != nil {
 		// TODO(alx): Better parsing and more specific error messages

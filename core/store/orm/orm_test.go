@@ -1573,6 +1573,11 @@ func TestORM_Heads_Chain(t *testing.T) {
 	// Returns error if hash has no matches
 	_, err = store.Chain(context.TODO(), cltest.NewHash(), 12)
 	require.Error(t, err)
+
+	t.Run("depth of 0 returns error", func(t *testing.T) {
+		_, err = store.Chain(context.TODO(), longestChainHeadHash, 0)
+		require.EqualError(t, err, "record not found")
+	})
 }
 
 func TestORM_Heads_IdempotentInsertHead(t *testing.T) {

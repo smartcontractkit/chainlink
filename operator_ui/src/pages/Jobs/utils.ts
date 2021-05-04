@@ -83,7 +83,7 @@ export function getOcrJobStatus({
 
 // `isNaN` actually accepts strings and we don't want to `parseInt` or `parseFloat`
 //  as it doesn't have the behaviour we want.
-export const isOcrJob = (jobSpecId: string): boolean =>
+export const isJobV2 = (jobSpecId: string): boolean =>
   !isNaN((jobSpecId as unknown) as number)
 
 export function getTaskList({
