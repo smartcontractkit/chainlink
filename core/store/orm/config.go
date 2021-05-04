@@ -173,7 +173,7 @@ func init() {
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
 		GasUpdaterEnabled:                false,
 		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
-		MinIncomingConfirmations:         0,
+		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
 	}
@@ -267,6 +267,10 @@ func (c *Config) Validate() error {
 
 	if c.EthFinalityDepth() < 1 {
 		return errors.New("ETH_FINALITY_DEPTH must be greater than or equal to 1")
+	}
+
+	if c.MinIncomingConfirmations() < 1 {
+		return errors.New("MIN_INCOMING_CONFIRMATIONS must be greater than or equal to 1")
 	}
 
 	var override time.Duration
@@ -1112,6 +1116,8 @@ func (c Config) LogSQLMigrations() bool {
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
+// MIN_INCOMING_CONFIRMATIONS=1 would kick off a job after seeing the transaction in a block
+// MIN_INCOMING_CONFIRMATIONS=0 would kick off a job even before the transaction is mined, which is not supported
 func (c Config) MinIncomingConfirmations() uint32 {
 	if c.viper.IsSet(EnvVarName("MinIncomingConfirmations")) {
 		return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
@@ -1122,6 +1128,8 @@ func (c Config) MinIncomingConfirmations() uint32 {
 // MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
+// MIN_OUTGOING_CONFIRMATIONS=1 considers a transaction as "done" once it has been mined into one block
+// MIN_OUTGOING_CONFIRMATIONS=0 would consider a transaction as "done" even before it has been mined
 func (c Config) MinRequiredOutgoingConfirmations() uint64 {
 	if c.viper.IsSet(EnvVarName("MinRequiredOutgoingConfirmations")) {
 		return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
