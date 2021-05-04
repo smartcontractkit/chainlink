@@ -223,10 +223,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	defer cleanup()
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	store.KeyStore.Unlock(cltest.Password)
+	store.Config.Set("OPTIMISM_GAS_FEES", "true")
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("OPTIMISM_GAS_FEES", "true")
 
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
@@ -249,7 +249,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	}
 	ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		return tx.GasPrice().Cmp(big.NewInt(1000000000)) == 0 && tx.Gas() == estimatedGas
+		assert.Equal(t, big.NewInt(1000000000), tx.GasPrice())
+		assert.Equal(t, estimatedGas, tx.Gas())
+		return true
 	})).Return(nil).Once()
 
 	require.NoError(t, store.DB.Save(&tx).Error)
