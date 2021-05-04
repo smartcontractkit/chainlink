@@ -87,7 +87,16 @@ describe('ValidatorProxy', () => {
           validatorProxy.proposeNewAggregator(newAggregator, {
             from: owner,
           }),
-          'No change',
+          'Invalid proposal',
+        )
+      })
+
+      it('should revert if the proposal is the same as the current', async () => {
+        await expectRevert(
+          validatorProxy.proposeNewAggregator(aggregator, {
+            from: owner,
+          }),
+          'Invalid proposal',
         )
       })
     })
@@ -207,7 +216,16 @@ describe('ValidatorProxy', () => {
           validatorProxy.proposeNewValidator(newValidator, {
             from: owner,
           }),
-          'No change',
+          'Invalid proposal',
+        )
+      })
+
+      it('should revert if the proposed is the same as the current', async () => {
+        await expectRevert(
+          validatorProxy.proposeNewValidator(validator, {
+            from: owner,
+          }),
+          'Invalid proposal',
         )
       })
     })
