@@ -7,7 +7,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "compile": "belt compile all && hardhat compile",
+    "compile": "belt compile all",
     "compile:native": "./scripts/native_solc_compile_all",
     "compile:clean": "yarn clean && yarn compile",
     "setup": "yarn compile:clean && tsc -b tsconfig.test.json tsconfig.ethers.json",
