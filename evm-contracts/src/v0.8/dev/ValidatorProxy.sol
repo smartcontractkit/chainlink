@@ -146,7 +146,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     external
     onlyOwner()
   {
-    require(s_proposedAggregator != proposed, "No change");
+    require(s_proposedAggregator != proposed && s_currentAggregator.target != proposed, "Invalid proposal");
     s_proposedAggregator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentAggregator.hasNewProposal = (proposed != address(0));
@@ -210,7 +210,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     external
     onlyOwner()
   {
-    require(s_proposedValidator != proposed, "No change");
+    require(s_proposedValidator != proposed && s_currentValidator.target != proposed, "Invalid proposal");
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentValidator.hasNewProposal = (address(proposed) != address(0));
