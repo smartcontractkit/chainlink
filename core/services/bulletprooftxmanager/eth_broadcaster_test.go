@@ -266,10 +266,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	defer cleanup()
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	store.KeyStore.Unlock(cltest.Password)
+	store.Config.Set("ETH_GAS_LIMIT_MULTIPLIER", "1.3")
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ETH_GAS_LIMIT_MULTIPLIER", "1.3")
 
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
