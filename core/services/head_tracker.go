@@ -460,10 +460,10 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 
 				err := ht.handleNewHead(ctx, blockHeader)
 				if ctx.Err() != nil {
-					return nil
+					return ctx.Err()
 				} else if deadlineCtx.Err() != nil {
 					ht.logger().Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
-					return err
+					return deadlineCtx.Err()
 				} else if err != nil {
 					return err
 				}
