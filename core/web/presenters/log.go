@@ -1,12 +1,12 @@
 package presenters
 
-type LogResource struct {
+type ServiceLogConfigResource struct {
 	JAID
-	Level      string `json:"level"`
-	SqlEnabled bool   `json:"sqlEnabled"`
+	ServiceName []string `json:"serviceName"`
+	LogLevel    []string `json:"logLevel"`
 }
 
 // GetName implements the api2go EntityNamer interface
-func (r LogResource) GetName() string {
-	return "logs"
+func (r ServiceLogConfigResource) GetName() string {
+	return "serviceLevelLogs"
 }

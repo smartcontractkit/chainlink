@@ -931,14 +931,19 @@ func RandomLog(t *testing.T) types.Log {
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
-
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
+	topics := []common.Hash{topic, NewHash(), NewHash()}
+	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
+}
+
+func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool, topics []common.Hash) types.Log {
+	t.Helper()
 	return types.Log{
 		Address:     contractAddr,
 		BlockHash:   blockHash,
 		BlockNumber: blockNumber,
 		Index:       logIndex,
-		Topics:      []common.Hash{topic, NewHash(), NewHash()},
+		Topics:      topics,
 		Data:        []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 		Removed:     removed,
 	}

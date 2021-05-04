@@ -74,8 +74,17 @@ type (
 	}
 
 	ListenerOpts struct {
-		Contract         AbigenContract
-		Logs             []generated.AbigenLog
+		Contract AbigenContract
+
+		// Event types to receive, filtered only by event
+		Logs []generated.AbigenLog
+
+		// Event types to receive, with value filter for each field in the event
+		// No filter or an empty filter for a given field position mean: all values allowed
+		// the key should be a result of AbigenLog.Topic() call
+		LogsWithTopics map[common.Hash][][]Topic
+
+		// Minimum number of block confirmations before the log is received
 		NumConfirmations uint64
 	}
 
@@ -88,6 +97,8 @@ type (
 		listener Listener
 		opts     ListenerOpts
 	}
+
+	Topic common.Hash
 )
 
 var _ Broadcaster = (*broadcaster)(nil)
@@ -115,7 +126,7 @@ func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
 }
 
 func (b *broadcaster) Start() error {
-	return b.StartOnce("Log broadcaster", func() error {
+	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
 		if b.latestHeadFromDb != nil {
 			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
@@ -136,7 +147,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 }
 
 func (b *broadcaster) Stop() error {
-	return b.StopOnce("Log broadcaster", func() error {
+	return b.StopOnce("LogBroadcaster", func() error {
 		close(b.chStop)
 		b.wgDone.Wait()
 		return nil
@@ -164,9 +175,14 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	if len(opts.Logs) < 1 {
+	if len(opts.Logs) == 0 && len(opts.LogsWithTopics) == 0 {
 		logger.Fatal("Must supply at least 1 Log to Register")
 	}
+
+	if len(opts.Logs) > 0 && len(opts.LogsWithTopics) > 0 {
+		logger.Fatal("Must use either Logs or LogsWithTopics but not both")
+	}
+
 	b.addSubscriber.Deliver(registration{listener, opts})
 	return func() {
 		b.rmSubscriber.Deliver(registration{listener, opts})
