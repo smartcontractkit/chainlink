@@ -1,13 +1,17 @@
 name: CI
 
-on: [push]
+on:
+  push:
+    tags:
+      - 'v.**'
 
 env:
   CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
 jobs:
-  build-chainlink:
-    name: Build chainlink image
+
+  build-push-chainlink:
+    name: Build and push chainlink image
     runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
@@ -43,17 +47,8 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-      - name: Build image
-        uses: docker/build-push-action@v1
-        with:
-          registry: ${{ steps.login-ecr.outputs.registry }}
-          repository: ${{ secrets.ECR_REPO }}
-          username: AWS # temporary
-          password: ${{ steps.get-ecr-password.outputs.password }} # temporary
-          dockerfile: ${{ matrix.dockerfile }}
-          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: githubactions
-          add_git_labels: true
-          tag_with_ref: true
-          tag_with_sha: true
-          push: false
+      - name: Build and push image
+        run: |
+          export GIT_TAG=`echo $(git describe --tags --abbrev=0)`
+          echo "GIT_TAG = $GIT_TAG"
+          tools/ci/push_chainlink "${GITHUB_REF##*/}" "${GITHUB_REF#refs/tags/}" "${GITHUB_SHA}"
