@@ -245,7 +245,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
-			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "error", err)
+			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
 			continue
 		} else if !shouldResubscribe {
