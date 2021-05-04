@@ -3,7 +3,7 @@ flags_wrapper: ../../../evm-contracts/solc/v0.6/Flags.abi ../../../evm-contracts
 flux_aggregator_wrapper: ../../../evm-contracts/solc/v0.6/FluxAggregator.abi ../../../evm-contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
 multiwordconsumer_wrapper: ../../../evm-contracts/solc/v0.7/MultiWordConsumer.abi ../../../evm-contracts/solc/v0.7/MultiWordConsumer.bin 79a82a597494f30a42453045dbf4c8de2687d810fb66958443239f29847a6ee6
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
-operator_wrapper: ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin c4673baa607ca40c0f6d9f18fbe92659b5dc36cea30bfcceed2128a40b9fc912
+operator_wrapper: ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin 0a54f8b44e8e92b22f2a3a838060aac5c9888899a9815e750c8c818fda72ebf1
 oracle_wrapper: ../../../evm-contracts/solc/v0.6/Oracle.abi ../../../evm-contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 solidity_vrf_consumer_interface: ../../../evm-contracts/solc/v0.6/VRFConsumer.abi ../../../evm-contracts/solc/v0.6/VRFConsumer.bin b45cf1ea42296bdb49683944e247feb6ce8355ccf3003f1ac37872419a372b7f
 solidity_vrf_coordinator_interface: ../../../evm-contracts/solc/v0.6/VRFCoordinator.abi ../../../evm-contracts/solc/v0.6/VRFCoordinator.bin a23d3c395156804788c7f6fbda2994e8f7184304c0f0c9f2c4ddeaf073d346d2
