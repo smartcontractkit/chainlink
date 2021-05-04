@@ -43,7 +43,8 @@ tag_and_push() {
     docker tag smartcontract/chainlink:circleci "${AWS_ECR_URL}/chainlink:${DOCKER_TAG}"
     docker tag smartcontract/chainlink:circleci-nonroot "${AWS_ECR_URL}/chainlink:${DOCKER_TAG}-nonroot"
   )
-  make dockerpush
+  echo "would run: make dockerpush"
+  #make dockerpush
 }
 
 branch_tag=$(tools/ci/branch2tag ${circle_branch})     # ie: develop, latest, candidate-*, etc.
