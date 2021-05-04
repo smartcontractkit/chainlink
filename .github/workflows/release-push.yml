@@ -1,6 +1,9 @@
 name: Release Push
 
-on: [push]
+on:
+  push:
+    tags:
+      - 't.**'
 
 env:
   CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
