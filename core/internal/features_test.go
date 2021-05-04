@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"gopkg.in/guregu/null.v4"
@@ -1394,8 +1393,6 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
-	testValidatorAddress, _, _, err := testvalidator.DeployTestValidator(owner, b)
-	require.NoError(t, err)
 	accessAddress, _, _, err :=
 		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b)
 	require.NoError(t, err, "failed to deploy test access controller contract")
@@ -1412,9 +1409,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		1e8,              // _linkGweiPerObservation uint32,
 		4e8,              // _linkGweiPerTransmission uint32,
 		linkTokenAddress, //_link common.Address,
-		testValidatorAddress,
-		min, // -2**191
-		max, // 2**191 - 1
+		min,              // -2**191
+		max,              // 2**191 - 1
 		accessAddress,
 		accessAddress,
 		0,

@@ -85,7 +85,16 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 	return js
 }
 
+// Called on node shutdown, unsubscribe from everything
+// and remove the subscriptions.
 func (js *jobSubscriber) Stop() error {
+	js.jobsMutex.Lock()
+	defer js.jobsMutex.Unlock()
+
+	for _, sub := range js.jobSubscriptions {
+		sub.Unsubscribe()
+	}
+	js.jobSubscriptions = map[string]JobSubscription{}
 	return js.jobResumer.Stop()
 }
 
@@ -176,16 +185,11 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	return multierr.Append(merr, err)
 }
 
-// Disconnect disconnects all subscriptions associated with jobs belonging to
-// this listener.
+// Called when we disconnect from the head tracker
+// because of an error in the head subscription or shutdown.
 func (js *jobSubscriber) Disconnect() {
-	js.jobsMutex.Lock()
-	defer js.jobsMutex.Unlock()
-
-	for _, sub := range js.jobSubscriptions {
-		sub.Unsubscribe()
-	}
-	js.jobSubscriptions = map[string]JobSubscription{}
+	// Do nothing, subscription connections are managed by
+	// the listenToLogs goroutines.
 }
 
 // OnNewLongestChain resumes all pending job runs based on the new head activity.
