@@ -7125,19 +7125,7 @@ chai-bn@^0.2.1:
   resolved "https://registry.npmjs.org/chai-bn/-/chai-bn-0.2.1.tgz#1dad95e24c3afcd8139ab0262e9bbefff8a30ab7"
   integrity sha512-01jt2gSXAw7UYFPT5K8d7HYjdXj2vyeIuE+0T/34FWzlNcVbs1JkPxRu7rYMfQnJhrHT8Nr6qjSf5ZwwLU2EYg==
 
-chai@^4.0.1, chai@^4.2.0:
-  version "4.2.0"
-  resolved "https://registry.npmjs.org/chai/-/chai-4.2.0.tgz#760aa72cf20e3795e84b12877ce0e83737aa29e5"
-  integrity sha512-XQU3bhBukrOsQCuwZndwGcCVQHyZi53fQ6Ys1Fym7E4olpIqqZZhhoFJoaKVvV17lWQoXYwgWN2nF5crA8J2jw==
-  dependencies:
-    assertion-error "^1.1.0"
-    check-error "^1.0.2"
-    deep-eql "^3.0.1"
-    get-func-name "^2.0.0"
-    pathval "^1.1.0"
-    type-detect "^4.0.5"
-
-chai@^4.3.4:
+chai@^4.0.1, chai@^4.2.0, chai@^4.3.4:
   version "4.3.4"
   resolved "https://registry.npmjs.org/chai/-/chai-4.3.4.tgz#b55e655b31e1eac7099be4c08c21964fce2e6c49"
   integrity sha512-yS5H68VYOCtN1cjfwumDSuzn/9c+yza4f3reKXlE5rUg7SFcCEy90gJvydNgOYtblyf4Zi6jIWRnXOgErta0KA==
@@ -16694,11 +16682,6 @@ path-type@^4.0.0:
   version "4.0.0"
   resolved "https://registry.npmjs.org/path-type/-/path-type-4.0.0.tgz#84ed01c0a7ba380afe09d90a8c180dcd9d03043b"
   integrity sha512-gDKb8aZMDeD/tZWs9P6+q0J9Mwkdl6xMV8TjnGP3qJVJ06bdMgkbBlLU8IdfOsIsFz2BW1rNVT3XuNEl8zPAvw==
-
-pathval@^1.1.0:
-  version "1.1.0"
-  resolved "https://registry.npmjs.org/pathval/-/pathval-1.1.0.tgz#b942e6d4bde653005ef6b71361def8727d0645e0"
-  integrity sha1-uULm1L3mUwBe9rcTYd74cn0GReA=
 
 pathval@^1.1.1:
   version "1.1.1"

@@ -20,7 +20,7 @@
     "@types/dockerode": "^2.5.24",
     "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
-    "chai": "^4.2.0",
+    "chai": "^4.3.4",
     "chalk": "^4.1.0",
     "dockerode": "^3.2.1",
     "ethers": "^4.0.44",
