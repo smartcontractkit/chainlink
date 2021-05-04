@@ -56,12 +56,15 @@ type Service interface {
 	RemoveJob(models.JobID)
 	Start() error
 	Stop()
+	SetLogger(logger *logger.Logger)
 }
 
 type concreteFluxMonitor struct {
+	muLogger       sync.RWMutex
 	store          *store.Store
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
+	log            *logger.Logger
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
 	chRemove       chan models.JobID
@@ -101,6 +104,19 @@ func New(
 	}
 }
 
+// SetLogger sets and reconfigures the log for the flux monitor service
+func (fm *concreteFluxMonitor) SetLogger(logger *logger.Logger) {
+	fm.muLogger.Lock()
+	defer fm.muLogger.Unlock()
+	fm.log = logger
+}
+
+func (fm *concreteFluxMonitor) logger() *logger.Logger {
+	fm.muLogger.RLock()
+	defer fm.muLogger.RUnlock()
+	return fm.log
+}
+
 func (fm *concreteFluxMonitor) Start() error {
 	go fm.serveInternalRequests()
 	fm.started = true
@@ -109,7 +125,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
 		if j == nil {
 			err := errors.New("received nil job")
-			logger.Error(err)
+			fm.logger().Error(err)
 			return true
 		}
 		job := *j

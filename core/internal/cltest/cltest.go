@@ -311,6 +311,7 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Config           *TestConfig
+	Logger           *logger.Logger
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -1089,7 +1090,7 @@ func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
-	status models.RunStatus,
+	wantStatus models.RunStatus,
 
 ) models.JobRun {
 	t.Helper()
@@ -1099,8 +1100,13 @@ func WaitForJobRunStatus(
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		st := jr.GetStatus()
+		if wantStatus != models.RunStatusErrored {
+			if st == models.RunStatusErrored {
+				t.Fatalf("waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
+			}
+		}
 		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(wantStatus))
 	return jr
 }
 

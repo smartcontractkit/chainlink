@@ -114,6 +114,18 @@ func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contr
 	helper.toUnsubscribe = append(helper.toUnsubscribe, unsubscribe)
 }
 
+func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract log.AbigenContract, numConfirmations uint64,
+	topics map[common.Hash][][]log.Topic) {
+
+	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
+		Contract:         contract,
+		LogsWithTopics:   topics,
+		NumConfirmations: numConfirmations,
+	})
+
+	helper.toUnsubscribe = append(helper.toUnsubscribe, unsubscribe)
+}
+
 func (helper *broadcasterHelper) unsubscribeAll() {
 	for _, unsubscribe := range helper.toUnsubscribe {
 		unsubscribe()
@@ -198,6 +210,8 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
+	} else {
+		logger.Warnf("Listener %v: Log was already consumed!", listener.name)
 	}
 }
 
@@ -343,6 +357,11 @@ type blocks struct {
 func (lb *blocks) logOnBlockNum(i uint64, addr common.Address) types.Log {
 	return cltest.RawNewRoundLog(lb.t, addr, lb.hashes[i], i, 0, false)
 }
+
+func (lb *blocks) logOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
+	return cltest.RawNewRoundLogWithTopics(lb.t, addr, lb.hashes[i], i, logIndex, false, topics)
+}
+
 func (lb *blocks) hashesMap() map[int64]common.Hash {
 	h := make(map[int64]common.Hash)
 	for i := 0; i < len(lb.hashes); i++ {
