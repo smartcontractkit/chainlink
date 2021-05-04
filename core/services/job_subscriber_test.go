@@ -176,11 +176,9 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 
 	require.Nil(t, jobSubscriber.Connect(cltest.Head(491)))
 
-	jobSubscriber.Stop()
-
 	assert.Len(t, jobSubscriber.Jobs(), 2)
 
-	jobSubscriber.Disconnect()
+	jobSubscriber.Stop()
 
 	assert.Len(t, jobSubscriber.Jobs(), 0)
 }
