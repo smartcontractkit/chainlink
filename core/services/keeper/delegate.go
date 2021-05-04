@@ -65,7 +65,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		contract,
 		d.db,
 		d.jrm,
-		d.headBroadcaster,
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),
 		d.config.KeeperMinimumRequiredConfirmations(),
