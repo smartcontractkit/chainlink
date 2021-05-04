@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -35,6 +35,7 @@ type (
 
 	Config interface {
 		MinRequiredOutgoingConfirmations() uint64
+		MinimumContractPayment() *assets.Link
 	}
 )
 
@@ -76,6 +77,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
+		config:          d.config,
 		logBroadcaster:  d.logBroadcaster,
 		headBroadcaster: d.headBroadcaster,
 		oracle:          oracle,
@@ -104,6 +106,7 @@ var (
 )
 
 type listener struct {
+	config            Config
 	logBroadcaster    log.Broadcaster
 	headBroadcaster   *services.HeadBroadcaster
 	oracle            oracle_wrapper.OracleInterface
@@ -126,9 +129,9 @@ func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle,
-			Logs: []generated.AbigenLog{
-				oracle_wrapper.OracleOracleRequest{},
-				oracle_wrapper.OracleCancelOracleRequest{},
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.onChainJobSpecID)}},
+				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.onChainJobSpecID)}},
 			},
 			NumConfirmations: 1,
 		})
@@ -273,6 +276,18 @@ func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]
 }
 
 func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleRequest) {
+	minimumContractPayment := l.config.MinimumContractPayment()
+	if minimumContractPayment != nil {
+		requestPayment := assets.Link(*request.Payment)
+		if minimumContractPayment.Cmp(&requestPayment) > 0 {
+			logger.Infow("Rejected run for insufficient payment",
+				"minimumContractPayment", minimumContractPayment.String(),
+				"requestPayment", requestPayment.String(),
+			)
+			return
+		}
+	}
+
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 

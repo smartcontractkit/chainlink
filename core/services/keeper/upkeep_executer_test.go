@@ -31,13 +31,16 @@ func setup(t *testing.T) (
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
 ) {
-	store, strCleanup := cltest.NewStore(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)
+	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	ethMock := new(mocks.Client)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store)
 	jpv2 := cltest.NewJobPipelineV2(t, store.DB)
 	headBroadcaster := services.NewHeadBroadcaster()
-	executer := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, 0)
+	executer := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
@@ -79,7 +82,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 		assertLastRunHeight(t, store, upkeep, 20)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
 		assert.True(t, ok)
@@ -100,7 +103,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 		assertLastRunHeight(t, store, upkeep, 36)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
 		assert.True(t, ok)
@@ -118,7 +121,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 2)
 		assertLastRunHeight(t, store, upkeep, 40)
-		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 2)
 		_, ok = runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
 		assert.True(t, ok)

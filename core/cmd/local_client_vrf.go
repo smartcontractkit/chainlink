@@ -49,6 +49,43 @@ func (p VRFKeyPresenter) FriendlyDeletedAt() string {
 	return ""
 }
 
+// RenderTable implements TableRenderer
+func (p *VRFKeyPresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
+	rows := [][]string{p.ToRow()}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
+func (p *VRFKeyPresenter) ToRow() []string {
+	return []string{
+		p.Compressed,
+		p.Uncompressed,
+		p.Hash,
+		p.FriendlyCreatedAt(),
+		p.FriendlyUpdatedAt(),
+		p.FriendlyDeletedAt(),
+	}
+}
+
+type VRFKeyPresenters []VRFKeyPresenter
+
+// RenderTable implements TableRenderer
+func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the password file
 func (cli *Client) CreateVRFKey(c *cli.Context) error {
@@ -287,7 +324,7 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 		return err
 	}
 
-	var presenters []VRFKeyPresenter
+	var presenters VRFKeyPresenters
 	for _, key := range keys {
 		uncompressed, err := key.StringUncompressed()
 		if err != nil {

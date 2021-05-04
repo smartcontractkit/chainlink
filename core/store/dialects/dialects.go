@@ -5,9 +5,9 @@ package dialects
 type DialectName string
 
 const (
-	// DialectPostgres represents the postgres dialect.
+	// Postgres represents the postgres dialect.
 	Postgres DialectName = "pgx"
-	// DialectTransactionWrappedPostgres is useful for tests.
+	// TransactionWrappedPostgres is useful for tests.
 	// When the connection is opened, it starts a transaction and all
 	// operations performed on the DB will be within that transaction.
 	//
@@ -21,7 +21,7 @@ const (
 	//
 	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
 	TransactionWrappedPostgres DialectName = "cloudsqlpostgres"
-	// DialectPostgresWithoutLock represents the postgres dialect but it does not
-	// wait for a lock to connect. Intended to be used for read only access.
+	// PostgresWithoutLock represents the postgres dialect but it does not
+	// wait for a lock to connect. Intended to be used for read only access, or in tests.
 	PostgresWithoutLock DialectName = "postgresWithoutLock"
 )

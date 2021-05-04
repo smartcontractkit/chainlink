@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -36,16 +37,17 @@ var _ job.Service = (*UpkeepExecuter)(nil)
 var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
 
 type UpkeepExecuter struct {
-	chStop          chan struct{}
-	ethClient       eth.Client
-	executionQueue  chan struct{}
-	headBroadcaster *services.HeadBroadcaster
-	job             job.Job
-	mailbox         *utils.Mailbox
-	maxGracePeriod  int64
-	orm             ORM
-	pr              pipeline.Runner
-	wgDone          sync.WaitGroup
+	chStop            chan struct{}
+	ethClient         eth.Client
+	executionQueue    chan struct{}
+	headBroadcaster   *services.HeadBroadcaster
+	job               job.Job
+	mailbox           *utils.Mailbox
+	maxGracePeriod    int64
+	maxUnconfirmedTXs uint64
+	orm               ORM
+	pr                pipeline.Runner
+	wgDone            sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -55,20 +57,21 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster *services.HeadBroadcaster,
-	maxGracePeriod int64,
+	config *orm.Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:          make(chan struct{}),
-		ethClient:       ethClient,
-		executionQueue:  make(chan struct{}, executionQueueSize),
-		headBroadcaster: headBroadcaster,
-		job:             job,
-		mailbox:         utils.NewMailbox(1),
-		maxGracePeriod:  maxGracePeriod,
-		orm:             NewORM(db),
-		pr:              pr,
-		wgDone:          sync.WaitGroup{},
-		StartStopOnce:   utils.StartStopOnce{},
+		chStop:            make(chan struct{}),
+		ethClient:         ethClient,
+		executionQueue:    make(chan struct{}, executionQueueSize),
+		headBroadcaster:   headBroadcaster,
+		job:               job,
+		mailbox:           utils.NewMailbox(1),
+		maxUnconfirmedTXs: config.EthMaxUnconfirmedTransactions(),
+		maxGracePeriod:    config.KeeperMaximumGracePeriod(),
+		orm:               NewORM(db),
+		pr:                pr,
+		wgDone:            sync.WaitGroup{},
+		StartStopOnce:     utils.StartStopOnce{},
 	}
 }
 
@@ -166,6 +169,11 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	checkUpkeepResult, err := executer.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
+		revertReason, err2 := utils.ExtractRevertReasonFromRPCError(err)
+		if err2 != nil {
+			revertReason = fmt.Sprintf("unknown revert reason: error during extraction: %v", err2)
+		}
+		logArgs = append(logArgs, "revertReason", revertReason)
 		logger.Debugw(fmt.Sprintf("UpkeepExecuter: checkUpkeep failed: %v", err), logArgs...)
 		return
 	}
@@ -182,7 +190,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	ctxCombined, cancel := utils.CombinedContext(executer.chStop, ctxQuery)
 	defer cancel()
 
-	etx, err := executer.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
+	etx, err := executer.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData, executer.maxUnconfirmedTXs)
 	if err != nil {
 		logger.Error(err)
 	}
