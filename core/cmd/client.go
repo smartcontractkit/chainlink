@@ -97,7 +97,7 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
-	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
+	gin.SetMode(app.GetStore().Config.GinMode())
 	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group

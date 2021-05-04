@@ -32,6 +32,10 @@ update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7b
 
 Adding an HTTP endpoint is particularly recommended for BSC, which is hitting websocket limitations on certain queries due to its large block size.
 
+### Changed
+
+- Chainlink no longer logs web requests by default in debug mode, to enable this you must set `GIN_MODE=debug`
+
 ## [0.10.5] - 2021-04-26
 
 ### Added

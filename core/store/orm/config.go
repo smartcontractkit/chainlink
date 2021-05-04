@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethCore "github.com/ethereum/go-ethereum/core"
 	"github.com/gin-gonic/contrib/sessions"
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -1369,6 +1368,17 @@ func (c Config) SessionOptions() sessions.Options {
 	}
 }
 
+// GinMode can be one of debug,release,test and controls GIN's logging
+func (c Config) GinMode() string {
+	if c.viper.IsSet(EnvVarName("GinMode")) {
+		return c.viper.GetString(EnvVarName("GinMode"))
+	}
+	if c.Dev() && c.LogLevel().Level < zapcore.InfoLevel {
+		return "debug"
+	}
+	return "release"
+}
+
 func (c Config) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
 	str := c.viper.GetString(EnvVarName(name))
 	defaultValue, hasDefault := defaultValue(name)
@@ -1495,16 +1505,6 @@ func parseHomeDir(str string) (interface{}, error) {
 // LogLevel determines the verbosity of the events to be logged.
 type LogLevel struct {
 	zapcore.Level
-}
-
-// ForGin keeps Gin's mode at the appropriate level with the LogLevel.
-func (ll LogLevel) ForGin() string {
-	switch {
-	case ll.Level < zapcore.InfoLevel:
-		return gin.DebugMode
-	default:
-		return gin.ReleaseMode
-	}
 }
 
 type DatabaseBackupMode string

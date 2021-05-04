@@ -73,6 +73,7 @@ type EnvPrinter struct {
 	GasUpdaterBlockHistorySize            uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	GasUpdaterEnabled                     bool            `json:"GAS_UPDATER_ENABLED"`
 	GasUpdaterTransactionPercentile       uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
+	GinMode                               string          `json:"GIN_MODE"`
 	InsecureFastScrypt                    bool            `json:"INSECURE_FAST_SCRYPT"`
 	TriggerFallbackDBPollInterval         time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 	JobPipelineReaperInterval             time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
@@ -164,6 +165,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			GasUpdaterBlockHistorySize:            config.GasUpdaterBlockHistorySize(),
 			GasUpdaterEnabled:                     config.GasUpdaterEnabled(),
 			GasUpdaterTransactionPercentile:       config.GasUpdaterTransactionPercentile(),
+			GinMode:                               config.GinMode(),
 			InsecureFastScrypt:                    config.InsecureFastScrypt(),
 			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
 			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
