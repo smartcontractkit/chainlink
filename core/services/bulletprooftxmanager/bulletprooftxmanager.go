@@ -78,9 +78,9 @@ func newAttempt(s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (
 	if s.Config.OptimismGasFees() {
 		// Optimism requires special handling, it assumes that clients always call EstimateGas
 		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
-		gasLimit, err := s.EthClient.EstimateGas(context.TODO(), callMsg)
-		if err != nil {
-			return attempt, errors.Wrapf(err, "error getting gas price for new transaction %v", etx.ID)
+		gasLimit, estimateGasErr := s.EthClient.EstimateGas(context.TODO(), callMsg)
+		if estimateGasErr != nil {
+			return attempt, errors.Wrapf(estimateGasErr, "error getting gas price for new transaction %v", etx.ID)
 		}
 		etx.GasLimit = gasLimit
 		gasPrice = big.NewInt(optimismGasPrice)
