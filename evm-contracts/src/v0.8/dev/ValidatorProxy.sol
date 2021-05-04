@@ -17,6 +17,8 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     bool hasNewProposal;
   }
 
+  bytes4 constant private validateSelector = AggregatorValidatorInterface.validate.selector;
+
   // Configuration for the current aggregator
   AggregatorConfiguration private s_currentAggregator;
   // Proposed aggregator address
@@ -114,20 +116,27 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
     // Send the validate call to the current validator
     ValidatorConfiguration memory currentValidator = s_currentValidator;
-    require(address(s_currentValidator.target) != address(0), "No validator set");
-    currentValidator.target.validate(
-      previousRoundId,
-      previousAnswer,
-      currentRoundId,
-      currentAnswer
-    );
-    // If there is a new proposed validator, send the validate call to that validator also
-    if (currentValidator.hasNewProposal) {
-      s_proposedValidator.validate(
+    address currentValidatorAddress = address(currentValidator.target);
+    require(currentValidatorAddress != address(0), "No validator set");
+    currentValidatorAddress.call(
+      abi.encodeWithSelector(
+        validateSelector,
         previousRoundId,
         previousAnswer,
         currentRoundId,
         currentAnswer
+      )
+    );
+    // If there is a new proposed validator, send the validate call to that validator also
+    if (currentValidator.hasNewProposal) {
+      address(s_proposedValidator).call(
+        abi.encodeWithSelector(
+          validateSelector,
+          previousRoundId,
+          previousAnswer,
+          currentRoundId,
+          currentAnswer
+        )
       );
     }
     return true;
