@@ -173,20 +173,31 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
+Inside the `evm-contracts/` directory:
+
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 2. Install the dependencies:
 
 ```bash
 yarn
-yarn setup:contracts
+yarn setup
 ```
 
 3. Run tests:
 
-```bash
-cd evm-contracts
-yarn test
-```
+   i. Solidity versions `0.4.x` to `0.7.x`:
+
+   ```bash
+   yarn test
+   ```
+
+   ii. Solidity versions `>=0.8.x`:
+
+   As of Solidity version 0.8, we are using Hardhat to compile and test smart contracts.
+
+   ```bash
+   yarn test:new
+   ```
 
 ### Use of Go Generate
 
