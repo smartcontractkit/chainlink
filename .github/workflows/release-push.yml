@@ -48,4 +48,4 @@ jobs:
         run: |
           export GIT_TAG=`echo $(git describe --tags --abbrev=0)`
           echo "GIT_TAG = $GIT_TAG"
-          tools/ci/push_chainlink "${GITHUB_REF##*/}" "${GITHUB_REF#refs/tags/}" "${GITHUB_SHA}"
+          tools/ci/push_chainlink "${GITHUB_REF##*/}" "${GIT_TAG}" "${GITHUB_SHA}"
