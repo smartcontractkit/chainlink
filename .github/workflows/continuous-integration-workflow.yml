@@ -96,6 +96,5 @@ jobs:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Build and push image
-        uses: docker/build-push-action@v1
         run: |
           tools/ci/push_chainlink "${GITHUB_REF##*/}" "${GITHUB_REF#refs/tags/}" "${GITHUB_SHA}"
