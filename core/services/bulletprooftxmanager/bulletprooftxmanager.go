@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	gethAccounts "github.com/ethereum/go-ethereum/accounts"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -42,6 +44,8 @@ var (
 	})
 )
 
+const optimismGasPrice int64 = 1e9 // 1 GWei
+
 // SendEther creates a transaction that transfers the given value of ether
 func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (etx models.EthTx, err error) {
 	if to == utils.ZeroAddress {
@@ -59,12 +63,31 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 	return etx, err
 }
 
-func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.EthTxAttempt, error) {
+func newAttempt(s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
 	account, err := s.KeyStore.GetAccountByAddress(etx.FromAddress)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error getting account %s for transaction %v", etx.FromAddress.String(), etx.ID)
 	}
+
+	gasPrice := s.Config.EthGasPriceDefault()
+	if suggestedGasPrice != nil {
+		gasPrice = suggestedGasPrice
+	}
+
+	if s.Config.OptimismGasFees() {
+		// Optimism requires special handling, it assumes that clients always call EstimateGas
+		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
+		gasLimit, err := s.EthClient.EstimateGas(context.TODO(), callMsg)
+		if err != nil {
+			return attempt, errors.Wrapf(err, "error getting gas price for new transaction %v", etx.ID)
+		}
+		etx.GasLimit = gasLimit
+		gasPrice = big.NewInt(optimismGasPrice)
+	}
+
+	gasLimit := decimal.NewFromBigInt(big.NewInt(0).SetUint64(etx.GasLimit), 0).Mul(decimal.NewFromFloat32(s.Config.EthGasLimitMultiplier())).IntPart()
+	etx.GasLimit = (uint64)(gasLimit)
 
 	transaction := gethTypes.NewTransaction(uint64(*etx.Nonce), etx.ToAddress, etx.Value.ToInt(), etx.GasLimit, gasPrice, etx.EncodedPayload)
 	hash, signedTxBytes, err := signTx(s.KeyStore, account, transaction, s.Config.ChainID())
