@@ -208,6 +208,7 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
+	done              chan struct{}
 	logSubscriber     eth.Client
 	logs              chan types.Log
 	ethSubscription   ethereum.Subscription
@@ -220,12 +221,14 @@ type ManagedSubscription struct {
 func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(types.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
 	ctx := context.Background()
 	logs := make(chan types.Log)
+	done := make(chan struct{})
 	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
 	if err != nil {
 		return nil, err
 	}
 
-	sub := &ManagedSubscription{
+	sub := ManagedSubscription{
+		done:              done,
 		logSubscriber:     logSubscriber,
 		callback:          callback,
 		logs:              logs,
@@ -233,15 +236,15 @@ func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuer
 		backfillBatchSize: backfillBatchSize,
 	}
 	go sub.listenToLogs(filter)
-	return sub, nil
+	return &sub, nil
 }
 
 // Unsubscribe closes channels and cleans up resources.
-func (sub ManagedSubscription) Unsubscribe() {
+func (sub *ManagedSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
 		timedUnsubscribe(sub.ethSubscription)
 	}
-	close(sub.logs)
+	close(sub.done)
 }
 
 // timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
@@ -261,7 +264,7 @@ func timedUnsubscribe(unsubscriber Unsubscriber) {
 	}
 }
 
-func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
+func (sub *ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	// If we spend too long backfilling without processing
 	// logs from our subscription, geth will consider the client dead
 	// and drop the subscription, so we set an upper bound on backlog processing time.
@@ -271,14 +274,16 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	backfilledSet := sub.backfillLogs(ctx, q)
 	for {
 		select {
-		case log, open := <-sub.logs:
-			if !open {
-				return
-			}
+		case <-sub.done:
+			close(sub.logs)
+			return
+		case log := <-sub.logs:
 			if _, present := backfilledSet[log.BlockHash.String()]; !present {
 				sub.callback(log)
 			}
 		case err, ok := <-sub.ethSubscription.Err():
+			// If !ok, then we intentionally closed the subscription,
+			// do not try and reconnect.
 			if ok {
 				logger.Warnw("Error in log subscription. Attempting to reconnect to eth node", "err", err)
 				b := &backoff.Backoff{
@@ -297,7 +302,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					}
 					sub.ethSubscription = newSub
 					sub.logs = newLogs
-					logger.Infow("Successfully reconnected to eth node.")
+					logger.Infow(fmt.Sprintf("Successfully reconnected to eth node. %p", sub.logs))
 					break
 				}
 			}
