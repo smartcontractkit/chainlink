@@ -3,10 +3,11 @@ pragma solidity ^0.7.0;
 
 abstract contract LinkTokenReceiver {
 
-  bytes4 constant private ORACLE_REQUEST_SELECTOR = 0x40429946;
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
+  bytes4 constant private ORACLE_REQUEST_SELECTOR = 0x40429946;
+  bytes4 constant private OPERATOR_REQUEST_SELECTOR = 0x6de879d6;
   /**
    * @notice Called when LINK is sent to the contract via `transferAndCall`
    * @dev The data payload's first 2 words will be overwritten by the `sender` and `amount`
@@ -58,7 +59,7 @@ abstract contract LinkTokenReceiver {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(data, 32))
     }
-    require(funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
+    require(funcSelector == ORACLE_REQUEST_SELECTOR || funcSelector == OPERATOR_REQUEST_SELECTOR, "Must use whitelisted functions");
     _;
   }
 
