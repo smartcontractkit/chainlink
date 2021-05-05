@@ -24,6 +24,7 @@ import (
 )
 
 //go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Client --output mocks/ --case=underscore
 //go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
