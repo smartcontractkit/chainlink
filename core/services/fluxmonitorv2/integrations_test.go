@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -467,7 +469,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -584,7 +586,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -600,6 +602,15 @@ ds1 -> ds1_parse
 		isNewRound:      true,
 		completesAnswer: false,
 	})
+
+	// Waiting for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+	assert.Eventually(t, func() bool {
+		return app.LogBroadcaster.TrackedAddressesCount() >= 2
+	}, 3*time.Second, 200*time.Millisecond)
+
+	// Finally, the logs from log broadcaster are sent only after a next block is received.
+	fa.backend.Commit()
 
 	// Wait for the node's submission, and ensure it submits to the round
 	// started by the fake node
@@ -679,7 +690,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -787,7 +798,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -887,7 +898,7 @@ ds1 -> ds1_parse -> ds1_multiply
 	`
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "200ms", mockServer.URL)
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)

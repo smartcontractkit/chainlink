@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/pkg/errors"
 )
 
 // Bridge adapter is responsible for connecting the task pipeline to external
@@ -44,10 +42,11 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, store *store.Store) models.RunOutput {
-	data, err := models.Merge(input.Data(), ba.Params)
+	data, err := models.MergeExceptResult(input.Data(), ba.Params)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
+	input = input.CloneWithData(data)
 
 	responseURL := store.Config.BridgeResponseURL()
 	if *responseURL != *zeroURL {
@@ -64,7 +63,6 @@ func (ba *Bridge) handleNewRun(input models.RunInput, store *store.Store) models
 		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
-	input = input.CloneWithData(data)
 	return ba.responseToRunResult(body, input)
 }
 
@@ -100,12 +98,7 @@ func (ba *Bridge) postToExternalAdapter(
 	bridgeResponseURL *url.URL,
 	config utils.HTTPRequestConfig,
 ) ([]byte, error) {
-	data, err := models.Merge(input.Data(), ba.Params)
-	if err != nil {
-		return nil, errors.Wrap(err, "error merging bridge params with input params")
-	}
-
-	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: data}
+	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: input.Data()}
 	if bridgeResponseURL != nil {
 		outgoing.ResponseURL = bridgeResponseURL.String()
 	}

@@ -300,8 +300,7 @@ func NewHTTPMockServerWithAlterableResponse(
 	return server
 }
 
-func NewHTTPMockServerWithAlterableResponseAndRequest(
-	t *testing.T, response func() string, callback func(r *http.Request)) (server *httptest.Server) {
+func NewHTTPMockServerWithAlterableResponseAndRequest(t *testing.T, response func() string, callback func(r *http.Request)) (server *httptest.Server) {
 	server = httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			callback(r)

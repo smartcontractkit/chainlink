@@ -13,11 +13,12 @@ import (
 	"strings"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -35,78 +36,82 @@ type ConfigPrinter struct {
 
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
-	AllowOrigins                          string          `json:"allowOrigins"`
-	BalanceMonitorEnabled                 bool            `json:"balanceMonitorEnabled"`
-	BlockBackfillDepth                    uint64          `json:"blockBackfillDepth"`
-	BridgeResponseURL                     string          `json:"bridgeResponseURL,omitempty"`
-	ChainID                               *big.Int        `json:"ethChainId"`
-	ClientNodeURL                         string          `json:"clientNodeUrl"`
-	DatabaseTimeout                       models.Duration `json:"databaseTimeout"`
-	DatabaseMaximumTxDuration             time.Duration   `json:"databaseMaximumTxDuration"`
-	DefaultHTTPLimit                      int64           `json:"defaultHttpLimit"`
-	DefaultHTTPTimeout                    models.Duration `json:"defaultHttpTimeout"`
-	Dev                                   bool            `json:"chainlinkDev"`
-	EnableExperimentalAdapters            bool            `json:"enableExperimentalAdapters"`
-	EthBalanceMonitorBlockDelay           uint16          `json:"ethBalanceMonitorBlockDelay"`
-	EthereumDisabled                      bool            `json:"ethereumDisabled"`
-	EthFinalityDepth                      uint            `json:"ethFinalityDepth"`
-	EthGasBumpThreshold                   uint64          `json:"ethGasBumpThreshold"`
-	EthGasBumpTxDepth                     uint16          `json:"ethGasBumpTxDepth"`
-	EthGasBumpWei                         *big.Int        `json:"ethGasBumpWei"`
-	EthGasLimitDefault                    uint64          `json:"ethGasLimitDefault"`
-	EthGasPriceDefault                    *big.Int        `json:"ethGasPriceDefault"`
-	EthHeadTrackerHistoryDepth            uint            `json:"ethHeadTrackerHistoryDepth"`
-	EthHeadTrackerMaxBufferSize           uint            `json:"ethHeadTrackerMaxBufferSize"`
-	EthMaxGasPriceWei                     *big.Int        `json:"ethMaxGasPriceWei"`
-	EthereumURL                           string          `json:"ethUrl"`
-	EthereumSecondaryURLs                 []string        `json:"ethSecondaryUrls"`
-	ExplorerURL                           string          `json:"explorerUrl"`
-	FeatureExternalInitiators             bool            `json:"featureExternalInitiators"`
-	FeatureFluxMonitor                    bool            `json:"featureFluxMonitor"`
-	FeatureOffchainReporting              bool            `json:"featureOffchainReporting"`
-	FlagsContractAddress                  string          `json:"flagsContractAddress"`
-	GasUpdaterBlockDelay                  uint16          `json:"gasUpdaterBlockDelay"`
-	GasUpdaterBlockHistorySize            uint16          `json:"gasUpdaterBlockHistorySize"`
-	GasUpdaterEnabled                     bool            `json:"gasUpdaterEnabled"`
-	GasUpdaterTransactionPercentile       uint16          `json:"gasUpdaterTransactionPercentile"`
-	InsecureFastScrypt                    bool            `json:"insecureFastScrypt"`
-	TriggerFallbackDBPollInterval         time.Duration   `json:"jobPipelineDBPollInterval"`
-	JobPipelineReaperInterval             time.Duration   `json:"jobPipelineReaperInterval"`
-	JobPipelineReaperThreshold            time.Duration   `json:"jobPipelineReaperThreshold"`
-	JSONConsole                           bool            `json:"jsonConsole"`
-	LinkContractAddress                   string          `json:"linkContractAddress"`
-	LogLevel                              orm.LogLevel    `json:"logLevel"`
-	LogSQLMigrations                      bool            `json:"logSqlMigrations"`
-	LogSQLStatements                      bool            `json:"logSqlStatements"`
-	LogToDisk                             bool            `json:"logToDisk"`
-	MaximumServiceDuration                models.Duration `json:"maximumServiceDuration"`
-	MinIncomingConfirmations              uint32          `json:"minIncomingConfirmations"`
-	MinRequiredOutgoingConfirmations      uint64          `json:"minOutgoingConfirmations"`
-	MinimumServiceDuration                models.Duration `json:"minimumServiceDuration"`
-	MinimumContractPayment                *assets.Link    `json:"minimumContractPayment"`
-	MinimumRequestExpiration              uint64          `json:"minimumRequestExpiration"`
-	OCRBootstrapCheckInterval             time.Duration   `json:"ocrBootstrapCheckInterval"`
-	OCRContractTransmitterTransmitTimeout time.Duration   `json:"ocrContractTransmitterTransmitTimeout"`
-	OCRDatabaseTimeout                    time.Duration   `json:"ocrDatabaseTimeout"`
-	P2PListenIP                           string          `json:"ocrListenIP"`
-	P2PListenPort                         uint16          `json:"ocrListenPort"`
-	P2PPeerID                             models.PeerID   `json:"p2pPeerID"`
-	P2PBootstrapPeers                     []string        `json:"p2pBootstrapPeers"`
-	OCRIncomingMessageBufferSize          int             `json:"ocrIncomingMessageBufferSize"`
-	OCROutgoingMessageBufferSize          int             `json:"ocrOutgoingMessageBufferSize"`
-	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
-	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
-	OCRTraceLogging                       bool            `json:"ocrTraceLogging"`
-	OperatorContractAddress               common.Address  `json:"operatorContractAddress"`
-	Port                                  uint16          `json:"chainlinkPort"`
-	ReaperExpiration                      models.Duration `json:"reaperExpiration"`
-	ReplayFromBlock                       int64           `json:"replayFromBlock"`
-	RootDir                               string          `json:"root"`
-	SecureCookies                         bool            `json:"secureCookies"`
-	SessionTimeout                        models.Duration `json:"sessionTimeout"`
-	TLSHost                               string          `json:"chainlinkTLSHost"`
-	TLSPort                               uint16          `json:"chainlinkTLSPort"`
-	TLSRedirect                           bool            `json:"chainlinkTLSRedirect"`
+	AllowOrigins                          string          `json:"ALLOW_ORIGINS"`
+	BalanceMonitorEnabled                 bool            `json:"BALANCE_MONITOR_ENABLED"`
+	BlockBackfillDepth                    uint64          `json:"BLOCK_BACKFILL_DEPTH"`
+	BridgeResponseURL                     string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
+	ChainID                               *big.Int        `json:"ETH_CHAIN_ID"`
+	ClientNodeURL                         string          `json:"CLIENT_NODE_URL"`
+	DatabaseBackupFrequency               time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
+	DatabaseBackupMode                    string          `json:"DATABASE_BACKUP_MODE"`
+	DatabaseTimeout                       models.Duration `json:"DATABASE_TIMEOUT"`
+	DatabaseMaximumTxDuration             time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
+	DefaultHTTPLimit                      int64           `json:"DEFAULT_HTTP_LIMIT"`
+	DefaultHTTPTimeout                    models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
+	Dev                                   bool            `json:"CHAINLINK_DEV"`
+	EnableExperimentalAdapters            bool            `json:"ENABLED_EXPERIMENTAL_ADAPTERS"`
+	EthBalanceMonitorBlockDelay           uint16          `json:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
+	EthereumDisabled                      bool            `json:"ETH_DISABLED"`
+	EthFinalityDepth                      uint            `json:"ETH_FINALITY_DEPTH"`
+	EthGasBumpThreshold                   uint64          `json:"ETH_GAS_BUMP_THRESHOLD"`
+	EthGasBumpTxDepth                     uint16          `json:"ETH_GAS_BUMP_TX_DEPTH"`
+	EthGasBumpWei                         *big.Int        `json:"ETH_GAS_BUMP_WEI"`
+	EthGasLimitDefault                    uint64          `json:"ETH_GAS_LIMIT_DEFAULT"`
+	EthGasPriceDefault                    *big.Int        `json:"ETH_GAS_PRICE_DEFAULT"`
+	EthHeadTrackerHistoryDepth            uint            `json:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
+	EthHeadTrackerMaxBufferSize           uint            `json:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
+	EthMaxGasPriceWei                     *big.Int        `json:"ETH_MAX_GAS_PRICE_WEI"`
+	EthereumURL                           string          `json:"ETH_URL"`
+	EthereumHTTPURL                       string          `json:"ETH_HTTP_URL"`
+	EthereumSecondaryURLs                 []string        `json:"ETH_SECONDARY_URLS"`
+	ExplorerURL                           string          `json:"EXPLORER_URL"`
+	FeatureExternalInitiators             bool            `json:"FEATURE_EXTERNAL_INITIATORS"`
+	FeatureFluxMonitor                    bool            `json:"FEATURE_FLUX_MONITOR"`
+	FeatureOffchainReporting              bool            `json:"FEATURE_OFFCHAIN_REPORTING"`
+	FlagsContractAddress                  string          `json:"FLAGS_CONTRACT_ADDRESS"`
+	GasUpdaterBlockDelay                  uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
+	GasUpdaterBlockHistorySize            uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
+	GasUpdaterEnabled                     bool            `json:"GAS_UPDATER_ENABLED"`
+	GasUpdaterTransactionPercentile       uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
+	InsecureFastScrypt                    bool            `json:"INSECURE_FAST_SCRYPT"`
+	TriggerFallbackDBPollInterval         time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
+	JobPipelineReaperInterval             time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
+	JobPipelineReaperThreshold            time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
+	JSONConsole                           bool            `json:"JSON_CONSOLE"`
+	LinkContractAddress                   string          `json:"LINK_CONTRACT_ADDRESS"`
+	LogLevel                              orm.LogLevel    `json:"LOG_LEVEL"`
+	LogSQLMigrations                      bool            `json:"LOG_SQL_MIGRATIONS"`
+	LogSQLStatements                      bool            `json:"LOG_SQL"`
+	LogToDisk                             bool            `json:"LOG_TO_DISK"`
+	MaximumServiceDuration                models.Duration `json:"MAXIMUM_SERVICE_DURATION"`
+	MinIncomingConfirmations              uint32          `json:"MIN_INCOMING_CONFIRMATIONS"`
+	MinRequiredOutgoingConfirmations      uint64          `json:"MIN_OUTGOING_CONFIRMATIONS"`
+	MinimumServiceDuration                models.Duration `json:"MINIMUM_SERVICE_DURATION"`
+	MinimumContractPayment                *assets.Link    `json:"MINIMUM_CONTRACT_PAYMENT"`
+	MinimumRequestExpiration              uint64          `json:"MINIMUM_REQUEST_EXPIRATION"`
+	OCRBootstrapCheckInterval             time.Duration   `json:"OCR_BOOTSTRAP_CHECK_INTERVAL"`
+	OCRContractTransmitterTransmitTimeout time.Duration   `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
+	OCRDatabaseTimeout                    time.Duration   `json:"OCR_DATABASE_TIMEOUT"`
+	P2PListenIP                           string          `json:"P2P_LISTEN_IP"`
+	P2PListenPort                         uint16          `json:"P2P_LISTEN_PORT"`
+	P2PPeerID                             string          `json:"P2P_PEER_ID"`
+	P2PBootstrapPeers                     []string        `json:"P2P_BOOTSTRAP_PEERS"`
+  OCRIncomingMessageBufferSize          int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
+	OCROutgoingMessageBufferSize          int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
+	OCRNewStreamTimeout                   time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
+	OCRDHTLookupInterval                  int             `json:"OCR_DHT_LOOKUP_INTERVAL"`
+	OCRTraceLogging                       bool            `json:"OCR_TRACE_LOGGING"`
+	OperatorContractAddress               common.Address  `json:"OPERATOR_CONTRACT_ADDRESS"`
+	OptimismGasFees                       bool            `json:"OPTIMISM_GAS_FEES"`
+	Port                                  uint16          `json:"CHAINLINK_PORT"`
+	ReaperExpiration                      models.Duration `json:"REAPER_EXPIRATION"`
+	ReplayFromBlock                       int64           `json:"REPLAY_FROM_BLOCK"`
+	RootDir                               string          `json:"ROOT"`
+	SecureCookies                         bool            `json:"SECURE_COOKIES"`
+	SessionTimeout                        models.Duration `json:"SESSION_TIMEOUT"`
+	TLSHost                               string          `json:"CHAINLINK_TLS_HOST"`
+	TLSPort                               uint16          `json:"CHAINLINK_TLS_PORT"`
+	TLSRedirect                           bool            `json:"CHAINLINK_TLS_REDIRECT"`
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
@@ -118,7 +123,10 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 		explorerURL = config.ExplorerURL().String()
 	}
 	p2pBootstrapPeers, _ := config.P2PBootstrapPeers(nil)
-	p2pPeerID, _ := config.P2PPeerID(nil)
+	ethereumHTTPURL := ""
+	if config.EthereumHTTPURL() != nil {
+		ethereumHTTPURL = config.EthereumHTTPURL().String()
+	}
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
@@ -127,6 +135,8 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			BridgeResponseURL:                     config.BridgeResponseURL().String(),
 			ChainID:                               config.ChainID(),
 			ClientNodeURL:                         config.ClientNodeURL(),
+			DatabaseBackupFrequency:               config.DatabaseBackupFrequency(),
+			DatabaseBackupMode:                    string(config.DatabaseBackupMode()),
 			DatabaseTimeout:                       config.DatabaseTimeout(),
 			DefaultHTTPLimit:                      config.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
@@ -145,6 +155,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthHeadTrackerMaxBufferSize:           config.EthHeadTrackerMaxBufferSize(),
 			EthMaxGasPriceWei:                     config.EthMaxGasPriceWei(),
 			EthereumURL:                           config.EthereumURL(),
+			EthereumHTTPURL:                       ethereumHTTPURL,
 			EthereumSecondaryURLs:                 mapToStringA(config.EthereumSecondaryURLs()),
 			ExplorerURL:                           explorerURL,
 			FeatureExternalInitiators:             config.FeatureExternalInitiators(),
@@ -177,13 +188,14 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			P2PListenIP:                           config.P2PListenIP().String(),
 			P2PListenPort:                         config.P2PListenPort(),
 			P2PBootstrapPeers:                     p2pBootstrapPeers,
-			P2PPeerID:                             p2pPeerID,
+			P2PPeerID:                             config.P2PPeerIDRaw(),
 			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
 			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
 			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
 			OCRDHTLookupInterval:                  config.OCRDHTLookupInterval(),
 			OCRTraceLogging:                       config.OCRTraceLogging(),
 			OperatorContractAddress:               config.OperatorContractAddress(),
+			OptimismGasFees:                       config.OptimismGasFees(),
 			Port:                                  config.Port(),
 			ReaperExpiration:                      config.ReaperExpiration(),
 			ReplayFromBlock:                       config.ReplayFromBlock(),
@@ -340,9 +352,11 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(&struct {
+		ID     int64       `json:"id"`
+		JobID  uuid.UUID   `json:"jobSpecId"`
 		Type   string      `json:"type"`
 		Params interface{} `json:"params"`
-	}{i.Type, p})
+	}{i.ID, i.JobSpecID.UUID(), i.Type, p})
 }
 
 func initiatorParams(i Initiator) (interface{}, error) {
@@ -562,20 +576,4 @@ func (*ExternalInitiatorAuthentication) GetName() string {
 func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
 	ei.Name = name
 	return nil
-}
-
-// ExplorerStatus represents the connected server and status of the connection
-type ExplorerStatus struct {
-	Status string `json:"status"`
-	Url    string `json:"url"`
-}
-
-// NewExplorerStatus returns an initialized ExplorerStatus from the store
-func NewExplorerStatus(statsPusher synchronization.StatsPusher) ExplorerStatus {
-	url := statsPusher.GetURL()
-
-	return ExplorerStatus{
-		Status: string(statsPusher.GetStatus()),
-		Url:    url.String(),
-	}
 }

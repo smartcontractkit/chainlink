@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpillora/backoff"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -39,10 +40,27 @@ type JobSubscription struct {
 func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
 	var merr error
 	var unsubscribers []Unsubscriber
+	var nextHead *big.Int
 
 	initrs := job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
 
-	nextHead := head.NextInt() // Exclude current block from subscription
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if head == nil {
+		latestBlock, err := store.EthClient.BlockByNumber(ctx, nil)
+		if err != nil {
+			return JobSubscription{}, err
+		}
+		backfillDepth := new(big.Int).SetUint64(store.Config.BlockBackfillDepth())
+		nextHead = new(big.Int).Sub(latestBlock.Number(), backfillDepth)
+		if nextHead.Cmp(big.NewInt(0)) < 1 {
+			nextHead = big.NewInt(1)
+		}
+	} else {
+		nextHead = head.NextInt() // Exclude current block from subscription
+	}
+
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
 		if replayFromBlock >= nextHead.Int64() {
 			logger.Infof("StartJobSubscription: Next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
@@ -125,7 +143,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
+func (sub InitiatorSubscription) dispatchLog(log types.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
 
@@ -190,24 +208,27 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
+	done              chan struct{}
 	logSubscriber     eth.Client
-	logs              chan models.Log
+	logs              chan types.Log
 	ethSubscription   ethereum.Subscription
-	callback          func(models.Log)
+	callback          func(types.Log)
 	backfillBatchSize uint32
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
-func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(models.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
+func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(types.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
 	ctx := context.Background()
-	logs := make(chan models.Log)
+	logs := make(chan types.Log)
+	done := make(chan struct{})
 	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
 	if err != nil {
 		return nil, err
 	}
 
-	sub := &ManagedSubscription{
+	sub := ManagedSubscription{
+		done:              done,
 		logSubscriber:     logSubscriber,
 		callback:          callback,
 		logs:              logs,
@@ -215,15 +236,15 @@ func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuer
 		backfillBatchSize: backfillBatchSize,
 	}
 	go sub.listenToLogs(filter)
-	return sub, nil
+	return &sub, nil
 }
 
 // Unsubscribe closes channels and cleans up resources.
-func (sub ManagedSubscription) Unsubscribe() {
+func (sub *ManagedSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
 		timedUnsubscribe(sub.ethSubscription)
 	}
-	close(sub.logs)
+	close(sub.done)
 }
 
 // timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
@@ -243,7 +264,7 @@ func timedUnsubscribe(unsubscriber Unsubscriber) {
 	}
 }
 
-func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
+func (sub *ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	// If we spend too long backfilling without processing
 	// logs from our subscription, geth will consider the client dead
 	// and drop the subscription, so we set an upper bound on backlog processing time.
@@ -253,14 +274,16 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	backfilledSet := sub.backfillLogs(ctx, q)
 	for {
 		select {
-		case log, open := <-sub.logs:
-			if !open {
-				return
-			}
+		case <-sub.done:
+			close(sub.logs)
+			return
+		case log := <-sub.logs:
 			if _, present := backfilledSet[log.BlockHash.String()]; !present {
 				sub.callback(log)
 			}
 		case err, ok := <-sub.ethSubscription.Err():
+			// If !ok, then we intentionally closed the subscription,
+			// do not try and reconnect.
 			if ok {
 				logger.Warnw("Error in log subscription. Attempting to reconnect to eth node", "err", err)
 				b := &backoff.Backoff{
@@ -270,7 +293,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					Jitter: false,
 				}
 				for {
-					newLogs := make(chan models.Log)
+					newLogs := make(chan types.Log)
 					newSub, err := sub.logSubscriber.SubscribeFilterLogs(context.Background(), q, newLogs)
 					if err != nil {
 						logger.Warnw(fmt.Sprintf("Failed to reconnect to eth node. Trying again in %v", b.Duration()), "err", err.Error())
@@ -279,7 +302,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					}
 					sub.ethSubscription = newSub
 					sub.logs = newLogs
-					logger.Infow("Successfully reconnected to eth node.")
+					logger.Infow(fmt.Sprintf("Successfully reconnected to eth node. %p", sub.logs))
 					break
 				}
 			}

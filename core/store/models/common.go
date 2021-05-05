@@ -187,6 +187,18 @@ func (j *JSON) Scan(value interface{}) error {
 	return nil
 }
 
+func MustParseJSON(b []byte) JSON {
+	var j JSON
+	str := string(b)
+	if len(str) == 0 {
+		panic("empty byte array")
+	}
+	if err := json.Unmarshal([]byte(str), &j); err != nil {
+		panic(err)
+	}
+	return j
+}
+
 // ParseJSON attempts to coerce the input byte array into valid JSON
 // and parse it into a JSON object.
 func ParseJSON(b []byte) (JSON, error) {
@@ -645,11 +657,6 @@ type SendEtherRequest struct {
 	Amount             assets.Eth     `json:"amount"`
 }
 
-// CreateJobSpecRequest represents a request to create and start and OCR job spec.
-type CreateJobSpecRequest struct {
-	TOML string `json:"toml"`
-}
-
 // AddressCollection is an array of common.Address
 // serializable to and from a database.
 type AddressCollection []common.Address
@@ -700,7 +707,8 @@ type Configuration struct {
 	DeletedAt *gorm.DeletedAt
 }
 
-// Merge returns a new map with all keys merged from right to left
+// Merge returns a new map with all keys merged from left to right
+// On conflicting keys, rightmost inputs will clobber leftmost inputs
 func Merge(inputs ...JSON) (JSON, error) {
 	output := make(map[string]interface{})
 
@@ -708,6 +716,38 @@ func Merge(inputs ...JSON) (JSON, error) {
 		switch v := input.Result.Value().(type) {
 		case map[string]interface{}:
 			for key, value := range v {
+				output[key] = value
+			}
+		case nil:
+		default:
+			return JSON{}, errors.New("can only merge JSON objects")
+		}
+	}
+
+	bytes, err := json.Marshal(output)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
+}
+
+// MergeExceptResult does a merge, but will never clobber the field called "result"
+// On conflicting keys, rightmost inputs will clobber leftmost inputs EXCEPT if the field is named "result", in which case the leftmost result wins
+// This is needed to work around idiosyncrasies in the V1 job pipeline where "result" has special meaning
+func MergeExceptResult(inputs ...JSON) (JSON, error) {
+	output := make(map[string]interface{})
+
+	for _, input := range inputs {
+		switch v := input.Result.Value().(type) {
+		case map[string]interface{}:
+			for key, value := range v {
+				if key == "result" {
+					if _, exists := output["result"]; exists {
+						// Do not overwrite result field
+						continue
+					}
+				}
 				output[key] = value
 			}
 		case nil:

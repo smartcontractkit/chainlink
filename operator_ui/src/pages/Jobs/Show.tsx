@@ -13,7 +13,7 @@ import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
 import { Runs as JobRuns } from './Runs'
-import { isOcrJob } from './utils'
+import { isJobV2 } from './utils'
 import {
   transformDirectRequestJobRun,
   transformPipelineJobRun,
@@ -44,7 +44,7 @@ export const JobsShow = () => {
         page,
         size,
       }
-      if (isOcrJob(jobSpecId)) {
+      if (isJobV2(jobSpecId)) {
         return v2.ocrRuns
           .getJobSpecRuns(requestParams)
           .then((jobSpecRunsResponse) => {
@@ -76,7 +76,7 @@ export const JobsShow = () => {
   )
 
   const getJobSpec = React.useCallback(async () => {
-    if (isOcrJob(jobSpecId)) {
+    if (isJobV2(jobSpecId)) {
       return v2.jobs
         .getJobSpec(jobSpecId)
         .then((response) => {
@@ -99,6 +99,14 @@ export const JobsShow = () => {
                 break
               case 'keeper':
                 createdAt = jobSpec.attributes.keeperSpec.createdAt
+
+                break
+              case 'cron':
+                createdAt = jobSpec.attributes.cronSpec.createdAt
+
+                break
+              case 'web':
+                createdAt = jobSpec.attributes.webSpec.createdAt
 
                 break
             }

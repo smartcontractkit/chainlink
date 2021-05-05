@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
@@ -466,10 +467,40 @@ WHERE run_results.id = updates.id
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.DB.Create(run).Error
+	return orm.convenientTransaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&run.RunRequest).Error
+		if err != nil {
+			return err
+		}
+
+		err = tx.Create(&run.Result).Error
+		if err != nil {
+			return err
+		}
+
+		run.RunRequestID = clnull.Int64From(run.RunRequest.ID)
+		run.ResultID = clnull.Int64From(run.Result.ID)
+		err = tx.Create(run).Error
+		if err != nil {
+			return err
+		}
+
+		for i := range run.TaskRuns {
+			err = tx.Create(&run.TaskRuns[i].Result).Error
+			if err != nil {
+				return err
+			}
+
+			run.TaskRuns[i].JobRunID = run.ID
+			run.TaskRuns[i].ResultID = clnull.Int64From(run.TaskRuns[i].Result.ID)
+			err = tx.Create(&run.TaskRuns[i]).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // LinkEarnedFor shows the total link earnings for a job
@@ -722,18 +753,38 @@ func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value strin
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
-	return orm.createJob(orm.DB, job)
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return orm.createJob(orm.DB, job)
+	})
 }
 
 func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	for i := range job.Initiators {
-		job.Initiators[i].JobSpecID = job.ID
+
+	err := tx.Create(job).Error
+	if err != nil {
+		return nil
 	}
 
-	return tx.Create(job).Error
+	for i := range job.Tasks {
+		job.Tasks[i].JobSpecID = job.ID
+		err := tx.Create(&job.Tasks[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := range job.Initiators {
+		job.Initiators[i].JobSpecID = job.ID
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job.Initiators[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ArchiveJob soft deletes the job, job_runs and its initiator.
@@ -758,6 +809,12 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 			return errors.Wrap(err, "Failed to create job for SA")
 		}
 
+		err = dbtx.Create(&sa.Encumbrance).Error
+		if err != nil {
+			return errors.Wrap(err, "Failed to create Encumberance for SA")
+		}
+
+		sa.EncumbranceID = sa.Encumbrance.ID
 		return dbtx.Create(sa).Error
 	})
 }
@@ -854,7 +911,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 		TaskRunID: taskRunID,
 	}
 	err := orm.DB.Transaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Save(&etx).Error; err != nil {
+		if err := dbtx.Create(&etx).Error; err != nil {
 			return err
 		}
 		ethTaskRunTransaction.EthTxID = etx.ID
@@ -1311,10 +1368,19 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := dbtx.Exec(`
 			WITH deleted_job_runs AS (
-				DELETE FROM job_runs WHERE status IN (?) AND updated_at < ? RETURNING result_id, run_request_id
+				DELETE FROM job_runs as jr
+				USING task_runs as tr
+				WHERE
+					jr.status IN (?) AND
+					jr.updated_at < ? AND
+					jr.id = tr.job_run_id
+				RETURNING jr.result_id as job_run_result_id, jr.run_request_id, tr.result_id as task_run_result_id
 			),
-			deleted_run_results AS (
-				DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
+			deleted_job_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+			),
+			deleted_task_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
 			)
 			DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
@@ -1537,28 +1603,76 @@ func toISO8601(t time.Time) string {
 		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
 
-// These two queries trigger cascading deletes in the following tables:
-// (run_requests) --> (job_runs) --> (task_runs)
-// (eth_txes) --> (eth_tx_attempts) --> (eth_receipts)
 const removeUnstartedJobRunsQuery = `
-DELETE FROM run_requests
-WHERE id IN (
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs as jr
+	USING
+		task_runs as tr
+	WHERE
+		jr.status = 'unstarted' AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
 	SELECT run_request_id
 	FROM job_runs
-	WHERE status = 'unstarted'
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
 )
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
+
 const removeUnstartedTransactionsQuery = `
-DELETE FROM eth_txes
-WHERE state = 'unstarted'
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs AS jr
+	USING
+		task_runs AS tr,
+		eth_txes AS tx,
+		eth_task_run_txes AS tx_tr
+	WHERE
+		tx.state = 'unstarted' AND
+		tx_tr.eth_tx_id = tx.id AND
+		tx_tr.task_run_id = tr.id AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
+	SELECT run_request_id
+	FROM job_runs
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
+)
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
 
 func (orm *ORM) RemoveUnstartedTransactions() error {
 	return orm.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(removeUnstartedJobRunsQuery).Error; err != nil {
+		if err := tx.Exec(removeUnstartedTransactionsQuery).Error; err != nil {
 			return err
 		}
-		return tx.Exec(removeUnstartedTransactionsQuery).Error
+		return tx.Exec(removeUnstartedJobRunsQuery).Error
 	})
 }
 
@@ -1680,6 +1794,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB conn %v", ct.uri, d)
 	}
+	db = db.Omit(clause.Associations).Session(&gorm.Session{})
 
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err
