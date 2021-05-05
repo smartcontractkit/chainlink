@@ -153,6 +153,10 @@ func (gu *gasUpdater) runLoop() {
 			return
 		case <-gu.mb.Notify():
 			head := gu.mb.Retrieve()
+			if head == nil {
+				logger.Info("GasUpdater: received nil head. It might have been skipped")
+				continue
+			}
 			h, is := head.(models.Head)
 			if !is {
 				panic(fmt.Sprintf("invariant violation, expected %T but got %T", models.Head{}, head))

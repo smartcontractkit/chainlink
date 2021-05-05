@@ -122,7 +122,12 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 	callbacks := hr.callbacks.clone()
 	hr.mutex.RUnlock()
 
-	head, ok := hr.mailbox.Retrieve().(models.Head)
+	item := hr.mailbox.Retrieve()
+	if item == nil {
+		logger.Info("HeadBroadcaster: received nil head. It might have been skipped")
+		return
+	}
+	head, ok := item.(models.Head)
 	if !ok {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
