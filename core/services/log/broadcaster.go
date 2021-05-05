@@ -130,7 +130,7 @@ func (b *broadcaster) Start() error {
 		if b.latestHeadFromDb != nil {
 			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
 		} else {
-			logger.Warn("LogBroadcaster: Latest head from DB was not set or does not exist.")
+			logger.Info("LogBroadcaster: Latest head from DB was not set or does not exist.")
 		}
 		go b.awaitInitialSubscribers()
 		return nil
@@ -245,7 +245,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
-			logger.Warn(err)
+			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
 			continue
 		} else if !shouldResubscribe {
