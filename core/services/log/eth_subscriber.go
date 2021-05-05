@@ -47,10 +47,10 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 
 		latestBlock, err := sub.ethClient.HeaderByNumber(ctx, nil)
 		if err != nil {
-			logger.Errorw("Log subscriber backfill: could not fetch latest block header", "error", err)
+			logger.Errorw("LogBroadcaster: backfill - could not fetch latest block header, will retry", "err", err)
 			return true
 		} else if latestBlock == nil {
-			logger.Warn("got nil block header")
+			logger.Warn("LogBroadcaster: got nil block header, will retry")
 			return true
 		}
 		currentHeight := uint64(latestBlock.Number)
@@ -157,7 +157,7 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 
 		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
 		if err != nil {
-			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "error", err)
+			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "err", err)
 			return true
 		}
 
