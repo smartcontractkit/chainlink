@@ -96,7 +96,7 @@ type EnvPrinter struct {
 	P2PListenPort                         uint16          `json:"P2P_LISTEN_PORT"`
 	P2PPeerID                             string          `json:"P2P_PEER_ID"`
 	P2PBootstrapPeers                     []string        `json:"P2P_BOOTSTRAP_PEERS"`
-  OCRIncomingMessageBufferSize          int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
+	OCRIncomingMessageBufferSize          int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
 	OCROutgoingMessageBufferSize          int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
 	OCRNewStreamTimeout                   time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
 	OCRDHTLookupInterval                  int             `json:"OCR_DHT_LOOKUP_INTERVAL"`
