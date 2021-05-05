@@ -2,11 +2,15 @@ package bulletprooftxmanager_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
+
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -117,6 +121,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Earlier
+		h := gethCommon.HexToHash("0x4ea4bb19d0847a0465d003ea11bcaef62935cec3c673238d057f6cacb3e7a405")
+		tr := uuid.NewV4()
+		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr, RunRequestID: &h, RunRequestTxHash: &h})
+		require.NoError(t, err)
 		earlierEthTx := models.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -125,6 +133,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
 			State:          models.EthTxUnstarted,
+			Meta:           gormpostgrestypes.Jsonb{RawMessage: b},
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			if tx.Nonce() != uint64(0) {
@@ -181,6 +190,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
+		var m models.EthTxMeta
+		err = json.Unmarshal(earlierEthTx.Meta.RawMessage, &m)
+		require.NoError(t, err)
+		assert.Equal(t, tr, m.TaskRunID)
+		assert.Equal(t, h.String(), m.RunRequestTxHash.String())
+		assert.Equal(t, h.String(), m.RunRequestID.String())
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -682,7 +697,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			State:          models.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
 		_, err = store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
 

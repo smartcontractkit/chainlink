@@ -96,7 +96,7 @@ func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx 
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt, e models.EthTx) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return eth.NewFatalSendError(err)
@@ -108,7 +108,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
-	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64())
+	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())

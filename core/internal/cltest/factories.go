@@ -487,16 +487,16 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	return checker
 }
 
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) uuid.UUID {
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) (uuid.UUID, uuid.UUID) {
 	taskRunID := uuid.NewV4()
 
 	job := NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 	jobRun := NewJobRun(job)
-	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
+	jobRun.TaskRuns = []models.TaskRun{{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
 	require.NoError(t, store.CreateJobRun(&jobRun))
 
-	return taskRunID
+	return taskRunID, jobRun.ID
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {

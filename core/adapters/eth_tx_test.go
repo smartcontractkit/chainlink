@@ -11,7 +11,6 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,8 +35,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:       hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
 			ABIEncoding:      []string{"bytes32", "uint256", "bool", "bytes"},
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		d, err := input.Data().Add(models.ResultCollectionKey, []interface{}{12, false, "0x1234"})
 		require.NoError(t, err)
@@ -73,8 +71,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		require.NoError(t, runOutput.Error())
@@ -100,8 +97,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		require.EqualError(t, runOutput.Error(), "insertEthTx failed to pickFromAddress: no keys available")
@@ -116,8 +112,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:       dataPrefix,
 			DataFormat:       "bytes",
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "cönfirmed", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		require.NoError(t, runOutput.Error())
@@ -144,8 +139,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:       dataPrefix,
 			DataFormat:       "some old bollocks",
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := uuid.NewV4()
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		assert.Contains(t, runOutput.Error().Error(), "while constructing EthTx data: unsupported format: some old bollocks")
@@ -163,8 +157,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
@@ -184,8 +177,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 1, fromAddress)
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
@@ -206,8 +198,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:                       dataPrefix,
 			MinRequiredOutgoingConfirmations: 12,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
@@ -236,8 +227,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:                       dataPrefix,
 			MinRequiredOutgoingConfirmations: 12,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
@@ -272,8 +262,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:                       dataPrefix,
 			MinRequiredOutgoingConfirmations: 12,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
@@ -302,8 +291,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 5, 1, fromAddress)
 		attempt2 := cltest.MustInsertBroadcastEthTxAttempt(t, etx.ID, store, 2)
 
@@ -333,8 +321,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		jobRunID := uuid.NewV4()
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
