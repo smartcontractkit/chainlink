@@ -92,8 +92,12 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 		logger.Warnf("============== q.FromBlock.Int64() %v", q.FromBlock.Int64())
 		for i := q.FromBlock.Int64(); i < int64(currentHeight); i += batchSize {
 
+			untilIncluded := i + batchSize - 1
+			if untilIncluded > int64(currentHeight) {
+				untilIncluded = int64(currentHeight)
+			}
 			q.FromBlock = big.NewInt(i)
-			q.ToBlock = big.NewInt(i + batchSize - 1)
+			q.ToBlock = big.NewInt(untilIncluded)
 			logger.Warnf("============== FILTER FROM %v TO %v", q.FromBlock, q.ToBlock)
 			batchLogs, err := sub.ethClient.FilterLogs(ctx, q)
 
