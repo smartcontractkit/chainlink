@@ -21,7 +21,7 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v3.3.0+incompatible
+	github.com/gofrs/uuid v3.4.0+incompatible
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
@@ -31,7 +31,7 @@ require (
 	github.com/jackc/pgx/v4 v4.11.1-0.20210326152507-88ede6efb5b0
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jpillora/backoff v1.0.0
-	github.com/lib/pq v1.8.0
+	github.com/lib/pq v1.10.1
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
