@@ -45,9 +45,9 @@ interface OperatorInterface is OracleInterface {
     address[] calldata senders
   ) external;
 
-  function getForwarders()
+  function getForwarder()
     external
     returns (
-      address[] memory
+      address
     );
 }
