@@ -154,7 +154,7 @@ func (gu *gasUpdater) runLoop() {
 		case <-gu.mb.Notify():
 			head, exists := gu.mb.Retrieve()
 			if !exists {
-				logger.Info("GasUpdater: received nil head. It might have been skipped")
+				logger.Info("GasUpdater: no head to retrieve. It might have been skipped")
 				continue
 			}
 			h, is := head.(models.Head)

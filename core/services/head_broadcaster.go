@@ -124,7 +124,7 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 
 	item, exists := hr.mailbox.Retrieve()
 	if !exists {
-		logger.Info("HeadBroadcaster: received nil head. It might have been skipped")
+		logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
 		return
 	}
 	head, ok := item.(models.Head)

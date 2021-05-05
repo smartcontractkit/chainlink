@@ -119,7 +119,7 @@ func (executer *UpkeepExecuter) processActiveUpkeeps() {
 	// with work because processActiveUpkeeps() blocks
 	item, exists := executer.mailbox.Retrieve()
 	if !exists {
-		logger.Info("UpkeepExecuter: received nil head. It might have been skipped")
+		logger.Info("UpkeepExecuter: no head to retrieve. It might have been skipped")
 		return
 	}
 
