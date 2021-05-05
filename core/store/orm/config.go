@@ -656,8 +656,9 @@ func (c Config) EthGasPriceDefault() *big.Int {
 // EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
 // multiplied before transmission. So if the value is 1.1, and the GasLimit for
 // a transaction is 10, 10% will be added before transmission.
+//
 // This factor is always applied, so includes Optimism L2 transactions which
-// uses a default gas limit of 1.
+// uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
 func (c Config) EthGasLimitMultiplier() float32 {
 	return (float32)(c.getWithFallback("EthGasLimitMultiplier", parseF32).(float64))
 }
