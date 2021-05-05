@@ -135,16 +135,6 @@ type HeadTracker struct {
 	backfillMB            utils.Mailbox
 	subscriptionSucceeded chan struct{}
 	muLogger              sync.RWMutex
-	config                config
-}
-
-type config struct {
-	EthereumUrl                 string
-	EthHeadTrackerHistoryDepth  uint
-	EthHeadTrackerMaxBufferSize uint
-	EthFinalityDepth            uint
-	HeadTimeBudget              time.Duration
-	ChainID                     *big.Int
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -164,14 +154,6 @@ func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []strpkg.He
 		log:        l,
 		backfillMB: *utils.NewMailbox(1),
 		done:       make(chan struct{}),
-		config: config{
-			EthereumUrl:                 store.Config.EthereumURL(),
-			EthHeadTrackerHistoryDepth:  store.Config.EthHeadTrackerHistoryDepth(),
-			EthHeadTrackerMaxBufferSize: store.Config.EthHeadTrackerMaxBufferSize(),
-			EthFinalityDepth:            store.Config.EthFinalityDepth(),
-			HeadTimeBudget:              store.Config.HeadTimeBudget(),
-			ChainID:                     store.Config.ChainID(),
-		},
 	}
 }
 
@@ -229,7 +211,7 @@ func (ht *HeadTracker) Stop() error {
 		return nil
 	}
 
-	ht.logger().Info(fmt.Sprintf("Head tracker disconnecting from %v", ht.config.EthereumUrl))
+	ht.logger().Info(fmt.Sprintf("Head tracker disconnecting from %v", ht.store.Config.EthereumURL()))
 	close(ht.done)
 	close(ht.subscriptionSucceeded)
 	ht.started = false
@@ -254,7 +236,7 @@ func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
 	} else if err != nil {
 		return err
 	}
-	return ht.store.TrimOldHeads(ctx, ht.config.EthHeadTrackerHistoryDepth)
+	return ht.store.TrimOldHeads(ctx, ht.store.Config.EthHeadTrackerHistoryDepth())
 }
 
 // HighestSeenHead returns the block header with the highest number that has been seen, or nil
@@ -337,7 +319,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.done)
-					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth)
+					err := ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
 					defer cancel()
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
@@ -444,7 +426,7 @@ func (ht *HeadTracker) subscribe() bool {
 			return false
 		}
 
-		ht.logger().Info("HeadTracker: Connecting to ethereum node ", ht.config.EthereumUrl, " in ", ht.sleeper.Duration())
+		ht.logger().Info("HeadTracker: Connecting to ethereum node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
 		select {
 		case <-ht.done:
 			return false
@@ -452,9 +434,9 @@ func (ht *HeadTracker) subscribe() bool {
 			err := ht.subscribeToHead()
 			if err != nil {
 				promEthConnectionErrors.Inc()
-				ht.logger().Warnw(fmt.Sprintf("HeadTracker: Failed to connect to ethereum node %v", ht.config.EthereumUrl), "err", err)
+				ht.logger().Warnw(fmt.Sprintf("HeadTracker: Failed to connect to ethereum node %v", ht.store.Config.EthereumURL()), "err", err)
 			} else {
-				ht.logger().Info("HeadTracker: Connected to ethereum node ", ht.config.EthereumUrl)
+				ht.logger().Info("HeadTracker: Connected to ethereum node ", ht.store.Config.EthereumURL())
 				return true
 			}
 		}
@@ -471,7 +453,7 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 			if !open {
 				return errors.New("HeadTracker: outHeaders prematurely closed")
 			}
-			timeBudget := ht.config.HeadTimeBudget
+			timeBudget := ht.store.Config.HeadTimeBudget()
 			{
 				deadlineCtx, cancel := context.WithTimeout(ctx, timeBudget)
 				defer cancel()
@@ -501,7 +483,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		promCallbackDuration.Set(ms)
 		promCallbackDurationHist.Observe(ms)
 		if elapsed > ht.callbackExecutionThreshold() {
-			ht.logger().Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.config.HeadTimeBudget.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
+			ht.logger().Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.store.Config.HeadTimeBudget().String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		} else {
 			ht.logger().Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		}
@@ -539,7 +521,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Head) error {
 	promCurrentHead.Set(float64(head.Number))
 
-	headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.config.EthFinalityDepth)
+	headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
@@ -555,7 +537,7 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 // be a problem and will log a warning.
 // Here we set it to the average time between blocks.
 func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
-	return ht.config.HeadTimeBudget / 2
+	return ht.store.Config.HeadTimeBudget() / 2
 }
 
 func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain models.Head) {
@@ -592,7 +574,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 
 	ht.inHeaders = make(chan *models.Head)
 	var rb *headRingBuffer
-	rb, ht.outHeaders = newHeadRingBuffer(ht.inHeaders, int(ht.config.EthHeadTrackerMaxBufferSize), ht.logger)
+	rb, ht.outHeaders = newHeadRingBuffer(ht.inHeaders, int(ht.store.Config.EthHeadTrackerMaxBufferSize()), ht.logger)
 	// It will autostop when we close inHeaders channel
 	rb.Start()
 
@@ -655,10 +637,10 @@ func verifyEthereumChainID(ht *HeadTracker) error {
 		return err
 	}
 
-	if ethereumChainID.Cmp(ht.config.ChainID) != 0 {
+	if ethereumChainID.Cmp(ht.store.Config.ChainID()) != 0 {
 		return fmt.Errorf(
 			"ethereum ChainID doesn't match chainlink config.ChainID: config ID=%d, eth RPC ID=%d",
-			ht.config.ChainID,
+			ht.store.Config.ChainID(),
 			ethereumChainID,
 		)
 	}
