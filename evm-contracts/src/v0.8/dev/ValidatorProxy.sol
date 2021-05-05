@@ -17,8 +17,6 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     bool hasNewProposal;
   }
 
-  bytes4 constant private validateSelector = AggregatorValidatorInterface.validate.selector;
-
   // Configuration for the current aggregator
   AggregatorConfiguration private s_currentAggregator;
   // Proposed aggregator address
@@ -80,6 +78,9 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
    * and the `s_proposedValidator`, if it is set.
    * If called by the `s_proposedAggregator` this function emits a `ProposedAggregatorValidateCall` to signal that
    * the call was received.
+   * @dev To guard against external `validate` calls reverting, we use raw calls here.
+   * We favour `call` over try-catch to ensure that failures are avoided even if the validator address is incorrectly
+   * set as a non-contract address.
    * @param previousRoundId uint256
    * @param previousAnswer int256
    * @param currentRoundId uint256
@@ -120,7 +121,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     require(currentValidatorAddress != address(0), "No validator set");
     currentValidatorAddress.call(
       abi.encodeWithSelector(
-        validateSelector,
+        AggregatorValidatorInterface.validate.selector,
         previousRoundId,
         previousAnswer,
         currentRoundId,
@@ -131,7 +132,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     if (currentValidator.hasNewProposal) {
       address(s_proposedValidator).call(
         abi.encodeWithSelector(
-          validateSelector,
+          AggregatorValidatorInterface.validate.selector,
           previousRoundId,
           previousAnswer,
           currentRoundId,

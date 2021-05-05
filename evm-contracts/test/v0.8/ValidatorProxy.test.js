@@ -380,7 +380,7 @@ describe('ValidatorProxy', () => {
           })
 
           it('uses a specific amount of gas', async () => {
-            assert.equal(receipt.receipt.gasUsed, 34645)
+            assert.equal(receipt.receipt.gasUsed, 34650)
           })
         })
 
@@ -428,7 +428,7 @@ describe('ValidatorProxy', () => {
           })
 
           it('uses a specific amount of gas', async () => {
-            assert.equal(receipt.receipt.gasUsed, 42744)
+            assert.equal(receipt.receipt.gasUsed, 42754)
           })
         })
       })
