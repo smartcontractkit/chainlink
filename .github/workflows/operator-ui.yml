@@ -9,6 +9,14 @@ on:
     paths:
       - 'operator_ui/**'
       - 'core/web/**'
+      - 'integration/**'
+      - 'belt/**'
+      - 'tools/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'babel.config.js'
+      - 'tsconfig.*'
+      - 'GNUMakefile'
 env:
   CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
