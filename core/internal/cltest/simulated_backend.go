@@ -78,6 +78,14 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+func (c *SimulatedBackendClient) FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	panic("implement me")
+}
+
+func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	panic("implement me")
+}
+
 var _ eth.Client = (*SimulatedBackendClient)(nil)
 
 func (c *SimulatedBackendClient) Dial(context.Context) error {

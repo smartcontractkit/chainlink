@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -148,6 +148,7 @@ func (r *headRingBuffer) run() {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
+	log                       *logger.Logger
 	headTrackerAddressChannel chan common.Address
 	callbacks                 []strpkg.HeadTrackable
 	inHeaders                 chan *models.Head
@@ -182,7 +183,7 @@ func NewHeadTracker(l *logger.Logger, store *strpkg.Store, headTrackerAddressCha
 		store:                     store,
 		callbacks:                 callbacks,
 		sleeper:                   sleeper,
-		log:                    l,
+		log:                       l,
 		backfillMB:                *utils.NewMailbox(1),
 		done:                      make(chan struct{}),
 		blockFetcher:              NewBlockFetcher(store),

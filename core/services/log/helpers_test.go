@@ -53,7 +53,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	store.EthClient = mockEth.ethClient
 
 	dborm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config)
+	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config, nil)
 	store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
@@ -72,7 +72,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client) *broa
 	store.EthClient = ethClient
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config, nil)
 
 	return &broadcasterHelper{
 		t:             t,
