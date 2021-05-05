@@ -1,6 +1,11 @@
 name: CI
 
-on: [push]
+on:
+  push:
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!README.md'
 
 env:
   CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
