@@ -63,7 +63,7 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 	return etx, err
 }
 
-func newAttempt(s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
+func newAttempt(ctx context.Context, s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
 	account, err := s.KeyStore.GetAccountByAddress(etx.FromAddress)
 	if err != nil {
@@ -78,7 +78,7 @@ func newAttempt(s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (
 	if s.Config.OptimismGasFees() {
 		// Optimism requires special handling, it assumes that clients always call EstimateGas
 		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
-		gasLimit, estimateGasErr := s.EthClient.EstimateGas(context.TODO(), callMsg)
+		gasLimit, estimateGasErr := s.EthClient.EstimateGas(ctx, callMsg)
 		if estimateGasErr != nil {
 			return attempt, errors.Wrapf(estimateGasErr, "error getting gas price for new transaction %v", etx.ID)
 		}
