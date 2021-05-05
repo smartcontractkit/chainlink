@@ -152,8 +152,8 @@ func (gu *gasUpdater) runLoop() {
 		case <-gu.ctx.Done():
 			return
 		case <-gu.mb.Notify():
-			head := gu.mb.Retrieve()
-			if head == nil {
+			head, exists := gu.mb.Retrieve()
+			if !exists {
 				logger.Info("GasUpdater: received nil head. It might have been skipped")
 				continue
 			}

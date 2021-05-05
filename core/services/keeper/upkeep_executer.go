@@ -117,8 +117,8 @@ func (executer *UpkeepExecuter) run() {
 func (executer *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	item := executer.mailbox.Retrieve()
-	if item == nil {
+	item, exists := executer.mailbox.Retrieve()
+	if !exists {
 		logger.Info("UpkeepExecuter: received nil head. It might have been skipped")
 		return
 	}

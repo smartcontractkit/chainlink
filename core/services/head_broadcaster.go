@@ -122,8 +122,8 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 	callbacks := hr.callbacks.clone()
 	hr.mutex.RUnlock()
 
-	item := hr.mailbox.Retrieve()
-	if item == nil {
+	item, exists := hr.mailbox.Retrieve()
+	if !exists {
 		logger.Info("HeadBroadcaster: received nil head. It might have been skipped")
 		return
 	}

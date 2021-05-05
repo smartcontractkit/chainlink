@@ -327,8 +327,8 @@ func (b *broadcaster) onNewHeads() {
 
 func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 	for {
-		x := b.addSubscriber.Retrieve()
-		if x == nil {
+		x, exists := b.addSubscriber.Retrieve()
+		if !exists {
 			break
 		}
 		reg, ok := x.(registration)
@@ -347,8 +347,8 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 
 func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 	for {
-		x := b.rmSubscriber.Retrieve()
-		if x == nil {
+		x, exists := b.rmSubscriber.Retrieve()
+		if !exists {
 			break
 		}
 		reg, ok := x.(registration)

@@ -138,8 +138,8 @@ func (ec *ethConfirmer) runLoop() {
 				if ec.ctx.Err() != nil {
 					return
 				}
-				head := ec.mb.Retrieve()
-				if head == nil {
+				head, exists := ec.mb.Retrieve()
+				if !exists {
 					break
 				}
 				h, is := head.(models.Head)
