@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"gopkg.in/guregu/null.v4"
@@ -772,6 +771,92 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
+func TestIntegration_ExternalInitiator_WithMultiplyAndBridge(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMockCalls()
+
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	eiCreate := map[string]string{
+		"name": "someCoin",
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+
+	eia := &auth.Token{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
+
+	// HTTP passthrough
+	var httpCalled bool
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			httpCalled = true
+			body, err2 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err2)
+			requestStr := string(body)
+			require.Equal(t, `{"result":"4200000000"}`, requestStr)
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, `4200000000`)
+		}))
+	defer func() {
+		mockServer.Close()
+		assert.True(t, httpCalled, "expected http server to be called")
+	}()
+
+	// Bridge
+	var bridgeCalled bool
+	bridgeServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			bridgeCalled = true
+			body, err2 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err2)
+			json := models.MustParseJSON(body)
+			require.Equal(t, `{"result":"4200000000"}`, json.Get("data").Raw)
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, err)
+			io.WriteString(w, json.String())
+		}))
+	u, _ := url.Parse(bridgeServer.URL)
+	app.Store.CreateBridgeType(&models.BridgeType{
+		Name: models.TaskType("custombridge"),
+		URL:  models.WebURL(*u),
+	})
+	defer func() {
+		bridgeServer.Close()
+		assert.True(t, bridgeCalled, "expected bridge server to be called")
+	}()
+
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/external_initiator_job_multiply.json")
+	var jobSpec models.JobSpec
+	err = json.Unmarshal(buffer, &jobSpec)
+	require.NoError(t, err)
+	httpParams, err := jobSpec.Tasks[1].Params.Add("post", mockServer.URL)
+	require.NoError(t, err)
+	jobSpec.Tasks[1].Params = httpParams
+
+	jobSpec = cltest.CreateJobSpecViaWeb(t, app, jobSpec)
+
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, `{"result": 42}`)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
+	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
+
+	jobRun, err = app.Store.FindJobRun(jobRun.ID)
+	require.NoError(t, err)
+	finalResult := jobRun.Result
+
+	assert.Equal(t, `{"result": "4200000000"}`, finalResult.Data.Raw)
+}
+
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
@@ -1308,8 +1393,6 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
-	testValidatorAddress, _, _, err := testvalidator.DeployTestValidator(owner, b)
-	require.NoError(t, err)
 	accessAddress, _, _, err :=
 		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b)
 	require.NoError(t, err, "failed to deploy test access controller contract")
@@ -1326,9 +1409,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		1e8,              // _linkGweiPerObservation uint32,
 		4e8,              // _linkGweiPerTransmission uint32,
 		linkTokenAddress, //_link common.Address,
-		testValidatorAddress,
-		min, // -2**191
-		max, // 2**191 - 1
+		min,              // -2**191
+		max,              // 2**191 - 1
 		accessAddress,
 		accessAddress,
 		0,
@@ -1551,7 +1633,7 @@ observationSource = """
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
@@ -1660,7 +1742,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	httpAwaiter.AwaitOrFail(t)
 
-	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jobORM, 5*time.Second, 300*time.Millisecond)
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 3, jobORM, 5*time.Second, 300*time.Millisecond)
 	require.Len(t, runs, 1)
 	run := runs[0]
 	require.Len(t, run.PipelineTaskRuns, 3)

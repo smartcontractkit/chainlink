@@ -71,7 +71,7 @@ type ConfigSchema struct {
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`
 	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY"`
 	GasUpdaterBlockHistorySize                uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
-	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
+	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED"`
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	HTTPServerWriteTimeout                    time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
@@ -117,7 +117,7 @@ type ConfigSchema struct {
 	ORMMaxIdleConns                           int             `env:"ORM_MAX_IDLE_CONNS" default:"10"`
 	ORMMaxOpenConns                           int             `env:"ORM_MAX_OPEN_CONNS" default:"20"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
-	OptimismGasFees                           bool            `env:"OPTIMISM_GAS_FEES" default:"false"`
+	OptimismGasFees                           bool            `env:"OPTIMISM_GAS_FEES"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
 	P2PBootstrapPeers                         []string        `env:"P2P_BOOTSTRAP_PEERS"`
