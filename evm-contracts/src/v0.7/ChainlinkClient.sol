@@ -19,7 +19,8 @@ contract ChainlinkClient {
   uint256 constant internal LINK_DIVISIBILITY = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = address(0);
-  uint256 constant private ARGS_VERSION = 2;
+  uint256 constant private ORACLE_ARGS_VERSION = 1;
+  uint256 constant private OPERATOR_ARGS_VERSION = 2;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
   address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
@@ -106,7 +107,58 @@ contract ChainlinkClient {
     req.nonce = requestCount;
     pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, ARGS_VERSION)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, ORACLE_ARGS_VERSION)), "unable to transferAndCall to oracle");
+    requestCount += 1;
+
+    return requestId;
+  }
+
+  /**
+   * @notice Creates a Chainlink request to the stored oracle address
+   * @dev This function supports multi-word response
+   * @dev Calls `requestOracleDataFrom` with the stored oracle address
+   * @param req The initialized Chainlink Request
+   * @param payment The amount of LINK to send for the request
+   * @return requestId The request ID
+   */
+  function requestOracleData(
+    Chainlink.Request memory req,
+    uint256 payment
+  )
+    internal
+    returns (
+      bytes32
+    )
+  {
+    return requestOracleDataFrom(address(oracle), req, payment);
+  }
+
+  /**
+   * @notice Creates a Chainlink request to the specified oracle address
+   * @dev This function supports multi-word response
+   * @dev Generates and stores a request ID, increments the local nonce, and uses `transferAndCall` to
+   * send LINK which creates a request on the target oracle contract.
+   * Emits ChainlinkRequested event.
+   * @param oracleAddress The address of the oracle for the request
+   * @param req The initialized Chainlink Request
+   * @param payment The amount of LINK to send for the request
+   * @return requestId The request ID
+   */
+  function requestOracleDataFrom(
+    address oracleAddress,
+    Chainlink.Request memory req,
+    uint256 payment
+  )
+    internal
+    returns (
+      bytes32 requestId
+    )
+  {
+    requestId = keccak256(abi.encodePacked(this, requestCount));
+    req.nonce = requestCount;
+    pendingRequests[requestId] = oracleAddress;
+    emit ChainlinkRequested(requestId);
+    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, OPERATOR_ARGS_VERSION)), "unable to transferAndCall to oracle");
     requestCount += 1;
 
     return requestId;

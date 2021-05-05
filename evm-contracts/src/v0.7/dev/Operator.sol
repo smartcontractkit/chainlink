@@ -90,6 +90,22 @@ contract Operator is
 
   // EXTERNAL FUNCTIONS
 
+  function oracleRequest(
+    address sender,
+    uint256 payment,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion,
+    bytes calldata data
+  )
+    external
+    override
+  {
+    requestOracleData(sender, payment, specId, callbackAddress, callbackFunctionId, nonce, dataVersion, data);
+  }
+
   /**
    * @notice Creates the Chainlink request
    * @dev Stores the hash of the params as the on-chain commitment for the request.
@@ -103,7 +119,7 @@ contract Operator is
    * @param dataVersion The specified data version
    * @param data The CBOR payload of the request
    */
-  function oracleRequest(
+  function requestOracleData(
     address sender,
     uint256 payment,
     bytes32 specId,
@@ -113,8 +129,7 @@ contract Operator is
     uint256 dataVersion,
     bytes calldata data
   )
-    external
-    override
+    public
     onlyLINK()
     checkCallbackAddress(callbackAddress)
   {
