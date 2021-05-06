@@ -38,6 +38,7 @@ type ConfigReader interface {
 	EthGasBumpTxDepth() uint16
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
+	EthGasLimitMultiplier() float32
 	EthGasPriceDefault() *big.Int
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint

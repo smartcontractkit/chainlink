@@ -653,6 +653,16 @@ func (c Config) EthGasPriceDefault() *big.Int {
 	return chainSpecificConfig(c).EthGasPriceDefault
 }
 
+// EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
+// multiplied before transmission. So if the value is 1.1, and the GasLimit for
+// a transaction is 10, 10% will be added before transmission.
+//
+// This factor is always applied, so includes Optimism L2 transactions which
+// uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+func (c Config) EthGasLimitMultiplier() float32 {
+	return (float32)(c.getWithFallback("EthGasLimitMultiplier", parseF32).(float64))
+}
+
 // SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
 func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 	if c.runtimeStore == nil {
@@ -1457,6 +1467,11 @@ func parseUint32(s string) (interface{}, error) {
 
 func parseUint64(s string) (interface{}, error) {
 	v, err := strconv.ParseUint(s, 10, 64)
+	return v, err
+}
+
+func parseF32(s string) (interface{}, error) {
+	v, err := strconv.ParseFloat(s, 32)
 	return v, err
 }
 

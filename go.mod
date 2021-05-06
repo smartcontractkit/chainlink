@@ -33,7 +33,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.10.1
 	github.com/libp2p/go-libp2p-core v0.8.5
-	github.com/libp2p/go-libp2p-peerstore v0.2.6
+	github.com/libp2p/go-libp2p-peerstore v0.2.7
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/mattn/go-sqlite3 v1.14.3 // indirect
@@ -41,7 +41,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.10.5
+	github.com/onsi/gomega v1.11.0
 	github.com/pelletier/go-toml v1.9.0
 	github.com/peterh/liner v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
@@ -74,7 +74,6 @@ require (
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58
 	gonum.org/v1/gonum v0.9.1
 	gopkg.in/guregu/null.v4 v4.0.0
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gorm.io/driver/postgres v1.0.8
 	gorm.io/gorm v1.20.12
 )

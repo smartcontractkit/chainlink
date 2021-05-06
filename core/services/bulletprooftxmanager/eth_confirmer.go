@@ -650,7 +650,7 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 		//
 		// This still limits the worst case to a maximum of two transactions
 		// pending though which is probably acceptable.
-		attempt, err := ec.attemptForRebroadcast(etx)
+		attempt, err := ec.attemptForRebroadcast(ctx, etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
@@ -785,7 +785,7 @@ func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNu
 	return
 }
 
-func (ec *ethConfirmer) attemptForRebroadcast(etx models.EthTx) (attempt models.EthTxAttempt, err error) {
+func (ec *ethConfirmer) attemptForRebroadcast(ctx context.Context, etx models.EthTx) (attempt models.EthTxAttempt, err error) {
 	var bumpedGasPrice *big.Int
 	if len(etx.EthTxAttempts) > 0 {
 		previousAttempt := etx.EthTxAttempts[0]
@@ -815,7 +815,7 @@ func (ec *ethConfirmer) attemptForRebroadcast(etx models.EthTx) (attempt models.
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 		bumpedGasPrice = ec.config.EthGasPriceDefault()
 	}
-	return newAttempt(ec.store, etx, bumpedGasPrice)
+	return newAttempt(ctx, ec.store, etx, bumpedGasPrice)
 }
 
 func (ec *ethConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) error {
@@ -846,7 +846,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
 			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
-		replacementAttempt, err := newAttempt(ec.store, etx, bumpedGasPrice)
+		replacementAttempt, err := newAttempt(ctx, ec.store, etx, bumpedGasPrice)
 		if err != nil {
 			return errors.Wrap(err, "newAttempt failed")
 		}
@@ -1165,7 +1165,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := newAttempt(ec.store, *etx, big.NewInt(int64(gasPriceWei)))
+			attempt, err := newAttempt(context.TODO(), ec.store, *etx, big.NewInt(int64(gasPriceWei)))
 			if err != nil {
 				logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
