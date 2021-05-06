@@ -121,7 +121,7 @@ func TestCronV2Schedule(t *testing.T) {
 				runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Twice().Return(int64(0), pipeline.FinalResult{}, nil)
 			}
 			// Wait for cron schedules to execute given test case + buffer
-			time.Sleep(testCase.waitMinutes + (10 * time.Second))
+			time.Sleep(testCase.waitMinutes + (30 * time.Second))
 			assert.True(t, runner.AssertExpectations(t))
 		})
 	}
