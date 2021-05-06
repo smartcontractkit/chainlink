@@ -152,7 +152,11 @@ func (gu *gasUpdater) runLoop() {
 		case <-gu.ctx.Done():
 			return
 		case <-gu.mb.Notify():
-			head := gu.mb.Retrieve()
+			head, exists := gu.mb.Retrieve()
+			if !exists {
+				logger.Info("GasUpdater: no head to retrieve. It might have been skipped")
+				continue
+			}
 			h, is := head.(models.Head)
 			if !is {
 				panic(fmt.Sprintf("invariant violation, expected %T but got %T", models.Head{}, head))
