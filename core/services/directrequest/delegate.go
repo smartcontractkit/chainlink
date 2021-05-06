@@ -179,8 +179,8 @@ func (l *listener) run() {
 
 func (l *listener) handleReceivedLogs() {
 	for {
-		i := l.mbLogs.Retrieve()
-		if i == nil {
+		i, exists := l.mbLogs.Retrieve()
+		if !exists {
 			return
 		}
 		lb, ok := i.(log.Broadcast)
