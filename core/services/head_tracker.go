@@ -444,6 +444,7 @@ func (ht *HeadTracker) subscribe() bool {
 }
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
+// Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
 func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 	for {
 		select {
@@ -460,10 +461,11 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 
 				err := ht.handleNewHead(ctx, blockHeader)
 				if ctx.Err() != nil {
+					// the 'ctx' context is closed only on ht.done - on shutdown, so it's safe to return nil
 					return nil
 				} else if deadlineCtx.Err() != nil {
 					ht.logger().Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
-					return err
+					continue
 				} else if err != nil {
 					return err
 				}
