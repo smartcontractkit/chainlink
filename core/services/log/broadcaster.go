@@ -192,7 +192,10 @@ func (b *broadcaster) Connect(head *models.Head) error { return nil }
 func (b *broadcaster) Disconnect()                     {}
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
-	b.newHeads.Deliver(head)
+	wasOverCapacity := b.newHeads.Deliver(head)
+	if wasOverCapacity {
+		logger.Debug("LogBroadcaster: Dropped the older head in the mailbox, while inserting latest (which is fine)")
+	}
 }
 
 func (b *broadcaster) IsConnected() bool {
