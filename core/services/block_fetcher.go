@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,21 +40,36 @@ func NewBlockFetcher(store *strpkg.Store) *BlockFetcher {
 	}
 }
 
-func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head, blockFetchDuration prometheus.Histogram,
+func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head, promBlockSizenHist *prometheus.HistogramVec,
+	blockFetchDuration *prometheus.HistogramVec, blockBatchFetchDuration *prometheus.HistogramVec,
 	receiptFetchDuration prometheus.Histogram, receiptLimitedFetchDuration prometheus.Histogram, receiptCount prometheus.Counter) (*BlockWithReceipts, error) {
 
-	start := time.Now()
-	block, err := ht.store.EthClient.FastBlockByHash(ctx, head.Hash)
+	//=============================================
+
+	err := ht.getBlockDebug(ctx, blockFetchDuration.WithLabelValues("debug"), promBlockSizenHist.WithLabelValues("debug", "single"), head)
 	if err != nil {
-		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching BlockByHash")
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching getBlockDebug")
 	}
-	elapsed := time.Since(start)
+	//=============================================
 
-	blockFetchDuration.Observe(float64(elapsed.Milliseconds()))
-	ht.logger.Debugw("========================= HeadTracker: getting whole block took", "elapsedMs", elapsed.Milliseconds())
+	err = ht.getBatch5BlocksDebug(ctx, blockBatchFetchDuration.WithLabelValues("debug"), promBlockSizenHist.WithLabelValues("debug", "batch"), head)
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching getBatch5BlocksDebug")
+	}
 
-	logger.Warnf("rpcBlock.Hash: %v", block.Hash())
-	logger.Warnf("rpcBlock.num Transactions: %v", block.Transactions().Len())
+	//=============================================
+
+	err = ht.getBatch5Blocks(ctx, blockBatchFetchDuration.WithLabelValues("normal"), promBlockSizenHist.WithLabelValues("normal", "batch"), head)
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching getBatch5Blocks")
+	}
+
+	//=============================================
+
+	block, err := ht.getBlockFast(ctx, blockFetchDuration.WithLabelValues("normal"), promBlockSizenHist.WithLabelValues("normal", "single"), head)
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching getBlockFast")
+	}
 
 	start2 := time.Now()
 
@@ -142,6 +159,176 @@ type resultReceipts struct {
 	index int
 	res   []*bulletprooftxmanager.Receipt
 	err   error
+}
+
+func (ht *BlockFetcher) getBlockFast(ctx context.Context, blockFetchDuration prometheus.Observer, promBlockSizenHist prometheus.Observer, head models.Head) (*types.Block, error) {
+	start := time.Now()
+
+	block, err := ht.store.EthClient.FastBlockByHash(ctx, head.Hash)
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching BlockByHash")
+	}
+	elapsed := time.Since(start)
+
+	blockFetchDuration.Observe(float64(elapsed.Milliseconds()))
+	ht.logger.Debugw("========================= HeadTracker: getting whole block took", "elapsedMs", elapsed.Milliseconds())
+
+	logger.Warnf("rpcBlock.Hash: %v", block.Hash())
+	logger.Warnf("rpcBlock.num Transactions: %v", block.Transactions().Len())
+
+	promBlockSizenHist.Observe(float64(block.Size()))
+	return block, nil
+}
+
+func (ht *BlockFetcher) getBlockDebug(ctx context.Context, debugBlockFetchDuration prometheus.Observer, promBlockSizenHist prometheus.Observer, head models.Head) error {
+
+	var raw string
+	start0 := time.Now()
+	err := ht.store.EthClient.CallContext(ctx, &raw, "debug_getBlockRlp", head.Number)
+	if err != nil {
+		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed debug_getBlockRlp")
+	}
+	elapsed0 := time.Since(start0)
+	ht.logger.Debugw("========================= HeadTracker: debug_getBlockRlp took", "elapsedMs", elapsed0.Milliseconds())
+
+	debugBlockFetchDuration.Observe(float64(elapsed0.Milliseconds()))
+	promBlockSizenHist.Observe(float64(len([]byte(raw))))
+	return nil
+}
+
+func (ht *BlockFetcher) getBatch5BlocksDebug(ctx context.Context, blockBatchFetchDuration prometheus.Observer, promBlockSizenHist prometheus.Observer, head models.Head) error {
+
+	start1 := time.Now()
+
+	var h = &head
+	var reqs []rpc.BatchElem
+	for i := 0; i < 50 && h != nil; i++ {
+		req := rpc.BatchElem{
+			Method: "debug_getBlockRlp",
+			Args:   []interface{}{h.Number},
+			Result: &json.RawMessage{},
+		}
+		reqs = append(reqs, req)
+		h = h.Parent
+	}
+
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
+	defer cancel()
+
+	err := ht.store.EthClient.BatchCallContext(ctx, reqs)
+	if err != nil {
+		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching multiple blocks getBatch5BlocksDebug")
+	}
+
+	elapsed1 := time.Since(start1)
+	blockBatchFetchDuration.Observe(float64(elapsed1.Milliseconds()))
+
+	totalSize := 0
+	for _, req := range reqs {
+		result, err := req.Result, req.Error
+		if err != nil {
+			ht.logger.Errorf("=== block err %v", err.Error())
+			continue
+		}
+		var raw = *result.(*json.RawMessage)
+		ht.logger.Warnf("=== block size %v", len(raw))
+
+		var block types.Block
+
+		err = rlp.DecodeBytes(raw, &block)
+		if err != nil {
+			ht.logger.Errorf("=== block DecodeBytes err %v", err.Error())
+			continue
+		}
+
+		ht.logger.Debugf("=== block hash %v with %v txs, size: %v", block.Hash(), block.Transactions().Len(), len(raw))
+
+		totalSize += len(raw)
+		//
+		//var head *types.Header
+		//var body eth.RpcBlock
+		//if err := json.Unmarshal(raw, &head); err != nil {
+		//	return err
+		//}
+		//if err := json.Unmarshal(raw, &body); err != nil {
+		//	return err
+		//}
+		//
+		////res := result.(*types.Block)
+		//if err != nil {
+		//	ht.logger.Errorf("=== block err %v", req.Error.Error())
+		//}
+		////
+		////if res.Hash() == (common.Hash{}) {
+		////	ht.logger.Warn("GasUpdater#fetchBlocks block was missing hash")
+		////	continue
+		////}
+		//ht.logger.Debugf("=== block hash %v with %v txs", head.Hash(), len(body.Transactions))
+	}
+	promBlockSizenHist.Observe(float64(totalSize))
+	ht.logger.Debugf("========================= HeadTracker: getting %v blocks getBatch5BlocksDebug took %v ms, total size: %v", len(reqs), elapsed1.Milliseconds(), totalSize)
+
+	return nil
+}
+
+func (ht *BlockFetcher) getBatch5Blocks(ctx context.Context, blockBatchFetchDuration prometheus.Observer, promBlockSizenHist prometheus.Observer, head models.Head) error {
+
+	start1 := time.Now()
+
+	var h = &head
+	var reqs []rpc.BatchElem
+	for i := 0; i < 50 && h != nil; i++ {
+		ht.logger.Debugf("=== block hash %v", h.Hash)
+		req := rpc.BatchElem{
+			Method: "eth_getBlockByHash",
+			Args:   []interface{}{h.Hash, true},
+			Result: &json.RawMessage{},
+		}
+		reqs = append(reqs, req)
+		h = h.Parent
+	}
+
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
+	defer cancel()
+
+	err := ht.store.EthClient.BatchCallContext(ctx, reqs)
+	if err != nil {
+		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching multiple blocks")
+	}
+
+	elapsed1 := time.Since(start1)
+	blockBatchFetchDuration.Observe(float64(elapsed1.Milliseconds()))
+
+	totalSize := 0
+	for _, req := range reqs {
+		result, err := req.Result, req.Error
+
+		var raw json.RawMessage = *result.(*json.RawMessage)
+
+		var head *types.Header
+		var body eth.RpcBlock
+		if err := json.Unmarshal(raw, &head); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return err
+		}
+
+		//res := result.(*types.Block)
+		if err != nil {
+			ht.logger.Errorf("=== block err %v", req.Error.Error())
+		}
+		//
+		//if res.Hash() == (common.Hash{}) {
+		//	ht.logger.Warn("GasUpdater#fetchBlocks block was missing hash")
+		//	continue
+		//}
+		ht.logger.Debugf("=== block hash %v with %v txs, size: %v", head.Hash(), len(body.Transactions), len(raw))
+		totalSize += len(raw)
+	}
+	promBlockSizenHist.Observe(float64(totalSize))
+	ht.logger.Debugf("========================= HeadTracker: getting %v, len(reqs) blocks took %v ms, total size: %v", len(reqs), elapsed1.Milliseconds(), totalSize)
+	return nil
 }
 
 // boundedParallelGet sends requests in parallel but only up to a certain

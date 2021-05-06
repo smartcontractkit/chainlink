@@ -276,7 +276,7 @@ func (client *client) FastBlockByHash(ctx context.Context, hash common.Hash) (*t
 	}
 
 	var head *types.Header
-	var body rpcBlock
+	var body RpcBlock
 	if err := json.Unmarshal(raw, &head); err != nil {
 		return nil, err
 	}
@@ -297,25 +297,25 @@ func (client *client) FastBlockByHash(ctx context.Context, hash common.Hash) (*t
 	return types.NewBlockWithHeader(head).WithBody(txs, make([]*types.Header, 0)), nil
 }
 
-type rpcBlock struct {
+type RpcBlock struct {
 	Hash         common.Hash      `json:"hash"`
-	Transactions []rpcTransaction `json:"transactions"`
+	Transactions []RpcTransaction `json:"transactions"`
 	UncleHashes  []common.Hash    `json:"uncles"`
 }
 
-type rpcTransaction struct {
-	tx *types.Transaction
-	txExtraInfo
+type RpcTransaction struct {
+	tx          *types.Transaction
+	txExtraInfo TxExtraInfo
 }
 
-func (tx *rpcTransaction) UnmarshalJSON(msg []byte) error {
+func (tx *RpcTransaction) UnmarshalJSON(msg []byte) error {
 	if err := json.Unmarshal(msg, &tx.tx); err != nil {
 		return err
 	}
 	return json.Unmarshal(msg, &tx.txExtraInfo)
 }
 
-type txExtraInfo struct {
+type TxExtraInfo struct {
 	BlockNumber *string         `json:"blockNumber,omitempty"`
 	BlockHash   *common.Hash    `json:"blockHash,omitempty"`
 	From        *common.Address `json:"from,omitempty"`

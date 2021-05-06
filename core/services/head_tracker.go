@@ -52,11 +52,27 @@ var (
 		Help: "The total number of eth node connection errors",
 	})
 
-	promBlockFetchDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
+	promBlockSizenHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "head_tracker_block_size_hist",
+		Help:    "How large are the blocks",
+		Buckets: []float64{2000, 3000, 4000, 5000, 8000, 12000, 18000, 25000, 50000, 100000, 500000, 1000000},
+	}, []string{"kind", "batchType"})
+
+	promBlockFetchDurationHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "head_tracker_block_fetch_execution_duration_hist",
 		Help:    "How long it took to fetch block data (ms) histogram",
 		Buckets: []float64{100, 150, 200, 250, 300, 400, 500, 800, 1500, 2000, 3000, 4000, 5000, 8000, 12000, 18000},
-	})
+	}, []string{"kind"})
+	//promDebugBlockFetchDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
+	//	Name:    "head_tracker_block_debug_fetch_execution_duration_hist",
+	//	Help:    "How long it took to fetch block data (ms) histogram",
+	//	Buckets: []float64{100, 150, 200, 250, 300, 400, 500, 800, 1500, 2000, 3000, 4000, 5000, 8000, 12000, 18000},
+	//})
+	promBlockBatchFetchDurationHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "head_tracker_block_batch_fetch_execution_duration_hist",
+		Help:    "How long it took to fetch block data (ms) histogram",
+		Buckets: []float64{100, 150, 200, 250, 300, 400, 500, 800, 1500, 2000, 3000, 4000, 5000, 8000, 12000, 18000},
+	}, []string{"kind"})
 
 	promReceiptsFetchDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "head_tracker_receipts_fetch_execution_duration_hist",
@@ -568,7 +584,9 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	}
 	ht.backfillMB.Deliver(headWithChain)
 
-	_, err = ht.blockFetcher.fetchBlock(ctx, head, promBlockFetchDurationHist, promReceiptsFetchDurationHist, promReceiptsLimitedFetchDurationHist, promReceiptCount)
+	_, err = ht.blockFetcher.fetchBlock(ctx, headWithChain, promBlockSizenHist, promBlockFetchDurationHist, promBlockBatchFetchDurationHist,
+		promReceiptsFetchDurationHist, promReceiptsLimitedFetchDurationHist, promReceiptCount)
+
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
