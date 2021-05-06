@@ -194,7 +194,7 @@ func (b *broadcaster) Disconnect()                     {}
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
-		logger.Debug("LogBroadcaster: Dropped the older head in the mailbox, while inserting latest (which is fine)")
+		logger.Tracew("LogBroadcaster: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
 	}
 }
 
