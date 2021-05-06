@@ -19,6 +19,7 @@ import (
 type Logger struct {
 	*zap.SugaredLogger
 	Orm         ORM
+	lvl         zapcore.Level
 	dir         string
 	jsonConsole bool
 	toDisk      bool
@@ -108,9 +109,10 @@ func CreateLogger(zl *zap.SugaredLogger) *Logger {
 	return &Logger{SugaredLogger: zl}
 }
 
-func CreateLoggerWithConfig(zl *zap.SugaredLogger, dir string, jsonConsole bool, toDisk bool) *Logger {
+func CreateLoggerWithConfig(zl *zap.SugaredLogger, lvl zapcore.Level, dir string, jsonConsole bool, toDisk bool) *Logger {
 	return &Logger{
 		SugaredLogger: zl,
+		lvl:           lvl,
 		dir:           dir,
 		jsonConsole:   jsonConsole,
 		toDisk:        toDisk,
@@ -142,7 +144,7 @@ func CreateProductionLogger(
 	if err != nil {
 		log.Fatal(err)
 	}
-	return CreateLoggerWithConfig(zl.Sugar(), dir, jsonConsole, toDisk)
+	return CreateLoggerWithConfig(zl.Sugar(), lvl, dir, jsonConsole, toDisk)
 }
 
 // InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
@@ -159,7 +161,7 @@ func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*L
 		return nil, err
 	}
 
-	return CreateLoggerWithConfig(zl.Named(serviceName).Sugar(), l.dir, l.jsonConsole, l.toDisk), nil
+	return CreateLoggerWithConfig(zl.Named(serviceName).Sugar(), ll, l.dir, l.jsonConsole, l.toDisk), nil
 }
 
 // ServiceLogLevel is the log level set for a specified package
@@ -172,7 +174,7 @@ func (l *Logger) ServiceLogLevel(serviceName string) (string, error) {
 			return level, nil
 		}
 	}
-	return "info", nil
+	return l.lvl.String(), nil
 }
 
 // NewProductionConfig returns a production logging config

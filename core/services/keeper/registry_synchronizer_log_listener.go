@@ -9,10 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func (rs *RegistrySynchronizer) OnConnect() {}
-
-func (rs *RegistrySynchronizer) OnDisconnect() {}
-
 func (rs *RegistrySynchronizer) JobID() models.JobID {
 	return models.JobID{}
 }

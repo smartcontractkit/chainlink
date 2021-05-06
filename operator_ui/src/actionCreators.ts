@@ -388,7 +388,7 @@ export type NormalizedAccountBalance = GetNormalizedData<
 export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
-  normalize,
+  (json) => normalize(json, { camelizeKeys: false }),
 )
 
 export const fetchBridges = requestFetch(

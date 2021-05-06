@@ -45,6 +45,7 @@ type ConfigSchema struct {
 	EthGasBumpTxDepth                         uint16          `env:"ETH_GAS_BUMP_TX_DEPTH" default:"10"`
 	EthGasBumpWei                             big.Int         `env:"ETH_GAS_BUMP_WEI"`
 	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
+	EthGasLimitMultiplier                     float32         `env:"ETH_GAS_LIMIT_MULTIPLIER" default:"1.0"`
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
@@ -71,7 +72,7 @@ type ConfigSchema struct {
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`
 	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY"`
 	GasUpdaterBlockHistorySize                uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
-	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
+	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED"`
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	HTTPServerWriteTimeout                    time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
@@ -117,7 +118,7 @@ type ConfigSchema struct {
 	ORMMaxIdleConns                           int             `env:"ORM_MAX_IDLE_CONNS" default:"10"`
 	ORMMaxOpenConns                           int             `env:"ORM_MAX_OPEN_CONNS" default:"20"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
-	OptimismGasFees                           bool            `env:"OPTIMISM_GAS_FEES" default:"false"`
+	OptimismGasFees                           bool            `env:"OPTIMISM_GAS_FEES"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
 	P2PBootstrapPeers                         []string        `env:"P2P_BOOTSTRAP_PEERS"`
