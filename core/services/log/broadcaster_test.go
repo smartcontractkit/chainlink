@@ -724,45 +724,45 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 		expectedFilteredA []uint
 		expectedFilteredB []uint
 	}{
-		//{
-		//	name: "no backfilled logs, no overlap",
-		//
-		//	blockHeight1: 1,
-		//	batch1:       []uint{1, 2},
-		//
-		//	blockHeight2:     3,
-		//	backfillableLogs: nil,
-		//	batch2:           []uint{7, 8},
-		//
-		//	expectedFilteredA: []uint{1, 2, 7, 8},
-		//	expectedFilteredB: []uint{7, 8},
-		//},
-		//{
-		//	name: "no backfilled logs, overlap",
-		//
-		//	blockHeight1: 1,
-		//	batch1:       []uint{1, 2},
-		//
-		//	blockHeight2:     2,
-		//	backfillableLogs: nil,
-		//	batch2:           []uint{2, 3},
-		//
-		//	expectedFilteredA: []uint{1, 2, 3},
-		//	expectedFilteredB: []uint{2, 3},
-		//},
-		//{
-		//	name: "backfilled logs, no overlap",
-		//
-		//	blockHeight1: 1,
-		//	batch1:       []uint{1, 2},
-		//
-		//	blockHeight2:     15,
-		//	backfillableLogs: []uint{11, 12, 15},
-		//	batch2:           []uint{16, 17},
-		//
-		//	expectedFilteredA: []uint{1, 2, 11, 12, 15, 16, 17},
-		//	expectedFilteredB: []uint{11, 12, 15, 16, 17},
-		//},
+		{
+			name: "no backfilled logs, no overlap",
+
+			blockHeight1: 1,
+			batch1:       []uint{1, 2},
+
+			blockHeight2:     3,
+			backfillableLogs: nil,
+			batch2:           []uint{7, 8},
+
+			expectedFilteredA: []uint{1, 2, 7, 8},
+			expectedFilteredB: []uint{7, 8},
+		},
+		{
+			name: "no backfilled logs, overlap",
+
+			blockHeight1: 1,
+			batch1:       []uint{1, 2},
+
+			blockHeight2:     2,
+			backfillableLogs: nil,
+			batch2:           []uint{2, 3},
+
+			expectedFilteredA: []uint{1, 2, 3},
+			expectedFilteredB: []uint{2, 3},
+		},
+		{
+			name: "backfilled logs, no overlap",
+
+			blockHeight1: 1,
+			batch1:       []uint{1, 2},
+
+			blockHeight2:     15,
+			backfillableLogs: []uint{11, 12, 15},
+			batch2:           []uint{16, 17},
+
+			expectedFilteredA: []uint{1, 2, 11, 12, 15, 16, 17},
+			expectedFilteredB: []uint{11, 12, 15, 16, 17},
+		},
 		{
 			name: "backfilled logs, overlap",
 

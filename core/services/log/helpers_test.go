@@ -237,7 +237,7 @@ func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState
 		received.Lock()
 		defer received.Unlock()
 		return len(received.uniqueLogs) == len(expectedState.uniqueLogs)
-	}, 10*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
+	}, 5*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
 
 	received.Lock()
 	for i := range expectedState.uniqueLogs {

@@ -75,7 +75,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			Topics:    [][]common.Hash{topics},
 		}
 
-		chBackfilledLogs = make(chan types.Log)
+		chBackfilledLogs = make(chan types.Log, 1000)
 		defer close(chBackfilledLogs)
 
 		allLogs := make([]types.Log, 0)
@@ -87,9 +87,6 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
 		//latest := b.Number()
 		batchSize := int64(sub.config.EthLogBackfillBatchSize())
-		logger.Warnf("============== batchSize %v", batchSize)
-		logger.Warnf("============== currentHeight %v", currentHeight)
-		logger.Warnf("============== q.FromBlock.Int64() %v", q.FromBlock.Int64())
 		for i := q.FromBlock.Int64(); i < int64(currentHeight); i += batchSize {
 
 			untilIncluded := i + batchSize - 1
@@ -98,9 +95,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			}
 			q.FromBlock = big.NewInt(i)
 			q.ToBlock = big.NewInt(untilIncluded)
-			logger.Warnf("============== FILTER FROM %v TO %v", q.FromBlock, q.ToBlock)
 			batchLogs, err := sub.ethClient.FilterLogs(ctx, q)
-
 			if err != nil {
 				if ctx.Err() != nil {
 					logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
@@ -126,6 +121,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			}
 		}
 
+		logger.Infof("LogBroadcaster: Finished backfill of %v logs", len(allLogs))
 		return false
 	})
 	select {
