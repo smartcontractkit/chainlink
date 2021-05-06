@@ -307,22 +307,24 @@ func (b *broadcaster) onNewHeads() {
 	var latestHead *models.Head
 	for {
 		// We only care about the most recent head
-		x := b.newHeads.RetrieveLatestAndClear()
-		if x == nil {
-			// This should never happen
+		item := b.newHeads.RetrieveLatestAndClear()
+		if item == nil {
 			break
 		}
-		head, ok := x.(models.Head)
+		head, ok := item.(models.Head)
 		if !ok {
-			logger.Errorf("expected `models.Head`, got %T", x)
+			logger.Errorf("expected `models.Head`, got %T", item)
 			continue
 		}
-		logger.Tracew("LogBroadcaster: Received head", "blockNumber", head.Number, "blockHash", head.Hash)
 		latestHead = &head
 	}
 
-	logs := b.logPool.getLogsToSend(latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
-	b.registrations.sendLogs(logs, b.orm, latestHead)
+	if latestHead != nil {
+		logger.Tracew("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
+
+		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
+		b.registrations.sendLogs(logs, b.orm, *latestHead)
+	}
 }
 
 func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
