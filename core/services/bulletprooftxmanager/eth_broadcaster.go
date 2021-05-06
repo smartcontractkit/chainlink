@@ -449,8 +449,13 @@ func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *eth.SendError, e
 	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}
-	replacementAttempt, err := newAttempt(context.TODO(), eb.store, etx, bumpedGasPrice)
-	if err != nil {
+	ctx, cancel := eth.DefaultQueryCtx()
+	defer cancel()
+
+	replacementAttempt, err := newAttempt(ctx, eb.store, etx, bumpedGasPrice)
+	if ctx.Err() != nil {
+		return errors.Wrap(ctx.Err(), "tryAgainWithHigherGasPrice failed, context deadline exceeded")
+	} else if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
 
