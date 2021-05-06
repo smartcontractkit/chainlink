@@ -117,7 +117,13 @@ func (executer *UpkeepExecuter) run() {
 func (executer *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	head, ok := executer.mailbox.Retrieve().(models.Head)
+	item, exists := executer.mailbox.Retrieve()
+	if !exists {
+		logger.Info("UpkeepExecuter: no head to retrieve. It might have been skipped")
+		return
+	}
+
+	head, ok := item.(models.Head)
 	if !ok {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
