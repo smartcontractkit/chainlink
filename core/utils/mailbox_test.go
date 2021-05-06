@@ -30,8 +30,8 @@ func TestMailbox(t *testing.T) {
 				return
 			case <-m.Notify():
 				for {
-					x := m.Retrieve()
-					if x == nil {
+					x, exists := m.Retrieve()
+					if !exists {
 						break
 					}
 					recvd = append(recvd, x.(int))
