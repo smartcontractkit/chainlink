@@ -157,8 +157,8 @@ func (t *OCRContractTracker) processLogs() {
 			// new config. To avoid blocking the log broadcaster, we use this
 			// background thread to deliver them and a mailbox as the buffer.
 			for {
-				x := t.configsMB.Retrieve()
-				if x == nil {
+				x, exists := t.configsMB.Retrieve()
+				if !exists {
 					break
 				}
 				cc, ok := x.(ocrtypes.ContractConfig)
