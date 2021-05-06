@@ -46,7 +46,10 @@ interface OperatorInterface is OracleInterface {
   ) external;
 
   function deployForwarder()
-    external;
+    external
+    returns(
+      address
+    );
 
   function transferForwarderOwnership(
     address newOwner

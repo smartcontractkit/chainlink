@@ -68,8 +68,8 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event ForwarderCreated(
-    address indexed addr
+  event ForwarderChanged(
+    OperatorForwarder indexed addr
   );
 
   /**
@@ -288,9 +288,15 @@ contract Operator is
     external
     override
     onlyOwner()
+    returns (
+      address
+    )
   {
     require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
-    s_forwarder = new OperatorForwarder(address(linkToken));
+    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken));
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
+    return address(newForwarder);
   }
 
   /**
@@ -323,6 +329,7 @@ contract Operator is
     OperatorForwarder newForwarder = OperatorForwarder(forwarderAddr);
     newForwarder.acceptOwnership();
     s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
   }
 
   /**
