@@ -319,6 +319,8 @@ func (b *broadcaster) onNewHeads() {
 		latestHead = &head
 	}
 
+	// latestHead may sometimes be nil on high rate of heads,
+	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
 	if latestHead != nil {
 		logger.Tracew("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
 
