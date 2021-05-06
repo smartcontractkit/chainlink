@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 )
 
@@ -77,6 +78,7 @@ func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) 
 type Application interface {
 	Start() error
 	Stop() error
+	GetLogger() *logger.Logger
 	GetStore() *strpkg.Store
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
@@ -95,6 +97,8 @@ type Application interface {
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
+	services.RunManager
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -125,6 +129,7 @@ type ChainlinkApplication struct {
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
 	subservices              []StartCloser
+	logger                   *logger.Logger
 
 	started     bool
 	startStopMu sync.Mutex
@@ -174,6 +179,18 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Info("DatabaseBackup: periodic database backups are disabled")
 	}
 
+	// Init service loggers
+	globalLogger := config.CreateProductionLogger()
+	globalLogger.SetDB(store.DB)
+	serviceLogLevels, err := globalLogger.GetServiceLogLevels()
+	if err != nil {
+		logger.Fatalf("error getting log levels: %v", err)
+	}
+	headTrackerLogger, err := globalLogger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
+	if err != nil {
+		logger.Fatal("error starting logger for head tracker")
+	}
+
 	runExecutor := services.NewRunExecutor(store, statsPusher)
 	runQueue := services.NewRunQueue(runExecutor)
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
@@ -202,7 +219,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
-				headBroadcaster,
 				pipelineRunner,
 				pipelineORM,
 				ethClient,
@@ -284,6 +300,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
+		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
@@ -306,7 +323,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		}}
 		headTrackables = append(headTrackables, headTrackable)
 	}
-	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
+	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headTrackables)
 
 	// Log Broadcaster uses the last stored head as a limit of log backfill
 	// which needs to be set before it's started
@@ -321,6 +338,26 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	logBroadcaster.AddDependents(1)
 
 	return app, nil
+}
+
+// SetServiceLogger sets the Logger for a given service and stores the setting in the db
+func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level zapcore.Level) error {
+	newL, err := app.logger.InitServiceLevelLogger(serviceName, level.String())
+	if err != nil {
+		return err
+	}
+
+	// TODO: Implement other service loggers
+	switch serviceName {
+	case logger.HeadTracker:
+		app.HeadTracker.SetLogger(newL)
+	case logger.FluxMonitor:
+		app.FluxMonitor.SetLogger(newL)
+	default:
+		return fmt.Errorf("no service found with name: %s", serviceName)
+	}
+
+	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
 }
 
 func setupConfig(config *orm.Config, store *strpkg.Store) {
@@ -365,7 +402,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	// EthClient must be dialled first because it is required in subtasks
+	// EthClient must be dialed first because it is required in subtasks
 	if err := app.Store.EthClient.Dial(context.TODO()); err != nil {
 		return err
 	}
@@ -497,6 +534,10 @@ func (app *ChainlinkApplication) stop() error {
 // GetStore returns the pointer to the store for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
+}
+
+func (app *ChainlinkApplication) GetLogger() *logger.Logger {
+	return app.logger
 }
 
 func (app *ChainlinkApplication) GetJobORM() job.ORM {

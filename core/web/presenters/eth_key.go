@@ -5,22 +5,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gorm.io/gorm"
 )
 
 // ETHKeyResource represents a ETH key JSONAPI resource. It holds the hex
 // representation of the address plus it's ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
-	Address     string         `json:"address"`
-	EthBalance  *assets.Eth    `json:"ethBalance"`
-	LinkBalance *assets.Link   `json:"linkBalance"`
-	NextNonce   int64          `json:"nextNonce"`
-	LastUsed    *time.Time     `json:"lastUsed"`
-	IsFunding   bool           `json:"isFunding"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `json:"deletedAt"`
+	Address     string       `json:"address"`
+	EthBalance  *assets.Eth  `json:"ethBalance"`
+	LinkBalance *assets.Link `json:"linkBalance"`
+	NextNonce   int64        `json:"nextNonce"`
+	LastUsed    *time.Time   `json:"lastUsed"`
+	IsFunding   bool         `json:"isFunding"`
+	CreatedAt   time.Time    `json:"createdAt"`
+	UpdatedAt   time.Time    `json:"updatedAt"`
+	DeletedAt   *time.Time   `json:"deletedAt"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -49,7 +48,10 @@ func NewETHKeyResource(k models.Key, opts ...NewETHKeyOption) (*ETHKeyResource, 
 		IsFunding:   k.IsFunding,
 		CreatedAt:   k.CreatedAt,
 		UpdatedAt:   k.UpdatedAt,
-		DeletedAt:   k.DeletedAt,
+	}
+
+	if k.DeletedAt.Valid {
+		r.DeletedAt = &k.DeletedAt.Time
 	}
 
 	for _, opt := range opts {

@@ -9,23 +9,21 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func (rs *RegistrySynchronizer) processLogs(head models.Head) {
+func (rs *RegistrySynchronizer) processLogs() {
 	wg := sync.WaitGroup{}
 	wg.Add(4)
-	go rs.handleSyncRegistryLog(head, wg.Done)
-	go rs.handleUpkeepCanceledLogs(head, wg.Done)
-	go rs.handleUpkeepRegisteredLogs(head, wg.Done)
-	go rs.handleUpkeepPerformedLogs(head, wg.Done)
+	go rs.handleSyncRegistryLog(wg.Done)
+	go rs.handleUpkeepCanceledLogs(wg.Done)
+	go rs.handleUpkeepRegisteredLogs(wg.Done)
+	go rs.handleUpkeepPerformedLogs(wg.Done)
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) handleSyncRegistryLog(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
-	i := rs.mailRoom.mbSyncRegistry.RetrieveIf(oldEnough)
+	i := rs.mailRoom.mbSyncRegistry.Retrieve()
 	if i == nil {
 		return
 	}
@@ -53,11 +51,10 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(head models.Head, done fun
 	logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 }
 
-func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
 	for {
-		i := rs.mailRoom.mbUpkeepCanceled.RetrieveIf(oldEnough)
+		i := rs.mailRoom.mbUpkeepCanceled.Retrieve()
 		if i == nil {
 			return
 		}
@@ -94,9 +91,8 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(head models.Head, done 
 	}
 }
 
-func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	registry, err := rs.orm.RegistryForJob(ctx, rs.job.ID)
@@ -105,7 +101,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, don
 		return
 	}
 	for {
-		i := rs.mailRoom.mbUpkeepRegistered.RetrieveIf(oldEnough)
+		i := rs.mailRoom.mbUpkeepRegistered.Retrieve()
 		if i == nil {
 			return
 		}
@@ -139,11 +135,10 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, don
 	}
 }
 
-func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
 	for {
-		i := rs.mailRoom.mbUpkeepPerformed.RetrieveIf(oldEnough)
+		i := rs.mailRoom.mbUpkeepPerformed.Retrieve()
 		if i == nil {
 			return
 		}
@@ -177,16 +172,5 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(head models.Head, done
 		}
 		err = broadcast.MarkConsumed()
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
-	}
-}
-
-func isOldEnoughConstructor(head models.Head, minConfirmations uint64) func(interface{}) bool {
-	return func(i interface{}) bool {
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			return true // we want to get bad data out of the queue
-		}
-		logHeight := broadcast.RawLog().BlockNumber
-		return (logHeight + uint64(minConfirmations) - 1) <= uint64(head.Number)
 	}
 }

@@ -33,6 +33,7 @@ export type JobSpecType =
   | 'offchainreporting'
   | 'keeper'
   | 'cron'
+  | 'web'
 
 export type JobV2 = BaseJob & {
   dotDagSource: string

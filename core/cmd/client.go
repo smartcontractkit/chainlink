@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -76,7 +76,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURLs()...)
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
 		if err != nil {
 			return nil, err
 		}

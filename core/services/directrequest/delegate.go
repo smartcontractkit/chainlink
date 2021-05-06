@@ -8,10 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -23,27 +22,26 @@ import (
 
 type (
 	Delegate struct {
-		logBroadcaster  log.Broadcaster
-		headBroadcaster *services.HeadBroadcaster
-		pipelineRunner  pipeline.Runner
-		pipelineORM     pipeline.ORM
-		db              *gorm.DB
-		ethClient       eth.Client
-		chHeads         chan models.Head
-		config          Config
+		logBroadcaster log.Broadcaster
+		pipelineRunner pipeline.Runner
+		pipelineORM    pipeline.ORM
+		db             *gorm.DB
+		ethClient      eth.Client
+		chHeads        chan models.Head
+		config         Config
 	}
 
 	Config interface {
 		MinRequiredOutgoingConfirmations() uint64
+		MinimumContractPayment() *assets.Link
 	}
 )
 
-func NewDelegate(logBroadcaster log.Broadcaster, headBroadcaster *services.HeadBroadcaster,
+func NewDelegate(logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM,
 	ethClient eth.Client, db *gorm.DB, config Config) *Delegate {
 	return &Delegate{
 		logBroadcaster,
-		headBroadcaster,
 		pipelineRunner,
 		pipelineORM,
 		db,
@@ -76,19 +74,18 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
-		logBroadcaster:  d.logBroadcaster,
-		headBroadcaster: d.headBroadcaster,
-		oracle:          oracle,
-		pipelineRunner:  d.pipelineRunner,
-		db:              d.db,
-		pipelineORM:     d.pipelineORM,
-		job:             job,
+		config:         d.config,
+		logBroadcaster: d.logBroadcaster,
+		oracle:         oracle,
+		pipelineRunner: d.pipelineRunner,
+		db:             d.db,
+		pipelineORM:    d.pipelineORM,
+		job:            job,
 
 		// At the moment the mailbox would start skipping if there were
 		// too many relevant logs for the same job (> 50) in each block.
 		// This is going to get fixed after new LB changes are merged.
 		mbLogs:           utils.NewMailbox(50),
-		chHeads:          d.chHeads,
 		minConfirmations: minConfirmations,
 		chStop:           make(chan struct{}),
 	}
@@ -104,8 +101,8 @@ var (
 )
 
 type listener struct {
+	config            Config
 	logBroadcaster    log.Broadcaster
-	headBroadcaster   *services.HeadBroadcaster
 	oracle            oracle_wrapper.OracleInterface
 	pipelineRunner    pipeline.Runner
 	db                *gorm.DB
@@ -115,7 +112,6 @@ type listener struct {
 	runs              sync.Map
 	shutdownWaitGroup sync.WaitGroup
 	mbLogs            *utils.Mailbox
-	chHeads           chan models.Head
 	minConfirmations  uint64
 	chStop            chan struct{}
 	utils.StartStopOnce
@@ -126,19 +122,17 @@ func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle,
-			Logs: []generated.AbigenLog{
-				oracle_wrapper.OracleOracleRequest{},
-				oracle_wrapper.OracleCancelOracleRequest{},
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.onChainJobSpecID)}},
+				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.onChainJobSpecID)}},
 			},
-			NumConfirmations: 1,
+			NumConfirmations: l.minConfirmations,
 		})
 		l.shutdownWaitGroup.Add(2)
 		go l.run()
-		unsubscribeHeads := l.headBroadcaster.Subscribe(l)
 
 		go func() {
 			<-l.chStop
-			unsubscribeHeads()
 			unsubscribeLogs()
 			l.shutdownWaitGroup.Done()
 		}()
@@ -164,19 +158,6 @@ func (l *listener) Close() error {
 	})
 }
 
-// OnConnect complies with log.Listener
-func (*listener) OnConnect() {}
-
-// OnDisconnect complies with log.Listener
-func (*listener) OnDisconnect() {}
-
-func (l *listener) OnNewLongestChain(ctx context.Context, head models.Head) {
-	select {
-	case l.chHeads <- head:
-	default:
-	}
-}
-
 func (l *listener) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := l.mbLogs.Deliver(lb)
 	if wasOverCapacity {
@@ -190,16 +171,15 @@ func (l *listener) run() {
 		case <-l.chStop:
 			l.shutdownWaitGroup.Done()
 			return
-		case head := <-l.chHeads:
-			l.handleReceivedLogs(head)
+		case <-l.mbLogs.Notify():
+			l.handleReceivedLogs()
 		}
 	}
 }
 
-func (l *listener) handleReceivedLogs(head models.Head) {
-	oldEnough := isOldEnoughConstructor(head, l.minConfirmations)
+func (l *listener) handleReceivedLogs() {
 	for {
-		i := l.mbLogs.RetrieveIf(oldEnough)
+		i := l.mbLogs.Retrieve()
 		if i == nil {
 			return
 		}
@@ -247,17 +227,6 @@ func (l *listener) handleReceivedLogs(head models.Head) {
 	}
 }
 
-func isOldEnoughConstructor(head models.Head, minConfirmations uint64) func(interface{}) bool {
-	return func(i interface{}) bool {
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			panic(errors.Errorf("DirectRequestListener: Invalid type received - expected Broadcast, got %T", i))
-		}
-		logHeight := broadcast.RawLog().BlockNumber
-		return (logHeight + uint64(minConfirmations) - 1) <= uint64(head.Number)
-	}
-}
-
 func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]interface{} {
 	result := make(map[string]interface{})
 	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
@@ -273,6 +242,18 @@ func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]
 }
 
 func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleRequest) {
+	minimumContractPayment := l.config.MinimumContractPayment()
+	if minimumContractPayment != nil {
+		requestPayment := assets.Link(*request.Payment)
+		if minimumContractPayment.Cmp(&requestPayment) > 0 {
+			logger.Infow("Rejected run for insufficient payment",
+				"minimumContractPayment", minimumContractPayment.String(),
+				"requestPayment", requestPayment.String(),
+			)
+			return
+		}
+	}
+
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 

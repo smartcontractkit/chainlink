@@ -65,22 +65,21 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		contract,
 		d.db,
 		d.jrm,
-		d.headBroadcaster,
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),
 		d.config.KeeperMinimumRequiredConfirmations(),
 	)
-	upkeepExecutor := NewUpkeepExecutor(
+	upkeepExecuter := NewUpkeepExecuter(
 		spec,
 		d.db,
 		d.pr,
 		d.ethClient,
 		d.headBroadcaster,
-		d.config.KeeperMaximumGracePeriod(),
+		d.config,
 	)
 
 	return []job.Service{
 		registrySynchronizer,
-		upkeepExecutor,
+		upkeepExecuter,
 	}, nil
 }

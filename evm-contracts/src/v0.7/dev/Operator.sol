@@ -42,7 +42,7 @@ contract Operator is
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
   // Forwarders
-  address[] private s_forwardersList;
+  OperatorForwarder private s_forwarder;
 
   event AuthorizedSendersChanged(
     address[] senders
@@ -85,6 +85,7 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+    s_forwarder = new OperatorForwarder(link);
   }
 
   // EXTERNAL FUNCTIONS
@@ -270,6 +271,14 @@ contract Operator is
     // Replace list
     s_authorizedSenderList = senders;
     emit AuthorizedSendersChanged(senders);
+
+    // Set authorized senders on the forwarder
+    address[] memory forwarderSenders = new address[](senders.length+1);
+    for (uint256 i = 0; i < senders.length; i++) {
+      forwarderSenders[i] = senders[i];
+    }
+    forwarderSenders[senders.length] = msg.sender;
+    s_forwarder.setAuthorizedSenders(forwarderSenders);
   }
 
   /**
@@ -288,18 +297,18 @@ contract Operator is
   }
 
   /**
-   * @notice Retrive a list of forwarders
-   * @return array of addresses
+   * @notice Retrive the forwarder
+   * @return address
    */
-  function getForwarders()
+  function getForwarder()
     external
     view
     override
     returns (
-      address[] memory
+      address
     )
   {
-    return s_forwardersList;
+    return address(s_forwarder);
   }
 
   /**
@@ -413,26 +422,6 @@ contract Operator is
   }
 
   // PUBLIC FUNCTIONS
-
-  /**
-   * @notice Create a new forwarder contract
-   * @dev This function uses create2 to deploy at a predetermined address.
-   * @return addr deployed address
-   */
-  function createForwarder()
-    public
-    onlyAuthorizedSender()
-    returns (
-      address addr
-    )
-  {
-    bytes32 salt = bytes32(s_forwardersList.length);
-    OperatorForwarder forwarder = new OperatorForwarder{salt: salt}(address(linkToken));
-    addr = address(forwarder);
-    require(addr != address(0), "Create2: Failed deployment");
-    s_forwardersList.push(addr);
-    emit ForwarderCreated(addr);
-  }
 
   /**
    * @notice Returns the address of the LINK token

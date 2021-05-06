@@ -115,41 +115,55 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	blockheight := int64(40)
+	blockheight := int64(61)
+	gracePeriod := int64(5)
 
 	reg1, _ := cltest.MustInsertKeeperRegistry(t, store)
 	reg1.BlockCountPerTurn = 20
 	require.NoError(t, store.DB.Save(&reg1).Error)
 	reg2, _ := cltest.MustInsertKeeperRegistry(t, store)
-	reg2.BlockCountPerTurn = 30
+	reg2.BlockCountPerTurn = 25
 	require.NoError(t, store.DB.Save(&reg2).Error)
 
-	upkeeps := [3]keeper.UpkeepRegistration{
-		newUpkeep(reg1, 0), // our turn
-		newUpkeep(reg1, 1), // our turn
-		newUpkeep(reg2, 0), // not our turn
+	upkeeps := [5]keeper.UpkeepRegistration{
+		newUpkeep(reg1, 0),
+		newUpkeep(reg1, 1),
+		newUpkeep(reg1, 2),
+		newUpkeep(reg2, 0),
+		newUpkeep(reg2, 1),
 	}
+
+	upkeeps[0].LastRunBlockHeight = 0  // Never run
+	upkeeps[1].LastRunBlockHeight = 41 // Run last turn
+	upkeeps[2].LastRunBlockHeight = 59 // Run last turn but still inside grace period (EXCLUDE)
+	upkeeps[3].LastRunBlockHeight = 46 // Run last turn
+	upkeeps[4].LastRunBlockHeight = 51 // Run this turn, outside grace period (EXCLUDE)
 
 	for _, upkeep := range upkeeps {
 		err := orm.UpsertUpkeep(context.Background(), &upkeep)
 		require.NoError(t, err)
 	}
 
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
+	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 5)
 
-	elligibleUpkeeps, err := orm.EligibleUpkeeps(context.Background(), blockheight, 0)
+	eligibleUpkeeps, err := orm.EligibleUpkeeps(context.Background(), blockheight, gracePeriod)
 	assert.NoError(t, err)
-	assert.Len(t, elligibleUpkeeps, 2)
-	assert.Equal(t, int64(0), elligibleUpkeeps[0].UpkeepID)
-	assert.Equal(t, int64(1), elligibleUpkeeps[1].UpkeepID)
+
+	require.Len(t, eligibleUpkeeps, 3)
+	assert.Equal(t, int64(0), eligibleUpkeeps[0].UpkeepID)
+	assert.Equal(t, int64(1), eligibleUpkeeps[1].UpkeepID)
+	assert.Equal(t, int64(0), eligibleUpkeeps[2].UpkeepID)
 
 	// preloads registry data
-	assert.Equal(t, reg1.ID, elligibleUpkeeps[0].RegistryID)
-	assert.Equal(t, reg1.ID, elligibleUpkeeps[1].RegistryID)
-	assert.Equal(t, reg1.CheckGas, elligibleUpkeeps[0].Registry.CheckGas)
-	assert.Equal(t, reg1.CheckGas, elligibleUpkeeps[1].Registry.CheckGas)
-	assert.Equal(t, reg1.ContractAddress, elligibleUpkeeps[0].Registry.ContractAddress)
-	assert.Equal(t, reg1.ContractAddress, elligibleUpkeeps[1].Registry.ContractAddress)
+	assert.Equal(t, reg1.ID, eligibleUpkeeps[0].RegistryID)
+	assert.Equal(t, reg1.ID, eligibleUpkeeps[1].RegistryID)
+	assert.Equal(t, reg2.ID, eligibleUpkeeps[2].RegistryID)
+	assert.Equal(t, reg1.CheckGas, eligibleUpkeeps[0].Registry.CheckGas)
+	assert.Equal(t, reg1.CheckGas, eligibleUpkeeps[1].Registry.CheckGas)
+	assert.Equal(t, reg2.CheckGas, eligibleUpkeeps[2].Registry.CheckGas)
+	assert.Equal(t, reg1.ContractAddress, eligibleUpkeeps[0].Registry.ContractAddress)
+	assert.Equal(t, reg1.ContractAddress, eligibleUpkeeps[1].Registry.ContractAddress)
+	assert.Equal(t, reg2.ContractAddress, eligibleUpkeeps[2].Registry.ContractAddress)
 }
 
 func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
@@ -175,11 +189,11 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
 
-	elligibleUpkeeps, err := orm.EligibleUpkeeps(context.Background(), blockheight, gracePeriod)
+	eligibleUpkeeps, err := orm.EligibleUpkeeps(context.Background(), blockheight, gracePeriod)
 	assert.NoError(t, err)
-	assert.Len(t, elligibleUpkeeps, 2)
-	assert.Equal(t, int64(0), elligibleUpkeeps[0].UpkeepID)
-	assert.Equal(t, int64(1), elligibleUpkeeps[1].UpkeepID)
+	assert.Len(t, eligibleUpkeeps, 2)
+	assert.Equal(t, int64(0), eligibleUpkeeps[0].UpkeepID)
+	assert.Equal(t, int64(1), eligibleUpkeeps[1].UpkeepID)
 }
 
 func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
@@ -195,26 +209,20 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	cltest.AssertCount(t, store, keeper.Registry{}, 1)
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
 
-	// out of 5 valid block heights, with 5 keepers, we are eligible
+	// out of 5 valid block ranges, with 5 keepers, we are eligible
 	// to submit on exactly 1 of them
-	list1, err := orm.EligibleUpkeeps(context.Background(), 20, 0) // someone eligible
+	list1, err := orm.EligibleUpkeeps(context.Background(), 20, 0)
 	require.NoError(t, err)
-	list2, err := orm.EligibleUpkeeps(context.Background(), 30, 0) // noone eligible
+	list2, err := orm.EligibleUpkeeps(context.Background(), 41, 0)
 	require.NoError(t, err)
-	list3, err := orm.EligibleUpkeeps(context.Background(), 40, 0) // someone eligible
+	list3, err := orm.EligibleUpkeeps(context.Background(), 62, 0)
 	require.NoError(t, err)
-	list4, err := orm.EligibleUpkeeps(context.Background(), 41, 0) // noone eligible
+	list4, err := orm.EligibleUpkeeps(context.Background(), 83, 0)
 	require.NoError(t, err)
-	list5, err := orm.EligibleUpkeeps(context.Background(), 60, 0) // someone eligible
-	require.NoError(t, err)
-	list6, err := orm.EligibleUpkeeps(context.Background(), 80, 0) // someone eligible
-	require.NoError(t, err)
-	list7, err := orm.EligibleUpkeeps(context.Background(), 99, 0) // noone eligible
-	require.NoError(t, err)
-	list8, err := orm.EligibleUpkeeps(context.Background(), 100, 0) // someone eligible
+	list5, err := orm.EligibleUpkeeps(context.Background(), 104, 0)
 	require.NoError(t, err)
 
-	totalEligible := len(list1) + len(list2) + len(list3) + len(list4) + len(list5) + len(list6) + len(list7) + len(list8)
+	totalEligible := len(list1) + len(list2) + len(list3) + len(list4) + len(list5)
 	require.Equal(t, 1, totalEligible)
 }
 
@@ -304,7 +312,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
+	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload, 500)
 	require.NoError(t, err)
 
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
