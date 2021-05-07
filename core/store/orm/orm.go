@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/ethereum/go-ethereum/common"
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -32,7 +34,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -898,7 +899,11 @@ func (orm *ORM) FindJobIDsWithBridge(bridgeName string) ([]models.JobID, error) 
 
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
-func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+func (orm *ORM) IdempotentInsertEthTaskRunTx(meta models.EthTxMeta, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+	metaBytes, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
 	etx := models.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
@@ -906,16 +911,17 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 		Value:          assets.NewEthValue(0),
 		GasLimit:       gasLimit,
 		State:          models.EthTxUnstarted,
+		Meta:           gormpostgrestypes.Jsonb{RawMessage: metaBytes},
 	}
 	ethTaskRunTransaction := models.EthTaskRunTx{
-		TaskRunID: taskRunID,
+		TaskRunID: meta.TaskRunID,
 	}
-	err := orm.DB.Transaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Create(&etx).Error; err != nil {
+	err = orm.DB.Transaction(func(dbtx *gorm.DB) error {
+		if err = dbtx.Create(&etx).Error; err != nil {
 			return err
 		}
 		ethTaskRunTransaction.EthTxID = etx.ID
-		if err := dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
+		if err = dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
 			return err
 		}
 		return nil
@@ -923,7 +929,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 	switch v := err.(type) {
 	case *pgconn.PgError:
 		if v.ConstraintName == "idx_eth_task_run_txes_task_run_id" {
-			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID)
+			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(meta.TaskRunID)
 			if e != nil {
 				return e
 			}
@@ -933,7 +939,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 					"transaction already exists for task run ID %s but it has different parameters\n"+
 						"New parameters: toAddress: %s, encodedPayload: 0x%s"+
 						"Existing record has: toAddress: %s, encodedPayload: 0x%s",
-					taskRunID.String(),
+					meta.TaskRunID.String(),
 					toAddress.String(), hex.EncodeToString(encodedPayload),
 					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload),
 				)
@@ -1796,7 +1802,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 	db = db.Omit(clause.Associations).Session(&gorm.Session{})
 
-	if err = dbutil.SetTimezone(db); err != nil {
+	if err = db.Exec(`SET TIME ZONE 'UTC'`).Error; err != nil {
 		return nil, err
 	}
 	d.SetMaxOpenConns(ct.maxOpenConns)
