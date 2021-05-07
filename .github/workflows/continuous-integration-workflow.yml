@@ -425,7 +425,7 @@ jobs:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Build image
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v2.4.0
         with:
           registry: ${{ steps.login-ecr.outputs.registry }}
           repository: ${{ secrets.ECR_REPO }}
