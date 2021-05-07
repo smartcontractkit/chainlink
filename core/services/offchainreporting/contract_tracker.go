@@ -218,7 +218,10 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		configSet.Raw = lb.RawLog()
 		cc := confighelper.ContractConfigFromConfigSetEvent(*configSet)
 
-		t.configsMB.Deliver(cc)
+		wasOverCapacity := t.configsMB.Deliver(cc)
+		if wasOverCapacity {
+			t.logger.Error("config mailbox is over capacity - dropped the oldest unprocessed item")
+		}
 	case OCRContractLatestRoundRequested:
 		var rr *offchainaggregator.OffchainAggregatorRoundRequested
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
