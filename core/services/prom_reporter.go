@@ -99,18 +99,18 @@ func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) *promReporter {
 	}
 }
 
-func (b *promReporter) Start() error {
-	return b.StartOnce("PromReporter", func() error {
-		b.wgDone.Add(1)
-		go b.eventLoop()
+func (pr *promReporter) Start() error {
+	return pr.StartOnce("PromReporter", func() error {
+		pr.wgDone.Add(1)
+		go pr.eventLoop()
 		return nil
 	})
 }
 
-func (b *promReporter) Close() error {
-	return b.StopOnce("PromReporter", func() error {
-		close(b.chStop)
-		b.wgDone.Wait()
+func (pr *promReporter) Close() error {
+	return pr.StopOnce("PromReporter", func() error {
+		close(pr.chStop)
+		pr.wgDone.Wait()
 		return nil
 	})
 }
