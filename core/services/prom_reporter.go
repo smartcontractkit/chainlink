@@ -129,6 +129,7 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head)
 }
 
 func (pr *promReporter) eventLoop() {
+	logger.Debug("PromReporter: starting event loop")
 	defer pr.wgDone.Done()
 	for {
 		select {
