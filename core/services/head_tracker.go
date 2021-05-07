@@ -81,38 +81,54 @@ func (r *headRingBuffer) Start() {
 }
 
 func (r *headRingBuffer) run() {
-	for h := range r.in {
-		if h == nil {
-			r.logger().Error("HeadTracker: got nil block header")
-			continue
-		}
-		promNumHeadsReceived.Inc()
-		hInQueue := len(r.out)
-		promHeadsInQueue.Set(float64(hInQueue))
-		if hInQueue > 0 {
-			r.logger().Infof("HeadTracker: Head %v is lagging behind, there are %v more heads in the queue. Your node is operating close to its maximum capacity and may start to miss jobs.", h.Number, hInQueue)
-		}
+	noHeadsAlarm := time.Minute
+	t := time.NewTicker(noHeadsAlarm)
+	for {
 		select {
-		case r.out <- *h:
-		default:
-			// Need to select/default here because it's conceivable (although
-			// improbable) that between the previous select and now, all heads were drained
-			// from r.out by another goroutine
-			//
-			// NOTE: In this unlikely event, we may drop an extra head unnecessarily.
-			// The probability of this seems vanishingly small, and only hits
-			// if the queue was already full anyway, so we can live with this
-			select {
-			case dropped := <-r.out:
-				promNumHeadsDropped.Inc()
-				r.logger().Errorf("HeadTracker: dropping head %v with hash 0x%x because queue is full. WARNING: Your node is overloaded and may start missing jobs.", dropped.Number, h.Hash)
-				r.out <- *h
-			default:
-				r.out <- *h
+		case h, ok := <-r.in:
+			if !ok {
+				// If the channel is closed, do not handle any more heads.
+				close(r.out)
+				return
 			}
+			// We've received a head, reset the no heads alarm
+			t.Stop()
+			t = time.NewTicker(noHeadsAlarm)
+
+			if h == nil {
+				r.logger().Error("HeadTracker: got nil block header")
+				continue
+			}
+			promNumHeadsReceived.Inc()
+			hInQueue := len(r.out)
+			promHeadsInQueue.Set(float64(hInQueue))
+			if hInQueue > 0 {
+				r.logger().Infof("HeadTracker: Head %v is lagging behind, there are %v more heads in the queue. Your node is operating close to its maximum capacity and may start to miss jobs.", h.Number, hInQueue)
+			}
+			select {
+			case r.out <- *h:
+			default:
+				// Need to select/default here because it's conceivable (although
+				// improbable) that between the previous select and now, all heads were drained
+				// from r.out by another goroutine
+				//
+				// NOTE: In this unlikely event, we may drop an extra head unnecessarily.
+				// The probability of this seems vanishingly small, and only hits
+				// if the queue was already full anyway, so we can live with this
+				select {
+				case dropped := <-r.out:
+					promNumHeadsDropped.Inc()
+					r.logger().Errorf("HeadTracker: dropping head %v with hash 0x%x because queue is full. WARNING: Your node is overloaded and may start missing jobs.", dropped.Number, h.Hash)
+					r.out <- *h
+				default:
+					r.out <- *h
+				}
+			}
+		case <-t.C:
+			// We haven't received a head on the channel for a long time, log a warning
+			logger.Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarm))
 		}
 	}
-	close(r.out)
 }
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -308,8 +324,8 @@ func (ht *HeadTracker) backfiller() {
 			return
 		case <-ht.backfillMB.Notify():
 			for {
-				head := ht.backfillMB.Retrieve()
-				if head == nil {
+				head, exists := ht.backfillMB.Retrieve()
+				if !exists {
 					break
 				}
 				h, is := head.(models.Head)
@@ -444,6 +460,7 @@ func (ht *HeadTracker) subscribe() bool {
 }
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
+// Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
 func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 	for {
 		select {
@@ -460,10 +477,11 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 
 				err := ht.handleNewHead(ctx, blockHeader)
 				if ctx.Err() != nil {
+					// the 'ctx' context is closed only on ht.done - on shutdown, so it's safe to return nil
 					return nil
 				} else if deadlineCtx.Err() != nil {
 					ht.logger().Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
-					return err
+					continue
 				} else if err != nil {
 					return err
 				}

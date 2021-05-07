@@ -186,11 +186,6 @@ func (rm *runManager) Create(
 	creationHeight *big.Int,
 	runRequest *models.RunRequest,
 ) (*models.JobRun, error) {
-	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
-		"job", jobSpecID.String(),
-		"creation_height", creationHeight.String(),
-	)
-
 	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
@@ -223,6 +218,10 @@ func (rm *runManager) Create(
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
 
+	logger.Debugw(
+		fmt.Sprintf("RunManager: creating new job run initiated by %s", run.Initiator.Type),
+		run.ForLogger()...,
+	)
 	if err := rm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
@@ -230,7 +229,7 @@ func (rm *runManager) Create(
 
 	if run.GetStatus().Runnable() {
 		logger.Debugw(
-			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+			fmt.Sprintf("RunManager: executing run initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
 		rm.runQueue.Run(run.ID)

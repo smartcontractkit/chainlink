@@ -84,9 +84,11 @@ type (
 		GasUpdaterBatchSize              *uint32
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
+		GasUpdaterEnabled                bool
 		HeadTimeBudget                   time.Duration
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
+		OptimismGasFees                  bool
 	}
 )
 
@@ -107,6 +109,7 @@ func init() {
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:                true,
 		HeadTimeBudget:                   13 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
@@ -133,6 +136,7 @@ func init() {
 		GasUpdaterBlockDelay:             2,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:                true,
 		HeadTimeBudget:                   3 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
@@ -153,14 +157,35 @@ func init() {
 		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
 		GasUpdaterBlockHistorySize:       128,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:                true,
 		HeadTimeBudget:                   1 * time.Second,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
 	}
 
+	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
+	optimism := ChainSpecificDefaultSet{
+		EthGasBumpThreshold:              0, // Never bump gas on optimism
+		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
+		EthHeadTrackerHistoryDepth:       10,
+		EthBalanceMonitorBlockDelay:      0,
+		EthTxResendAfterThreshold:        5 * time.Second,
+		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
+		GasUpdaterEnabled:                false,
+		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
+		MinIncomingConfirmations:         1,
+		MinRequiredOutgoingConfirmations: 0,
+		OptimismGasFees:                  true,
+	}
+
 	GeneralDefaults = mainnet
 	ChainSpecificDefaults[1] = mainnet
 	ChainSpecificDefaults[42] = kovan
+
+	ChainSpecificDefaults[10] = optimism
+	ChainSpecificDefaults[69] = optimism
+	ChainSpecificDefaults[420] = optimism
+
 	ChainSpecificDefaults[56] = bscMainnet
 	ChainSpecificDefaults[128] = hecoMainnet
 	ChainSpecificDefaults[80001] = polygonMatic
@@ -228,12 +253,24 @@ func (c *Config) Validate() error {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
 
+	if c.GasUpdaterEnabled() && c.GasUpdaterBlockHistorySize() <= 0 {
+		return errors.New("GAS_UPDATER_BLOCK_HISTORY_SIZE must be greater than or equal to 1 if gas updater is enabled")
+	}
+
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
 		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
 		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
+	}
+
+	if c.EthFinalityDepth() < 1 {
+		return errors.New("ETH_FINALITY_DEPTH must be greater than or equal to 1")
+	}
+
+	if c.MinIncomingConfirmations() < 1 {
+		return errors.New("MIN_INCOMING_CONFIRMATIONS must be greater than or equal to 1")
 	}
 
 	var override time.Duration
@@ -616,6 +653,16 @@ func (c Config) EthGasPriceDefault() *big.Int {
 	return chainSpecificConfig(c).EthGasPriceDefault
 }
 
+// EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
+// multiplied before transmission. So if the value is 1.1, and the GasLimit for
+// a transaction is 10, 10% will be added before transmission.
+//
+// This factor is always applied, so includes Optimism L2 transactions which
+// uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+func (c Config) EthGasLimitMultiplier() float32 {
+	return (float32)(c.getWithFallback("EthGasLimitMultiplier", parseF32).(float64))
+}
+
 // SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
 func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 	if c.runtimeStore == nil {
@@ -630,6 +677,20 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
 // If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+//
+// Special cases:
+// ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
+// ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
+//
+// Examples:
+//
+// Transaction sending:
+// A transaction is sent at block height 42
+//
+// ETH_FINALITY_DEPTH is set to 5
+// A re-org occurs at height 44 starting at block 41, transaction is marked for rebroadcast
+// A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
+// A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
 func (c Config) EthFinalityDepth() uint {
 	if c.viper.IsSet(EnvVarName("EthFinalityDepth")) {
 		return uint(c.viper.GetUint64(EnvVarName("EthFinalityDepth")))
@@ -786,9 +847,12 @@ func (c Config) GasUpdaterTransactionPercentile() uint16 {
 }
 
 // GasUpdaterEnabled turns on the automatic gas updater if set to true
-// It is disabled by default
+// It is enabled by default on most chains
 func (c Config) GasUpdaterEnabled() bool {
-	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+	if c.viper.IsSet(EnvVarName("GasUpdaterEnabled")) {
+		return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+	}
+	return chainSpecificConfig(c).GasUpdaterEnabled
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
@@ -995,7 +1059,10 @@ func (c Config) OperatorContractAddress() common.Address {
 // OptimismGasFees enables asking the network for gas price before submitting
 // transactions, enabling compatibility with Optimism's L2 chain
 func (c Config) OptimismGasFees() bool {
-	return c.viper.GetBool(EnvVarName("OptimismGasFees"))
+	if c.viper.IsSet(EnvVarName("OptimismGasFees")) {
+		return c.viper.GetBool(EnvVarName("OptimismGasFees"))
+	}
+	return chainSpecificConfig(c).OptimismGasFees
 }
 
 // LogLevel represents the maximum level of log messages to output.
@@ -1059,6 +1126,8 @@ func (c Config) LogSQLMigrations() bool {
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
+// MIN_INCOMING_CONFIRMATIONS=1 would kick off a job after seeing the transaction in a block
+// MIN_INCOMING_CONFIRMATIONS=0 would kick off a job even before the transaction is mined, which is not supported
 func (c Config) MinIncomingConfirmations() uint32 {
 	if c.viper.IsSet(EnvVarName("MinIncomingConfirmations")) {
 		return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
@@ -1069,6 +1138,8 @@ func (c Config) MinIncomingConfirmations() uint32 {
 // MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
+// MIN_OUTGOING_CONFIRMATIONS=1 considers a transaction as "done" once it has been mined into one block
+// MIN_OUTGOING_CONFIRMATIONS=0 would consider a transaction as "done" even before it has been mined
 func (c Config) MinRequiredOutgoingConfirmations() uint64 {
 	if c.viper.IsSet(EnvVarName("MinRequiredOutgoingConfirmations")) {
 		return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
@@ -1126,6 +1197,7 @@ func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 	return c.getWithFallback("P2PPeerstoreWriteInterval", parseDuration).(time.Duration)
 }
 
+// P2PPeerID is the default peer ID that will be used, if not overridden
 func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
 	if override != nil {
 		return *override, nil
@@ -1144,6 +1216,11 @@ func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
 
 func (c Config) P2PPeerIDIsSet() bool {
 	return c.viper.GetString(EnvVarName("P2PPeerID")) != ""
+}
+
+// P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
+func (c Config) P2PPeerIDRaw() string {
+	return c.viper.GetString(EnvVarName("P2PPeerID"))
 }
 
 func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
@@ -1390,6 +1467,11 @@ func parseUint32(s string) (interface{}, error) {
 
 func parseUint64(s string) (interface{}, error) {
 	v, err := strconv.ParseUint(s, 10, 64)
+	return v, err
+}
+
+func parseF32(s string) (interface{}, error) {
+	v, err := strconv.ParseFloat(s, 32)
 	return v, err
 }
 

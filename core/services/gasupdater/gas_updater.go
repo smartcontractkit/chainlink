@@ -152,7 +152,11 @@ func (gu *gasUpdater) runLoop() {
 		case <-gu.ctx.Done():
 			return
 		case <-gu.mb.Notify():
-			head := gu.mb.Retrieve()
+			head, exists := gu.mb.Retrieve()
+			if !exists {
+				logger.Info("GasUpdater: no head to retrieve. It might have been skipped")
+				continue
+			}
 			h, is := head.(models.Head)
 			if !is {
 				panic(fmt.Sprintf("invariant violation, expected %T but got %T", models.Head{}, head))
@@ -216,6 +220,10 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 	// it too early results in an empty block.
 	blockDelay := int64(gu.config.GasUpdaterBlockDelay())
 	historySize := int64(gu.config.GasUpdaterBlockHistorySize())
+
+	if historySize <= 0 {
+		return errors.Errorf("GasUpdater: history size must be > 0, got: %d", historySize)
+	}
 
 	highestBlockToFetch := head.Number - blockDelay
 	if highestBlockToFetch < 0 {
