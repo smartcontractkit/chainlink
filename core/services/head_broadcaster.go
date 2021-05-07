@@ -91,7 +91,7 @@ func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe fu
 	defer hr.mutex.Unlock()
 	id, err := newID()
 	if err != nil {
-		logger.Errorf("Unable to create ID for head relayble callback: %v", err)
+		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
 		return
 	}
 	hr.callbacks[id] = callback
