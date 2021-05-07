@@ -37,6 +37,7 @@ describe('ValidatorProxy', () => {
       'proposeNewValidator',
       'upgradeValidator',
       'getValidators',
+      'typeAndVersion',
     ])
   })
 
@@ -380,7 +381,7 @@ describe('ValidatorProxy', () => {
           })
 
           it('uses a specific amount of gas', async () => {
-            assert.equal(receipt.receipt.gasUsed, 34650)
+            assert.equal(receipt.receipt.gasUsed, 32510)
           })
         })
 
@@ -428,7 +429,7 @@ describe('ValidatorProxy', () => {
           })
 
           it('uses a specific amount of gas', async () => {
-            assert.equal(receipt.receipt.gasUsed, 42754)
+            assert.equal(receipt.receipt.gasUsed, 40629)
           })
         })
       })
