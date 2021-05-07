@@ -54,17 +54,26 @@ type ethConfirmer struct {
 	mb        *utils.Mailbox
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-	chDone    chan struct{}
+	wg        sync.WaitGroup
+
+	reaper *Reaper
 
 	ethResender *EthResender
 }
 
+// NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
 	var ethResender *EthResender
+	var reaper *Reaper
 	if config.EthTxResendAfterThreshold() > 0 {
 		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config)
 	} else {
-		logger.Info("ethResender: Disabled")
+		logger.Info("EthConfimer: EthResender Disabled")
+	}
+	if config.EthTxReaperThreshold() > 0 {
+		reaper = NewReaper(store.DB, config)
+	} else {
+		logger.Info("EthConfirmer: Reaper Disabled")
 	}
 	context, cancel := context.WithCancel(context.Background())
 	return &ethConfirmer{
@@ -75,7 +84,8 @@ func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer 
 		utils.NewMailbox(1),
 		context,
 		cancel,
-		make(chan struct{}),
+		sync.WaitGroup{},
+		reaper,
 		ethResender,
 	}
 }
@@ -99,6 +109,9 @@ func (ec *ethConfirmer) Disconnect() {
 // - We move straight on to processing head 45
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
 	ec.mb.Deliver(head)
+	if ec.reaper != nil {
+		ec.reaper.Deliver(head.Number)
+	}
 }
 
 func (ec *ethConfirmer) Start() error {
@@ -110,10 +123,20 @@ func (ec *ethConfirmer) Start() error {
 	} else {
 		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
 	}
-	go ec.runLoop()
+
+	if ec.reaper != nil {
+		ec.wg.Add(1)
+		ec.reaper.Start()
+	}
+
 	if ec.ethResender != nil {
+		ec.wg.Add(1)
 		ec.ethResender.Start()
 	}
+
+	ec.wg.Add(1)
+	go ec.runLoop()
+
 	return nil
 }
 
@@ -121,16 +144,29 @@ func (ec *ethConfirmer) Close() error {
 	if !ec.OkayToStop() {
 		return errors.New("EthConfirmer has already been stopped")
 	}
-	if ec.ethResender != nil {
-		ec.ethResender.Stop()
+
+	if ec.reaper != nil {
+		go func() {
+			defer ec.wg.Done()
+			ec.reaper.Stop()
+		}()
 	}
+
+	if ec.ethResender != nil {
+		go func() {
+			defer ec.wg.Done()
+			ec.ethResender.Stop()
+		}()
+	}
+
 	ec.ctxCancel()
-	<-ec.chDone
+	ec.wg.Wait()
+
 	return nil
 }
 
 func (ec *ethConfirmer) runLoop() {
-	defer close(ec.chDone)
+	defer ec.wg.Done()
 	for {
 		select {
 		case <-ec.mb.Notify():

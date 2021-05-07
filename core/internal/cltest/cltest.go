@@ -193,6 +193,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
 	config.Set("ETH_FINALITY_DEPTH", 1)
+	// Disable the EthTxReaper
+	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	return config, cleanup
 }
 
@@ -251,6 +253,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
 	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
 	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
+	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config

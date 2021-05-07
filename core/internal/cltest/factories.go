@@ -636,6 +636,12 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 	return r
 }
 
+func MustInsertConfirmedEthTxWithReceipt(t *testing.T, s *strpkg.Store, fromAddress common.Address, nonce, blockNum int64) (etx models.EthTx) {
+	etx = MustInsertConfirmedEthTxWithAttempt(t, s, nonce, blockNum, fromAddress)
+	MustInsertEthReceipt(t, s, blockNum, NewHash(), etx.EthTxAttempts[0].Hash)
+	return etx
+}
+
 func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
 	etx := NewEthTx(t, store, fromAddress)
 	errStr := "something exploded"
