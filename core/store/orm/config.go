@@ -753,6 +753,19 @@ func (c Config) EthTxResendAfterThreshold() time.Duration {
 	return chainSpecificConfig(c).EthTxResendAfterThreshold
 }
 
+// EthTxReaperThreshold represents how long any confirmed/fatally_errored eth_txes will hang around in the database.
+// If the eth_tx is confirmed but still below ETH_FINALITY_DEPTH it will not be deleted even if it was created at a time older than this value.
+// EXAMPLE
+// With:
+// EthTxReaperThreshold=1h
+// EthFinalityDepth=50
+//
+// Current head is 142, any eth_tx confirmed in block 91 or below will be reaped as long as its created_at was more than EthTxReaperThreshold ago
+// Set to 0 to disable eth_tx reaping
+func (c Config) EthTxReaperThreshold() time.Duration {
+	return c.getWithFallback("EthTxReaperThreshold", parseDuration).(time.Duration)
+}
+
 // EthLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs
 func (c Config) EthLogBackfillBatchSize() uint32 {
 	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
