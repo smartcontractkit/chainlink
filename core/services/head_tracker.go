@@ -324,8 +324,8 @@ func (ht *HeadTracker) backfiller() {
 			return
 		case <-ht.backfillMB.Notify():
 			for {
-				head := ht.backfillMB.Retrieve()
-				if head == nil {
+				head, exists := ht.backfillMB.Retrieve()
+				if !exists {
 					break
 				}
 				h, is := head.(models.Head)

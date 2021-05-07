@@ -91,7 +91,7 @@ func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe fu
 	defer hr.mutex.Unlock()
 	id, err := newID()
 	if err != nil {
-		logger.Errorf("Unable to create ID for head relayble callback: %v", err)
+		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
 		return
 	}
 	hr.callbacks[id] = callback
@@ -122,7 +122,12 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 	callbacks := hr.callbacks.clone()
 	hr.mutex.RUnlock()
 
-	head, ok := hr.mailbox.Retrieve().(models.Head)
+	item, exists := hr.mailbox.Retrieve()
+	if !exists {
+		logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
+		return
+	}
+	head, ok := item.(models.Head)
 	if !ok {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
