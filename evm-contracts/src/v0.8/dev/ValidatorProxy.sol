@@ -3,8 +3,9 @@ pragma solidity ^0.8.0;
 
 import "./ConfirmedOwner.sol";
 import "../interfaces/AggregatorValidatorInterface.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
 
-contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
+contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface, ConfirmedOwner {
 
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {
@@ -103,11 +104,11 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     )
   {
     address currentAggregator = s_currentAggregator.target;
-    address proposedAggregator = s_proposedAggregator;
-    require(msg.sender == currentAggregator || msg.sender == proposedAggregator, "Not a configured aggregator");
-    // If the aggregator is still in proposed state, emit an event and don't push to any validator.
-    // This is to confirm that `validate` is being called prior to upgrade.
-    if (msg.sender == proposedAggregator) {
+    if (msg.sender != currentAggregator) {
+      address proposedAggregator = s_proposedAggregator;
+      require(msg.sender == proposedAggregator, "Not a configured aggregator");
+      // If the aggregator is still in proposed state, emit an event and don't push to any validator.
+      // This is to confirm that `validate` is being called prior to upgrade.
       emit ProposedAggregatorValidateCall(
         proposedAggregator,
         previousRoundId,
@@ -272,6 +273,22 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     current = s_currentValidator.target;
     hasProposal = s_currentValidator.hasNewProposal;
     proposed = s_proposedValidator;
+  }
+
+  /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion()
+    external
+    pure
+    virtual
+    override
+    returns (
+      string memory
+    )
+  {
+    return "ValidatorProxy 1.0.0";
   }
 
 }
