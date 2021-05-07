@@ -242,7 +242,7 @@ func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuer
 // Unsubscribe closes channels and cleans up resources.
 func (sub *ManagedSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
-		timedUnsubscribe(sub.ethSubscription)
+		TimedUnsubscribe(sub.ethSubscription)
 	}
 	close(sub.done)
 }
@@ -251,7 +251,7 @@ func (sub *ManagedSubscription) Unsubscribe() {
 // unblocking the application. This is an effort to mitigate the occasional
 // indefinite block described here from go-ethereum:
 // https://chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(unsubscriber Unsubscriber) {
+func TimedUnsubscribe(unsubscriber Unsubscriber) {
 	unsubscribed := make(chan struct{})
 	go func() {
 		unsubscriber.Unsubscribe()

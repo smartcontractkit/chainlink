@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/blockfetcher"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -181,7 +182,7 @@ type HeadTracker struct {
 	backfillMB                utils.Mailbox
 	subscriptionSucceeded     chan struct{}
 	muLogger                  sync.RWMutex
-	blockFetcher              *BlockFetcher
+	blockFetcher              *blockfetcher.BlockFetcher
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -202,7 +203,7 @@ func NewHeadTracker(l *logger.Logger, store *strpkg.Store, headTrackerAddressCha
 		log:                       l,
 		backfillMB:                *utils.NewMailbox(1),
 		done:                      make(chan struct{}),
-		blockFetcher:              NewBlockFetcher(store),
+		blockFetcher:              blockfetcher.NewBlockFetcher(store),
 	}
 }
 
@@ -666,7 +667,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 		return nil
 	}
 
-	timedUnsubscribe(ht.headSubscription)
+	TimedUnsubscribe(ht.headSubscription)
 
 	ht.connected = false
 	ht.disconnect()
