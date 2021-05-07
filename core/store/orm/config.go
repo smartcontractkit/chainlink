@@ -73,6 +73,7 @@ type (
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
 	ChainSpecificDefaultSet struct {
+		EnableLegacyJobPipeline          bool
 		EthGasBumpThreshold              uint64
 		EthGasBumpWei                    *big.Int
 		EthGasPriceDefault               *big.Int
@@ -98,6 +99,7 @@ func init() {
 	var defaultGasUpdaterBatchSize uint32 = 4
 
 	mainnet := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              3,
 		EthGasBumpWei:                    big.NewInt(5000000000),    // 5 Gwei
 		EthGasPriceDefault:               big.NewInt(20000000000),   // 20 Gwei
@@ -125,6 +127,7 @@ func init() {
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              12,                       // mainnet * 4 (3s vs 13s block time)
 		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
 		EthGasPriceDefault:               big.NewInt(5000000000),   // 5 Gwei
@@ -146,6 +149,7 @@ func init() {
 
 	// Matic has a 1s block time and looser finality guarantees than Ethereum.
 	polygonMatic := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              39,                       // mainnet * 13
 		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
 		EthGasPriceDefault:               big.NewInt(1000000000),   // 1 Gwei
@@ -165,6 +169,7 @@ func init() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
 	optimism := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          false,
 		EthGasBumpThreshold:              0, // Never bump gas on optimism
 		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
 		EthHeadTrackerHistoryDepth:       10,
@@ -502,6 +507,14 @@ func (c Config) Dev() bool {
 // EnableExperimentalAdapters enables support for experimental adapters
 func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
+}
+
+// EnableLegacyJobPipeline enables the v1 job pipeline (JSON job specs)
+func (c Config) EnableLegacyJobPipeline() bool {
+	if c.viper.IsSet(EnvVarName("EnableLegacyJobPipeline")) {
+		return c.viper.GetBool(EnvVarName("EnableLegacyJobPipeline"))
+	}
+	return chainSpecificConfig(c).EnableLegacyJobPipeline
 }
 
 // FeatureExternalInitiators enables the External Initiator feature.
