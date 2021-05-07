@@ -226,7 +226,7 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
+		backfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
 		if abort {
 			return
 		}
@@ -238,7 +238,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		// "remaining logs from last subscription <- backfilled logs <- logs from new subscription"
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
 		// to account for this using the helpers on the Broadcast type.
-		chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
+		//chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
 		chRawLogs = b.appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
 		subscription = newSubscription
@@ -247,7 +247,14 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		atomic.StoreUint32(&b.trackedAddressesCount, uint32(len(addresses)))
 
-		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
+		//for {
+		//	select {
+		//	case rawLog := <-chRawLogs:
+		//		b.onNewLog(rawLog)
+		//	}
+		//}
+
+		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription)
 		if err != nil {
 			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
@@ -259,7 +266,7 @@ func (b *broadcaster) startResubscribeLoop() {
 	}
 }
 
-func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) (shouldResubscribe bool, _ error) {
+func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, subscription managedSubscription) (shouldResubscribe bool, _ error) {
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
 	var needsResubscribe bool
@@ -275,7 +282,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 		case <-b.newHeads.Notify():
 			b.onNewHeads()
 
-		case err := <-chErr:
+		case err := <-subscription.Err():
 			// Note we'll get a message on this channel
 			// if the eth node terminates the connection.
 			return true, err

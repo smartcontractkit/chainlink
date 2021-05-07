@@ -30,12 +30,11 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 	}
 }
 
-func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (backfilledLogs []types.Log, abort bool) {
 	if len(addresses) == 0 {
 		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
-		ch := make(chan types.Log)
-		close(ch)
-		return ch, false
+		backfilledLogs := make([]types.Log, 0)
+		return backfilledLogs, false
 	}
 
 	ctx, cancel := utils.ContextFromChan(sub.chStop)
@@ -75,9 +74,6 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			Topics:    [][]common.Hash{topics},
 		}
 
-		chBackfilledLogs = make(chan types.Log, 1000)
-		defer close(chBackfilledLogs)
-
 		allLogs := make([]types.Log, 0)
 		start := time.Now()
 		// If we are significantly behind the latest head, there could be a very large (1000s)
@@ -112,13 +108,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			}
 		}
 
-		for _, log := range allLogs {
-			select {
-			case chBackfilledLogs <- log:
-			case <-sub.chStop:
-				return
-			}
-		}
+		backfilledLogs = allLogs
 
 		logger.Infof("LogBroadcaster: Finished backfill of %v logs", len(allLogs))
 		return false
