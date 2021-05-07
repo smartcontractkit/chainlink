@@ -172,11 +172,13 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 			}
 			return
 		case <-eb.trigger:
+			// EthTx was inserted
 			if !pollDBTimer.Stop() {
 				<-pollDBTimer.C
 			}
 			continue
 		case <-pollDBTimer.C:
+			// DB poller timed out
 			continue
 		}
 	}
@@ -267,7 +269,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
-	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
+	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt, etx)
 
 	if sendError.IsTooExpensive() {
 		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",

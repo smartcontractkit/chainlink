@@ -9,16 +9,16 @@ import (
 
 // RunInput represents the input for performing a Task
 type RunInput struct {
-	jobRunID  uuid.UUID
+	jobRun    JobRun
 	taskRunID uuid.UUID
 	data      JSON
 	status    RunStatus
 }
 
 // NewRunInput creates a new RunInput with arbitrary data
-func NewRunInput(jobRunID uuid.UUID, taskRunID uuid.UUID, data JSON, status RunStatus) *RunInput {
+func NewRunInput(jobRun JobRun, taskRunID uuid.UUID, data JSON, status RunStatus) *RunInput {
 	return &RunInput{
-		jobRunID:  jobRunID,
+		jobRun:    jobRun,
 		taskRunID: taskRunID,
 		data:      data,
 		status:    status,
@@ -26,13 +26,13 @@ func NewRunInput(jobRunID uuid.UUID, taskRunID uuid.UUID, data JSON, status RunS
 }
 
 // NewRunInputWithResult creates a new RunInput with a value in the "result" field
-func NewRunInputWithResult(jobRunID uuid.UUID, taskRunID uuid.UUID, value interface{}, status RunStatus) *RunInput {
+func NewRunInputWithResult(jobRun JobRun, taskRunID uuid.UUID, value interface{}, status RunStatus) *RunInput {
 	data, err := JSON{}.Add(ResultKey, value)
 	if err != nil {
 		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
 	}
 	return &RunInput{
-		jobRunID:  jobRunID,
+		jobRun:    jobRun,
 		taskRunID: taskRunID,
 		data:      data,
 		status:    status,
@@ -69,7 +69,11 @@ func (ri RunInput) Data() JSON {
 
 // JobRunID returns this RunInput's JobRunID
 func (ri RunInput) JobRunID() uuid.UUID {
-	return ri.jobRunID
+	return ri.jobRun.ID
+}
+
+func (ri RunInput) JobRun() JobRun {
+	return ri.jobRun
 }
 
 // TaskRunID returns this RunInput's TaskRunID
