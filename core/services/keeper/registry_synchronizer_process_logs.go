@@ -23,8 +23,8 @@ func (rs *RegistrySynchronizer) processLogs() {
 
 func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	defer done()
-	i := rs.mailRoom.mbSyncRegistry.Retrieve()
-	if i == nil {
+	i, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
+	if !exists {
 		return
 	}
 	broadcast, ok := i.(log.Broadcast)
@@ -54,8 +54,8 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 	defer done()
 	for {
-		i := rs.mailRoom.mbUpkeepCanceled.Retrieve()
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -101,8 +101,8 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 		return
 	}
 	for {
-		i := rs.mailRoom.mbUpkeepRegistered.Retrieve()
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -138,8 +138,8 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 	defer done()
 	for {
-		i := rs.mailRoom.mbUpkeepPerformed.Retrieve()
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)

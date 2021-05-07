@@ -193,7 +193,10 @@ func (b *broadcaster) Connect(head *models.Head) error { return nil }
 func (b *broadcaster) Disconnect()                     {}
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
-	b.newHeads.Deliver(head)
+	wasOverCapacity := b.newHeads.Deliver(head)
+	if wasOverCapacity {
+		logger.Tracew("LogBroadcaster: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
+	}
 }
 
 func (b *broadcaster) IsConnected() bool {
@@ -308,28 +311,33 @@ func (b *broadcaster) onNewHeads() {
 	var latestHead *models.Head
 	for {
 		// We only care about the most recent head
-		x := b.newHeads.RetrieveLatestAndClear()
-		if x == nil {
-			// This should never happen
+		item := b.newHeads.RetrieveLatestAndClear()
+		if item == nil {
 			break
 		}
-		head, ok := x.(models.Head)
+		head, ok := item.(models.Head)
 		if !ok {
-			logger.Errorf("expected `models.Head`, got %T", x)
+			logger.Errorf("expected `models.Head`, got %T", item)
 			continue
 		}
-		logger.Tracew("LogBroadcaster: Received head", "blockNumber", head.Number, "blockHash", head.Hash)
 		latestHead = &head
 	}
 
-	logs := b.logPool.getLogsToSend(latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
-	b.registrations.sendLogs(logs, b.orm, latestHead)
+	// latestHead may sometimes be nil on high rate of heads,
+	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
+	// Some heads may be missed (which is fine for LogBroadcaster logic) but the latest one in a burst will be received
+	if latestHead != nil {
+		logger.Tracew("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
+
+		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
+		b.registrations.sendLogs(logs, b.orm, *latestHead)
+	}
 }
 
 func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 	for {
-		x := b.addSubscriber.Retrieve()
-		if x == nil {
+		x, exists := b.addSubscriber.Retrieve()
+		if !exists {
 			break
 		}
 		reg, ok := x.(registration)
@@ -348,8 +356,8 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 
 func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 	for {
-		x := b.rmSubscriber.Retrieve()
-		if x == nil {
+		x, exists := b.rmSubscriber.Retrieve()
+		if !exists {
 			break
 		}
 		reg, ok := x.(registration)
