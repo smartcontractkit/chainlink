@@ -57,7 +57,8 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := *models.NewRunInput(jobRunID, taskRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
+	jr := cltest.NewJobRun(cltest.NewJobWithLogInitiator())
+	input := *models.NewRunInput(jr, taskRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
 	result := ba.Perform(input, store)
 	require.NoError(t, result.Error())
 	assert.Equal(t, "251990120", result.Result().String())
@@ -86,7 +87,8 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInputWithResult(uuid.NewV4(), uuid.NewV4(), "100", test.status)
+			jr := cltest.NewJobRun(cltest.NewJobWithLogInitiator())
+			input := *models.NewRunInputWithResult(jr, uuid.NewV4(), "100", test.status)
 			result := ba.Perform(input, store)
 
 			assert.Equal(t, test.result, result.Data().String())
@@ -132,7 +134,9 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInput(runID, taskRunID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
+			jr := cltest.NewJobRun(cltest.NewJobWithLogInitiator())
+			jr.ID = runID
+			input := *models.NewRunInput(jr, taskRunID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
 			result := eb.Perform(input, store)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())

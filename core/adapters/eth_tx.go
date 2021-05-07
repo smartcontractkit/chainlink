@@ -58,11 +58,7 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	jr, err := store.FindJobRun(input.JobRunID())
-	if err != nil {
-		logger.Errorw("EthTx: unable to find job run", "err", err, "runID", input.JobRunID())
-		return models.NewRunOutputError(errors.Wrap(err, "FindJobRun failed"))
-	}
+	jr := input.JobRun()
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
 		logger.Errorw("EthTx: unable to find task run tx by runID", "err", err, "runID", input.TaskRunID())

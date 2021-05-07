@@ -35,8 +35,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:       hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
 			ABIEncoding:      []string{"bytes32", "uint256", "bool", "bytes"},
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		d, err := input.Data().Add(models.ResultCollectionKey, []interface{}{12, false, "0x1234"})
 		require.NoError(t, err)
 		runOutput := adapter.Perform(input.CloneWithData(d), store)
@@ -71,8 +71,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
@@ -97,8 +97,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		require.EqualError(t, runOutput.Error(), "insertEthTx failed to pickFromAddress: no keys available")
 		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
@@ -112,8 +112,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:       dataPrefix,
 			DataFormat:       "bytes",
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "cönfirmed", models.RunStatusUnstarted)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "cönfirmed", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
@@ -139,8 +139,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:       dataPrefix,
 			DataFormat:       "some old bollocks",
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		runOutput := adapter.Perform(*input, store)
 		assert.Contains(t, runOutput.Error().Error(), "while constructing EthTx data: unsupported format: some old bollocks")
 		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
@@ -157,11 +157,11 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -177,11 +177,11 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 1, fromAddress)
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -198,7 +198,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:                       dataPrefix,
 			MinRequiredOutgoingConfirmations: 12,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
@@ -210,7 +210,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -227,7 +227,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:                       dataPrefix,
 			MinRequiredOutgoingConfirmations: 12,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
@@ -240,7 +240,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
 		data := cltest.JSONFromString(t, `{"foo": "bar", "result": "some old bollocks"}`)
-		input := models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
+		input := models.NewRunInput(jobRun, taskRunID, data, models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -262,7 +262,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			DataPrefix:                       dataPrefix,
 			MinRequiredOutgoingConfirmations: 12,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
@@ -274,7 +274,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -291,7 +291,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 5, 1, fromAddress)
 		attempt2 := cltest.MustInsertBroadcastEthTxAttempt(t, etx.ID, store, 2)
 
@@ -304,7 +304,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -321,12 +321,12 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
-		taskRunID, jobRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
 
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
