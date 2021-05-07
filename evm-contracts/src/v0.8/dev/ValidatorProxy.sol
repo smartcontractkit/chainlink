@@ -81,7 +81,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
    * @dev To guard against external `validate` calls reverting, we use raw calls here.
    * We favour `call` over try-catch to ensure that failures are avoided even if the validator address is incorrectly
    * set as a non-contract address.
-   * @dev If the `aggregator` and `validator` are the same contract, this could exhibit reentrancy behavior.
+   * @dev If the `aggregator` and `validator` are the same contract or collude, this could exhibit reentrancy behavior.
    * However, since that contract would have to be explicitly written for reentrancy and that the `owner` would have
    * to configure this contract to use that malicious contract, we refrain from using mutex or check here.
    * @param previousRoundId uint256
