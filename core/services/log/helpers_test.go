@@ -288,7 +288,7 @@ type mockEth struct {
 	sub              *mocks.Subscription
 	subscribeCalls   int32
 	unsubscribeCalls int32
-	checkBackfill    func(int64)
+	checFilterLogs   func(int64, int64)
 }
 
 func (mock *mockEth) assertExpectations(t *testing.T) {
@@ -313,9 +313,9 @@ type mockEthClientExpectedCalls struct {
 
 func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
 	mockEth := &mockEth{
-		ethClient:     new(mocks.Client),
-		sub:           new(mocks.Subscription),
-		checkBackfill: nil,
+		ethClient:      new(mocks.Client),
+		sub:            new(mocks.Subscription),
+		checFilterLogs: nil,
 	}
 	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -333,8 +333,9 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Run(func(args mock.Arguments) {
 			filterQuery := args.Get(1).(ethereum.FilterQuery)
 			fromBlock := filterQuery.FromBlock.Int64()
-			if mockEth.checkBackfill != nil {
-				mockEth.checkBackfill(fromBlock)
+			toBlock := filterQuery.ToBlock.Int64()
+			if mockEth.checFilterLogs != nil {
+				mockEth.checFilterLogs(fromBlock, toBlock)
 			}
 		}).
 		Return(nil, nil).
