@@ -70,6 +70,7 @@ describe('Operator', () => {
       'isAuthorizedSender',
       'getChainlinkToken',
       'onTokenTransfer',
+      'validateTokenTransferAction',
       'oracleRequest',
       'requestOracleData',
       'setAuthorizedSenders',

@@ -34,6 +34,8 @@ contract Operator is
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
+  bytes4 constant private ORACLE_REQUEST_SELECTOR = 0x40429946;
+  bytes4 constant private OPERATOR_REQUEST_SELECTOR = 0x6de879d6;
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
@@ -501,6 +503,21 @@ contract Operator is
     )
   {
     return address(linkToken);
+  }
+
+
+  function validateTokenTransferAction(
+    bytes4 funcSelector
+  )
+    public
+    pure
+    override
+    returns (
+      bool
+    )
+  {
+    require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
+    return true;
   }
 
   // INTERNAL FUNCTIONS
