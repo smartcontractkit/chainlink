@@ -30,11 +30,12 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 	}
 }
 
-func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (backfilledLogs []types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	if len(addresses) == 0 {
 		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
-		backfilledLogs := make([]types.Log, 0)
-		return backfilledLogs, false
+		ch := make(chan types.Log)
+		close(ch)
+		return ch, false
 	}
 
 	ctx, cancel := utils.ContextFromChan(sub.chStop)
@@ -74,7 +75,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			Topics:    [][]common.Hash{topics},
 		}
 
-		allLogs := make([]types.Log, 0)
+		logs := make([]types.Log, 0)
 		start := time.Now()
 		// If we are significantly behind the latest head, there could be a very large (1000s)
 		// of blocks to check for logs. We read the blocks in batches to avoid hitting the websocket
@@ -93,9 +94,9 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			batchLogs, err := sub.ethClient.FilterLogs(ctx, q)
 			if err != nil {
 				if ctx.Err() != nil {
-					logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+					logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 				} else {
-					logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+					logger.Errorw("LogBroadcaster: Unable to backfill a batch of logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 				}
 				return true
 			}
@@ -104,13 +105,27 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			case <-sub.chStop:
 				return
 			default:
-				allLogs = append(allLogs, batchLogs...)
+				logs = append(logs, batchLogs...)
 			}
 		}
 
-		backfilledLogs = allLogs
+		logger.Infof("LogBroadcaster: Finished getting %v logs for backfill", len(logs))
 
-		logger.Infof("LogBroadcaster: Finished backfill of %v logs", len(allLogs))
+		// unbufferred channel, as it will be filled in the goroutine,
+		// while the broadcaster's eventLoop is reading from it
+		chBackfilledLogs = make(chan types.Log)
+		go func() {
+			defer close(chBackfilledLogs)
+			for _, log := range logs {
+				select {
+				case chBackfilledLogs <- log:
+				case <-sub.chStop:
+					return
+				}
+			}
+			logger.Infof("LogBroadcaster: Finished async backfill of %v logs", len(logs))
+		}()
+
 		return false
 	})
 	select {

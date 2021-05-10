@@ -226,7 +226,7 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		backfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
 		if abort {
 			return
 		}
@@ -238,7 +238,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		// "remaining logs from last subscription <- backfilled logs <- logs from new subscription"
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
 		// to account for this using the helpers on the Broadcast type.
-		//chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
+		chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
 		chRawLogs = b.appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
 		subscription = newSubscription
@@ -246,13 +246,6 @@ func (b *broadcaster) startResubscribeLoop() {
 		b.connected.Set()
 
 		atomic.StoreUint32(&b.trackedAddressesCount, uint32(len(addresses)))
-
-		//for {
-		//	select {
-		//	case rawLog := <-chRawLogs:
-		//		b.onNewLog(rawLog)
-		//	}
-		//}
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription)
 		if err != nil {
