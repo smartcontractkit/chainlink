@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/blockfetcher"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -182,7 +182,7 @@ type HeadTracker struct {
 	backfillMB                utils.Mailbox
 	subscriptionSucceeded     chan struct{}
 	muLogger                  sync.RWMutex
-	blockFetcher              *blockfetcher.BlockFetcher
+	blockFetcher              *headtracker.BlockFetcher
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -203,7 +203,7 @@ func NewHeadTracker(l *logger.Logger, store *strpkg.Store, headTrackerAddressCha
 		log:                       l,
 		backfillMB:                *utils.NewMailbox(1),
 		done:                      make(chan struct{}),
-		blockFetcher:              blockfetcher.NewBlockFetcher(store),
+		blockFetcher:              headtracker.NewBlockFetcher(store),
 	}
 }
 
@@ -692,6 +692,10 @@ func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 	ctx, cancel := utils.CombinedContext(ht.done, ctxQuery)
 	defer cancel()
 	return ht.store.LastHead(ctx)
+}
+
+func (ht *HeadTracker) Chain(ctx context.Context, hash common.Hash, depth uint) (models.Head, error) {
+	return ht.store.Chain(ctx, hash, depth)
 }
 
 // chainIDVerify checks whether or not the ChainID from the Chainlink config

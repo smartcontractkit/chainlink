@@ -1,8 +1,9 @@
-package blockfetcher
+package headtracker
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"time"
 
@@ -19,6 +20,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// Config defines the interface for the supplied config
+type FetcherConfig interface {
+	BlockFetcherHistorySize() uint16
+	BlockFetcherBatchSize() uint32
+
+	EthHeadTrackerHistoryDepth() uint16
+	BlockBackfillDepth() uint16
+	GasUpdaterBlockHistorySize() uint16
+	GasUpdaterBlockDelay() uint16
+	GasUpdaterBatchSize() uint32
+}
+
 type BlockWithReceipts struct {
 	block    *types.Block
 	receipts []*bulletprooftxmanager.Receipt
@@ -28,9 +41,25 @@ type BlockFetcher struct {
 	store     *strpkg.Store
 	logger    *logger.Logger
 	addresses map[common.Address]struct{}
+
+	config              FetcherConfig
+	rollingBlockHistory []models.Block
 }
 
-func NewBlockFetcher(store *strpkg.Store) *BlockFetcher {
+func NewBlockFetcher(store *strpkg.Store, config FetcherConfig) *BlockFetcher {
+
+	if config.GasUpdaterBlockHistorySize()+config.GasUpdaterBlockDelay() > config.BlockFetcherHistorySize() {
+		panic("") //TODO:
+	}
+
+	if config.EthHeadTrackerHistoryDepth() > config.BlockFetcherHistorySize() {
+		panic("") //TODO:
+	}
+
+	if config.BlockBackfillDepth() > config.BlockFetcherHistorySize() {
+		panic("") //TODO:
+	}
+
 	return &BlockFetcher{
 		store: store,
 		logger: logger.CreateLogger(logger.Default.With(
@@ -38,6 +67,127 @@ func NewBlockFetcher(store *strpkg.Store) *BlockFetcher {
 		)),
 		addresses: make(map[common.Address]struct{}),
 	}
+}
+
+// FetchBlocks - Fetches a number of blocks in history past the current head
+// NOTE: it skips given block download if it's already known in rollingBlockHistory and in the chain ( head.IsInChain(block.Hash )
+func (gu *BlockFetcher) FetchBlocks(ctx context.Context, head models.Head) error {
+	// HACK: blockDelay is the number of blocks that the gas updater trails behind head.
+	// E.g. if this is set to 3, and we receive block 10, gas updater will
+	// fetch block 7.
+	// This is necessary because geth/parity send heads as soon as they get
+	// them and often the actual block is not available until later. Fetching
+	// it too early results in an empty block.
+	blockDelay := int64(gu.config.GasUpdaterBlockDelay())
+	historySize := int64(gu.config.BlockFetcherHistorySize())
+
+	if historySize <= 0 {
+		return errors.Errorf("GasUpdater: history size must be > 0, got: %d", historySize)
+	}
+
+	highestBlockToFetch := head.Number
+	if highestBlockToFetch < 0 {
+		return errors.Errorf("GasUpdater: cannot fetch, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY=%v", head.Number, blockDelay)
+	}
+	lowestBlockToFetch := head.Number - historySize - blockDelay + 1
+	if lowestBlockToFetch < 0 {
+		lowestBlockToFetch = 0
+	}
+
+	blocks := make(map[int64]models.Block)
+	for _, block := range gu.rollingBlockHistory {
+		// Make a best-effort to be re-org resistant using the head
+		// chain, refetch blocks that got re-org'd out.
+		// NOTE: Any blocks older than the oldest block in the provided chain
+		// will be also be refetched.
+		if head.IsInChain(block.Hash) {
+			blocks[block.Number] = block
+		}
+	}
+
+	var reqs []rpc.BatchElem
+	for i := lowestBlockToFetch; i <= highestBlockToFetch; i++ {
+		// NOTE: To save rpc calls, don't fetch blocks we already have in the history
+		if _, exists := blocks[i]; exists {
+			continue
+		}
+
+		req := rpc.BatchElem{
+			Method: "eth_getBlockByNumber",
+			Args:   []interface{}{models.Int64ToHex(i), true},
+			Result: &models.Block{},
+		}
+		reqs = append(reqs, req)
+	}
+
+	gu.logger.Debugw(fmt.Sprintf("GasUpdater: fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
+	if err := gu.batchFetch(ctx, reqs); err != nil {
+		return err
+	}
+
+	for i, req := range reqs {
+		result, err := req.Result, req.Error
+		if err != nil {
+			gu.logger.Warnw("GasUpdater#fetchBlocks error while fetching block", "err", err, "blockNum", head.Number)
+			continue
+		}
+
+		b, is := result.(*models.Block)
+		if !is {
+			return errors.Errorf("expected result to be a %T, got %T", &models.Block{}, result)
+		}
+		if b == nil {
+			//TODO: can this happen on "Fetching it too early results in an empty block." ?
+			gu.logger.Warnw("GasUpdater#fetchBlocks got nil block", "blockNum", head.Number, "index", i)
+			continue
+		}
+		if b.Hash == (common.Hash{}) {
+			gu.logger.Warnw("GasUpdater#fetchBlocks block was missing hash", "block", b, "blockNum", head.Number, "erroredBlockNum", b.Number)
+			continue
+		}
+
+		blocks[b.Number] = *b
+	}
+
+	newBlockHistory := make([]models.Block, 0)
+	for _, block := range blocks {
+		newBlockHistory = append(newBlockHistory, block)
+	}
+	sort.Slice(newBlockHistory, func(i, j int) bool {
+		return newBlockHistory[i].Number < newBlockHistory[j].Number
+	})
+
+	start := len(newBlockHistory) - int(historySize)
+	if start < 0 {
+		gu.logger.Infow(fmt.Sprintf("GasUpdater: using fewer blocks than the specified history size: %v/%v", len(newBlockHistory), historySize), "rollingBlockHistorySize", historySize, "headNum", head.Number, "blocksAvailable", len(newBlockHistory))
+		start = 0
+	}
+
+	gu.rollingBlockHistory = newBlockHistory[start:]
+
+	return nil
+}
+
+func (gu *BlockFetcher) batchFetch(ctx context.Context, reqs []rpc.BatchElem) error {
+	batchSize := int(gu.config.BlockFetcherBatchSize())
+
+	if batchSize == 0 {
+		batchSize = len(reqs)
+	}
+
+	for i := 0; i < len(reqs); i += batchSize {
+		j := i + batchSize
+		if j > len(reqs) {
+			j = len(reqs)
+		}
+
+		logger.Debugw(fmt.Sprintf("GasUpdater: batch fetching blocks %v thru %v", models.HexToInt64(reqs[i].Args[0]), models.HexToInt64(reqs[j-1].Args[0])))
+
+		if err := gu.store.EthClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+			return errors.Wrap(err, "GasUpdater#fetchBlocks error fetching blocks with BatchCallContext")
+		}
+	}
+	return nil
 }
 
 func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head, promBlockSizenHist *prometheus.HistogramVec,
@@ -103,32 +253,6 @@ func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head, promBl
 		takeCount = block.Transactions().Len()
 	}
 	var preserved []*types.Transaction = block.Transactions()[:takeCount]
-
-	//for _, transaction := range block.Transactions() {
-	//	to := transaction.To()
-	//	if to == nil {
-	//		preserved = append(preserved, transaction)
-	//	} else {
-	//		for address := range ht.addresses {
-	//			if address == *to {
-	//				preserved = append(preserved, transaction)
-	//			} else {
-	//				var signer types.Signer
-	//				if transaction.Protected() {
-	//					signer = types.LatestSignerForChainID(transaction.ChainId())
-	//				} else {
-	//					signer = types.HomesteadSigner{}
-	//				}
-	//
-	//				from, _ := types.Sender(signer, transaction)
-	//
-	//				if address == from {
-	//					preserved = append(preserved, transaction)
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
 
 	ht.logger.Debugf("========================= HeadTracker: getting limited receipts for %v transactions", takeCount)
 	start3 := time.Now()

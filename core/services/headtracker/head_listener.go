@@ -1,4 +1,4 @@
-package blockfetcher
+package headtracker
 
 import (
 	"context"
@@ -9,11 +9,37 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	promNumHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_listener_heads_received",
+		Help: "The total number of heads seen",
+	})
+	promHeadsInQueue = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "head_listener_heads_in_queue",
+		Help: "The number of heads currently waiting to be executed. You can think of this as the 'load' on the head tracker. Should rarely or never be more than 0",
+	})
+	promNumHeadsDropped = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_listener_num_heads_dropped",
+		Help: "The total number of heads dropped",
+	})
+	promEthConnectionErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_listener_eth_connection_errors",
+		Help: "The total number of eth node connection errors",
+	})
+
+	promHeadTimeoutsCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_listener_head_timeouts_count",
+		Help: "The total number of receipts fetched",
+	})
 )
 
 type Config interface {
@@ -130,7 +156,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context) error {
 					// the 'ctx' context is closed only on hl.done - on shutdown, so it's safe to return nil
 					return nil
 				} else if deadlineCtx.Err() != nil {
-					//promHeadTimeoutsCount.Inc()
+					promHeadTimeoutsCount.Inc()
 					logger.Warnw("HeadListener: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
 					continue
 				} else if err != nil {
@@ -162,7 +188,7 @@ func (hl *HeadListener) subscribe() bool {
 		case <-time.After(hl.sleeper.After()):
 			err := hl.subscribeToHead()
 			if err != nil {
-				//	promEthConnectionErrors.Inc()
+				promEthConnectionErrors.Inc()
 				hl.logger.Warnw(fmt.Sprintf("HeadListener: Failed to connect to ethereum node %v", hl.config.EthereumURL()), "err", err)
 			} else {
 				hl.logger.Info("HeadListener: Connected to ethereum node ", hl.config.EthereumURL())
@@ -277,9 +303,9 @@ func (r *headRingBuffer) run() {
 			r.logger().Error("HeadListener: got nil block header")
 			continue
 		}
-		//promNumHeadsReceived.Inc()
+		promNumHeadsReceived.Inc()
 		hInQueue := len(r.out)
-		//promHeadsInQueue.Set(float64(hInQueue))
+		promHeadsInQueue.Set(float64(hInQueue))
 		if hInQueue > 0 {
 			r.logger().Infof("HeadListener: Head %v is lagging behind, there are %v more heads in the queue. Your node is operating close to its maximum capacity and may start to miss jobs.", h.Number, hInQueue)
 		}
@@ -295,7 +321,7 @@ func (r *headRingBuffer) run() {
 			// if the queue was already full anyway, so we can live with this
 			select {
 			case dropped := <-r.out:
-				//promNumHeadsDropped.Inc()
+				promNumHeadsDropped.Inc()
 				r.logger().Errorf("HeadListener: dropping head %v with hash 0x%x because queue is full. WARNING: Your node is overloaded and may start missing jobs.", dropped.Number, h.Hash)
 				r.out <- *h
 			default:
