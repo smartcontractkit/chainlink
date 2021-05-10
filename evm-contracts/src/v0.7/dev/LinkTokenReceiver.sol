@@ -59,7 +59,7 @@ abstract contract LinkTokenReceiver {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(data, 32))
     }
-    require(funcSelector == ORACLE_REQUEST_SELECTOR || funcSelector == OPERATOR_REQUEST_SELECTOR, "Must use whitelisted functions");
+    require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
     _;
   }
 

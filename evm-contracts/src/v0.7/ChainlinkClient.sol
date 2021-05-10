@@ -103,14 +103,7 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    requestId = keccak256(abi.encodePacked(this, requestCount));
-    req.nonce = requestCount;
-    pendingRequests[requestId] = oracleAddress;
-    emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, ORACLE_ARGS_VERSION)), "unable to transferAndCall to oracle");
-    requestCount += 1;
-
-    return requestId;
+    return rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION);
   }
 
   /**
@@ -154,14 +147,34 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
+    return rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION);
+  }
+
+  /**
+   * @notice Make a request to an oracle
+   * @param oracleAddress The address of the oracle for the request
+   * @param req The initialized Chainlink Request
+   * @param payment The amount of LINK to send for the request
+   * @param argsVersion The version of data support (single word, multi word)
+   * @return requestId The request ID
+   */
+  function rawRequest(
+    address oracleAddress,
+    Chainlink.Request memory req,
+    uint256 payment,
+    uint256 argsVersion
+  )
+    private
+    returns (
+      bytes32 requestId
+    )
+  {
     requestId = keccak256(abi.encodePacked(this, requestCount));
     req.nonce = requestCount;
     pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, OPERATOR_ARGS_VERSION)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, argsVersion)), "unable to transferAndCall to oracle");
     requestCount += 1;
-
-    return requestId;
   }
 
   /**
