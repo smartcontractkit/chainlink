@@ -450,23 +450,17 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	return dst
 }
 
-func NewRunInput(value models.JSON) models.RunInput {
-	jobRunID := uuid.NewV4()
-	taskRunID := uuid.NewV4()
-	return *models.NewRunInput(jobRunID, taskRunID, value, models.RunStatusUnstarted)
-}
-
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
-	jobRunID := uuid.NewV4()
 	taskRunID := uuid.NewV4()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
+	jr := NewJobRun(NewJobWithRunLogInitiator())
+	return *models.NewRunInput(jr, taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
-	jobRunID := uuid.NewV4()
+	jr := NewJobRun(NewJobWithRunLogInitiator())
 	taskRunID := uuid.NewV4()
-	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
+	return *models.NewRunInputWithResult(jr, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
@@ -487,16 +481,16 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	return checker
 }
 
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) uuid.UUID {
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) (uuid.UUID, models.JobRun) {
 	taskRunID := uuid.NewV4()
 
 	job := NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 	jobRun := NewJobRun(job)
-	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
+	jobRun.TaskRuns = []models.TaskRun{{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
 	require.NoError(t, store.CreateJobRun(&jobRun))
 
-	return taskRunID
+	return taskRunID, jobRun
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {

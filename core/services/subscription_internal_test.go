@@ -34,7 +34,7 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 	done := make(chan struct{})
 	err := make(chan error)
 	ethClient := new(mocks.Client)
-	s := ManagedSubscription{
+	s := InitiatorSubscription{
 		done:          done,
 		logSubscriber: ethClient,
 		logs:          c,
@@ -42,13 +42,10 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 			err: err,
 			t:   t,
 		},
-		callback: func(log types.Log) {
-			t.Log(log)
-		},
 	}
 	done2 := make(chan struct{})
 	go func() {
-		s.listenToLogs(ethereum.FilterQuery{})
+		s.Start()
 		done2 <- struct{}{}
 	}()
 

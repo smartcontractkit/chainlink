@@ -2,11 +2,15 @@ package bulletprooftxmanager_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
+
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -117,6 +121,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Earlier
+		h := gethCommon.HexToHash("0x4ea4bb19d0847a0465d003ea11bcaef62935cec3c673238d057f6cacb3e7a405")
+		tr := uuid.NewV4()
+		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr, RunRequestID: &h, RunRequestTxHash: &h})
+		require.NoError(t, err)
 		earlierEthTx := models.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -125,6 +133,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
 			State:          models.EthTxUnstarted,
+			Meta:           gormpostgrestypes.Jsonb{RawMessage: b},
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			if tx.Nonce() != uint64(0) {
@@ -181,6 +190,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
+		var m models.EthTxMeta
+		err = json.Unmarshal(earlierEthTx.Meta.RawMessage, &m)
+		require.NoError(t, err)
+		assert.Equal(t, tr, m.TaskRunID)
+		assert.Equal(t, h.String(), m.RunRequestTxHash.String())
+		assert.Equal(t, h.String(), m.RunRequestID.String())
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -223,10 +238,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	defer cleanup()
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	store.KeyStore.Unlock(cltest.Password)
+	store.Config.Set("OPTIMISM_GAS_FEES", "true")
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("OPTIMISM_GAS_FEES", "true")
 
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
@@ -249,9 +264,48 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	}
 	ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		return tx.GasPrice().Cmp(big.NewInt(1000000000)) == 0 && tx.Gas() == estimatedGas
+		assert.Equal(t, big.NewInt(1000000000), tx.GasPrice())
+		assert.Equal(t, estimatedGas, tx.Gas())
+		return true
 	})).Return(nil).Once()
 
+	require.NoError(t, store.DB.Save(&tx).Error)
+
+	// Do the thing
+	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+	ethClient.AssertExpectations(t)
+}
+
+func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	store.KeyStore.Unlock(cltest.Password)
+	store.Config.Set("ETH_GAS_LIMIT_MULTIPLIER", "1.3")
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	eb, cleanup := cltest.NewEthBroadcaster(t, store, config)
+	defer cleanup()
+
+	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		assert.Equal(t, uint64(1600), tx.Gas())
+		return true
+	})).Return(nil).Once()
+
+	tx := models.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411"),
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          assets.NewEthValue(242),
+		GasLimit:       1231,
+		CreatedAt:      time.Unix(0, 0),
+		State:          models.EthTxUnstarted,
+	}
 	require.NoError(t, store.DB.Save(&tx).Error)
 
 	// Do the thing
@@ -682,7 +736,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			State:          models.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
 		_, err = store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
 

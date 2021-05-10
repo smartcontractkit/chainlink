@@ -1616,14 +1616,14 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	defer cleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
 
-	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
+	sharedTaskRunID, _ := cltest.MustInsertTaskRun(t, store)
 
 	t.Run("creates eth_task_run_transaction and eth_tx", func(t *testing.T) {
 		toAddress := cltest.NewAddress()
 		encodedPayload := []byte{0, 1, 2}
 		gasLimit := uint64(42)
 
-		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		err := store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: sharedTaskRunID}, fromAddress, toAddress, encodedPayload, gasLimit)
 		require.NoError(t, err)
 
 		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID)
@@ -1639,7 +1639,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
 
 		// Do it again to test idempotence
-		err = store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		err = store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: sharedTaskRunID}, fromAddress, toAddress, encodedPayload, gasLimit)
 		require.NoError(t, err)
 
 		// Ensure it didn't leave a stray EthTx hanging around
@@ -1656,25 +1656,25 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		encodedPayload := []byte{3, 2, 1}
 		gasLimit := uint64(24)
 
-		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		err := store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: sharedTaskRunID}, fromAddress, toAddress, encodedPayload, gasLimit)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "transaction already exists for task run ID")
 	})
 
 	t.Run("does not return error on re-insert if only the gas limit changed", func(t *testing.T) {
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
 		toAddress := cltest.NewAddress()
 		encodedPayload := []byte{0, 1, 2}
 		firstGasLimit := uint64(42)
 
 		// First insert
-		err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, firstGasLimit)
+		err := store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: taskRunID}, fromAddress, toAddress, encodedPayload, firstGasLimit)
 		require.NoError(t, err)
 
 		secondGasLimit := uint64(99)
 
 		// Second insert
-		err = store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, secondGasLimit)
+		err = store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: taskRunID}, fromAddress, toAddress, encodedPayload, secondGasLimit)
 		require.NoError(t, err)
 
 		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID)

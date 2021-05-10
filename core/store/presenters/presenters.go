@@ -95,6 +95,7 @@ type EnvPrinter struct {
 	P2PListenIP                           string          `json:"P2P_LISTEN_IP"`
 	P2PListenPort                         uint16          `json:"P2P_LISTEN_PORT"`
 	P2PPeerID                             string          `json:"P2P_PEER_ID"`
+	P2PBootstrapPeers                     []string        `json:"P2P_BOOTSTRAP_PEERS"`
 	OCRIncomingMessageBufferSize          int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
 	OCROutgoingMessageBufferSize          int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
 	OCRNewStreamTimeout                   time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
@@ -121,6 +122,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
 	}
+	p2pBootstrapPeers, _ := config.P2PBootstrapPeers(nil)
 	ethereumHTTPURL := ""
 	if config.EthereumHTTPURL() != nil {
 		ethereumHTTPURL = config.EthereumHTTPURL().String()
@@ -185,6 +187,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
 			P2PListenIP:                           config.P2PListenIP().String(),
 			P2PListenPort:                         config.P2PListenPort(),
+			P2PBootstrapPeers:                     p2pBootstrapPeers,
 			P2PPeerID:                             config.P2PPeerIDRaw(),
 			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
 			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),

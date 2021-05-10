@@ -138,8 +138,8 @@ func (ec *ethConfirmer) runLoop() {
 				if ec.ctx.Err() != nil {
 					return
 				}
-				head := ec.mb.Retrieve()
-				if head == nil {
+				head, exists := ec.mb.Retrieve()
+				if !exists {
 					break
 				}
 				h, is := head.(models.Head)
@@ -256,7 +256,7 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 				return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 			}
 			logger.Debugw(fmt.Sprintf("EthConfirmer: Fetching and saving %v likely confirmed receipts done", likelyConfirmedCount),
-				"tookMs", float64(time.Since(start).Milliseconds()))
+				"time", time.Since(start))
 		}
 	}
 
@@ -278,7 +278,7 @@ func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.
 	firstAttemptNonce := fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
 	lastAttemptNonce := fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
 	logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
-		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce))
+		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "latestBlockNonce", latestBlockNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	for i := 0; i < len(attempts); i++ {
@@ -388,7 +388,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 			continue
 		}
 
-		l = l.With("receipt", receipt)
+		l = l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex)
 
 		if receipt.IsUnmined() {
 			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
@@ -650,7 +650,7 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 		//
 		// This still limits the worst case to a maximum of two transactions
 		// pending though which is probably acceptable.
-		attempt, err := ec.attemptForRebroadcast(etx)
+		attempt, err := ec.attemptForRebroadcast(ctx, etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
@@ -785,7 +785,7 @@ func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNu
 	return
 }
 
-func (ec *ethConfirmer) attemptForRebroadcast(etx models.EthTx) (attempt models.EthTxAttempt, err error) {
+func (ec *ethConfirmer) attemptForRebroadcast(ctx context.Context, etx models.EthTx) (attempt models.EthTxAttempt, err error) {
 	var bumpedGasPrice *big.Int
 	if len(etx.EthTxAttempts) > 0 {
 		previousAttempt := etx.EthTxAttempts[0]
@@ -815,7 +815,7 @@ func (ec *ethConfirmer) attemptForRebroadcast(etx models.EthTx) (attempt models.
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 		bumpedGasPrice = ec.config.EthGasPriceDefault()
 	}
-	return newAttempt(ec.store, etx, bumpedGasPrice)
+	return newAttempt(ctx, ec.store, etx, bumpedGasPrice)
 }
 
 func (ec *ethConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) error {
@@ -831,7 +831,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 	}
 
 	now := time.Now()
-	sendError := sendTransaction(ctx, ec.ethClient, attempt)
+	sendError := sendTransaction(ctx, ec.ethClient, attempt, etx)
 
 	if sendError.IsTerminallyUnderpriced() {
 		// This should really not ever happen in normal operation since we
@@ -846,7 +846,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
 			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
-		replacementAttempt, err := newAttempt(ec.store, etx, bumpedGasPrice)
+		replacementAttempt, err := newAttempt(ctx, ec.store, etx, bumpedGasPrice)
 		if err != nil {
 			return errors.Wrap(err, "newAttempt failed")
 		}
@@ -1165,12 +1165,12 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := newAttempt(ec.store, *etx, big.NewInt(int64(gasPriceWei)))
+			attempt, err := newAttempt(context.TODO(), ec.store, *etx, big.NewInt(int64(gasPriceWei)))
 			if err != nil {
 				logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
 			}
-			if err := sendTransaction(context.TODO(), ec.ethClient, attempt); err != nil {
+			if err := sendTransaction(context.TODO(), ec.ethClient, attempt, *etx); err != nil {
 				logger.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error()), "err", err)
 				continue
 			}
