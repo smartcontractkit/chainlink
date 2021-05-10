@@ -178,6 +178,29 @@ func (rm *runManager) CreateErrored(
 	return &run, rm.orm.CreateJobRun(&run)
 }
 
+func (rm *runManager) MaybeDoubleMinIncomingConfs(run models.JobRun) (*models.JobRun, error) {
+	if run.RunRequest.RequestID == nil {
+		return &run, logger.NewErrorw("RunManager: expected non-nil run request ID")
+	}
+	var rr models.RunRequest
+	if err := rm.orm.DB.Raw(`SELECT * FROM run_requests WHERE request_id = ?`, run.RunRequest.RequestID).Scan(&rr).Error; err != nil {
+		return &run, logger.NewErrorw("RunManager: unable to check for already seen requestIDs", "err", err)
+	}
+	// If we have seen the same runRequest already, then double the required incoming confs
+	if rr.ID != 0 {
+		logger.Debugw("RunManager: duplicate VRF requestID seen, doubling incoming confirmations",
+			"requestID", run.RunRequest.RequestID,
+			"firstTxHash", rr.TxHash,
+			"secondTxHash", run.RunRequest.TxHash)
+		for i := range run.TaskRuns {
+			if run.TaskRuns[i].MinRequiredIncomingConfirmations.Valid {
+				run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32 *= 2
+			}
+		}
+	}
+	return &run, nil
+}
+
 // Create immediately persists a JobRun and sends it to the RunQueue for
 // execution.
 func (rm *runManager) Create(
@@ -217,6 +240,13 @@ func (rm *runManager) Create(
 	run, adapters := NewRun(&job, initiator, creationHeight, runRequest, rm.config, rm.orm, now)
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
+
+	if initiator.Type == models.InitiatorRandomnessLog {
+		run, err = rm.MaybeDoubleMinIncomingConfs(*run)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	logger.Debugw(
 		fmt.Sprintf("RunManager: creating new job run initiated by %s", run.Initiator.Type),
