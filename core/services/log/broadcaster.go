@@ -197,11 +197,15 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 func (b *broadcaster) Connect(head *models.Head) error { return nil }
 func (b *broadcaster) Disconnect()                     {}
 
-func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *broadcaster) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
 		logger.Tracew("LogBroadcaster: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
 	}
+}
+
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+	// do nothing, using OnNewLongestChainSampled instead
 }
 
 func (b *broadcaster) IsConnected() bool {

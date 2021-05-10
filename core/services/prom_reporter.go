@@ -124,21 +124,21 @@ func (pr *promReporter) Disconnect() {
 	// pass
 }
 
-func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (pr *promReporter) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
 	pr.newHeads.Deliver(head)
+}
+
+func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
+	// do nothing, using OnNewLongestChainSampled instead
 }
 
 func (pr *promReporter) eventLoop() {
 	logger.Debug("PromReporter: starting event loop")
 	defer pr.wgDone.Done()
 
-	debounceReport := time.NewTicker(10 * time.Second)
-	defer debounceReport.Stop()
-
-	// we are only interested in the newest head every 10 seconds
 	for {
 		select {
-		case <-debounceReport.C:
+		case <-pr.newHeads.Notify():
 			item, exists := pr.newHeads.Retrieve()
 			if !exists {
 				continue

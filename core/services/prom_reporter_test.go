@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_PromReporter_OnNewLongestChain(t *testing.T) {
+func Test_PromReporter_OnNewLongestChainSampled(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
@@ -40,7 +40,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			Return()
 
 		head := models.Head{Number: 42}
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChainSampled(context.Background(), head)
 
 		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 12*time.Second, 100*time.Millisecond)
 
@@ -79,7 +79,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			Return()
 
 		head := models.Head{Number: 42}
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChainSampled(context.Background(), head)
 
 		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 12*time.Second, 100*time.Millisecond)
 
@@ -116,7 +116,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			Return()
 
 		head := models.Head{Number: 42}
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChainSampled(context.Background(), head)
 
 		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 12*time.Second, 100*time.Millisecond)
 

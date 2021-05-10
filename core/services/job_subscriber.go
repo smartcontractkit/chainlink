@@ -192,8 +192,12 @@ func (js *jobSubscriber) Disconnect() {
 	// the listenToLogs goroutines.
 }
 
-// OnNewLongestChain resumes all pending job runs based on the new head activity.
-func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
+// OnNewLongestChainSampled resumes all pending job runs based on the new head activity.
+func (js *jobSubscriber) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
 	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
+}
+
+func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
+	// do nothing, using OnNewLongestChainSampled instead
 }

@@ -107,10 +107,14 @@ func (gu *gasUpdater) Connect(bn *models.Head) error {
 func (gu *gasUpdater) Disconnect() {
 }
 
-// OnNewLongestChain recalculates and sets global gas price if a new head comes
+// OnNewLongestChainSampled recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (gu *gasUpdater) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
 	gu.mb.Deliver(head)
+}
+
+func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
+	// do nothing, using OnNewLongestChainSampled instead
 }
 
 func (gu *gasUpdater) Start() error {

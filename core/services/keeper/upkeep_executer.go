@@ -98,8 +98,12 @@ func (executer *UpkeepExecuter) Close() error {
 	return nil
 }
 
-func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (executer *UpkeepExecuter) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
 	executer.mailbox.Deliver(head)
+}
+
+func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
+	// do nothing, using OnNewLongestChainSampled instead
 }
 
 func (executer *UpkeepExecuter) run() {

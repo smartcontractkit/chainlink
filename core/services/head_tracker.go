@@ -147,8 +147,9 @@ type HeadTracker struct {
 	sleeper               utils.Sleeper
 	done                  chan struct{}
 	started               bool
-	listenForNewHeadsWg   sync.WaitGroup
+	wgDone                sync.WaitGroup
 	backfillMB            utils.Mailbox
+	samplingMB            utils.Mailbox
 	subscriptionSucceeded chan struct{}
 	muLogger              sync.RWMutex
 }
@@ -169,6 +170,7 @@ func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []strpkg.He
 		sleeper:    sleeper,
 		log:        l,
 		backfillMB: *utils.NewMailbox(1),
+		samplingMB: *utils.NewMailbox(1),
 		done:       make(chan struct{}),
 	}
 }
@@ -210,9 +212,10 @@ func (ht *HeadTracker) Start() error {
 
 	ht.subscriptionSucceeded = make(chan struct{})
 
-	ht.listenForNewHeadsWg.Add(2)
+	ht.wgDone.Add(3)
 	go ht.listenForNewHeads()
 	go ht.backfiller()
+	go ht.headSampler()
 
 	ht.started = true
 	return nil
@@ -233,7 +236,7 @@ func (ht *HeadTracker) Stop() error {
 	ht.started = false
 	ht.headMutex.Unlock()
 
-	ht.listenForNewHeadsWg.Wait()
+	ht.wgDone.Wait()
 	return nil
 }
 
@@ -289,8 +292,33 @@ func (ht *HeadTracker) disconnect() {
 	}
 }
 
+func (ht *HeadTracker) headSampler() {
+	defer ht.wgDone.Done()
+
+	debounceHead := time.NewTicker(ht.store.Config.EthHeadTrackerSamplingInterval())
+	defer debounceHead.Stop()
+
+	for {
+		select {
+		case <-ht.done:
+			return
+		case <-debounceHead.C:
+			item, exists := ht.samplingMB.Retrieve()
+			if !exists {
+				continue
+			}
+			head, ok := item.(models.Head)
+			if !ok {
+				logger.Errorf("expected `models.Head`, got %T", item)
+				continue
+			}
+			ht.concurrentlyExecuteSampledCallbacks(context.Background(), head)
+		}
+	}
+}
+
 func (ht *HeadTracker) listenForNewHeads() {
-	defer ht.listenForNewHeadsWg.Done()
+	defer ht.wgDone.Done()
 	defer func() {
 		if err := ht.unsubscribeFromHead(); err != nil {
 			ht.logger().Warn(errors.Wrap(err, "HeadTracker failed when unsubscribe from head"))
@@ -317,7 +345,7 @@ func (ht *HeadTracker) listenForNewHeads() {
 }
 
 func (ht *HeadTracker) backfiller() {
-	defer ht.listenForNewHeadsWg.Done()
+	defer ht.wgDone.Done()
 	for {
 		select {
 		case <-ht.done:
@@ -546,6 +574,7 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
 	}
 	ht.backfillMB.Deliver(headWithChain)
+	ht.samplingMB.Deliver(headWithChain)
 
 	ht.onNewLongestChain(ctx, headWithChain)
 	return nil
@@ -580,6 +609,21 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 			t.OnNewLongestChain(ctx, headWithChain)
 			elapsed := time.Since(start)
 			ht.logger().Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
+			wg.Done()
+		}(idx, trackable)
+	}
+	wg.Wait()
+}
+
+func (ht *HeadTracker) concurrentlyExecuteSampledCallbacks(ctx context.Context, headWithChain models.Head) {
+	wg := sync.WaitGroup{}
+	wg.Add(len(ht.callbacks))
+	for idx, trackable := range ht.callbacks {
+		go func(i int, t strpkg.HeadTrackable) {
+			start := time.Now()
+			t.OnNewLongestChainSampled(ctx, headWithChain)
+			elapsed := time.Since(start)
+			ht.logger().Debugw(fmt.Sprintf("HeadTracker: finished sampled callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
 			wg.Done()
 		}(idx, trackable)
 	}

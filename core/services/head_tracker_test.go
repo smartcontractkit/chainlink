@@ -760,6 +760,10 @@ func (c *blockingCallback) OnNewLongestChain(ctx context.Context, h models.Head)
 	<-c.resume
 }
 
+// OnNewLongestChain increases the OnNewLongestChainCount count by one
+func (c *blockingCallback) OnNewLongestChainSampled(ctx context.Context, h models.Head) {
+}
+
 func TestHeadTracker_RingBuffer(t *testing.T) {
 	t.Run("drops excess heads if we can't process them fast enough", func(t *testing.T) {
 		t.Parallel()

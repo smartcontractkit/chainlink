@@ -79,6 +79,7 @@ type (
 		EthMaxGasPriceWei                *big.Int
 		EthFinalityDepth                 uint
 		EthHeadTrackerHistoryDepth       uint
+		EthHeadTrackerSamplingInterval   time.Duration
 		EthBalanceMonitorBlockDelay      uint16
 		EthTxResendAfterThreshold        time.Duration
 		GasUpdaterBatchSize              *uint32
@@ -104,6 +105,7 @@ func init() {
 		EthMaxGasPriceWei:                big.NewInt(1500000000000), // 1.5 Twei
 		EthFinalityDepth:                 50,
 		EthHeadTrackerHistoryDepth:       100,
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      1,
 		EthTxResendAfterThreshold:        30 * time.Second,
 		GasUpdaterBlockDelay:             1,
@@ -131,6 +133,7 @@ func init() {
 		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
 		EthFinalityDepth:                 50,                       // Keeping this > 11 because it's not expensive and gives us a safety margin
 		EthHeadTrackerHistoryDepth:       100,
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      2,
 		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockDelay:             2,
@@ -152,9 +155,10 @@ func init() {
 		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
 		EthFinalityDepth:                 200,                      // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
 		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
-		EthBalanceMonitorBlockDelay:      13,                       // equivalent of 1 eth block seems reasonable
-		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
-		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
+		EthBalanceMonitorBlockDelay:      13,              // equivalent of 1 eth block seems reasonable
+		EthTxResendAfterThreshold:        5 * time.Minute, // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+		GasUpdaterBlockDelay:             32,              // Delay needs to be large on matic since re-orgs are so frequent at the top level
 		GasUpdaterBlockHistorySize:       128,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
@@ -168,6 +172,7 @@ func init() {
 		EthGasBumpThreshold:              0, // Never bump gas on optimism
 		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
 		EthHeadTrackerHistoryDepth:       10,
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      0,
 		EthTxResendAfterThreshold:        5 * time.Second,
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
@@ -715,6 +720,24 @@ func (c Config) EthHeadTrackerHistoryDepth() uint {
 // for the head tracker before we start dropping heads to keep up.
 func (c Config) EthHeadTrackerMaxBufferSize() uint {
 	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", parseUint64).(uint64))
+}
+
+// EthHeadTrackerSamplingInterval is the interval between sampled head callbacks
+// to services that are only interested in the latest head every some time
+func (c Config) EthHeadTrackerSamplingInterval() time.Duration {
+	str := c.viper.GetString(EnvVarName("EthHeadTrackerSamplingInterval"))
+	if str != "" {
+		n, err := parseDuration(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthHeadTrackerSamplingInterval, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(time.Duration)
+		}
+	}
+	return chainSpecificConfig(c).EthHeadTrackerSamplingInterval
 }
 
 // EthTxResendAfterThreshold controls how long the ethResender will wait before
