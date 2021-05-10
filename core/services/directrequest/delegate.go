@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -35,6 +35,7 @@ type (
 
 	Config interface {
 		MinRequiredOutgoingConfirmations() uint64
+		MinimumContractPayment() *assets.Link
 	}
 )
 
@@ -76,13 +77,13 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
+		config:          d.config,
 		logBroadcaster:  d.logBroadcaster,
 		headBroadcaster: d.headBroadcaster,
 		oracle:          oracle,
 		pipelineRunner:  d.pipelineRunner,
 		db:              d.db,
 		pipelineORM:     d.pipelineORM,
-		spec:            *job.PipelineSpec,
 		job:             job,
 
 		// At the moment the mailbox would start skipping if there were
@@ -105,13 +106,13 @@ var (
 )
 
 type listener struct {
+	config            Config
 	logBroadcaster    log.Broadcaster
 	headBroadcaster   *services.HeadBroadcaster
 	oracle            oracle_wrapper.OracleInterface
 	pipelineRunner    pipeline.Runner
 	db                *gorm.DB
 	pipelineORM       pipeline.ORM
-	spec              pipeline.Spec
 	job               job.Job
 	onChainJobSpecID  common.Hash
 	runs              sync.Map
@@ -126,17 +127,14 @@ type listener struct {
 // Start complies with job.Service
 func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
-		connected, unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
+		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle,
-			Logs: []generated.AbigenLog{
-				oracle_wrapper.OracleOracleRequest{},
-				oracle_wrapper.OracleCancelOracleRequest{},
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.onChainJobSpecID)}},
+				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.onChainJobSpecID)}},
 			},
+			NumConfirmations: 1,
 		})
-		if !connected {
-			return errors.New("Failed to register listener with logBroadcaster")
-		}
-
 		l.shutdownWaitGroup.Add(2)
 		go l.run()
 		unsubscribeHeads := l.headBroadcaster.Subscribe(l)
@@ -278,12 +276,24 @@ func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]
 }
 
 func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleRequest) {
+	minimumContractPayment := l.config.MinimumContractPayment()
+	if minimumContractPayment != nil {
+		requestPayment := assets.Link(*request.Payment)
+		if minimumContractPayment.Cmp(&requestPayment) > 0 {
+			logger.Infow("Rejected run for insufficient payment",
+				"minimumContractPayment", minimumContractPayment.String(),
+				"requestPayment", requestPayment.String(),
+			)
+			return
+		}
+	}
+
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
 	logger := logger.CreateLogger(logger.Default.With(
-		"jobName", l.spec.JobName,
-		"jobID", l.spec.JobID,
+		"jobName", l.job.PipelineSpec.JobName,
+		"jobID", l.job.PipelineSpec.JobID,
 	))
 
 	l.shutdownWaitGroup.Add(1)
@@ -298,7 +308,7 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
 
-		_, _, err := l.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
+		_, _, err := l.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *l.job.PipelineSpec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {

@@ -159,6 +159,21 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:   "logpkg",
+					Usage:  "Set package specific logging",
+					Action: client.SetLogPkg,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "pkg",
+							Usage: "set log filter for package specific logging",
+						},
+						cli.StringFlag{
+							Name:  "level",
+							Usage: "set log level for specified pkg",
+						},
+					},
+				},
+				{
 					Name:   "logsql",
 					Usage:  "Enable/disable sql statement logging",
 					Action: client.SetLogSQL,
@@ -237,6 +252,11 @@ func NewApp(client *Client) *cli.App {
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
+				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
+					Action: client.Migrate,
 				},
 			},
 		},

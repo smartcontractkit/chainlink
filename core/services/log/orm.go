@@ -61,22 +61,22 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID i
 }
 
 func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {
-	var jobIDName string
+
+	var jobID1Value interface{} = nil
+	var jobID2Value interface{} = nil
+
 	switch v := jobID.(type) {
 	case models.JobID:
-		jobIDName = "job_id"
+		jobID1Value = jobID
 	case int32:
-		jobIDName = "job_id_v2"
+		jobID2Value = jobID
 	default:
 		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
-	q := `
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, %[1]s, created_at, consumed) VALUES (?, ?, ?, ?, NOW(), true)
-    `
-
-	stmt := fmt.Sprintf(q, jobIDName)
-	query := o.db.Exec(stmt, blockHash, blockNumber, logIndex, jobID)
+	query := o.db.Exec(`
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, job_id_v2, created_at, consumed) VALUES (?, ?, ?, ?, ?, NOW(), true)
+    `, blockHash, blockNumber, logIndex, jobID1Value, jobID2Value)
 	if query.Error != nil {
 		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
 	} else if query.RowsAffected == 0 {
