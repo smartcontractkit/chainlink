@@ -9,7 +9,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/mock"
@@ -50,9 +49,6 @@ func clearDB(t *testing.T, db *gorm.DB) {
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
-	jobTypeA := job.DirectRequest
-	jobTypeB := job.OffchainReporting
-
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "services_job_spawner", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
@@ -68,8 +64,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, db.Create(bridge2).Error)
 
-	rpc, geth, _, _ := cltest.NewEthMocks(t)
-	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+	ethClient, _, _ := cltest.NewEthMocks(t)
+	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
 			head := args.Get(1).(**models.Head)
 			*head = cltest.Head(10)
@@ -77,10 +73,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		Return(nil)
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		jobSpecA := makeOCRJobSpec(t, address)
-		jobSpecA.Type = jobTypeA
+		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
-		jobSpecB.Type = jobTypeB
 
 		orm := job.NewORM(db, config.Config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
@@ -89,17 +83,17 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2 := new(mocks.Service)
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewDelegate(nil, orm, nil, nil, nil, eth.NewClientWith(rpc, geth), nil, nil, monitoringEndpoint)}
+		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewDelegate(nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint)}
 		eventuallyB := cltest.NewAwaiter()
 		serviceB1 := new(mocks.Service)
 		serviceB2 := new(mocks.Service)
 		serviceB1.On("Start").Return(nil).Once()
 		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
-		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewDelegate(nil, orm, nil, nil, nil, eth.NewClientWith(rpc, geth), nil, nil, monitoringEndpoint)}
+		delegateB := &delegate{jobSpecB.Type, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewDelegate(nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
-			jobTypeA: delegateA,
-			jobTypeB: delegateB,
+			jobSpecA.Type: delegateA,
+			jobSpecB.Type: delegateB,
 		})
 		spawner.Start()
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
@@ -140,7 +134,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
 		jobSpecA := makeOCRJobSpec(t, address)
-		jobSpecA.Type = jobTypeA
 
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -150,9 +143,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config.Config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, eth.NewClientWith(rpc, geth), nil, nil, monitoringEndpoint)}
+		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
-			jobTypeA: delegateA,
+			jobSpecA.Type: delegateA,
 		})
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
@@ -173,16 +166,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
 		jobSpecA := makeOCRJobSpec(t, address)
-		jobSpecA.Type = jobTypeA
 
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
 		orm := job.NewORM(db, config.Config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, eth.NewClientWith(rpc, geth), nil, nil, monitoringEndpoint)}
+		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
-			jobTypeA: delegateA,
+			jobSpecA.Type: delegateA,
 		})
 
 		serviceA1.On("Start").Return(nil).Once()
@@ -208,7 +200,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	t.Run("closes job services on 'delete_from_jobs' postgres event", func(t *testing.T) {
 		jobSpecA := makeOCRJobSpec(t, address)
-		jobSpecA.Type = jobTypeA
 
 		eventuallyStart := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -218,9 +209,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config.Config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, nil, nil, nil, eth.NewClientWith(rpc, geth), nil, nil, monitoringEndpoint)}
+		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
-			jobTypeA: delegateA,
+			jobSpecA.Type: delegateA,
 		})
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})

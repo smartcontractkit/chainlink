@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -300,6 +301,38 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 	assert.Equal(t, 1, len(ptrs))
 
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0020_remove_result_task"))
+}
+
+func TestMigrate_LogConfigTables(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_log_config_tables", false)
+	defer cleanup()
+
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0025_create_log_config_table"))
+
+	sql, err := orm.DB.DB()
+	require.NoError(t, err)
+	res, err := sql.Query("select 1 from pg_type where typname = 'log_level'")
+	require.NoError(t, err)
+	assert.True(t, res.Next())
+
+	lgCfg := logger.LogConfig{
+		ServiceName: "head_tracker",
+		LogLevel:    "warn",
+		CreatedAt:   time.Time{},
+		UpdatedAt:   time.Time{},
+	}
+	require.NoError(t, orm.DB.Create(&lgCfg).Error)
+	require.NoError(t, orm.DB.Find(&lgCfg).Error)
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0025_create_log_config_table"))
+
+	err = orm.DB.Create(&lgCfg).Error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relation \"log_configs\" does not exist")
+
+	res, err = sql.Query("select 1 from pg_type where typname = 'log_level'")
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.False(t, res.Next())
 }
 
 func TestMigrate_CreateCronTables(t *testing.T) {

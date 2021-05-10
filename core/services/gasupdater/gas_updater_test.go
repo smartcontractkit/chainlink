@@ -108,13 +108,29 @@ func TestGasUpdater_Start(t *testing.T) {
 func TestGasUpdater_FetchBlocks(t *testing.T) {
 	t.Parallel()
 
+	t.Run("with history size of 0, errors", func(t *testing.T) {
+		ethClient := new(mocks.Client)
+		config := new(gumocks.Config)
+		gu := gasupdater.GasUpdaterToStruct(gasupdater.NewGasUpdater(ethClient, config))
+
+		var blockDelay uint16 = 3
+		var historySize uint16 = 0
+		config.On("GasUpdaterBlockDelay").Return(blockDelay)
+		config.On("GasUpdaterBlockHistorySize").Return(historySize)
+
+		head := cltest.Head(42)
+		err := gu.FetchBlocks(context.Background(), *head)
+		require.Error(t, err)
+		require.EqualError(t, err, "GasUpdater: history size must be > 0, got: 0")
+	})
+
 	t.Run("with current block height less than block delay does nothing", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
 		gu := gasupdater.GasUpdaterToStruct(gasupdater.NewGasUpdater(ethClient, config))
 
 		var blockDelay uint16 = 3
-		var historySize uint16
+		var historySize uint16 = 1
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
 

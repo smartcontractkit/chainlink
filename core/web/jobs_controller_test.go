@@ -14,7 +14,6 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -72,7 +71,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			}
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
-			body, _ := json.Marshal(models.CreateJobSpecRequest{
+			body, _ := json.Marshal(web.CreateJobRequest{
 				TOML: sp,
 			})
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -90,7 +89,7 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 
 	toml := string(cltest.MustReadFile(t, "../testdata/tomlspecs/oracle-spec.toml"))
 	toml = strings.Replace(toml, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", app.Key.Address.Hex(), 1)
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: toml,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -129,7 +128,7 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/keeper-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -153,18 +152,18 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_CronRequestSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.NoError(t, app.StartAndConnect())
 
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/cron-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -182,19 +181,19 @@ func TestJobsController_Create_CronRequestSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -218,19 +217,19 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 
