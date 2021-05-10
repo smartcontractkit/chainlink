@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `ETH_GAS_LIMIT_MULTIPLIER` configuration option, the gas limit is multiplied by this value before transmission. So a value of 1.1 will add 10% to the on chain gas limit when a transaction is submitted.
 
+## [0.10.6] - 2021-05-10
+
+### Added
+
 - Add `MockOracle.sol` for testing contracts
 
 - New CLI command to convert v1 flux monitor jobs (JSON) to 
