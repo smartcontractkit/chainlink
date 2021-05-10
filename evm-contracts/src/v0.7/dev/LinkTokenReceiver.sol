@@ -73,7 +73,7 @@ abstract contract LinkTokenReceiver {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(data, 32))
     }
-    require(validateTokenTransferAction(funcSelector), "Must use whitelisted functions");
+    validateTokenTransferAction(funcSelector);
     _;
   }
 
