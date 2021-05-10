@@ -70,7 +70,7 @@ type (
 		SecretGenerator  SecretGenerator
 		runtimeStore     *ORM
 		randomP2PPort    uint16
-		randomP2PPortMtx *sync.Mutex
+		randomP2PPortMtx *sync.RWMutex
 		Dialect          dialects.DialectName
 		AdvisoryLockID   int64
 	}
@@ -225,7 +225,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	config := &Config{
 		viper:            v,
 		SecretGenerator:  filePersistedSecretGenerator{},
-		randomP2PPortMtx: new(sync.Mutex),
+		randomP2PPortMtx: new(sync.RWMutex),
 	}
 
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -1169,6 +1169,14 @@ func (c *Config) P2PListenPort() uint16 {
 	if c.viper.IsSet(EnvVarName("P2PListenPort")) {
 		return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
 	}
+	// Fast path in case it was already set
+	c.randomP2PPortMtx.RLock()
+	if c.randomP2PPort > 0 {
+		c.randomP2PPortMtx.RUnlock()
+		return c.randomP2PPort
+	}
+	c.randomP2PPortMtx.RUnlock()
+	// Path for initial set
 	c.randomP2PPortMtx.Lock()
 	defer c.randomP2PPortMtx.Unlock()
 	if c.randomP2PPort > 0 {
