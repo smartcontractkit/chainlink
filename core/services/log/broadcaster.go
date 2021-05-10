@@ -253,7 +253,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		atomic.StoreUint32(&b.trackedAddressesCount, uint32(len(addresses)))
 
-		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription)
+		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
 			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
@@ -265,7 +265,7 @@ func (b *broadcaster) startResubscribeLoop() {
 	}
 }
 
-func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, subscription managedSubscription) (shouldResubscribe bool, _ error) {
+func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) (shouldResubscribe bool, _ error) {
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
 	var needsResubscribe bool
@@ -281,7 +281,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, subscription managed
 		case <-b.newHeads.Notify():
 			b.onNewHeads()
 
-		case err := <-subscription.Err():
+		case err := <-chErr:
 			// Note we'll get a message on this channel
 			// if the eth node terminates the connection.
 			return true, err
