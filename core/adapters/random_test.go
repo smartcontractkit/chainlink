@@ -41,7 +41,8 @@ func TestRandom_Perform(t *testing.T) {
 		"blockNum":  blockNum,
 	})
 	require.NoError(t, err) // Can't fail
-	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
+	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
@@ -63,7 +64,7 @@ func TestRandom_Perform(t *testing.T) {
 			"in RandomValueFromVRFProof has changed?")
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
-	input = models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	input = models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }
@@ -89,7 +90,8 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 		"requestID": utils.AddHexPrefix(common.Bytes2Hex([]byte{1, 2, 3})),
 	})
 	require.NoError(t, err)
-	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
+	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, abi, address.Address())

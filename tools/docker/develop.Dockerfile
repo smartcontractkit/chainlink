@@ -3,6 +3,7 @@ FROM smartcontract/builder:1.0.39
 # Add the PostgreSQL PGP key & repository
 RUN apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+RUN wget --quiet -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - 2>/dev/null
 
 # Install deps
 RUN apt-get update && apt-get install -y postgresql postgresql-contrib direnv build-essential cmake libudev-dev unzip
@@ -15,7 +16,7 @@ RUN go get github.com/google/gofuzz
 RUN yarn global add ganache-cli
 RUN pip3 install web3 slither-analyzer crytic-compile
 RUN curl -L https://github.com/crytic/echidna/releases/download/v1.5.1/echidna-test-v1.5.1-Ubuntu-18.04.tar.gz | tar -xz -C ~/.local/bin
-RUN curl -L https://github.com/openethereum/openethereum/releases/download/v3.0.1/openethereum-linux-v3.0.1.zip --output openethereum.zip
+RUN curl -L https://github.com/openethereum/openethereum/releases/download/v3.2.4/openethereum-linux-v3.2.4.zip --output openethereum.zip
 RUN unzip openethereum.zip -d ~/.local/bin/ && rm openethereum.zip
 RUN chmod +x ~/.local/bin/*
 

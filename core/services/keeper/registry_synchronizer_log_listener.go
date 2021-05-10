@@ -9,10 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func (rs *RegistrySynchronizer) OnConnect() {}
-
-func (rs *RegistrySynchronizer) OnDisconnect() {}
-
 func (rs *RegistrySynchronizer) JobID() models.JobID {
 	return models.JobID{}
 }
@@ -39,18 +35,28 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 		"txHash", broadcast.RawLog().TxHash.Hex(),
 	)
 
+	var mailboxName string
+	var wasOverCapacity bool
 	switch log := log.(type) {
 	case *keeper_registry_wrapper.KeeperRegistryKeepersUpdated:
-		rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
+		wasOverCapacity = rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
+		mailboxName = "mbSyncRegistry"
 	case *keeper_registry_wrapper.KeeperRegistryConfigSet:
-		rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
+		wasOverCapacity = rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
+		mailboxName = "mbSyncRegistry"
 	case *keeper_registry_wrapper.KeeperRegistryUpkeepCanceled:
-		rs.mailRoom.mbUpkeepCanceled.Deliver(broadcast)
+		wasOverCapacity = rs.mailRoom.mbUpkeepCanceled.Deliver(broadcast)
+		mailboxName = "mbUpkeepCanceled"
 	case *keeper_registry_wrapper.KeeperRegistryUpkeepRegistered:
-		rs.mailRoom.mbUpkeepRegistered.Deliver(broadcast)
+		wasOverCapacity = rs.mailRoom.mbUpkeepRegistered.Deliver(broadcast)
+		mailboxName = "mbUpkeepRegistered"
 	case *keeper_registry_wrapper.KeeperRegistryUpkeepPerformed:
-		rs.mailRoom.mbUpkeepPerformed.Deliver(broadcast)
+		wasOverCapacity = rs.mailRoom.mbUpkeepPerformed.Deliver(broadcast)
+		mailboxName = "mbUpkeepPerformed"
 	default:
 		logger.Warnf("unexpected log type %T", log)
+	}
+	if wasOverCapacity {
+		logger.Errorf("RegistrySynchronizer: %v mailbox is over capacity - dropped the oldest unprocessed item", mailboxName)
 	}
 }
