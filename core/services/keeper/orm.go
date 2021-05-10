@@ -164,7 +164,7 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep Upkeep
 		upkeep.ExecuteGas+gasBuffer,
 	).Scan(&etx.ID)
 	if err != nil {
-		return etx, errors.Wrap(err, "keeper failed to insert eth_tx")
+		return etx, errors.Wrap(err, "keeper failed to insert eth_tx, node is likely out of funding")
 	}
 	if etx.ID == 0 {
 		return etx, errors.New("a keeper eth_tx with insufficient eth is present, not creating a new eth_tx")
