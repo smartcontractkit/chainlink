@@ -42,7 +42,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := models.Head{Number: 42}
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
@@ -81,7 +81,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := models.Head{Number: 42}
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
@@ -118,7 +118,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := models.Head{Number: 42}
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) == 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})

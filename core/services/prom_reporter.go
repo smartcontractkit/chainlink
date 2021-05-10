@@ -131,10 +131,14 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head)
 func (pr *promReporter) eventLoop() {
 	logger.Debug("PromReporter: starting event loop")
 	defer pr.wgDone.Done()
+
+	debounceReport := time.NewTicker(10 * time.Second)
+	defer debounceReport.Stop()
+
+	// we are only interested in the newest head every 10 seconds
 	for {
 		select {
-
-		case <-pr.newHeads.Notify():
+		case <-debounceReport.C:
 			item, exists := pr.newHeads.Retrieve()
 			if !exists {
 				continue
