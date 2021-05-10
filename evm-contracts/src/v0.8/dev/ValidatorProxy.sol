@@ -85,6 +85,8 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @dev If the `aggregator` and `validator` are the same contract or collude, this could exhibit reentrancy behavior.
    * However, since that contract would have to be explicitly written for reentrancy and that the `owner` would have
    * to configure this contract to use that malicious contract, we refrain from using mutex or check here.
+   * @dev This does not perform any checks on any roundId, so it is possible that a validator receive different reports
+   * for the same roundId at different points in time. Validator implementations should be aware of this.
    * @param previousRoundId uint256
    * @param previousAnswer int256
    * @param currentRoundId uint256
@@ -288,7 +290,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
       string memory
     )
   {
-    return "ValidatorProxy 1.0.0";
+    return "ValidatorProxy 1.0.0-alpha";
   }
 
 }
