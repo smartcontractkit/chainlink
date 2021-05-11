@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 import "./Chainlink.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
+import "./interfaces/OperatorInterface.sol";
 import "./interfaces/PointerInterface.sol";
 import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 
@@ -28,7 +28,7 @@ contract ChainlinkClient {
   ENSInterface private ens;
   bytes32 private ensNode;
   LinkTokenInterface private link;
-  ChainlinkRequestInterface private oracle;
+  OperatorInterface private oracle;
   uint256 private requestCount = 1;
   mapping(bytes32 => address) private pendingRequests;
 
@@ -195,7 +195,7 @@ contract ChainlinkClient {
   )
     internal
   {
-    ChainlinkRequestInterface requested = ChainlinkRequestInterface(pendingRequests[requestId]);
+    OperatorInterface requested = OperatorInterface(pendingRequests[requestId]);
     delete pendingRequests[requestId];
     emit ChainlinkCancelled(requestId);
     requested.cancelOracleRequest(requestId, payment, callbackFunc, expiration);
@@ -210,7 +210,7 @@ contract ChainlinkClient {
   )
     internal
   {
-    oracle = ChainlinkRequestInterface(oracleAddress);
+    oracle = OperatorInterface(oracleAddress);
   }
 
   /**
@@ -329,16 +329,30 @@ contract ChainlinkClient {
       bytes memory
     )
   {
-    return abi.encodeWithSelector(
-      oracle.oracleRequest.selector,
-      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
-      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-      req.id,
-      req.callbackAddress,
-      req.callbackFunctionId,
-      req.nonce,
-      dataVersion,
-      req.buf.buf);
+    if (dataVersion == 2) {
+      return abi.encodeWithSelector(
+        oracle.requestOracleData.selector,
+        SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+        AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+        req.id,
+        req.callbackAddress,
+        req.callbackFunctionId,
+        req.nonce,
+        dataVersion,
+        req.buf.buf);
+    }
+    if (dataVersion == 1) {
+      return abi.encodeWithSelector(
+        oracle.oracleRequest.selector,
+        SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+        AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+        req.id,
+        req.callbackAddress,
+        req.callbackFunctionId,
+        req.nonce,
+        dataVersion,
+        req.buf.buf);
+    }
   }
 
   /**
