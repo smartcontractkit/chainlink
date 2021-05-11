@@ -79,7 +79,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
 		head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-		executer.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChainSampled(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 		assertLastRunHeight(t, store, upkeep, 20)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -100,7 +100,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
 		head := *cltest.Head(36)
 
-		executer.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChainSampled(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 		assertLastRunHeight(t, store, upkeep, 36)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -111,14 +111,14 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
 			head = *cltest.Head(i)
-			executer.OnNewLongestChain(context.Background(), head)
+			executer.OnNewLongestChainSampled(context.Background(), head)
 			cltest.AssertCountStays(t, store, models.EthTx{}, 1)
 		}
 
 		// head 40 triggers a new run
 		head = *cltest.Head(40)
 
-		executer.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChainSampled(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 2)
 		assertLastRunHeight(t, store, upkeep, 40)
 		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -144,7 +144,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	})
 
 	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-	executer.OnNewLongestChain(context.TODO(), head)
+	executer.OnNewLongestChainSampled(context.TODO(), head)
 
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
 	cltest.AssertCountStays(t, store, models.EthTx{}, 0)
