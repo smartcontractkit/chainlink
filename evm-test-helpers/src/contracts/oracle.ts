@@ -284,9 +284,9 @@ export function encodeRequestOracleData(
   data: BigNumberish,
   dataVersion: BigNumberish = 2,
 ): string {
-  const requestOraclDataSignhash = '0x6de879d6'
+  const requestOracleDataSignhash = '0x6de879d6'
   return encodeRequest(
-    requestOraclDataSignhash,
+    requestOracleDataSignhash,
     specId,
     callbackAddr,
     callbackFunctionId,

@@ -4,7 +4,6 @@ pragma solidity ^0.7.0;
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "./OperatorForwarder.sol";
-import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
@@ -17,7 +16,6 @@ import "../vendor/SafeMathChainlink.sol";
 contract Operator is
   LinkTokenReceiver,
   ConfirmedOwner,
-  ChainlinkRequestInterface,
   OperatorInterface,
   WithdrawalInterface
 {
@@ -107,7 +105,20 @@ contract Operator is
     external
     override
   {
-    requestOracleData(sender, payment, specId, callbackAddress, callbackFunctionId, nonce, dataVersion, data);
+    (bool success, ) = address(this).delegatecall(
+      abi.encodeWithSelector(
+        this.requestOracleData.selector,
+        sender,
+        payment,
+        specId,
+        callbackAddress,
+        callbackFunctionId,
+        nonce,
+        dataVersion,
+        data
+      )
+    );
+    require(success, "Request failed");
   }
 
   /**
@@ -133,7 +144,8 @@ contract Operator is
     uint256 dataVersion,
     bytes calldata data
   )
-    public
+    external
+    override
     onlyLINK()
     checkCallbackAddress(callbackAddress)
   {
