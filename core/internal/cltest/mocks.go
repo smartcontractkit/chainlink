@@ -385,6 +385,7 @@ func (m *MockHeadTrackable) DisconnectedCount() int32 {
 }
 
 func (m *MockHeadTrackable) OnNewLongestChainSampled(context.Context, models.Head) {
+	atomic.AddInt32(&m.onNewHeadCount, 1)
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
