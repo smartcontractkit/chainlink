@@ -44,14 +44,14 @@ abstract contract LinkTokenReceiver {
       address
     );
 
+  /**
+   * @notice Validate the function called on token transfer
+   */
   function validateTokenTransferAction(
     bytes4 funcSelector
   )
     public
-    virtual
-    returns (
-      bool
-    );
+    virtual;
 
   /**
    * @dev Reverts if not sent from the LINK token

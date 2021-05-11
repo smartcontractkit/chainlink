@@ -519,19 +519,18 @@ contract Operator is
     return address(linkToken);
   }
 
-
+  /**
+   * @notice Require that the token transfer action is valid
+   * @dev OPERATOR_REQUEST_SELECTOR = multiword, ORACLE_REQUEST_SELECTOR = singleword
+   */
   function validateTokenTransferAction(
     bytes4 funcSelector
   )
     public
     pure
     override
-    returns (
-      bool
-    )
   {
     require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
-    return true;
   }
 
   // INTERNAL FUNCTIONS
