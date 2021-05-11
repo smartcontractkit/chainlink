@@ -49,7 +49,8 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                      int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                    models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                   bool            `json:"CHAINLINK_DEV"`
-	EnableExperimentalAdapters            bool            `json:"ENABLED_EXPERIMENTAL_ADAPTERS"`
+	EnableExperimentalAdapters            bool            `json:"ENABLE_EXPERIMENTAL_ADAPTERS"`
+	EnableLegacyJobPipeline               bool            `json:"ENABLE_LEGACY_JOB_PIPELINE"`
 	EthBalanceMonitorBlockDelay           uint16          `json:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
 	EthereumDisabled                      bool            `json:"ETH_DISABLED"`
 	EthFinalityDepth                      uint            `json:"ETH_FINALITY_DEPTH"`
@@ -143,6 +144,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
 			Dev:                                   config.Dev(),
 			EnableExperimentalAdapters:            config.EnableExperimentalAdapters(),
+			EnableLegacyJobPipeline:               config.EnableLegacyJobPipeline(),
 			EthBalanceMonitorBlockDelay:           config.EthBalanceMonitorBlockDelay(),
 			EthereumDisabled:                      config.EthereumDisabled(),
 			EthFinalityDepth:                      config.EthFinalityDepth(),
