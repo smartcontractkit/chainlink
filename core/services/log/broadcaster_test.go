@@ -1056,7 +1056,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		for _, event := range events {
 			switch x := event.(type) {
 			case models.Head:
-				(helper.lb).(strpkg.HeadTrackable).OnNewLongestChainSampled(context.Background(), x)
+				(helper.lb).(strpkg.HeadTrackable).OnNewLongestChain(context.Background(), x)
 			case types.Log:
 				chRawLogs <- x
 			}

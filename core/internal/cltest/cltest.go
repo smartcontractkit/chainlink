@@ -1890,7 +1890,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 				ptr.Parent = nil
 
 				for _, ht := range args.HeadTrackables {
-					ht.OnNewLongestChainSampled(ctx, *heads[current])
+					ht.OnNewLongestChain(ctx, *heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
 					chDone <- struct{}{}
