@@ -38,6 +38,8 @@ update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7b
 
 Adding an HTTP endpoint is particularly recommended for BSC, which is hitting websocket limitations on certain queries due to its large block size.
 
+- Support for legacy pipeline (V1 job specs) can now be turned off by setting `ENABLE_LEGACY_JOB_PIPELINE=false`. This can yield marginal performance improvements if you don't need to support the legacy JSON job spec format.
+
 ## [0.10.5] - 2021-04-26
 
 ### Added

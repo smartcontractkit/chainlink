@@ -38,6 +38,7 @@ type ConfigSchema struct {
 	DefaultMaxHTTPAttempts                    uint            `env:"MAX_HTTP_ATTEMPTS" default:"5"`
 	Dev                                       bool            `env:"CHAINLINK_DEV" default:"false"`
 	EnableExperimentalAdapters                bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
+	EnableLegacyJobPipeline                   bool            `env:"ENABLE_LEGACY_JOB_PIPELINE" default:"true"`
 	EthBalanceMonitorBlockDelay               uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
 	EthFinalityDepth                          uint            `env:"ETH_FINALITY_DEPTH"`
 	EthGasBumpPercent                         uint16          `env:"ETH_GAS_BUMP_PERCENT" default:"20"`
