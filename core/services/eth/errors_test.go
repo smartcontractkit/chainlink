@@ -1,11 +1,15 @@
 package eth_test
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newSendErrorWrapped(s string) *eth.SendError {
@@ -190,4 +194,55 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 			assert.Equal(t, test.expectFatal, err.Fatal())
 		})
 	}
+}
+
+func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
+	message := "important revert reason"
+	messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
+	sigHash := "12345678"
+	var jsonErr error = &eth.JsonError{
+		Code:    1,
+		Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
+		Message: "something different",
+	}
+
+	t.Run("it extracts revert reasons when present", func(tt *testing.T) {
+		revertReason, err := eth.ExtractRevertReasonFromRPCError(jsonErr)
+		require.NoError(t, err)
+		require.Equal(t, message, revertReason)
+	})
+
+	t.Run("it unwraps wrapped errors", func(tt *testing.T) {
+		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
+		revertReason, err := eth.ExtractRevertReasonFromRPCError(wrappedErr)
+		require.NoError(t, err)
+		require.Equal(t, message, revertReason)
+	})
+
+	t.Run("it unwraps multi-wrapped errors", func(tt *testing.T) {
+		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
+		wrappedErr = errors.Wrap(wrappedErr, "wrapped again!!")
+		revertReason, err := eth.ExtractRevertReasonFromRPCError(wrappedErr)
+		require.NoError(t, err)
+		require.Equal(t, message, revertReason)
+	})
+
+	t.Run("it gracefully errors when no data present", func(tt *testing.T) {
+		var jsonErr error = &eth.JsonError{
+			Code:    1,
+			Message: "something different",
+		}
+		_, err := eth.ExtractRevertReasonFromRPCError(jsonErr)
+		require.Error(t, err)
+	})
+
+	t.Run("gracefully errors when given a normal error", func(tt *testing.T) {
+		_, err := eth.ExtractRevertReasonFromRPCError(errors.New("normal error"))
+		require.Error(tt, err)
+	})
+
+	t.Run("gracefully errors when given no error", func(tt *testing.T) {
+		_, err := eth.ExtractRevertReasonFromRPCError(nil)
+		require.Error(tt, err)
+	})
 }
