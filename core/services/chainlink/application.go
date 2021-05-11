@@ -192,10 +192,21 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker")
 	}
 
-	runExecutor := services.NewRunExecutor(store, statsPusher)
-	runQueue := services.NewRunQueue(runExecutor)
-	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	var runExecutor services.RunExecutor
+	var runQueue services.RunQueue
+	var runManager services.RunManager
+	var jobSubscriber services.JobSubscriber
+	if config.EnableLegacyJobPipeline() {
+		runExecutor = services.NewRunExecutor(store, statsPusher)
+		runQueue = services.NewRunQueue(runExecutor)
+		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
+		jobSubscriber = services.NewJobSubscriber(store, runManager)
+	} else {
+		runExecutor = &services.NullRunExecutor{}
+		runQueue = &services.NullRunQueue{}
+		runManager = &services.NullRunManager{}
+		jobSubscriber = &services.NullJobSubscriber{}
+	}
 	promReporter := services.NewPromReporter(store.MustSQLDB())
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())

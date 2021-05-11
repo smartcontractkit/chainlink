@@ -125,3 +125,15 @@ func (rq *runQueue) WorkerCount() int {
 
 	return len(rq.workers)
 }
+
+// NullRunQueue implements Null pattern for RunQueue interface
+type NullRunQueue struct{}
+
+func (NullRunQueue) Start() error { return nil }
+func (NullRunQueue) Stop()        {}
+func (NullRunQueue) Run(uuid.UUID) {
+	panic("NullRunQueue#Run should never be called")
+}
+func (NullRunQueue) WorkerCount() int {
+	panic("NullRunQueue#WorkerCount should never be called")
+}

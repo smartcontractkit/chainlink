@@ -29,6 +29,9 @@ func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 			return errors.New("The Flux Monitor feature is disabled by configuration")
 		}
 	}
+	if !cfg.EnableLegacyJobPipeline() {
+		return errors.New("legacy job pipeline is disabled, cannot add job spec")
+	}
 	return nil
 }
 
