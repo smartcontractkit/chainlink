@@ -487,16 +487,24 @@ func (err *jsonError) Error() string {
 }
 
 func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
+	message := "important revert reason"
+	messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
+	sigHash := "12345678"
+	var jsonErr error = &jsonError{
+		Code:    1,
+		Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
+		Message: "something different",
+	}
+
 	t.Run("it extracts revert reasons when present", func(tt *testing.T) {
-		message := "important revert reason"
-		messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
-		sigHash := "12345678"
-		var jsonErr error = &jsonError{
-			Code:    1,
-			Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
-			Message: "something different",
-		}
 		revertReason, err := utils.ExtractRevertReasonFromRPCError(jsonErr)
+		require.NoError(t, err)
+		require.Equal(t, message, revertReason)
+	})
+
+	t.Run("it unwraps wrapped errors", func(tt *testing.T) {
+		wrappedErr := errors.Wrap(jsonErr, "wrapped message")
+		revertReason, err := utils.ExtractRevertReasonFromRPCError(wrappedErr)
 		require.NoError(t, err)
 		require.Equal(t, message, revertReason)
 	})

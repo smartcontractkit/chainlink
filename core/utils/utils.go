@@ -950,7 +950,8 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	if err == nil {
 		return "", errors.New("no error present")
 	}
-	field := reflect.ValueOf(err).Elem().FieldByName("Data")
+	cause := errors.Cause(err)
+	field := reflect.ValueOf(cause).Elem().FieldByName("Data")
 	if !field.IsValid() {
 		return "", errors.New("invalid error type")
 	}
@@ -966,7 +967,7 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	if len(hexData) < 8 {
 		return "", errors.New("unknown data payload format")
 	}
-	bytes, err := hex.DecodeString(RemoveHexPrefix(matches[0])[8:])
+	bytes, err := hex.DecodeString(hexData[8:])
 	if err != nil {
 		return "", errors.Wrap(err, "unable to decode hex to bytes")
 	}
