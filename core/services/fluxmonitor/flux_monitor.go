@@ -450,7 +450,6 @@ func NewPollingDeviationChecker(
 		fetcher:          fetcher,
 		pollTicker:       utils.NewPausableTicker(initr.PollTimer.Period.Duration()),
 		hibernationTimer: utils.NewResettableTimer(),
-		//idleTimer:        utils.NewResettableTimer(),
 		idleTimer:     idleTimer,
 		roundTimer:    utils.NewResettableTimer(),
 		minSubmission: minSubmission,
