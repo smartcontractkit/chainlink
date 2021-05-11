@@ -451,11 +451,11 @@ func NewPollingDeviationChecker(
 		pollTicker:       utils.NewPausableTicker(initr.PollTimer.Period.Duration()),
 		hibernationTimer: utils.NewResettableTimer(),
 		//idleTimer:        utils.NewResettableTimer(),
-		idleTimer:        idleTimer,
-		roundTimer:       utils.NewResettableTimer(),
-		minSubmission:    minSubmission,
-		maxSubmission:    maxSubmission,
-		isHibernating:    false,
+		idleTimer:     idleTimer,
+		roundTimer:    utils.NewResettableTimer(),
+		minSubmission: minSubmission,
+		maxSubmission: maxSubmission,
+		isHibernating: false,
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.

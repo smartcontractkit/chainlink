@@ -1474,7 +1474,7 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 		InitiatorParams: models.InitiatorParams{
 			IdleTimer: models.IdleTimerConfig{
 				Disabled: false,
-				Duration: models.MustMakeDuration(10*time.Millisecond),
+				Duration: models.MustMakeDuration(10 * time.Millisecond),
 			},
 			PollTimer: models.PollTimerConfig{
 				Disabled: true,
@@ -1482,7 +1482,7 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 		},
 	}
 	lb := new(logmocks.Broadcaster)
-	lb.On("Register", mock.Anything, mock.Anything).Return(func(){})
+	lb.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	lb.On("IsConnected").Return(true)
 	fluxAggregator.On("GetOracles", mock.Anything).Return([]common.Address{}, nil)
 	fluxAggregator.On("LatestRoundData", mock.Anything).Return(
@@ -1496,7 +1496,7 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 	done := make(chan struct{})
 	// To get a 3rd call we need the idle timer to fire
 	fluxAggregator.On("OracleRoundState", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		done<-struct{}{}
+		done <- struct{}{}
 	}).Return(
 		flux_aggregator_wrapper.OracleRoundState{EligibleToSubmit: false, RoundId: 10, StartedAt: startedAtTs.Uint64()}, nil)
 
@@ -1504,7 +1504,7 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 	require.NoError(t, err)
 	checker.Start()
 	defer checker.Stop()
-	select{
+	select {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Error("idle timer did not fire as expected")
