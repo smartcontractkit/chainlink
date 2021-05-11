@@ -618,6 +618,7 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 func (ht *HeadTracker) concurrentlyExecuteSampledCallbacks(ctx context.Context, headWithChain models.Head) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(ht.callbacks))
+
 	for idx, trackable := range ht.callbacks {
 		go func(i int, t strpkg.HeadTrackable) {
 			start := time.Now()
