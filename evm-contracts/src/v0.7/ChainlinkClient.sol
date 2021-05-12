@@ -329,30 +329,17 @@ contract ChainlinkClient {
       bytes memory
     )
   {
-    if (dataVersion == 2) {
-      return abi.encodeWithSelector(
-        oracle.requestOracleData.selector,
-        SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
-        AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-        req.id,
-        req.callbackAddress,
-        req.callbackFunctionId,
-        req.nonce,
-        dataVersion,
-        req.buf.buf);
-    }
-    if (dataVersion == 1) {
-      return abi.encodeWithSelector(
-        oracle.oracleRequest.selector,
-        SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
-        AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-        req.id,
-        req.callbackAddress,
-        req.callbackFunctionId,
-        req.nonce,
-        dataVersion,
-        req.buf.buf);
-    }
+    bytes4 funcSelector = (dataVersion == 2) ? oracle.requestOracleData.selector : oracle.oracleRequest.selector;
+    return abi.encodeWithSelector(
+      funcSelector,
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+      req.id,
+      req.callbackAddress,
+      req.callbackFunctionId,
+      req.nonce,
+      dataVersion,
+      req.buf.buf);
   }
 
   /**
