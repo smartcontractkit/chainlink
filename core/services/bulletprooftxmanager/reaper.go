@@ -66,7 +66,10 @@ func (r *Reaper) runLoop() {
 			if !exists {
 				continue
 			}
-			latestBlockNum := n.(int64)
+			latestBlockNum, ok := n.(int64)
+			if !ok {
+				panic(fmt.Sprintf("expected int64 but got %T", n))
+			}
 			err := r.ReapEthTxes(latestBlockNum)
 			if err != nil {
 				r.log.Error("Reaper: unable to reap old eth_txes: ", err)

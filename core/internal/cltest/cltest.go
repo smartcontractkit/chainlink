@@ -235,7 +235,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.AdvisoryLockID = NewRandomInt64()
 
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ETH_CHAIN_ID", 3)
+	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
 	rawConfig.Set("MIGRATE_DATABASE", false)
