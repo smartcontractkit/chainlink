@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -1772,17 +1773,17 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	)
 	defer cleanup()
 
-	b41 := models.Block{
+	b41 := gasupdater.Block{
 		Number:       41,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
-	b42 := models.Block{
+	b42 := gasupdater.Block{
 		Number:       42,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
-	b43 := models.Block{
+	b43 := gasupdater.Block{
 		Number:       43,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
