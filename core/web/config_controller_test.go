@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint16(6689), cp.TLSPort)
 	assert.Equal(t, "", cp.TLSHost)
 	assert.Contains(t, cp.EthereumURL, "ws://127.0.0.1:")
-	assert.Equal(t, big.NewInt(3), cp.ChainID)
+	assert.Equal(t, big.NewInt(eth.NullClientChainID), cp.ChainID)
 	assert.Contains(t, cp.ClientNodeURL, "http://127.0.0.1:")
 	assert.Equal(t, uint64(6), cp.MinRequiredOutgoingConfirmations)
 	assert.Equal(t, uint32(1), cp.MinIncomingConfirmations)
