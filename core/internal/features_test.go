@@ -352,12 +352,14 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	}), nil)
 
 	require.NoError(t, app.StartAndConnect())
+	// Fixture values
+	sender := common.HexToAddress("0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7")
+	keyHash := common.HexToHash("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800")
 	jb := cltest.CreateSpecViaWeb(t, app, testspecs.RandomnessJob)
 	logs := <-logsCh
-	fee := assets.Link(*big.NewInt(100))                                        // Default min link is 100
-	sender := common.HexToAddress("0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7") // Fixture sender
+	fee := assets.Link(*big.NewInt(100)) // Default min link is 100
 	randLog := models.RandomnessRequestLog{
-		KeyHash:   cltest.NewHash(),
+		KeyHash:   keyHash,
 		Seed:      big.NewInt(1),
 		JobID:     cltest.NewHash(),
 		Sender:    sender,
@@ -374,10 +376,28 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	// Same requestID log again should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
 	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 102
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// Same requestID log again should result in a doubling of incoming confs
+	log.TxHash = cltest.NewHash()
+	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 103
+	logs <- log
+	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// New requestID should be back to original
+	randLog.RequestID = cltest.NewHash()
+	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
+	logs <- newReqLog
+	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 }
 
 func TestIntegration_StartAt(t *testing.T) {

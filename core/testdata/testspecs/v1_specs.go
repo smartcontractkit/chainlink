@@ -19,8 +19,7 @@ var (
       "params": {
         "_comment": "Note: the following key is ONLY AN EXAMPLE, and not secure.",
         "_comment2": "Use the public key reported when you ran chainlink local vrf create, instead",
-        "publicKey":
-        "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800",
+        "publicKey":"0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800",
         "_comment3": "Corresponds to a secret key of 1. (So not secure at all!)"
       }
     },
