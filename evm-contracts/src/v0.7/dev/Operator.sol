@@ -286,17 +286,16 @@ contract Operator is
    */
   function deployForwarder()
     external
-    override
     onlyOwner()
     returns (
-      address
+      OperatorForwarder
     )
   {
     require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
     OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken));
     s_forwarder = newForwarder;
     emit ForwarderChanged(newForwarder);
-    return address(newForwarder);
+    return newForwarder;
   }
 
   /**
@@ -354,12 +353,11 @@ contract Operator is
   function getForwarder()
     external
     view
-    override
     returns (
-      address
+      OperatorForwarder
     )
   {
-    return address(s_forwarder);
+    return s_forwarder;
   }
 
   /**

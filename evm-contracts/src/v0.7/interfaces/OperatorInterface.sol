@@ -45,12 +45,6 @@ interface OperatorInterface is OracleInterface {
     address[] calldata senders
   ) external;
 
-  function deployForwarder()
-    external
-    returns(
-      address
-    );
-
   function transferForwarderOwnership(
     address newOwner
   ) external;
@@ -58,10 +52,4 @@ interface OperatorInterface is OracleInterface {
   function acceptForwarderOwnership(
     address newOwner
   ) external;
-
-  function getForwarder()
-    external
-    returns (
-      address
-    );
 }
