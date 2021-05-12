@@ -753,6 +753,11 @@ func (c Config) EthTxResendAfterThreshold() time.Duration {
 	return chainSpecificConfig(c).EthTxResendAfterThreshold
 }
 
+// EthTxReaperInterval controls how often the eth tx reaper should run
+func (c Config) EthTxReaperInterval() time.Duration {
+	return c.getWithFallback("EthTxReaperInterval", parseDuration).(time.Duration)
+}
+
 // EthTxReaperThreshold represents how long any confirmed/fatally_errored eth_txes will hang around in the database.
 // If the eth_tx is confirmed but still below ETH_FINALITY_DEPTH it will not be deleted even if it was created at a time older than this value.
 // EXAMPLE

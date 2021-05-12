@@ -2,12 +2,12 @@ package bulletprooftxmanager
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
 
@@ -15,19 +15,20 @@ import (
 
 // ReaperConfig is the config subset used by the reaper
 type ReaperConfig interface {
+	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthFinalityDepth() uint
 }
 
 // Reaper handles periodic database cleanup for BPTXM
 type Reaper struct {
-	db        *gorm.DB
-	config    ReaperConfig
-	log       *logger.Logger
-	blockNums utils.Mailbox
-
-	chStop chan struct{}
-	chDone chan struct{}
+	db             *gorm.DB
+	config         ReaperConfig
+	log            *logger.Logger
+	latestBlockNum int64
+	trigger        chan struct{}
+	chStop         chan struct{}
+	chDone         chan struct{}
 }
 
 // NewReaper instantiates a new reaper object
@@ -36,7 +37,8 @@ func NewReaper(db *gorm.DB, config ReaperConfig) *Reaper {
 		db,
 		config,
 		logger.CreateLogger(logger.Default.With("id", "bptxm_reaper")),
-		*utils.NewMailbox(1),
+		-1,
+		make(chan struct{}, 1),
 		make(chan struct{}),
 		make(chan struct{}),
 	}
@@ -44,7 +46,7 @@ func NewReaper(db *gorm.DB, config ReaperConfig) *Reaper {
 
 // Start the reaper. Should only be called once.
 func (r *Reaper) Start() {
-	r.log.Debugf("EthTxReaper: started with age threshold %v", r.config.EthTxReaperThreshold())
+	r.log.Debugf("EthTxReaper: started with age threshold %v and interval %v", r.config.EthTxReaperThreshold(), r.config.EthTxReaperInterval())
 	go r.runLoop()
 }
 
@@ -57,31 +59,41 @@ func (r *Reaper) Stop() {
 
 func (r *Reaper) runLoop() {
 	defer close(r.chDone)
+	ticker := time.NewTicker(r.config.EthTxReaperInterval())
+	defer ticker.Stop()
 	for {
 		select {
 		case <-r.chStop:
 			return
-		case <-r.blockNums.Notify():
-			n, exists := r.blockNums.Retrieve()
-			if !exists {
-				continue
-			}
-			latestBlockNum, ok := n.(int64)
-			if !ok {
-				panic(fmt.Sprintf("expected int64 but got %T", n))
-			}
-			err := r.ReapEthTxes(latestBlockNum)
-			if err != nil {
-				r.log.Error("Reaper: unable to reap old eth_txes: ", err)
-			}
-
+		case <-ticker.C:
+			r.work()
+		case <-r.trigger:
+			r.work()
 		}
 	}
 }
 
-// Deliver should be called on every new highest block number
-func (r *Reaper) Deliver(latestBlockNum int64) {
-	r.blockNums.Deliver(latestBlockNum)
+func (r *Reaper) work() {
+	latestBlockNum := atomic.LoadInt64(&r.latestBlockNum)
+	if latestBlockNum < 0 {
+		return
+	}
+	err := r.ReapEthTxes(latestBlockNum)
+	if err != nil {
+		r.log.Error("Reaper: unable to reap old eth_txes: ", err)
+	}
+}
+
+// SetLatestBlockNum should be called on every new highest block number
+func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
+	if latestBlockNum < 0 {
+		panic(fmt.Sprintf("latestBlockNum must be 0 or greater, got: %d", latestBlockNum))
+	}
+	was := atomic.SwapInt64(&r.latestBlockNum, latestBlockNum)
+	if was < 0 {
+		// Run reaper once on startup
+		r.trigger <- struct{}{}
+	}
 }
 
 // ReapEthTxes deletes old eth_txes
@@ -95,7 +107,7 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 
-	r.log.Infow(fmt.Sprintf("Reaper: reaping old eth_txes created before %s", timeThreshold.Format(time.RFC3339)), "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
+	r.log.Debugw(fmt.Sprintf("Reaper: reaping old eth_txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
 
 	// Delete old confirmed eth_txes
 	// NOTE that this relies on foreign key triggers automatically removing
