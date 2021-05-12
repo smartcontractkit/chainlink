@@ -46,7 +46,7 @@ jobs:
       - name: Install Postgres for CLI tools
         run: wget --quiet -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add - && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |sudo tee  /etc/apt/sources.list.d/pgdg.list && sudo apt update && sudo apt install -y postgresql-client-13
       - name: Cache Yarn dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -55,7 +55,7 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Go vendor packages
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         with:
           path: /go/pkg/mod
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
@@ -130,7 +130,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -160,7 +160,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -189,7 +189,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -219,7 +219,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -249,7 +249,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -279,7 +279,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -309,7 +309,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -339,7 +339,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
@@ -369,7 +369,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         env:
           cache-name: yarn-cache
         with:
