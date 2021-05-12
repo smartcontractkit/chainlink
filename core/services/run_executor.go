@@ -152,9 +152,16 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, taskRun.ID, data, taskRun.Status)
+	input := *models.NewRunInput(*run, taskRun.ID, data, taskRun.Status)
 	result := adapter.Perform(input, re.store)
 	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
 
 	return result
+}
+
+// NullRunExecutor implements Null pattern for RunExecutor interface
+type NullRunExecutor struct{}
+
+func (NullRunExecutor) Execute(uuid.UUID) error {
+	return errors.New("NullRunExecutor#Execute should never be called")
 }

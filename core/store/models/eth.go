@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jinzhu/gorm/dialects/postgres"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -43,6 +45,12 @@ type EthTaskRunTx struct {
 	EthTx     EthTx
 }
 
+type EthTxMeta struct {
+	TaskRunID        uuid.UUID
+	RunRequestID     *common.Hash
+	RunRequestTxHash *common.Hash
+}
+
 type EthTx struct {
 	ID             int64
 	Nonce          *int64
@@ -58,6 +66,10 @@ type EthTx struct {
 	CreatedAt     time.Time
 	State         EthTxState
 	EthTxAttempts []EthTxAttempt `gorm:"->"`
+	// Marshalled EthTxMeta
+	// Used for additional context around transactions which you want to log
+	// at send time.
+	Meta postgres.Jsonb
 }
 
 func (e EthTx) GetError() error {

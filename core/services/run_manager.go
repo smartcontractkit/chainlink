@@ -186,11 +186,6 @@ func (rm *runManager) Create(
 	creationHeight *big.Int,
 	runRequest *models.RunRequest,
 ) (*models.JobRun, error) {
-	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
-		"job", jobSpecID.String(),
-		"creation_height", creationHeight.String(),
-	)
-
 	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
@@ -223,6 +218,10 @@ func (rm *runManager) Create(
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
 
+	logger.Debugw(
+		fmt.Sprintf("RunManager: creating new job run initiated by %s", run.Initiator.Type),
+		run.ForLogger()...,
+	)
 	if err := rm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
@@ -230,7 +229,7 @@ func (rm *runManager) Create(
 
 	if run.GetStatus().Runnable() {
 		logger.Debugw(
-			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+			fmt.Sprintf("RunManager: executing run initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
 		rm.runQueue.Run(run.ID)
@@ -409,4 +408,35 @@ func (rm *runManager) saveAndResumeIfInProgress(run *models.JobRun) error {
 		rm.runQueue.Run(run.ID)
 	}
 	return nil
+}
+
+// NullRunManager implements Null pattern for RunManager interface
+type NullRunManager struct{}
+
+func (NullRunManager) Create(jobSpecID models.JobID, initiator *models.Initiator, creationHeight *big.Int, runRequest *models.RunRequest) (*models.JobRun, error) {
+	return nil, errors.New("NullRunManager#Create should never be called")
+}
+
+func (NullRunManager) CreateErrored(jobSpecID models.JobID, initiator models.Initiator, err error) (*models.JobRun, error) {
+	return nil, errors.New("NullJobSubscriber#CreateErrored should never be called")
+}
+
+func (NullRunManager) ResumePendingBridge(runID uuid.UUID, input models.BridgeRunResult) error {
+	return errors.New("NullRunManager#ResumePendingBridge should never be called")
+}
+
+func (NullRunManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
+	return nil, errors.New("NullJobSubscriber#Cancel should never be called")
+}
+
+func (NullRunManager) ResumeAllInProgress() error {
+	return errors.New("NullRunManager#ResumeAllInProgress should never be called")
+}
+
+func (NullRunManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
+	return errors.New("NullRunManager#ResumeAllPendingNextBlock should never be called")
+}
+
+func (NullRunManager) ResumeAllPendingConnection() error {
+	return errors.New("NullRunManager#ResumeAllPendingConnection should never be called")
 }

@@ -52,15 +52,15 @@ func (m *Mailbox) Deliver(x interface{}) (wasOverCapacity bool) {
 }
 
 // Retrieve fetches an interface from the queue
-func (m *Mailbox) Retrieve() interface{} {
+func (m *Mailbox) Retrieve() (interface{}, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.queue) == 0 {
-		return nil
+		return nil, false
 	}
 	x := m.queue[len(m.queue)-1]
 	m.queue = m.queue[:len(m.queue)-1]
-	return x
+	return x, true
 }
 
 func (m *Mailbox) RetrieveLatestAndClear() interface{} {

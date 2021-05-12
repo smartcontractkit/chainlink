@@ -114,8 +114,8 @@ func (jr *JobRun) SetID(value string) error {
 // ForLogger formats the JobRun for a common formatting in the log.
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", jr.JobSpecID.String(),
-		"run", jr.ID.String(),
+		"jobID", jr.JobSpecID.String(),
+		"runID", jr.ID.String(),
 		"status", jr.Status,
 	}
 
@@ -138,7 +138,15 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	if jr.RunRequest.RequestID != nil {
-		output = append(output, "external_id", jr.RunRequest.RequestID)
+		output = append(output, "requestID", jr.RunRequest.RequestID)
+	}
+
+	if jr.RunRequest.TxHash != nil {
+		output = append(output, "txHash", jr.RunRequest.TxHash)
+	}
+
+	if jr.RunRequest.BlockHash != nil {
+		output = append(output, "blockHash", jr.RunRequest.BlockHash)
 	}
 
 	return append(kvs, output...)

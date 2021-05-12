@@ -160,7 +160,7 @@ func Fatalf(format string, values ...interface{}) {
 	Fatal(fmt.Sprintf(format, values...))
 }
 
-// Fatalw logs a debug message and any additional given information.
+// Fatalw logs a message and exits the application
 func Fatalw(msg string, keysAndValues ...interface{}) {
 	Default.Fatalw(msg, keysAndValues...)
 }
