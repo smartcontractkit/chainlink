@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `ETH_GAS_LIMIT_MULTIPLIER` configuration option, the gas limit is multiplied by this value before transmission. So a value of 1.1 will add 10% to the on chain gas limit when a transaction is submitted.
 
+### Changed
+
+- Heads corresponding to new blocks are now delivered in a sampled way, which is to improve 
+  node performance on fast chains. The frequency is by default 1 second, and can be changed 
+  by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL` env var e.g. `ETH_HEAD_TRACKER_SAMPLING_INTERVAL=5s`.
+
 ## [0.10.6] - 2021-05-10
 
 ### Added
