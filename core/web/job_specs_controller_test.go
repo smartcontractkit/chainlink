@@ -607,7 +607,7 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 	})
 
 	t.Run("runlog", func(t *testing.T) {
-		jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/runlog_noop_job.json")
+		jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_noop_job.json")
 		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 		t.Cleanup(cleanup)
 
@@ -616,7 +616,7 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 	})
 
 	t.Run("ethlog", func(t *testing.T) {
-		jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/runlog_noop_job.json")
+		jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_noop_job.json")
 		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 		t.Cleanup(cleanup)
 
