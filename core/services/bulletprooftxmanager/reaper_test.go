@@ -25,6 +25,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config := new(mocks.ReaperConfig)
 		config.On("EthFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
+		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
 		r := bulletprooftxmanager.NewReaper(store.DB, config)
 
@@ -40,6 +41,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config := new(mocks.ReaperConfig)
 		config.On("EthFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(0 * time.Second)
+		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
 		r := bulletprooftxmanager.NewReaper(store.DB, config)
 
@@ -53,6 +55,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config := new(mocks.ReaperConfig)
 		config.On("EthFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
+		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
 		r := bulletprooftxmanager.NewReaper(store.DB, config)
 
@@ -80,6 +83,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config := new(mocks.ReaperConfig)
 		config.On("EthFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
+		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
 		r := bulletprooftxmanager.NewReaper(store.DB, config)
 

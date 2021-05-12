@@ -110,7 +110,7 @@ func (ec *ethConfirmer) Disconnect() {
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
 	ec.mb.Deliver(head)
 	if ec.reaper != nil {
-		ec.reaper.Deliver(head.Number)
+		ec.reaper.SetLatestBlockNum(head.Number)
 	}
 }
 

@@ -27,6 +27,20 @@ func (_m *ReaperConfig) EthFinalityDepth() uint {
 	return r0
 }
 
+// EthTxReaperInterval provides a mock function with given fields:
+func (_m *ReaperConfig) EthTxReaperInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // EthTxReaperThreshold provides a mock function with given fields:
 func (_m *ReaperConfig) EthTxReaperThreshold() time.Duration {
 	ret := _m.Called()
