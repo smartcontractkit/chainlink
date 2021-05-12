@@ -38,7 +38,7 @@ func NewRegistrySynchronizer(
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
 		mbSyncRegistry:     utils.NewMailbox(1),
-		mbUpkeepPerformed:  utils.NewMailbox(1),
+		mbUpkeepPerformed:  utils.NewMailbox(300),
 		mbUpkeepRegistered: utils.NewMailbox(50),
 	}
 	return &RegistrySynchronizer{
