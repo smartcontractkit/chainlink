@@ -692,6 +692,11 @@ func TestClient_AutoLogin(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+
+	// Expire the session and then try again
+	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
+	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
 }
 
 func TestClient_SetLogConfig(t *testing.T) {
