@@ -379,14 +379,7 @@ func (ht *HeadTracker) backfiller() {
 }
 
 // Backfill given a head will fill in any missing heads up to the given depth
-func (ht *HeadTracker) Backfill(ctx context.Context, head models.Head, depth uint) (err error) {
-	headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
-	if ctx.Err() != nil {
-		return nil
-	} else if err != nil {
-		return errors.Wrap(err, "HeadTracker#Backfill failed fetching chain")
-	}
-
+func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain models.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
@@ -549,8 +542,16 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
-		ht.backfillMB.Deliver(head)
-		ht.samplingMB.Deliver(head)
+
+		headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
+		if ctx.Err() != nil {
+			return nil
+		} else if err != nil {
+			return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
+		}
+
+		ht.backfillMB.Deliver(headWithChain)
+		ht.samplingMB.Deliver(headWithChain)
 		return nil
 	}
 	if head.Number == prevHead.Number {
@@ -572,7 +573,7 @@ func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
 	return ht.store.Config.HeadTimeBudget() / 2
 }
 
-func (ht *HeadTracker) onNewLongestChain(ctx context.Context, head models.Head) {
+func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain models.Head) {
 	defer func(start time.Time, number int64) {
 		elapsed := time.Since(start)
 		ms := float64(elapsed.Milliseconds())
@@ -583,15 +584,7 @@ func (ht *HeadTracker) onNewLongestChain(ctx context.Context, head models.Head) 
 		} else {
 			ht.logger().Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		}
-	}(time.Now(), head.Number)
-
-	headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
-	if ctx.Err() != nil {
-		return
-	} else if err != nil {
-		logger.Error("HeadTracker#Backfill onNewLongestChain fetching chain", err)
-		return
-	}
+	}(time.Now(), headWithChain.Number)
 
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
