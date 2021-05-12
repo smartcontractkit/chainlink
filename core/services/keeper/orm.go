@@ -2,7 +2,9 @@ package keeper
 
 import (
 	"context"
+	"database/sql"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -118,30 +120,27 @@ func (korm ORM) LowestUnsyncedID(ctx context.Context, reg Registry) (nextID int6
 	return nextID, err
 }
 
-func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32, upkeepID int64, height int64) error {
-	return korm.DB.
-		WithContext(ctx).Exec(
-		`UPDATE upkeep_registrations
+func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepID int64, height int64) error {
+	return db.
+		Exec(`UPDATE upkeep_registrations
 		SET last_run_block_height = ?
 		WHERE upkeep_id = ? AND
 		registry_id = (
 			SELECT id FROM keeper_registries WHERE job_id = ?
 		);`,
-		height,
-		upkeepID,
-		jobID,
-	).Error
+			height,
+			upkeepID,
+			jobID,
+		).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
+func (korm ORM) CreateEthTransactionForUpkeep(sqlDB *sql.DB, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
 	var etx models.EthTx
-	sqlDB, err := korm.DB.DB()
-	if err != nil {
-		return etx, err
-	}
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
 
 	from := upkeep.Registry.FromAddress.Address()
-	err = utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
+	err := utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}
