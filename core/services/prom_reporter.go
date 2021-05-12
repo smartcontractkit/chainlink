@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 
@@ -131,7 +132,7 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head)
 func (pr *promReporter) eventLoop() {
 	logger.Debug("PromReporter: starting event loop")
 	defer pr.wgDone.Done()
-
+	ctx, _ := utils.ContextFromChan(pr.chStop)
 	for {
 		select {
 		case <-pr.newHeads.Notify():
@@ -141,10 +142,9 @@ func (pr *promReporter) eventLoop() {
 			}
 			head, ok := item.(models.Head)
 			if !ok {
-				logger.Errorf("expected `models.Head`, got %T", item)
-				continue
+				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
 			}
-			pr.reportMetrics(head)
+			pr.reportMetrics(ctx, head)
 
 		case <-pr.chStop:
 			return
@@ -152,9 +152,7 @@ func (pr *promReporter) eventLoop() {
 	}
 }
 
-func (pr *promReporter) reportMetrics(head models.Head) {
-
-	ctx := context.Background()
+func (pr *promReporter) reportMetrics(ctx context.Context, head models.Head) {
 	err := multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx), "reportPendingEthTxes failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx), "reportMaxUnconfirmedAge failed"),

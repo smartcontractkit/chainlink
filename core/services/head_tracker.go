@@ -312,8 +312,7 @@ func (ht *HeadTracker) headSampler() {
 			}
 			head, ok := item.(models.Head)
 			if !ok {
-				logger.Errorf("expected `models.Head`, got %T", item)
-				continue
+				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
 			}
 
 			ht.onNewLongestChain(ctx, head)
@@ -362,8 +361,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				h, is := head.(models.Head)
 				if !is {
-					ht.logger().Errorf("HeadTracker: invariant violation, expected %T but got %T", models.Head{}, head)
-					continue
+					panic(fmt.Sprintf("expected `models.Head`, got %T", head))
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.done)
