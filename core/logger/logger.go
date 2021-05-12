@@ -191,7 +191,7 @@ func NewProductionConfig(lvl zapcore.Level, dir string, jsonConsole, toDisk bool
 		Development:      false,
 		Sampling:         nil,
 		Encoding:         "json",
-		EncoderConfig:    zap.NewProductionEncoderConfig(),
+		EncoderConfig:    NewProductionEncoderConfig(),
 		OutputPaths:      []string{outputPath},
 		ErrorOutputPaths: []string{"stderr"},
 	}
@@ -201,4 +201,23 @@ func NewProductionConfig(lvl zapcore.Level, dir string, jsonConsole, toDisk bool
 		c.ErrorOutputPaths = append(c.ErrorOutputPaths, destination)
 	}
 	return
+}
+
+// NewProductionEncoderConfig returns a production encoder config
+func NewProductionEncoderConfig() zapcore.EncoderConfig {
+	// Copied from zap.NewProductionEncoderConfig but with ISO timestamps instead of Unix
+	return zapcore.EncoderConfig{
+		TimeKey:        "ts",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		FunctionKey:    zapcore.OmitKey,
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
 }
