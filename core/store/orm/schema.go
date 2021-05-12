@@ -56,6 +56,8 @@ type ConfigSchema struct {
 	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
 	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
+	EthTxReaperInterval                       time.Duration   `env:"ETH_TX_REAPER_INTERVAL" default:"1h"`
+	EthTxReaperThreshold                      time.Duration   `env:"ETH_TX_REAPER_THRESHOLD" default:"168h"`
 	EthTxResendAfterThreshold                 time.Duration   `env:"ETH_TX_RESEND_AFTER_THRESHOLD"`
 	EthereumDisabled                          bool            `env:"ETH_DISABLED" default:"false"`
 	EthereumHTTPURL                           string          `env:"ETH_HTTP_URL"`

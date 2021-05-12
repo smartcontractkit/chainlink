@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -64,11 +66,13 @@ type (
 	// If you add an entry here which does not contain sensitive information, you
 	// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
 	Config struct {
-		viper           *viper.Viper
-		SecretGenerator SecretGenerator
-		runtimeStore    *ORM
-		Dialect         dialects.DialectName
-		AdvisoryLockID  int64
+		viper            *viper.Viper
+		SecretGenerator  SecretGenerator
+		runtimeStore     *ORM
+		randomP2PPort    uint16
+		randomP2PPortMtx *sync.RWMutex
+		Dialect          dialects.DialectName
+		AdvisoryLockID   int64
 	}
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
@@ -229,8 +233,9 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	}
 
 	config := &Config{
-		viper:           v,
-		SecretGenerator: filePersistedSecretGenerator{},
+		viper:            v,
+		SecretGenerator:  filePersistedSecretGenerator{},
+		randomP2PPortMtx: new(sync.RWMutex),
 	}
 
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -269,10 +274,6 @@ func (c *Config) Validate() error {
 
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
 		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
-	}
-
-	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
-		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
 
 	if c.EthFinalityDepth() < 1 {
@@ -775,6 +776,24 @@ func (c Config) EthTxResendAfterThreshold() time.Duration {
 	return chainSpecificConfig(c).EthTxResendAfterThreshold
 }
 
+// EthTxReaperInterval controls how often the eth tx reaper should run
+func (c Config) EthTxReaperInterval() time.Duration {
+	return c.getWithFallback("EthTxReaperInterval", parseDuration).(time.Duration)
+}
+
+// EthTxReaperThreshold represents how long any confirmed/fatally_errored eth_txes will hang around in the database.
+// If the eth_tx is confirmed but still below ETH_FINALITY_DEPTH it will not be deleted even if it was created at a time older than this value.
+// EXAMPLE
+// With:
+// EthTxReaperThreshold=1h
+// EthFinalityDepth=50
+//
+// Current head is 142, any eth_tx confirmed in block 91 or below will be reaped as long as its created_at was more than EthTxReaperThreshold ago
+// Set to 0 to disable eth_tx reaping
+func (c Config) EthTxReaperThreshold() time.Duration {
+	return c.getWithFallback("EthTxReaperThreshold", parseDuration).(time.Duration)
+}
+
 // EthLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs
 func (c Config) EthLogBackfillBatchSize() uint32 {
 	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
@@ -1199,9 +1218,37 @@ func (c Config) P2PListenIP() net.IP {
 	return c.getWithFallback("P2PListenIP", parseIP).(net.IP)
 }
 
-// P2PListenPort is the port that libp2p willl bind to and listen on
-func (c Config) P2PListenPort() uint16 {
-	return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+// P2PListenPort is the port that libp2p will bind to and listen on
+func (c *Config) P2PListenPort() uint16 {
+	if c.viper.IsSet(EnvVarName("P2PListenPort")) {
+		return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+	}
+	// Fast path in case it was already set
+	c.randomP2PPortMtx.RLock()
+	if c.randomP2PPort > 0 {
+		c.randomP2PPortMtx.RUnlock()
+		return c.randomP2PPort
+	}
+	c.randomP2PPortMtx.RUnlock()
+	// Path for initial set
+	c.randomP2PPortMtx.Lock()
+	defer c.randomP2PPortMtx.Unlock()
+	if c.randomP2PPort > 0 {
+		return c.randomP2PPort
+	}
+	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+	if err != nil {
+		logger.Fatalw("unexpected error generating random port", "err", err)
+	}
+	randPort := uint16(r.Int64() + 1024)
+	logger.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)
+	c.randomP2PPort = randPort
+	return c.randomP2PPort
+}
+
+// P2PListenPortRaw returns the raw string value of P2P_LISTEN_PORT
+func (c Config) P2PListenPortRaw() string {
+	return c.viper.GetString(EnvVarName("P2PListenPort"))
 }
 
 // P2PAnnounceIP is an optional override. If specified it will force the p2p

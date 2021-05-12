@@ -81,7 +81,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "BLOCK_BACKFILL_DEPTH: 10\\n")
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
 	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
-	assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")
+	assert.Contains(t, logs, "ETH_CHAIN_ID: 0\\n")
 	assert.Contains(t, logs, "ETH_GAS_BUMP_THRESHOLD: 3\\n")
 	assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
 	assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
