@@ -179,13 +179,15 @@ func (rm *runManager) CreateErrored(
 }
 
 // If we have seen the same runRequest already, then double the required incoming confs.
-// This is a
-func (rm *runManager) MaybeDoubleMinIncomingConfs(run models.JobRun) (*models.JobRun, error) {
+func (rm *runManager) MaybeDoubleMinIncomingConfs(run *models.JobRun) error {
+	if run == nil {
+		return logger.NewErrorw("RunManager: expected non-nil run")
+	}
 	if run.RunRequest.RequestID == nil {
-		return &run, logger.NewErrorw("RunManager: expected non-nil run request ID")
+		return logger.NewErrorw("RunManager: expected non-nil run request ID")
 	}
 	if len(run.TaskRuns) == 0 {
-		return &run, logger.NewErrorw("RunManager: expected non-empty task runs")
+		return logger.NewErrorw("RunManager: expected non-empty task runs")
 	}
 	// We want the maximum number of random task minimum_confirmations
 	// of all job runs with the same run_request.request_id
@@ -197,12 +199,12 @@ SELECT coalesce(max(task_runs.minimum_confirmations), 0) FROM job_runs
 	JOIN task_specs ON task_runs.task_spec_id = task_specs.id
 	WHERE run_requests.request_id = ? AND task_specs.type = ?
 `, run.RunRequest.RequestID, adapters.TaskTypeRandom).Scan(&maxConfs).Error; err != nil {
-		return &run, err
+		return logger.NewErrorw("RunManager: unable to check for duplicate requests", "err", err)
 	}
 	if maxConfs != 0 {
 		for i := range run.TaskRuns {
 			if run.TaskRuns[i].TaskSpec.Type == adapters.TaskTypeRandom && run.TaskRuns[i].MinRequiredIncomingConfirmations.Valid {
-				logger.Debugw("RunManager: duplicate VRF requestID seen, doubling incoming confirmations",
+				logger.Warnw("RunManager: duplicate VRF requestID seen, doubling incoming confirmations",
 					"requestID", run.RunRequest.RequestID,
 					"txHash", run.RunRequest.TxHash,
 					"oldConfs", run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32,
@@ -211,7 +213,7 @@ SELECT coalesce(max(task_runs.minimum_confirmations), 0) FROM job_runs
 			}
 		}
 	}
-	return &run, nil
+	return nil
 }
 
 // Create immediately persists a JobRun and sends it to the RunQueue for
@@ -255,7 +257,7 @@ func (rm *runManager) Create(
 	ValidateRun(run, runCost)
 
 	if initiator.Type == models.InitiatorRandomnessLog {
-		run, err = rm.MaybeDoubleMinIncomingConfs(*run)
+		err = rm.MaybeDoubleMinIncomingConfs(run)
 		if err != nil {
 			return nil, err
 		}
