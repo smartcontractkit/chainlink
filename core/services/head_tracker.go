@@ -131,9 +131,6 @@ func (r *headRingBuffer) run() {
 	}
 }
 
-// HighestSeenHeadFunc is an interface for querying for the latest head
-type HighestSeenHeadFunc func() *models.Head
-
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
