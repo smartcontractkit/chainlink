@@ -1890,7 +1890,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 				ptr.Parent = nil
 
 				for _, ht := range args.HeadTrackables {
-					ht.OnNewLongestChainSampled(ctx, *heads[current])
+					ht.OnNewLongestChain(ctx, *heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
 					chDone <- struct{}{}
@@ -1915,11 +1915,8 @@ type HeadTrackableFunc func(context.Context, models.Head)
 
 func (HeadTrackableFunc) Connect(*models.Head) error { return nil }
 func (HeadTrackableFunc) Disconnect()                {}
-func (fn HeadTrackableFunc) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
-	fn(ctx, head)
-}
 func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
-
+	fn(ctx, head)
 }
 
 type testifyExpectationsAsserter interface {

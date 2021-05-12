@@ -59,13 +59,9 @@ func (bm *balanceMonitor) Stop() error {
 // Disconnect complies with HeadTrackable
 func (bm *balanceMonitor) Disconnect() {}
 
-// OnNewLongestChainSampled checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChainSampled(_ context.Context, head models.Head) {
-	bm.checkBalance(&head)
-}
-
+// OnNewLongestChain checks the balance for each key
 func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head) {
-	// do nothing, using OnNewLongestChainSampled instead
+	bm.checkBalance(&head)
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
@@ -159,6 +155,5 @@ func (*NullBalanceMonitor) Stop() error {
 func (*NullBalanceMonitor) Connect(head *models.Head) error {
 	return nil
 }
-func (*NullBalanceMonitor) Disconnect()                                                    {}
-func (*NullBalanceMonitor) OnNewLongestChainSampled(ctx context.Context, head models.Head) {}
-func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head)        {}
+func (*NullBalanceMonitor) Disconnect()                                             {}
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}

@@ -21,7 +21,7 @@ type callbackID [256]byte
 
 // HeadBroadcastable defines the interface for listeners
 type HeadBroadcastable interface {
-	OnNewLongestChainSampled(ctx context.Context, head models.Head)
+	OnNewLongestChain(ctx context.Context, head models.Head)
 }
 
 type callbackSet map[callbackID]HeadBroadcastable
@@ -82,12 +82,8 @@ func (hr *HeadBroadcaster) Connect(head *models.Head) error {
 
 func (hr *HeadBroadcaster) Disconnect() {}
 
-func (hr *HeadBroadcaster) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
-	hr.mailbox.Deliver(head)
-}
-
 func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
-	// do nothing, using OnNewLongestChainSampled instead
+	hr.mailbox.Deliver(head)
 }
 
 func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe func()) {
@@ -146,7 +142,7 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
 			defer cancel()
-			hr.OnNewLongestChainSampled(ctx, head)
+			hr.OnNewLongestChain(ctx, head)
 			elapsed := time.Since(start)
 			logger.Debugw(fmt.Sprintf("HeadBroadcaster: finished callback in %s", elapsed), "callbackType", reflect.TypeOf(hr), "blockNumber", head.Number, "time", elapsed, "id", "head_relayer")
 		}(callback)

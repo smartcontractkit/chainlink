@@ -89,12 +89,9 @@ func (ec *ethConfirmer) Disconnect() {
 	// pass
 }
 
-// OnNewLongestChainSampled delivers sampled latest heads to be picked up by the runLoop
-func (ec *ethConfirmer) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
-	ec.mb.Deliver(head)
-}
+// OnNewLongestChain delivers sampled latest heads to be picked up by the runLoop
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	// do nothing, using OnNewLongestChainSampled instead
+	ec.mb.Deliver(head)
 }
 
 func (ec *ethConfirmer) Start() error {

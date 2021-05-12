@@ -13,5 +13,4 @@ type HeadTrackable interface {
 	Connect(head *models.Head) error
 	Disconnect()
 	OnNewLongestChain(ctx context.Context, head models.Head)
-	OnNewLongestChainSampled(ctx context.Context, head models.Head)
 }

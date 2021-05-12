@@ -132,7 +132,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		// Do the thing
-		bm.OnNewLongestChainSampled(context.TODO(), *head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		gomega.NewGomegaWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
@@ -150,7 +150,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal2, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal2, nil)
 
-		bm.OnNewLongestChainSampled(context.TODO(), *head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		gomega.NewGomegaWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
@@ -192,7 +192,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	// Do the thing multiple times
 	for i := 0; i < 10; i++ {
-		bm.OnNewLongestChainSampled(context.TODO(), *head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 	}
 
 	// Unblock the first mock

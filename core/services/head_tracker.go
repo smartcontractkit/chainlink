@@ -298,6 +298,9 @@ func (ht *HeadTracker) headSampler() {
 	debounceHead := time.NewTicker(ht.store.Config.EthHeadTrackerSamplingInterval())
 	defer debounceHead.Stop()
 
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
+
 	for {
 		select {
 		case <-ht.done:
@@ -312,7 +315,8 @@ func (ht *HeadTracker) headSampler() {
 				logger.Errorf("expected `models.Head`, got %T", item)
 				continue
 			}
-			ht.concurrentlyExecuteSampledCallbacks(context.Background(), head)
+
+			ht.onNewLongestChain(ctx, head)
 		}
 	}
 }
@@ -576,7 +580,6 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	ht.backfillMB.Deliver(headWithChain)
 	ht.samplingMB.Deliver(headWithChain)
 
-	ht.onNewLongestChain(ctx, headWithChain)
 	return nil
 }
 
@@ -609,22 +612,6 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 			t.OnNewLongestChain(ctx, headWithChain)
 			elapsed := time.Since(start)
 			ht.logger().Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
-			wg.Done()
-		}(idx, trackable)
-	}
-	wg.Wait()
-}
-
-func (ht *HeadTracker) concurrentlyExecuteSampledCallbacks(ctx context.Context, headWithChain models.Head) {
-	wg := sync.WaitGroup{}
-	wg.Add(len(ht.callbacks))
-
-	for idx, trackable := range ht.callbacks {
-		go func(i int, t strpkg.HeadTrackable) {
-			start := time.Now()
-			t.OnNewLongestChainSampled(ctx, headWithChain)
-			elapsed := time.Since(start)
-			ht.logger().Debugw(fmt.Sprintf("HeadTracker: finished sampled callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
 			wg.Done()
 		}(idx, trackable)
 	}

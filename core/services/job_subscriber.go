@@ -193,23 +193,18 @@ func (js *jobSubscriber) Disconnect() {
 	// the listenToLogs goroutines.
 }
 
-// OnNewLongestChainSampled resumes all pending job runs based on the new head activity.
-func (js *jobSubscriber) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
+// OnNewLongestChain resumes all pending job runs based on the new head activity.
+func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
 	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
-}
-
-func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
-	// do nothing, using OnNewLongestChainSampled instead
 }
 
 // NullJobSubscriber implements Null pattern for JobSubscriber interface
 type NullJobSubscriber struct{}
 
-func (NullJobSubscriber) Connect(head *models.Head) error                                { return nil }
-func (NullJobSubscriber) Disconnect()                                                    {}
-func (NullJobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head)        {}
-func (NullJobSubscriber) OnNewLongestChainSampled(ctx context.Context, head models.Head) {}
+func (NullJobSubscriber) Connect(head *models.Head) error                         { return nil }
+func (NullJobSubscriber) Disconnect()                                             {}
+func (NullJobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {}
 func (NullJobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	return errors.New("NullJobSubscriber#AddJob should never be called")
 }

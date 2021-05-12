@@ -761,7 +761,7 @@ func (c *blockingCallback) OnNewLongestChain(ctx context.Context, h models.Head)
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (c *blockingCallback) OnNewLongestChainSampled(ctx context.Context, h models.Head) {
+func (c *blockingCallback) OnNewLongestChain(ctx context.Context, h models.Head) {
 }
 
 func TestHeadTracker_RingBuffer(t *testing.T) {

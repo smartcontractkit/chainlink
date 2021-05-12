@@ -124,12 +124,8 @@ func (pr *promReporter) Disconnect() {
 	// pass
 }
 
-func (pr *promReporter) OnNewLongestChainSampled(ctx context.Context, head models.Head) {
-	pr.newHeads.Deliver(head)
-}
-
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
-	// do nothing, using OnNewLongestChainSampled instead
+	pr.newHeads.Deliver(head)
 }
 
 func (pr *promReporter) eventLoop() {
