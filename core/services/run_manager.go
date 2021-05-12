@@ -454,3 +454,34 @@ func (rm *runManager) saveAndResumeIfInProgress(run *models.JobRun) error {
 	}
 	return nil
 }
+
+// NullRunManager implements Null pattern for RunManager interface
+type NullRunManager struct{}
+
+func (NullRunManager) Create(jobSpecID models.JobID, initiator *models.Initiator, creationHeight *big.Int, runRequest *models.RunRequest) (*models.JobRun, error) {
+	return nil, errors.New("NullRunManager#Create should never be called")
+}
+
+func (NullRunManager) CreateErrored(jobSpecID models.JobID, initiator models.Initiator, err error) (*models.JobRun, error) {
+	return nil, errors.New("NullJobSubscriber#CreateErrored should never be called")
+}
+
+func (NullRunManager) ResumePendingBridge(runID uuid.UUID, input models.BridgeRunResult) error {
+	return errors.New("NullRunManager#ResumePendingBridge should never be called")
+}
+
+func (NullRunManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
+	return nil, errors.New("NullJobSubscriber#Cancel should never be called")
+}
+
+func (NullRunManager) ResumeAllInProgress() error {
+	return errors.New("NullRunManager#ResumeAllInProgress should never be called")
+}
+
+func (NullRunManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
+	return errors.New("NullRunManager#ResumeAllPendingNextBlock should never be called")
+}
+
+func (NullRunManager) ResumeAllPendingConnection() error {
+	return errors.New("NullRunManager#ResumeAllPendingConnection should never be called")
+}

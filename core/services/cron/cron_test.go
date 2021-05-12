@@ -54,7 +54,7 @@ func TestCronV2Pipeline(t *testing.T) {
 func TestCronV2Schedule(t *testing.T) {
 	t.Parallel()
 
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "service_cron_orm", true, true)
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "service_cron_orm_2", true, true)
 	db := oldORM.DB
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
 	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
