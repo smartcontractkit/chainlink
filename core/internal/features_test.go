@@ -79,7 +79,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/scheduler_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/scheduler_job.json")
 
 	cltest.WaitForRunsAtLeast(t, j, app.Store, 1)
 
@@ -179,7 +179,7 @@ func TestIntegration_RunAt(t *testing.T) {
 	app.InstantClock()
 
 	require.NoError(t, app.Start())
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/run_at_job.json")
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
@@ -214,7 +214,7 @@ func TestIntegration_EthLog(t *testing.T) {
 		Return(&types.Receipt{}, nil)
 	require.NoError(t, app.StartAndConnect())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/eth_log_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/eth_log_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
@@ -281,7 +281,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 
 			require.NoError(t, app.StartAndConnect())
-			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
+			j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/runlog_noop_job.json")
 			requiredConfs := int64(100)
 			initr := j.Initiators[0]
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
@@ -337,7 +337,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/start_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/start_at_job.json")
 	startAt := cltest.ParseISO8601(t, "1970-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
@@ -381,7 +381,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","confirmations":10}`, mockServer.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/log_initiated_bridge_type_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
 	runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
@@ -456,7 +456,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, ts.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/bridge_type_copy_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/bridge_type_copy_job.json")
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
 
 	tr := jr.TaskRuns[0]
@@ -504,7 +504,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
 	resource = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j = cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/random_number_bridge_type_job.json")
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
 
@@ -577,7 +577,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/int256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"-10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -596,7 +596,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/uint256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -625,7 +625,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	app.InstantClock()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/run_at_job.json")
 
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
