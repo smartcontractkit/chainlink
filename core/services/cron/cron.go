@@ -1,9 +1,9 @@
 package cron
 
 import (
+	"github.com/robfig/cron/v3"
 	cronParser "github.com/robfig/cron/v3"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -13,21 +13,19 @@ import (
 // Cron runs a cron jobSpec from a CronSpec
 type Cron struct {
 	cronRunner     *cronParser.Cron
-	chDone         chan struct{}
-	chStop         chan struct{}
 	jobID          int32
 	logger         *logger.Logger
 	pipelineSpec   pipeline.Spec
 	pipelineRunner pipeline.Runner
 	Schedule       string
+	chStop         chan struct{}
 }
 
-// NewCronFromJobSpec() - instantiates a Cron singleton to execute the given job pipelineSpec
+// NewCronFromJobSpec instantiates a job that executes on a predefined schedule.
 func NewCronFromJobSpec(
 	jobSpec job.Job,
 	pipelineRunner pipeline.Runner,
 ) (*Cron, error) {
-
 	cronSpec := jobSpec.CronSpec
 	spec := jobSpec.PipelineSpec
 
@@ -39,53 +37,41 @@ func NewCronFromJobSpec(
 	)
 
 	return &Cron{
-		chDone:         make(chan struct{}),
-		chStop:         make(chan struct{}),
-		cronRunner:     cronParser.New(),
+		cronRunner:     cronParser.New(cron.WithSeconds()),
 		jobID:          jobSpec.ID,
 		logger:         cronLogger,
 		pipelineRunner: pipelineRunner,
 		pipelineSpec:   *spec,
 		Schedule:       cronSpec.CronSchedule,
+		chStop:         make(chan struct{}),
 	}, nil
 }
 
 // Start implements the job.Service interface.
 func (cr *Cron) Start() error {
 	cr.logger.Debug("Cron: Starting")
-	go gracefulpanic.WrapRecover(func() {
-		defer close(cr.chDone)
-		cr.run()
-	})
+
+	_, err := cr.cronRunner.AddFunc(cr.Schedule, cr.runPipeline)
+	if err != nil {
+		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobID, err)
+		return err
+	}
+	cr.cronRunner.Start()
 	return nil
 }
 
-// Close implements the job.Service interface. It stops this instance from
-// polling, cleaning up resources.
+// Close implements the job.Service interface. It stops this job from
+// running and cleans up resources.
 func (cr *Cron) Close() error {
 	cr.logger.Debug("Cron: Closing")
 	cr.cronRunner.Stop()
-	close(cr.chStop)
-	<-cr.chDone
-
 	return nil
-}
-
-// run() runs the cron jobSpec in the pipeline pipelineRunner
-func (cr *Cron) run() {
-	_, err := cr.cronRunner.AddFunc(cr.Schedule, func() {
-		cr.runPipeline()
-	})
-	if err != nil {
-		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobID, err)
-	}
-	cr.cronRunner.Start()
 }
 
 func (cr *Cron) runPipeline() {
 	ctx, cancel := utils.ContextFromChan(cr.chStop)
 	defer cancel()
-	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, true)
+	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, false)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobID)
 	}
