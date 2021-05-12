@@ -754,14 +754,9 @@ func (c *blockingCallback) Connect(bn *models.Head) error {
 func (c *blockingCallback) Disconnect() {
 }
 
-// OnNewLongestChain increases the OnNewLongestChainCount count by one
 func (c *blockingCallback) OnNewLongestChain(ctx context.Context, h models.Head) {
 	c.called <- h
 	<-c.resume
-}
-
-// OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (c *blockingCallback) OnNewLongestChain(ctx context.Context, h models.Head) {
 }
 
 func TestHeadTracker_RingBuffer(t *testing.T) {
