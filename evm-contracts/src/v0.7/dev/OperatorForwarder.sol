@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 import "../interfaces/OperatorInterface.sol";
 import "./ConfirmedOwner.sol";
 
-contract OperatorForwarder is ConfirmedOwner{
+contract OperatorForwarder is ConfirmedOwner {
 
   mapping(address => bool) private s_authorizedSenders;
   address[] private s_authorizedSenderList;
@@ -72,7 +72,7 @@ contract OperatorForwarder is ConfirmedOwner{
     address to,
     bytes calldata data
   )
-    public
+    external
     onlyAuthorizedSender()
   {
     require(to != linkAddr, "Cannot #forward to Link token");
