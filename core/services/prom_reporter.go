@@ -3,14 +3,16 @@ package services
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 )
@@ -18,8 +20,13 @@ import (
 //go:generate mockery --name PrometheusBackend --output ../internal/mocks/ --case=underscore
 type (
 	promReporter struct {
-		db      *sql.DB
-		backend PrometheusBackend
+		db       *sql.DB
+		backend  PrometheusBackend
+		newHeads *utils.Mailbox
+		chStop   chan struct{}
+		wgDone   sync.WaitGroup
+
+		utils.StartStopOnce
 	}
 
 	PrometheusBackend interface {
@@ -76,7 +83,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) store.HeadTrackable {
+func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) *promReporter {
 	var backend PrometheusBackend
 	if len(opts) > 0 {
 		backend = opts[0]
@@ -84,7 +91,29 @@ func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) store.HeadTrackable 
 		backend = defaultBackend{}
 	}
 
-	return &promReporter{db, backend}
+	chStop := make(chan struct{})
+	return &promReporter{
+		db:       db,
+		backend:  backend,
+		newHeads: utils.NewMailbox(1),
+		chStop:   chStop,
+	}
+}
+
+func (pr *promReporter) Start() error {
+	return pr.StartOnce("PromReporter", func() error {
+		pr.wgDone.Add(1)
+		go pr.eventLoop()
+		return nil
+	})
+}
+
+func (pr *promReporter) Close() error {
+	return pr.StopOnce("PromReporter", func() error {
+		close(pr.chStop)
+		pr.wgDone.Wait()
+		return nil
+	})
 }
 
 // Do nothing on connect, simply wait for the next head
@@ -97,6 +126,33 @@ func (pr *promReporter) Disconnect() {
 }
 
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
+	pr.newHeads.Deliver(head)
+}
+
+func (pr *promReporter) eventLoop() {
+	logger.Debug("PromReporter: starting event loop")
+	defer pr.wgDone.Done()
+	ctx, _ := utils.ContextFromChan(pr.chStop)
+	for {
+		select {
+		case <-pr.newHeads.Notify():
+			item, exists := pr.newHeads.Retrieve()
+			if !exists {
+				continue
+			}
+			head, ok := item.(models.Head)
+			if !ok {
+				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
+			}
+			pr.reportMetrics(ctx, head)
+
+		case <-pr.chStop:
+			return
+		}
+	}
+}
+
+func (pr *promReporter) reportMetrics(ctx context.Context, head models.Head) {
 	err := multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx), "reportPendingEthTxes failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx), "reportMaxUnconfirmedAge failed"),
