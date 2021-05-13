@@ -46,6 +46,8 @@ type ConfigReader interface {
 	EthMaxGasPriceWei() *big.Int
 	EthNonceAutoSync() bool
 	EthRPCDefaultBatchSize() uint32
+	EthTxReaperInterval() time.Duration
+	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string

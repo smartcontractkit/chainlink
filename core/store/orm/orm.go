@@ -616,7 +616,7 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
+	return Batch(func(offset, limit uint) (uint, error) {
 		scope := orm.DB.Order("job_specs.id asc").Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
@@ -836,7 +836,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		return errors.Wrap(err, "finding job ids")
 	}
 
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
+	return Batch(func(offset, limit uint) (uint, error) {
 		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
 		var runs []models.JobRun
 		err := orm.Unscoped().
@@ -1811,15 +1811,16 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	return db, nil
 }
 
-// BatchSize is the safe number of records to cache during Batch calls for
-// SQLite without causing load problems.
-// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
-const BatchSize = 100
+// BatchSize is the default number of DB records to access in one batch
+const BatchSize uint = 1000
 
-// Batch is an iterator _like_ for batches of records
-func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+// BatchFunc is the function to execute on each batch of records, should return the count of records affected
+type BatchFunc func(offset, limit uint) (count uint, err error)
+
+// Batch is an iterator for batches of records
+func Batch(cb BatchFunc) error {
 	offset := uint(0)
-	limit := uint(1000)
+	limit := BatchSize
 
 	for {
 		count, err := cb(offset, limit)

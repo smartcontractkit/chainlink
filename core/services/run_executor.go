@@ -158,3 +158,10 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 
 	return result
 }
+
+// NullRunExecutor implements Null pattern for RunExecutor interface
+type NullRunExecutor struct{}
+
+func (NullRunExecutor) Execute(uuid.UUID) error {
+	return errors.New("NullRunExecutor#Execute should never be called")
+}

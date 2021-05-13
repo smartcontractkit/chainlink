@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
 
@@ -193,6 +194,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
 	config.Set("ETH_FINALITY_DEPTH", 1)
+	// Disable the EthTxReaper
+	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	return config, cleanup
 }
 
@@ -233,7 +236,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.AdvisoryLockID = NewRandomInt64()
 
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ETH_CHAIN_ID", 3)
+	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
 	rawConfig.Set("MIGRATE_DATABASE", false)
@@ -251,6 +254,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
 	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
 	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
+	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -1405,10 +1409,10 @@ func Head(val interface{}) *models.Head {
 }
 
 // TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []types.Transaction {
-	txs := make([]types.Transaction, len(gasPrices))
+func TransactionsFromGasPrices(gasPrices ...int64) []gasupdater.Transaction {
+	txs := make([]gasupdater.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = *types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
+		txs[i] = gasupdater.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
