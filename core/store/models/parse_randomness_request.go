@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -13,7 +14,7 @@ type parseRandomnessRequest struct{}
 var _ logRequestParser = parseRandomnessRequest{} // Implements logRequestParser
 
 // parseJSON returns the inputs to be passed as a JSON object to Random adapter
-func (parseRandomnessRequest) parseJSON(log Log) (js JSON, err error) {
+func (parseRandomnessRequest) parseJSON(log types.Log) (js JSON, err error) {
 	parsedLog, err := ParseRandomnessRequestLog(log)
 	if err != nil {
 		return JSON{}, errors.Wrapf(err,
@@ -40,10 +41,12 @@ func (parseRandomnessRequest) parseJSON(log Log) (js JSON, err error) {
 		"blockHash": log.BlockHash.Hex(),
 		// Number/height of the block in which this request appeared
 		"blockNum": log.BlockNumber,
+		// requestID is identifier of the on-chain randomness request to fulfill
+		"requestID": parsedLog.RequestID.Hex(),
 	})
 }
 
-func (parseRandomnessRequest) parseRequestID(log Log) (common.Hash, error) {
+func (parseRandomnessRequest) parseRequestID(log types.Log) (common.Hash, error) {
 	parsedLog, err := ParseRandomnessRequestLog(log)
 	if err != nil {
 		return common.Hash{}, errors.Wrapf(err, "while extracting randomness requestID from %#+v", log)

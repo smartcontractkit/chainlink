@@ -12,6 +12,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor/promfm"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -45,8 +46,8 @@ func newHTTPFetcher(
 	sizeLimit int64,
 ) Fetcher {
 	client := &http.Client{Timeout: timeout.Duration(), Transport: http.DefaultTransport}
-	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
-	client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
+	client.Transport = promhttp.InstrumentRoundTripperDuration(promfm.ResponseTime, client.Transport)
+	client.Transport = promfm.InstrumentRoundTripperReponseSize(promfm.ResponseSize, client.Transport)
 
 	return &httpFetcher{
 		client:      client,
@@ -93,7 +94,7 @@ func (p *httpFetcher) Fetch(ctx context.Context, meta map[string]interface{}) (d
 	}
 
 	resultFloat, _ := result.Float64()
-	promFMIndividualReportedValue.WithLabelValues(p.url.String()).Set(resultFloat)
+	promfm.IndividualReportedValue.WithLabelValues(p.url.String()).Set(resultFloat)
 	logger.Debugw(
 		fmt.Sprintf("fetched price %v from %s", *result, p.url.String()),
 		"price", result,

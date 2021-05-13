@@ -13,8 +13,6 @@ import (
 	"math/big"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
@@ -22,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
+	"gorm.io/gorm"
 )
 
 type (
@@ -35,14 +34,14 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash     `json:"id" gorm:"primary_key"`
-		OnChainSigningAddress OnChainSigningAddress `json:"onChainSigningAddress"`
-		OffChainPublicKey     OffChainPublicKey     `json:"offChainPublicKey"`
-		ConfigPublicKey       ConfigPublicKey       `json:"configPublicKey"`
-		EncryptedPrivateKeys  []byte                `json:"-"`
-		CreatedAt             time.Time             `json:"createdAt"`
-		UpdatedAt             time.Time             `json:"updatedAt,omitempty"`
-		DeletedAt             gorm.DeletedAt        `json:"deletedAt,omitempty"`
+		ID                    models.Sha256Hash `gorm:"primary_key"`
+		OnChainSigningAddress OnChainSigningAddress
+		OffChainPublicKey     OffChainPublicKey
+		ConfigPublicKey       ConfigPublicKey
+		EncryptedPrivateKeys  []byte
+		CreatedAt             time.Time
+		UpdatedAt             time.Time
+		DeletedAt             gorm.DeletedAt
 	}
 
 	keyBundleRawData struct {

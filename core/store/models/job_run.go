@@ -114,8 +114,8 @@ func (jr *JobRun) SetID(value string) error {
 // ForLogger formats the JobRun for a common formatting in the log.
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", jr.JobSpecID.String(),
-		"run", jr.ID.String(),
+		"jobID", jr.JobSpecID.String(),
+		"runID", jr.ID.String(),
 		"status", jr.Status,
 	}
 
@@ -138,7 +138,15 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	if jr.RunRequest.RequestID != nil {
-		output = append(output, "external_id", jr.RunRequest.RequestID)
+		output = append(output, "requestID", jr.RunRequest.RequestID)
+	}
+
+	if jr.RunRequest.TxHash != nil {
+		output = append(output, "txHash", jr.RunRequest.TxHash)
+	}
+
+	if jr.RunRequest.BlockHash != nil {
+		output = append(output, "blockHash", jr.RunRequest.BlockHash)
 	}
 
 	return append(kvs, output...)
@@ -246,7 +254,7 @@ type TaskRun struct {
 	ID                               uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;not null"`
 	JobRunID                         uuid.UUID     `json:"-" gorm:"type:uuid"`
 	Result                           RunResult     `json:"result"`
-	ResultID                         clnull.Uint32 `json:"-"`
+	ResultID                         clnull.Int64  `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskSpec                         TaskSpec      `json:"task" gorm:"->"`
 	TaskSpecID                       int64         `json:"-"`
@@ -290,7 +298,7 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 // Data and ErrorMessage.
 type RunResult struct {
 	ID           int64       `json:"-" gorm:"primary_key;auto_increment"`
-	Data         JSON        `json:"data" gorm:"type:text"`
+	Data         JSON        `json:"data"`
 	ErrorMessage null.String `json:"error"`
 	CreatedAt    time.Time   `json:"-"`
 	UpdatedAt    time.Time   `json:"-"`

@@ -20,7 +20,7 @@ type PipelineRunsController struct {
 // Example:
 // "GET <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
-	jobSpec := job.SpecDB{}
+	jobSpec := job.Job{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -63,7 +63,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
-	jobSpec := job.SpecDB{}
+	jobSpec := job.Job{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -77,7 +77,17 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, job.PipelineRun{ID: jobRunID}, "offChainReportingPipelineRun")
+	pipelineRun := pipeline.Run{}
+	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
+		Where("pipeline_runs.id = ?", jobRunID).
+		First(&pipelineRun).Error
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
 }
 
 func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
@@ -85,8 +95,6 @@ func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
 		Preload("PipelineSpec").
 		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
 			return db.
-				Where(`pipeline_task_runs.type != 'result'`).
 				Order("created_at ASC, id ASC")
-		}).
-		Preload("PipelineTaskRuns.PipelineTaskSpec")
+		})
 }

@@ -3,12 +3,12 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -61,23 +62,23 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*orm.Config, ...func(chainlink.Application)) chainlink.Application
+	NewApplication(*orm.Config, ...func(chainlink.Application)) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
+func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
 		logger.Info("ETH_DISABLED is set, using Null eth.Client")
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURLs()...)
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+			return nil, err
 		}
 	}
 
@@ -162,18 +163,20 @@ type HTTPClient interface {
 }
 
 type authenticatedHTTPClient struct {
-	config     orm.ConfigReader
-	client     *http.Client
-	cookieAuth CookieAuthenticator
+	config         orm.ConfigReader
+	client         *http.Client
+	cookieAuth     CookieAuthenticator
+	sessionRequest models.SessionRequest
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator) HTTPClient {
+func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator, sessionRequest models.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
-		config:     config,
-		client:     &http.Client{},
-		cookieAuth: cookieAuth,
+		config:         config,
+		client:         &http.Client{},
+		cookieAuth:     cookieAuth,
+		sessionRequest: sessionRequest,
 	}
 }
 
@@ -203,11 +206,6 @@ func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
 }
 
 func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
-	cookie, err := h.cookieAuth.Cookie()
-	if err != nil {
-		return nil, err
-	}
-
 	var headers map[string]string
 	if len(headerArgs) > 0 {
 		headers = headerArgs[0]
@@ -224,8 +222,31 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
-	request.AddCookie(cookie)
-	return h.client.Do(request)
+	cookie, err := h.cookieAuth.Cookie()
+	if err != nil {
+		return nil, err
+	} else if cookie != nil {
+		request.AddCookie(cookie)
+	}
+
+	response, err := h.client.Do(request)
+	if err != nil {
+		return response, err
+	}
+	if response.StatusCode == http.StatusUnauthorized && (h.sessionRequest.Email != "" || h.sessionRequest.Password != "") {
+		var cookieerr error
+		cookie, err = h.cookieAuth.Authenticate(h.sessionRequest)
+		if cookieerr != nil {
+			return response, err
+		}
+		request.Header.Set("Cookie", "")
+		request.AddCookie(cookie)
+		response, err = h.client.Do(request)
+		if err != nil {
+			return response, err
+		}
+	}
+	return response, nil
 }
 
 // CookieAuthenticator is the interface to generating a cookie to authenticate
@@ -323,14 +344,17 @@ func (d DiskCookieStore) Save(cookie *http.Cookie) error {
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 	b, err := ioutil.ReadFile(d.cookiePath())
 	if err != nil {
-		return nil, multierr.Append(errors.New("unable to retrieve credentials, have you logged in?"), err)
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, multierr.Append(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
 	}
 	header := http.Header{}
 	header.Add("Cookie", string(b))
 	request := http.Request{Header: header}
 	cookies := request.Cookies()
 	if len(cookies) == 0 {
-		return nil, errors.New("Cookie not in file, have you logged in?")
+		return nil, errors.New("Cookie not in file, you must first login through the CLI")
 	}
 	return request.Cookies()[0], nil
 }
@@ -442,11 +466,11 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 	return user, store.SaveUser(&user)
 }
 
-var errNoCredentialFile = errors.New("no API user credential file was passed")
+var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
 func credentialsFromFile(file string) (models.SessionRequest, error) {
 	if len(file) == 0 {
-		return models.SessionRequest{}, errNoCredentialFile
+		return models.SessionRequest{}, ErrNoCredentialFile
 	}
 
 	logger.Debug("Initializing API credentials from ", file)
@@ -468,7 +492,7 @@ func credentialsFromFile(file string) (models.SessionRequest, error) {
 // ChangePasswordPrompter is an interface primarily used for DI to obtain a
 // password change request from the User.
 type ChangePasswordPrompter interface {
-	Prompt() (models.ChangePasswordRequest, error)
+	Prompt() (web.UpdatePasswordRequest, error)
 }
 
 // NewChangePasswordPrompter returns the production password change request prompter
@@ -481,7 +505,7 @@ type changePasswordPrompter struct {
 	prompter Prompter
 }
 
-func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
+func (c changePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
 	fmt.Println("Changing your chainlink account password.")
 	fmt.Println("NOTE: This will terminate any other sessions.")
 	oldPassword := c.prompter.PasswordPrompt("Password:")
@@ -491,10 +515,10 @@ func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 	confirmPassword := c.prompter.PasswordPrompt("Confirmation:")
 
 	if newPassword != confirmPassword {
-		return models.ChangePasswordRequest{}, errors.New("new password and confirmation did not match")
+		return web.UpdatePasswordRequest{}, errors.New("new password and confirmation did not match")
 	}
 
-	return models.ChangePasswordRequest{
+	return web.UpdatePasswordRequest{
 		OldPassword: oldPassword,
 		NewPassword: newPassword,
 	}, nil

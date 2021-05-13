@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -37,6 +39,7 @@ func TestHeadTracker_New(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
@@ -45,12 +48,12 @@ func TestHeadTracker_New(t *testing.T) {
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	sub.On("Err").Return(nil)
 
-	assert.Nil(t, store.IdempotentInsertHead(*cltest.Head(1)))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), *cltest.Head(1)))
 	last := cltest.Head(16)
-	assert.Nil(t, store.IdempotentInsertHead(*last))
-	assert.Nil(t, store.IdempotentInsertHead(*cltest.Head(10)))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), *last))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), *cltest.Head(10)))
 
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{})
 	assert.Nil(t, ht.Start())
 	assert.Equal(t, last.Number, ht.HighestSeenHead().Number)
 }
@@ -61,25 +64,26 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	store.Config.Set("ETH_HEAD_TRACKER_HISTORY_DEPTH", 100)
 	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
 
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
 
 	for idx := 0; idx < 200; idx++ {
-		assert.Nil(t, store.IdempotentInsertHead(*cltest.Head(idx)))
+		assert.Nil(t, store.IdempotentInsertHead(context.TODO(), *cltest.Head(idx)))
 	}
 
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{})
 
 	h := cltest.Head(200)
-	require.NoError(t, ht.Save(*h))
+	require.NoError(t, ht.Save(context.TODO(), *h))
 	assert.Equal(t, big.NewInt(200), ht.HighestSeenHead().ToInt())
 
 	firstHead := firstHead(t, store)
 	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
 
-	lastHead, err := store.LastHead()
+	lastHead, err := store.LastHead(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, int64(200), lastHead.Number)
 }
@@ -106,6 +110,7 @@ func TestHeadTracker_Get(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			logger := store.Config.CreateProductionLogger()
 
 			ethClient := new(mocks.Client)
 			sub := new(mocks.Subscription)
@@ -125,15 +130,15 @@ func TestHeadTracker_Get(t *testing.T) {
 			}
 
 			if test.initial != nil {
-				assert.Nil(t, store.IdempotentInsertHead(*test.initial))
+				assert.Nil(t, store.IdempotentInsertHead(context.TODO(), *test.initial))
 			}
 
-			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
+			ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{})
 			ht.Start()
 			defer ht.Stop()
 
 			if test.toSave != nil {
-				err := ht.Save(*test.toSave)
+				err := ht.Save(context.TODO(), *test.toSave)
 				assert.NoError(t, err)
 			}
 
@@ -147,6 +152,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
 
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
@@ -159,7 +165,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 		Run(func(mock.Arguments) { close(chStarted) }).
 		Return(sub, nil)
 
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{})
 
 	assert.NoError(t, ht.Start())
 	<-chStarted
@@ -175,6 +181,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
@@ -193,7 +200,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
@@ -218,6 +225,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
 
 	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
@@ -231,7 +239,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	store.EthClient = ethClient
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	// connect
 	assert.Nil(t, ht.Start())
@@ -254,8 +262,14 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore(t)
+	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
+	// close and go-txdb rollback.
+	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "last_saved_header", true)
+	defer cleanupDB()
+	config.Config.Dialect = dialects.Postgres
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
@@ -289,9 +303,9 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.Head) {
 		connectedValue.Store(bn.ToInt())
 	}}
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash(), cltest.NewHash(), 0)))
+	require.NoError(t, ht.Save(context.TODO(), models.NewHead(lastSavedBN, cltest.NewHash(), cltest.NewHash(), 0)))
 
 	assert.Nil(t, ht.Start())
 	headers := <-chchHeaders
@@ -305,17 +319,23 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	assert.NoError(t, ht.Stop())
 
-	// Check that it saved the head
-	h, err := store.LastHead()
+	h, err := store.LastHead(context.TODO())
 	require.NoError(t, err)
+	require.NotNil(t, h)
 	assert.Equal(t, h.Number, currentBN.Int64())
 }
 
 func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
+	// close and go-txdb rollback.
+	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "switches_longest_chain", true)
+	t.Cleanup(cleanupDB)
+	config.Config.Dialect = dialects.Postgres
+	config.Set("ETH_FINALITY_DEPTH", "50")
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
+	t.Cleanup(cleanup)
 
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	store.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 42)
@@ -323,9 +343,10 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
+	logger := store.Config.CreateProductionLogger()
 
 	checker := new(mocks.HeadTrackable)
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
@@ -433,7 +454,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	assert.Equal(t, int64(5), ht.HighestSeenHead().Number)
 
 	for _, h := range blockHeaders {
-		c, err := store.Chain(h.Hash, 1)
+		c, err := store.Chain(context.TODO(), h.Hash, 1)
 		require.NoError(t, err)
 		require.NotNil(t, c)
 		assert.Equal(t, c.ParentHash, h.ParentHash)
@@ -444,7 +465,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	checker.AssertExpectations(t)
 }
 
-func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
+func TestHeadTracker_Backfill(t *testing.T) {
 	t.Parallel()
 
 	// Heads are arranged as follows:
@@ -516,37 +537,32 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 	ctx := context.Background()
 
-	t.Run("returns chain if all the heads are in database", func(t *testing.T) {
+	t.Run("does nothing if all the heads are in database", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
-			require.NoError(t, store.IdempotentInsertHead(h))
+			require.NoError(t, store.IdempotentInsertHead(context.TODO(), h))
 		}
+		logger := store.Config.CreateProductionLogger()
 
-		sub := new(mocks.Subscription)
 		ethClient := new(mocks.Client)
-		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
-		sub.On("Err").Return(nil)
 		store.EthClient = ethClient
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 2)
+		err := ht.Backfill(ctx, h12, 2)
 		require.NoError(t, err)
 
-		assert.Equal(t, int64(12), h.Number)
-		require.NotNil(t, h.Parent)
-		assert.Equal(t, int64(11), h.Parent.Number)
-		require.Nil(t, h.Parent.Parent)
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("fetches a missing head", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
-			require.NoError(t, store.IdempotentInsertHead(h))
+			require.NoError(t, store.IdempotentInsertHead(context.TODO(), h))
 		}
+		logger := store.Config.CreateProductionLogger()
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
@@ -554,9 +570,14 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 3)
+		var depth uint = 3
+
+		err := ht.Backfill(ctx, h12, depth)
+		require.NoError(t, err)
+
+		h, err := store.Chain(ctx, h12.Hash, depth)
 		require.NoError(t, err)
 
 		assert.Equal(t, int64(12), h.Number)
@@ -566,7 +587,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		assert.Equal(t, int64(10), h.Parent.Parent.Number)
 		require.Nil(t, h.Parent.Parent.Parent)
 
-		writtenHead, err := store.HeadByHash(head10.Hash)
+		writtenHead, err := store.HeadByHash(context.TODO(), head10.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 
@@ -577,13 +598,14 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
-			require.NoError(t, store.IdempotentInsertHead(h))
+			require.NoError(t, store.IdempotentInsertHead(context.TODO(), h))
 		}
+		logger := store.Config.CreateProductionLogger()
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
 		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
@@ -591,7 +613,12 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			Return(&head8, nil)
 
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
-		h, err := ht.GetChainWithBackfill(ctx, h15, 8)
+		var depth uint = 8
+
+		err := ht.Backfill(ctx, h15, depth)
+		require.NoError(t, err)
+
+		h, err := store.Chain(ctx, h15.Hash, depth)
 		require.NoError(t, err)
 
 		require.Equal(t, uint32(8), h.ChainLength())
@@ -602,76 +629,61 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("returns error if first head is not in database", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
-
-		ethClient := new(mocks.Client)
-		sub := new(mocks.Subscription)
-		store.EthClient = ethClient
-		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID())
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
-
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
-
-		h16 := *cltest.Head(16)
-		h16.ParentHash = h15.Hash
-
-		_, err := ht.GetChainWithBackfill(ctx, h16, 3)
-		require.Contains(t, err.Error(), "record not found")
-	})
-
 	t.Run("does not backfill if chain length is already greater than or equal to depth", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
-			require.NoError(t, store.IdempotentInsertHead(h))
+			require.NoError(t, store.IdempotentInsertHead(context.TODO(), h))
 		}
+		logger := store.Config.CreateProductionLogger()
 
 		ethClient := new(mocks.Client)
-		sub := new(mocks.Subscription)
 		store.EthClient = ethClient
-		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID())
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h15, 3)
+		err := ht.Backfill(ctx, h15, 3)
 		require.NoError(t, err)
-		require.Equal(t, uint32(3), h.ChainLength())
 
-		h, err = ht.GetChainWithBackfill(ctx, h15, 5)
+		err = ht.Backfill(ctx, h15, 5)
 		require.NoError(t, err)
-		require.Equal(t, uint32(5), h.ChainLength())
+
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("only backfills to height 0 if chain length would otherwise cause it to try and fetch a negative head", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		logger := store.Config.CreateProductionLogger()
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		require.NoError(t, store.IdempotentInsertHead(h1))
+		require.NoError(t, store.IdempotentInsertHead(context.TODO(), h1))
 
-		h, err := ht.GetChainWithBackfill(ctx, h1, 400)
+		err := ht.Backfill(ctx, h1, 400)
 		require.NoError(t, err)
+
+		h, err := store.Chain(ctx, h1.Hash, 400)
+		require.NoError(t, err)
+
 		require.Equal(t, uint32(2), h.ChainLength())
 		require.Equal(t, int64(0), h.EarliestInChain().Number)
 
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("abandons backfill and returns whatever we have if the eth node returns not found", func(t *testing.T) {
+	t.Run("abandons backfill and returns error if the eth node returns not found", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
-			require.NoError(t, store.IdempotentInsertHead(h))
+			require.NoError(t, store.IdempotentInsertHead(context.TODO(), h))
 		}
+		logger := store.Config.CreateProductionLogger()
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
@@ -682,9 +694,13 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			Return(nil, ethereum.NotFound).
 			Once()
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 400)
+		err := ht.Backfill(ctx, h12, 400)
+		require.Error(t, err)
+		require.EqualError(t, err, "fetchAndSaveHead failed: not found")
+
+		h, err := store.Chain(ctx, h12.Hash, 400)
 		require.NoError(t, err)
 
 		// Should contain 12, 11, 10, 9
@@ -694,12 +710,13 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("abandons backfill and returns whatever we have if the context time budget is exceeded", func(t *testing.T) {
+	t.Run("abandons backfill and returns error if the context time budget is exceeded", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
-			require.NoError(t, store.IdempotentInsertHead(h))
+			require.NoError(t, store.IdempotentInsertHead(context.TODO(), h))
 		}
+		logger := store.Config.CreateProductionLogger()
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
@@ -708,9 +725,13 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
 			Return(nil, context.DeadlineExceeded)
 
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 400)
+		err := ht.Backfill(ctx, h12, 400)
+		require.Error(t, err)
+		require.EqualError(t, err, "fetchAndSaveHead failed: context deadline exceeded")
+
+		h, err := store.Chain(ctx, h12.Hash, 400)
 		require.NoError(t, err)
 
 		// Should contain 12, 11, 10, 9
@@ -746,6 +767,7 @@ func TestHeadTracker_RingBuffer(t *testing.T) {
 
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		logger := store.Config.CreateProductionLogger()
 
 		store.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", bufferSize)
 
@@ -772,7 +794,7 @@ func TestHeadTracker_RingBuffer(t *testing.T) {
 			called: called,
 			resume: resume,
 		}
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{cb}, cltest.NeverSleeper{})
+		ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{cb}, cltest.NeverSleeper{})
 		require.NoError(t, ht.Start())
 		headers := <-chchHeaders
 

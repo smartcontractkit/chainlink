@@ -10,8 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -83,7 +81,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "BLOCK_BACKFILL_DEPTH: 10\\n")
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
 	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
-	assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")
+	assert.Contains(t, logs, "ETH_CHAIN_ID: 0\\n")
 	assert.Contains(t, logs, "ETH_GAS_BUMP_THRESHOLD: 3\\n")
 	assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
 	assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
@@ -289,10 +287,10 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 func TestClient_ImportKey(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -348,7 +346,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
-	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
 	defer connectedCleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
 
@@ -372,7 +370,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Lock, because the db locking strategy is decided when we
 	// initialize the store/ORM.
 	config.Config.Dialect = dialects.PostgresWithoutLock
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	store.KeyStore.Unlock(cltest.Password)
 	require.NoError(t, connectedStore.Start())
@@ -434,7 +432,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			defer cleanup()
 			config.Config.Dialect = dialects.Postgres
-			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
 			defer connectedCleanup()
 
 			_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
@@ -455,7 +453,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
 			config.Config.Dialect = dialects.PostgresWithoutLock
-			store, cleanup := cltest.NewStoreWithConfig(config)
+			store, cleanup := cltest.NewStoreWithConfig(t, config)
 			defer cleanup()
 			store.KeyStore.Unlock(cltest.Password)
 			require.NoError(t, connectedStore.Start())
@@ -503,7 +501,7 @@ func TestClient_SetNextNonce(t *testing.T) {
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.Postgres
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	client := cmd.Client{
@@ -523,5 +521,5 @@ func TestClient_SetNextNonce(t *testing.T) {
 	var key models.Key
 	require.NoError(t, store.DB.First(&key).Error)
 	require.NotNil(t, key.NextNonce)
-	require.Equal(t, int64(42), *key.NextNonce)
+	require.Equal(t, int64(42), key.NextNonce)
 }

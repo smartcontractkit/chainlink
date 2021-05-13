@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
 	"github.com/pelletier/go-toml"
@@ -21,19 +20,26 @@ import (
 
 func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
+	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
+	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
 	require.NoError(t, app.Start())
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFile job.SpecDB
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	var ocrJobSpecFromFile job.Job
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
@@ -50,10 +56,15 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	parsedResponse := job.PipelineRun{}
+	var parsedResponse pipeline.Run
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResponse.ID)
+	assert.NotNil(t, parsedResponse.CreatedAt)
+	// Run should execute whole job.
+	assert.NotNil(t, parsedResponse.FinishedAt)
+	// Job errors so we should receive task runs.
+	require.Len(t, parsedResponse.PipelineTaskRuns, 8)
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
@@ -75,7 +86,8 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, runIDs[0])
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
-	require.Len(t, parsedResponse[1].PipelineTaskRuns, 4)
+	// Successful pipeline runs does not save task runs.
+	require.Len(t, parsedResponse[1].PipelineTaskRuns, 0)
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
@@ -98,7 +110,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	assert.Equal(t, parsedResponse[0].ID, runIDs[1])
 	assert.NotNil(t, parsedResponse[0].CreatedAt)
 	assert.NotNil(t, parsedResponse[0].FinishedAt)
-	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
+	require.Len(t, parsedResponse[0].PipelineTaskRuns, 0)
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
@@ -119,15 +131,15 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse.ID, runIDs[0])
 	assert.NotNil(t, parsedResponse.CreatedAt)
 	assert.NotNil(t, parsedResponse.FinishedAt)
-	require.Len(t, parsedResponse.PipelineTaskRuns, 4)
+	require.Len(t, parsedResponse.PipelineTaskRuns, 0)
 }
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -140,10 +152,10 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -172,7 +184,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 		answer [type=median index=0];
 	"""
 	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex(), mockHTTP.URL)
-	var ocrJobSpec job.SpecDB
+	var ocrJobSpec job.Job
 	err := toml.Unmarshal([]byte(sp), &ocrJobSpec)
 	require.NoError(t, err)
 	var os job.OffchainReportingOracleSpec
@@ -189,11 +201,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	firstRunID, err := app.RunJobV2(context.Background(), jobID, nil)
 	require.NoError(t, err)
 	secondRunID, err := app.RunJobV2(context.Background(), jobID, nil)
-	require.NoError(t, err)
-
-	err = app.AwaitRun(context.Background(), firstRunID)
-	require.NoError(t, err)
-	err = app.AwaitRun(context.Background(), secondRunID)
 	require.NoError(t, err)
 
 	return client, jobID, []int64{firstRunID, secondRunID}, func() {

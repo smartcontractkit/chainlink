@@ -7,15 +7,150 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- If a CLI command is issued after the session has expired, and an api credentials file is found, auto login should now work.
+
+- GasUpdater now works on RSK and xDai
+
 ### Added
 
-- Better debug logging in Gas Updater
-- `ETH_MAX_UNCONFIRMED_TRANSACTIONS`
+- Add `ETH_GAS_LIMIT_MULTIPLIER` configuration option, the gas limit is multiplied by this value before transmission. So a value of 1.1 will add 10% to the on chain gas limit when a transaction is submitted.
+
+### Changed
+
+- Chainlink now automatically cleans up old eth_txes to reduce database size. By default, any eth_txes older than a week are pruned on a regular basis. It is recommended to use the default value, however the default can be overridden by setting the `ETH_TX_REAPER_THRESHOLD` env var e.g. `ETH_TX_REAPER_THRESHOLD=24h`. Reaper can be disabled entirely by setting `ETH_TX_REAPER_THRESHOLD=0`. The reaper will run on startup and again every hour (interval is configurable using `ETH_TX_REAPER_INTERVAL`).
+
+## [0.10.6] - 2021-05-10
+
+### Added
+
+- Add `MockOracle.sol` for testing contracts
+
+- New CLI command to convert v1 flux monitor jobs (JSON) to 
+v2 flux monitor jobs (TOML). Running it will archive the v1 
+job and create a new v2 job. Example:
+```
+// Get v1 job ID:
+chainlink job_specs list
+// Migrate it to v2:
+chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
+
+// To undo the migration:
+1. Archive the v2 job in the UI
+2. Unarchive the v1 job manually in the db:
+update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
+```
+
+- Improved support for Optimism chain. Added a new boolean `OPTIMISM_GAS_FEES` configuration variable which makes a call to estimate gas before all transactions, suitable for use with Optimism's L2 chain. When this option is used `ETH_GAS_LIMIT_DEFAULT` is ignored.
+
+- Chainlink now supports routing certain calls to the eth node over HTTP instead of websocket, when available. This has a number of advantages - HTTP is more robust and simpler than websockets, reducing complexity and allowing us to make large queries without running the risk of hitting websocket send limits. The HTTP url should point to the same node as the ETH_URL and can be specified with an env var like so: `ETH_HTTP_URL=https://my.ethereumnode.example/endpoint`.
+
+Adding an HTTP endpoint is particularly recommended for BSC, which is hitting websocket limitations on certain queries due to its large block size.
+
+- Support for legacy pipeline (V1 job specs) can now be turned off by setting `ENABLE_LEGACY_JOB_PIPELINE=false`. This can yield marginal performance improvements if you don't need to support the legacy JSON job spec format.
+
+## [0.10.5] - 2021-04-26
+
+### Added
+
+- Add `MockOracle.sol` for testing contracts
+- Cron jobs can now be created for the v2 job pipeline:
+```
+type            = "cron"
+schemaVersion   = 1
+schedule        = "*/10 * * * *"
+observationSource   = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
+
+### Changed
+
+- Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
+- Removed support for the env var `JOB_PIPELINE_PARALLELISM`. 
+- OCR jobs no longer show `TaskRuns` in success cases. This reduces
+DB load and significantly improves the performance of archiving OCR jobs.
+- Archiving OCR jobs should be 5-10x faster.
+
+### Fixed
+
+- Added `GAS_UPDATER_BATCH_SIZE` option to workaround `websocket: read limit exceeded` issues on BSC
+
+- Basic support for Optimism chain: node no longer gets stuck with 'nonce too low' error if connection is lost
+
+## [0.10.4] - 2021-04-05
+
+### Added
+
+- VRF Jobs now support an optional `coordinatorAddress` field that, when present, will tell the node to check the fulfillment status of any VRF request before attempting the fulfillment transaction. This will assist in the effort to run multiple nodes with one VRF key.
+
+- Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
+
+    - It's now possible to configure database backups: on node start and separately, to be run at given frequency. `DATABASE_BACKUP_MODE` enables the initial backup on node start (with one of the values: `none`, `lite`, `full` where `lite` excludes
+    potentially large tables related to job runs, among others). Additionally, if `DATABASE_BACKUP_FREQUENCY` variable is set to a duration of
+    at least '1m', it enables periodic backups.
+    - `DATABASE_BACKUP_URL` can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one. Example settings:
+        1. `DATABASE_BACKUP_MODE="full"` and `DATABASE_BACKUP_FREQUENCY` not set, will run a full back only at the start of the node.
+        2. `DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
+
+- Added periodic resending of eth transactions. This means that we no longer rely exclusively on gas bumping to resend unconfirmed transactions that got "lost" for whatever reason. This has two advantages:
+    1. Chainlink no longer relies on gas bumping settings to ensure our transactions always end up in the mempool
+    2. Chainlink will continue to resend existing transactions even in the event that heads are delayed. This is especially useful on chains like Arbitrum which have very long wait times between heads.
+    - Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` env var (default 30s). Unconfirmed transactions will be resent periodically at this interval. It is recommended to leave this at the default setting, but it can be set to any [valid duration](https://golang.org/pkg/time/#ParseDuration) or to 0 to disable periodic resending.
+
+- Logging can now be configured in the Operator UI.
+
+- Tuned defaults for certain Eth-compatible chains
+
+- Chainlink node now uses different sets of default values depending on the given Chain ID. Tuned configs are built-in for the following chains:
+    - Ethereum Mainnet and test chains
+    - Polygon (Matic)
+    - BSC
+    - HECO
+
+- If you have manually set ENV vars specific to these chains, you may want to remove those and allow the node to use its configured defaults instead.
+
+- New prometheus metric "tx_manager_num_tx_reverted" which counts the number of reverted transactions on chain.
+
+### Fixed
+
+- Under certain circumstances a poorly configured Explorer could delay Chainlink node startup by up to 45 seconds.
+
+- Chainlink node now automatically sets the correct nonce on startup if you are restoring from a previous backup (manual setnextnonce is no longer necessary).
+
+- Flux monitor jobs should now work correctly with [outlier-detection](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/outlier-detection) and [market-closure](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/market-closure) external adapters.
+
+- Performance improvements to OCR job adds. Removed the pipeline_task_specs table
+and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
+to a dotID in the pipeline_spec.dot_dag_source.
+
+- Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
+
+- Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
+
+
+## [0.10.3] - 2021-03-22
+
+### Added
+
+- Add `STATS_PUSHER_LOGGING` to toggle stats pusher raw message logging (DEBUG
+  level).
+
+- Add `ADMIN_CREDENTIALS_FILE` configuration variable
+
+This variable defaults to `$ROOT/apicredentials` and when defined / the
+file exists, any command using the CLI that requires authentication will use it
+to automatically log in.
+
+- Add `ETH_MAX_UNCONFIRMED_TRANSACTIONS` configuration variable
 
 Chainlink node now has a maximum number of unconfirmed transactions that
 may be in flight at any one time (per key).
 
-If this limit is reached, further attempts t send transactions will fail
+If this limit is reached, further attempts to send transactions will fail
 and the relevant job will be marked as failed.
 
 Jobs will continue to fail until at least one transaction is confirmed
@@ -24,13 +159,28 @@ prevent unbounded sending of transactions e.g. in the case that the eth
 node is failing to broadcast to the network.
 
 The default is set to 500 which considered high enough that it should
-never be reached under normal operation. This limit can be configured
-using the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
+never be reached under normal operation. This limit can be changed
+by setting the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
+
+- Support requestNewRound in libocr
+
+requestNewRound enables dedicated requesters to request a fresh report to
+be sent to the contract right away regardless of heartbeat or deviation.
+
+- New prometheus metric:
+
+```
+Name: "head_tracker_eth_connection_errors",
+Help: "The total number of eth node connection errors",
+```
+
+- Gas bumping can now be disabled by setting `ETH_GAS_BUMP_THRESHOLD=0`
+
+- Support for arbitrum
 
 ### Fixed
 
-- Improved handling of the case where we exceed the configured TX fee cap in
-  geth.
+- Improved handling of the case where we exceed the configured TX fee cap in geth.
 
 Node will now fatally error jobs if the total transaction costs exceeds the
 configured cap (default 1 Eth). Also, it will no longer continue to bump gas on
@@ -41,7 +191,41 @@ Node operators should check their geth nodes and remove this cap if configured,
 you can do this by running your geth node with `--rpc.gascap=0
 --rpc.txfeecap=0` or setting these values in your config toml.
 
-## [0.10.1] - 2021-02-23
+- Make head backfill asynchronous. This should eliminate some harmless but
+  annoying errors related to backfilling heads, logged on startup and
+  occasionally during normal operation on fast chains like Kovan.
+
+- Improvements to the GasUpdater
+
+Various efficiency and correctness improvements have been made to the
+GasUpdater. It places less load on the ethereum node and now features re-org
+detection.
+
+Most notably, GasUpdater no longer takes a 24 block delay to "warm up" on
+application start and instead loads all relevant block history immediately.
+This means that the application gas price will always be updated correctly
+after reboot before the first transaction is ever sent, eliminating the previous
+scenario where the node could send underpriced or overpriced transactions for a
+period after a reboot, until the gas updater caught up.
+
+### Changed
+
+- Bump `ORM_MAX_OPEN_CONNS` default from 10 to 20
+- Bump `ORM_MAX_IDLE_CONNS` default from 5 to 10
+
+Each Chainlink node will now use a maximum of 23 database connections (up from previous max of 13). Make sure your postgres database is tuned accordingly, especially if you are running multiple Chainlink nodes on a single database. If you find yourself hitting connection limits, you can consider reducing `ORM_MAX_OPEN_CONNS` but this may result in degraded performance.
+
+- The global env var `JOB_PIPELINE_MAX_TASK_DURATION` is no longer supported
+for OCR jobs.
+
+## [0.10.2] - 2021-02-26
+
+### Fixed
+
+- Add contexts so that database queries timeout when necessary.
+- Use manual updates instead of gorm update associations.
+
+## [0.10.1] - 2021-02-25
 
 ### Fixed
 

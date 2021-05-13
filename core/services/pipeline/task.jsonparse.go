@@ -24,11 +24,11 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *JSONParseTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 
-func (t *JSONParseTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (result Result) {
+func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")}
 	} else if inputs[0].Error != nil {

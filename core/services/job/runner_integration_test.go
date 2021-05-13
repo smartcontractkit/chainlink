@@ -2,14 +2,21 @@ package job_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/pkg/errors"
+
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
@@ -51,20 +58,29 @@ func TestRunner(t *testing.T) {
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
 
-	rpc, geth, _, _ := cltest.NewEthMocks(t)
-	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(10)
-		}).
-		Return(nil)
+	ethClient, _, _ := cltest.NewEthMocks(t)
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
+	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
 		{
-			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`)
+			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				})
 			defer cleanupElectionWinner()
-			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`)
+			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				},
+			)
 			defer cleanupVoterTurnout()
 			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 			defer cleanupHTTP()
@@ -85,57 +101,86 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
+		require.NoError(t, err)
+		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
+		require.NoError(t, err)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 2)
-		assert.NoError(t, results[0].Error)
-		assert.NoError(t, results[1].Error)
-		assert.Equal(t, "6225.6", results[0].Value)
-		assert.Equal(t, "Hal Finney", results[1].Value)
+		require.Len(t, results.Values, 2)
+		assert.Nil(t, results.Errors[0])
+		assert.Nil(t, results.Errors[1])
+		assert.Equal(t, "6225.6", results.Values[0].(decimal.Decimal).String())
+		assert.Equal(t, "Hal Finney", results.Values[1].(string))
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		assert.Len(t, runs, 9)
+		assert.Len(t, runs, 8)
 
 		for _, run := range runs {
-			if run.DotID() == "answer2" {
+			if run.GetDotID() == "answer2" {
 				assert.Equal(t, "Hal Finney", run.Output.Val)
-			} else if run.DotID() == "ds2" {
+			} else if run.GetDotID() == "ds2" {
 				assert.Equal(t, `{"turnout": 61.942}`, run.Output.Val)
-			} else if run.DotID() == "ds2_parse" {
+			} else if run.GetDotID() == "ds2_parse" {
 				assert.Equal(t, float64(61.942), run.Output.Val)
-			} else if run.DotID() == "ds2_multiply" {
+			} else if run.GetDotID() == "ds2_multiply" {
 				assert.Equal(t, "6194.2", run.Output.Val)
-			} else if run.DotID() == "ds1" {
+			} else if run.GetDotID() == "ds1" {
 				assert.Equal(t, `{"data": {"result": 62.57}}`, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.Equal(t, float64(62.57), run.Output.Val)
-			} else if run.DotID() == "ds1_multiply" {
+			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "6257", run.Output.Val)
-			} else if run.DotID() == "answer1" {
+			} else if run.GetDotID() == "answer1" {
 				assert.Equal(t, "6225.6", run.Output.Val)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{"6225.6", "Hal Finney"}, run.Output.Val)
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
+	})
+
+	t.Run("must delete job before deleting bridge", func(t *testing.T) {
+		_, bridge := cltest.NewBridgeType(t, "testbridge", "http://blah.com")
+		require.NoError(t, db.Create(bridge).Error)
+		dbSpec := makeOCRJobSpecFromToml(t, db, `
+			type               = "offchainreporting"
+			schemaVersion      = 1
+			observationSource = """
+				ds1          [type=bridge name="testbridge"];
+			"""
+		`)
+		require.NoError(t, jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
+		// Should not be able to delete a bridge in use.
+		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jids))
+
+		// But if we delete the job, then we can.
+		require.NoError(t, jobORM.DeleteJob(context.Background(), dbSpec.ID))
+		jids, err = jobORM.FindJobIDsWithBridge(bridge.Name.String())
+		require.NoError(t, err)
+		require.Equal(t, 0, len(jids))
+	})
+
+	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
+		_, bridge := cltest.NewBridgeType(t, "testbridge2", "http://blah.com")
+		require.NoError(t, db.Create(bridge).Error)
+		dbSpec := makeOCRJobSpecFromToml(t, db, `
+			type               = "offchainreporting"
+			schemaVersion      = 1
+			observationSource = """
+				ds1          [type=bridge name="testbridge2"];
+			"""
+		`)
+		require.Error(t,
+			pipeline.ErrNoSuchBridge,
+			errors.Cause(jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)))
 	})
 
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
@@ -154,49 +199,38 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
+		require.NoError(t, err)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "type <nil> cannot be converted to decimal.Decimal")
-		assert.Nil(t, results[0].Value)
+		assert.Len(t, results.Errors, 1)
+		assert.Len(t, results.Values, 1)
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
-			if run.DotID() == "ds1" {
+			if run.GetDotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
 				require.NotNil(t, resp, run.Output)
 				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
 				// FIXME: Shouldn't it be the Val that is null?
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+			} else if run.GetDotID() == "ds1_multiply" {
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
@@ -215,47 +249,36 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
+		require.NoError(t, err)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
-		assert.Nil(t, results[0].Value)
+		assert.Len(t, results.Values, 1)
+		assert.Len(t, results.Errors, 1)
+		assert.Equal(t, results.Errors[0].Error(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
+		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
-			if run.DotID() == "ds1" {
+			if run.GetDotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
+			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"could not resolve path [\\\"USD\\\"] in {\\\"Response\\\":\\\"Error\\\",\\\"Message\\\":\\\"You are over your rate limit please upgrade your account!\\\",\\\"HasWarning\\\":false,\\\"Type\\\":99,\\\"RateLimit\\\":{\\\"calls_made\\\":{\\\"second\\\":5,\\\"minute\\\":5,\\\"hour\\\":955,\\\"day\\\":10004,\\\"month\\\":15146,\\\"total_calls\\\":15152},\\\"max_calls\\\":{\\\"second\\\":20,\\\"minute\\\":300,\\\"hour\\\":3000,\\\"day\\\":10000,\\\"month\\\":75000}},\\\"Data\\\":{}}\"]", run.Error.ValueOrZero())
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
@@ -273,55 +296,43 @@ func TestRunner(t *testing.T) {
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, true)
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
-
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "type <nil> cannot be converted to decimal.Decimal")
-		assert.Nil(t, results[0].Value)
+		assert.Len(t, results.Values, 1)
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
-			if run.DotID() == "ds1" {
+			if run.GetDotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+			} else if run.GetDotID() == "ds1_multiply" {
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := `
@@ -343,8 +354,8 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		var jb job.Job
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -355,7 +366,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			nil,
 			monitoringEndpoint)
@@ -368,7 +379,7 @@ ds1 -> ds1_parse;
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := `
@@ -386,8 +397,8 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		var jb job.Job
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", os.ID).
 			First(&jb).Error
@@ -402,7 +413,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -417,7 +428,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := `
@@ -445,8 +456,8 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		var jb job.Job
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -465,7 +476,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -479,7 +490,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 
@@ -492,8 +503,8 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		var jb job.Job
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", os.ID).
 			First(&jb).Error
@@ -510,7 +521,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -522,7 +533,7 @@ ds1 -> ds1_parse;
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
@@ -532,8 +543,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		var jb job.Job
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -548,7 +559,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -564,13 +575,13 @@ ds1 -> ds1_parse;
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
 		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
-		dbSpec := makeOCRJobSpecWithHTTPURL(t, db, spec)
+		dbSpec := makeOCRJobSpecFromToml(t, db, spec)
 
 		// Create an OCR job
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		var jb job.Job
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -579,34 +590,39 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
+
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
-			nil,
+			ethClient,
+			log.NewBroadcaster(log.NewORM(db), ethClient, config),
 			pw,
 			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
-		// Start and stop the service to generate errors.
-		// We expect a database timeout and a context cancellation
-		// error to show up as pipeline_spec_errors.
+		// Return an error getting the contract code.
+		ethClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
 		for _, s := range services {
 			err = s.Start()
 			require.NoError(t, err)
+		}
+		var se []job.SpecError
+		require.Eventually(t, func() bool {
+			err = db.Find(&se).Error
+			require.NoError(t, err)
+			return len(se) == 1
+		}, time.Second, 100*time.Millisecond)
+		require.Len(t, se, 1)
+		assert.Equal(t, uint(1), se[0].Occurrences)
+
+		for _, s := range services {
 			err = s.Close()
 			require.NoError(t, err)
 		}
-
-		var se []job.SpecError
-		err = db.Find(&se).Error
-		require.NoError(t, err)
-		require.Len(t, se, 1)
-		assert.Equal(t, uint(1), se[0].Occurrences)
 
 		// Ensure we can delete an errored
 		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
@@ -638,36 +654,21 @@ ds1 -> ds1_parse;
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-
-		// Verify the results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.Nil(t, results[0].Error)
-		assert.Equal(t, "4242", results[0].Value)
+		assert.Len(t, results.Values, 1)
+		assert.Nil(t, results.Errors[0])
+		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
 
 		// Delete the job
 		err = jobORM.DeleteJob(context.Background(), dbSpec.ID)
 		require.NoError(t, err)
 
 		// Create another run
-		_, err = runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.EqualError(t, err, fmt.Sprintf("no job found with id %v (most likely it was deleted)", dbSpec.ID))
-
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.EqualError(t, err, fmt.Sprintf("run not found - could not determine if run is finished (run ID: %v)", runID))
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		require.Error(t, err)
 	})
 
 	t.Run("timeouts", func(t *testing.T) {
@@ -683,56 +684,38 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jb := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
-		err := jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		runID, err := runner.CreateRun(context.Background(), jb.ID, nil)
+
+		jb, err := jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		err = runner.AwaitRun(context.Background(), runID)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-		r, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.Error(t, r[0].Error)
+		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jb = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		err = jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		err = runner.AwaitRun(context.Background(), runID)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-		r, err = runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.Equal(t, 10.1, r[0].Value)
-		assert.NoError(t, r[0].Error)
+		assert.Equal(t, 10.1, results.Values[0])
+		assert.Nil(t, results.Errors[0])
 
 		// Job specified task timeout should fail.
-		jb = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb.MaxTaskDuration = models.Interval(time.Duration(1))
-		jb.Name = null.NewString("a job 3", true)
-		err = jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
+		jbs.Name = null.NewString("a job 3", true)
+		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		err = runner.AwaitRun(context.Background(), runID)
-		require.NoError(t, err)
-		r, err = runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.Error(t, r[0].Error)
 
-		config.Config.Set("JOB_PIPELINE_MAX_TASK_DURATION", "10ns")
-		runnerTest := pipeline.NewRunner(pipelineORM, config)
-		jb = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb.Name = null.NewString("a job 4", true)
-		err = jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-		runID, err = runnerTest.CreateRun(context.Background(), jb.ID, nil)
-		require.NoError(t, err)
-		err = runnerTest.AwaitRun(context.Background(), runID)
-		require.NoError(t, err)
-		r, err = runnerTest.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.EqualError(t, r[0].Error, "http request timed out or interrupted")
+		assert.NotNil(t, results.Errors[0])
 	})
 }

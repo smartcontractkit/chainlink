@@ -24,6 +24,7 @@ type Errors =
   | jsonapi.BadRequestError
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
+  | jsonapi.ConflictError
 
 type RestAction = 'UPSERT' | 'DELETE'
 
@@ -142,8 +143,7 @@ export const deleteJobSpec = (
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    const endpoint =
-      jobType === 'Direct request' ? api.v2.specs : api.v2.ocrSpecs
+    const endpoint = jobType === 'Direct request' ? api.v2.specs : api.v2.jobs
 
     return endpoint
       .destroyJobSpec(id)
@@ -171,6 +171,30 @@ export const createJobRun = (
 
     return api.v2.runs
       .createJobSpecRun(id)
+      .then((doc) => {
+        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
+        dispatch(notifySuccess(successCallback, doc))
+      })
+      .catch((error: Errors) => {
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_CREATE_ERROR,
+        )(error)
+        dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
+export const createJobRunV2 = (
+  id: string,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode,
+): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
+  return (dispatch: Dispatch) => {
+    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+
+    return api.v2.jobs
+      .createJobRunV2(id)
       .then((doc) => {
         dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))
@@ -364,7 +388,7 @@ export type NormalizedAccountBalance = GetNormalizedData<
 export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
-  normalize,
+  (json) => normalize(json, { camelizeKeys: false }),
 )
 
 export const fetchBridges = requestFetch(

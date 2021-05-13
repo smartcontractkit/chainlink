@@ -44,6 +44,9 @@ func (o *ormLogWrapper) Error(ctx context.Context, s string, i ...interface{}) {
 func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
 	elapsed := time.Since(begin)
 	switch {
+	case ctx.Err() != nil:
+		sql, _ := fc()
+		o.SugaredLogger.Debugw("Operation cancelled via context", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 	case err != nil:
 		// NOTE: Silence "record not found" errors since it is the one type of
 		// error that we expect/handle and otherwise it fills our logs with
@@ -53,23 +56,23 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 		}
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Errorw("", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Errorw("", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	case elapsed > o.slowThreshold && o.slowThreshold != 0:
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Warnw("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Warnw("Operation timed out", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Warnw("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Warnw("Operation timed out", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	case o.logAllQueries:
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Infow("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Infow("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	}
 }

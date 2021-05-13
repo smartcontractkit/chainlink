@@ -29,14 +29,16 @@ func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 			return errors.New("The Flux Monitor feature is disabled by configuration")
 		}
 	}
+	if !cfg.EnableLegacyJobPipeline() {
+		return errors.New("legacy job pipeline is disabled, cannot add job spec")
+	}
 	return nil
 }
 
 // getAndCheckJobSpec(c) returns a validated job spec from c, or errors. The
 // httpStatus return value is only meaningful on error, and in that case
 // reflects the type of failure to be reported back to the client.
-func (jsc *JobSpecsController) getAndCheckJobSpec(
-	c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
+func (jsc *JobSpecsController) getAndCheckJobSpec(c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
 	var jsr models.JobSpecRequest
 	if err := c.ShouldBindJSON(&jsr); err != nil {
 		// TODO(alx): Better parsing and more specific error messages
@@ -83,6 +85,8 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
+	// NOTE: getAndCheckJobSpec will generate and assign
+	// a new UUID to the spec.
 	js, httpStatus, err := jsc.getAndCheckJobSpec(c)
 	if err != nil {
 		jsonAPIError(c, httpStatus, err)

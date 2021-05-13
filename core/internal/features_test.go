@@ -5,30 +5,35 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/onsi/gomega"
 
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"gopkg.in/guregu/null.v4"
@@ -37,7 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	goEthereumEth "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
@@ -49,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -69,15 +72,15 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/scheduler_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/scheduler_job.json")
 
 	cltest.WaitForRunsAtLeast(t, j, app.Store, 1)
 
@@ -89,13 +92,16 @@ func TestIntegration_Scheduler(t *testing.T) {
 func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
+	config.Set("ADMIN_CREDENTIALS_FILE", "")
+	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 99)
+	config.Set("ETH_FINALITY_DEPTH", 3)
 
-	rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
-	defer assertMocksCalled()
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
+	t.Cleanup(assertMocksCalled)
 	chchNewHeads := make(chan chan<- *models.Head, 1)
 
 	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer appCleanup()
 
@@ -116,25 +122,22 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
 	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(inLongestChain)
-		}).
-		Return(nil)
 
-	gethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(100), nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
@@ -159,22 +162,25 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	// Do the thing
 	newHeads <- cltest.Head(safe)
 
+	// sending another head to make sure EthTx executes after EthConfirmer is done
+	newHeads <- cltest.Head(safe + 1)
+
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	app.InstantClock()
 
 	require.NoError(t, app.Start())
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/run_at_job.json")
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
@@ -186,31 +192,37 @@ func TestIntegration_RunAt(t *testing.T) {
 
 func TestIntegration_EthLog(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+
+	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
-	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
-	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+	ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(&types.Receipt{}, nil)
 	require.NoError(t, app.StartAndConnect())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/eth_log_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/eth_log_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
 	logs := <-logsCh
-	logs <- cltest.LogFromFixture(t, "testdata/requestLog0original.json")
+	logs <- cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
@@ -242,35 +254,41 @@ func TestIntegration_RunLog(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
-			defer cfgCleanup()
+			t.Cleanup(cfgCleanup)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
 
-			rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+			ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 			defer assertMockCalls()
 			app, cleanup := cltest.NewApplication(t,
-				eth.NewClientWith(rpcClient, gethClient),
+				ethClient,
 			)
-			defer cleanup()
+			t.Cleanup(cleanup)
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
-			rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
-			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 			newHeads := make(chan<- *models.Head, 10)
-			rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
 					newHeads = args.Get(1).(chan<- *models.Head)
 				}).
 				Return(sub, nil)
+
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+
 			require.NoError(t, app.StartAndConnect())
-			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
+			j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/runlog_noop_job.json")
 			requiredConfs := int64(100)
 			initr := j.Initiators[0]
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 			creationHeight := int64(1)
-			runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
+			runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 			runlog.BlockHash = test.logBlockHash
 			logs := <-logsCh
 			logs <- runlog
@@ -297,9 +315,8 @@ func TestIntegration_RunLog(t *testing.T) {
 				BlockHash:   test.receiptBlockHash,
 				BlockNumber: big.NewInt(creationHeight),
 			}
-			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil)
 
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(confirmedReceipt, nil)
 
 			app.EthBroadcaster.Trigger()
@@ -313,15 +330,15 @@ func TestIntegration_RunLog(t *testing.T) {
 func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/start_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/start_at_job.json")
 	startAt := cltest.ParseISO8601(t, "1970-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
@@ -331,20 +348,26 @@ func TestIntegration_StartAt(t *testing.T) {
 
 func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+
+	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
-	gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
 	newHeadsCh := make(chan chan<- *models.Head, 1)
-	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			newHeadsCh <- args.Get(1).(chan<- *models.Head)
 		}).
@@ -359,18 +382,15 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","confirmations":10}`, mockServer.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/log_initiated_bridge_type_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
-	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	logs := <-logsCh
 	logs <- runlog
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
-		Number: big.NewInt(int64(logBlockNumber + 8)),
-	}), nil) // Gas updater checks the block by number.
 	newHeads := <-newHeadsCh
 	newHeads <- cltest.Head(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
@@ -381,11 +401,11 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		BlockNumber: big.NewInt(int64(logBlockNumber)),
 	}
 
-	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+	ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), gethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), ethClient)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -400,10 +420,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
@@ -437,7 +457,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, ts.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/bridge_type_copy_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/bridge_type_copy_job.json")
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
 
 	tr := jr.TaskRuns[0]
@@ -454,15 +474,15 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	bta := &models.BridgeTypeAuthentication{}
+	resource := &presenters.BridgeResource{}
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
@@ -479,13 +499,13 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			assert.Equal(t, data.Type, gjson.JSON)
 
 			token := utils.StripBearer(h.Get("Authorization"))
-			assert.Equal(t, bta.OutgoingToken, token)
+			assert.Equal(t, resource.OutgoingToken, token)
 		})
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	bta = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j = cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/random_number_bridge_type_job.json")
+	resource = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
 
@@ -493,7 +513,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
 	assert.Equal(t, gjson.Null, tr.Result.Data.Get("result").Type)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, bta, `{"data":{"result":"100"}}`)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, resource, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
@@ -505,18 +525,25 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, sub, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
-	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(&types.Receipt{}, nil)
 
-	log := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
@@ -541,15 +568,17 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 }
 
 func TestIntegration_MultiplierInt256(t *testing.T) {
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/int256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"-10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -558,15 +587,17 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 }
 
 func TestIntegration_MultiplierUint256(t *testing.T) {
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/uint256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -576,16 +607,17 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 
 func TestIntegration_SyncJobRuns(t *testing.T) {
 	t.Parallel()
+
 	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)
 	defer wsserverCleanup()
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplicationWithConfig(t,
 		config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	kst := new(mocks.KeyStoreInterface)
 	app.Store.KeyStore = kst
@@ -594,7 +626,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	app.InstantClock()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/run_at_job.json")
 
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -617,16 +649,16 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	t.Parallel()
 
 	sleepSeconds := 4
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	app.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/sleep_job.json")
 
 	runInput := fmt.Sprintf("{\"until\": \"%s\"}", time.Now().Local().Add(time.Second*time.Duration(sleepSeconds)))
 	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)
@@ -639,10 +671,10 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 		services.NewExternalInitiatorManager(),
 	)
 	defer cleanup()
@@ -681,7 +713,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
-	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/external_initiator_job.json")
 	assert.Equal(t,
 		eip.OutgoingToken,
 		exInitr.Header.Get(static.ExternalInitiatorAccessKeyHeader),
@@ -706,10 +738,10 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -732,7 +764,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
-	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/external_initiator_job.json")
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
@@ -740,11 +772,99 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
+func TestIntegration_ExternalInitiator_WithMultiplyAndBridge(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMockCalls()
+
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	eiCreate := map[string]string{
+		"name": "someCoin",
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+
+	eia := &auth.Token{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
+
+	// HTTP passthrough
+	var httpCalled bool
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			httpCalled = true
+			body, err2 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err2)
+			requestStr := string(body)
+			require.Equal(t, `{"result":"4200000000"}`, requestStr)
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, `4200000000`)
+		}))
+	defer func() {
+		mockServer.Close()
+		assert.True(t, httpCalled, "expected http server to be called")
+	}()
+
+	// Bridge
+	var bridgeCalled bool
+	bridgeServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			bridgeCalled = true
+			body, err2 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err2)
+			json := models.MustParseJSON(body)
+			require.Equal(t, `{"result":"4200000000"}`, json.Get("data").Raw)
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, err)
+			io.WriteString(w, json.String())
+		}))
+	u, _ := url.Parse(bridgeServer.URL)
+	app.Store.CreateBridgeType(&models.BridgeType{
+		Name: models.TaskType("custombridge"),
+		URL:  models.WebURL(*u),
+	})
+	defer func() {
+		bridgeServer.Close()
+		assert.True(t, bridgeCalled, "expected bridge server to be called")
+	}()
+
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/external_initiator_job_multiply.json")
+	var jobSpec models.JobSpec
+	err = json.Unmarshal(buffer, &jobSpec)
+	require.NoError(t, err)
+	httpParams, err := jobSpec.Tasks[1].Params.Add("post", mockServer.URL)
+	require.NoError(t, err)
+	jobSpec.Tasks[1].Params = httpParams
+
+	jobSpec = cltest.CreateJobSpecViaWeb(t, app, jobSpec)
+
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, `{"result": 42}`)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
+	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
+
+	jobRun, err = app.Store.FindJobRun(jobRun.ID)
+	require.NoError(t, err)
+	finalResult := jobRun.Result
+
+	assert.Equal(t, `{"result": "4200000000"}`, finalResult.Data.Raw)
+}
+
 func TestIntegration_AuthToken(t *testing.T) {
-	rpcClient, gethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -768,14 +888,15 @@ func TestIntegration_AuthToken(t *testing.T) {
 }
 
 func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
-	gethClient := new(mocks.GethClient)
-	rpcClient := new(mocks.RPCClient)
+	ethClient := new(mocks.Client)
+
 	sub := new(mocks.Subscription)
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
+	config.Set("ETH_FINALITY_DEPTH", 3)
 	app, appCleanup := cltest.NewApplicationWithConfig(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer appCleanup()
 
@@ -784,7 +905,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccountWithAddress", address).Return(true)
 	kst.On("GetAccountByAddress", mock.Anything).Maybe().Return(accounts.Account{}, nil)
-	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(&types.Transaction{}, nil)
+	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(types.NewTx(&types.LegacyTx{}), nil)
 	kst.On("Accounts").Return([]accounts.Account{})
 
 	app.Store.KeyStore = kst
@@ -792,10 +913,14 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Start, connect, and initialize node
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
-	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+
 	newHeads := make(chan<- *models.Head, 1)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { newHeads = args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
@@ -806,13 +931,18 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 
-	gethClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "maxSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(cltest.MustGenericEncode(
+			[]string{"uint80", "int256", "uint256", "uint256", "uint80"},
+			big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
+		), nil).Maybe() // Called 3-4 times.
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
@@ -821,21 +951,12 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// getOracles()
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{address})
 	require.NoError(t, err)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "getOracles").
 		Return(getOraclesResult, nil).Once()
-
-	// latestRoundData()
-	lrdTypes := []string{"uint80", "int256", "uint256", "uint256", "uint80"}
-	latestRoundDataResult, err := cltest.GenericEncode(
-		lrdTypes, big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
-	)
-	require.NoError(t, err)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
-		Return(latestRoundDataResult, nil).Once()
 
 	// oracleRoundState()
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "oracleRoundState").
 		Return(result, nil).Twice()
 
 	// Have server respond with 102 for price when FM checks external price
@@ -848,15 +969,15 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
 	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	// Initial tx attempt sent
-	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
@@ -864,18 +985,10 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			})
 		}).
 		Return(nil).Once()
-
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(inLongestChain)
-		}).
-		Return(nil)
-
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
-	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	err = json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
@@ -890,7 +1003,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Check the FM price on completed run output
-	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, gethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, ethClient)
 
 	requestParams := jr.RunRequest.RequestParams
 	assert.Equal(t, "102", requestParams.Get("result").String())
@@ -908,20 +1021,20 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
 
-	gethClient.AssertExpectations(t)
-	rpcClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 }
 
 func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
-	gethClient := new(mocks.GethClient)
-	rpcClient := new(mocks.RPCClient)
+	ethClient := new(mocks.Client)
+
 	sub := new(mocks.Subscription)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -930,38 +1043,53 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	availableFunds := minPayment * 100
 
 	// Start, connect, and initialize node
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil).Maybe()
-	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+	// Log backfill
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+
 	newHeadsCh := make(chan chan<- *models.Head, 1)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
-		Run(func(args mock.Arguments) { newHeadsCh <- args.Get(1).(chan<- *models.Head) }).
+	ethClientDone := cltest.NewAwaiter()
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			ethClientDone.ItHappened()
+			newHeadsCh <- args.Get(1).(chan<- *models.Head)
+		}).
 		Return(sub, nil)
+
+	sub.On("Err").Maybe().Return(nil)
+	sub.On("Unsubscribe").Maybe().Return(nil)
 
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 
-	gethClient.AssertExpectations(t)
-	rpcClient.AssertExpectations(t)
+	ethClientDone.AwaitOrFail(t)
+	ethClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "maxSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(cltest.MustGenericEncode(
+			[]string{"uint80", "int256", "uint256", "uint256", "uint80"},
+			big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
+		), nil).Maybe() // Called 3-4 times.
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
 	require.NoError(t, err)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "getOracles").
 		Return(getOraclesResult, nil).Once()
 
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
-		Return(nil, errors.New("first round")).Once()
-
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "oracleRoundState").
 		Return(result, nil)
 
 	// Have price adapter server respond with 100 for price on initialization,
@@ -976,21 +1104,17 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Prepare new rounds logs subscription to be called by new FM job
 	logs := make(chan<- types.Log, 1)
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { logs = args.Get(2).(chan<- types.Log) }).
 		Return(sub, nil)
 
 	// Log Broadcaster backfills logs
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(1)
-		}).
-		Return(nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(1), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
-	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
+
 	var job models.JobSpec
 	err = json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
@@ -1002,19 +1126,19 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.AssertRunsStays(t, j, app.Store, 0)
 
-	gethClient.AssertExpectations(t)
-	rpcClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
 	// Send a NewRound log event to trigger a run.
-	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/new_round_log.json")
 	log.Address = job.Initiators[0].InitiatorParams.Address
 
-	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
@@ -1023,16 +1147,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil).Once()
 
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(inLongestChain)
-		}).
-		Return(nil)
-
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
-		Number: big.NewInt(int64(11)),
-	}), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 
 	logs <- log
 
@@ -1044,25 +1159,27 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, gethClient)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, ethClient)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
 
-	gethClient.AssertExpectations(t)
-	rpcClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 }
 
 func TestIntegration_MultiwordV1(t *testing.T) {
-	gethClient := new(mocks.GethClient)
-	rpcClient := new(mocks.RPCClient)
+	t.Parallel()
+
+	ethClient := new(mocks.Client)
+
 	sub := new(mocks.Subscription)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	app.Config.Set(orm.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
@@ -1072,12 +1189,17 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
-	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+
 	headsCh := make(chan chan<- *models.Head, 1)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { headsCh <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
-	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
@@ -1089,9 +1211,9 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 					"3130302e31000000000000000000000000000000000000000000000000000000"+ // bid
 					"3130302e31350000000000000000000000000000000000000000000000000000"), // ask
 				tx.Data()[4:])
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
-			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
@@ -1099,22 +1221,14 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 			}).Maybe()
 		}).
 		Return(nil).Once()
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(inLongestChain)
-		}).
-		Return(nil)
-
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).
-		Return(cltest.BlockWithTransactions(), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 	priceResponse := `{"bid": 100.10, "ask": 100.15}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", priceResponse)
 	defer assertCalled()
-	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1_web.json"))
+	spec := string(cltest.MustReadFile(t, "../testdata/jsonspecs/multiword_v1_web.json"))
 	spec = strings.Replace(spec, "https://bitstamp.net/api/ticker/", mockServer.URL, 2)
 	j := cltest.CreateSpecViaWeb(t, app, spec)
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
@@ -1159,7 +1273,7 @@ func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, 
 	genesisData := core.GenesisAlloc{
 		user.From: {Balance: sb}, // 1 eth
 	}
-	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b)
 	require.NoError(t, err)
@@ -1182,6 +1296,8 @@ func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, 
 }
 
 func TestIntegration_MultiwordV1_Sim(t *testing.T) {
+	t.Parallel()
+
 	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 	// in a single callback.
 	config, cleanup := cltest.NewConfig(t)
@@ -1225,7 +1341,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 		return ""
 	}
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, response)
-	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1_runlog.json"))
+	spec := string(cltest.MustReadFile(t, "../testdata/jsonspecs/multiword_v1_runlog.json"))
 	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
 	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
 	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
@@ -1274,11 +1390,9 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
-	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
-	require.NoError(t, err)
-	testValidatorAddress, _, _, err := testvalidator.DeployTestValidator(owner, b)
 	require.NoError(t, err)
 	accessAddress, _, _, err :=
 		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b)
@@ -1296,9 +1410,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		1e8,              // _linkGweiPerObservation uint32,
 		4e8,              // _linkGweiPerTransmission uint32,
 		linkTokenAddress, //_link common.Address,
-		testValidatorAddress,
-		min, // -2**191
-		max, // 2**191 - 1
+		min,              // -2**191
+		max,              // 2**191 - 1
 		accessAddress,
 		accessAddress,
 		0,
@@ -1349,6 +1462,8 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 }
 
 func TestIntegration_OCR(t *testing.T) {
+	t.Parallel()
+
 	owner, b, ocrContractAddress, ocrContract := setupOCRContracts(t)
 
 	// Note it's plausible these ports could be occupied on a CI machine.
@@ -1357,7 +1472,7 @@ func TestIntegration_OCR(t *testing.T) {
 	defer cleanup()
 
 	var (
-		oracles      []confighelper.OracleIdentity
+		oracles      []confighelper.OracleIdentityExtra
 		transmitters []common.Address
 		kbs          []ocrkey.EncryptedKeyBundle
 		apps         []*cltest.TestApplication
@@ -1369,16 +1484,20 @@ func TestIntegration_OCR(t *testing.T) {
 		// we'll flood it with messages and slow things down. 5s is about how long it takes the
 		// bootstrap node to come up.
 		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
+		// GracePeriod < ObservationTimeout
+		app.Config.Set("OCR_OBSERVATION_GRACE_PERIOD", "100ms")
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
 		transmitters = append(transmitters, transmitter)
 
-		oracles = append(oracles, confighelper.OracleIdentity{
-			OnChainSigningAddress:           ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
-			TransmitAddress:                 transmitter,
-			OffchainPublicKey:               ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
-			PeerID:                          peerID,
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnChainSigningAddress: ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
+				TransmitAddress:       transmitter,
+				OffchainPublicKey:     ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
+				PeerID:                peerID,
+			},
 			SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(kb.ConfigPublicKey),
 		})
 	}
@@ -1428,13 +1547,48 @@ isBootstrapPeer    = true
 	require.NoError(t, err)
 
 	var jids []int32
+	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+	// We expect metadata of:
+	//  latestAnswer:nil // First call
+	//  latestAnswer:0
+	//  latestAnswer:10
+	//  latestAnswer:20
+	//  latestAnswer:30
+	expectedMeta := map[string]struct{}{
+		"0": {}, "10": {}, "20": {}, "30": {},
+	}
 	for i := 0; i < 4; i++ {
 		err = apps[i].StartAndConnect()
 		require.NoError(t, err)
 		defer apps[i].Stop()
 
-		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
-		defer cleanupHTTP()
+		// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
+		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			time.Sleep(5 * time.Second)
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"data":10}`))
+		}))
+		defer slowServers[i].Close()
+		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			b, err := ioutil.ReadAll(req.Body)
+			require.NoError(t, err)
+			var m models.BridgeMetaDataJSON
+			require.NoError(t, json.Unmarshal(b, &m))
+			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				delete(expectedMeta, m.Meta.LatestAnswer.String())
+			}
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"data":10}`))
+		}))
+		defer servers[i].Close()
+		u, _ := url.Parse(servers[i].URL)
+		apps[i].Store.CreateBridgeType(&models.BridgeType{
+			Name: models.TaskType(fmt.Sprintf("bridge%d", i)),
+			URL:  models.WebURL(*u),
+		})
+
+		// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
+		// So 200ms + 200ms + 500ms < 1s
 		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -1446,17 +1600,26 @@ p2pBootstrapPeers  = [
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
-observationTimeout = "20s"
+observationTimeout = "100ms"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1
-    ds1          [type=http method=GET url="%s"];
+    ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
     ds1_multiply [type=multiply times=%d];
-	ds1->ds1_parse->ds1_multiply;
+
+    // data source 2
+    ds2          [type=http method=GET url="%s"];
+    ds2_parse    [type=jsonparse path="data"];
+    ds2_multiply [type=multiply times=%d];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+	answer1 [type=median index=0];
 """
-`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], mockHTTP.URL, i))
+`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
@@ -1470,8 +1633,9 @@ observationSource = """
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
-			jb, err := pr.Outputs.MarshalJSON()
+			// Want at least 2 runs so we see all the metadata.
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
 			require.NoError(t, err)
@@ -1484,5 +1648,205 @@ observationSource = """
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 5*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+
+	for _, app := range apps {
+		jobs, err := app.JobORM.JobsV2()
+		require.NoError(t, err)
+		// No spec errors
+		for _, j := range jobs {
+			ignore := 0
+			for i := range j.JobSpecErrors {
+				// Non-fatal timing related error, ignore for testing.
+				if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
+					ignore++
+				}
+			}
+			require.Len(t, j.JobSpecErrors, ignore)
+		}
+	}
+	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+}
+
+func TestIntegration_DirectRequest(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+
+	httpAwaiter := cltest.NewAwaiter()
+	httpServer, assertCalled := cltest.NewHTTPMockServer(
+		t,
+		http.StatusOK,
+		"GET",
+		`{"USD": "31982"}`,
+		func(header http.Header, _ string) {
+			httpAwaiter.ItHappened()
+		},
+	)
+	defer assertCalled()
+
+	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+	defer assertMockCalls()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	defer cleanup()
+
+	sub.On("Err").Return(nil).Maybe()
+	sub.On("Unsubscribe").Return(nil).Maybe()
+
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(10), nil)
+
+	var headCh chan<- *models.Head
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().
+		Run(func(args mock.Arguments) {
+			headCh = args.Get(1).(chan<- *models.Head)
+		}).
+		Return(sub, nil)
+
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil)
+	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+
+	require.NoError(t, app.StartAndConnect())
+
+	store := app.Store
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
+	defer eventBroadcaster.Stop()
+
+	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
+	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+
+	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
+	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
+	request := web.CreateJobRequest{TOML: directRequestSpec}
+	output, err := json.Marshal(request)
+	require.NoError(t, err)
+	job := cltest.CreateJobViaWeb(t, app, output)
+
+	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
+
+	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	var logs chan<- types.Log
+	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
+		logs = <-logsCh
+	}, 5*time.Second)
+	cltest.CallbackOrTimeout(t, "send run log", func() {
+		logs <- runLog
+	}, 30*time.Second)
+
+	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
+	headCh <- &models.Head{Number: 10}
+	headCh <- &models.Head{Number: 11}
+
+	httpAwaiter.AwaitOrFail(t)
+
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 3, jobORM, 5*time.Second, 300*time.Millisecond)
+	require.Len(t, runs, 1)
+	run := runs[0]
+	require.Len(t, run.PipelineTaskRuns, 3)
+	require.Empty(t, run.PipelineTaskRuns[0].Error)
+	require.Empty(t, run.PipelineTaskRuns[1].Error)
+	require.Empty(t, run.PipelineTaskRuns[2].Error)
+}
+
+func TestIntegration_GasUpdater(t *testing.T) {
+	t.Parallel()
+
+	c, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	c.Set("ETH_GAS_PRICE_DEFAULT", 5000000000)
+	c.Set("GAS_UPDATER_ENABLED", true)
+	c.Set("GAS_UPDATER_BLOCK_DELAY", 0)
+	c.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", 2)
+	// Limit the headtracker backfill depth just so we aren't here all week
+	c.Set("ETH_FINALITY_DEPTH", 3)
+
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
+	defer assertMocksCalled()
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, c,
+		ethClient,
+	)
+	defer cleanup()
+
+	b41 := gasupdater.Block{
+		Number:       41,
+		Hash:         cltest.NewHash(),
+		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
+	}
+	b42 := gasupdater.Block{
+		Number:       42,
+		Hash:         cltest.NewHash(),
+		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
+	}
+	b43 := gasupdater.Block{
+		Number:       43,
+		Hash:         cltest.NewHash(),
+		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
+	}
+
+	h40 := models.Head{Hash: cltest.NewHash(), Number: 40}
+	h41 := models.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
+	h42 := models.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
+
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil).Maybe()
+
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+	// Nonce syncer
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+
+	// GasUpdater boot calls
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 2 &&
+			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
+			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a"
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &b41
+		elems[1].Result = &b42
+	})
+
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(c.ChainID(), nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+
+	require.NoError(t, app.Start())
+	var newHeads chan<- *models.Head
+	select {
+	case newHeads = <-chchNewHeads:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for app to subscribe")
+	}
+
+	assert.Equal(t, "41500000000", app.Config.EthGasPriceDefault().String())
+
+	// GasUpdater new blocks
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 2 &&
+			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
+			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2b"
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &b43
+		elems[1].Result = &b42
+	})
+
+	// HeadTracker backfill
+	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(42)).Return(&h42, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
+
+	// Simulate one new head and check the gas price got updated
+	newHeads <- cltest.Head(43)
+
+	gomega.NewGomegaWithT(t).Eventually(func() string {
+		return c.EthGasPriceDefault().String()
+	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }

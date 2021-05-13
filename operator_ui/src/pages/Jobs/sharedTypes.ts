@@ -5,7 +5,7 @@ import {
   JobSpec,
   JobSpecError,
   OcrJobRun,
-  OcrJobSpec,
+  JobSpecV2,
   RunResult,
   RunStatus,
   TaskRun,
@@ -17,7 +17,7 @@ export type JobRunsResponse =
   | PaginatedApiResponse<JobRun[]>
   | PaginatedApiResponse<OcrJobRun[]>
 
-export type JobSpecResponse = ApiResponse<JobSpec> | ApiResponse<OcrJobSpec>
+export type JobSpecResponse = ApiResponse<JobSpec> | ApiResponse<JobSpecV2>
 
 export type BaseJob = {
   createdAt: string
@@ -27,9 +27,18 @@ export type BaseJob = {
   name: string | null
 }
 
-export type OffChainReportingJob = BaseJob & {
+export type JobSpecType =
+  | 'directrequest'
+  | 'fluxmonitor'
+  | 'offchainreporting'
+  | 'keeper'
+  | 'cron'
+  | 'web'
+
+export type JobV2 = BaseJob & {
   dotDagSource: string
-  type: 'Off-chain reporting'
+  type: 'v2'
+  specType: JobSpecType
 }
 
 export type DirectRequestJob = BaseJob & {
@@ -78,11 +87,11 @@ export type PipelineJobRun = BaseJobRun & {
   }
   status: PipelineJobRunStatus
   taskRuns: PipelineTaskRun[]
-  type: 'Off-chain reporting job run'
+  type: 'Pipeline job run'
 }
 
 export type JobData = {
-  job?: DirectRequestJob | OffChainReportingJob
+  job?: DirectRequestJob | JobV2
   jobSpec?: JobSpecResponse['data']
   recentRuns?: PipelineJobRun[] | DirectRequestJobRun[]
   recentRunsCount: number

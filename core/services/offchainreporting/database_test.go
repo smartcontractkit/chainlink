@@ -1,6 +1,7 @@
 package offchainreporting_test
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"testing"
@@ -10,7 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,8 +107,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	sqldb, _ := store.DB.DB()
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
-		Signers:              []common.Address{cltest.NewAddress()},
-		Transmitters:         []common.Address{cltest.NewAddress()},
+		Signers:              []common.Address{cltest.NewAddress(), cltest.NewAddress()},
+		Transmitters:         []common.Address{cltest.NewAddress(), cltest.NewAddress()},
 		Threshold:            uint8(35),
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
@@ -162,6 +165,20 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 }
 
+func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTransmission) {
+	require.Equal(t, pt1.Rs, pt2.Rs)
+	require.Equal(t, pt1.Ss, pt2.Ss)
+	assert.True(t, bytes.Equal(pt1.Vs[:], pt2.Vs[:]))
+	assert.True(t, bytes.Equal(pt1.SerializedReport[:], pt2.SerializedReport[:]))
+	assert.Equal(t, pt1.Median, pt2.Median)
+	for i := range pt1.Ss {
+		assert.True(t, bytes.Equal(pt1.Ss[i][:], pt2.Ss[i][:]))
+	}
+	for i := range pt1.Rs {
+		assert.True(t, bytes.Equal(pt1.Rs[i][:], pt2.Rs[i][:]))
+	}
+}
+
 func Test_DB_PendingTransmissions(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -191,13 +208,16 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(41)),
 			SerializedReport: []byte{0, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
+			Rs:               [][32]byte{cltest.Random32Byte(), cltest.Random32Byte()},
+			Ss:               [][32]byte{cltest.Random32Byte(), cltest.Random32Byte()},
 			Vs:               cltest.Random32Byte(),
 		}
 
 		err := db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
+		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		require.NoError(t, err)
+		assertPendingTransmissionEqual(t, m[k], p)
 
 		// Now overwrite value for k to prove that updating works
 		p = ocrtypes.PendingTransmission{
@@ -210,6 +230,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		}
 		err = db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
+		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		require.NoError(t, err)
+		assertPendingTransmissionEqual(t, m[k], p)
 
 		p2 := ocrtypes.PendingTransmission{
 			Time:             time.Now(),
@@ -240,7 +263,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		err = db.StorePendingTransmission(ctx, kRedHerring, pRedHerring)
 		require.NoError(t, err)
 
-		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 
 		require.Len(t, m, 2)
@@ -358,5 +381,57 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
+	})
+}
+
+func Test_DB_LatestRoundRequested(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS offchainreporting_latest_roun_offchainreporting_oracle_spe_fkey DEFERRED`).Error)
+	sqldb, _ := store.DB.DB()
+
+	db := offchainreporting.NewDB(sqldb, 1)
+	db2 := offchainreporting.NewDB(sqldb, 2)
+
+	rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
+
+	rr := offchainaggregator.OffchainAggregatorRoundRequested{
+		Requester:    cltest.NewAddress(),
+		ConfigDigest: cltest.MakeConfigDigest(t),
+		Epoch:        42,
+		Round:        9,
+		Raw:          rawLog,
+	}
+
+	t.Run("saves latest round requested", func(t *testing.T) {
+		err := db.SaveLatestRoundRequested(rr)
+		require.NoError(t, err)
+
+		rawLog.Index = 42
+
+		// Now overwrite to prove that updating works
+		rr = offchainaggregator.OffchainAggregatorRoundRequested{
+			Requester:    cltest.NewAddress(),
+			ConfigDigest: cltest.MakeConfigDigest(t),
+			Epoch:        43,
+			Round:        8,
+			Raw:          rawLog,
+		}
+
+		err = db.SaveLatestRoundRequested(rr)
+		require.NoError(t, err)
+	})
+
+	t.Run("loads latest round requested", func(t *testing.T) {
+		// There is no round for db2
+		lrr, err := db2.LoadLatestRoundRequested()
+		require.NoError(t, err)
+		require.Equal(t, 0, int(lrr.Epoch))
+
+		lrr, err = db.LoadLatestRoundRequested()
+		require.NoError(t, err)
+
+		assert.Equal(t, rr, lrr)
 	})
 }

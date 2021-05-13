@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -131,7 +132,7 @@ type RendererMock struct {
 }
 
 // Render appends values to renderer mock
-func (rm *RendererMock) Render(v interface{}) error {
+func (rm *RendererMock) Render(v interface{}, headers ...string) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
 }
@@ -142,16 +143,16 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
-	return f.App
+func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+	return f.App, nil
 }
 
 type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
-	return noopStopApplication{s.Application}
+func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+	return noopStopApplication{s.Application}, nil
 }
 
 type noopStopApplication struct {
@@ -299,6 +300,16 @@ func NewHTTPMockServerWithAlterableResponse(
 	return server
 }
 
+func NewHTTPMockServerWithAlterableResponseAndRequest(t *testing.T, response func() string, callback func(r *http.Request)) (server *httptest.Server) {
+	server = httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			callback(r)
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, response())
+		}))
+	return server
+}
+
 // MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
@@ -429,7 +440,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 }
 
 func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID})
+	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, models.SessionRequest{})
 }
 
 type MockCookieAuthenticator struct {
@@ -465,12 +476,12 @@ func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 }
 
 type MockChangePasswordPrompter struct {
-	models.ChangePasswordRequest
+	web.UpdatePasswordRequest
 	err error
 }
 
-func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
-	return m.ChangePasswordRequest, m.err
+func (m MockChangePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
+	return m.UpdatePasswordRequest, m.err
 }
 
 type MockPasswordPrompter struct {

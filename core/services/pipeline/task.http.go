@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type (
@@ -88,11 +88,11 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 
-func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
 	}
@@ -133,8 +133,8 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
 	elapsed := time.Since(start)
-	promHTTPFetchTime.WithLabelValues(fmt.Sprintf("%d", taskRun.PipelineTaskSpecID)).Set(float64(elapsed))
-	promHTTPResponseBodySize.WithLabelValues(fmt.Sprintf("%d", taskRun.PipelineTaskSpecID)).Set(float64(len(responseBytes)))
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
@@ -144,7 +144,7 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),
 		"url", t.URL.String(),
-		"pipelineTaskSpecID", taskRun.PipelineTaskSpecID,
+		"dotID", t.DotID(),
 	)
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter

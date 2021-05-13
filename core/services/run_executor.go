@@ -99,7 +99,7 @@ func (re *runExecutor) Execute(runID uuid.UUID) error {
 
 		validated = true
 
-		if err := re.store.ORM.SaveJobRun(&run); err == orm.ErrOptimisticUpdateConflict {
+		if err := re.store.ORM.SaveJobRun(&run); errors.Is(err, orm.ErrOptimisticUpdateConflict) {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {
@@ -152,9 +152,16 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, taskRun.ID, data, taskRun.Status)
+	input := *models.NewRunInput(*run, taskRun.ID, data, taskRun.Status)
 	result := adapter.Perform(input, re.store)
 	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
 
 	return result
+}
+
+// NullRunExecutor implements Null pattern for RunExecutor interface
+type NullRunExecutor struct{}
+
+func (NullRunExecutor) Execute(uuid.UUID) error {
+	return errors.New("NullRunExecutor#Execute should never be called")
 }

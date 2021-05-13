@@ -49,7 +49,7 @@ type JobSpec struct {
 	Name       string         `json:"name"`
 	CreatedAt  time.Time      `json:"createdAt" gorm:"index"`
 	Initiators []Initiator    `json:"initiators"`
-	MinPayment *assets.Link   `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	MinPayment *assets.Link   `json:"minPayment,omitempty"`
 	Tasks      []TaskSpec     `json:"tasks"`
 	StartAt    null.Time      `json:"startAt" gorm:"index"`
 	EndAt      null.Time      `json:"endAt" gorm:"index"`
@@ -211,17 +211,30 @@ type Initiator struct {
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
-	Schedule   Cron              `json:"schedule,omitempty"`
-	Time       AnyTime           `json:"time,omitempty"`
-	Ran        bool              `json:"ran,omitempty"`
-	Address    common.Address    `json:"address,omitempty" gorm:"index"`
+	// Common parameters
+	Address common.Address `json:"address,omitempty" gorm:"index"`
+	Name    string         `json:"name,omitempty"`
+
+	// Cron parameters
+	Schedule Cron `json:"schedule,omitempty"`
+
+	// RunAt parameters.
+	Time AnyTime `json:"time,omitempty"`
+	Ran  bool    `json:"ran,omitempty"`
+
+	// External initiator job parameters.
+	Body *JSON `json:"body,omitempty" gorm:"column:params"`
+
+	// Log specific job parameters.
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
-	Name       string            `json:"name,omitempty"`
-	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty"`
+	// JobIDTopicFilter, if present, is used in addition to the job's actual ID when filtering
+	// initiator logs
+	JobIDTopicFilter JobID `json:"jobIDTopicFilter,omitempty"`
 
+	// Flux monitior specific parameters.
 	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
 	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
@@ -360,7 +373,7 @@ type Feeds = JSON
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	ID                               int64         `gorm:"primary_key"`
-	JobSpecID                        JobID         `json:"-"`
+	JobSpecID                        JobID         `json:"jobSpecId"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`

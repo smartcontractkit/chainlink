@@ -12,22 +12,15 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
-func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
-	parsed, err := url.Parse(databaseURL)
-	if err != nil {
-		return "", err
-	}
-
+func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error) {
 	if parsed.Path == "" {
 		return "", errors.New("path missing from database URL")
 	}
@@ -64,6 +57,7 @@ func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, e
 func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) (*TestConfig, *orm.ORM, func()) {
 	tc, cleanup := NewConfig(t)
 	config := tc.Config
+	config.Dialect = dialects.PostgresWithoutLock
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), name)
@@ -73,19 +67,17 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	orm.SetLogging(true)
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
-		require.NoError(t, orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return migrationsv2.Migrate(db) }))
+		require.NoError(t, migrations.Migrate(orm.DB))
 	}
 	if len(loadFixtures) > 0 && loadFixtures[0] {
 		_, filename, _, ok := runtime.Caller(0)
 		if !ok {
 			t.Fatal("could not get runtime.Caller(0)")
 		}
-		filepath := path.Join(path.Dir(filename), "../../store/testdata/fixtures.sql")
+		filepath := path.Join(path.Dir(filename), "../../store/fixtures/fixtures.sql")
 		fixturesSQL, err := ioutil.ReadFile(filepath)
 		require.NoError(t, err)
-		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-			return db.Exec(string(fixturesSQL)).Error
-		})
+		err = orm.DB.Exec(string(fixturesSQL)).Error
 		require.NoError(t, err)
 	}
 

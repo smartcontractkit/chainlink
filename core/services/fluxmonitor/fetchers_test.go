@@ -3,8 +3,8 @@ package fluxmonitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -114,20 +113,13 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 		var req fetcherRequest
 		body, _ := ioutil.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
-		fmt.Println(req.Meta)
 		require.NoError(t, err)
-		require.Equal(t, false, req.Meta["EligibleToSubmit"])
-		require.Equal(t, float64(0), req.Meta["OracleCount"])
-		require.Equal(t, float64(7), req.Meta["RoundId"])
-		require.Equal(t, float64(0), req.Meta["StartedAt"])
-		require.Equal(t, float64(11), req.Meta["Timeout"])
-		w.Header().Set("Content-Type", "application/json")
+		require.Equal(t, float64(10), req.Meta["latestAnswer"])
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	roundState := flux_aggregator_wrapper.OracleRoundState{RoundId: 7, Timeout: 11}
-	request, err := models.MarshalToMap(&roundState)
+	md, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
 	require.NoError(t, err)
 
 	s1 := httptest.NewServer(handler)
@@ -137,7 +129,7 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
-	fetcher.Fetch(context.Background(), request)
+	fetcher.Fetch(context.Background(), md)
 }
 
 func TestHTTPFetcher_ErrorMessage(t *testing.T) {
@@ -167,7 +159,7 @@ func TestHTTPFetcher_OnlyErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		_, err := w.Write([]byte(mustReadFile(t, "../testdata/coinmarketcap.error.json")))
+		_, err := w.Write([]byte(mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.error.json")))
 		require.NoError(t, err)
 	})
 
@@ -209,9 +201,9 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 		expect        decimal.Decimal
 	}{
 		{"basic", `{"data":{"result":123.4567890},"jobRunID":"1","statusCode":200}`, decimal.NewFromFloat(123.456789)},
-		{"bravenewcoin", mustReadFile(t, "../testdata/bravenewcoin.json"), decimal.NewFromFloat(306.52036004)},
-		{"coinmarketcap", mustReadFile(t, "../testdata/coinmarketcap.json"), decimal.NewFromFloat(305.5574615)},
-		{"cryptocompare", mustReadFile(t, "../testdata/cryptocompare.json"), decimal.NewFromFloat(305.76)},
+		{"bravenewcoin", mustReadFile(t, "../../testdata/apiresponses/bravenewcoin.json"), decimal.NewFromFloat(306.52036004)},
+		{"coinmarketcap", mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.json"), decimal.NewFromFloat(305.5574615)},
+		{"cryptocompare", mustReadFile(t, "../../testdata/apiresponses/cryptocompare.json"), decimal.NewFromFloat(305.76)},
 	}
 
 	for _, test := range tests {

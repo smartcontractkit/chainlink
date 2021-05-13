@@ -1,3 +1,7 @@
+import React, { useMemo } from 'react'
+import { connect } from 'react-redux'
+import { Redirect, useLocation } from 'react-router-dom'
+
 import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import Card from '@material-ui/core/Card'
 import Dialog from '@material-ui/core/Dialog'
@@ -15,10 +19,8 @@ import Typography from '@material-ui/core/Typography'
 import { ApiResponse } from 'utils/json-api-client'
 import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
-import React from 'react'
-import { connect } from 'react-redux'
-import { Redirect, useLocation } from 'react-router-dom'
-import { createJobRun, deleteJobSpec } from 'actionCreators'
+
+import { createJobRun, createJobRunV2, deleteJobSpec } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import CopyJobSpec from 'components/CopyJobSpec'
@@ -26,6 +28,7 @@ import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { JobData } from './sharedTypes'
+import { isJobV2 } from 'pages/Jobs/utils'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -127,17 +130,18 @@ const DeleteSuccessNotification = ({ id }: any) => (
 
 interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
+  createJobRunV2: Function
   deleteJobSpec: Function
   jobSpecId: string
   job: JobData['job']
   runsCount: JobData['recentRunsCount']
-  url: string
   getJobSpecRuns: (props: { page?: number; size?: number }) => Promise<void>
 }
 
 const RegionalNavComponent = ({
   classes,
   createJobRun,
+  createJobRunV2,
   jobSpecId,
   job,
   deleteJobSpec,
@@ -153,18 +157,24 @@ const RegionalNavComponent = ({
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
 
-  const handleRun = () => {
+  const handleRun = async () => {
     const params = new URLSearchParams(location.search)
     const page = params.get('page')
     const size = params.get('size')
 
-    createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
-      () =>
-        getJobSpecRuns({
-          page: page ? parseInt(page, 10) : undefined,
-          size: size ? parseInt(size, 10) : undefined,
-        }),
-    )
+    if (job?.id && isJobV2(job.id)) {
+      await createJobRunV2(
+        jobSpecId,
+        CreateRunSuccessNotification,
+        ErrorMessage,
+      )
+    } else {
+      await createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage)
+    }
+    await getJobSpecRuns({
+      page: page ? parseInt(page, 10) : undefined,
+      size: size ? parseInt(size, 10) : undefined,
+    })
   }
   const handleDelete = (id: string) => {
     deleteJobSpec(
@@ -175,6 +185,38 @@ const RegionalNavComponent = ({
     )
     setArchived(true)
   }
+
+  const typeDetail = useMemo(() => {
+    let type = 'unknown'
+
+    if (!job) {
+      return 'Unknown job type'
+    }
+
+    if (job.type === 'v2') {
+      switch (job.specType) {
+        case 'offchainreporting':
+          type = 'Off-chain reporting'
+          break
+        case 'keeper':
+          type = 'Keeper'
+          break
+        case 'cron':
+          type = 'Cron'
+          break
+        case 'web':
+          type = 'Web'
+          break
+        default:
+          type = 'Direct request'
+      }
+    } else {
+      type = job.type
+    }
+
+    return `${type} job spec detail`
+  }, [job])
+
   return (
     <>
       <Dialog
@@ -241,7 +283,7 @@ const RegionalNavComponent = ({
           <Grid item xs={12}>
             {job && (
               <Typography variant="subtitle2" color="secondary" gutterBottom>
-                {job?.type} job spec detail
+                {typeDetail}
               </Typography>
             )}
           </Grid>
@@ -272,16 +314,17 @@ const RegionalNavComponent = ({
                     >
                       Archive
                     </Button>
-                    {job.type === 'Direct request' &&
+                    {((job.type === 'Direct request' &&
                       job.initiators &&
-                      isWebInitiator(job.initiators) && (
-                        <Button
-                          onClick={handleRun}
-                          className={classes.regionalNavButton}
-                        >
-                          Run
-                        </Button>
-                      )}
+                      isWebInitiator(job.initiators)) ||
+                      (job.type == 'v2' && job.specType == 'web')) && (
+                      <Button
+                        onClick={handleRun}
+                        className={classes.regionalNavButton}
+                      >
+                        Run
+                      </Button>
+                    )}
                     {job.definition && (
                       <>
                         <Button
@@ -388,12 +431,9 @@ const RegionalNavComponent = ({
   )
 }
 
-const mapStateToProps = (state: any) => ({
-  url: state.notifications.currentUrl,
-})
-
-export const ConnectedRegionalNav = connect(mapStateToProps, {
+export const ConnectedRegionalNav = connect(null, {
   createJobRun,
+  createJobRunV2,
   deleteJobSpec,
 })(RegionalNavComponent)
 

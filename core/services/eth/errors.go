@@ -2,7 +2,6 @@ package eth
 
 import (
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -29,11 +28,13 @@ func (s *SendError) Fatal() bool {
 	return s != nil && s.fatal
 }
 
-// Geth errors
-
-var (
-	gethTxFeeExceedsCap = regexp.MustCompile(`^tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)`)
-)
+// CauseStr returns the string of the original error
+func (s *SendError) CauseStr() string {
+	if s.err != nil {
+		return errors.Cause(s.err).Error()
+	}
+	return ""
+}
 
 // Parity errors
 var (
@@ -41,7 +42,7 @@ var (
 	parTooCheapToReplace    = regexp.MustCompile("^Transaction gas price .+is too low. There is another transaction with same nonce in the queue")
 	parLimitReached         = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
 	parAlreadyImported      = "Transaction with the same hash was already imported."
-	parOld                  = "Transaction nonce is too low. Try incrementing the nonce."
+	parNonceTooLow          = "Transaction nonce is too low. Try incrementing the nonce."
 	parInsufficientGasPrice = regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price")
 	parInsufficientEth      = regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)")
 
@@ -58,41 +59,106 @@ var (
 	parInvalidRlp       = regexp.MustCompile("^Invalid RLP data:")
 )
 
+// Geth and geth-compatible errors
+var (
+	gethNonceTooLow                       = regexp.MustCompile(`(: |^)nonce too low$`)
+	gethReplacementTransactionUnderpriced = regexp.MustCompile(`(: |^)replacement transaction underpriced$`)
+	gethKnownTransaction                  = regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`)
+	gethTransactionUnderpriced            = regexp.MustCompile(`(: |^)transaction underpriced$`)
+	gethInsufficientEth                   = regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`)
+	gethTxFeeExceedsCap                   = regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)$`)
+
+	// Fatal Errors
+	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
+	gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+)
+
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+
+	switch {
+	case gethReplacementTransactionUnderpriced.MatchString(str):
+		return true
+	case parTooCheapToReplace.MatchString(str):
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
-	return s != nil && s.err != nil && ((s.Error() == "nonce too low") || s.Error() == parOld)
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+	switch {
+	case gethNonceTooLow.MatchString(str):
+		return true
+	case str == parNonceTooLow:
+		return true
+	default:
+		return false
+	}
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
 func (s *SendError) IsTransactionAlreadyInMempool() bool {
-	return s != nil && s.err != nil && (strings.HasPrefix(strings.ToLower(s.Error()), "known transaction") || s.Error() == "already known" || s.Error() == parAlreadyImported)
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+	switch {
+	case gethKnownTransaction.MatchString(str):
+		return true
+	case str == parAlreadyImported:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far
 // underpriced the node won't even accept it in the first place
 func (s *SendError) IsTerminallyUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || parInsufficientGasPrice.MatchString(s.Error()))
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+	switch {
+	case gethTransactionUnderpriced.MatchString(str):
+		return true
+	case parInsufficientGasPrice.MatchString(str):
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s != nil && s.err != nil && s.Error() == parLimitReached
+	return s != nil && s.err != nil && s.CauseStr() == parLimitReached
 }
 
 func (s *SendError) IsInsufficientEth() bool {
 	if s == nil || s.err == nil {
 		return false
 	}
-	switch s.Error() {
-	// Geth
-	case "insufficient funds for transfer", "insufficient funds for gas * price + value", "insufficient balance for transfer":
+
+	str := s.CauseStr()
+	switch {
+	case gethInsufficientEth.MatchString(str):
+		return true
+	case parInsufficientEth.MatchString(str):
 		return true
 	default:
-		// Parity
-		return parInsufficientEth.MatchString(s.Error())
+		return false
 	}
 }
 
@@ -104,7 +170,10 @@ func (s *SendError) IsTooExpensive() bool {
 	if s == nil || s.err == nil {
 		return false
 	}
-	return gethTxFeeExceedsCap.MatchString(s.Error())
+
+	str := s.CauseStr()
+
+	return gethTxFeeExceedsCap.MatchString(str)
 }
 
 func NewFatalSendErrorS(s string) *SendError {
@@ -137,19 +206,12 @@ func isFatalSendError(err error) bool {
 	if err == nil {
 		return false
 	}
-	s := err.Error()
-	return isGethFatal(s) || isParityFatal(s)
+	str := errors.Cause(err).Error()
+	return isGethFatal(str) || isParityFatal(str)
 }
 
 func isGethFatal(s string) bool {
-	switch s {
-	// Geth errors
-	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
-	case "exceeds block gas limit", "invalid sender", "negative value", "oversized data", "gas uint64 overflow", "intrinsic gas too low", "nonce too high":
-		return true
-	default:
-		return false
-	}
+	return gethFatal.MatchString(s)
 }
 
 // See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420

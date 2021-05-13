@@ -21,11 +21,11 @@ func (t *AnyTask) Type() TaskType {
 	return TaskTypeAny
 }
 
-func (t *AnyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *AnyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 
-func (t *AnyTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (result Result) {
+func (t *AnyTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
 	if len(inputs) == 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "AnyTask requires at least 1 input")}
 	}

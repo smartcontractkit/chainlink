@@ -1,10 +1,18 @@
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
-import { OcrJobSpec } from 'core/store/models'
+import {
+  JobSpecV2,
+  DirectRequestJobV2Spec,
+  FluxMonitorJobV2Spec,
+  KeeperV2Spec,
+  OffChainReportingOracleJobV2Spec,
+  CronV2Spec,
+  WebV2Spec,
+} from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
-export function jobSpecV2(
+export function ocrJobSpecV2(
   config: Partial<
-    OcrJobSpec['offChainReportingOracleSpec'] & {
+    JobSpecV2['offChainReportingOracleSpec'] & {
       name?: string
       id?: string
       maxTaskDuration?: string
@@ -12,9 +20,9 @@ export function jobSpecV2(
       dotDagSource?: string
     }
   > = {},
-): OcrJobSpec {
+): JobSpecV2 {
   const offChainReportingOracleSpec = partialAsFull<
-    OcrJobSpec['offChainReportingOracleSpec']
+    OffChainReportingOracleJobV2Spec['offChainReportingOracleSpec']
   >({
     contractAddress: config.contractAddress || generateUuid(),
     p2pPeerID: config.p2pPeerID || generateUuid(),
@@ -34,7 +42,14 @@ export function jobSpecV2(
   })
   return {
     name: config.name || 'V2 job',
+    type: 'offchainreporting',
+    schemaVersion: 1,
     offChainReportingOracleSpec,
+    fluxMonitorSpec: null,
+    directRequestSpec: null,
+    keeperSpec: null,
+    cronSpec: null,
+    webSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -42,6 +57,166 @@ export function jobSpecV2(
         typeof config.dotDagSource === 'string'
           ? config.dotDagSource
           : '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
+    },
+  }
+}
+
+export function fluxMonitorJobV2(
+  spec: Partial<FluxMonitorJobV2Spec['fluxMonitorSpec']> = {},
+  config: Partial<
+    {
+      name?: string
+      id?: string
+      maxTaskDuration?: string
+    } & {
+      dotDagSource?: string
+    }
+  > = {},
+): JobSpecV2 {
+  const fluxMonitorSpec = partialAsFull<
+    FluxMonitorJobV2Spec['fluxMonitorSpec']
+  >({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Flux Monitor V2 job',
+    type: 'fluxmonitor',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    offChainReportingOracleSpec: null,
+    keeperSpec: null,
+    cronSpec: null,
+    webSpec: null,
+    fluxMonitorSpec,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource:
+        typeof config.dotDagSource === 'string'
+          ? config.dotDagSource
+          : '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
+    },
+  }
+}
+
+export function directRequestJobV2(
+  spec: Partial<DirectRequestJobV2Spec['directRequestSpec']> = {},
+  config: Partial<
+    {
+      name?: string
+      id?: string
+      maxTaskDuration?: string
+    } & {
+      dotDagSource?: string
+    }
+  > = {},
+): JobSpecV2 {
+  const directRequestSpec = partialAsFull<
+    DirectRequestJobV2Spec['directRequestSpec']
+  >({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Direct Request V2 job',
+    type: 'directrequest',
+    schemaVersion: 1,
+    directRequestSpec,
+    offChainReportingOracleSpec: null,
+    keeperSpec: null,
+    cronSpec: null,
+    webSpec: null,
+    fluxMonitorSpec: null,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource:
+        typeof config.dotDagSource === 'string'
+          ? config.dotDagSource
+          : '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
+    },
+  }
+}
+
+export function keeperJobV2(
+  spec: Partial<KeeperV2Spec['keeperSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const keeperSpec = partialAsFull<KeeperV2Spec['keeperSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Keeper V2 job',
+    type: 'keeper',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec: null,
+    webSpec: null,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
+    },
+  }
+}
+
+export function cronJobV2(
+  spec: Partial<CronV2Spec['cronSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const cronSpec = partialAsFull<CronV2Spec['cronSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Cron V2 job',
+    type: 'cron',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec: null,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec,
+    webSpec: null,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
+    },
+  }
+}
+
+export function webJobV2(
+  spec: Partial<WebV2Spec['webSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const webSpec = partialAsFull<WebV2Spec['webSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Web V2 job',
+    type: 'web',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec: null,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec: null,
+    webSpec,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
     },
   }
 }

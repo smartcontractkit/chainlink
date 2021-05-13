@@ -125,7 +125,8 @@ func RequireAuth(store AuthStorer, methods ...authType) gin.HandlerFunc {
 			}
 		}
 		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, err)
 		} else {
 			c.Next()
 		}

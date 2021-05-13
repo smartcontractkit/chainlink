@@ -22,7 +22,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	if _, exists := inputValues["allowedFaults"]; !exists {
 		if len(self.inputs()) == 0 {
 			return errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")
@@ -32,7 +32,7 @@ func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self 
 	return nil
 }
 
-func (t *MedianTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (result Result) {
+func (t *MedianTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
 	if len(inputs) == 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")}
 	}
@@ -56,7 +56,7 @@ func (t *MedianTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (r
 	}
 
 	if uint64(len(fetchErrors)) > t.AllowedFaults {
-		return Result{Error: errors.Wrapf(ErrBadInput, "Too many inputs to median task failed (%v of %v): %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
+		return Result{Error: errors.Wrapf(ErrBadInput, "Number of faulty inputs %v to median task > number allowed faults %v. Fetch errors: %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
 	}
 
 	sort.Slice(answers, func(i, j int) bool {

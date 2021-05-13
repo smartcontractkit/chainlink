@@ -1,6 +1,8 @@
 package orm
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -13,8 +15,10 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm"
@@ -46,22 +50,163 @@ const readWritePerms = os.FileMode(0600)
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
+
+	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
+
+	// keyed by ChainID
+	ChainSpecificDefaults map[int64]ChainSpecificDefaultSet
+	// If the chain is unknown, fallback to the general defaults
+	GeneralDefaults ChainSpecificDefaultSet
 )
 
-// Config holds parameters used by the application which can be overridden by
-// setting environment variables.
-//
-// If you add an entry here which does not contain sensitive information, you
-// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
-type Config struct {
-	viper           *viper.Viper
-	SecretGenerator SecretGenerator
-	runtimeStore    *ORM
-	Dialect         dialects.DialectName
-	AdvisoryLockID  int64
+type (
+	// Config holds parameters used by the application which can be overridden by
+	// setting environment variables.
+	//
+	// If you add an entry here which does not contain sensitive information, you
+	// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
+	Config struct {
+		viper            *viper.Viper
+		SecretGenerator  SecretGenerator
+		runtimeStore     *ORM
+		randomP2PPort    uint16
+		randomP2PPortMtx *sync.RWMutex
+		Dialect          dialects.DialectName
+		AdvisoryLockID   int64
+	}
+
+	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
+	ChainSpecificDefaultSet struct {
+		EnableLegacyJobPipeline          bool
+		EthGasBumpThreshold              uint64
+		EthGasBumpWei                    *big.Int
+		EthGasPriceDefault               *big.Int
+		EthMaxGasPriceWei                *big.Int
+		EthFinalityDepth                 uint
+		EthHeadTrackerHistoryDepth       uint
+		EthBalanceMonitorBlockDelay      uint16
+		EthTxResendAfterThreshold        time.Duration
+		GasUpdaterBatchSize              *uint32
+		GasUpdaterBlockDelay             uint16
+		GasUpdaterBlockHistorySize       uint16
+		GasUpdaterEnabled                bool
+		HeadTimeBudget                   time.Duration
+		MinIncomingConfirmations         uint32
+		MinRequiredOutgoingConfirmations uint64
+		OptimismGasFees                  bool
+	}
+)
+
+func init() {
+	ChainSpecificDefaults = make(map[int64]ChainSpecificDefaultSet)
+	// FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
+	var defaultGasUpdaterBatchSize uint32 = 4
+
+	mainnet := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
+		EthGasBumpThreshold:              3,
+		EthGasBumpWei:                    big.NewInt(5000000000),    // 5 Gwei
+		EthGasPriceDefault:               big.NewInt(20000000000),   // 20 Gwei
+		EthMaxGasPriceWei:                big.NewInt(1500000000000), // 1.5 Twei
+		EthFinalityDepth:                 50,
+		EthHeadTrackerHistoryDepth:       100,
+		EthBalanceMonitorBlockDelay:      1,
+		EthTxResendAfterThreshold:        30 * time.Second,
+		GasUpdaterBlockDelay:             1,
+		GasUpdaterBlockHistorySize:       24,
+		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:                true,
+		HeadTimeBudget:                   13 * time.Second,
+		MinIncomingConfirmations:         3,
+		MinRequiredOutgoingConfirmations: 12,
+	}
+
+	// NOTE: There are probably other variables we can tweak for Kovan and other
+	// test chains, but requires more in-depth research on their consensus
+	// mechanisms. For now, mainnet defaults ought to be safe
+	kovan := mainnet
+	kovan.HeadTimeBudget = 4 * time.Second
+
+	// BSC uses Clique consensus with ~3s block times
+	// Clique offers finality within (N/2)+1 blocks where N is number of signers
+	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
+	bscMainnet := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
+		EthGasBumpThreshold:              12,                       // mainnet * 4 (3s vs 13s block time)
+		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
+		EthGasPriceDefault:               big.NewInt(5000000000),   // 5 Gwei
+		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
+		EthFinalityDepth:                 50,                       // Keeping this > 11 because it's not expensive and gives us a safety margin
+		EthHeadTrackerHistoryDepth:       100,
+		EthBalanceMonitorBlockDelay:      2,
+		EthTxResendAfterThreshold:        15 * time.Second,
+		GasUpdaterBlockDelay:             2,
+		GasUpdaterBlockHistorySize:       24,
+		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:                true,
+		HeadTimeBudget:                   3 * time.Second,
+		MinIncomingConfirmations:         3,
+		MinRequiredOutgoingConfirmations: 12,
+	}
+
+	hecoMainnet := bscMainnet
+
+	// Matic has a 1s block time and looser finality guarantees than Ethereum.
+	polygonMatic := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
+		EthGasBumpThreshold:              39,                       // mainnet * 13
+		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
+		EthGasPriceDefault:               big.NewInt(1000000000),   // 1 Gwei
+		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
+		EthFinalityDepth:                 200,                      // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
+		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
+		EthBalanceMonitorBlockDelay:      13,                       // equivalent of 1 eth block seems reasonable
+		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
+		GasUpdaterBlockHistorySize:       128,
+		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:                true,
+		HeadTimeBudget:                   1 * time.Second,
+		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
+		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
+	}
+
+	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
+	optimism := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          false,
+		EthGasBumpThreshold:              0, // Never bump gas on optimism
+		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
+		EthHeadTrackerHistoryDepth:       10,
+		EthBalanceMonitorBlockDelay:      0,
+		EthTxResendAfterThreshold:        5 * time.Second,
+		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
+		GasUpdaterEnabled:                false,
+		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
+		MinIncomingConfirmations:         1,
+		MinRequiredOutgoingConfirmations: 0,
+		OptimismGasFees:                  true,
+	}
+
+	GeneralDefaults = mainnet
+	ChainSpecificDefaults[1] = mainnet
+	ChainSpecificDefaults[42] = kovan
+
+	ChainSpecificDefaults[10] = optimism
+	ChainSpecificDefaults[69] = optimism
+	ChainSpecificDefaults[420] = optimism
+
+	ChainSpecificDefaults[56] = bscMainnet
+	ChainSpecificDefaults[128] = hecoMainnet
+	ChainSpecificDefaults[80001] = polygonMatic
 }
 
-var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
+func chainSpecificConfig(c Config) ChainSpecificDefaultSet {
+	chainID := c.ChainID().Int64()
+	if cset, exists := ChainSpecificDefaults[chainID]; exists {
+		return cset
+	}
+	return GeneralDefaults
+}
 
 // NewConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
@@ -75,13 +220,17 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
-		v.SetDefault(name, item.Tag.Get("default"))
+		def, exists := item.Tag.Lookup("default")
+		if exists {
+			v.SetDefault(name, def)
+		}
 		_ = v.BindEnv(name, name)
 	}
 
 	config := &Config{
-		viper:           v,
-		SecretGenerator: filePersistedSecretGenerator{},
+		viper:            v,
+		SecretGenerator:  filePersistedSecretGenerator{},
+		randomP2PPortMtx: new(sync.RWMutex),
 	}
 
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -109,20 +258,25 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
-		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
-	}
 
 	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
+	}
+
+	if c.GasUpdaterEnabled() && c.GasUpdaterBlockHistorySize() <= 0 {
+		return errors.New("GAS_UPDATER_BLOCK_HISTORY_SIZE must be greater than or equal to 1 if gas updater is enabled")
 	}
 
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
 		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
-	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
-		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
+	if c.EthFinalityDepth() < 1 {
+		return errors.New("ETH_FINALITY_DEPTH must be greater than or equal to 1")
+	}
+
+	if c.MinIncomingConfirmations() < 1 {
+		return errors.New("MIN_INCOMING_CONFIRMATIONS must be greater than or equal to 1")
 	}
 
 	var override time.Duration
@@ -134,6 +288,7 @@ func (c *Config) Validate() error {
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
@@ -203,6 +358,17 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// AdminCredentialsFile points to text file containing admnn credentials for logging in
+func (c Config) AdminCredentialsFile() string {
+	fieldName := "AdminCredentialsFile"
+	file := c.viper.GetString(EnvVarName(fieldName))
+	defaultValue, _ := defaultValue(fieldName)
+	if file == defaultValue {
+		return filepath.Join(c.RootDir(), "apicredentials")
+	}
+	return file
+}
+
 // AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
 func (c Config) AuthenticatedRateLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
@@ -239,6 +405,11 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
+// FeatureCronV2 enables the Cron v2 feature.
+func (c Config) FeatureCronV2() bool {
+	return c.getWithFallback("FeatureCronV2", parseBool).(bool)
+}
+
 func (c Config) DatabaseListenerMinReconnectInterval() time.Duration {
 	return c.getWithFallback("DatabaseListenerMinReconnectInterval", parseDuration).(time.Duration)
 }
@@ -249,6 +420,31 @@ func (c Config) DatabaseListenerMaxReconnectDuration() time.Duration {
 
 func (c Config) DatabaseMaximumTxDuration() time.Duration {
 	return c.getWithFallback("DatabaseMaximumTxDuration", parseDuration).(time.Duration)
+}
+
+// DatabaseBackupMode sets the database backup mode
+func (c Config) DatabaseBackupMode() DatabaseBackupMode {
+	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
+}
+
+// DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
+// DatabaseBackupMode must be then set to a value other than "none"
+func (c Config) DatabaseBackupFrequency() time.Duration {
+	return c.getWithFallback("DatabaseBackupFrequency", parseDuration).(time.Duration)
+}
+
+// DatabaseBackupURL configures the URL for the database to backup, if it's to be different from the main on
+func (c Config) DatabaseBackupURL() *url.URL {
+	s := c.viper.GetString(EnvVarName("DatabaseBackupURL"))
+	if s == "" {
+		return nil
+	}
+	uri, err := url.Parse(s)
+	if err != nil {
+		logger.Error("invalid database backup url %s", s)
+		return nil
+	}
+	return uri
 }
 
 // DatabaseTimeout represents how long to tolerate non response from the DB.
@@ -263,8 +459,18 @@ func (c Config) GlobalLockRetryInterval() models.Duration {
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
-func (c Config) DatabaseURL() string {
-	return c.viper.GetString(EnvVarName("DatabaseURL"))
+func (c Config) DatabaseURL() url.URL {
+	s := c.viper.GetString(EnvVarName("DatabaseURL"))
+	uri, err := url.Parse(s)
+	if err != nil {
+		logger.Error("invalid database url %s", s)
+		return url.URL{}
+	}
+	if uri.String() == "" {
+		return *uri
+	}
+	static.SetConsumerName(uri, "Default")
+	return *uri
 }
 
 // MigrateDatabase determines whether the database will be automatically
@@ -304,6 +510,14 @@ func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
 }
 
+// EnableLegacyJobPipeline enables the v1 job pipeline (JSON job specs)
+func (c Config) EnableLegacyJobPipeline() bool {
+	if c.viper.IsSet(EnvVarName("EnableLegacyJobPipeline")) {
+		return c.viper.GetBool(EnvVarName("EnableLegacyJobPipeline"))
+	}
+	return chainSpecificConfig(c).EnableLegacyJobPipeline
+}
+
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
@@ -312,6 +526,11 @@ func (c Config) FeatureExternalInitiators() bool {
 // FeatureFluxMonitor enables the Flux Monitor feature.
 func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
+}
+
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+func (c Config) FeatureFluxMonitorV2() bool {
+	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
 }
 
 // FeatureOffchainReporting enables the Flux Monitor feature.
@@ -336,16 +555,25 @@ func (c Config) MinimumServiceDuration() models.Duration {
 // announce a new head, then route a request to a different node which does not
 // have this head yet.
 func (c Config) EthBalanceMonitorBlockDelay() uint16 {
-	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("EthBalanceMonitorBlockDelay")) {
+		return uint16(c.viper.GetUint32(EnvVarName("EthBalanceMonitorBlockDelay")))
+	}
+	return chainSpecificConfig(c).EthBalanceMonitorBlockDelay
 }
 
-func (c Config) EthReceiptFetchBatchSize() uint32 {
-	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
+// EthRPCDefaultBatchSize controls the number of receipts fetched in each
+// request in the EthConfirmer
+func (c Config) EthRPCDefaultBatchSize() uint32 {
+	return c.viper.GetUint32(EnvVarName("EthRPCDefaultBatchSize"))
 }
 
-// EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
+// EthGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
+// Set to 0 to disable gas bumping
 func (c Config) EthGasBumpThreshold() uint64 {
-	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
+	if c.viper.IsSet(EnvVarName("EthGasBumpThreshold")) {
+		return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
+	}
+	return chainSpecificConfig(c).EthGasBumpThreshold
 }
 
 // EthGasBumpTxDepth is the number of transactions to gas bump starting from oldest.
@@ -362,13 +590,38 @@ func (c Config) EthGasBumpPercent() uint16 {
 
 // EthGasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt
 func (c Config) EthGasBumpWei() *big.Int {
-	return c.getWithFallback("EthGasBumpWei", parseBigInt).(*big.Int)
+	str := c.viper.GetString(EnvVarName("EthGasBumpWei"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthGasBumpWei, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthGasBumpWei
 }
 
 // EthMaxGasPriceWei is the maximum amount in Wei that a transaction will be
 // bumped to before abandoning it and marking it as errored.
 func (c Config) EthMaxGasPriceWei() *big.Int {
-	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
+
+	str := c.viper.GetString(EnvVarName("EthMaxGasPriceWei"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthMaxGasPriceWei, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthMaxGasPriceWei
 }
 
 // EthMaxUnconfirmedTransactions is the maximum number of unconfirmed
@@ -377,6 +630,11 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 // 0 value disables
 func (c Config) EthMaxUnconfirmedTransactions() uint64 {
 	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+}
+
+// EthNonceAutoSync enables/disables running the NonceSyncer on application start
+func (c Config) EthNonceAutoSync() bool {
+	return c.getWithFallback("EthNonceAutoSync", parseBool).(bool)
 }
 
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
@@ -388,13 +646,35 @@ func (c Config) EthGasLimitDefault() uint64 {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value
 		}
 	}
-	return c.getWithFallback("EthGasPriceDefault", parseBigInt).(*big.Int)
+	str := c.viper.GetString(EnvVarName("EthGasPriceDefault"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthGasPriceDefault, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthGasPriceDefault
+}
+
+// EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
+// multiplied before transmission. So if the value is 1.1, and the GasLimit for
+// a transaction is 10, 10% will be added before transmission.
+//
+// This factor is always applied, so includes Optimism L2 transactions which
+// uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+func (c Config) EthGasLimitMultiplier() float32 {
+	return (float32)(c.getWithFallback("EthGasLimitMultiplier", parseF32).(float64))
 }
 
 // SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
@@ -411,15 +691,36 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
 // If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+//
+// Special cases:
+// ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
+// ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
+//
+// Examples:
+//
+// Transaction sending:
+// A transaction is sent at block height 42
+//
+// ETH_FINALITY_DEPTH is set to 5
+// A re-org occurs at height 44 starting at block 41, transaction is marked for rebroadcast
+// A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
+// A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
 func (c Config) EthFinalityDepth() uint {
-	return uint(c.getWithFallback("EthFinalityDepth", parseUint64).(uint64))
+	if c.viper.IsSet(EnvVarName("EthFinalityDepth")) {
+		return uint(c.viper.GetUint64(EnvVarName("EthFinalityDepth")))
+	}
+	return chainSpecificConfig(c).EthFinalityDepth
 }
 
-// EthHeadTrackerHistoryDepth is the number of heads to keep in the `heads` database table.
+// EthHeadTrackerHistoryDepth tracks the top N block numbers to keep in the `heads` database table.
+// Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
 // This number should be at least as large as `EthFinalityDepth`.
 // There may be a small performance penalty to setting this to something very large (10,000+)
 func (c Config) EthHeadTrackerHistoryDepth() uint {
-	return uint(c.getWithFallback("EthHeadTrackerHistoryDepth", parseUint64).(uint64))
+	if c.viper.IsSet(EnvVarName("EthHeadTrackerHistoryDepth")) {
+		return uint(c.viper.GetUint64(EnvVarName("EthHeadTrackerHistoryDepth")))
+	}
+	return chainSpecificConfig(c).EthHeadTrackerHistoryDepth
 }
 
 // EthHeadTrackerMaxBufferSize is the maximum number of heads that may be
@@ -430,9 +731,68 @@ func (c Config) EthHeadTrackerMaxBufferSize() uint {
 	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", parseUint64).(uint64))
 }
 
+// EthTxResendAfterThreshold controls how long the ethResender will wait before
+// re-sending the latest eth_tx_attempt. This is designed a as a fallback to
+// protect against the eth nodes dropping txes (it has been anecdotally
+// observed to happen), networking issues or txes being ejected from the
+// mempool.
+// See eth_resender.go for more details
+func (c Config) EthTxResendAfterThreshold() time.Duration {
+	str := c.viper.GetString(EnvVarName("EthTxResendAfterThreshold"))
+	if str != "" {
+		n, err := parseDuration(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthTxResendAfterThreshold, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(time.Duration)
+		}
+	}
+	return chainSpecificConfig(c).EthTxResendAfterThreshold
+}
+
+// EthTxReaperInterval controls how often the eth tx reaper should run
+func (c Config) EthTxReaperInterval() time.Duration {
+	return c.getWithFallback("EthTxReaperInterval", parseDuration).(time.Duration)
+}
+
+// EthTxReaperThreshold represents how long any confirmed/fatally_errored eth_txes will hang around in the database.
+// If the eth_tx is confirmed but still below ETH_FINALITY_DEPTH it will not be deleted even if it was created at a time older than this value.
+// EXAMPLE
+// With:
+// EthTxReaperThreshold=1h
+// EthFinalityDepth=50
+//
+// Current head is 142, any eth_tx confirmed in block 91 or below will be reaped as long as its created_at was more than EthTxReaperThreshold ago
+// Set to 0 to disable eth_tx reaping
+func (c Config) EthTxReaperThreshold() time.Duration {
+	return c.getWithFallback("EthTxReaperThreshold", parseDuration).(time.Duration)
+}
+
+// EthLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs
+func (c Config) EthLogBackfillBatchSize() uint32 {
+	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
+}
+
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
+}
+
+// EthereumHTTPURL is an optional but recommended url that points to the HTTP port of the primary node
+func (c Config) EthereumHTTPURL() (uri *url.URL) {
+	urlStr := c.viper.GetString(EnvVarName("EthereumHTTPURL"))
+	if urlStr == "" {
+		return nil
+	}
+	var err error
+	uri, err = url.Parse(urlStr)
+	if err != nil || !(uri.Scheme == "http" || uri.Scheme == "https") {
+		logger.Fatalf("Invalid Ethereum HTTP URL: %s, got error: %s", urlStr, err)
+	}
+	return
 }
 
 // EthereumSecondaryURLs is an optional backup RPC URL
@@ -475,6 +835,19 @@ func (c Config) FlagsContractAddress() string {
 	return c.viper.GetString(EnvVarName("FlagsContractAddress"))
 }
 
+// GasUpdaterBatchSize sets the maximum number of blocks to fetch in one batch in the gas updater
+// If the env var GAS_UPDATER_BATCH_SIZE is unset, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE
+func (c Config) GasUpdaterBatchSize() uint32 {
+	if c.viper.IsSet(EnvVarName("GasUpdaterBatchSize")) {
+		return c.viper.GetUint32(EnvVarName("GasUpdaterBatchSize"))
+	}
+	defaultGasUpdaterBatchSize := chainSpecificConfig(c).GasUpdaterBatchSize
+	if defaultGasUpdaterBatchSize != nil {
+		return *defaultGasUpdaterBatchSize
+	}
+	return c.EthRPCDefaultBatchSize()
+}
+
 // GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
 // E.g. if this is set to 3, and we receive block 10, gas updater will
 // fetch block 7.
@@ -483,13 +856,19 @@ func (c Config) FlagsContractAddress() string {
 // available from the connected node via RPC. In this case you will get false
 // "zero" blocks that are missing transactions.
 func (c Config) GasUpdaterBlockDelay() uint16 {
-	return c.getWithFallback("GasUpdaterBlockDelay", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("GasUpdaterBlockDelay")) {
+		return uint16(c.viper.GetUint32(EnvVarName("GasUpdaterBlockDelay")))
+	}
+	return chainSpecificConfig(c).GasUpdaterBlockDelay
 }
 
 // GasUpdaterBlockHistorySize is the number of past blocks to keep in memory to
 // use as a basis for calculating a percentile gas price
 func (c Config) GasUpdaterBlockHistorySize() uint16 {
-	return c.getWithFallback("GasUpdaterBlockHistorySize", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("GasUpdaterBlockHistorySize")) {
+		return uint16(c.viper.GetUint32(EnvVarName("GasUpdaterBlockHistorySize")))
+	}
+	return chainSpecificConfig(c).GasUpdaterBlockHistorySize
 }
 
 // GasUpdaterTransactionPercentile is the percentile gas price to choose. E.g.
@@ -500,9 +879,12 @@ func (c Config) GasUpdaterTransactionPercentile() uint16 {
 }
 
 // GasUpdaterEnabled turns on the automatic gas updater if set to true
-// It is disabled by default
+// It is enabled by default on most chains
 func (c Config) GasUpdaterEnabled() bool {
-	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+	if c.viper.IsSet(EnvVarName("GasUpdaterEnabled")) {
+		return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+	}
+	return chainSpecificConfig(c).GasUpdaterEnabled
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
@@ -515,20 +897,13 @@ func (c Config) TriggerFallbackDBPollInterval() time.Duration {
 	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
 
-// JobPipelineMaxTaskDuration is the maximum time that an individual task should be allowed to run
-func (c Config) JobPipelineMaxTaskDuration() time.Duration {
-	return c.getWithFallback("JobPipelineMaxTaskDuration", parseDuration).(time.Duration)
-}
-
 // JobPipelineMaxRunDuration is the maximum time that a job run may take
 func (c Config) JobPipelineMaxRunDuration() time.Duration {
 	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
 }
 
-// JobPipelineParallelism controls how many workers the pipeline.Runner
-// uses in parallel (how many pipeline runs may simultaneously be executing)
-func (c Config) JobPipelineParallelism() uint8 {
-	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
+func (c Config) JobPipelineResultWriteQueueDepth() uint64 {
+	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parseUint64).(uint64)
 }
 
 func (c Config) JobPipelineReaperInterval() time.Duration {
@@ -539,7 +914,20 @@ func (c Config) JobPipelineReaperThreshold() time.Duration {
 	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
 }
 
-// JSONConsole enables the JSON console.
+func (c Config) KeeperRegistrySyncInterval() time.Duration {
+	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
+}
+
+func (c Config) KeeperMinimumRequiredConfirmations() uint64 {
+	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
+}
+
+func (c Config) KeeperMaximumGracePeriod() int64 {
+	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
+}
+
+// JSONConsole when set to true causes logging to be made in JSON format
+// If set to false, logs in console format
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))
 }
@@ -591,6 +979,10 @@ func (c Config) getDurationWithOverride(override time.Duration, field string) ti
 
 func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
 	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRObservationGracePeriod() time.Duration {
+	return c.getWithFallback("OCRObservationGracePeriod", parseDuration).(time.Duration)
 }
 
 func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
@@ -696,9 +1088,39 @@ func (c Config) OperatorContractAddress() common.Address {
 	return *address
 }
 
+// OptimismGasFees enables asking the network for gas price before submitting
+// transactions, enabling compatibility with Optimism's L2 chain
+func (c Config) OptimismGasFees() bool {
+	if c.viper.IsSet(EnvVarName("OptimismGasFees")) {
+		return c.viper.GetBool(EnvVarName("OptimismGasFees"))
+	}
+	return chainSpecificConfig(c).OptimismGasFees
+}
+
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
+	if c.runtimeStore != nil {
+		var value LogLevel
+		if err := c.runtimeStore.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
+		} else if err == nil {
+			return value
+		}
+	}
 	return c.getWithFallback("LogLevel", parseLogLevel).(LogLevel)
+}
+
+// SetLogLevel saves a runtime value for the default logger level
+func (c Config) SetLogLevel(ctx context.Context, value string) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+	var ll LogLevel
+	err := ll.Set(value)
+	if err != nil {
+		return err
+	}
+	return c.runtimeStore.SetConfigStrValue(ctx, "LogLevel", ll.String())
 }
 
 // LogToDisk configures disk preservation of logs.
@@ -708,7 +1130,24 @@ func (c Config) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c Config) LogSQLStatements() bool {
+	if c.runtimeStore != nil {
+		logSqlStatements, err := c.runtimeStore.GetConfigBoolValue("LogSQLStatements")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogSQLStatements.", "error", err)
+		} else if err == nil {
+			return *logSqlStatements
+		}
+	}
 	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
+}
+
+// SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
+func (c Config) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+
+	return c.runtimeStore.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
@@ -719,15 +1158,25 @@ func (c Config) LogSQLMigrations() bool {
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
+// MIN_INCOMING_CONFIRMATIONS=1 would kick off a job after seeing the transaction in a block
+// MIN_INCOMING_CONFIRMATIONS=0 would kick off a job even before the transaction is mined, which is not supported
 func (c Config) MinIncomingConfirmations() uint32 {
-	return c.getWithFallback("MinIncomingConfirmations", parseUint32).(uint32)
+	if c.viper.IsSet(EnvVarName("MinIncomingConfirmations")) {
+		return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
+	}
+	return chainSpecificConfig(c).MinIncomingConfirmations
 }
 
 // MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
+// MIN_OUTGOING_CONFIRMATIONS=1 considers a transaction as "done" once it has been mined into one block
+// MIN_OUTGOING_CONFIRMATIONS=0 would consider a transaction as "done" even before it has been mined
 func (c Config) MinRequiredOutgoingConfirmations() uint64 {
-	return c.getWithFallback("MinRequiredOutgoingConfirmations", parseUint64).(uint64)
+	if c.viper.IsSet(EnvVarName("MinRequiredOutgoingConfirmations")) {
+		return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
+	}
+	return chainSpecificConfig(c).MinRequiredOutgoingConfirmations
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be
@@ -746,9 +1195,37 @@ func (c Config) P2PListenIP() net.IP {
 	return c.getWithFallback("P2PListenIP", parseIP).(net.IP)
 }
 
-// P2PListenPort is the port that libp2p willl bind to and listen on
-func (c Config) P2PListenPort() uint16 {
-	return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+// P2PListenPort is the port that libp2p will bind to and listen on
+func (c *Config) P2PListenPort() uint16 {
+	if c.viper.IsSet(EnvVarName("P2PListenPort")) {
+		return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+	}
+	// Fast path in case it was already set
+	c.randomP2PPortMtx.RLock()
+	if c.randomP2PPort > 0 {
+		c.randomP2PPortMtx.RUnlock()
+		return c.randomP2PPort
+	}
+	c.randomP2PPortMtx.RUnlock()
+	// Path for initial set
+	c.randomP2PPortMtx.Lock()
+	defer c.randomP2PPortMtx.Unlock()
+	if c.randomP2PPort > 0 {
+		return c.randomP2PPort
+	}
+	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+	if err != nil {
+		logger.Fatalw("unexpected error generating random port", "err", err)
+	}
+	randPort := uint16(r.Int64() + 1024)
+	logger.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)
+	c.randomP2PPort = randPort
+	return c.randomP2PPort
+}
+
+// P2PListenPortRaw returns the raw string value of P2P_LISTEN_PORT
+func (c Config) P2PListenPortRaw() string {
+	return c.viper.GetString(EnvVarName("P2PListenPort"))
 }
 
 // P2PAnnounceIP is an optional override. If specified it will force the p2p
@@ -780,6 +1257,7 @@ func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 	return c.getWithFallback("P2PPeerstoreWriteInterval", parseDuration).(time.Duration)
 }
 
+// P2PPeerID is the default peer ID that will be used, if not overridden
 func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
 	if override != nil {
 		return *override, nil
@@ -800,15 +1278,23 @@ func (c Config) P2PPeerIDIsSet() bool {
 	return c.viper.GetString(EnvVarName("P2PPeerID")) != ""
 }
 
+// P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
+func (c Config) P2PPeerIDRaw() string {
+	return c.viper.GetString(EnvVarName("P2PPeerID"))
+}
+
 func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 	if override != nil {
 		return override, nil
 	}
-	bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
-	if bps != nil {
-		return bps, nil
+	if c.viper.IsSet(EnvVarName("P2PBootstrapPeers")) {
+		bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
+		if bps != nil {
+			return bps, nil
+		}
+		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
 	}
-	return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
+	return []string{}, nil
 }
 
 // Port represents the port Chainlink should listen on for client requests.
@@ -843,6 +1329,11 @@ func (c Config) SecureCookies() bool {
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parseDuration).(time.Duration))
+}
+
+// StatsPusherLogging toggles very verbose logging of raw messages for the StatsPusher (also telemetry)
+func (c Config) StatsPusherLogging() bool {
+	return c.getWithFallback("StatsPusherLogging", parseBool).(bool)
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
@@ -908,12 +1399,28 @@ func (c Config) CertFile() string {
 	return c.TLSCertPath()
 }
 
+// HeadTimeBudget returns the time allowed for context timeout in head tracker
+func (c Config) HeadTimeBudget() time.Duration {
+	str := c.viper.GetString(EnvVarName("HeadTimeBudget"))
+	if str != "" {
+		n, err := parseDuration(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for HeadTimeBudget, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(time.Duration)
+		}
+	}
+	return chainSpecificConfig(c).HeadTimeBudget
+}
+
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
 func (c Config) CreateProductionLogger() *logger.Logger {
-	return logger.CreateProductionLogger(
-		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
+	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 
 // SessionSecret returns a sequence of bytes to be used as a private key for
@@ -1008,11 +1515,6 @@ func parseLogLevel(str string) (interface{}, error) {
 	return lvl, err
 }
 
-func parseUint8(s string) (interface{}, error) {
-	v, err := strconv.ParseUint(s, 10, 8)
-	return uint8(v), err
-}
-
 func parseUint16(s string) (interface{}, error) {
 	v, err := strconv.ParseUint(s, 10, 16)
 	return uint16(v), err
@@ -1028,6 +1530,11 @@ func parseUint64(s string) (interface{}, error) {
 	return v, err
 }
 
+func parseF32(s string) (interface{}, error) {
+	v, err := strconv.ParseFloat(s, 32)
+	return v, err
+}
+
 func parseURL(s string) (interface{}, error) {
 	return url.Parse(s)
 }
@@ -1038,6 +1545,10 @@ func parseIP(s string) (interface{}, error) {
 
 func parseDuration(s string) (interface{}, error) {
 	return time.ParseDuration(s)
+}
+
+func parseBool(s string) (interface{}, error) {
+	return strconv.ParseBool(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {
@@ -1068,5 +1579,22 @@ func (ll LogLevel) ForGin() string {
 		return gin.DebugMode
 	default:
 		return gin.ReleaseMode
+	}
+}
+
+type DatabaseBackupMode string
+
+var (
+	DatabaseBackupModeNone DatabaseBackupMode = "none"
+	DatabaseBackupModeLite DatabaseBackupMode = "lite"
+	DatabaseBackupModeFull DatabaseBackupMode = "full"
+)
+
+func parseDatabaseBackupMode(s string) (interface{}, error) {
+	switch DatabaseBackupMode(s) {
+	case DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull:
+		return DatabaseBackupMode(s), nil
+	default:
+		return "", fmt.Errorf("unable to parse %v into DatabaseBackupMode. Must be one of values: \"%s\", \"%s\", \"%s\"", s, DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull)
 	}
 }

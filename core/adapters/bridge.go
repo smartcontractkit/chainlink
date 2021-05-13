@@ -8,13 +8,9 @@ import (
 	"net/http"
 	"net/url"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 )
 
 // Bridge adapter is responsible for connecting the task pipeline to external
@@ -42,35 +38,15 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 	} else if input.Status().PendingBridge() {
 		return models.NewRunOutputInProgress(input.Data())
 	}
-	meta := getMeta(store, input.JobRunID())
-	return ba.handleNewRun(input, meta, store)
+	return ba.handleNewRun(input, store)
 }
 
-func getMeta(store *store.Store, jobRunID uuid.UUID) *models.JSON {
-	jobRun, err := store.ORM.FindJobRun(jobRunID)
-	if err != nil {
-		return nil
-	} else if jobRun.RunRequest.TxHash == nil || jobRun.RunRequest.BlockHash == nil {
-		return nil
-	}
-	meta := fmt.Sprintf(`
-		{
-			"initiator": {
-				"transactionHash": "%s",
-				"blockHash": "%s"
-			}
-		}`,
-		jobRun.RunRequest.TxHash.Hex(),
-		jobRun.RunRequest.BlockHash.Hex(),
-	)
-	return &models.JSON{Result: gjson.Parse(meta)}
-}
-
-func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, store *store.Store) models.RunOutput {
-	data, err := models.Merge(input.Data(), ba.Params)
+func (ba *Bridge) handleNewRun(input models.RunInput, store *store.Store) models.RunOutput {
+	data, err := models.MergeExceptResult(input.Data(), ba.Params)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
+	input = input.CloneWithData(data)
 
 	responseURL := store.Config.BridgeResponseURL()
 	if *responseURL != *zeroURL {
@@ -82,12 +58,11 @@ func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, store *
 	// Some node operators may run external adapters on their own hardware
 	httpConfig.AllowUnrestrictedNetworkAccess = true
 
-	body, err := ba.postToExternalAdapter(input, meta, responseURL, httpConfig)
+	body, err := ba.postToExternalAdapter(input, responseURL, httpConfig)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
-	input = input.CloneWithData(data)
 	return ba.responseToRunResult(body, input)
 }
 
@@ -120,16 +95,10 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 
 func (ba *Bridge) postToExternalAdapter(
 	input models.RunInput,
-	meta *models.JSON,
 	bridgeResponseURL *url.URL,
 	config utils.HTTPRequestConfig,
 ) ([]byte, error) {
-	data, err := models.Merge(input.Data(), ba.Params)
-	if err != nil {
-		return nil, errors.Wrap(err, "error merging bridge params with input params")
-	}
-
-	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: data, Meta: meta}
+	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: input.Data()}
 	if bridgeResponseURL != nil {
 		outgoing.ResponseURL = bridgeResponseURL.String()
 	}
@@ -169,10 +138,9 @@ func baRunResultError(str string, err error) error {
 }
 
 type bridgeOutgoing struct {
-	JobRunID    string       `json:"id"`
-	Data        models.JSON  `json:"data"`
-	Meta        *models.JSON `json:"meta,omitempty"`
-	ResponseURL string       `json:"responseURL,omitempty"`
+	JobRunID    string      `json:"id"`
+	Data        models.JSON `json:"data"`
+	ResponseURL string      `json:"responseURL,omitempty"`
 }
 
 var zeroURL = new(url.URL)

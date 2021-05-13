@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jinzhu/gorm/dialects/postgres"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -43,6 +45,12 @@ type EthTaskRunTx struct {
 	EthTx     EthTx
 }
 
+type EthTxMeta struct {
+	TaskRunID        uuid.UUID
+	RunRequestID     *common.Hash
+	RunRequestTxHash *common.Hash
+}
+
 type EthTx struct {
 	ID             int64
 	Nonce          *int64
@@ -52,10 +60,16 @@ type EthTx struct {
 	Value          assets.Eth
 	GasLimit       uint64
 	Error          *string
-	BroadcastAt    *time.Time
-	CreatedAt      time.Time
-	State          EthTxState
-	EthTxAttempts  []EthTxAttempt `gorm:"->"`
+	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
+	// In almost all cases it will be within a second or so of the actual send time.
+	BroadcastAt   *time.Time
+	CreatedAt     time.Time
+	State         EthTxState
+	EthTxAttempts []EthTxAttempt `gorm:"->"`
+	// Marshalled EthTxMeta
+	// Used for additional context around transactions which you want to log
+	// at send time.
+	Meta postgres.Jsonb
 }
 
 func (e EthTx) GetError() error {
@@ -73,7 +87,7 @@ func (e EthTx) GetID() string {
 type EthTxAttempt struct {
 	ID                      int64
 	EthTxID                 int64
-	EthTx                   EthTx
+	EthTx                   EthTx `gorm:"foreignkey:EthTxID;->"`
 	GasPrice                utils.Big
 	SignedRawTx             []byte
 	Hash                    common.Hash
@@ -137,6 +151,37 @@ func (h Head) EarliestInChain() Head {
 	return h
 }
 
+// IsInChain returns true if the given hash matches the hash of a head in the chain
+func (h Head) IsInChain(blockHash common.Hash) bool {
+	for {
+		if h.Hash == blockHash {
+			return true
+		}
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return false
+}
+
+// HashAtHeight returns the hash of the block at the given heigh, if it is in the chain.
+// If not in chain, returns the zero hash
+func (h Head) HashAtHeight(blockNum int64) common.Hash {
+	for {
+		if h.Number == blockNum {
+			return h.Hash
+		}
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return common.Hash{}
+}
+
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func (h Head) ChainLength() uint32 {
 	l := uint32(1)
@@ -150,6 +195,21 @@ func (h Head) ChainLength() uint32 {
 		}
 	}
 	return l
+}
+
+// ChainHashes returns an array of block hashes by recursively looking up parents
+func (h Head) ChainHashes() []common.Hash {
+	var hashes []common.Hash
+
+	for {
+		hashes = append(hashes, h.Hash)
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return hashes
 }
 
 // String returns a string representation of this number.
@@ -236,8 +296,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-
-type Log = types.Log
 
 var emptyHash = common.Hash{}
 

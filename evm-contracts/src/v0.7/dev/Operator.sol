@@ -42,7 +42,7 @@ contract Operator is
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
   // Forwarders
-  address[] private s_forwardersList;
+  OperatorForwarder private s_forwarder;
 
   event AuthorizedSendersChanged(
     address[] senders
@@ -68,8 +68,8 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event ForwarderCreated(
-    address indexed addr
+  event ForwarderChanged(
+    OperatorForwarder indexed addr
   );
 
   /**
@@ -85,6 +85,7 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+    s_forwarder = new OperatorForwarder(link);
   }
 
   // EXTERNAL FUNCTIONS
@@ -270,6 +271,64 @@ contract Operator is
     // Replace list
     s_authorizedSenderList = senders;
     emit AuthorizedSendersChanged(senders);
+
+    // Set authorized senders on the forwarder
+    address[] memory forwarderSenders = new address[](senders.length+1);
+    for (uint256 i = 0; i < senders.length; i++) {
+      forwarderSenders[i] = senders[i];
+    }
+    forwarderSenders[senders.length] = msg.sender;
+    s_forwarder.setAuthorizedSenders(forwarderSenders);
+  }
+
+  /**
+   * @notice If the s_forwarder is owned by a different address, deploy and set a new one
+   */
+  function deployForwarder()
+    external
+    onlyOwner()
+    returns (
+      OperatorForwarder
+    )
+  {
+    require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
+    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken));
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
+    return newForwarder;
+  }
+
+  /**
+   * @notice Transfer the ownership of the s_forwarder
+   * @dev This contract is the owner until the newOwner calls acceptOwnership on the forwarder
+   * @param newOwner address
+   */
+  function transferForwarderOwnership(
+    address newOwner
+  )
+    external
+    override
+    onlyOwner()
+  {
+    s_forwarder.transferOwnership(newOwner);
+  }
+
+  /**
+   * @notice Accept the ownership of a forwarder and set as the s_forwarder
+   * @dev Must be the pending owner on the forwarder
+   * @param forwarderAddr address
+   */
+  function acceptForwarderOwnership(
+    address forwarderAddr
+  )
+    external
+    override
+    onlyOwner()
+  {
+    OperatorForwarder newForwarder = OperatorForwarder(forwarderAddr);
+    newForwarder.acceptOwnership();
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
   }
 
   /**
@@ -288,18 +347,17 @@ contract Operator is
   }
 
   /**
-   * @notice Retrive a list of forwarders
-   * @return array of addresses
+   * @notice Retrive the forwarder
+   * @return address
    */
-  function getForwarders()
+  function getForwarder()
     external
     view
-    override
     returns (
-      address[] memory
+      OperatorForwarder
     )
   {
-    return s_forwardersList;
+    return s_forwarder;
   }
 
   /**
@@ -415,26 +473,6 @@ contract Operator is
   // PUBLIC FUNCTIONS
 
   /**
-   * @notice Create a new forwarder contract
-   * @dev This function uses create2 to deploy at a predetermined address.
-   * @return addr deployed address
-   */
-  function createForwarder()
-    public
-    onlyAuthorizedSender()
-    returns (
-      address addr
-    )
-  {
-    bytes32 salt = bytes32(s_forwardersList.length);
-    OperatorForwarder forwarder = new OperatorForwarder{salt: salt}(address(linkToken));
-    addr = address(forwarder);
-    require(addr != address(0), "Create2: Failed deployment");
-    s_forwardersList.push(addr);
-    emit ForwarderCreated(addr);
-  }
-
-  /**
    * @notice Returns the address of the LINK token
    * @dev This is the public implementation for chainlinkTokenAddress, which is
    * an internal method of the ChainlinkClient contract
@@ -443,7 +481,9 @@ contract Operator is
     public
     view
     override
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(linkToken);
   }

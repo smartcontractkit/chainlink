@@ -29,7 +29,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	defer cleanup()
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
@@ -47,11 +47,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{
-		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta, false},
-		},
-	}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -90,7 +86,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -105,7 +101,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		_, err := w.Write([]byte(mustReadFile(t, "../testdata/coinmarketcap.error.json")))
+		_, err := w.Write([]byte(mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.error.json")))
 		require.NoError(t, err)
 	})
 
@@ -121,7 +117,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)

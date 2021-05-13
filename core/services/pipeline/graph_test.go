@@ -126,38 +126,38 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	answer1 := &MedianTask{
-		BaseTask:      NewBaseTask("answer1", nil, 0),
+		BaseTask:      NewBaseTask("answer1", nil, 0, 2),
 		AllowedFaults: 1,
 	}
 	answer2 := &BridgeTask{
 		Name:     "election_winner",
-		BaseTask: NewBaseTask("answer2", nil, 1),
+		BaseTask: NewBaseTask("answer2", nil, 1, 0),
 	}
 	ds1_multiply := &MultiplyTask{
 		Times:    decimal.NewFromFloat(1.23),
-		BaseTask: NewBaseTask("ds1_multiply", answer1, 0),
+		BaseTask: NewBaseTask("ds1_multiply", answer1, 0, 1),
 	}
 	ds1_parse := &JSONParseTask{
 		Path:     []string{"one", "two"},
-		BaseTask: NewBaseTask("ds1_parse", ds1_multiply, 0),
+		BaseTask: NewBaseTask("ds1_parse", ds1_multiply, 0, 1),
 	}
 	ds1 := &BridgeTask{
 		Name:     "voter_turnout",
-		BaseTask: NewBaseTask("ds1", ds1_parse, 0),
+		BaseTask: NewBaseTask("ds1", ds1_parse, 0, 0),
 	}
 	ds2_multiply := &MultiplyTask{
 		Times:    decimal.NewFromFloat(4.56),
-		BaseTask: NewBaseTask("ds2_multiply", answer1, 0),
+		BaseTask: NewBaseTask("ds2_multiply", answer1, 0, 1),
 	}
 	ds2_parse := &JSONParseTask{
 		Path:     []string{"three", "four"},
-		BaseTask: NewBaseTask("ds2_parse", ds2_multiply, 0),
+		BaseTask: NewBaseTask("ds2_parse", ds2_multiply, 0, 1),
 	}
 	ds2 := &HTTPTask{
 		URL:         models.WebURL(*u),
 		Method:      "GET",
 		RequestData: HttpRequestData{"hi": "hello"},
-		BaseTask:    NewBaseTask("ds2", ds2_parse, 0),
+		BaseTask:    NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
 
 	tasks, err := g.TasksInDependencyOrder()
