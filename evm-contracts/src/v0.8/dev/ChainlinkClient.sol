@@ -103,7 +103,7 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    return rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION);
+    return rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION, oracle.oracleRequest.selector);
   }
 
   /**
@@ -147,7 +147,7 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    return rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION);
+    return rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION, oracle.requestOracleData.selector);
   }
 
   /**
@@ -162,7 +162,8 @@ contract ChainlinkClient {
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment,
-    uint256 argsVersion
+    uint256 argsVersion,
+    bytes4 funcSelector
   )
     private
     returns (
@@ -173,7 +174,17 @@ contract ChainlinkClient {
     req.nonce = requestCount;
     pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, argsVersion)), "unable to transferAndCall to oracle");
+    bytes memory encodedData = abi.encodeWithSelector(
+      funcSelector,
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+      req.id,
+      req.callbackAddress,
+      req.callbackFunctionId,
+      req.nonce,
+      argsVersion,
+      req.buf.buf);
+    require(link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
     requestCount += 1;
   }
 
@@ -309,37 +320,6 @@ contract ChainlinkClient {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(oracleSubnode));
     setChainlinkOracle(resolver.addr(oracleSubnode));
-  }
-
-  /**
-   * @notice Encodes the request to be sent to the oracle contract
-   * @dev The Chainlink node expects values to be in order for the request to be picked up. Order of types
-   * will be validated in the oracle contract.
-   * @param req The initialized Chainlink Request
-   * @param dataVersion The request data version
-   * @return The bytes payload for the `transferAndCall` method
-   */
-  function encodeRequest(
-    Chainlink.Request memory req,
-    uint256 dataVersion
-  )
-    private
-    view
-    returns (
-      bytes memory
-    )
-  {
-    bytes4 funcSelector = (dataVersion == 2) ? oracle.requestOracleData.selector : oracle.oracleRequest.selector;
-    return abi.encodeWithSelector(
-      funcSelector,
-      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
-      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-      req.id,
-      req.callbackAddress,
-      req.callbackFunctionId,
-      req.nonce,
-      dataVersion,
-      req.buf.buf);
   }
 
   /**
