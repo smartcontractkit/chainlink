@@ -192,15 +192,13 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
 			pqErr, ok := err.(*pgconn.PgError)
 			if err != nil && ok && pqErr.Code == "23503" {
-				if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-					if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
-						return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-					}
-				}
 				if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 					return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 				}
 				if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+					if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+						return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+					}
 					if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
 						return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 					}

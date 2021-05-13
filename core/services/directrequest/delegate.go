@@ -123,11 +123,7 @@ func (l *listener) Start() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				oracle_wrapper.OracleOracleRequest{}.Topic(): {
-					{
-						log.Topic(l.onChainJobSpecID),
-					},
-				},
+				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.onChainJobSpecID)}},
 				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.onChainJobSpecID)}},
 			},
 			NumConfirmations: l.minConfirmations,
