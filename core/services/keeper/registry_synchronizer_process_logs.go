@@ -164,8 +164,9 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
+		db := rs.orm.DB.WithContext(ctx)
 		// set last run to 0 so that keeper can resume checkUpkeep()
-		err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
+		err = rs.orm.SetLastRunHeightForUpkeepOnJob(db, rs.job.ID, log.Id.Int64(), 0)
 		if err != nil {
 			logger.Error(err)
 			continue
