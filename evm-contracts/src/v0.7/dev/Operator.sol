@@ -68,8 +68,8 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event ForwarderCreated(
-    address indexed addr
+  event ForwarderChanged(
+    OperatorForwarder indexed addr
   );
 
   /**
@@ -282,6 +282,56 @@ contract Operator is
   }
 
   /**
+   * @notice If the s_forwarder is owned by a different address, deploy and set a new one
+   */
+  function deployForwarder()
+    external
+    onlyOwner()
+    returns (
+      OperatorForwarder
+    )
+  {
+    require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
+    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken));
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
+    return newForwarder;
+  }
+
+  /**
+   * @notice Transfer the ownership of the s_forwarder
+   * @dev This contract is the owner until the newOwner calls acceptOwnership on the forwarder
+   * @param newOwner address
+   */
+  function transferForwarderOwnership(
+    address newOwner
+  )
+    external
+    override
+    onlyOwner()
+  {
+    s_forwarder.transferOwnership(newOwner);
+  }
+
+  /**
+   * @notice Accept the ownership of a forwarder and set as the s_forwarder
+   * @dev Must be the pending owner on the forwarder
+   * @param forwarderAddr address
+   */
+  function acceptForwarderOwnership(
+    address forwarderAddr
+  )
+    external
+    override
+    onlyOwner()
+  {
+    OperatorForwarder newForwarder = OperatorForwarder(forwarderAddr);
+    newForwarder.acceptOwnership();
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
+  }
+
+  /**
    * @notice Retrieve a list of authorized senders
    * @return array of addresses
    */
@@ -303,12 +353,11 @@ contract Operator is
   function getForwarder()
     external
     view
-    override
     returns (
-      address
+      OperatorForwarder
     )
   {
-    return address(s_forwarder);
+    return s_forwarder;
   }
 
   /**

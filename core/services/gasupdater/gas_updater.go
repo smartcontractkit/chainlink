@@ -72,7 +72,7 @@ type (
 		utils.StartStopOnce
 		ethClient           eth.Client
 		config              Config
-		rollingBlockHistory []models.Block
+		rollingBlockHistory []Block
 		mb                  *utils.Mailbox
 		wg                  *sync.WaitGroup
 		ctx                 context.Context
@@ -89,7 +89,7 @@ func NewGasUpdater(ethClient eth.Client, config Config) GasUpdater {
 		utils.StartStopOnce{},
 		ethClient,
 		config,
-		make([]models.Block, 0),
+		make([]Block, 0),
 		utils.NewMailbox(1),
 		new(sync.WaitGroup),
 		ctx,
@@ -107,7 +107,7 @@ func (gu *gasUpdater) Connect(bn *models.Head) error {
 func (gu *gasUpdater) Disconnect() {
 }
 
-// OnNewLongestChain recalculates and sets global gas price if a new head comes
+// OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
 func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
 	gu.mb.Deliver(head)
@@ -183,6 +183,7 @@ func (gu *gasUpdater) Recalculate(head models.Head) {
 	percentile := int(gu.config.GasUpdaterTransactionPercentile())
 
 	if len(gu.rollingBlockHistory) == 0 {
+		gu.logger.Debug("GasUpdater: no blocks in history, cannot set gas price")
 		return
 	}
 
@@ -234,7 +235,7 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 		lowestBlockToFetch = 0
 	}
 
-	blocks := make(map[int64]models.Block)
+	blocks := make(map[int64]Block)
 	for _, block := range gu.rollingBlockHistory {
 		// Make a best-effort to be re-org resistant using the head
 		// chain, refetch blocks that got re-org'd out.
@@ -254,8 +255,8 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 
 		req := rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{models.Int64ToHex(i), true},
-			Result: &models.Block{},
+			Args:   []interface{}{Int64ToHex(i), true},
+			Result: &Block{},
 		}
 		reqs = append(reqs, req)
 	}
@@ -265,16 +266,16 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 		return err
 	}
 
-	for _, req := range reqs {
+	for i, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			gu.logger.Warnw("GasUpdater#fetchBlocks error while fetching block", "err", err, "blockNum", head.Number)
+			gu.logger.Warnw("GasUpdater#fetchBlocks error while fetching block", "err", err, "blockNum", int(lowestBlockToFetch)+i, "headNum", head.Number)
 			continue
 		}
 
-		b, is := result.(*models.Block)
+		b, is := result.(*Block)
 		if !is {
-			return errors.Errorf("expected result to be a %T, got %T", &models.Block{}, result)
+			return errors.Errorf("expected result to be a %T, got %T", &Block{}, result)
 		}
 		if b == nil {
 			return errors.New("invariant violation: got nil block")
@@ -287,7 +288,7 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 		blocks[b.Number] = *b
 	}
 
-	newBlockHistory := make([]models.Block, 0)
+	newBlockHistory := make([]Block, 0)
 	for _, block := range blocks {
 		newBlockHistory = append(newBlockHistory, block)
 	}
@@ -319,7 +320,7 @@ func (gu *gasUpdater) batchFetch(ctx context.Context, reqs []rpc.BatchElem) erro
 			j = len(reqs)
 		}
 
-		logger.Debugw(fmt.Sprintf("GasUpdater: batch fetching blocks %v thru %v", models.HexToInt64(reqs[i].Args[0]), models.HexToInt64(reqs[j-1].Args[0])))
+		logger.Debugw(fmt.Sprintf("GasUpdater: batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
 		if err := gu.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
 			return errors.Wrap(err, "GasUpdater#fetchBlocks error fetching blocks with BatchCallContext")
@@ -332,11 +333,16 @@ func (gu *gasUpdater) percentileGasPrice(percentile int) (int64, error) {
 	gasPrices := make([]int64, 0)
 	for _, block := range gu.rollingBlockHistory {
 		for _, tx := range block.Transactions {
-			gasPrices = append(gasPrices, tx.GasPrice().Int64())
+			// GasLimit 0 is impossible on Ethereum official, but IS possible
+			// on forks/clones such as RSK. We should ignore these transactions
+			// if they come up since they are not normal.
+			if tx.GasLimit > 0 {
+				gasPrices = append(gasPrices, tx.GasPrice.Int64())
+			}
 		}
 	}
 	if len(gasPrices) == 0 {
-		return 0, errors.New("no transactions")
+		return 0, errors.New("no suitable transactions")
 	}
 	sort.Slice(gasPrices, func(i, j int) bool { return gasPrices[i] < gasPrices[j] })
 	idx := ((len(gasPrices) - 1) * percentile) / 100
@@ -356,6 +362,6 @@ func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
 	return gu.config.SetEthGasPriceDefault(bigGasPrice)
 }
 
-func (gu *gasUpdater) RollingBlockHistory() []models.Block {
+func (gu *gasUpdater) RollingBlockHistory() []Block {
 	return gu.rollingBlockHistory
 }

@@ -77,12 +77,167 @@ describe('Operator', () => {
       'withdrawable',
       'operatorTransferAndCall',
       'distributeFunds',
+      'deployForwarder',
+      'transferForwarderOwnership',
+      'acceptForwarderOwnership',
       'getForwarder',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#transferForwarderOwnership', () => {
+    describe('being called by the owner', () => {
+      it('cannot transfer to self', async () => {
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .transferForwarderOwnership(operator.address)
+          ;('Cannot transfer to self')
+        })
+      })
+
+      it('emits an ownership transfer request event', async () => {
+        const tx = await operator
+          .connect(roles.defaultAccount)
+          .transferForwarderOwnership(roles.oracleNode1.address)
+        const receipt = await tx.wait()
+        assert.equal(receipt?.events?.length, 1)
+        const log = receipt?.events?.[0]
+        assert.equal(log?.event, 'OwnershipTransferRequested')
+        assert.equal(log?.args?.[0], operator.address)
+        assert.equal(log?.args?.[1], roles.oracleNode1.address)
+      })
+    })
+
+    describe('being called by a non-owner', () => {
+      it('reverts with message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .transferForwarderOwnership(roles.oracleNode2.address)
+          ;('Only callable by owner')
+        })
+      })
+    })
+  })
+
+  describe('#acceptForwarderOwnership', () => {
+    describe('being called by the owner', () => {
+      let operator2: contract.Instance<Operator__factory>
+      let forwarderAddress: string
+      let forwarder: contract.Instance<OperatorForwarder__factory>
+      let receipt: ContractReceipt
+
+      beforeEach(async () => {
+        operator2 = await operatorFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address, roles.defaultAccount.address)
+        forwarderAddress = await operator.getForwarder()
+        forwarder = await operatorForwarderFactory
+          .connect(roles.defaultAccount)
+          .attach(forwarderAddress)
+        await operator
+          .connect(roles.defaultAccount)
+          .transferForwarderOwnership(operator2.address)
+        const tx = await operator2
+          .connect(roles.defaultAccount)
+          .acceptForwarderOwnership(forwarderAddress)
+        receipt = await tx.wait()
+      })
+
+      it('sets the new owner on the forwarder', async () => {
+        assert.equal(await forwarder.owner(), operator2.address)
+      })
+
+      it('sets the s_forwarder on the operator', async () => {
+        assert.equal(await operator2.getForwarder(), forwarderAddress)
+      })
+
+      it('emits an ownership transferred event', async () => {
+        assert.equal(receipt?.events?.[0]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[0]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[0]?.args?.[1], operator2.address)
+      })
+
+      it('emits a forwarder changed event', async () => {
+        assert.equal(receipt?.events?.[1]?.event, 'ForwarderChanged')
+        assert.equal(receipt?.events?.[1]?.args?.[0], forwarderAddress)
+      })
+    })
+
+    describe('being called by a non owner', () => {
+      it('reverts with message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .acceptForwarderOwnership(roles.oracleNode2.address)
+          ;('Only callable by owner')
+        })
+      })
+    })
+  })
+
+  describe('#deployForwarder', () => {
+    describe('being called by the owner', () => {
+      it('reverts with message if the s_forwarder is owned by the operator', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.defaultAccount).deployForwarder()
+          ;('Operator is forwarder owner')
+        })
+      })
+
+      describe('success', () => {
+        let operator2: contract.Instance<Operator__factory>
+        let forwarderAddress: string
+        let receipt: ContractReceipt
+
+        beforeEach(async () => {
+          operator2 = await operatorFactory
+            .connect(roles.defaultAccount)
+            .deploy(link.address, roles.defaultAccount.address)
+          forwarderAddress = await operator.getForwarder()
+          await operator
+            .connect(roles.defaultAccount)
+            .transferForwarderOwnership(operator2.address)
+          await operator2
+            .connect(roles.defaultAccount)
+            .acceptForwarderOwnership(forwarderAddress)
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .deployForwarder()
+          receipt = await tx.wait()
+        })
+
+        it('sets the new s_forwarder as different from the old', async () => {
+          assert.notEqual(await operator.getForwarder(), forwarderAddress)
+        })
+
+        it('emits a forwarder changed event', async () => {
+          assert.equal(receipt?.events?.[0]?.event, 'ForwarderChanged')
+        })
+
+        it('sets the owner of the forwarder to the operator that deployed it', async () => {
+          const newForwarderAddress = receipt?.events?.[0]?.args?.[0]
+          const newForwarder = await operatorForwarderFactory
+            .connect(roles.defaultAccount)
+            .attach(newForwarderAddress)
+          assert.equal(await newForwarder.owner(), operator.address)
+          assert.equal(await operator.getForwarder(), newForwarderAddress)
+        })
+      })
+    })
+
+    describe('being called by a non owner', () => {
+      it('reverts with message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.stranger).deployForwarder()
+          ;('Only callable by owner')
+        })
+      })
+    })
   })
 
   describe('#distributeFunds', () => {
