@@ -18,7 +18,7 @@ import (
 )
 
 func TestCronV2Pipeline(t *testing.T) {
-	runner := new(pipeline_mocks.Runner)
+	runner := new(pipelinemocks.Runner)
 	config, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
@@ -51,15 +51,6 @@ func TestCronV2Pipeline(t *testing.T) {
 
 func TestCronV2Schedule(t *testing.T) {
 	t.Parallel()
-
-	config, cleanup := cltest.NewConfig(t)
-	t.Cleanup(cleanup)
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	t.Cleanup(cleanup)
-	db := store.DB
-	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
-	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	spec := job.Job{
 		Type:          job.Cron,
