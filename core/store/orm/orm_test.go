@@ -1481,7 +1481,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}
-	jobNumber := orm.BatchSize*2 + 1
+	jobNumber := int(orm.BatchSize*2 + 1)
 	for i := 0; i < jobNumber; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))
