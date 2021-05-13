@@ -275,7 +275,7 @@ func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSu
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		return log.Raw.BlockNumber, log.Submission.Int64()
-	case <-time.After(10 * pollTimerPeriod):
+	case <-time.After(20 * pollTimerPeriod):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 		return 0, 0 // unreachable
 	}
@@ -466,6 +466,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	config.Config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
 	defer cleanup()
