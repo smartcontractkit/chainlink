@@ -5,7 +5,7 @@ jobs:
     name: vet
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -15,7 +15,7 @@ jobs:
     name: shadow
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -26,7 +26,7 @@ jobs:
     name: imports
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -36,7 +36,7 @@ jobs:
     name: staticheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -46,7 +46,7 @@ jobs:
     name: errcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -56,7 +56,7 @@ jobs:
     name: sec
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -66,7 +66,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -76,7 +76,7 @@ jobs:
     name: exportloopref
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
@@ -86,7 +86,7 @@ jobs:
     name: exhaustive
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
