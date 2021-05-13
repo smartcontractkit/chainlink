@@ -18,7 +18,7 @@ jobs:
         run: go list -json -m all > go.list
 
       - name: Check vulnerabilities
-        uses: sonatype-nexus-community/nancy-github-action@b492e6567a301a914bd227d44bf10dcfe85438ad
+        uses: sonatype-nexus-community/nancy-github-action@aae196481b961d446f4bff9012e4e3b63d7921a4
         with:
           nancyCommand: sleuth -e bba60acb-c7b5-4621-af69-f4085a8301d0,d373dc3f-aa88-483b-b501-20fe5382cc80,5def94e5-b89c-4a94-b9c6-ae0e120784c2,dcf6da03-f9dd-4a4e-b792-0262de36a0b1
           # Check the dependency by entering the OSS index UUID here:

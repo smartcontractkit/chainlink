@@ -185,7 +185,8 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 		"blockNum":  log.Raw.Raw.BlockNumber,
 	})
 	require.NoError(t, err)
-	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
+	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	adapter := adapters.Random{PublicKey: pk.String()}
 	result := adapter.Perform(*input, app.Store)
 	require.NoError(t, result.Error(), "while running random adapter")

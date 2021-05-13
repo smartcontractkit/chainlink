@@ -47,8 +47,11 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	fromBlock := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, fromBlock.NextInt(), store.Config, callback)
+	filter, err := models.FilterQueryFactory(initr, fromBlock.NextInt(), store.Config.OperatorContractAddress())
+	require.NoError(t, err)
+	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
+	sub.Start()
 	defer sub.Unsubscribe()
 	gomega.NewGomegaWithT(t).Eventually(func() int32 {
 		return atomic.LoadInt32(&count)
@@ -92,8 +95,11 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	fromBlock := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, fromBlock.NextInt(), store.Config, callback)
+	filter, err := models.FilterQueryFactory(initr, fromBlock.NextInt(), store.Config.OperatorContractAddress())
+	require.NoError(t, err)
+	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
+	sub.Start()
 	defer sub.Unsubscribe()
 	gomega.NewGomegaWithT(t).Eventually(func() int32 {
 		return atomic.LoadInt32(&count)
@@ -121,8 +127,9 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, nil, store.Config, callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, ethereum.FilterQuery{}, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
+	sub.Start()
 	defer sub.Unsubscribe()
 	assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 }
@@ -152,8 +159,11 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	head := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	initrSub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, head.NextInt(), store.Config, callback)
+	filter, err := models.FilterQueryFactory(initr, head.NextInt(), store.Config.OperatorContractAddress())
+	require.NoError(t, err)
+	initrSub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
+	initrSub.Start()
 	defer initrSub.Unsubscribe()
 	logs := <-logsCh
 	logs <- log
@@ -187,7 +197,7 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 	require.NoError(t, err)
 
 	jm := new(mocks.RunManager)
-	services.ReceiveLogRequest(jm, log)
+	services.ProcessLogRequest(jm, log)
 	jm.AssertExpectations(t)
 }
 

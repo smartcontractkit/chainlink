@@ -357,7 +357,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		{"bad filepath", "bad/filepath/", 0, true},
 		{"web", `{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
 		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"3000-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
-		{"file", "../internal/fixtures/web/end_at_job.json", 3, false},
+		{"file", "../testdata/jsonspecs/end_at_job.json", 3, false},
 	}
 
 	for _, test := range tests {
@@ -691,6 +691,11 @@ func TestClient_AutoLogin(t *testing.T) {
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+
+	// Expire the session and then try again
+	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
+	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
 

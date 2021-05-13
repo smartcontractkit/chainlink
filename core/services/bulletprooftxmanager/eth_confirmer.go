@@ -54,17 +54,26 @@ type ethConfirmer struct {
 	mb        *utils.Mailbox
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-	chDone    chan struct{}
+	wg        sync.WaitGroup
+
+	reaper *Reaper
 
 	ethResender *EthResender
 }
 
+// NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
 	var ethResender *EthResender
+	var reaper *Reaper
 	if config.EthTxResendAfterThreshold() > 0 {
 		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config)
 	} else {
-		logger.Info("ethResender: Disabled")
+		logger.Info("EthConfimer: EthResender Disabled")
+	}
+	if config.EthTxReaperThreshold() > 0 {
+		reaper = NewReaper(store.DB, config)
+	} else {
+		logger.Info("EthConfirmer: Reaper Disabled")
 	}
 	context, cancel := context.WithCancel(context.Background())
 	return &ethConfirmer{
@@ -75,7 +84,8 @@ func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer 
 		utils.NewMailbox(1),
 		context,
 		cancel,
-		make(chan struct{}),
+		sync.WaitGroup{},
+		reaper,
 		ethResender,
 	}
 }
@@ -89,16 +99,12 @@ func (ec *ethConfirmer) Disconnect() {
 	// pass
 }
 
-// OnNewLongestChain uses a mailbox with capacity 1 to deliver the latest head to the runLoop.
-// This is because it may take longer than the intervals between heads to process, but we don't want to interrupt the loop.
-// e.g.
-// - We’re still processing head 41
-// - Head 42 comes in
-// - Now heads 43, 44, 45 come in
-// - Now we finish head 41
-// - We move straight on to processing head 45
+// OnNewLongestChain delivers sampled latest heads to be picked up by the runLoop
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
 	ec.mb.Deliver(head)
+	if ec.reaper != nil {
+		ec.reaper.SetLatestBlockNum(head.Number)
+	}
 }
 
 func (ec *ethConfirmer) Start() error {
@@ -110,10 +116,20 @@ func (ec *ethConfirmer) Start() error {
 	} else {
 		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
 	}
-	go ec.runLoop()
+
+	if ec.reaper != nil {
+		ec.wg.Add(1)
+		ec.reaper.Start()
+	}
+
 	if ec.ethResender != nil {
+		ec.wg.Add(1)
 		ec.ethResender.Start()
 	}
+
+	ec.wg.Add(1)
+	go ec.runLoop()
+
 	return nil
 }
 
@@ -121,16 +137,29 @@ func (ec *ethConfirmer) Close() error {
 	if !ec.OkayToStop() {
 		return errors.New("EthConfirmer has already been stopped")
 	}
-	if ec.ethResender != nil {
-		ec.ethResender.Stop()
+
+	if ec.reaper != nil {
+		go func() {
+			defer ec.wg.Done()
+			ec.reaper.Stop()
+		}()
 	}
+
+	if ec.ethResender != nil {
+		go func() {
+			defer ec.wg.Done()
+			ec.ethResender.Stop()
+		}()
+	}
+
 	ec.ctxCancel()
-	<-ec.chDone
+	ec.wg.Wait()
+
 	return nil
 }
 
 func (ec *ethConfirmer) runLoop() {
-	defer close(ec.chDone)
+	defer ec.wg.Done()
 	for {
 		select {
 		case <-ec.mb.Notify():
@@ -256,7 +285,7 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 				return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 			}
 			logger.Debugw(fmt.Sprintf("EthConfirmer: Fetching and saving %v likely confirmed receipts done", likelyConfirmedCount),
-				"tookMs", float64(time.Since(start).Milliseconds()))
+				"time", time.Since(start))
 		}
 	}
 
@@ -278,7 +307,7 @@ func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.
 	firstAttemptNonce := fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
 	lastAttemptNonce := fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
 	logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
-		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce))
+		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "latestBlockNonce", latestBlockNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	for i := 0; i < len(attempts); i++ {
@@ -388,7 +417,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 			continue
 		}
 
-		l = l.With("receipt", receipt)
+		l = l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex)
 
 		if receipt.IsUnmined() {
 			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
@@ -831,7 +860,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 	}
 
 	now := time.Now()
-	sendError := sendTransaction(ctx, ec.ethClient, attempt)
+	sendError := sendTransaction(ctx, ec.ethClient, attempt, etx)
 
 	if sendError.IsTerminallyUnderpriced() {
 		// This should really not ever happen in normal operation since we
@@ -1170,7 +1199,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 				logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
 			}
-			if err := sendTransaction(context.TODO(), ec.ethClient, attempt); err != nil {
+			if err := sendTransaction(context.TODO(), ec.ethClient, attempt, *etx); err != nil {
 				logger.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error()), "err", err)
 				continue
 			}

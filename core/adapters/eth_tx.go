@@ -16,7 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -58,16 +58,32 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	jr := input.JobRun()
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
-		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
-		logger.Error(err)
-		return models.NewRunOutputError(err)
+		logger.Errorw("EthTx: unable to find task run tx by runID", "err", err, "runID", input.TaskRunID())
+		return models.NewRunOutputError(errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed"))
 	}
 	if trtx != nil {
+		logger.Debugw("EthTx: checking confirmation of eth tx",
+			"jobID", jr.JobSpecID,
+			"runID", jr.ID,
+			"type", jr.Initiator.Type,
+			"runRequestTxHash", jr.RunRequest.TxHash)
 		return e.checkForConfirmation(*trtx, input, store)
 	}
-	return e.insertEthTx(input, store)
+	logger.Debugw("EthTx: creating eth tx for bptxm",
+		"jobID", jr.JobSpecID,
+		"runID", jr.ID,
+		"type", jr.Initiator.Type,
+		"runRequestTxHash", jr.RunRequest.TxHash,
+		"runRequestRequestID", jr.RunRequest.RequestID)
+	m := models.EthTxMeta{
+		TaskRunID:        input.TaskRunID(),
+		RunRequestID:     jr.RunRequest.RequestID,
+		RunRequestTxHash: jr.RunRequest.TxHash,
+	}
+	return e.insertEthTx(m, input, store)
 }
 
 func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
@@ -103,7 +119,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 	return e.FromAddress, nil
 }
 
-func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
+func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *strpkg.Store) models.RunOutput {
 	var (
 		txData, encodedPayload []byte
 		err                    error
@@ -125,7 +141,6 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		return models.NewRunOutputError(err)
 	}
 
-	taskRunID := input.TaskRunID()
 	toAddress := e.ToAddress
 	fromAddress, err := e.pickFromAddress(input, store)
 	if err != nil {
@@ -159,10 +174,9 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		return models.NewRunOutputError(err)
 	}
 
-	if err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
-		err = errors.Wrap(err, "insertEthTx failed")
-		logger.Error(err)
-		return models.NewRunOutputError(err)
+	if err := store.IdempotentInsertEthTaskRunTx(m, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
+		logger.Errorw("EthTx: failed to insert eth tx for bptxm", "err", err)
+		return models.NewRunOutputError(errors.Wrap(err, "insertEthTx failed"))
 	}
 
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
@@ -185,10 +199,10 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 	if receipt == nil {
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
-	var r gethTypes.Receipt
+	var r types.Receipt
 	err = json.Unmarshal(receipt.Receipt, &r)
 	if err != nil {
-		logger.Debug("unable to unmarshal tx receipt", err)
+		logger.Debug("EthTx: unable to unmarshal tx receipt", err)
 	}
 	if err == nil && r.Status == 0 {
 		err = errors.Errorf("transaction %s reverted on-chain", r.TxHash)

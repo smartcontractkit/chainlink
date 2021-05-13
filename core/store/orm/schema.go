@@ -38,6 +38,7 @@ type ConfigSchema struct {
 	DefaultMaxHTTPAttempts                    uint            `env:"MAX_HTTP_ATTEMPTS" default:"5"`
 	Dev                                       bool            `env:"CHAINLINK_DEV" default:"false"`
 	EnableExperimentalAdapters                bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
+	EnableLegacyJobPipeline                   bool            `env:"ENABLE_LEGACY_JOB_PIPELINE" default:"true"`
 	EthBalanceMonitorBlockDelay               uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
 	EthFinalityDepth                          uint            `env:"ETH_FINALITY_DEPTH"`
 	EthGasBumpPercent                         uint16          `env:"ETH_GAS_BUMP_PERCENT" default:"20"`
@@ -49,11 +50,14 @@ type ConfigSchema struct {
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
+	EthHeadTrackerSamplingInterval            time.Duration   `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL" default:"1s"`
 	EthLogBackfillBatchSize                   uint32          `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
 	EthMaxGasPriceWei                         big.Int         `env:"ETH_MAX_GAS_PRICE_WEI"`
 	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
 	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
+	EthTxReaperInterval                       time.Duration   `env:"ETH_TX_REAPER_INTERVAL" default:"1h"`
+	EthTxReaperThreshold                      time.Duration   `env:"ETH_TX_REAPER_THRESHOLD" default:"168h"`
 	EthTxResendAfterThreshold                 time.Duration   `env:"ETH_TX_RESEND_AFTER_THRESHOLD"`
 	EthereumDisabled                          bool            `env:"ETH_DISABLED" default:"false"`
 	EthereumHTTPURL                           string          `env:"ETH_HTTP_URL"`
