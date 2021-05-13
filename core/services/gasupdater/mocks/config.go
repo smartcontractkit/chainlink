@@ -43,6 +43,22 @@ func (_m *Config) EthMaxGasPriceWei() *big.Int {
 	return r0
 }
 
+// EthMinGasPriceWei provides a mock function with given fields:
+func (_m *Config) EthMinGasPriceWei() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
 // GasUpdaterBatchSize provides a mock function with given fields:
 func (_m *Config) GasUpdaterBatchSize() uint32 {
 	ret := _m.Called()

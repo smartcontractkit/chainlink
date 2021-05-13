@@ -31,12 +31,14 @@ func TestGasUpdater_Start(t *testing.T) {
 	var historySize uint16 = 2
 	var ethFinalityDepth uint = 42
 	var percentile uint16 = 35
+	minGasPrice := big.NewInt(1)
 
 	config.On("GasUpdaterBatchSize").Return(batchSize)
 	config.On("GasUpdaterBlockDelay").Return(blockDelay)
 	config.On("GasUpdaterBlockHistorySize").Return(historySize)
 	config.On("EthFinalityDepth").Return(ethFinalityDepth)
 	config.On("GasUpdaterTransactionPercentile").Return(percentile)
+	config.On("EthMinGasPriceWei").Return(minGasPrice)
 
 	t.Run("loads initial state", func(t *testing.T) {
 		ethClient := new(mocks.Client)
@@ -276,6 +278,7 @@ func TestGasUpdater_FetchBlocksAndRecalculate(t *testing.T) {
 	config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
 	config.On("GasUpdaterBlockHistorySize").Return(uint16(3))
 	config.On("EthMaxGasPriceWei").Return(big.NewInt(1000))
+	config.On("EthMinGasPriceWei").Return(big.NewInt(0))
 	config.On("GasUpdaterBatchSize").Return(uint32(0))
 
 	guIface := gasupdater.NewGasUpdater(ethClient, config)
@@ -323,12 +326,14 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	t.Parallel()
 
 	maxGasPrice := big.NewInt(100)
+	minGasPrice := big.NewInt(1)
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
 
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
+		config.On("EthMinGasPriceWei").Return(big.NewInt(1))
 
 		guIface := gasupdater.NewGasUpdater(ethClient, config)
 		gu := gasupdater.GasUpdaterToStruct(guIface)
@@ -354,6 +359,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EthMinGasPriceWei").Return(minGasPrice)
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
 
 		guIface := gasupdater.NewGasUpdater(ethClient, config)
@@ -386,6 +392,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EthMinGasPriceWei").Return(minGasPrice)
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(100))
 
 		guIface := gasupdater.NewGasUpdater(ethClient, config)
@@ -424,6 +431,68 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
+	t.Run("sets gas price to zero if that is a legitimate value", func(t *testing.T) {
+		// Because everyone loves free gas!
+		ethClient := new(mocks.Client)
+		config := new(gumocks.Config)
+
+		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EthMinGasPriceWei").Return(big.NewInt(0))
+		config.On("GasUpdaterTransactionPercentile").Return(uint16(50))
+
+		guIface := gasupdater.NewGasUpdater(ethClient, config)
+		gu := gasupdater.GasUpdaterToStruct(guIface)
+
+		b1Hash := cltest.NewHash()
+
+		blocks := []gasupdater.Block{
+			gasupdater.Block{
+				Number:       0,
+				Hash:         b1Hash,
+				ParentHash:   common.Hash{},
+				Transactions: cltest.TransactionsFromGasPrices(0, 0, 0, 0, 100),
+			},
+		}
+
+		config.On("SetEthGasPriceDefault", big.NewInt(0)).Return(nil)
+		gasupdater.SetRollingBlockHistory(gu, blocks)
+
+		gu.Recalculate(*cltest.Head(0))
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("ignores zero priced transactions if that is not a legitimate value", func(t *testing.T) {
+		ethClient := new(mocks.Client)
+		config := new(gumocks.Config)
+
+		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
+		config.On("GasUpdaterTransactionPercentile").Return(uint16(50))
+
+		guIface := gasupdater.NewGasUpdater(ethClient, config)
+		gu := gasupdater.GasUpdaterToStruct(guIface)
+
+		b1Hash := cltest.NewHash()
+
+		blocks := []gasupdater.Block{
+			gasupdater.Block{
+				Number:       0,
+				Hash:         b1Hash,
+				ParentHash:   common.Hash{},
+				Transactions: cltest.TransactionsFromGasPrices(0, 0, 0, 0, 100),
+			},
+		}
+
+		config.On("SetEthGasPriceDefault", big.NewInt(100)).Return(nil)
+		gasupdater.SetRollingBlockHistory(gu, blocks)
+
+		gu.Recalculate(*cltest.Head(0))
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
 }
 
 func TestGasUpdater_Block(t *testing.T) {

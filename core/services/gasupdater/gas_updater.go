@@ -64,6 +64,7 @@ type (
 		GasUpdaterTransactionPercentile() uint16
 		GasUpdaterBatchSize() uint32
 		EthMaxGasPriceWei() *big.Int
+		EthMinGasPriceWei() *big.Int
 		EthFinalityDepth() uint
 		SetEthGasPriceDefault(value *big.Int) error
 	}
@@ -330,13 +331,11 @@ func (gu *gasUpdater) batchFetch(ctx context.Context, reqs []rpc.BatchElem) erro
 }
 
 func (gu *gasUpdater) percentileGasPrice(percentile int) (int64, error) {
+	minGasPriceWei := gu.config.EthMinGasPriceWei()
 	gasPrices := make([]int64, 0)
 	for _, block := range gu.rollingBlockHistory {
 		for _, tx := range block.Transactions {
-			// GasLimit 0 is impossible on Ethereum official, but IS possible
-			// on forks/clones such as RSK. We should ignore these transactions
-			// if they come up since they are not normal.
-			if tx.GasLimit > 0 {
+			if isUsableTx(tx, minGasPriceWei) {
 				gasPrices = append(gasPrices, tx.GasPrice.Int64())
 			}
 		}
@@ -364,4 +363,22 @@ func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
 
 func (gu *gasUpdater) RollingBlockHistory() []Block {
 	return gu.rollingBlockHistory
+}
+
+func isUsableTx(tx Transaction, minGasPriceWei *big.Int) bool {
+	// GasLimit 0 is impossible on Ethereum official, but IS possible
+	// on forks/clones such as RSK. We should ignore these transactions
+	// if they come up since they are not normal.
+	if tx.GasLimit == 0 {
+		return false
+	}
+	// GasPrice 0 on most chains is great since it indicates cheap/free transctions.
+	// However, xDai reserves a special type of "bridge" transaction with 0 gas
+	// price that is always processed at top priority. Ordinary transactions
+	// must be priced at least 1GWei, so we have to discard anything priced
+	// below that (unless the contract is whitelisted).
+	if tx.GasPrice.Cmp(minGasPriceWei) < 0 {
+		return false
+	}
+	return true
 }
