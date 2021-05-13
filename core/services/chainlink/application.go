@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -237,6 +239,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.VRF:    vrf.NewDelegate(vrf.NewORM(store.DB), pipelineRunner, pipelineORM),
 		}
 	)
 

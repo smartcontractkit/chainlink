@@ -398,6 +398,7 @@ func (o *orm) FindJob(id int32) (Job, error) {
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
 		Preload("CronSpec").
+		Preload("VRFSpec").
 		First(&job, "jobs.id = ?", id).
 		Error
 	if job.OffchainreportingOracleSpec != nil {

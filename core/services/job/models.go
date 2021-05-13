@@ -219,7 +219,7 @@ type KeeperSpec struct {
 type VRFSpec struct {
 	ID                 int32
 	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey `toml:"fromAddress"`
+	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
 	Confirmations      uint32              `toml:"confirmations"`
 	CreatedAt          time.Time           `toml:"-"`
 	UpdatedAt          time.Time           `toml:"-"`
