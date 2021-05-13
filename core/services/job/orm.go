@@ -214,6 +214,12 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
 			}
 			jobSpec.CronSpecID = &jobSpec.CronSpec.ID
+		case VRF:
+			err := tx.Create(&jobSpec.VRFSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
+			}
+			jobSpec.VRFSpecID = &jobSpec.VRFSpec.ID
 		default:
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}

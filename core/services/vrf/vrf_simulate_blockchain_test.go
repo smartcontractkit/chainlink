@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +25,7 @@ import (
 func registerExistingProvingKey(
 	t *testing.T,
 	coordinator coordinatorUniverse,
-	provingKey *vrfkey.PrivateKey,
+	provingKey *vrf.PrivateKey,
 	jobID models.JobID,
 	vrfFee *big.Int,
 ) {
@@ -51,10 +50,10 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app.Start()
 
 	rawKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
+	pk, err := secp256k1.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
-	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	provingKey := vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
@@ -139,10 +138,10 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 
 	// create job
 	rawKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
+	pk, err := secp256k1.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
-	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	provingKey := vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())

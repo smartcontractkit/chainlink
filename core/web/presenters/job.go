@@ -18,14 +18,12 @@ func (t JobSpecType) String() string {
 }
 
 const (
-	// DirectRequestJobSpec defines a Direct Request Job
-	DirectRequestJobSpec JobSpecType = "directrequest"
-	// FluxMonitorJobSpec defines a Flux Monitor Job
-	FluxMonitorJobSpec JobSpecType = "fluxmonitor"
-	// OffChainReportingJobSpec defines an OCR Job
+	DirectRequestJobSpec     JobSpecType = "directrequest"
+	FluxMonitorJobSpec       JobSpecType = "fluxmonitor"
 	OffChainReportingJobSpec JobSpecType = "offchainreporting"
-	// Keeper defines a Keeper Job
-	KeeperJobSpec JobSpecType = "keeper"
+	KeeperJobSpec            JobSpecType = "keeper"
+	CronJobSpec              JobSpecType = "cron"
+	VRFJobSpec               JobSpecType = "vrf"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
