@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
 
@@ -1408,10 +1409,10 @@ func Head(val interface{}) *models.Head {
 }
 
 // TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []types.Transaction {
-	txs := make([]types.Transaction, len(gasPrices))
+func TransactionsFromGasPrices(gasPrices ...int64) []gasupdater.Transaction {
+	txs := make([]gasupdater.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = *types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
+		txs[i] = gasupdater.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
