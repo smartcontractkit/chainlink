@@ -28,10 +28,12 @@ import (
 )
 
 type broadcasterHelper struct {
-	t             *testing.T
-	lb            log.Broadcaster
-	store         *store.Store
-	mockEth       *mockEth
+	t       *testing.T
+	lb      log.Broadcaster
+	store   *store.Store
+	mockEth *mockEth
+
+	// each received channel corresponds to one eth subscription
 	chchRawLogs   chan chan<- types.Log
 	toUnsubscribe []func()
 	storeCleanup  func()
@@ -40,7 +42,7 @@ type broadcasterHelper struct {
 func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *broadcasterHelper {
 	store, cleanup := cltest.NewStore(t)
 
-	chchRawLogs := make(chan chan<- types.Log, 1)
+	chchRawLogs := make(chan chan<- types.Log, timesSubscribe)
 
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
@@ -237,7 +239,7 @@ func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState
 		received.Lock()
 		defer received.Unlock()
 		return len(received.uniqueLogs) == len(expectedState.uniqueLogs)
-	}, 10*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
+	}, 5*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
 
 	received.Lock()
 	for i := range expectedState.uniqueLogs {
@@ -288,7 +290,7 @@ type mockEth struct {
 	sub              *mocks.Subscription
 	subscribeCalls   int32
 	unsubscribeCalls int32
-	checkBackfill    func(int64)
+	checkFilterLogs  func(int64, int64)
 }
 
 func (mock *mockEth) assertExpectations(t *testing.T) {
@@ -309,13 +311,15 @@ type mockEthClientExpectedCalls struct {
 	HeaderByNumber      int
 	FilterLogs          int
 	Unsubscribe         int
+
+	FilterLogsResult []types.Log
 }
 
 func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
 	mockEth := &mockEth{
-		ethClient:     new(mocks.Client),
-		sub:           new(mocks.Subscription),
-		checkBackfill: nil,
+		ethClient:       new(mocks.Client),
+		sub:             new(mocks.Subscription),
+		checkFilterLogs: nil,
 	}
 	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -333,11 +337,12 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Run(func(args mock.Arguments) {
 			filterQuery := args.Get(1).(ethereum.FilterQuery)
 			fromBlock := filterQuery.FromBlock.Int64()
-			if mockEth.checkBackfill != nil {
-				mockEth.checkBackfill(fromBlock)
+			toBlock := filterQuery.ToBlock.Int64()
+			if mockEth.checkFilterLogs != nil {
+				mockEth.checkFilterLogs(fromBlock, toBlock)
 			}
 		}).
-		Return(nil, nil).
+		Return(expectedCalls.FilterLogsResult, nil).
 		Times(expectedCalls.FilterLogs)
 
 	mockEth.sub.On("Err").
