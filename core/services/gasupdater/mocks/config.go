@@ -13,6 +13,22 @@ type Config struct {
 	mock.Mock
 }
 
+// ChainID provides a mock function with given fields:
+func (_m *Config) ChainID() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
 // EthFinalityDepth provides a mock function with given fields:
 func (_m *Config) EthFinalityDepth() uint {
 	ret := _m.Called()
