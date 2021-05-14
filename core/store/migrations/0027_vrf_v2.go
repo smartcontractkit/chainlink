@@ -7,10 +7,11 @@ const (
         CREATE TABLE vrf_specs (
             id BIGSERIAL PRIMARY KEY,
             public_key text NOT NULL,
-			coordinator_address bytea NOT NULL,
-			confirmations bigint NOT NULL,
+            coordinator_address bytea NOT NULL,
+            confirmations bigint NOT NULL,
             created_at timestamp with time zone NOT NULL,
             updated_at timestamp with time zone NOT NULL
+            CONSTRAINT coordinator_address_len_chk CHECK (octet_length(coordinator_address) = 20)
         );
         ALTER TABLE jobs ADD COLUMN vrf_spec_id INT REFERENCES vrf_specs(id),
         DROP CONSTRAINT chk_only_one_spec,
