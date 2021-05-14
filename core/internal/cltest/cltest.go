@@ -651,6 +651,7 @@ func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interf
 	if err != nil {
 		require.NoError(t, err)
 	}
+	s.Config.SetRuntimeStore(s.ORM)
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
