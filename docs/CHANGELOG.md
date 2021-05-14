@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GasUpdater now works on RSK and xDai
 
+- Offchain reporting jobs that have had a latest round requested can now be deleted from the UI without error
+
 ### Added
 
 - Add `ETH_GAS_LIMIT_MULTIPLIER` configuration option, the gas limit is multiplied by this value before transmission. So a value of 1.1 will add 10% to the on chain gas limit when a transaction is submitted.
