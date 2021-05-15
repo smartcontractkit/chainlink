@@ -25,7 +25,7 @@ describe('OperatorForwarder', () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     operatorForwarder = await operatorForwarderFactory
       .connect(roles.defaultAccount)
-      .deploy(link.address)
+      .deploy(link.address, roles.defaultAccount.address)
   })
 
   beforeEach(async () => {
