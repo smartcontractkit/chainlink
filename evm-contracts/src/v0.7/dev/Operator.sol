@@ -105,20 +105,16 @@ contract Operator is
     external
     override
   {
-    (bool success, ) = address(this).delegatecall(
-      abi.encodeWithSelector(
-        this.requestOracleData.selector,
-        sender,
-        payment,
-        specId,
-        callbackAddress,
-        callbackFunctionId,
-        nonce,
-        dataVersion,
-        data
-      )
+    requestOracleData(
+      sender,
+      payment,
+      specId,
+      callbackAddress,
+      callbackFunctionId,
+      nonce,
+      dataVersion,
+      data
     );
-    require(success, "Request failed");
   }
 
   /**
@@ -144,7 +140,7 @@ contract Operator is
     uint256 dataVersion,
     bytes calldata data
   )
-    external
+    public
     override
     onlyLINK()
     checkCallbackAddress(callbackAddress)
