@@ -10,7 +10,7 @@ import "./OperatorForwarder.sol";
  */
 contract OperatorFactory {
 
-  address public link;
+  address public immutable link;
 
   event OperatorCreated(
     address indexed operator,
