@@ -90,7 +90,7 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
-    s_forwarder = new OperatorForwarder(link);
+    s_forwarder = new OperatorForwarder(link, address(this));
   }
 
   // EXTERNAL FUNCTIONS
@@ -322,7 +322,7 @@ contract Operator is
     )
   {
     require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
-    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken));
+    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken), address(this));
     s_forwarder = newForwarder;
     emit ForwarderChanged(newForwarder);
     return newForwarder;

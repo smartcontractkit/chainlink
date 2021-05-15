@@ -16,9 +16,10 @@ contract OperatorForwarder is ConfirmedOwner {
   );
 
   constructor(
-    address link
-  ) 
-    ConfirmedOwner(msg.sender)
+    address link,
+    address owner
+  )
+    ConfirmedOwner(owner)
   {
     linkAddr = link;
   }
