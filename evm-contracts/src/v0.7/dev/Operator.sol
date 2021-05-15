@@ -46,8 +46,6 @@ contract Operator is
   address[] private s_authorizedSenderList;
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
-  // Forwarders
-  OperatorForwarder private s_forwarder;
 
   event AuthorizedSendersChanged(
     address[] senders
@@ -73,8 +71,8 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event ForwarderChanged(
-    OperatorForwarder indexed addr
+  event ForwarderOwnershipAccepted(
+    address indexed forwarder
   );
 
   /**
@@ -90,7 +88,6 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
-    s_forwarder = new OperatorForwarder(link, address(this));
   }
 
   // EXTERNAL FUNCTIONS
@@ -308,57 +305,39 @@ contract Operator is
       forwarderSenders[i] = senders[i];
     }
     forwarderSenders[senders.length] = msg.sender;
-    s_forwarder.setAuthorizedSenders(forwarderSenders);
   }
 
   /**
-   * @notice If the s_forwarder is owned by a different address, deploy and set a new one
-   */
-  function deployForwarder()
-    external
-    onlyOwner()
-    returns (
-      OperatorForwarder
-    )
-  {
-    require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
-    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken), address(this));
-    s_forwarder = newForwarder;
-    emit ForwarderChanged(newForwarder);
-    return newForwarder;
-  }
-
-  /**
-   * @notice Transfer the ownership of the s_forwarder
+   * @notice Transfer the ownership of the forwarder
    * @dev This contract is the owner until the newOwner calls acceptOwnership on the forwarder
+   * @param forwarder address of OperatorForwarder to transfer
    * @param newOwner address
    */
   function transferForwarderOwnership(
+    address forwarder,
     address newOwner
   )
     external
     override
     onlyOwner()
   {
-    s_forwarder.transferOwnership(newOwner);
+    OperatorForwarder(forwarder).transferOwnership(newOwner);
   }
 
   /**
-   * @notice Accept the ownership of a forwarder and set as the s_forwarder
+   * @notice Accept the ownership of a forwarder and set as the forwarder
    * @dev Must be the pending owner on the forwarder
-   * @param forwarderAddr address
+   * @param forwarder address of OperatorForwarder to accept
    */
   function acceptForwarderOwnership(
-    address forwarderAddr
+    address forwarder
   )
     external
     override
     onlyOwner()
   {
-    OperatorForwarder newForwarder = OperatorForwarder(forwarderAddr);
-    newForwarder.acceptOwnership();
-    s_forwarder = newForwarder;
-    emit ForwarderChanged(newForwarder);
+    OperatorForwarder(forwarder).acceptOwnership();
+    emit ForwarderOwnershipAccepted(forwarder);
   }
 
   /**
@@ -374,20 +353,6 @@ contract Operator is
     )
   {
     return s_authorizedSenderList;
-  }
-
-  /**
-   * @notice Retrive the forwarder
-   * @return address
-   */
-  function getForwarder()
-    external
-    view
-    returns (
-      OperatorForwarder
-    )
-  {
-    return s_forwarder;
   }
 
   /**
