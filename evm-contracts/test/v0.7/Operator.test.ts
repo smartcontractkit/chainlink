@@ -47,11 +47,14 @@ describe('Operator', () => {
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: contract.Instance<contract.LinkToken__factory>
   let operator: contract.Instance<Operator__factory>
+  let forwarder: contract.Instance<OperatorForwarder__factory>
+  let owner: ethers.Wallet
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
+    owner = roles.defaultAccount
     operator = await operatorFactory
-      .connect(roles.defaultAccount)
-      .deploy(link.address, roles.defaultAccount.address)
+      .connect(owner)
+      .deploy(link.address, owner.address)
     await operator
       .connect(roles.defaultAccount)
       .setAuthorizedSenders([roles.oracleNode.address])
@@ -79,10 +82,8 @@ describe('Operator', () => {
       'withdrawable',
       'operatorTransferAndCall',
       'distributeFunds',
-      'deployForwarder',
       'transferForwarderOwnership',
       'acceptForwarderOwnership',
-      'getForwarder',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -91,20 +92,29 @@ describe('Operator', () => {
   })
 
   describe('#transferForwarderOwnership', () => {
+    beforeEach(async () => {
+      forwarder = await operatorForwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address)
+    })
+
     describe('being called by the owner', () => {
       it('cannot transfer to self', async () => {
         await matchers.evmRevert(async () => {
           await operator
-            .connect(roles.defaultAccount)
-            .transferForwarderOwnership(operator.address)
+            .connect(owner)
+            .transferForwarderOwnership(forwarder.address, operator.address)
           ;('Cannot transfer to self')
         })
       })
 
       it('emits an ownership transfer request event', async () => {
         const tx = await operator
-          .connect(roles.defaultAccount)
-          .transferForwarderOwnership(roles.oracleNode1.address)
+          .connect(owner)
+          .transferForwarderOwnership(
+            forwarder.address,
+            roles.oracleNode1.address,
+          )
         const receipt = await tx.wait()
         assert.equal(receipt?.events?.length, 1)
         const log = receipt?.events?.[0]
@@ -119,7 +129,10 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .transferForwarderOwnership(roles.oracleNode2.address)
+            .transferForwarderOwnership(
+              forwarder.address,
+              roles.oracleNode2.address,
+            )
           ;('Only callable by owner')
         })
       })
@@ -129,33 +142,26 @@ describe('Operator', () => {
   describe('#acceptForwarderOwnership', () => {
     describe('being called by the owner', () => {
       let operator2: contract.Instance<Operator__factory>
-      let forwarderAddress: string
-      let forwarder: contract.Instance<OperatorForwarder__factory>
       let receipt: ContractReceipt
 
       beforeEach(async () => {
         operator2 = await operatorFactory
           .connect(roles.defaultAccount)
           .deploy(link.address, roles.defaultAccount.address)
-        forwarderAddress = await operator.getForwarder()
         forwarder = await operatorForwarderFactory
           .connect(roles.defaultAccount)
-          .attach(forwarderAddress)
+          .deploy(link.address, operator.address)
         await operator
           .connect(roles.defaultAccount)
-          .transferForwarderOwnership(operator2.address)
+          .transferForwarderOwnership(forwarder.address, operator2.address)
         const tx = await operator2
           .connect(roles.defaultAccount)
-          .acceptForwarderOwnership(forwarderAddress)
+          .acceptForwarderOwnership(forwarder.address)
         receipt = await tx.wait()
       })
 
       it('sets the new owner on the forwarder', async () => {
         assert.equal(await forwarder.owner(), operator2.address)
-      })
-
-      it('sets the s_forwarder on the operator', async () => {
-        assert.equal(await operator2.getForwarder(), forwarderAddress)
       })
 
       it('emits an ownership transferred event', async () => {
@@ -165,8 +171,8 @@ describe('Operator', () => {
       })
 
       it('emits a forwarder changed event', async () => {
-        assert.equal(receipt?.events?.[1]?.event, 'ForwarderChanged')
-        assert.equal(receipt?.events?.[1]?.args?.[0], forwarderAddress)
+        assert.equal(receipt?.events?.[1]?.event, 'ForwarderOwnershipAccepted')
+        assert.equal(receipt?.events?.[1]?.args?.[0], forwarder.address)
       })
     })
 
@@ -176,66 +182,6 @@ describe('Operator', () => {
           await operator
             .connect(roles.stranger)
             .acceptForwarderOwnership(roles.oracleNode2.address)
-          ;('Only callable by owner')
-        })
-      })
-    })
-  })
-
-  describe('#deployForwarder', () => {
-    describe('being called by the owner', () => {
-      it('reverts with message if the s_forwarder is owned by the operator', async () => {
-        await matchers.evmRevert(async () => {
-          await operator.connect(roles.defaultAccount).deployForwarder()
-          ;('Operator is forwarder owner')
-        })
-      })
-
-      describe('success', () => {
-        let operator2: contract.Instance<Operator__factory>
-        let forwarderAddress: string
-        let receipt: ContractReceipt
-
-        beforeEach(async () => {
-          operator2 = await operatorFactory
-            .connect(roles.defaultAccount)
-            .deploy(link.address, roles.defaultAccount.address)
-          forwarderAddress = await operator.getForwarder()
-          await operator
-            .connect(roles.defaultAccount)
-            .transferForwarderOwnership(operator2.address)
-          await operator2
-            .connect(roles.defaultAccount)
-            .acceptForwarderOwnership(forwarderAddress)
-          const tx = await operator
-            .connect(roles.defaultAccount)
-            .deployForwarder()
-          receipt = await tx.wait()
-        })
-
-        it('sets the new s_forwarder as different from the old', async () => {
-          assert.notEqual(await operator.getForwarder(), forwarderAddress)
-        })
-
-        it('emits a forwarder changed event', async () => {
-          assert.equal(receipt?.events?.[0]?.event, 'ForwarderChanged')
-        })
-
-        it('sets the owner of the forwarder to the operator that deployed it', async () => {
-          const newForwarderAddress = receipt?.events?.[0]?.args?.[0]
-          const newForwarder = await operatorForwarderFactory
-            .connect(roles.defaultAccount)
-            .attach(newForwarderAddress)
-          assert.equal(await newForwarder.owner(), operator.address)
-          assert.equal(await operator.getForwarder(), newForwarderAddress)
-        })
-      })
-    })
-
-    describe('being called by a non owner', () => {
-      it('reverts with message', async () => {
-        await matchers.evmRevert(async () => {
-          await operator.connect(roles.stranger).deployForwarder()
           ;('Only callable by owner')
         })
       })
@@ -350,8 +296,8 @@ describe('Operator', () => {
           }
         })
 
-        it('emits an event on the Operator and another on the OperatorForwarder', async () => {
-          assert.equal(receipt.events?.length, 2)
+        it('emits an event on the Operator', async () => {
+          assert.equal(receipt.events?.length, 1)
 
           const encodedSenders1 = ethers.utils.defaultAbiCoder.encode(
             ['address[]'],
@@ -361,17 +307,6 @@ describe('Operator', () => {
           const responseEvent1 = receipt.events?.[0]
           assert.equal(responseEvent1?.event, 'AuthorizedSendersChanged')
           assert.equal(responseEvent1?.data, encodedSenders1)
-
-          const operatorForwarderSenders = newSenders
-          operatorForwarderSenders.push(roles.defaultAccount.address)
-          const encodedSenders2 = ethers.utils.defaultAbiCoder.encode(
-            ['address[]'],
-            [operatorForwarderSenders],
-          )
-
-          const responseEvent2 = receipt.events?.[1]
-          assert.equal(responseEvent2?.event, 'AuthorizedSendersChanged')
-          assert.equal(responseEvent2?.data, encodedSenders2)
         })
 
         it('replaces the authorized nodes', async () => {
@@ -379,23 +314,6 @@ describe('Operator', () => {
             .connect(roles.defaultAccount)
             .isAuthorizedSender(roles.oracleNode.address)
           assert.isFalse(originalAuthorization)
-        })
-
-        it('replaces the authorized nodes on the forwarder plus owner', async () => {
-          const forwarder = await operator
-            .connect(roles.defaultAccount)
-            .getForwarder()
-          const operatorForwarder = await operatorForwarderFactory
-            .connect(roles.defaultAccount)
-            .attach(forwarder)
-          const authorizedSenders = await operatorForwarder.getAuthorizedSenders()
-          const expectedAuthorized = [
-            roles.oracleNode1.address,
-            roles.oracleNode2.address,
-            roles.oracleNode3.address,
-            roles.defaultAccount.address,
-          ]
-          assert.deepEqual(authorizedSenders, expectedAuthorized)
         })
 
         afterAll(async () => {
