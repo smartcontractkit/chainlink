@@ -29,6 +29,9 @@ contract Operator is
   uint256 constant public EXPIRY_TIME = 5 minutes;
   uint256 constant private MAXIMUM_DATA_VERSION = 256;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+  uint256 constant private SELECTOR_LENGTH = 4;
+  uint256 constant private EXPECTED_REQUEST_WORDS = 2;
+  uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
@@ -520,12 +523,14 @@ contract Operator is
    * @dev OPERATOR_REQUEST_SELECTOR = multiword, ORACLE_REQUEST_SELECTOR = singleword
    */
   function validateTokenTransferAction(
-    bytes4 funcSelector
+    bytes4 funcSelector,
+    bytes memory data
   )
     public
     pure
     override
   {
+    require(data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
   }
 
