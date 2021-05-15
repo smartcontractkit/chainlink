@@ -17,7 +17,7 @@ beforeAll(async () => {
   roles = users.roles
 })
 
-describe('ChainlinkOperatorFactory', () => {
+describe('OperatorFactory', () => {
   let link: contract.Instance<contract.LinkToken__factory>
   let operatorGenerator: contract.Instance<OperatorFactory__factory>
   let operator: contract.Instance<Operator__factory>
