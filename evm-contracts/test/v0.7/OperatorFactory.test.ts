@@ -33,11 +33,13 @@ describe('OperatorFactory', () => {
     await deployment()
   })
 
-  describe('#createOperator', () => {
+  describe('#deployNewOperatorContract', () => {
     let receipt: ContractReceipt
 
     beforeEach(async () => {
-      const tx = await operatorGenerator.connect(roles.oracleNode).fallback()
+      const tx = await operatorGenerator
+        .connect(roles.oracleNode)
+        .deployNewOperatorContract()
 
       receipt = await tx.wait()
     })

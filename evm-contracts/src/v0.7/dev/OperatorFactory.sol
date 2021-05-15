@@ -26,10 +26,13 @@ contract OperatorFactory {
   }
 
   /**
-   * @notice fallback to create a new Operator contract with the msg.sender as owner
+   * @notice creates a new Operator contract with the msg.sender as owner
    */
-  fallback() external {
+  function deployNewOperatorContract()
+    external
+  {
     Operator operator = new Operator(link, msg.sender);
     emit OperatorCreated(address(operator), msg.sender);
   }
+
 }
