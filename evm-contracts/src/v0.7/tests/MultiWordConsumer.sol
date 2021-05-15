@@ -59,7 +59,7 @@ contract MultiWordConsumer is ChainlinkClient{
     public
   {
     Chainlink.Request memory req = buildChainlinkRequest(specId, _callback, this.fulfillBytes.selector);
-    sendChainlinkRequest(req, _payment);
+    requestOracleData(req, _payment);
   }
 
   function requestMultipleParameters(
@@ -69,7 +69,7 @@ contract MultiWordConsumer is ChainlinkClient{
     public
   {
     Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParameters.selector);
-    sendChainlinkRequest(req, _payment);
+    requestOracleData(req, _payment);
   }
 
   function cancelRequest(
