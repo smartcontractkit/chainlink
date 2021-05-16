@@ -34,14 +34,15 @@ describe('OperatorForwarder', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(operatorForwarder, [
+      'forward',
+      'getAuthorizedSenders',
+      'linkAddr',
+      'setAuthorizedSenders',
+      'transferOwnershipWithMessage',
+      // ConfirmedOwner
       'transferOwnership',
       'acceptOwnership',
       'owner',
-      // OperatorForwarder
-      'linkAddr',
-      'setAuthorizedSenders',
-      'getAuthorizedSenders',
-      'forward',
     ])
   })
 
@@ -200,6 +201,57 @@ describe('OperatorForwarder', () => {
             operatorForwarder.address,
           )
         })
+      })
+    })
+  })
+
+  describe('#transferOwnershipWithMessage', () => {
+    const message = '0x42'
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await operatorForwarder
+            .connect(roles.stranger)
+            .transferOwnershipWithMessage(roles.stranger.address, message),
+            'Only callable by owner'
+        })
+      })
+    })
+
+    describe('when called by the owner', () => {
+      it('calls the normal ownership transfer proposal', async () => {
+        const tx = await operatorForwarder
+          .connect(roles.defaultAccount)
+          .transferOwnershipWithMessage(roles.stranger.address, message)
+        const receipt = await tx.wait()
+
+        assert.equal(receipt?.events?.[0]?.event, 'OwnershipTransferRequested')
+        assert.equal(receipt?.events?.[0]?.address, operatorForwarder.address)
+        assert.equal(
+          receipt?.events?.[0]?.args?.[0],
+          roles.defaultAccount.address,
+        )
+        assert.equal(receipt?.events?.[0]?.args?.[1], roles.stranger.address)
+      })
+
+      it('calls the normal ownership transfer proposal', async () => {
+        const tx = await operatorForwarder
+          .connect(roles.defaultAccount)
+          .transferOwnershipWithMessage(roles.stranger.address, message)
+        const receipt = await tx.wait()
+
+        assert.equal(
+          receipt?.events?.[1]?.event,
+          'OwnershipTransferRequestedWithMessage',
+        )
+        assert.equal(receipt?.events?.[1]?.address, operatorForwarder.address)
+        assert.equal(
+          receipt?.events?.[1]?.args?.[0],
+          roles.defaultAccount.address,
+        )
+        assert.equal(receipt?.events?.[1]?.args?.[1], roles.stranger.address)
+        assert.equal(receipt?.events?.[1]?.args?.[2], message)
       })
     })
   })

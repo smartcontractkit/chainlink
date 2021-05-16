@@ -14,6 +14,11 @@ contract OperatorForwarder is ConfirmedOwner {
   event AuthorizedSendersChanged(
     address[] senders
   );
+  event OwnershipTransferRequestedWithMessage(
+    address indexed from,
+    address indexed to,
+    bytes message
+  );
 
   constructor(
     address link,
@@ -81,6 +86,26 @@ contract OperatorForwarder is ConfirmedOwner {
     require(status, "Forwarded call failed.");
   }
 
+  /**
+   * @notice Transfer ownership with instructions for recipient
+   * @param to address proposed recipeint of ownership
+   * @param message instructions for recipient upon accepting ownership
+   */
+  function transferOwnershipWithMessage(
+    address to,
+    bytes calldata message
+  )
+    external
+  {
+    transferOwnership(to);
+    emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);
+  }
+
+  // MODIFIERS
+
+  /**
+   * @notice prevents non-authorized addresses from calling this method
+   */
   modifier onlyAuthorizedSender() {
     require(s_authorizedSenders[msg.sender], "Not an authorized node to fulfill requests");
     _;

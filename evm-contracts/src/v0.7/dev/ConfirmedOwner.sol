@@ -32,7 +32,7 @@ contract ConfirmedOwner is OwnableInterface {
   function transferOwnership(
     address to
   )
-    external
+    public
     override
     onlyOwner()
   {
