@@ -58,12 +58,12 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     address[] calldata senders
   ) external;
 
-  function transferForwarderOwnership(
-    address forwarder,
+  function transferOwnableContracts(
+    address[] calldata ownable,
     address newOwner
   ) external;
 
-  function acceptForwarderOwnership(
-    address forwarder
+  function acceptOwnableContracts(
+    address[] calldata ownable
   ) external;
 }

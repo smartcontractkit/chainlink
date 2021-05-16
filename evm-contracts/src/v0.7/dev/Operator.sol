@@ -72,7 +72,7 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event ForwarderOwnershipAccepted(
+  event OwnershipAccepted(
     address indexed forwarder
   );
 
@@ -311,34 +311,38 @@ contract Operator is
   /**
    * @notice Transfer the ownership of the forwarder
    * @dev This contract is the owner until the newOwner calls acceptOwnership on the forwarder
-   * @param forwarder address of OperatorForwarder to transfer
-   * @param newOwner address
+   * @param ownable list of addresses of OperatorForwarders to transfer
+   * @param newOwner address to transfer Forwarders too
    */
-  function transferForwarderOwnership(
-    address forwarder,
+  function transferOwnableContracts(
+    address[] calldata ownable,
     address newOwner
   )
     external
     override
     onlyOwner()
   {
-    OperatorForwarder(forwarder).transferOwnership(newOwner);
+    for (uint256 i = 0; i < ownable.length; i++) {
+      OwnableInterface(ownable[i]).transferOwnership(newOwner);
+    }
   }
 
   /**
    * @notice Accept the ownership of a forwarder and set as the forwarder
    * @dev Must be the pending owner on the forwarder
-   * @param forwarder address of OperatorForwarder to accept
+   * @param ownable list of addresses of Ownable contracts to accept
    */
-  function acceptForwarderOwnership(
-    address forwarder
+  function acceptOwnableContracts(
+    address[] calldata ownable
   )
     external
     override
     onlyOwner()
   {
-    OperatorForwarder(forwarder).acceptOwnership();
-    emit ForwarderOwnershipAccepted(forwarder);
+    for (uint256 i = 0; i < ownable.length; i++) {
+      OwnableInterface(ownable[i]).acceptOwnership();
+      emit OwnershipAccepted(ownable[i]);
+    }
   }
 
   /**
