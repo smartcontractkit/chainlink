@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
+import "../interfaces/OwnableInterface.sol";
+
 /**
  * @title The ConfirmedOwner contract
  * @notice A contract with helpers for basic contract ownership.
  */
-contract ConfirmedOwner {
+contract ConfirmedOwner is OwnableInterface {
 
   address private s_owner;
   address private s_pendingOwner;
@@ -31,6 +33,7 @@ contract ConfirmedOwner {
     address to
   )
     external
+    override
     onlyOwner()
   {
     require(to != msg.sender, "Cannot transfer to self");
@@ -45,6 +48,7 @@ contract ConfirmedOwner {
    */
   function acceptOwnership()
     external
+    override
   {
     require(msg.sender == s_pendingOwner, "Must be proposed owner");
 
@@ -61,6 +65,7 @@ contract ConfirmedOwner {
   function owner()
     public
     view
+    override
     returns (
       address
     )
