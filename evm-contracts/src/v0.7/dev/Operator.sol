@@ -4,8 +4,9 @@ pragma solidity ^0.7.0;
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "./OperatorForwarder.sol";
-import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/OperatorInterface.sol";
+import "../interfaces/OwnableInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
 
