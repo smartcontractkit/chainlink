@@ -284,7 +284,7 @@ contract Operator is
   )
     external
     override
-    onlyOwner()
+    onlyAuthorizedSender()
   {
     require(senders.length > 0, "Must have at least 1 authorized sender");
     // Set previous authorized senders to false
