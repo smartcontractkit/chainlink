@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
 import "./OracleInterface.sol";
 import "./ChainlinkRequestInterface.sol";
@@ -17,7 +17,7 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     bytes calldata data
   )
     external;
-  
+
   function fulfillOracleRequest2(
     bytes32 requestId,
     uint256 payment,
@@ -30,7 +30,7 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     returns (
       bool
     );
-  
+
   function operatorTransferAndCall(
     address to,
     uint256 value,
@@ -58,11 +58,9 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     address[] calldata senders
   ) external;
 
-  function transferForwarderOwnership(
-    address newOwner
-  ) external;
-
-  function acceptForwarderOwnership(
-    address newOwner
-  ) external;
+  function getForwarder()
+    external
+    returns (
+      address
+    );
 }
