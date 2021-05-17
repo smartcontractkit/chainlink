@@ -276,8 +276,8 @@ contract Operator is
   }
 
   /**
-   * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
-   * @param senders The addresses of the authorized Chainlink node
+   * @notice Sets the fulfillment permission for an externally owned account.
+   * @param senders The addresses that are allowed to send updates
    */
   function setAuthorizedSenders(
     address[] calldata senders
@@ -299,13 +299,24 @@ contract Operator is
     // Replace list
     s_authorizedSenderList = senders;
     emit AuthorizedSendersChanged(senders);
+  }
 
-    // Set authorized senders on the forwarder
-    address[] memory forwarderSenders = new address[](senders.length+1);
-    for (uint256 i = 0; i < senders.length; i++) {
-      forwarderSenders[i] = senders[i];
+  /**
+   * @notice Sets the fulfillment permission for
+   * @param senders The addresses that are allowed to send updates
+   * @param targets The addresses to set permissions on
+   */
+  function setAuthorizedSendersOn(
+    address[] calldata senders,
+    address[] calldata targets
+  )
+    external
+    override
+    onlyAuthorizedSender()
+  {
+    for (uint256 i = 0; i < targets.length; i++) {
+      OperatorForwarder(targets[i]).setAuthorizedSenders(senders);
     }
-    forwarderSenders[senders.length] = msg.sender;
   }
 
   /**
@@ -673,7 +684,7 @@ contract Operator is
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
   modifier onlyAuthorizedSender() {
-    require(s_authorizedSenders[msg.sender], "Not an authorized node to fulfill requests");
+    require(s_authorizedSenders[msg.sender] || owner() == msg.sender, "Not authorized sender");
     _;
   }
 
