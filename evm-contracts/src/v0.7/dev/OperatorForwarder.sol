@@ -2,9 +2,9 @@
 pragma solidity ^0.7.0;
 
 import "../interfaces/OperatorInterface.sol";
-import "./ConfirmedOwner.sol";
+import "./ConfirmedOwnerWithProposal.sol";
 
-contract OperatorForwarder is ConfirmedOwner {
+contract OperatorForwarder is ConfirmedOwnerWithProposal {
 
   mapping(address => bool) private s_authorizedSenders;
   address[] private s_authorizedSenderList;
@@ -22,11 +22,16 @@ contract OperatorForwarder is ConfirmedOwner {
 
   constructor(
     address link,
-    address owner
+    address owner,
+    address recipient,
+    bytes memory message
   )
-    ConfirmedOwner(owner)
+    ConfirmedOwnerWithProposal(owner, recipient)
   {
     linkAddr = link;
+    if (recipient != address(0)) {
+      emit OwnershipTransferRequestedWithMessage(owner, recipient, message);
+    }
   }
 
   /**
@@ -93,9 +98,9 @@ contract OperatorForwarder is ConfirmedOwner {
    */
   function transferOwnershipWithMessage(
     address to,
-    bytes calldata message
+    bytes memory message
   )
-    external
+    public
   {
     transferOwnership(to);
     emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);
