@@ -341,9 +341,11 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta 
 	if retry || trrs.FinalResult().HasErrors() {
 		promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
 	}
-	run.Errors = trrs.FinalResult().ErrorsDB()
-	run.Outputs = trrs.FinalResult().OutputsDB()
-	run.FinishedAt = &finishRun
+	if !retry {
+		run.Errors = trrs.FinalResult().ErrorsDB()
+		run.Outputs = trrs.FinalResult().OutputsDB()
+		run.FinishedAt = &finishRun
+	}
 	return run, trrs, retry, err
 }
 

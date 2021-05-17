@@ -297,7 +297,9 @@ func (l *listener) handleCancelOracleRequest(request *oracle_wrapper.OracleCance
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb)
+	if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+		logger.Errorw("DirectRequest: failed to mark log consumed", "log", lb.String())
+	}
 }
 
 // JobID complies with log.Listener

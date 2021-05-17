@@ -25,6 +25,10 @@ const (
 	IdleInTxSessionTimeout = 1 * time.Hour
 )
 
+var (
+	ErrNoDeadlineSet = errors.New("no deadline set")
+)
+
 func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {
@@ -32,6 +36,9 @@ func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) erro
 	} else {
 		txOpts = DefaultSqlTxOptions
 	}
+	//if _, set := ctx.Deadline(); !set {
+	//	return ErrNoDeadlineSet
+	//}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
 		if err != nil {

@@ -496,7 +496,9 @@ func (fm *FluxMonitor) processLogs() {
 			fm.respondToNewRoundLog(*log, broadcast)
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			fm.respondToAnswerUpdatedLog(*log)
-			fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast)
+			if err = fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
+			}
 		case *flags_wrapper.FlagsFlagRaised:
 			// check the contract before hibernating, because one flag could be lowered
 			// while the other flag remains raised
@@ -506,7 +508,9 @@ func (fm *FluxMonitor) processLogs() {
 			if !isFlagLowered {
 				fm.pollManager.Hibernate()
 			}
-			fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast)
+			if err = fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
+			}
 		case *flags_wrapper.FlagsFlagLowered:
 			fm.pollManager.Awaken(fm.initialRoundState())
 			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
@@ -860,13 +864,13 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	err = postgres.GormTransaction(ctx, fm.db, func(tx *gorm.DB) error {
-		runID, err := fm.runner.InsertFinishedRun(tx, run, results, true)
-		if err != nil {
+		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, true)
+		if err2 != nil {
 			return err
 		}
-		err = fm.submitTransaction(fm.db, runID, answer, roundState.RoundId)
-		if err != nil {
-			return err
+		err2 = fm.submitTransaction(fm.db, runID, answer, roundState.RoundId)
+		if err2 != nil {
+			return err2
 		}
 		if broadcast != nil {
 			// In the case of a flag lowered, the pollEligible call is triggered by a log.
