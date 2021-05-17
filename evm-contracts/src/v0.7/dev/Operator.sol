@@ -144,7 +144,7 @@ contract Operator is
     public
     override
     onlyLINK()
-    checkCallbackAddress(callbackAddress)
+    checkCallAddress(callbackAddress)
   {
     (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
       sender,
@@ -401,6 +401,24 @@ contract Operator is
     returns (uint256)
   {
     return _fundsAvailable();
+  }
+
+  /**
+   * @notice Forward a call to another contract
+   * @dev Only callable by an authorized sender
+   * @param to address
+   * @param data to forward
+   */
+  function forward(
+    address to,
+    bytes calldata data
+  )
+    external
+    onlyOwner()
+    checkCallAddress(to)
+  {
+    (bool status,) = to.call(data);
+    require(status, "Forwarded call failed.");
   }
 
   /**
@@ -692,10 +710,10 @@ contract Operator is
    * @dev Reverts if the callback address is the LINK token
    * @param to The callback address
    */
-  modifier checkCallbackAddress(
+  modifier checkCallAddress(
     address to
   ) {
-    require(to != address(linkToken), "Cannot callback to LINK");
+    require(to != address(linkToken), "Cannot call to LINK");
     _;
   }
 
