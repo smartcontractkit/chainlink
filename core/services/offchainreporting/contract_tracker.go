@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -55,6 +57,7 @@ type (
 		jobID            int32
 		logger           logger.Logger
 		db               OCRContractTrackerDB
+		gdb              *gorm.DB
 
 		// Start/Stop lifecycle
 		ctx             context.Context
@@ -86,6 +89,7 @@ func NewOCRContractTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
+	gdb *gorm.DB,
 	db OCRContractTrackerDB,
 ) (o *OCRContractTracker, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,6 +103,7 @@ func NewOCRContractTracker(
 		jobID,
 		logger,
 		db,
+		gdb,
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -186,7 +191,7 @@ func (t *OCRContractTracker) OnDisconnect() {}
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
-	was, err := lb.WasAlreadyConsumed()
+	was, err := t.logBroadcaster.WasAlreadyConsumed(t.gdb, lb)
 	if err != nil {
 		t.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
 		return
@@ -197,12 +202,12 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.logger.ErrorIfCalling(lb.MarkConsumed)
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.logger.ErrorIfCalling(lb.MarkConsumed)
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 		return
 	}
 
@@ -212,7 +217,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		configSet, err = t.contractFilterer.ParseConfigSet(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
-			logger.ErrorIfCalling(lb.MarkConsumed)
+			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 			return
 		}
 		configSet.Raw = lb.RawLog()
@@ -227,7 +232,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
-			t.logger.ErrorIfCalling(lb.MarkConsumed)
+			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
@@ -246,7 +251,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
 
-	logger.ErrorIfCalling(lb.MarkConsumed)
+	t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 }
 
 // IsLaterThan returns true if the first log was emitted "after" the second log

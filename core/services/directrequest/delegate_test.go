@@ -2,9 +2,13 @@ package directrequest_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
+
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -420,4 +424,17 @@ func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
 
 func (c testConfig) MinimumContractPayment() *assets.Link {
 	return c.minimumContractPayment
+}
+
+func TestBlah(t *testing.T) {
+	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{DSN: "postgres://postgres:node@localhost:5432?sslmode=disable"}), &gorm.Config{})
+	require.NoError(t, err)
+	postgres.GormTransaction(context.Background(), db2, func(tx *gorm.DB) error {
+		fmt.Printf("%T \n", tx.Statement.ConnPool)
+		db, err := tx.DB()
+		fmt.Printf("%T %v\n", db, err)
+		return nil
+	})
+	//db2.WithContext(context.Background()).Transaction(func(tx *gorm.DB) error {
+	//})
 }

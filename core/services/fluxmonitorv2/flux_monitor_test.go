@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/log"
+	"gorm.io/gorm"
+
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -133,6 +136,7 @@ type setupOptions struct {
 	idleTimerDisabled  bool
 	idleTimerPeriod    time.Duration
 	orm                fluxmonitorv2.ORM
+	db                 *gorm.DB
 }
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
@@ -142,12 +146,12 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 
 	tm := setupMocks(t)
 
-	pipelineRun := fluxmonitorv2.NewPipelineRun(
-		tm.pipelineRunner,
-		pipelineSpec,
-		defaultLogger,
-	)
-
+	//pipelineRun := fluxmonitorv2.NewPipelineRun(
+	//	tm.pipelineRunner,
+	//	pipelineSpec,
+	//	defaultLogger,
+	//)
+	//
 	options := setupOptions{
 		idleTimerPeriod: time.Minute,
 		orm:             tm.orm,
@@ -156,9 +160,14 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 	for _, optionFn := range optionFns {
 		optionFn(&options)
 	}
-
+	db := options.db
+	if db == nil {
+		db = &gorm.DB{}
+	}
 	fm, err := fluxmonitorv2.NewFluxMonitor(
-		pipelineRun,
+		tm.pipelineRunner,
+		pipelineSpec,
+		db,
 		options.orm,
 		tm.jobORM,
 		tm.pipelineORM,
@@ -246,7 +255,8 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			name:     "eligible",
 			eligible: true, connected: true, funded: true, answersDeviate: true,
 			expectedToPoll: true, expectedToSubmit: true,
-		}, {
+		},
+		{
 			name:     "ineligible",
 			eligible: false, connected: true, funded: true, answersDeviate: true,
 			expectedToPoll: false, expectedToSubmit: false,
@@ -294,7 +304,9 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			fm, tm := setup(t)
+			fm, tm := setup(t, func(options *setupOptions) {
+				options.db = store.DB
+			})
 
 			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
 			tm.logBroadcaster.On("IsConnected").Return(tc.connected).Once()
@@ -378,21 +390,29 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					UpdatedAt: big.NewInt(100),
 				}, nil)
 				tm.pipelineRunner.
-					On("ExecuteAndInsertFinishedRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{
+					On("ExecuteRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{
 						Val: map[string]interface{}{
 							"latestAnswer": float64(10),
 							"updatedAt":    float64(100),
 						},
-					}, defaultLogger, false).
-					Return(int64(1), pipeline.FinalResult{
-						Values: []interface{}{decimal.NewFromInt(answers.polledAnswer)},
-						Errors: []error{nil},
+					}, defaultLogger).
+					Return(pipeline.Run{}, pipeline.TaskRunResults{
+						{
+							Result: pipeline.Result{
+								Value: decimal.NewFromInt(answers.polledAnswer),
+								Error: nil,
+							},
+							IsTerminal: true,
+						},
 					}, nil)
 			}
 
 			if tc.expectedToSubmit {
+				tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(int64(1), nil).
+					Once()
 				tm.contractSubmitter.
-					On("Submit", big.NewInt(reportableRoundID), big.NewInt(answers.polledAnswer)).
+					On("Submit", mock.Anything, big.NewInt(reportableRoundID), big.NewInt(answers.polledAnswer)).
 					Return(nil).
 					Once()
 
@@ -1195,7 +1215,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		})
+		}, log.NewLogBroadcast())
 
 		// Mocks initiated by polling
 		// Now force the node to try to poll and ensure it does not respond this time
@@ -1301,6 +1321,6 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		})
+		}, log.NewLogBroadcast())
 	})
 }

@@ -5,7 +5,10 @@ package mocks
 import (
 	context "context"
 
+	gorm "gorm.io/gorm"
+
 	logger "github.com/smartcontractkit/chainlink/core/logger"
+
 	mock "github.com/stretchr/testify/mock"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -59,42 +62,49 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 }
 
 // ExecuteRun provides a mock function with given fields: ctx, spec, meta, l
-func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, meta pipeline.JSONSerializable, l logger.Logger) (pipeline.TaskRunResults, error) {
+func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, meta pipeline.JSONSerializable, l logger.Logger) (pipeline.Run, pipeline.TaskRunResults, error) {
 	ret := _m.Called(ctx, spec, meta, l)
 
-	var r0 pipeline.TaskRunResults
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) pipeline.TaskRunResults); ok {
+	var r0 pipeline.Run
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) pipeline.Run); ok {
 		r0 = rf(ctx, spec, meta, l)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(pipeline.TaskRunResults)
+		r0 = ret.Get(0).(pipeline.Run)
+	}
+
+	var r1 pipeline.TaskRunResults
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) pipeline.TaskRunResults); ok {
+		r1 = rf(ctx, spec, meta, l)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(pipeline.TaskRunResults)
 		}
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) error); ok {
-		r1 = rf(ctx, spec, meta, l)
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) error); ok {
+		r2 = rf(ctx, spec, meta, l)
 	} else {
-		r1 = ret.Error(1)
+		r2 = ret.Error(2)
 	}
 
-	return r0, r1
+	return r0, r1, r2
 }
 
-// InsertFinishedRun provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
-func (_m *Runner) InsertFinishedRun(ctx context.Context, run pipeline.Run, trrs pipeline.TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
-	ret := _m.Called(ctx, run, trrs, saveSuccessfulTaskRuns)
+// InsertFinishedRun provides a mock function with given fields: db, run, trrs, saveSuccessfulTaskRuns
+func (_m *Runner) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs pipeline.TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+	ret := _m.Called(db, run, trrs, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, pipeline.TaskRunResults, bool) int64); ok {
-		r0 = rf(ctx, run, trrs, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(0).(func(*gorm.DB, pipeline.Run, pipeline.TaskRunResults, bool) int64); ok {
+		r0 = rf(db, run, trrs, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, pipeline.TaskRunResults, bool) error); ok {
-		r1 = rf(ctx, run, trrs, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(1).(func(*gorm.DB, pipeline.Run, pipeline.TaskRunResults, bool) error); ok {
+		r1 = rf(db, run, trrs, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Error(1)
 	}

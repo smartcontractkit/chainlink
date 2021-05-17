@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -32,6 +34,6 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	fluxAggregator.On("Address").Return(toAddress)
 	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit, uint64(0)).Return(nil)
 
-	err = submitter.Submit(roundID, submission)
+	err = submitter.Submit(&gorm.DB{}, roundID, submission)
 	assert.NoError(t, err)
 }

@@ -3,6 +3,8 @@ package offchainreporting
 import (
 	"testing"
 
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/stretchr/testify/mock"
@@ -13,6 +15,7 @@ func TestRunSaver(t *testing.T) {
 	pipelineRunner := new(mocks.Runner)
 	rr := make(chan pipeline.RunWithResults, 100)
 	rs := NewResultRunSaver(
+		&gorm.DB{},
 		rr,
 		pipelineRunner,
 		make(chan struct{}),

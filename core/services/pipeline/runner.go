@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -28,9 +30,9 @@ type Runner interface {
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
-	ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
-	InsertFinishedRun(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
+	InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
 	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
@@ -142,13 +144,14 @@ type input struct {
 	index  int32
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, error) {
+func (r *runner) ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (Run, TaskRunResults, error) {
 	var (
 		trrs            TaskRunResults
 		err             error
 		retry           bool
 		i               int
 		numPanicRetries = 5
+		run             Run
 	)
 	b := &backoff.Backoff{
 		Min:    100 * time.Second,
@@ -157,7 +160,7 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializabl
 		Jitter: false,
 	}
 	for i = 0; i < numPanicRetries; i++ {
-		trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, meta, l)
+		run, trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, meta, l)
 		if retry {
 			time.Sleep(b.Duration())
 			continue
@@ -168,15 +171,19 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializabl
 	if i == numPanicRetries {
 		return r.panickedRunResults(spec)
 	}
-	return trrs, err
+	return run, trrs, err
 }
 
 // Generate a errored run from the spec.
-func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
+func (r *runner) panickedRunResults(spec Spec) (Run, []TaskRunResult, error) {
 	var panickedTrrs []TaskRunResult
+	var run Run
+	run.PipelineSpecID = spec.ID
+	run.CreatedAt = time.Now()
+	run.FinishedAt = &run.CreatedAt
 	tasks, err := spec.TasksInDependencyOrder()
 	if err != nil {
-		return nil, err
+		return run, nil, err
 	}
 	f := time.Now()
 	for _, task := range tasks {
@@ -188,27 +195,32 @@ func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
 			IsTerminal: task.OutputTask() == nil,
 		})
 	}
-	return panickedTrrs, nil
+	run.Outputs = TaskRunResults(panickedTrrs).FinalResult().OutputsDB()
+	run.Errors = TaskRunResults(panickedTrrs).FinalResult().ErrorsDB()
+	return run, panickedTrrs, nil
 }
 
-func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, bool, error) {
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta JSONSerializable, l logger.Logger) (Run, TaskRunResults, bool, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
 	var (
 		err  error
 		trrs TaskRunResults
+		run  Run
 	)
 	startRun := time.Now()
+	run.PipelineSpecID = spec.ID
+	run.CreatedAt = startRun
 
 	d := TaskDAG{}
 	err = d.UnmarshalText([]byte(spec.DotDagSource))
 	if err != nil {
-		return trrs, false, err
+		return run, trrs, false, err
 	}
 
 	// Find "firsts" and work forwards
 	tasks, err := d.TasksInDependencyOrder()
 	if err != nil {
-		return nil, false, err
+		return run, nil, false, err
 	}
 	all := make(map[string]*memoryTaskRun)
 	var graph []*memoryTaskRun
@@ -322,15 +334,17 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta 
 	}
 
 	wg.Wait()
-
-	runTime := time.Since(startRun)
+	finishRun := time.Now()
+	runTime := finishRun.Sub(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
 	promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
 	if retry || trrs.FinalResult().HasErrors() {
 		promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
 	}
-
-	return trrs, retry, err
+	run.Errors = trrs.FinalResult().ErrorsDB()
+	run.Outputs = trrs.FinalResult().OutputsDB()
+	run.FinishedAt = &finishRun
+	return run, trrs, retry, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, meta JSONSerializable, inputs []Result, l logger.Logger) Result {
@@ -369,31 +383,23 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, meta 
 // ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	var run Run
-	run.PipelineSpecID = spec.ID
-	run.CreatedAt = time.Now()
-	trrs, err := r.ExecuteRun(ctx, spec, meta, l)
+	run, trrs, err := r.ExecuteRun(ctx, spec, meta, l)
 	if err != nil {
 		return run.ID, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
-
-	end := time.Now()
-	run.FinishedAt = &end
-
 	finalResult = trrs.FinalResult()
-	run.Outputs = finalResult.OutputsDB()
-	run.Errors = finalResult.ErrorsDB()
-
-	if runID, err = r.orm.InsertFinishedRun(ctx, run, trrs, saveSuccessfulTaskRuns); err != nil {
+	err = postgres.GormTransaction(ctx, r.orm.DB(), func(tx *gorm.DB) error {
+		runID, err = r.orm.InsertFinishedRun(tx, run, trrs, saveSuccessfulTaskRuns)
+		return err
+	})
+	if err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
-
 	return runID, finalResult, nil
 }
 
-func (r *runner) InsertFinishedRun(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, r.config.DatabaseMaximumTxDuration())
-	defer cancel()
-	return r.orm.InsertFinishedRun(dbCtx, run, trrs, saveSuccessfulTaskRuns)
+func (r *runner) InsertFinishedRun(tx *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+	return r.orm.InsertFinishedRun(tx, run, trrs, saveSuccessfulTaskRuns)
 }
 
 func (r *runner) runReaper() {

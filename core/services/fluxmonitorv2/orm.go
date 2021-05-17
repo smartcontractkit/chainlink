@@ -19,7 +19,7 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64) error
-	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
 }
 
 type orm struct {
@@ -93,25 +93,26 @@ func (o *orm) CountFluxMonitorRoundStats() (int, error) {
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
 func (o *orm) CreateEthTransaction(
+	db *gorm.DB,
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
 	gasLimit uint64,
 	maxUnconfirmedTransactions uint64,
 ) error {
-	db, err := o.db.DB()
+	sqlDB, err := db.DB()
 	if err != nil {
 		return errors.Wrap(err, "orm#CreateEthTransaction")
 	}
 
-	err = utils.CheckOKToTransmit(context.Background(), db, fromAddress, maxUnconfirmedTransactions)
+	err = utils.CheckOKToTransmit(context.Background(), sqlDB, fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return errors.Wrap(err, "orm#CreateEthTransaction")
 	}
 
 	value := 0
 
-	dbtx := o.db.Exec(`
+	dbtx := db.Exec(`
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
 SELECT ?,?,?,?,?,'unstarted',NOW()
 WHERE NOT EXISTS (

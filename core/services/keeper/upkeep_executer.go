@@ -192,10 +192,18 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	logger.Debugw("UpkeepExecuter: performing upkeep", logArgs...)
 
-	ctxQuery, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
+	// Save a run indicating we performed an upkeep.
+	f := time.Now()
+	var runErrors pipeline.RunErrors
+	if err == nil {
+		runErrors = pipeline.RunErrors{null.String{}}
+	} else {
+		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to update database state").Error())}
+	}
 
 	var etx models.EthTx
+	ctxQuery, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
 		sqlDB := postgres.MustSQLDB(dbtx)
 		etx, err = executer.orm.CreateEthTransactionForUpkeep(sqlDB, upkeep, performTxData, executer.maxUnconfirmedTXs)
@@ -207,40 +215,27 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
 		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
 		err = executer.orm.SetLastRunHeightForUpkeepOnJob(dbtx, executer.job.ID, upkeep.UpkeepID, headNumber)
+		if err != nil {
+			return errors.Wrap(err, "failed to set last run height for upkeep")
+		}
 
-		return errors.Wrap(err, "failed to set last run height for upkeep")
+		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+			PipelineSpecID: executer.job.PipelineSpecID,
+			Meta: pipeline.JSONSerializable{
+				Val: map[string]interface{}{"eth_tx_id": etx.ID},
+			},
+			Errors:     runErrors,
+			Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
+			CreatedAt:  start,
+			FinishedAt: &f,
+		}, nil, false)
+		if err != nil {
+			return errors.Wrap(err, "UpkeepExecuter: failed to insert finished run")
+		}
+		return nil
 	})
 	if err != nil {
-		logArgs = append(logArgs, "err", err)
-		logger.Errorw("UpkeepExecuter: failed to update database state", logArgs...)
-	}
-
-	// Save a run indicating we performed an upkeep.
-	f := time.Now()
-
-	ctxQuery, cancel = postgres.DefaultQueryCtx()
-	defer cancel()
-
-	var runErrors pipeline.RunErrors
-	if err == nil {
-		runErrors = pipeline.RunErrors{null.String{}}
-	} else {
-		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to update database state").Error())}
-	}
-
-	_, err = executer.pr.InsertFinishedRun(ctxQuery, pipeline.Run{
-		PipelineSpecID: executer.job.PipelineSpecID,
-		Meta: pipeline.JSONSerializable{
-			Val: map[string]interface{}{"eth_tx_id": etx.ID},
-		},
-		Errors:     runErrors,
-		Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
-		CreatedAt:  start,
-		FinishedAt: &f,
-	}, nil, false)
-	if err != nil {
-		logArgs = append(logArgs, "err", err)
-		logger.Errorw("UpkeepExecuter: failed to insert finished run", logArgs...)
+		logger.Errorw("UpkeepExecuter: failed to update database state", "err", err)
 	}
 }
 
