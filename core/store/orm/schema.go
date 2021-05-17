@@ -68,10 +68,10 @@ type ConfigSchema struct {
 	ExplorerAccessKey                         string          `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                            string          `env:"EXPLORER_SECRET"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
-	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"false"`
+	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"true"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
-	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"false"`
+	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`
