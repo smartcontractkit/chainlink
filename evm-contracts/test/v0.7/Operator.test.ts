@@ -30,6 +30,7 @@ const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factor
 const operatorFactory = new Operator__factory()
 const operatorForwarderFactory = new OperatorForwarder__factory()
 const linkTokenFactory = new contract.LinkToken__factory()
+const zeroAddress = ethers.constants.AddressZero
 
 let roles: setup.Roles
 const provider = setup.provider()
@@ -98,10 +99,10 @@ describe('Operator', () => {
     beforeEach(async () => {
       forwarder1 = await operatorForwarderFactory
         .connect(owner)
-        .deploy(link.address, operator.address)
+        .deploy(link.address, operator.address, zeroAddress, '0x')
       forwarder2 = await operatorForwarderFactory
         .connect(owner)
-        .deploy(link.address, operator.address)
+        .deploy(link.address, operator.address, zeroAddress, '0x')
     })
 
     describe('being called by the owner', () => {
@@ -162,10 +163,10 @@ describe('Operator', () => {
           .deploy(link.address, roles.defaultAccount.address)
         forwarder1 = await operatorForwarderFactory
           .connect(roles.defaultAccount)
-          .deploy(link.address, operator.address)
+          .deploy(link.address, operator.address, zeroAddress, '0x')
         forwarder2 = await operatorForwarderFactory
           .connect(roles.defaultAccount)
-          .deploy(link.address, operator.address)
+          .deploy(link.address, operator.address, zeroAddress, '0x')
         await operator
           .connect(roles.defaultAccount)
           .transferOwnableContracts(
@@ -402,10 +403,10 @@ describe('Operator', () => {
 
       forwarder1 = await operatorForwarderFactory
         .connect(owner)
-        .deploy(link.address, operator.address)
+        .deploy(link.address, operator.address, zeroAddress, '0x')
       forwarder2 = await operatorForwarderFactory
         .connect(owner)
-        .deploy(link.address, operator.address)
+        .deploy(link.address, operator.address, zeroAddress, '0x')
     })
 
     describe('when called by a non-authorized sender', () => {
