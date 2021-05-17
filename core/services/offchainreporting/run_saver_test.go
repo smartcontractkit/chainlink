@@ -1,9 +1,10 @@
 package offchainreporting
 
 import (
-	"testing"
-
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -14,8 +15,12 @@ import (
 func TestRunSaver(t *testing.T) {
 	pipelineRunner := new(mocks.Runner)
 	rr := make(chan pipeline.RunWithResults, 100)
+	c := orm.NewConfig()
+	url := c.DatabaseURL()
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{DSN: url.String()}), &gorm.Config{})
+	require.NoError(t, err)
 	rs := NewResultRunSaver(
-		&gorm.DB{},
+		db,
 		rr,
 		pipelineRunner,
 		make(chan struct{}),
