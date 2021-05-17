@@ -363,6 +363,21 @@ describe('Operator', () => {
       })
     })
 
+    describe('when called by an authorized sender', () => {
+      beforeEach(async () => {
+        newSenders = [roles.oracleNode1.address]
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders(newSenders)
+      })
+
+      it('succeeds', async () => {
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([roles.stranger.address])
+      })
+    })
+
     describe('when called by a non-owner', () => {
       it('cannot add an authorized node', async () => {
         await matchers.evmRevert(async () => {
