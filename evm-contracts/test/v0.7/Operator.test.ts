@@ -78,6 +78,7 @@ describe('Operator', () => {
       'oracleRequest',
       'requestOracleData',
       'setAuthorizedSenders',
+      'setAuthorizedSendersOn',
       'getAuthorizedSenders',
       'withdraw',
       'withdrawable',
@@ -370,6 +371,92 @@ describe('Operator', () => {
             .setAuthorizedSenders([roles.stranger.address])
           ;('Only callable by owner')
         })
+      })
+    })
+  })
+
+  describe('#setAuthorizedSendersOn', () => {
+    let newSenders: string[]
+
+    beforeEach(async () => {
+      await operator
+        .connect(roles.defaultAccount)
+        .setAuthorizedSenders([roles.oracleNode1.address])
+      newSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
+
+      forwarder1 = await operatorForwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address)
+      forwarder2 = await operatorForwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address)
+    })
+
+    describe('when called by a non-authorized sender', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .setAuthorizedSendersOn(newSenders, [forwarder1.address])
+          ;('Only callable by owner')
+        })
+      })
+    })
+
+    describe('when called by an owner', () => {
+      it('does not revert', async () => {
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSendersOn(newSenders, [
+            forwarder1.address,
+            forwarder2.address,
+          ])
+      })
+    })
+
+    describe('when called by an authorized sender', () => {
+      it('does not revert', async () => {
+        await operator
+          .connect(roles.oracleNode1)
+          .setAuthorizedSendersOn(newSenders, [
+            forwarder1.address,
+            forwarder2.address,
+          ])
+      })
+
+      it('does revert with 0 senders', async () => {
+        await operator
+          .connect(roles.oracleNode1)
+          .setAuthorizedSendersOn(newSenders, [
+            forwarder1.address,
+            forwarder2.address,
+          ])
+      })
+
+      it('updates the sender list on each of the targets', async () => {
+        const tx = await operator
+          .connect(roles.oracleNode1)
+          .setAuthorizedSendersOn(newSenders, [
+            forwarder1.address,
+            forwarder2.address,
+          ])
+
+        const receipt = await tx.wait()
+        assert.equal(receipt.events?.length, 2, receipt.toString())
+        const encodedSenders = utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [newSenders],
+        )
+
+        const event1 = receipt.events?.[0]
+        assert.equal(event1?.event, 'AuthorizedSendersChanged')
+        assert.equal(event1?.address, forwarder1.address)
+        assert.equal(event1?.data, encodedSenders)
+
+        const event2 = receipt.events?.[1]
+        assert.equal(event2?.event, 'AuthorizedSendersChanged')
+        assert.equal(event2?.address, forwarder2.address)
+        assert.equal(event2?.data, encodedSenders)
       })
     })
   })

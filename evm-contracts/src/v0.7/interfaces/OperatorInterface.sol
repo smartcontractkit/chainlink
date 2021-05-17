@@ -56,14 +56,24 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
 
   function setAuthorizedSenders(
     address[] calldata senders
-  ) external;
+  )
+    external;
+
+  function setAuthorizedSendersOn(
+    address[] calldata senders,
+    address[] calldata targets
+  )
+    external;
 
   function transferOwnableContracts(
     address[] calldata ownable,
     address newOwner
-  ) external;
+  )
+    external;
 
   function acceptOwnableContracts(
     address[] calldata ownable
-  ) external;
+  )
+    external;
+
 }
