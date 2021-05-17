@@ -68,24 +68,25 @@ describe('Operator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(operatorFactory, [
       'EXPIRY_TIME',
+      'acceptOwnableContracts',
       'cancelOracleRequest',
+      'distributeFunds',
+      'forward',
       'fulfillOracleRequest',
       'fulfillOracleRequest2',
-      'isAuthorizedSender',
+      'getAuthorizedSenders',
       'getChainlinkToken',
+      'isAuthorizedSender',
       'onTokenTransfer',
-      'validateTokenTransferAction',
+      'operatorTransferAndCall',
       'oracleRequest',
       'requestOracleData',
       'setAuthorizedSenders',
       'setAuthorizedSendersOn',
-      'getAuthorizedSenders',
+      'transferOwnableContracts',
+      'validateTokenTransferAction',
       'withdraw',
       'withdrawable',
-      'operatorTransferAndCall',
-      'distributeFunds',
-      'transferOwnableContracts',
-      'acceptOwnableContracts',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -3179,6 +3180,63 @@ describe('Operator', () => {
               .connect(roles.consumer)
               .cancelOracleRequest(...oracle.convertCancelParams(request)),
           )
+        })
+      })
+    })
+  })
+
+  describe('#forward', () => {
+    const bytes = utils.hexlify(utils.randomBytes(100))
+    const payload = getterSetterFactory.interface.functions.setBytes.encode([
+      bytes,
+    ])
+    let mock: contract.Instance<GetterSetter__factory>
+
+    beforeEach(async () => {
+      mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.stranger).forward(mock.address, payload)
+        })
+      })
+    })
+
+    describe('when called by owner', () => {
+      describe('when attempting to forward to the link token', () => {
+        it('reverts', async () => {
+          const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.defaultAccount)
+              .forward(link.address, sighash),
+              'Cannot forward to LINK token'
+          })
+        })
+      })
+
+      describe('when forwarding to any other address', () => {
+        it('forwards the data', async () => {
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .forward(mock.address, payload)
+          await tx.wait()
+          assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('perceives the message is sent by the Operator', async () => {
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .forward(mock.address, payload)
+          const receipt = await tx.wait()
+          const log: any = receipt.logs?.[0]
+          const logData = mock.interface.events.SetBytes.decode(
+            log.data,
+            log.topics,
+          )
+          assert.equal(utils.getAddress(logData.from), operator.address)
         })
       })
     })
