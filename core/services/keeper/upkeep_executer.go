@@ -133,7 +133,8 @@ func (executer *UpkeepExecuter) processActiveUpkeeps() {
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	activeUpkeeps, err := executer.orm.EligibleUpkeeps(ctx, head.Number, executer.maxGracePeriod)
+
+	activeUpkeeps, err := executer.orm.EligibleUpkeepsForRegistry(ctx, executer.job.KeeperSpec.ContractAddress, head.Number, executer.maxGracePeriod)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
