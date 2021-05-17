@@ -189,7 +189,7 @@ describe('Operator', () => {
         assert.equal(receipt?.events?.[0]?.args?.[0], operator.address)
         assert.equal(receipt?.events?.[0]?.args?.[1], operator2.address)
 
-        assert.equal(receipt?.events?.[1]?.event, 'OwnershipAccepted')
+        assert.equal(receipt?.events?.[1]?.event, 'OwnableContractAccepted')
         assert.equal(receipt?.events?.[1]?.args?.[0], forwarder1.address)
 
         assert.equal(receipt?.events?.[2]?.event, 'OwnershipTransferred')
@@ -197,7 +197,7 @@ describe('Operator', () => {
         assert.equal(receipt?.events?.[2]?.args?.[0], operator.address)
         assert.equal(receipt?.events?.[2]?.args?.[1], operator2.address)
 
-        assert.equal(receipt?.events?.[3]?.event, 'OwnershipAccepted')
+        assert.equal(receipt?.events?.[3]?.event, 'OwnableContractAccepted')
         assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address)
       })
     })

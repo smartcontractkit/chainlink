@@ -72,7 +72,7 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event OwnershipAccepted(
+  event OwnableContractAccepted(
     address indexed forwarder
   );
 
@@ -352,7 +352,7 @@ contract Operator is
   {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).acceptOwnership();
-      emit OwnershipAccepted(ownable[i]);
+      emit OwnableContractAccepted(ownable[i]);
     }
   }
 
