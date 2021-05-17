@@ -66,6 +66,43 @@ describe('OperatorFactory', () => {
     })
   })
 
+  describe('#deployNewOperatorAndForwarder', () => {
+    let receipt: ContractReceipt
+
+    beforeEach(async () => {
+      const tx = await operatorGenerator
+        .connect(roles.oracleNode)
+        .deployNewOperatorAndForwarder()
+
+      receipt = await tx.wait()
+    })
+
+    it('emits an event recording that the operator was deployed', async () => {
+      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1])
+      assert.equal(receipt?.events?.[0]?.event, 'OperatorCreated')
+    })
+
+    it('emits an event recording that the forwarder was deployed', async () => {
+      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1])
+      assert.equal(receipt?.events?.[1]?.event, 'OperatorForwarderCreated')
+    })
+
+    it('sets the correct owner on the operator', async () => {
+      operator = await operatorFactory
+        .connect(roles.defaultAccount)
+        .attach(receipt?.events?.[0]?.args?.[0])
+      assert.equal(roles.oracleNode.address, await operator.owner())
+    })
+
+    it('sets the operator as the owner of the forwarder', async () => {
+      forwarder = await forwarderFactory
+        .connect(roles.defaultAccount)
+        .attach(receipt?.events?.[1]?.args?.[0])
+      const operatorAddress = receipt?.events?.[0]?.args?.[0]
+      assert.equal(operatorAddress, await forwarder.owner())
+    })
+  })
+
   describe('#deployNewForwarder', () => {
     let receipt: ContractReceipt
 

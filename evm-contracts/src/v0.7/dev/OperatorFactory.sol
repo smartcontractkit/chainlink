@@ -41,6 +41,30 @@ contract OperatorFactory {
   }
 
   /**
+   * @notice creates a new Operator contract with the msg.sender as owner and a
+   * new Operator Forwarder with the Operator as the owner
+   */
+  function deployNewOperatorAndForwarder()
+    external
+  {
+    Operator operator = new Operator(link, msg.sender);
+    emit OperatorCreated(address(operator), msg.sender);
+
+    bytes memory tmp = new bytes(0);
+    OperatorForwarder forwarder = new OperatorForwarder(
+      link,
+      address(operator),
+      address(0),
+      tmp
+    );
+
+    emit OperatorForwarderCreated(
+      address(forwarder),
+      msg.sender
+    );
+  }
+
+  /**
    * @notice creates a new Forwarder contract with the msg.sender as owner
    */
   function deployNewForwarder()
