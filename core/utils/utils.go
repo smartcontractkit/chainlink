@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -967,10 +968,11 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	if len(hexData) < 8 {
 		return "", errors.New("unknown data payload format")
 	}
-	bytes, err := hex.DecodeString(hexData[8:])
+	revertReasonBytes, err := hex.DecodeString(hexData[8:])
 	if err != nil {
 		return "", errors.Wrap(err, "unable to decode hex to bytes")
 	}
-	revertReason := strings.TrimSpace(string(bytes))
+	revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+	revertReason := strings.TrimSpace(string(revertReasonBytes))
 	return revertReason, nil
 }
