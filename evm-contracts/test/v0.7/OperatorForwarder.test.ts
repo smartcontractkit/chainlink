@@ -1,6 +1,6 @@
 import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { utils } from 'ethers'
+import { ethers, utils } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
 import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
 import { OperatorForwarder__factory } from '../../ethers/v0.7/factories/OperatorForwarder__factory'
@@ -11,6 +11,7 @@ const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 const provider = setup.provider()
+const zeroAddress = ethers.constants.AddressZero
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -25,7 +26,7 @@ describe('OperatorForwarder', () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     operatorForwarder = await operatorForwarderFactory
       .connect(roles.defaultAccount)
-      .deploy(link.address, roles.defaultAccount.address)
+      .deploy(link.address, roles.defaultAccount.address, zeroAddress, '0x')
   })
 
   beforeEach(async () => {
