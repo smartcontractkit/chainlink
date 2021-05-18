@@ -109,14 +109,14 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
 		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
-			address, err = store.GetRoundRobinAddress(store.DB, e.FromAddresses...)
+			address, err = store.GetRoundRobinAddress(tx, e.FromAddresses...)
 			return err
 		})
 		return address, err
 	}
 	if e.FromAddress == utils.ZeroAddress {
 		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
-			address, err = store.GetRoundRobinAddress(store.DB, e.FromAddresses...)
+			address, err = store.GetRoundRobinAddress(tx, e.FromAddresses...)
 			return err
 		})
 		return address, err

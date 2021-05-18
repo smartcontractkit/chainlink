@@ -742,17 +742,18 @@ func (p *PollingDeviationChecker) processLogs() {
 
 		ctx, cancel = postgres.DefaultQueryCtx()
 		defer cancel()
+		db := p.store.DB.WithContext(ctx)
 		switch log := broadcast.DecodedLog().(type) {
 		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 			p.respondToNewRoundLog(*log)
-			err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast)
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			p.respondToAnswerUpdatedLog(*log)
-			err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast)
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
@@ -766,12 +767,12 @@ func (p *PollingDeviationChecker) processLogs() {
 			if !isFlagLowered {
 				p.hibernate()
 			}
-			err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast)
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
 			p.reactivate()
-			err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast)
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		default:
