@@ -138,7 +138,6 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	blockNum := int64(0)
 
 	t.Run("only finds eth_txes in unconfirmed state with at least one broadcast attempt", func(t *testing.T) {
-
 		cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		mustInsertInProgressEthTx(t, store, nonce, fromAddress)
 		nonce++
@@ -933,6 +932,19 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 		assert.Equal(t, etx2.ID, etxs[1].ID)
 		assert.Equal(t, *etx3.Nonce, *etxs[2].Nonce)
 		assert.Equal(t, etx3.ID, etxs[2].ID)
+	})
+
+	t.Run("does not return confirmed or fatally errored eth_txes", func(t *testing.T) {
+		require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET state='confirmed' WHERE id = ?`, etx1.ID).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL WHERE id = ?`, etx2.ID).Error)
+
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringResubmissionDueToInsufficientEth(store.DB, fromAddress)
+		require.NoError(t, err)
+
+		assert.Len(t, etxs, 1)
+
+		assert.Equal(t, *etx3.Nonce, *etxs[0].Nonce)
+		assert.Equal(t, etx3.ID, etxs[0].ID)
 	})
 }
 

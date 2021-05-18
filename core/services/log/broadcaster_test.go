@@ -87,7 +87,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	var backfillCountPtr = &backfillCount
 
 	// the first backfill should use the last known height from db
-	mockEth.checkBackfill = func(fromBlock int64) {
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		atomic.StoreInt64(backfillCountPtr, 1)
 		require.Equal(t, lastStoredBlockHeight, fromBlock)
 	}
@@ -111,7 +111,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.unsubscribeAll()
 
 	// now the backfill must use the blockBackfillDepth
-	mockEth.checkBackfill = func(fromBlock int64) {
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		require.Equal(t, blockHeight-int64(blockBackfillDepth), fromBlock)
 		atomic.StoreInt64(backfillCountPtr, 2)
 	}
@@ -124,6 +124,144 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
 
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 2 }, 5*time.Second, 10*time.Millisecond)
+
+	helper.mockEth.assertExpectations(t)
+}
+
+func TestBroadcaster_BackfillInBatches(t *testing.T) {
+	t.Parallel()
+
+	const (
+		blockHeight           int64  = 120
+		lastStoredBlockHeight        = blockHeight - 30
+		backfillTimes                = 1
+		batchSize             uint32 = 5
+		// expecting 7 batch calls, not 6, because last call is inclusive (will be from 120 to 120)
+		expectedBatches = 7
+	)
+
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: backfillTimes,
+		HeaderByNumber:      backfillTimes,
+		FilterLogs:          expectedBatches,
+		Unsubscribe:         backfillTimes,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper.mockEth = mockEth
+
+	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
+
+	var backfillCount int64
+	var backfillCountPtr = &backfillCount
+
+	// the first backfill should use the last known height from db
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+		times := atomic.LoadInt64(backfillCountPtr)
+		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
+		if times == 0 {
+			require.Equal(t, int64(90), fromBlock)
+			require.Equal(t, int64(94), toBlock)
+		} else if times == 1 {
+			require.Equal(t, int64(95), fromBlock)
+			require.Equal(t, int64(99), toBlock)
+		} else if times == 2 {
+			require.Equal(t, int64(100), fromBlock)
+			require.Equal(t, int64(104), toBlock)
+		} else if times == 3 {
+			require.Equal(t, int64(105), fromBlock)
+			require.Equal(t, int64(109), toBlock)
+		} else if times == 4 {
+			require.Equal(t, int64(110), fromBlock)
+			require.Equal(t, int64(114), toBlock)
+		} else if times == 5 {
+			require.Equal(t, int64(115), fromBlock)
+			require.Equal(t, int64(119), toBlock)
+		} else if times == 6 {
+			require.Equal(t, int64(120), fromBlock)
+			require.Equal(t, int64(120), toBlock)
+		}
+		atomic.StoreInt64(backfillCountPtr, times+1)
+	}
+
+	listener := helper.newLogListener("initial")
+	helper.register(listener, newMockContract(), 1)
+	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+
+	defer helper.stop()
+
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == expectedBatches }, 5*time.Second, 10*time.Millisecond)
+
+	helper.unsubscribeAll()
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+
+	helper.mockEth.assertExpectations(t)
+}
+
+func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
+	t.Parallel()
+
+	const (
+		lastStoredBlockHeight int64 = 10
+
+		// a large number of blocks since lastStoredBlockHeight
+		blockHeight int64 = 3000
+
+		backfillTimes          = 1
+		batchSize       uint32 = 50
+		expectedBatches        = 60
+	)
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := newBlocks(t, 7)
+	backfilledLogs := make([]types.Log, 0)
+	for i := 0; i < 50; i++ {
+		aLog := blocks.logOnBlockNum(0, contract1.Address())
+		backfilledLogs = append(backfilledLogs, aLog)
+	}
+
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: backfillTimes,
+		HeaderByNumber:      backfillTimes,
+		FilterLogs:          expectedBatches,
+		Unsubscribe:         backfillTimes,
+
+		FilterLogsResult: backfilledLogs,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper.mockEth = mockEth
+
+	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
+
+	var backfillCount int64
+	var backfillCountPtr = &backfillCount
+
+	// the first backfill should use the last known height from db
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+		times := atomic.LoadInt64(backfillCountPtr)
+		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
+		atomic.StoreInt64(backfillCountPtr, times+1)
+	}
+
+	listener := helper.newLogListener("initial")
+	helper.register(listener, newMockContract(), 1)
+	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+
+	defer helper.stop()
+
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == expectedBatches }, 5*time.Second, 10*time.Millisecond)
+
+	helper.unsubscribeAll()
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
 
 	helper.mockEth.assertExpectations(t)
 }
@@ -586,6 +724,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	t.Parallel()
 
 	const (
+		backfillTimes = 1
 		blockHeight   = 15
 		expectedBlock = 5
 	)
@@ -597,7 +736,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		contract2 = newMockContract()
 	)
 
-	chchRawLogs := make(chan chan<- types.Log, 1)
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	chStarted := make(chan struct{})
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -623,7 +762,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 			require.Len(t, query.Addresses, 1)
 		}).
 		Return(nil, nil).
-		Once()
+		Times(backfillTimes)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			query := args.Get(1).(ethereum.FilterQuery)
