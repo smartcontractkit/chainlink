@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -325,6 +327,78 @@ func TestIntegration_RunLog(t *testing.T) {
 			assert.Equal(t, int64(requiredConfs), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
 		})
 	}
+}
+
+func TestIntegration_RandomnessReorgProtection(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+
+	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+	defer assertMockCalls()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	t.Cleanup(cleanup)
+	sub.On("Err").Return(nil).Maybe()
+	sub.On("Unsubscribe").Return(nil).Maybe()
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+
+	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	}), nil)
+
+	require.NoError(t, app.StartAndConnect())
+	// Fixture values
+	sender := common.HexToAddress("0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7")
+	keyHash := common.HexToHash("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800")
+	jb := cltest.CreateSpecViaWeb(t, app, testspecs.RandomnessJob)
+	logs := <-logsCh
+	fee := assets.Link(*big.NewInt(100)) // Default min link is 100
+	randLog := models.RandomnessRequestLog{
+		KeyHash:   keyHash,
+		Seed:      big.NewInt(1),
+		JobID:     cltest.NewHash(),
+		Sender:    sender,
+		Fee:       &fee,
+		RequestID: cltest.NewHash(),
+		Raw:       models.RawRandomnessRequestLog{},
+	}
+	log := cltest.NewRandomnessRequestLog(t, randLog, sender, 101)
+	logs <- log
+	runs := cltest.WaitForRuns(t, jb, app.Store, 1)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// Same requestID log again should result in a doubling of incoming confs
+	log.TxHash = cltest.NewHash()
+	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 102
+	logs <- log
+	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// Same requestID log again should result in a doubling of incoming confs
+	log.TxHash = cltest.NewHash()
+	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 103
+	logs <- log
+	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// New requestID should be back to original
+	randLog.RequestID = cltest.NewHash()
+	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
+	logs <- newReqLog
+	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 }
 
 func TestIntegration_StartAt(t *testing.T) {
