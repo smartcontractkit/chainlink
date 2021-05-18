@@ -49,7 +49,7 @@ func NewFluxAggregatorContractSubmitter(
 // Submit submits the answer by writing a EthTx for the bulletprooftxmanager to
 // pick up
 func (c *FluxAggregatorContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, submission *big.Int) error {
-	fromAddress, err := c.keyStore.GetRoundRobinAddress() // TODO: should accept a db too
+	fromAddress, err := c.keyStore.GetRoundRobinAddress(db)
 	if err != nil {
 		return err
 	}

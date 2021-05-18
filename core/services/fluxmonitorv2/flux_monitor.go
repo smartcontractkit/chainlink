@@ -50,9 +50,8 @@ const (
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
-	contractAddress common.Address
-	oracleAddress   common.Address
-	//pipelineRun       PipelineRun
+	contractAddress   common.Address
+	oracleAddress     common.Address
 	spec              pipeline.Spec
 	runner            pipeline.Runner
 	db                *gorm.DB
@@ -101,7 +100,6 @@ func NewFluxMonitor(
 	fmLogger *logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
-		//pipelineRun:       pipelineRun,
 		db:                db,
 		runner:            pipelineRunner,
 		spec:              spec,
@@ -484,12 +482,13 @@ func (fm *FluxMonitor) processLogs() {
 
 		ctx, cancel = postgres.DefaultQueryCtx()
 		defer cancel()
+		db := fm.db.WithContext(ctx)
 		switch log := broadcast.DecodedLog().(type) {
 		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 			fm.respondToNewRoundLog(*log, broadcast)
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			fm.respondToAnswerUpdatedLog(*log)
-			if err = fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
 				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
 			}
 		case *flags_wrapper.FlagsFlagRaised:
@@ -501,7 +500,7 @@ func (fm *FluxMonitor) processLogs() {
 			if !isFlagLowered {
 				fm.pollManager.Hibernate()
 			}
-			if err = fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
 				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
 			}
 		case *flags_wrapper.FlagsFlagLowered:
@@ -682,14 +681,12 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err = postgres.GormTransaction(ctx, fm.db, func(tx *gorm.DB) error {
+	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
 		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, false)
 		if err2 != nil {
 			return err2
 		}
-		err2 = fm.submitTransaction(tx, runID, answer, roundState.RoundId)
+		err2 = fm.queueTransactionForBPTXM(tx, runID, answer, roundState.RoundId)
 		if err2 != nil {
 			return err2
 		}
@@ -725,7 +722,14 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 	return nil
 }
 
+
 func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
+	var markConsumed = true
+	defer func() {
+		if markConsumed && broadcast != nil {
+			fm.logBroadcaster.MarkConsumed(fm.db, broadcast)
+		}
+	}()
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,
 		"absoluteThreshold", deviationChecker.Thresholds.Abs,
@@ -811,12 +815,10 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
-	ctx := context.Background()
-	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
-		//logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		l.Errorw("can't fetch answer", "err", err)
-		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
+		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
 		return
 	}
 	result := results.FinalResult()
@@ -824,7 +826,6 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
-		//return runID, nil, errors.Wrap(err, "cannot convert result to decimal")
 	}
 
 	if !fm.isValidSubmission(l, answer) {
@@ -855,12 +856,12 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.GormTransaction(ctx, fm.db, func(tx *gorm.DB) error {
+	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
 		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, true)
 		if err2 != nil {
 			return err
 		}
-		err2 = fm.submitTransaction(fm.db, runID, answer, roundState.RoundId)
+		err2 = fm.queueTransactionForBPTXM(fm.db, runID, answer, roundState.RoundId)
 		if err2 != nil {
 			return err2
 		}
@@ -870,6 +871,8 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 		return nil
 	})
+	// Either the tx failed and we want to reprocess the log, or it succeeded and already marked it consumed
+	markConsumed = false
 	if err != nil {
 		l.Errorw("can't create job run", "err", err)
 		return
@@ -928,7 +931,7 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 	return latestRoundState
 }
 
-func (fm *FluxMonitor) submitTransaction(
+func (fm *FluxMonitor) queueTransactionForBPTXM(
 	db *gorm.DB,
 	runID int64,
 	answer decimal.Decimal,

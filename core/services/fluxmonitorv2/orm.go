@@ -1,7 +1,6 @@
 package fluxmonitorv2
 
 import (
-	"context"
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -105,7 +104,7 @@ func (o *orm) CreateEthTransaction(
 		return errors.Wrap(err, "orm#CreateEthTransaction")
 	}
 
-	err = utils.CheckOKToTransmit(context.Background(), sqlDB, fromAddress, maxUnconfirmedTransactions)
+	err = utils.CheckOKToTransmit(sqlDB, fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return errors.Wrap(err, "orm#CreateEthTransaction")
 	}

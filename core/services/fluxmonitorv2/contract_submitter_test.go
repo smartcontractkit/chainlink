@@ -32,7 +32,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	payload, err := fluxmonitorv2.FluxAggregatorABI.Pack("submit", roundID, submission)
 	assert.NoError(t, err)
 
-	keyStore.On("GetRoundRobinAddress").Return(fromAddress, nil)
+	keyStore.On("GetRoundRobinAddress", mock.Anything).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
 	orm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit, uint64(0)).Return(nil)
 

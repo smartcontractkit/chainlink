@@ -1,11 +1,12 @@
 package adapters
 
 import (
-	"context"
 	"encoding/json"
 	"math/big"
 	"reflect"
 	"strconv"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -99,16 +100,26 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
 }
 
 func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
+	var address common.Address
+	var err error
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		return store.GetRoundRobinAddress(e.FromAddresses...)
+		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
+			address, err = store.GetRoundRobinAddress(store.DB, e.FromAddresses...)
+			return err
+		})
+		return address, err
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		return store.GetRoundRobinAddress()
+		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
+			address, err = store.GetRoundRobinAddress(store.DB, e.FromAddresses...)
+			return err
+		})
+		return address, err
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
@@ -168,7 +179,7 @@ func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *st
 		gasLimit = e.GasLimit
 	}
 
-	if err := utils.CheckOKToTransmit(context.Background(), store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
+	if err := utils.CheckOKToTransmit(store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
 		err = errors.Wrap(err, "number of unconfirmed transactions exceeds ETH_MAX_UNCONFIRMED_TRANSACTIONS")
 		logger.Error(err)
 		return models.NewRunOutputError(err)

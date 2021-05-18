@@ -318,7 +318,9 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 
 	var ethTX models.EthTx
 	var err error
-	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
 		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload, 500)
 		return err
 	})

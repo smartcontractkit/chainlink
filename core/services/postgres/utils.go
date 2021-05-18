@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -33,11 +34,19 @@ var (
 	}
 )
 
-// MustSQLDB panics if there is an error getting the underlying SQL DB
+// MustSQLDB panics if there is an error getting the underlying SQL TX
+func MustSQLTx(db *gorm.DB) *sql.Tx {
+	sqlTx, ok := db.Statement.ConnPool.(*sql.Tx)
+	if !ok {
+		panic("db is not inside a tx, open a tx before calling MustSqlTx")
+	}
+	return sqlTx
+}
+
 func MustSQLDB(db *gorm.DB) *sql.DB {
 	sqlDB, err := db.DB()
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("unable to extract underlying db connection err %v", err))
 	}
 	return sqlDB
 }
