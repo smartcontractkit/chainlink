@@ -477,6 +477,11 @@ func (c Config) DatabaseBackupURL() *url.URL {
 	return uri
 }
 
+// DatabaseBackupDir configures the directory for saving the , if it's to be different from the main on
+func (c Config) DatabaseBackupDir() string {
+	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
