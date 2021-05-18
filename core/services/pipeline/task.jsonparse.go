@@ -2,20 +2,21 @@ package pipeline
 
 import (
 	"context"
-	"database/sql/driver"
 	"encoding/json"
 	"math/big"
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 type JSONParseTask struct {
 	BaseTask `mapstructure:",squash"`
-	Path     JSONPath `json:"path"`
+	Path     string `json:"path"`
+	Data     string `json:"data"`
 	// Lax when disabled will return an error if the path does not exist
 	// Lax when enabled will return nil with no error if the path does not exist
-	Lax bool
+	Lax string
 }
 
 var _ Task = (*JSONParseTask)(nil)
@@ -28,38 +29,41 @@ func (t *JSONParseTask) SetDefaults(inputValues map[string]string, g TaskDAG, se
 	return nil
 }
 
-func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
-	if len(inputs) != 1 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")}
-	} else if inputs[0].Error != nil {
-		return Result{Error: inputs[0].Error}
-	}
-
-	var bs []byte
-	switch v := inputs[0].Value.(type) {
-	case []byte:
-		bs = v
-	case string:
-		bs = []byte(v)
-	default:
-		return Result{Error: errors.Errorf("JSONParseTask does not accept inputs of type %T", inputs[0].Value)}
-	}
-
-	var decoded interface{}
-	err := json.Unmarshal(bs, &decoded)
+func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
 	}
 
-	for _, part := range t.Path {
+	var (
+		path JSONPathParam
+		data StringParam
+		lax  BoolParam
+	)
+	err = multierr.Combine(
+		vars.ResolveValue(&path, From(NonemptyString(t.Path))),
+		vars.ResolveValue(&data, From(NonemptyString(t.Data), Input(inputs, 0))),
+		vars.ResolveValue(&lax, From(NonemptyString(t.Lax))),
+	)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	var decoded interface{}
+	err = json.Unmarshal([]byte(data), &decoded)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	for _, part := range path {
 		switch d := decoded.(type) {
 		case map[string]interface{}:
 			var exists bool
 			decoded, exists = d[part]
-			if !exists && t.Lax {
+			if !exists && bool(lax) {
 				return Result{Value: nil}
 			} else if !exists {
-				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
 			}
 
 		case []interface{}:
@@ -67,10 +71,10 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 			if !ok {
 				return Result{Error: errors.Errorf("JSONParse task error: %v is not a valid array index", part)}
 			} else if !bigindex.IsInt64() {
-				if t.Lax {
+				if bool(lax) {
 					return Result{Value: nil}
 				}
-				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
 			}
 			index := int(bigindex.Int64())
 			if index < 0 {
@@ -78,30 +82,16 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 			}
 
 			exists := index >= 0 && index < len(d)
-			if !exists && t.Lax {
+			if !exists && bool(lax) {
 				return Result{Value: nil}
 			} else if !exists {
-				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
 			}
 			decoded = d[index]
 
 		default:
-			return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
+			return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
 		}
 	}
 	return Result{Value: decoded}
-}
-
-type JSONPath []string
-
-func (p *JSONPath) UnmarshalText(bs []byte) error {
-	*p = strings.Split(string(bs), ",")
-	return nil
-}
-
-func (p *JSONPath) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), p)
-}
-func (p JSONPath) Value() (driver.Value, error) {
-	return json.Marshal(p)
 }

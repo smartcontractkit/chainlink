@@ -2,19 +2,20 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"go.uber.org/multierr"
 )
 
 type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
-	Name              string          `json:"name"`
-	RequestData       HttpRequestData `json:"requestData"`
-	IncludeInputAtKey string          `json:"includeInputAtKey"`
+	Name              string `json:"name"`
+	RequestData       string `json:"requestData"`
+	IncludeInputAtKey string `json:"includeInputAtKey"`
 
 	safeTx SafeTx
 	config Config
@@ -30,17 +31,31 @@ func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self 
 	return nil
 }
 
-func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Result) (result Result) {
-	if len(inputs) > 1 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 or 1 inputs")}
-	} else if len(inputs) == 1 && inputs[0].Error != nil {
-		return Result{Error: inputs[0].Error}
-	}
-
-	url, err := t.getBridgeURLFromName()
+func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) (result Result) {
+	inputValues, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
 	}
+
+	var (
+		name              StringParam
+		requestData       MapParam
+		includeInputAtKey StringParam
+	)
+	err = multierr.Combine(
+		vars.ResolveValue(&name, From(NonemptyString(t.Name))),
+		vars.ResolveValue(&requestData, From(NonemptyString(t.RequestData))),
+		vars.ResolveValue(&includeInputAtKey, From(NonemptyString(t.IncludeInputAtKey))),
+	)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	url, err := t.getBridgeURLFromName(name)
+	if err != nil {
+		return Result{Error: err}
+	}
+	fmt.Println(url)
 
 	var metaMap map[string]interface{}
 	switch v := meta.Val.(type) {
@@ -54,32 +69,32 @@ func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Re
 		)
 	}
 
-	requestData := withMeta(t.RequestData, metaMap)
-	if t.IncludeInputAtKey != "" && len(inputs) > 0 {
-		requestData[t.IncludeInputAtKey] = inputs[0].Value
+	requestData = withMeta(requestData, metaMap)
+	if t.IncludeInputAtKey != "" && len(inputValues) > 0 {
+		requestData[string(includeInputAtKey)] = inputValues[0]
 	}
 
-	result = (&HTTPTask{
-		URL:         models.WebURL(url),
-		Method:      "POST",
-		RequestData: requestData,
-		// URL is "safe" because it comes from the node's own database
-		// Some node operators may run external adapters on their own hardware
-		AllowUnrestrictedNetworkAccess: MaybeBoolTrue,
-		config:                         t.config,
-	}).Run(ctx, meta, nil)
-	if result.Error != nil {
-		return result
-	}
-	logger.Debugw("Bridge task: fetched answer",
-		"answer", result.Value,
-		"url", url.String(),
-	)
+	// result = (&HTTPTask{
+	// 	URL:         models.WebURL(url),
+	// 	Method:      "POST",
+	// 	RequestData: requestData,
+	// 	// URL is "safe" because it comes from the node's own database
+	// 	// Some node operators may run external adapters on their own hardware
+	// 	AllowUnrestrictedNetworkAccess: MaybeBoolTrue,
+	// 	config:                         t.config,
+	// }).Run(ctx, meta, nil)
+	// if result.Error != nil {
+	// 	return result
+	// }
+	// logger.Debugw("Bridge task: fetched answer",
+	// 	"answer", result.Value,
+	// 	"url", url.String(),
+	// )
 	return result
 }
 
-func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
-	task := models.TaskType(t.Name)
+func (t BridgeTask) getBridgeURLFromName(name StringParam) (url.URL, error) {
+	task := models.TaskType(name)
 
 	if t.safeTx.txMu != nil {
 		t.safeTx.txMu.Lock()
@@ -94,8 +109,8 @@ func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	return bridgeURL, nil
 }
 
-func withMeta(request HttpRequestData, meta HttpRequestData) HttpRequestData {
-	output := make(HttpRequestData)
+func withMeta(request MapParam, meta MapParam) MapParam {
+	output := make(MapParam)
 	for k, v := range request {
 		output[k] = v
 	}

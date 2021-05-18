@@ -5,16 +5,13 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"net/url"
-	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -28,7 +25,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
+		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -55,6 +52,8 @@ type (
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
+	ErrParameterEmpty        = errors.New("parameter is empty")
+	ErrTooManyErrors         = errors.New("too many errors")
 )
 
 // Bundled tx and txmutex for multiple goroutines inside the same transaction.
@@ -225,13 +224,17 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeAny       TaskType = "any"
-	TaskTypeVRF       TaskType = "vrf"
+	TaskTypeHTTP            TaskType = "http"
+	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMedian          TaskType = "median"
+	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeJSONParse       TaskType = "jsonparse"
+	TaskTypeETHABIEncode    TaskType = "ethabiencode"
+	TaskTypeETHABIDecode    TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
+	TaskTypeETHCall         TaskType = "ethcall"
+	TaskTypeAny             TaskType = "any"
+	TaskTypeVRF             TaskType = "vrf"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -270,53 +273,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
 
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result: task,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToSliceHookFunc(","),
-			mapstructure.StringToTimeDurationHookFunc(),
-			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-				switch f {
-				case reflect.TypeOf(""):
-					switch t {
-					case reflect.TypeOf(models.WebURL{}):
-						u, err2 := url.Parse(data.(string))
-						if err2 != nil {
-							return nil, err2
-						}
-						return models.WebURL(*u), nil
-
-					case reflect.TypeOf(HttpRequestData{}):
-						var m map[string]interface{}
-						err2 := json.Unmarshal([]byte(data.(string)), &m)
-						return HttpRequestData(m), err2
-
-					case reflect.TypeOf(decimal.Decimal{}):
-						return decimal.NewFromString(data.(string))
-
-					case reflect.TypeOf(int32(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						return int32(i), err2
-					case reflect.TypeOf(uint32(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						return uint32(i), err2
-					case reflect.TypeOf(int64(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return int64(i), err2
-					case reflect.TypeOf(uint64(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return uint64(i), err2
-					case reflect.TypeOf(true):
-						b, err2 := strconv.ParseBool(data.(string))
-						return b, err2
-					case reflect.TypeOf(MaybeBool("")):
-						return MaybeBoolFromString(data.(string))
-					}
-				}
-				return data, nil
-			},
-		),
-	})
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{Result: task})
 	if err != nil {
 		return nil, err
 	}
@@ -328,8 +285,22 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	return task, nil
 }
 
-type HttpRequestData map[string]interface{}
-
-func (h *HttpRequestData) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), h) }
-func (h HttpRequestData) Value() (driver.Value, error)  { return json.Marshal(h) }
-func (h HttpRequestData) AsMap() map[string]interface{} { return h }
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+	if minLen >= 0 && len(inputs) < minLen {
+		return nil, ErrWrongInputCardinality
+	} else if maxLen >= 0 && len(inputs) > maxLen {
+		return nil, ErrWrongInputCardinality
+	}
+	var vals []interface{}
+	var errs int
+	for _, input := range inputs {
+		if input.Error != nil {
+			errs++
+		}
+		vals = append(vals, input.Value)
+	}
+	if maxErrors >= 0 && errs > maxErrors {
+		return nil, ErrTooManyErrors
+	}
+	return vals, nil
+}

@@ -108,7 +108,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.MultiplyTask{Times: test.times}
-			result := task.Run(context.Background(), pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
+			result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
 			require.NoError(t, result.Error)
 			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
 		})
@@ -131,7 +131,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.MultiplyTask{Times: test.times}
-			result := task.Run(context.Background(), pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
+			result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
 			require.Error(t, result.Error)
 		})
 	}

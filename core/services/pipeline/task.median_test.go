@@ -71,7 +71,7 @@ func TestMedian(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.MedianTask{AllowedFaults: test.allowedFaults}
-			output := task.Run(context.Background(), pipeline.JSONSerializable{}, test.inputs)
+			output := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)

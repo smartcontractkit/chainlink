@@ -24,7 +24,7 @@ func (t *MultiplyTask) SetDefaults(inputValues map[string]string, g TaskDAG, sel
 	return nil
 }
 
-func (t *MultiplyTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")}
 	} else if inputs[0].Error != nil {

@@ -1,15 +1,12 @@
 package pipeline
 
 import (
-	"net/url"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestGraph_Decode(t *testing.T) {
@@ -122,9 +119,6 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	err := g.UnmarshalText([]byte(DotStr))
 	require.NoError(t, err)
 
-	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
-	require.NoError(t, err)
-
 	answer1 := &MedianTask{
 		BaseTask:      NewBaseTask("answer1", nil, 0, 2),
 		AllowedFaults: 1,
@@ -138,7 +132,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		BaseTask: NewBaseTask("ds1_multiply", answer1, 0, 1),
 	}
 	ds1_parse := &JSONParseTask{
-		Path:     []string{"one", "two"},
+		Path:     "[one,two]",
 		BaseTask: NewBaseTask("ds1_parse", ds1_multiply, 0, 1),
 	}
 	ds1 := &BridgeTask{
@@ -150,13 +144,13 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		BaseTask: NewBaseTask("ds2_multiply", answer1, 0, 1),
 	}
 	ds2_parse := &JSONParseTask{
-		Path:     []string{"three", "four"},
+		Path:     "[three,four]",
 		BaseTask: NewBaseTask("ds2_parse", ds2_multiply, 0, 1),
 	}
 	ds2 := &HTTPTask{
-		URL:         models.WebURL(*u),
+		URL:         "https://chain.link/voter_turnout/USA-2020",
 		Method:      "GET",
-		RequestData: HttpRequestData{"hi": "hello"},
+		RequestData: `{"hi": "hello"}`,
 		BaseTask:    NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
 

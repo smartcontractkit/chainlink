@@ -9,55 +9,21 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
-
-type (
-	MaybeBool string
-)
-
-const (
-	MaybeBoolTrue  = MaybeBool("true")
-	MaybeBoolFalse = MaybeBool("false")
-	MaybeBoolNull  = MaybeBool("")
-)
-
-func MaybeBoolFromString(s string) (MaybeBool, error) {
-	switch s {
-	case "true":
-		return MaybeBoolTrue, nil
-	case "false":
-		return MaybeBoolFalse, nil
-	case "":
-		return MaybeBoolNull, nil
-	default:
-		return "", errors.Errorf("unknown value for bool: %s", s)
-	}
-}
-
-func (m MaybeBool) Bool() (b bool, isSet bool) {
-	switch m {
-	case MaybeBoolTrue:
-		return true, true
-	case MaybeBoolFalse:
-		return false, true
-	default:
-		return false, false
-	}
-}
 
 type HTTPTask struct {
 	BaseTask                       `mapstructure:",squash"`
 	Method                         string
-	URL                            models.WebURL
-	RequestData                    HttpRequestData `json:"requestData"`
-	AllowUnrestrictedNetworkAccess MaybeBool
+	URL                            string
+	RequestData                    string `json:"requestData"`
+	AllowUnrestrictedNetworkAccess string
 
 	config Config
 }
@@ -92,21 +58,38 @@ func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self Ta
 	return nil
 }
 
-func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result) Result {
-	if len(inputs) > 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
+func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
+	_, err := CheckInputs(inputs, 0, 0, 0)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	var (
+		method                         StringParam
+		url                            URLParam
+		requestData                    MapParam
+		allowUnrestrictedNetworkAccess MaybeBoolParam
+	)
+	err = multierr.Combine(
+		vars.ResolveValue(&method, From(NonemptyString(t.Method))),
+		vars.ResolveValue(&url, From(NonemptyString(t.URL))),
+		vars.ResolveValue(&requestData, From(NonemptyString(t.RequestData))),
+		vars.ResolveValue(&allowUnrestrictedNetworkAccess, From(t.AllowUnrestrictedNetworkAccess)),
+	)
+	if err != nil {
+		return Result{Error: err}
 	}
 
 	var bodyReader io.Reader
-	if t.RequestData != nil {
-		bodyBytes, err := json.Marshal(t.RequestData)
+	if requestData != nil {
+		bodyBytes, err := json.Marshal(requestData)
 		if err != nil {
 			return Result{Error: errors.Wrap(err, "failed to encode request body as JSON")}
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	request, err := http.NewRequest(t.Method, t.URL.String(), bodyReader)
+	request, err := http.NewRequest(string(method), url.String(), bodyReader)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "failed to create http.Request")}
 	}
@@ -116,7 +99,7 @@ func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result)
 		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
 		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
 		SizeLimit:                      t.config.DefaultHTTPLimit(),
-		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(),
+		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(allowUnrestrictedNetworkAccess),
 	}
 
 	httpRequest := utils.HTTPRequest{
@@ -138,12 +121,12 @@ func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result)
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
-		return Result{Error: errors.Errorf("got error from %s: (status code %v) %s", t.URL.String(), statusCode, maybeErr)}
+		return Result{Error: errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)}
 	}
 
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),
-		"url", t.URL.String(),
+		"url", url.String(),
 		"dotID", t.DotID(),
 	)
 	// NOTE: We always stringify the response since this is required for all current jobs.
@@ -153,8 +136,8 @@ func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result)
 	return Result{Value: string(responseBytes)}
 }
 
-func (t *HTTPTask) allowUnrestrictedNetworkAccess() bool {
-	b, isSet := t.AllowUnrestrictedNetworkAccess.Bool()
+func (t *HTTPTask) allowUnrestrictedNetworkAccess(mb MaybeBoolParam) bool {
+	b, isSet := mb.Bool()
 	if isSet {
 		return b
 	}

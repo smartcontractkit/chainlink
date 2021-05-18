@@ -32,7 +32,7 @@ func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self 
 	return nil
 }
 
-func (t *MedianTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	if len(inputs) == 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")}
 	}

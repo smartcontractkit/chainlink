@@ -1,6 +1,8 @@
 package pipeline
 
-import "context"
+import (
+	"context"
+)
 
 type PanicTask struct {
 	BaseTask `mapstructure:",squash"`
@@ -17,6 +19,6 @@ func (t *PanicTask) SetDefaults(_ map[string]string, _ TaskDAG, _ TaskDAGNode) e
 	return nil
 }
 
-func (t *PanicTask) Run(_ context.Context, _ JSONSerializable, _ []Result) (result Result) {
+func (t *PanicTask) Run(_ context.Context, _ Vars, _ JSONSerializable, _ []Result) (result Result) {
 	panic(t.Msg)
 }

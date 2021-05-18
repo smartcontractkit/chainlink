@@ -27,14 +27,15 @@ import (
 // https://github.com/smartcontractkit/price-adapters
 
 var (
-	ethUSDPairing = utils.MustUnmarshalToMap(`{"data":{"coin":"ETH","market":"USD"}}`)
+	btcUSDPairing = `{"data":{"coin":"BTC","market":"USD"}}`
+	ethUSDPairing = `{"data":{"coin":"ETH","market":"USD"}}`
 	emptyMeta     = utils.MustUnmarshalToMap("{}")
 )
 
 type adapterRequest struct {
-	ID   string                   `json:"id"`
-	Data pipeline.HttpRequestData `json:"data"`
-	Meta pipeline.HttpRequestData `json:"meta"`
+	ID   string            `json:"id"`
+	Data pipeline.MapParam `json:"data"`
+	Meta pipeline.MapParam `json:"meta"`
 }
 
 type adapterResponseData struct {
@@ -114,8 +115,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
+	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)
@@ -123,13 +123,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
-		Name: "foo",
-		RequestData: pipeline.HttpRequestData{
-			"data": map[string]interface{}{
-				"coin":   "BTC",
-				"market": "USD",
-			},
-		},
+		Name:        "foo",
+		RequestData: btcUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
@@ -138,7 +133,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -180,7 +175,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
-		RequestData: pipeline.HttpRequestData(ethUSDPairing),
+		RequestData: ethUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
@@ -188,7 +183,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	task.Run(context.Background(), pipeline.JSONSerializable{metaDataForBridge, false}, nil)
+	task.Run(context.Background(), nil, pipeline.JSONSerializable{metaDataForBridge, false}, nil)
 }
 
 func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
@@ -218,8 +213,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
-			s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
+			s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
 			defer s1.Close()
 
 			feedURL, err := url.ParseRequestURI(s1.URL)
@@ -227,13 +221,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			feedWebURL := (*models.WebURL)(feedURL)
 
 			task := pipeline.BridgeTask{
-				Name: "foo",
-				RequestData: pipeline.HttpRequestData{
-					"data": map[string]interface{}{
-						"coin":   "BTC",
-						"market": "USD",
-					},
-				},
+				Name:              "foo",
+				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
 			task.HelperSetConfigAndTxDB(store.Config, store.DB)
@@ -243,7 +232,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			bridge.URL = *feedWebURL
 			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-			result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, test.inputs)
+			result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, test.inputs)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				require.Nil(t, result.Value)
@@ -285,7 +274,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 
 	task := pipeline.BridgeTask{
 		Name:        "foo",
-		RequestData: pipeline.HttpRequestData(ethUSDPairing),
+		RequestData: ethUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
@@ -293,7 +282,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -320,7 +309,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 
 	task := pipeline.BridgeTask{
 		Name:        "foo",
-		RequestData: pipeline.HttpRequestData(ethUSDPairing),
+		RequestData: ethUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
@@ -328,7 +317,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
@@ -341,17 +330,12 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	defer cleanup()
 
 	task := pipeline.BridgeTask{
-		Name: "foo",
-		RequestData: pipeline.HttpRequestData{
-			"data": map[string]interface{}{
-				"coin":   "BTC",
-				"market": "USD",
-			},
-		},
+		Name:        "foo",
+		RequestData: btcUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
-	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.Nil(t, result.Value)
 	require.Error(t, result.Error)
 	require.Equal(t, "could not find bridge with name 'foo': record not found", result.Error.Error())
