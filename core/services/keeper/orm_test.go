@@ -2,10 +2,11 @@ package keeper_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
