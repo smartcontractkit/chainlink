@@ -99,14 +99,7 @@ func (ec *ethConfirmer) Disconnect() {
 	// pass
 }
 
-// OnNewLongestChain uses a mailbox with capacity 1 to deliver the latest head to the runLoop.
-// This is because it may take longer than the intervals between heads to process, but we don't want to interrupt the loop.
-// e.g.
-// - We’re still processing head 41
-// - Head 42 comes in
-// - Now heads 43, 44, 45 come in
-// - Now we finish head 41
-// - We move straight on to processing head 45
+// OnNewLongestChain delivers sampled latest heads to be picked up by the runLoop
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
 	ec.mb.Deliver(head)
 	if ec.reaper != nil {
@@ -783,7 +776,7 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'").
-		Where("eth_txes.from_address = ?", address).
+		Where("eth_txes.from_address = ? AND eth_txes.state = 'unconfirmed'", address).
 		Order("nonce ASC").
 		Find(&etxs).Error
 

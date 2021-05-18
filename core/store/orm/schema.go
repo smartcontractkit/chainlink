@@ -50,9 +50,11 @@ type ConfigSchema struct {
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
+	EthHeadTrackerSamplingInterval            time.Duration   `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL" default:"1s"`
 	EthLogBackfillBatchSize                   uint32          `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
 	EthMaxGasPriceWei                         big.Int         `env:"ETH_MAX_GAS_PRICE_WEI"`
 	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
+	EthMinGasPriceWei                         big.Int         `env:"ETH_MIN_GAS_PRICE_WEI"`
 	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
 	EthTxReaperInterval                       time.Duration   `env:"ETH_TX_REAPER_INTERVAL" default:"1h"`
@@ -66,10 +68,10 @@ type ConfigSchema struct {
 	ExplorerAccessKey                         string          `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                            string          `env:"EXPLORER_SECRET"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
-	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"false"`
+	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"true"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
-	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"false"`
+	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`

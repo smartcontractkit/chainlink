@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 import "./Chainlink.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
+import "./interfaces/OperatorInterface.sol";
 import "./interfaces/PointerInterface.sol";
 import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 
@@ -19,7 +19,8 @@ contract ChainlinkClient {
   uint256 constant internal LINK_DIVISIBILITY = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = address(0);
-  uint256 constant private ARGS_VERSION = 2;
+  uint256 constant private ORACLE_ARGS_VERSION = 1;
+  uint256 constant private OPERATOR_ARGS_VERSION = 2;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
   address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
@@ -27,7 +28,7 @@ contract ChainlinkClient {
   ENSInterface private ens;
   bytes32 private ensNode;
   LinkTokenInterface private link;
-  ChainlinkRequestInterface private oracle;
+  OperatorInterface private oracle;
   uint256 private requestCount = 1;
   mapping(bytes32 => address) private pendingRequests;
 
@@ -102,14 +103,89 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
+    return rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION, oracle.oracleRequest.selector);
+  }
+
+  /**
+   * @notice Creates a Chainlink request to the stored oracle address
+   * @dev This function supports multi-word response
+   * @dev Calls `requestOracleDataFrom` with the stored oracle address
+   * @param req The initialized Chainlink Request
+   * @param payment The amount of LINK to send for the request
+   * @return requestId The request ID
+   */
+  function requestOracleData(
+    Chainlink.Request memory req,
+    uint256 payment
+  )
+    internal
+    returns (
+      bytes32
+    )
+  {
+    return requestOracleDataFrom(address(oracle), req, payment);
+  }
+
+  /**
+   * @notice Creates a Chainlink request to the specified oracle address
+   * @dev This function supports multi-word response
+   * @dev Generates and stores a request ID, increments the local nonce, and uses `transferAndCall` to
+   * send LINK which creates a request on the target oracle contract.
+   * Emits ChainlinkRequested event.
+   * @param oracleAddress The address of the oracle for the request
+   * @param req The initialized Chainlink Request
+   * @param payment The amount of LINK to send for the request
+   * @return requestId The request ID
+   */
+  function requestOracleDataFrom(
+    address oracleAddress,
+    Chainlink.Request memory req,
+    uint256 payment
+  )
+    internal
+    returns (
+      bytes32 requestId
+    )
+  {
+    return rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION, oracle.requestOracleData.selector);
+  }
+
+  /**
+   * @notice Make a request to an oracle
+   * @param oracleAddress The address of the oracle for the request
+   * @param req The initialized Chainlink Request
+   * @param payment The amount of LINK to send for the request
+   * @param argsVersion The version of data support (single word, multi word)
+   * @return requestId The request ID
+   */
+  function rawRequest(
+    address oracleAddress,
+    Chainlink.Request memory req,
+    uint256 payment,
+    uint256 argsVersion,
+    bytes4 funcSelector
+  )
+    private
+    returns (
+      bytes32 requestId
+    )
+  {
     requestId = keccak256(abi.encodePacked(this, requestCount));
     req.nonce = requestCount;
     pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(oracleAddress, payment, encodeRequest(req, ARGS_VERSION)), "unable to transferAndCall to oracle");
+    bytes memory encodedData = abi.encodeWithSelector(
+      funcSelector,
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+      req.id,
+      req.callbackAddress,
+      req.callbackFunctionId,
+      req.nonce,
+      argsVersion,
+      req.buf.buf);
+    require(link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
     requestCount += 1;
-
-    return requestId;
   }
 
   /**
@@ -130,7 +206,7 @@ contract ChainlinkClient {
   )
     internal
   {
-    ChainlinkRequestInterface requested = ChainlinkRequestInterface(pendingRequests[requestId]);
+    OperatorInterface requested = OperatorInterface(pendingRequests[requestId]);
     delete pendingRequests[requestId];
     emit ChainlinkCancelled(requestId);
     requested.cancelOracleRequest(requestId, payment, callbackFunc, expiration);
@@ -145,7 +221,7 @@ contract ChainlinkClient {
   )
     internal
   {
-    oracle = ChainlinkRequestInterface(oracleAddress);
+    oracle = OperatorInterface(oracleAddress);
   }
 
   /**
@@ -244,36 +320,6 @@ contract ChainlinkClient {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(oracleSubnode));
     setChainlinkOracle(resolver.addr(oracleSubnode));
-  }
-
-  /**
-   * @notice Encodes the request to be sent to the oracle contract
-   * @dev The Chainlink node expects values to be in order for the request to be picked up. Order of types
-   * will be validated in the oracle contract.
-   * @param req The initialized Chainlink Request
-   * @param dataVersion The request data version
-   * @return The bytes payload for the `transferAndCall` method
-   */
-  function encodeRequest(
-    Chainlink.Request memory req,
-    uint256 dataVersion
-  )
-    private
-    view
-    returns (
-      bytes memory
-    )
-  {
-    return abi.encodeWithSelector(
-      oracle.oracleRequest.selector,
-      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
-      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-      req.id,
-      req.callbackAddress,
-      req.callbackFunctionId,
-      req.nonce,
-      dataVersion,
-      req.buf.buf);
   }
 
   /**

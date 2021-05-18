@@ -434,4 +434,9 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 		assert.Equal(t, rr, lrr)
 	})
+
+	t.Run("spec with latest round requested can be deleted", func(t *testing.T) {
+		_, err := sqldb.Exec(`DELETE FROM offchainreporting_oracle_specs`)
+		assert.NoError(t, err)
+	})
 }

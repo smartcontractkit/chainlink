@@ -215,6 +215,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	headBroadcaster := services.NewHeadBroadcaster()
+
+	subservices = append(subservices, promReporter)
+
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)

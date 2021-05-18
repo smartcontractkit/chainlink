@@ -70,6 +70,7 @@ type (
 	Config interface {
 		BlockBackfillDepth() uint64
 		EthFinalityDepth() uint
+		EthLogBackfillBatchSize() uint32
 	}
 
 	ListenerOpts struct {
@@ -240,7 +241,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		b.latestHeadFromDb = nil
 
 		// Each time this loop runs, chRawLogs is reconstituted as:
-		//     remaining logs from last subscription <- backfilled logs <- logs from new subscription
+		// "remaining logs from last subscription <- backfilled logs <- logs from new subscription"
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
 		// to account for this using the helpers on the Broadcast type.
 		chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
@@ -332,7 +333,7 @@ func (b *broadcaster) onNewHeads() {
 	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
 	// Some heads may be missed (which is fine for LogBroadcaster logic) but the latest one in a burst will be received
 	if latestHead != nil {
-		logger.Tracew("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
+		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
 
 		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
 		b.registrations.sendLogs(logs, b.orm, *latestHead)
