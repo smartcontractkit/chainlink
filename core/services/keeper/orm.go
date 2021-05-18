@@ -134,19 +134,27 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepI
 		).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(sqlDB *sql.DB, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
+func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
 	var etx models.EthTx
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
+	sqlTx, ok := tx.ConnPool.(*sql.Tx)
+	if !ok {
+		return etx, errors.New("unable to get tx from conn pool")
+	}
+	sqlDB, err := tx.DB()
+	if err != nil {
+		return etx, err
+	}
 	from := upkeep.Registry.FromAddress.Address()
-	err := utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
+	err = utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}
 
 	value := 0
-	err = sqlDB.QueryRowContext(ctx, `
+	err = sqlTx.QueryRowContext(ctx, `
 		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
 		SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
 		WHERE NOT EXISTS (
@@ -168,7 +176,7 @@ func (korm ORM) CreateEthTransactionForUpkeep(sqlDB *sql.DB, upkeep UpkeepRegist
 	if etx.ID == 0 {
 		return etx, errors.New("a keeper eth_tx with insufficient eth is present, not creating a new eth_tx")
 	}
-	err = korm.DB.First(&etx).Error
+	err = tx.First(&etx).Error
 	if err != nil {
 		return etx, errors.Wrap(err, "keeper find eth_tx after inserting")
 	}
