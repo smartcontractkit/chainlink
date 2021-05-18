@@ -175,7 +175,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	checkUpkeepResult, err := executer.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		revertReason, err2 := utils.ExtractRevertReasonFromRPCError(err)
+		revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
 		if err2 != nil {
 			revertReason = fmt.Sprintf("unknown revert reason: error during extraction: %v", err2)
 		}
