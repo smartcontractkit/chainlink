@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 const DefaultQueryTimeout = 10 * time.Second
@@ -31,3 +32,13 @@ var (
 		Isolation: sql.LevelReadCommitted,
 	}
 )
+
+// MustSQLDB panics if there is an error getting the underlying SQL DB
+// This should never happen
+func MustSQLDB(db *gorm.DB) *sql.DB {
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic(err)
+	}
+	return sqlDB
+}

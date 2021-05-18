@@ -133,7 +133,8 @@ func (executer *UpkeepExecuter) processActiveUpkeeps() {
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	activeUpkeeps, err := executer.orm.EligibleUpkeeps(ctx, head.Number, executer.maxGracePeriod)
+
+	activeUpkeeps, err := executer.orm.EligibleUpkeepsForRegistry(ctx, executer.job.KeeperSpec.ContractAddress, head.Number, executer.maxGracePeriod)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -175,7 +176,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	checkUpkeepResult, err := executer.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		revertReason, err2 := utils.ExtractRevertReasonFromRPCError(err)
+		revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
 		if err2 != nil {
 			revertReason = fmt.Sprintf("unknown revert reason: error during extraction: %v", err2)
 		}
@@ -192,41 +193,55 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	logger.Debugw("UpkeepExecuter: performing upkeep", logArgs...)
 
-	ctxQuery, _ := postgres.DefaultQueryCtx()
-	ctxCombined, cancel := utils.CombinedContext(executer.chStop, ctxQuery)
+	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
-	etx, err := executer.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData, executer.maxUnconfirmedTXs)
+	var etx models.EthTx
+	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
+		sqlDB := postgres.MustSQLDB(dbtx)
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(sqlDB, upkeep, performTxData, executer.maxUnconfirmedTXs)
+		if err != nil {
+			return errors.Wrap(err, "failed to create eth_tx for upkeep")
+		}
+
+		// NOTE: this is the block that initiated the run, not the block height when broadcast nor the block
+		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
+		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
+		err = executer.orm.SetLastRunHeightForUpkeepOnJob(dbtx, executer.job.ID, upkeep.UpkeepID, headNumber)
+
+		return errors.Wrap(err, "failed to set last run height for upkeep")
+	})
 	if err != nil {
-		logger.Error(err)
+		logArgs = append(logArgs, "err", err)
+		logger.Errorw("UpkeepExecuter: failed to update database state", logArgs...)
 	}
 
 	// Save a run indicating we performed an upkeep.
 	f := time.Now()
-	_, err = executer.pr.InsertFinishedRun(ctxCombined, pipeline.Run{
+
+	ctxQuery, cancel = postgres.DefaultQueryCtx()
+	defer cancel()
+
+	var runErrors pipeline.RunErrors
+	if err == nil {
+		runErrors = pipeline.RunErrors{null.String{}}
+	} else {
+		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to update database state").Error())}
+	}
+
+	_, err = executer.pr.InsertFinishedRun(ctxQuery, pipeline.Run{
 		PipelineSpecID: executer.job.PipelineSpecID,
 		Meta: pipeline.JSONSerializable{
 			Val: map[string]interface{}{"eth_tx_id": etx.ID},
 		},
-		Errors:     pipeline.RunErrors{null.String{}},
+		Errors:     runErrors,
 		Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
 		CreatedAt:  start,
 		FinishedAt: &f,
 	}, nil, false)
 	if err != nil {
-		logger.Error(err)
-	}
-
-	ctxQuery, cancel = postgres.DefaultQueryCtx()
-	defer cancel()
-	ctxCombined, cancel = utils.CombinedContext(executer.chStop, ctxQuery)
-	defer cancel()
-	// DEV: this is the block that initiated the run, not the block height when broadcast nor the block
-	// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
-	// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
-	err = executer.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executer.job.ID, upkeep.UpkeepID, headNumber)
-	if err != nil {
-		logger.Errorw("UpkeepExecuter: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
+		logArgs = append(logArgs, "err", err)
+		logger.Errorw("UpkeepExecuter: failed to insert finished run", logArgs...)
 	}
 }
 

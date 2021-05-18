@@ -102,8 +102,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
-		assertLastRunHeight(t, store, upkeep, 36)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		assertLastRunHeight(t, store, upkeep, 36)
 		require.Len(t, runs, 1)
 		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
 		assert.True(t, ok)
