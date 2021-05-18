@@ -76,7 +76,7 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
   }
 
   /**
-   * @notice Get the current owner
+   * @notice validate, transfer ownership, and emit relevant events
    */
   function _transferOwnership(
     address to
@@ -91,10 +91,19 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
   }
 
   /**
+   * @notice validate access
+   */
+  function _validateOwnership()
+    internal
+  {
+    require(msg.sender == s_owner, "Only callable by owner");
+  }
+
+  /**
    * @notice Reverts if called by anyone other than the contract owner.
    */
   modifier onlyOwner() {
-    require(msg.sender == s_owner, "Only callable by owner");
+    _validateOwnership();
     _;
   }
 
