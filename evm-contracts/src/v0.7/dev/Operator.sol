@@ -257,12 +257,12 @@ contract Operator is
 
   /**
    * @notice Sets the fulfillment permission for
-   * @param senders The addresses that are allowed to send updates
    * @param targets The addresses to set permissions on
+   * @param senders The addresses that are allowed to send updates
    */
   function setAuthorizedSendersOn(
-    address[] calldata senders,
-    address[] calldata targets
+    address[] calldata targets,
+    address[] calldata senders
   )
     external
     validateAuthorizedSenderSetter()

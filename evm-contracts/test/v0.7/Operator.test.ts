@@ -424,10 +424,10 @@ describe('Operator', () => {
       it('does not revert', async () => {
         await operator
           .connect(roles.defaultAccount)
-          .setAuthorizedSendersOn(newSenders, [
-            forwarder1.address,
-            forwarder2.address,
-          ])
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          )
       })
     })
 
@@ -435,28 +435,28 @@ describe('Operator', () => {
       it('does not revert', async () => {
         await operator
           .connect(roles.oracleNode1)
-          .setAuthorizedSendersOn(newSenders, [
-            forwarder1.address,
-            forwarder2.address,
-          ])
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          )
       })
 
       it('does revert with 0 senders', async () => {
         await operator
           .connect(roles.oracleNode1)
-          .setAuthorizedSendersOn(newSenders, [
-            forwarder1.address,
-            forwarder2.address,
-          ])
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          )
       })
 
       it('updates the sender list on each of the targets', async () => {
         const tx = await operator
           .connect(roles.oracleNode1)
-          .setAuthorizedSendersOn(newSenders, [
-            forwarder1.address,
-            forwarder2.address,
-          ])
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          )
 
         const receipt = await tx.wait()
         assert.equal(receipt.events?.length, 2, receipt.toString())
