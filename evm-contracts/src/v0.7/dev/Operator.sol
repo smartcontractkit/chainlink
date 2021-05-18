@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
+import "./AuthorizedSenderReceiver.sol";
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "./OperatorForwarder.sol";
@@ -15,8 +16,9 @@ import "../vendor/SafeMathChainlink.sol";
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
 contract Operator is
-  LinkTokenReceiver,
+  AuthorizedSenderReceiver,
   ConfirmedOwner,
+  LinkTokenReceiver,
   OperatorInterface,
   WithdrawalInterface
 {
@@ -43,14 +45,8 @@ contract Operator is
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
-  mapping(address => bool) private s_authorizedSenders;
-  address[] private s_authorizedSenderList;
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
-
-  event AuthorizedSendersChanged(
-    address[] senders
-  );
 
   event OracleRequest(
     bytes32 indexed specId,
@@ -189,8 +185,8 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedSender()
-    isValidRequest(requestId)
+    validateAuthorizedSender()
+    validateRequestId(requestId)
     returns (
       bool
     )
@@ -235,9 +231,9 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedSender()
-    isValidRequest(requestId)
-    isValidMultiWord(requestId, data)
+    validateAuthorizedSender()
+    validateRequestId(requestId)
+    validateMultiWordResponseId(requestId, data)
     returns (
       bool
     )
@@ -260,48 +256,6 @@ contract Operator is
   }
 
   /**
-   * @notice Use this to check if a node is authorized for fulfilling requests
-   * @param sender The address of the Chainlink node
-   * @return The authorization status of the node
-   */
-  function isAuthorizedSender(
-    address sender
-  )
-    external
-    view
-    override
-    returns (bool)
-  {
-    return s_authorizedSenders[sender];
-  }
-
-  /**
-   * @notice Sets the fulfillment permission for an externally owned account.
-   * @param senders The addresses that are allowed to send updates
-   */
-  function setAuthorizedSenders(
-    address[] calldata senders
-  )
-    external
-    override
-    onlyAuthorizedSender()
-  {
-    require(senders.length > 0, "Must have at least 1 authorized sender");
-    // Set previous authorized senders to false
-    uint256 authorizedSendersLength = s_authorizedSenderList.length;
-    for (uint256 i = 0; i < authorizedSendersLength; i++) {
-      s_authorizedSenders[s_authorizedSenderList[i]] = false;
-    }
-    // Set new to true
-    for (uint256 i = 0; i < senders.length; i++) {
-      s_authorizedSenders[senders[i]] = true;
-    }
-    // Replace list
-    s_authorizedSenderList = senders;
-    emit AuthorizedSendersChanged(senders);
-  }
-
-  /**
    * @notice Sets the fulfillment permission for
    * @param senders The addresses that are allowed to send updates
    * @param targets The addresses to set permissions on
@@ -312,10 +266,10 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedSender()
+    validateAuthorizedSenderSetter()
   {
     for (uint256 i = 0; i < targets.length; i++) {
-      OperatorForwarder(targets[i]).setAuthorizedSenders(senders);
+      AuthorizedSenderReceiverInterface(targets[i]).setAuthorizedSenders(senders);
     }
   }
 
@@ -354,21 +308,6 @@ contract Operator is
       OwnableInterface(ownable[i]).acceptOwnership();
       emit OwnableContractAccepted(ownable[i]);
     }
-  }
-
-  /**
-   * @notice Retrieve a list of authorized senders
-   * @return array of addresses
-   */
-  function getAuthorizedSenders()
-    external
-    view
-    override
-    returns (
-      address[] memory
-    )
-  {
-    return s_authorizedSenderList;
   }
 
   /**
@@ -499,8 +438,6 @@ contract Operator is
     assert(linkToken.transfer(msg.sender, payment));
   }
 
-  // PUBLIC FUNCTIONS
-
   /**
    * @notice Returns the address of the LINK token
    * @dev This is the public implementation for chainlinkTokenAddress, which is
@@ -533,8 +470,6 @@ contract Operator is
     require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
   }
 
-  // INTERNAL FUNCTIONS
-
   /**
    * @notice Verify the Oracle Request
    * @param sender The sender of the request
@@ -550,7 +485,7 @@ contract Operator is
     bytes4 callbackFunctionId,
     uint256 nonce,
     uint256 dataVersion
-  ) 
+  )
     internal
     returns (
       bytes32 requestId,
@@ -657,6 +592,19 @@ contract Operator is
     return linkToken.balanceOf(address(this)).sub(inEscrow);
   }
 
+  /**
+   * @notice concrete implementation of AuthorizedSenderReceiver
+   * @return bool of whether sender is authorized
+   */
+  function _canSetAuthorizedSenders()
+    internal
+    override
+    returns (bool)
+  {
+    return isAuthorizedSender(msg.sender) || owner() == msg.sender;
+  }
+
+
   // MODIFIERS
 
   /**
@@ -664,7 +612,7 @@ contract Operator is
    * @param requestId bytes32
    * @param data bytes
    */
-  modifier isValidMultiWord(
+  modifier validateMultiWordResponseId(
     bytes32 requestId,
     bytes memory data
   ) {
@@ -691,18 +639,10 @@ contract Operator is
    * @dev Reverts if request ID does not exist
    * @param requestId The given request ID to check in stored `commitments`
    */
-  modifier isValidRequest(
+  modifier validateRequestId(
     bytes32 requestId
   ) {
     require(s_commitments[requestId].paramsHash != 0, "Must have a valid requestId");
-    _;
-  }
-
-  /**
-   * @dev Reverts if `msg.sender` is not authorized to fulfill requests
-   */
-  modifier onlyAuthorizedSender() {
-    require(s_authorizedSenders[msg.sender] || owner() == msg.sender, "Not authorized sender");
     _;
   }
 

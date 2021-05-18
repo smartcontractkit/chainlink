@@ -37,6 +37,7 @@ describe('OperatorForwarder', () => {
     matchers.publicAbi(operatorForwarder, [
       'forward',
       'getAuthorizedSenders',
+      'isAuthorizedSender',
       'linkAddr',
       'setAuthorizedSenders',
       'transferOwnershipWithMessage',
