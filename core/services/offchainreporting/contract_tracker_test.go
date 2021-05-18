@@ -143,7 +143,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		db.On("SaveLatestRoundRequested", mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 1
 		})).Return(nil)
 
@@ -164,7 +164,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		db.On("SaveLatestRoundRequested", mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
@@ -200,7 +200,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		db.On("SaveLatestRoundRequested", mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
@@ -240,7 +240,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.On("RawLog").Return(rawLog)
 		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		db.On("SaveLatestRoundRequested", mock.Anything).Return(errors.New("something exploded"))
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
 		tracker.HandleLog(logBroadcast)
 
