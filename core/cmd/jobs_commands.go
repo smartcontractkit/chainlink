@@ -110,6 +110,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.CronSpec != nil {
 			return p.CronSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.VRFJobSpec:
+		if p.VRFSpec != nil {
+			return p.VRFSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

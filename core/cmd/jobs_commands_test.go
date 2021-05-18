@@ -173,6 +173,30 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 			now.Format(time.RFC3339),
 		},
 		{
+			"gets the cron spec created at timestamp",
+			&cmd.JobPresenter{
+				JobResource: presenters.JobResource{
+					Type: presenters.CronJobSpec,
+					CronSpec: &presenters.CronSpec{
+						CreatedAt: now,
+					},
+				},
+			},
+			now.Format(time.RFC3339),
+		},
+		{
+			"gets the vrf spec created at timestamp",
+			&cmd.JobPresenter{
+				JobResource: presenters.JobResource{
+					Type: presenters.VRFJobSpec,
+					VRFSpec: &presenters.VRFSpec{
+						CreatedAt: now,
+					},
+				},
+			},
+			now.Format(time.RFC3339),
+		},
+		{
 			"gets the off chain reporting spec created at timestamp",
 			&cmd.JobPresenter{
 				JobResource: presenters.JobResource{
