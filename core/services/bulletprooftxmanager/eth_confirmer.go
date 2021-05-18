@@ -776,7 +776,7 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'").
-		Where("eth_txes.from_address = ?", address).
+		Where("eth_txes.from_address = ? AND eth_txes.state = 'unconfirmed'", address).
 		Order("nonce ASC").
 		Find(&etxs).Error
 
