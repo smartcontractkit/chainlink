@@ -265,7 +265,6 @@ contract Operator is
     address[] calldata targets
   )
     external
-    override
     validateAuthorizedSenderSetter()
   {
     for (uint256 i = 0; i < targets.length; i++) {
@@ -284,7 +283,6 @@ contract Operator is
     address newOwner
   )
     external
-    override
     onlyOwner()
   {
     for (uint256 i = 0; i < ownable.length; i++) {
@@ -301,7 +299,6 @@ contract Operator is
     address[] calldata ownable
   )
     external
-    override
     onlyOwner()
   {
     for (uint256 i = 0; i < ownable.length; i++) {
@@ -395,7 +392,6 @@ contract Operator is
     uint[] calldata amounts
   )
     external
-    override
     payable
   {
     require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");

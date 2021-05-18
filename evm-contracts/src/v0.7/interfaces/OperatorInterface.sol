@@ -44,28 +44,4 @@ interface OperatorInterface is
       bool success
     );
 
-  function distributeFunds(
-    address payable[] calldata receivers,
-    uint[] calldata amounts
-  )
-    external
-    payable;
-
-  function setAuthorizedSendersOn(
-    address[] calldata senders,
-    address[] calldata targets
-  )
-    external;
-
-  function transferOwnableContracts(
-    address[] calldata ownable,
-    address newOwner
-  )
-    external;
-
-  function acceptOwnableContracts(
-    address[] calldata ownable
-  )
-    external;
-
 }
