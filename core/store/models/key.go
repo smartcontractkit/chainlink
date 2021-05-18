@@ -20,17 +20,17 @@ import (
 type Key struct {
 	ID        int32 `gorm:"primary_key"`
 	Address   EIP55Address
-	JSON      postgres.Jsonb
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt
+	JSON      postgres.Jsonb `json:"-"`
+	CreatedAt time.Time      `json:"-"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 	// This is the nonce that should be used for the next transaction.
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions
 	// NOTE: Be cautious about using this field, it is provided for convenience
 	// only, can go out of date, and should not be relied upon. The source of
 	// truth is always the database row for the key.
-	NextNonce int64
+	NextNonce int64 `json:"-"`
 	// IsFunding marks the address as being used for rescuing the  node and the pending transactions
 	// Only one key can be IsFunding=true at a time.
 	IsFunding bool

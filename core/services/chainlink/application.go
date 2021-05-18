@@ -55,11 +55,6 @@ type (
 		onConnect func()
 	}
 
-	StartCloser interface {
-		Start() error
-		Close() error
-	}
-
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
@@ -112,11 +107,11 @@ type ChainlinkApplication struct {
 	Exiter          func(int)
 	HeadTracker     *services.HeadTracker
 	HeadBroadcaster *services.HeadBroadcaster
+	BPTXM           *bulletprooftxmanager.BulletproofTxManager
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
 	RunQueue         services.RunQueue
 	JobSubscriber    services.JobSubscriber
-	EthBroadcaster   bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster   log.Broadcaster
 	EventBroadcaster postgres.EventBroadcaster
 	JobORM           job.ORM
@@ -143,7 +138,7 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
-	subservices              []StartCloser
+	subservices              []utils.StartCloser
 	logger                   *logger.Logger
 
 	started     bool
@@ -155,8 +150,8 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
-	var subservices []StartCloser
-	var headTrackables []strpkg.HeadTrackable
+	var subservices []utils.StartCloser
+	var headTrackables []models.HeadTrackable
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -203,7 +198,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	headTrackerLogger, err := globalLogger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
 	if err != nil {
-		logger.Fatal("error starting logger for head tracker")
+		logger.Fatal("error starting logger for head tracker", err)
 	}
 
 	var runExecutor services.RunExecutor
@@ -225,8 +220,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
-	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
-	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
 	headBroadcaster := services.NewHeadBroadcaster()
 
 	subservices = append(subservices, promReporter)
@@ -269,11 +264,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			ethClient,
 			logBroadcaster,
 			fluxmonitorv2.Config{
-				DefaultHTTPTimeout:         store.Config.DefaultHTTPTimeout().Duration(),
-				FlagsContractAddress:       store.Config.FlagsContractAddress(),
-				MinContractPayment:         store.Config.MinimumContractPayment(),
-				EthGasLimit:                store.Config.EthGasLimitDefault(),
-				MaxUnconfirmedTransactions: store.Config.EthMaxUnconfirmedTransactions(),
+				DefaultHTTPTimeout:       store.Config.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:     store.Config.FlagsContractAddress(),
+				MinContractPayment:       store.Config.MinimumContractPayment(),
+				EthGasLimit:              store.Config.EthGasLimitDefault(),
+				EthMaxQueuedTransactions: store.Config.EthMaxQueuedTransactions(),
 			},
 		)
 	}
@@ -312,16 +307,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, headBroadcaster)
-
-	store.NotifyNewEthTx = ethBroadcaster
+	subservices = append(subservices, jobSpawner, pipelineRunner, bptxm, headBroadcaster)
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
+		BPTXM:                    bptxm,
 		JobSubscriber:            jobSubscriber,
-		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
 		JobORM:                   jobORM,
@@ -351,7 +344,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	headTrackables = append(
 		headTrackables,
 		logBroadcaster,
-		ethConfirmer,
+		bptxm,
 		jobSubscriber,
 		pendingConnectionResumer,
 		balanceMonitor,

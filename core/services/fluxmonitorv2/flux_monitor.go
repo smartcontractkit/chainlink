@@ -173,7 +173,7 @@ func NewFromJobSpec(
 		orm,
 		keyStore,
 		cfg.EthGasLimit,
-		cfg.MaxUnconfirmedTransactions,
+		cfg.EthMaxQueuedTransactions,
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress, ethClient)

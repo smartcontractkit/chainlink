@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -167,7 +168,7 @@ func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *st
 		gasLimit = e.GasLimit
 	}
 
-	if err := utils.CheckOKToTransmit(store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
+	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(store.DB, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
 		err = errors.Wrap(err, "number of unconfirmed transactions exceeds ETH_MAX_UNCONFIRMED_TRANSACTIONS")
 		logger.Error(err)
 		return models.NewRunOutputError(err)

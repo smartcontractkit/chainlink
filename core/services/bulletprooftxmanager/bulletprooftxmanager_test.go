@@ -1,16 +1,25 @@
 package bulletprooftxmanager_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -142,12 +151,12 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	_, err := bulletprooftxmanager.SendEther(store, from, to, *value)
+	_, err := bulletprooftxmanager.SendEther(store.DB, from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
 
-func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
+func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -156,21 +165,21 @@ func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store)
 
-	db := store.MustSQLDB()
+	db := store.DB
 	var maxUnconfirmedTransactions uint64 = 2
 
 	t.Run("with no eth_txes returns nil", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.NoError(t, err)
 	})
 
 	// deliberately one extra to exceed limit
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, int64(i), otherAddress)
+		cltest.MustInsertUnstartedEthTx(t, store, otherAddress)
 	}
 
 	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.NoError(t, err)
 	})
 
@@ -179,29 +188,38 @@ func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
 	}
 
 	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
+	var n int64 = 0
+	cltest.MustInsertInProgressEthTxWithAttempt(t, store, n, fromAddress)
+	n++
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
+	n++
+
+	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, 1)
 		require.NoError(t, err)
 	})
 
 	// deliberately one extra to exceed limit
-	var n int64 = 0
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
 		cltest.MustInsertConfirmedEthTxWithAttempt(t, store, n, 42, fromAddress)
 		n++
 	}
 
 	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.NoError(t, err)
 	})
 
 	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
-		n++
+		cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
 	}
 
 	t.Run("with fewer unconfirmed eth_txes than limit returns nil", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.NoError(t, err)
 	})
 
@@ -209,33 +227,193 @@ func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
 	n++
 
 	t.Run("with equal unconfirmed eth_txes to limit returns nil", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.NoError(t, err)
 	})
 
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
 
 	t.Run("with more unconfirmed eth_txes than limit returns error", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, maxUnconfirmedTransactions)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.Error(t, err)
-
-		require.EqualError(t, err, fmt.Sprintf("cannot transmit eth transaction; there are currently %v unconfirmed transactions in the queue which exceeds the configured maximum of %v", maxUnconfirmedTransactions+1, maxUnconfirmedTransactions))
+		require.EqualError(t, err, "cannot create transaction; too many unstarted transactions in the queue (2/2). WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.")
 	})
 
-	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes`).Error)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, store, n, fromAddress)
-	n++
 	cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
 
 	t.Run("unstarted and in_progress transactions count as unconfirmed", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, 1)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, 1)
 		require.Error(t, err)
 
-		require.EqualError(t, err, "cannot transmit eth transaction; there are currently 2 unconfirmed transactions in the queue which exceeds the configured maximum of 1")
+		require.EqualError(t, err, "cannot create transaction; too many unstarted transactions in the queue (3/1). WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.")
 	})
 
 	t.Run("disables check with 0 limit", func(t *testing.T) {
-		err := utils.CheckOKToTransmit(db, fromAddress, 0)
+		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, 0)
 		require.NoError(t, err)
 	})
+}
+
+func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	t.Cleanup(cleanup)
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress)
+
+	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(store.DB, fromAddress)
+	require.NoError(t, err)
+	assert.Equal(t, int(count), 3)
+}
+
+func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	t.Cleanup(cleanup)
+
+	key := cltest.MustInsertRandomKey(t, store.DB, 0)
+	fromAddress := key.Address.Address()
+	toAddress := cltest.NewAddress()
+	gasLimit := uint64(1000)
+	payload := []byte{1, 2, 3}
+
+	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
+		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		assert.NoError(t, err)
+
+		assert.Greater(t, etx.ID, int64(0))
+		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, payload, etx.EncodedPayload)
+		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+
+		cltest.AssertCount(t, store, models.EthTx{}, 1)
+
+		require.NoError(t, store.ORM.DB.First(&etx).Error)
+
+		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		assert.Equal(t, toAddress, etx.ToAddress)
+		assert.Equal(t, payload, etx.EncodedPayload)
+		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+	})
+
+	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, fromAddress)
+
+	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
+		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, cltest.NewAddress(), []byte{1, 2, 3}, 21000, 1)
+		assert.EqualError(t, err, "transmitter#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.")
+	})
+}
+
+func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	thisKey := cltest.MustInsertRandomKey(t, store.DB, 1)
+	otherKey := cltest.MustInsertRandomKey(t, store.DB, 1)
+
+	fromAddress := thisKey.Address.Address()
+	gasLimit := uint64(1000)
+	toAddress := cltest.NewAddress()
+
+	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
+		payload := cltest.MustRandomBytes(t, 100)
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, otherKey.Address.Address())
+
+		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		assert.NoError(t, err)
+
+		require.Equal(t, payload, etx.EncodedPayload)
+	})
+
+	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
+
+	t.Run("if this key has any transactions with insufficient eth errors, skips transmission entirely", func(t *testing.T) {
+		payload := cltest.MustRandomBytes(t, 100)
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, thisKey.Address.Address())
+
+		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		require.EqualError(t, err, fmt.Sprintf("wallet is out of eth: %s", thisKey.Address.Hex()))
+	})
+
+	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
+		payload := cltest.MustRandomBytes(t, 100)
+		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
+
+		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		assert.NoError(t, err)
+
+		require.Equal(t, payload, etx.EncodedPayload)
+	})
+}
+
+func TestBulletproofTxManager_Lifecycle(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	db := store.DB
+	ethClient := new(mocks.Client)
+	config := new(bptxmmocks.Config)
+	kst := new(mocks.KeyStoreInterface)
+	advisoryLocker := &postgres.NullAdvisoryLocker{}
+	eventBroadcaster := new(pgmocks.EventBroadcaster)
+
+	config.On("EthTxResendAfterThreshold").Return(1 * time.Hour)
+	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
+	config.On("EthTxReaperInterval").Return(1 * time.Hour)
+	config.On("EthMaxInFlightTransactions").Return(uint32(42))
+	config.On("EthFinalityDepth").Return(uint(42))
+	kst.On("AllKeys").Return([]models.Key{}, nil).Once()
+
+	keyChangeCh := make(chan struct{})
+	unsub := cltest.NewAwaiter()
+	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
+
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, advisoryLocker, eventBroadcaster)
+
+	head := cltest.Head(42)
+	// It should not hang or panic
+	bptxm.OnNewLongestChain(context.Background(), *head)
+
+	sub := new(pgmocks.Subscription)
+	sub.On("Events").Return(make(<-chan postgres.Event))
+	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	config.On("EthNonceAutoSync").Return(true)
+	config.On("EthGasBumpThreshold").Return(uint64(1))
+
+	require.NoError(t, bptxm.Start())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
+	bptxm.OnNewLongestChain(ctx, *head)
+	require.NoError(t, ctx.Err())
+
+	key := cltest.MustGenerateRandomKey(t)
+
+	kst.On("AllKeys").Return([]models.Key{key}, nil).Once()
+	sub.On("Close").Return()
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.timerCtx"), key.Address.Address()).Return(uint64(0), nil)
+	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)
+	keyChangeCh <- struct{}{}
+
+	require.NoError(t, bptxm.Close())
+
+	ethClient.AssertExpectations(t)
+	config.AssertExpectations(t)
+	kst.AssertExpectations(t)
+	eventBroadcaster.AssertExpectations(t)
+	unsub.AwaitOrFail(t, 1*time.Second)
 }

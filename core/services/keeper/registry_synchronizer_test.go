@@ -141,7 +141,7 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 	require.Equal(t, int32(0), registry.KeeperIndex)
 	require.Equal(t, int32(1), registry.NumKeepers)
 	require.Equal(t, upkeepConfig.CheckData, upkeepRegistration.CheckData)
-	require.Equal(t, int32(upkeepConfig.ExecuteGas), upkeepRegistration.ExecuteGas)
+	require.Equal(t, uint64(upkeepConfig.ExecuteGas), upkeepRegistration.ExecuteGas)
 
 	assertUpkeepIDs(t, store, []int64{0, 2})
 	ethMock.AssertExpectations(t)

@@ -54,7 +54,8 @@ type ConfigSchema struct {
 	EthHeadTrackerSamplingInterval            time.Duration   `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL" default:"1s"`
 	EthLogBackfillBatchSize                   uint32          `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
 	EthMaxGasPriceWei                         big.Int         `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
+	EthMaxInFlightTransactions                uint64          `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS" default:"16"`
+	EthMaxQueuedTransactions                  uint64          `env:"ETH_MAX_QUEUED_TRANSACTIONS" default:"500"`
 	EthMinGasPriceWei                         big.Int         `env:"ETH_MIN_GAS_PRICE_WEI"`
 	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
