@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   node performance on fast chains. The frequency is by default 1 second, and can be changed 
   by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL` env var e.g. `ETH_HEAD_TRACKER_SAMPLING_INTERVAL=5s`.
 
+- Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed 
+  to any chosed directory by setting a new configuration value: `DATABASE_BACKUP_DIR`
+
 ## [0.10.6] - 2021-05-10
 
 ### Added
