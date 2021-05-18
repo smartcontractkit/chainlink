@@ -245,6 +245,11 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 				"minimumContractPayment", minimumContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
+			ctx, cancel := postgres.DefaultQueryCtx()
+			defer cancel()
+			if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+				logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
+			}
 			return
 		}
 	}

@@ -22,7 +22,7 @@ var (
 
 type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
-	InsertFinishedRun(tx *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
+	InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)

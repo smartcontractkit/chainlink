@@ -400,8 +400,8 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, met
 	return runID, finalResult, nil
 }
 
-func (r *runner) InsertFinishedRun(tx *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
-	return r.orm.InsertFinishedRun(tx, run, trrs, saveSuccessfulTaskRuns)
+func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+	return r.orm.InsertFinishedRun(db, run, trrs, saveSuccessfulTaskRuns)
 }
 
 func (r *runner) runReaper() {

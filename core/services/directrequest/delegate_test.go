@@ -381,48 +381,45 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.AssertExpectations(t)
 	})
 
-	/*
-		t.Run("Log has insufficient funds", func(t *testing.T) {
-			drConfig := testConfig{
-				minRequiredOutgoingConfirmations: 1,
-				minimumContractPayment:           assets.NewLink(100),
-			}
-			uni := NewDirectRequestUniverseWithConfig(t, drConfig)
-			defer uni.Cleanup()
+	t.Run("Log has insufficient funds", func(t *testing.T) {
+		drConfig := testConfig{
+			minRequiredOutgoingConfirmations: 1,
+			minimumContractPayment:           assets.NewLink(100),
+		}
+		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
+		defer uni.Cleanup()
 
-			log := new(log_mocks.Broadcast)
-			defer log.AssertExpectations(t)
+		log := new(log_mocks.Broadcast)
+		defer log.AssertExpectations(t)
 
-			uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-			logOracleRequest := oracle_wrapper.OracleOracleRequest{
-				CancelExpiration: big.NewInt(0),
-				Payment:          big.NewInt(99),
-			}
-			log.On("RawLog").Return(types.Log{
-				Topics: []common.Hash{
-					common.Hash{},
-					uni.spec.DirectRequestSpec.OnChainJobSpecID,
-				},
-			})
-			log.On("DecodedLog").Return(&logOracleRequest)
-			markConsumedLogAwaiter := cltest.NewAwaiter()
-			uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-				markConsumedLogAwaiter.ItHappened()
-			}).Return(nil)
-
-			err := uni.service.Start()
-			require.NoError(t, err)
-
-			uni.listener.HandleLog(log)
-
-			markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
-
-			uni.service.Close()
-			uni.logBroadcaster.AssertExpectations(t)
-			uni.runner.AssertExpectations(t)
+		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+			CancelExpiration: big.NewInt(0),
+			Payment:          big.NewInt(99),
+		}
+		log.On("RawLog").Return(types.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+			},
 		})
-		*
-	*/
+		log.On("DecodedLog").Return(&logOracleRequest)
+		markConsumedLogAwaiter := cltest.NewAwaiter()
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			markConsumedLogAwaiter.ItHappened()
+		}).Return(nil)
+
+		err := uni.service.Start()
+		require.NoError(t, err)
+
+		uni.listener.HandleLog(log)
+
+		markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
+
+		uni.service.Close()
+		uni.logBroadcaster.AssertExpectations(t)
+		uni.runner.AssertExpectations(t)
+	})
 }
 
 type testConfig struct {

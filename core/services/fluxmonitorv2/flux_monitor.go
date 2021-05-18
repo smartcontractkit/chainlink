@@ -81,7 +81,6 @@ type FluxMonitor struct {
 
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
 func NewFluxMonitor(
-	//pipelineRun PipelineRun,
 	pipelineRunner pipeline.Runner,
 	spec pipeline.Spec,
 	db *gorm.DB,
@@ -193,11 +192,6 @@ func NewFromJobSpec(
 
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
-	//pipelineRun := PipelineRun{
-	//	runner: pipelineRunner,
-	//	spec:   *jobSpec.PipelineSpec,
-	//	logger: *logger.Default,
-	//}
 
 	min, err := fluxAggregator.MinSubmissionValue(nil)
 	if err != nil {
@@ -230,7 +224,6 @@ func NewFromJobSpec(
 	)
 
 	return NewFluxMonitor(
-		//pipelineRun,
 		pipelineRunner,
 		*jobSpec.PipelineSpec,
 		db,
@@ -669,8 +662,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	// Call the v2 pipeline to execute a new job run
-	ctx := context.Background()
-	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
