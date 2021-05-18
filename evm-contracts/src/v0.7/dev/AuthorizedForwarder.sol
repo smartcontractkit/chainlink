@@ -5,7 +5,7 @@ import "../interfaces/OperatorInterface.sol";
 import "./ConfirmedOwnerWithProposal.sol";
 import "./AuthorizedSenderReceiver.sol";
 
-contract OperatorForwarder is
+contract AuthorizedForwarder is
   ConfirmedOwnerWithProposal,
   AuthorizedSenderReceiver
 {

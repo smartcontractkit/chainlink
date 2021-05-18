@@ -14,7 +14,7 @@ import { MaliciousConsumer__factory } from '../../ethers/v0.4/factories/Maliciou
 import { MaliciousMultiWordConsumer__factory } from '../../ethers/v0.6/factories/MaliciousMultiWordConsumer__factory'
 import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/MaliciousRequester__factory'
 import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
-import { OperatorForwarder__factory } from '../../ethers/v0.7/factories/OperatorForwarder__factory'
+import { AuthorizedForwarder__factory } from '../../ethers/v0.7/factories/AuthorizedForwarder__factory'
 import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
 import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
 import { ContractReceipt } from 'ethers/contract'
@@ -28,7 +28,7 @@ const maliciousRequesterFactory = new MaliciousRequester__factory()
 const maliciousConsumerFactory = new MaliciousConsumer__factory()
 const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factory()
 const operatorFactory = new Operator__factory()
-const operatorForwarderFactory = new OperatorForwarder__factory()
+const forwarderFactory = new AuthorizedForwarder__factory()
 const linkTokenFactory = new contract.LinkToken__factory()
 const zeroAddress = ethers.constants.AddressZero
 
@@ -48,8 +48,8 @@ describe('Operator', () => {
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: contract.Instance<contract.LinkToken__factory>
   let operator: contract.Instance<Operator__factory>
-  let forwarder1: contract.Instance<OperatorForwarder__factory>
-  let forwarder2: contract.Instance<OperatorForwarder__factory>
+  let forwarder1: contract.Instance<AuthorizedForwarder__factory>
+  let forwarder2: contract.Instance<AuthorizedForwarder__factory>
   let owner: ethers.Wallet
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
@@ -97,10 +97,10 @@ describe('Operator', () => {
 
   describe('#transferOwnableContracts', () => {
     beforeEach(async () => {
-      forwarder1 = await operatorForwarderFactory
+      forwarder1 = await forwarderFactory
         .connect(owner)
         .deploy(link.address, operator.address, zeroAddress, '0x')
-      forwarder2 = await operatorForwarderFactory
+      forwarder2 = await forwarderFactory
         .connect(owner)
         .deploy(link.address, operator.address, zeroAddress, '0x')
     })
@@ -161,10 +161,10 @@ describe('Operator', () => {
         operator2 = await operatorFactory
           .connect(roles.defaultAccount)
           .deploy(link.address, roles.defaultAccount.address)
-        forwarder1 = await operatorForwarderFactory
+        forwarder1 = await forwarderFactory
           .connect(roles.defaultAccount)
           .deploy(link.address, operator.address, zeroAddress, '0x')
-        forwarder2 = await operatorForwarderFactory
+        forwarder2 = await forwarderFactory
           .connect(roles.defaultAccount)
           .deploy(link.address, operator.address, zeroAddress, '0x')
         await operator
@@ -401,10 +401,10 @@ describe('Operator', () => {
         .setAuthorizedSenders([roles.oracleNode1.address])
       newSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
 
-      forwarder1 = await operatorForwarderFactory
+      forwarder1 = await forwarderFactory
         .connect(owner)
         .deploy(link.address, operator.address, zeroAddress, '0x')
-      forwarder2 = await operatorForwarderFactory
+      forwarder2 = await forwarderFactory
         .connect(owner)
         .deploy(link.address, operator.address, zeroAddress, '0x')
     })

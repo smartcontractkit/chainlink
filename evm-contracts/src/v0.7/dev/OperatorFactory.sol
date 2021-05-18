@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 
 import "./Operator.sol";
-import "./OperatorForwarder.sol";
+import "./AuthorizedForwarder.sol";
 
 /**
  * @title Operator Factory
@@ -16,7 +16,7 @@ contract OperatorFactory {
     address indexed operator,
     address indexed owner
   );
-  event OperatorForwarderCreated(
+  event AuthorizedForwarderCreated(
     address indexed operator,
     address indexed owner
   );
@@ -51,14 +51,14 @@ contract OperatorFactory {
     emit OperatorCreated(address(operator), msg.sender);
 
     bytes memory tmp = new bytes(0);
-    OperatorForwarder forwarder = new OperatorForwarder(
+    AuthorizedForwarder forwarder = new AuthorizedForwarder(
       link,
       address(operator),
       address(0),
       tmp
     );
 
-    emit OperatorForwarderCreated(
+    emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
     );
@@ -71,14 +71,14 @@ contract OperatorFactory {
     external
   {
     bytes memory tmp = new bytes(0);
-    OperatorForwarder forwarder = new OperatorForwarder(
+    AuthorizedForwarder forwarder = new AuthorizedForwarder(
       link,
       msg.sender,
       address(0),
       tmp
     );
 
-    emit OperatorForwarderCreated(
+    emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
     );
@@ -93,14 +93,14 @@ contract OperatorFactory {
   )
     external
   {
-    OperatorForwarder forwarder = new OperatorForwarder(
+    AuthorizedForwarder forwarder = new AuthorizedForwarder(
       link,
       msg.sender,
       to,
       message
     );
 
-    emit OperatorForwarderCreated(
+    emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
     );
