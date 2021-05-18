@@ -3,7 +3,7 @@ package migrations
 import "gorm.io/gorm"
 
 const (
-	up27 = `
+	up28 = `
         CREATE TABLE vrf_specs (
             id BIGSERIAL PRIMARY KEY,
             public_key text NOT NULL,
@@ -19,7 +19,7 @@ const (
             num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id, cron_spec_id, vrf_spec_id) = 1
         );
     `
-	down27 = `
+	down28 = `
         ALTER TABLE jobs DROP CONSTRAINT chk_only_one_spec,
         ADD CONSTRAINT chk_only_one_spec CHECK (
             num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id, cron_spec_id) = 1
@@ -32,12 +32,12 @@ const (
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0027_vrf_v2",
+		ID: "0028_vrf_v2",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up27).Error
+			return db.Exec(up28).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down27).Error
+			return db.Exec(down28).Error
 		},
 	})
 }
