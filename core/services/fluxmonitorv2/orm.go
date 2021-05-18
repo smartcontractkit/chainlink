@@ -3,6 +3,8 @@ package fluxmonitorv2
 import (
 	"encoding/hex"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -99,18 +101,12 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint64,
 	maxUnconfirmedTransactions uint64,
 ) error {
-	sqlDB, err := db.DB()
-	if err != nil {
-		return errors.Wrap(err, "orm#CreateEthTransaction")
-	}
-
-	err = utils.CheckOKToTransmit(sqlDB, fromAddress, maxUnconfirmedTransactions)
+	err := utils.CheckOKToTransmit(postgres.MustSQLDB(db), fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return errors.Wrap(err, "orm#CreateEthTransaction")
 	}
 
 	value := 0
-
 	dbtx := db.Exec(`
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
 SELECT ?,?,?,?,?,'unstarted',NOW()

@@ -722,18 +722,19 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 	return nil
 }
 
-
 func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
-	var markConsumed = true
-	defer func() {
-		if markConsumed && broadcast != nil {
-			fm.logBroadcaster.MarkConsumed(fm.db, broadcast)
-		}
-	}()
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,
 		"absoluteThreshold", deviationChecker.Thresholds.Abs,
 	)
+	var markConsumed = true
+	defer func() {
+		if markConsumed && broadcast != nil {
+			if err := fm.logBroadcaster.MarkConsumed(fm.db, broadcast); err != nil {
+				l.Errorw("FluxMonitor: failed to mark log consumed", "err", err, "log", broadcast.String())
+			}
+		}
+	}()
 
 	if !fm.logBroadcaster.IsConnected() {
 		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")

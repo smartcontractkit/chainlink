@@ -1081,7 +1081,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() error {
-	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		user, err := findUser(dbtx)
 		if err != nil {
 			return err

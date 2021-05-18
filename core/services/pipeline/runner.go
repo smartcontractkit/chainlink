@@ -390,7 +390,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, met
 		return run.ID, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 	finalResult = trrs.FinalResult()
-	err = postgres.GormTransaction(ctx, r.orm.DB(), func(tx *gorm.DB) error {
+	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
 		runID, err = r.orm.InsertFinishedRun(tx, run, trrs, saveSuccessfulTaskRuns)
 		return err
 	})

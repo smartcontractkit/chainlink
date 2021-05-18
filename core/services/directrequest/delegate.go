@@ -279,6 +279,8 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		} else if err != nil {
 			logger.Errorw("DirectRequest failed to create run", "err", err)
 		}
+		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+		defer cancel()
 		err = postgres.GormTransaction(ctx, l.db, func(tx *gorm.DB) error {
 			_, err = l.pipelineRunner.InsertFinishedRun(tx, run, trrs, true)
 			if err != nil {
