@@ -139,7 +139,7 @@ func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistra
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
-	sqlTx, ok := tx.ConnPool.(*sql.Tx)
+	sqlTx, ok := tx.Statement.ConnPool.(*sql.Tx)
 	if !ok {
 		return etx, errors.New("unable to get tx from conn pool")
 	}
