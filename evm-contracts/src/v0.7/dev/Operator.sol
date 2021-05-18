@@ -343,7 +343,7 @@ contract Operator is
    * @param to address
    * @param data to forward
    */
-  function ownerForward(
+  function operatorForward(
     address to,
     bytes calldata data
   )

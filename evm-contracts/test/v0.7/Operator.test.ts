@@ -72,13 +72,13 @@ describe('Operator', () => {
       'acceptOwnableContracts',
       'cancelOracleRequest',
       'distributeFunds',
-      'forward',
       'fulfillOracleRequest',
       'fulfillOracleRequest2',
       'getAuthorizedSenders',
       'getChainlinkToken',
       'isAuthorizedSender',
       'onTokenTransfer',
+      'operatorForward',
       'operatorTransferAndCall',
       'oracleRequest',
       'requestOracleData',
@@ -3186,7 +3186,7 @@ describe('Operator', () => {
     })
   })
 
-  describe('#forward', () => {
+  describe('#operatorForward', () => {
     const bytes = utils.hexlify(utils.randomBytes(100))
     const payload = getterSetterFactory.interface.functions.setBytes.encode([
       bytes,
@@ -3200,7 +3200,9 @@ describe('Operator', () => {
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(async () => {
-          await operator.connect(roles.stranger).forward(mock.address, payload)
+          await operator
+            .connect(roles.stranger)
+            .operatorForward(mock.address, payload)
         })
       })
     })
@@ -3212,7 +3214,7 @@ describe('Operator', () => {
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.defaultAccount)
-              .forward(link.address, sighash),
+              .operatorForward(link.address, sighash),
               'Cannot forward to LINK token'
           })
         })
@@ -3222,7 +3224,7 @@ describe('Operator', () => {
         it('forwards the data', async () => {
           const tx = await operator
             .connect(roles.defaultAccount)
-            .forward(mock.address, payload)
+            .operatorForward(mock.address, payload)
           await tx.wait()
           assert.equal(await mock.getBytes(), bytes)
         })
@@ -3230,7 +3232,7 @@ describe('Operator', () => {
         it('perceives the message is sent by the Operator', async () => {
           const tx = await operator
             .connect(roles.defaultAccount)
-            .forward(mock.address, payload)
+            .operatorForward(mock.address, payload)
           const receipt = await tx.wait()
           const log: any = receipt.logs?.[0]
           const logData = mock.interface.events.SetBytes.decode(
