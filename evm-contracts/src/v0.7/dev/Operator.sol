@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import "./AuthorizedSenderReceiver.sol";
+import "./AuthorizedReceiver.sol";
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "../interfaces/LinkTokenInterface.sol";
@@ -15,7 +15,7 @@ import "../vendor/SafeMathChainlink.sol";
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
 contract Operator is
-  AuthorizedSenderReceiver,
+  AuthorizedReceiver,
   ConfirmedOwner,
   LinkTokenReceiver,
   OperatorInterface,
@@ -267,7 +267,7 @@ contract Operator is
     validateAuthorizedSenderSetter()
   {
     for (uint256 i = 0; i < targets.length; i++) {
-      AuthorizedSenderReceiverInterface(targets[i]).setAuthorizedSenders(senders);
+      AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
     }
   }
 
@@ -587,7 +587,7 @@ contract Operator is
   }
 
   /**
-   * @notice concrete implementation of AuthorizedSenderReceiver
+   * @notice concrete implementation of AuthorizedReceiver
    * @return bool of whether sender is authorized
    */
   function _canSetAuthorizedSenders()

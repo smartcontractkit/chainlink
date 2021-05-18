@@ -3,11 +3,11 @@ pragma solidity ^0.7.0;
 
 import "../interfaces/OperatorInterface.sol";
 import "./ConfirmedOwnerWithProposal.sol";
-import "./AuthorizedSenderReceiver.sol";
+import "./AuthorizedReceiver.sol";
 
 contract AuthorizedForwarder is
   ConfirmedOwnerWithProposal,
-  AuthorizedSenderReceiver
+  AuthorizedReceiver
 {
 
   address public immutable linkAddr;
@@ -66,7 +66,7 @@ contract AuthorizedForwarder is
   }
 
   /**
-   * @notice concrete implementation of AuthorizedSenderReceiver
+   * @notice concrete implementation of AuthorizedReceiver
    * @return bool of whether sender is authorized
    */
   function _canSetAuthorizedSenders()

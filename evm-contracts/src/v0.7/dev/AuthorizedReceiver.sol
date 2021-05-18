@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import "../interfaces/AuthorizedSenderReceiverInterface.sol";
+import "../interfaces/AuthorizedReceiverInterface.sol";
 
-abstract contract AuthorizedSenderReceiver is
-  AuthorizedSenderReceiverInterface
+abstract contract AuthorizedReceiver is
+  AuthorizedReceiverInterface
 {
 
   mapping(address => bool) private s_authorizedSenders;
