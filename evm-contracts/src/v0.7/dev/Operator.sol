@@ -4,7 +4,6 @@ pragma solidity ^0.7.0;
 import "./AuthorizedSenderReceiver.sol";
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
-import "./OperatorForwarder.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/OperatorInterface.sol";
 import "../interfaces/OwnableInterface.sol";
@@ -69,7 +68,7 @@ contract Operator is
   );
 
   event OwnableContractAccepted(
-    address indexed forwarder
+    address indexed accpetedContract
   );
 
   /**
@@ -139,8 +138,8 @@ contract Operator is
   )
     public
     override
-    onlyLINK()
-    checkCallAddress(callbackAddress)
+    validateFromLINK()
+    validateNotToLINK(callbackAddress)
   {
     (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
       sender,
@@ -273,10 +272,9 @@ contract Operator is
   }
 
   /**
-   * @notice Transfer the ownership of the forwarder
-   * @dev This contract is the owner until the newOwner calls acceptOwnership on the forwarder
-   * @param ownable list of addresses of OperatorForwarders to transfer
-   * @param newOwner address to transfer Forwarders too
+   * @notice Transfer the ownership of ownable contracts
+   * @param ownable list of addresses to transfer
+   * @param newOwner address to transfer ownership to
    */
   function transferOwnableContracts(
     address[] calldata ownable,
@@ -291,8 +289,8 @@ contract Operator is
   }
 
   /**
-   * @notice Accept the ownership of a forwarder and set as the forwarder
-   * @dev Must be the pending owner on the forwarder
+   * @notice Accept the ownership of an ownable contract
+   * @dev Must be the pending owner on the contract
    * @param ownable list of addresses of Ownable contracts to accept
    */
   function acceptOwnableContracts(
@@ -320,7 +318,7 @@ contract Operator is
     external
     override(OracleInterface, WithdrawalInterface)
     onlyOwner()
-    hasAvailableFunds(amount)
+    validateAvailableFunds(amount)
   {
     assert(linkToken.transfer(recipient, amount));
   }
@@ -345,13 +343,13 @@ contract Operator is
    * @param to address
    * @param data to forward
    */
-  function forward(
+  function ownerForward(
     address to,
     bytes calldata data
   )
     external
     onlyOwner()
-    checkCallAddress(to)
+    validateNotToLINK(to)
   {
     (bool status,) = to.call(data);
     require(status, "Forwarded call failed.");
@@ -372,7 +370,7 @@ contract Operator is
     external
     override
     onlyOwner()
-    hasAvailableFunds(value)
+    validateAvailableFunds(value)
     returns (
       bool success
     )
@@ -624,7 +622,7 @@ contract Operator is
    * @dev Reverts if amount requested is greater than withdrawable balance
    * @param amount The given amount to compare to `s_withdrawableTokens`
    */
-  modifier hasAvailableFunds(
+  modifier validateAvailableFunds(
     uint256 amount
   ) {
     require(_fundsAvailable() >= amount, "Amount requested is greater than withdrawable balance");
@@ -646,7 +644,7 @@ contract Operator is
    * @dev Reverts if the callback address is the LINK token
    * @param to The callback address
    */
-  modifier checkCallAddress(
+  modifier validateNotToLINK(
     address to
   ) {
     require(to != address(linkToken), "Cannot call to LINK");

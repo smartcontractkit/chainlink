@@ -17,7 +17,7 @@ abstract contract LinkTokenReceiver {
     bytes memory data
   )
     public
-    onlyLINK
+    validateFromLINK()
     permittedFunctionsForLINK(data)
   {
     assembly {
@@ -52,7 +52,7 @@ abstract contract LinkTokenReceiver {
   /**
    * @dev Reverts if not sent from the LINK token
    */
-  modifier onlyLINK() {
+  modifier validateFromLINK() {
     require(msg.sender == getChainlinkToken(), "Must use LINK token");
     _;
   }
