@@ -2,11 +2,14 @@ package offchainreporting
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"gorm.io/gorm"
 
@@ -75,7 +78,7 @@ type (
 	}
 
 	OCRContractTrackerDB interface {
-		SaveLatestRoundRequested(rr offchainaggregator.OffchainAggregatorRoundRequested) error
+		SaveLatestRoundRequested(tx *sql.Tx, rr offchainaggregator.OffchainAggregatorRoundRequested) error
 		LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
 	}
 )
@@ -211,6 +214,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		return
 	}
 
+	var consumed bool
 	switch topics[0] {
 	case OCRContractConfigSet:
 		var configSet *offchainaggregator.OffchainAggregatorConfigSet
@@ -236,10 +240,17 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			if err := t.db.SaveLatestRoundRequested(*rr); err != nil {
-				t.logger.Error(err)
+			err = postgres.GormTransactionWithDefaultContext(t.gdb, func(tx *gorm.DB) error {
+				if err = t.db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), *rr); err != nil {
+					return err
+				}
+				return t.logBroadcaster.MarkConsumed(tx, lb)
+			})
+			if err != nil {
+				logger.Error(err)
 				return
 			}
+			consumed = true
 			t.lrrMu.Lock()
 			t.latestRoundRequested = *rr
 			t.lrrMu.Unlock()
@@ -250,8 +261,9 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	default:
 		logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
-
-	t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+	if !consumed {
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+	}
 }
 
 // IsLaterThan returns true if the first log was emitted "after" the second log
