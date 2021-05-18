@@ -1,9 +1,15 @@
 package eth
 
 import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
@@ -72,6 +78,8 @@ var (
 	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
 	gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
 )
+
+var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
@@ -226,4 +234,60 @@ func isParityFatal(s string) bool {
 			parGasLimitExceeded.MatchString(s) ||
 			parInvalidSignature.MatchString(s) ||
 			parInvalidRlp.MatchString(s))
+}
+
+// go-ethereum@v1.10.0/rpc/json.go
+type JsonError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+func (err *JsonError) Error() string {
+	if err.Message == "" {
+		return fmt.Sprintf("json-rpc error %d", err.Code)
+	}
+	return err.Message
+}
+
+// ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
+// an RPC eth_call that reverted by parsing the message from the "data" field
+// ex:
+// kovan (parity)
+// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
+// rinkeby / ropsten (geth)
+// { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
+func ExtractRevertReasonFromRPCError(err error) (string, error) {
+	if err == nil {
+		return "", errors.New("no error present")
+	}
+	cause := errors.Cause(err)
+	jsonBytes, err := json.Marshal(cause)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to marshal err to json")
+	}
+	jErr := JsonError{}
+	err = json.Unmarshal(jsonBytes, &jErr)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to unmarshal json into jsonError struct")
+	}
+	dataStr, ok := jErr.Data.(string)
+	if !ok {
+		return "", errors.New("invalid error type")
+	}
+	matches := hexDataRegex.FindStringSubmatch(dataStr)
+	if len(matches) != 1 {
+		return "", errors.New("unknown data payload format")
+	}
+	hexData := utils.RemoveHexPrefix(matches[0])
+	if len(hexData) < 8 {
+		return "", errors.New("unknown data payload format")
+	}
+	revertReasonBytes, err := hex.DecodeString(hexData[8:])
+	if err != nil {
+		return "", errors.Wrap(err, "unable to decode hex to bytes")
+	}
+	revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+	revertReason := strings.TrimSpace(string(revertReasonBytes))
+	return revertReason, nil
 }
