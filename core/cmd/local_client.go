@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
@@ -26,12 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -314,6 +317,61 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 
 	logger.Info("successfully reset the node state in the database")
 	return nil
+}
+
+type HealthCheckPresenter struct {
+	webPresenters.Check
+}
+
+func (p *HealthCheckPresenter) ToRow() []string {
+	red := color.New(color.FgRed).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+
+	var status string
+
+	switch p.Status {
+	case health.StatusFailing:
+		status = red(p.Status)
+	case health.StatusPassing:
+		status = green(p.Status)
+	}
+
+	return []string{
+		p.Name,
+		status,
+		p.Output,
+	}
+}
+
+type HealthCheckPresenters []HealthCheckPresenter
+
+// RenderTable implements TableRenderer
+func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"Name", "Status", "Output"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
+// Status will display the health of various services
+func (cli *Client) Status(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/health?full=1", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
 func (cli *Client) makeApp() (chainlink.Application, func(), error) {
