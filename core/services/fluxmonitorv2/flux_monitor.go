@@ -667,12 +667,12 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		return
 	}
 	result, err := results.FinalResult().SingularResult()
-	if err != nil {
-		logger.Errorw("can't fetch answer", "err", err)
+	if err != nil || result.Error != nil {
+		logger.Errorw("can't fetch answer", "err", err, "result", result)
 		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
 		return
 	}
-	answer, err := utils.ToDecimal(result)
+	answer, err := utils.ToDecimal(result.Value)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -828,12 +828,12 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		return
 	}
 	result, err := results.FinalResult().SingularResult()
-	if err != nil {
-		l.Errorw("can't fetch answer", "err", err)
+	if err != nil || result.Error != nil {
+		l.Errorw("can't fetch answer", "err", err, "result", result)
 		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
 		return
 	}
-	answer, err := utils.ToDecimal(result)
+	answer, err := utils.ToDecimal(result.Value)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return

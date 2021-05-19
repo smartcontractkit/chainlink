@@ -404,6 +404,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 				tm.orm.
 					On("UpdateFluxMonitorRoundStats",
+						mock.Anything,
 						contractAddress,
 						uint32(reportableRoundID),
 						int64(1),
@@ -535,6 +536,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	tm.orm.
 		On("UpdateFluxMonitorRoundStats",
+			mock.Anything,
 			contractAddress,
 			uint32(1),
 			mock.AnythingOfType("int64"), //int64(1),
@@ -568,6 +570,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once()
 	tm.orm.
 		On("UpdateFluxMonitorRoundStats",
+			mock.Anything,
 			contractAddress,
 			uint32(3),
 			mock.AnythingOfType("int64"), //int64(2),
@@ -602,6 +605,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once()
 	tm.orm.
 		On("UpdateFluxMonitorRoundStats",
+			mock.Anything,
 			contractAddress,
 			uint32(4),
 			mock.AnythingOfType("int64"), //int64(3),
@@ -1205,6 +1209,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
+				mock.Anything,
 				contractAddress,
 				uint32(roundID),
 				int64(1),
@@ -1322,6 +1327,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
+				mock.Anything,
 				contractAddress,
 				uint32(roundID),
 				int64(1),
