@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -851,12 +852,11 @@ func EVMBytesToUint64(buf []byte) uint64 {
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state StartStopOnceState
-	sync.RWMutex
+	state atomic.Int32
 }
 
-// StartStopOnceState manages the state for StartStopOnce
-type StartStopOnceState int
+// StartStopOnceState holds the state for StartStopOnce
+type StartStopOnceState int32
 
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
@@ -866,41 +866,35 @@ const (
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
-	once.Lock()
-	defer once.Unlock()
+	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Started))
 
-	if once.state != StartStopOnce_Unstarted {
+	if !success {
 		return errors.Errorf("%v has already started once", name)
 	}
-	once.state = StartStopOnce_Started
 
 	return fn()
 }
 
 // StopOnce sets the state to Stopped
 func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
-	once.Lock()
-	defer once.Unlock()
+	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopped))
 
-	if once.state != StartStopOnce_Started {
+	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
-	once.state = StartStopOnce_Stopped
 
 	return fn()
 }
 
 // State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
-	once.RLock()
-	defer once.RUnlock()
-	return once.state
+	state := once.state.Load()
+	return StartStopOnceState(state)
 }
 
 func (once *StartStopOnce) IfStarted(f func()) {
-	once.RLock()
-	defer once.RUnlock()
-	if once.state == StartStopOnce_Started {
+	state := once.state.Load()
+	if StartStopOnceState(state) == StartStopOnce_Started {
 		f()
 	}
 }
