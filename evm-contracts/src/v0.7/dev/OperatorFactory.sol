@@ -10,7 +10,7 @@ import "./AuthorizedForwarder.sol";
  */
 contract OperatorFactory {
 
-  address public immutable link;
+  address public immutable getChainlinkToken;
 
   event OperatorCreated(
     address indexed operator,
@@ -27,7 +27,7 @@ contract OperatorFactory {
   constructor(
     address linkAddress
   ) {
-    link = linkAddress;
+    getChainlinkToken = linkAddress;
   }
 
   /**
@@ -36,8 +36,15 @@ contract OperatorFactory {
   function deployNewOperator()
     external
   {
-    Operator operator = new Operator(link, msg.sender);
-    emit OperatorCreated(address(operator), msg.sender);
+    Operator operator = new Operator(
+      getChainlinkToken,
+      msg.sender
+    );
+
+    emit OperatorCreated(
+      address(operator),
+      msg.sender
+    );
   }
 
   /**
@@ -47,17 +54,22 @@ contract OperatorFactory {
   function deployNewOperatorAndForwarder()
     external
   {
-    Operator operator = new Operator(link, msg.sender);
-    emit OperatorCreated(address(operator), msg.sender);
+    Operator operator = new Operator(
+      getChainlinkToken,
+      msg.sender
+    );
+    emit OperatorCreated(
+      address(operator),
+      msg.sender
+    );
 
     bytes memory tmp = new bytes(0);
     AuthorizedForwarder forwarder = new AuthorizedForwarder(
-      link,
+      getChainlinkToken,
       address(operator),
       address(0),
       tmp
     );
-
     emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
@@ -72,7 +84,7 @@ contract OperatorFactory {
   {
     bytes memory tmp = new bytes(0);
     AuthorizedForwarder forwarder = new AuthorizedForwarder(
-      link,
+      getChainlinkToken,
       msg.sender,
       address(0),
       tmp
@@ -94,7 +106,7 @@ contract OperatorFactory {
     external
   {
     AuthorizedForwarder forwarder = new AuthorizedForwarder(
-      link,
+      getChainlinkToken,
       msg.sender,
       to,
       message
