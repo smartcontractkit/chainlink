@@ -79,8 +79,9 @@ func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkee
 	return exec.RowsAffected, exec.Error
 }
 
-func (korm ORM) EligibleUpkeeps(
+func (korm ORM) EligibleUpkeepsForRegistry(
 	ctx context.Context,
+	registryAddress models.EIP55Address,
 	blockNumber int64,
 	gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, _ error) {
@@ -90,6 +91,7 @@ func (korm ORM) EligibleUpkeeps(
 		Order("upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC").
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
 		Where(`
+			keeper_registries.contract_address = ? AND
 			keeper_registries.num_keepers > 0 AND
 			(
 				upkeep_registrations.last_run_block_height = 0 OR (
@@ -100,7 +102,7 @@ func (korm ORM) EligibleUpkeeps(
 			keeper_registries.keeper_index = (
 				upkeep_registrations.positioning_constant + ((? - (? % keeper_registries.block_count_per_turn)) / keeper_registries.block_count_per_turn)
 			) % keeper_registries.num_keepers
-		`, gracePeriod, blockNumber, blockNumber, blockNumber, blockNumber, blockNumber).
+		`, registryAddress, gracePeriod, blockNumber, blockNumber, blockNumber, blockNumber, blockNumber).
 		Find(&upkeeps).
 		Error
 
