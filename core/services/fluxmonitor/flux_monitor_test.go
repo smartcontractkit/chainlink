@@ -1463,6 +1463,54 @@ func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 	})
 }
 
+func TestFluxMonitor_IdleTimer(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	fluxAggregator := new(mocks.FluxAggregator)
+	runManager := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	initr := models.Initiator{
+		JobSpecID: models.NewJobID(),
+		InitiatorParams: models.InitiatorParams{
+			IdleTimer: models.IdleTimerConfig{
+				Disabled: false,
+				Duration: models.MustMakeDuration(10 * time.Millisecond),
+			},
+			PollTimer: models.PollTimerConfig{
+				Disabled: true,
+			},
+		},
+	}
+	lb := new(logmocks.Broadcaster)
+	lb.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	lb.On("IsConnected").Return(true)
+	fluxAggregator.On("GetOracles", mock.Anything).Return([]common.Address{}, nil)
+	fluxAggregator.On("LatestRoundData", mock.Anything).Return(
+		flux_aggregator_wrapper.LatestRoundData{RoundId: big.NewInt(10), StartedAt: nil}, nil)
+
+	// By returning this old round state started at, we stop the idle timer from getting reset.
+	startedAtTs := big.NewInt(time.Now().Unix() - 10)
+	// Normally there are 2 oracle round state calls upon startup.
+	fluxAggregator.On("OracleRoundState", mock.Anything, mock.Anything, mock.Anything).Return(
+		flux_aggregator_wrapper.OracleRoundState{EligibleToSubmit: false, RoundId: 10, StartedAt: startedAtTs.Uint64()}, nil).Times(2)
+	done := make(chan struct{})
+	// To get a 3rd call we need the idle timer to fire
+	fluxAggregator.On("OracleRoundState", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		done <- struct{}{}
+	}).Return(
+		flux_aggregator_wrapper.OracleRoundState{EligibleToSubmit: false, RoundId: 10, StartedAt: startedAtTs.Uint64()}, nil)
+
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
+	require.NoError(t, err)
+	checker.Start()
+	defer checker.Stop()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Error("idle timer did not fire as expected")
+	}
+}
+
 func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

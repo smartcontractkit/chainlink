@@ -3,6 +3,8 @@ package presenters
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -18,14 +20,12 @@ func (t JobSpecType) String() string {
 }
 
 const (
-	// DirectRequestJobSpec defines a Direct Request Job
-	DirectRequestJobSpec JobSpecType = "directrequest"
-	// FluxMonitorJobSpec defines a Flux Monitor Job
-	FluxMonitorJobSpec JobSpecType = "fluxmonitor"
-	// OffChainReportingJobSpec defines an OCR Job
+	DirectRequestJobSpec     JobSpecType = "directrequest"
+	FluxMonitorJobSpec       JobSpecType = "fluxmonitor"
 	OffChainReportingJobSpec JobSpecType = "offchainreporting"
-	// Keeper defines a Keeper Job
-	KeeperJobSpec JobSpecType = "keeper"
+	KeeperJobSpec            JobSpecType = "keeper"
+	CronJobSpec              JobSpecType = "cron"
+	VRFJobSpec               JobSpecType = "vrf"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -169,6 +169,24 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 	}
 }
 
+type VRFSpec struct {
+	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
+	Confirmations      uint32              `toml:"confirmations"`
+	CreatedAt          time.Time           `json:"createdAt"`
+	UpdatedAt          time.Time           `json:"updatedAt"`
+}
+
+func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
+	return &VRFSpec{
+		CoordinatorAddress: spec.CoordinatorAddress,
+		PublicKey:          spec.PublicKey,
+		Confirmations:      spec.Confirmations,
+		CreatedAt:          spec.CreatedAt,
+		UpdatedAt:          spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -200,6 +218,7 @@ type JobResource struct {
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
 	CronSpec              *CronSpec              `json:"cronSpec"`
+	VRFSpec               *VRFSpec               `json:"vrfSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -226,6 +245,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
+	case job.VRF:
+		resource.VRFSpec = NewVRFSpec(j.VRFSpec)
 	}
 
 	jes := []JobError{}
