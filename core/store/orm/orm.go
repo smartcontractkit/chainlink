@@ -332,7 +332,7 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return postgres.GormTransaction(context.Background(), orm.DB, callback)
+	return postgres.GormTransactionWithDefaultContext(orm.DB, callback)
 }
 
 // SaveJobRun updates UpdatedAt for a JobRun and updates its status, finished
@@ -346,9 +346,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err := postgres.GormTransaction(ctx, orm.DB, func(dbtx *gorm.DB) error {
+	err := postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		result := dbtx.Exec(`
 UPDATE job_runs SET "status"=?, "finished_at"=?, "updated_at"=NOW(), "creation_height"=?, "observed_height"=?, "payment"=?
 WHERE updated_at = ? AND "id" = ?`,
@@ -1082,7 +1080,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() error {
-	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		user, err := findUser(dbtx)
 		if err != nil {
 			return err
@@ -1454,8 +1452,8 @@ func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 // addresses in the database.
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
-func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
+func (orm *ORM) GetRoundRobinAddress(db *gorm.DB, addresses ...common.Address) (address common.Address, err error) {
+	err = postgres.GormTransactionWithoutContext(db, func(tx *gorm.DB) error {
 		q := tx.
 			Clauses(clause.Locking{Strength: "UPDATE"}).
 			Order("last_used ASC NULLS FIRST, id ASC")
@@ -1475,10 +1473,7 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 		address = leastRecentlyUsedKey.Address.Address()
 		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
 	})
-	if err != nil {
-		return address, err
-	}
-	return address, nil
+	return address, err
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates

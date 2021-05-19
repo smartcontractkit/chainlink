@@ -1929,19 +1929,19 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	k2, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
-		address, err := store.GetRoundRobinAddress()
+		address, err := store.GetRoundRobinAddress(store.DB)
 		require.NoError(t, err)
 		assert.Equal(t, k0Address.Hex(), address.Hex())
 
-		address, err = store.GetRoundRobinAddress()
+		address, err = store.GetRoundRobinAddress(store.DB)
 		require.NoError(t, err)
 		assert.Equal(t, k1.Address.Hex(), address.Hex())
 
-		address, err = store.GetRoundRobinAddress()
+		address, err = store.GetRoundRobinAddress(store.DB)
 		require.NoError(t, err)
 		assert.Equal(t, k2.Address.Hex(), address.Hex())
 
-		address, err = store.GetRoundRobinAddress()
+		address, err = store.GetRoundRobinAddress(store.DB)
 		require.NoError(t, err)
 		assert.Equal(t, k0Address.Hex(), address.Hex())
 	})
@@ -1949,25 +1949,25 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	t.Run("with address filter, rotates between given addresses", func(t *testing.T) {
 		addresses := []common.Address{k1.Address.Address(), k2.Address.Address()}
 
-		address, err := store.GetRoundRobinAddress(addresses...)
+		address, err := store.GetRoundRobinAddress(store.DB, addresses...)
 		require.NoError(t, err)
 		assert.Equal(t, k1.Address.Hex(), address.Hex())
 
-		address, err = store.GetRoundRobinAddress(addresses...)
+		address, err = store.GetRoundRobinAddress(store.DB, addresses...)
 		require.NoError(t, err)
 		assert.Equal(t, k2.Address.Hex(), address.Hex())
 
-		address, err = store.GetRoundRobinAddress(addresses...)
+		address, err = store.GetRoundRobinAddress(store.DB, addresses...)
 		require.NoError(t, err)
 		assert.Equal(t, k1.Address.Hex(), address.Hex())
 
-		address, err = store.GetRoundRobinAddress(addresses...)
+		address, err = store.GetRoundRobinAddress(store.DB, addresses...)
 		require.NoError(t, err)
 		assert.Equal(t, k2.Address.Hex(), address.Hex())
 	})
 
 	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := store.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
+		_, err := store.GetRoundRobinAddress(store.DB, []common.Address{cltest.NewAddress()}...)
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})

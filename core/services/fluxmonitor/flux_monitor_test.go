@@ -437,8 +437,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	for i := 1; i <= 4; i++ {
 		logBroadcast := new(logmocks.Broadcast)
 		logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
-		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
-		logBroadcast.On("MarkConsumed").Return(nil)
+		logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 		logBroadcasts = append(logBroadcasts, logBroadcast)
 	}
 
@@ -543,8 +543,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 				decodedLog := flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				logBroadcast.On("DecodedLog").Return(&decodedLog)
-				logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
-				logBroadcast.On("MarkConsumed").Return(nil).Once()
+				logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+				logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 				deviationChecker.HandleLog(logBroadcast)
 
 				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
@@ -885,9 +885,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	deviationChecker.Start()
 
 	logBroadcast := new(logmocks.Broadcast)
-	logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
+	logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(0), StartedAt: big.NewInt(time.Now().UTC().Unix())})
-	logBroadcast.On("MarkConsumed").Return(nil)
+	logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	deviationChecker.HandleLog(logBroadcast)
 
 	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
@@ -1524,9 +1524,9 @@ func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
 		Return(cltest.NewAddress())
 
 	logBroadcast := new(logmocks.Broadcast)
-	logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+	p.ExportedLogBroadcaster().On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
-	logBroadcast.On("MarkConsumed").Return(nil).Once()
+	p.ExportedLogBroadcaster().On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 
 	p.ExportedBacklog().Add(fluxmonitor.PriorityNewRoundLog, logBroadcast)
 	p.ExportedProcessLogs()
@@ -1555,7 +1555,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 			p := cltest.NewPollingDeviationChecker(t, store)
 
 			logBroadcast := new(logmocks.Broadcast)
-			logBroadcast.On("WasAlreadyConsumed").Return(test.consumed, test.err).Once()
+			p.ExportedLogBroadcaster().On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(test.consumed, test.err).Once()
 
 			p.ExportedBacklog().Add(fluxmonitor.PriorityNewRoundLog, logBroadcast)
 			p.ExportedProcessLogs()
