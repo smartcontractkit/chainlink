@@ -339,11 +339,11 @@ contract Operator is
 
   /**
    * @notice Forward a call to another contract
-   * @dev Only callable by an authorized sender
+   * @dev Only callable by the owner
    * @param to address
    * @param data to forward
    */
-  function operatorForward(
+  function ownerForward(
     address to,
     bytes calldata data
   )
@@ -362,7 +362,7 @@ contract Operator is
    * @param data The extra data to be passed to the receiving contract.
    * @return success bool
    */
-  function operatorTransferAndCall(
+  function ownerTransferAndCall(
     address to,
     uint256 value,
     bytes calldata data

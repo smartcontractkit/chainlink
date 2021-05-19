@@ -78,9 +78,9 @@ describe('Operator', () => {
       'getChainlinkToken',
       'isAuthorizedSender',
       'onTokenTransfer',
-      'operatorForward',
-      'operatorTransferAndCall',
       'oracleRequest',
+      'ownerForward',
+      'ownerTransferAndCall',
       'requestOracleData',
       'setAuthorizedSenders',
       'setAuthorizedSendersOn',
@@ -2986,7 +2986,7 @@ describe('Operator', () => {
     })
   })
 
-  describe('#operatorTransferAndCall', () => {
+  describe('#ownerTransferAndCall', () => {
     let operator2: contract.Instance<Operator__factory>
     let args: string
     let to: string
@@ -3013,7 +3013,7 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .operatorTransferAndCall(to, payment, args),
+            .ownerTransferAndCall(to, payment, args),
             'Only callable by owner'
         })
       })
@@ -3030,7 +3030,7 @@ describe('Operator', () => {
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.stranger)
-              .operatorTransferAndCall(to, tooMuch, args),
+              .ownerTransferAndCall(to, tooMuch, args),
               'Amount requested is greater than withdrawable balance'
           })
         })
@@ -3048,7 +3048,7 @@ describe('Operator', () => {
           receiverBalanceBefore = await link.balanceOf(operator2.address)
           const tx = await operator
             .connect(roles.defaultAccount)
-            .operatorTransferAndCall(to, payment, args)
+            .ownerTransferAndCall(to, payment, args)
           receipt = await tx.wait()
           requesterBalanceAfter = await link.balanceOf(operator.address)
           receiverBalanceAfter = await link.balanceOf(operator2.address)
@@ -3186,7 +3186,7 @@ describe('Operator', () => {
     })
   })
 
-  describe('#operatorForward', () => {
+  describe('#ownerForward', () => {
     const bytes = utils.hexlify(utils.randomBytes(100))
     const payload = getterSetterFactory.interface.functions.setBytes.encode([
       bytes,
@@ -3202,7 +3202,7 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .operatorForward(mock.address, payload)
+            .ownerForward(mock.address, payload)
         })
       })
     })
@@ -3214,7 +3214,7 @@ describe('Operator', () => {
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.defaultAccount)
-              .operatorForward(link.address, sighash),
+              .ownerForward(link.address, sighash),
               'Cannot forward to LINK token'
           })
         })
@@ -3224,7 +3224,7 @@ describe('Operator', () => {
         it('forwards the data', async () => {
           const tx = await operator
             .connect(roles.defaultAccount)
-            .operatorForward(mock.address, payload)
+            .ownerForward(mock.address, payload)
           await tx.wait()
           assert.equal(await mock.getBytes(), bytes)
         })
@@ -3232,7 +3232,7 @@ describe('Operator', () => {
         it('perceives the message is sent by the Operator', async () => {
           const tx = await operator
             .connect(roles.defaultAccount)
-            .operatorForward(mock.address, payload)
+            .ownerForward(mock.address, payload)
           const receipt = await tx.wait()
           const log: any = receipt.logs?.[0]
           const logData = mock.interface.events.SetBytes.decode(

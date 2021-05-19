@@ -31,7 +31,7 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
       bool
     );
 
-  function operatorTransferAndCall(
+  function ownerTransferAndCall(
     address to,
     uint256 value,
     bytes calldata data
