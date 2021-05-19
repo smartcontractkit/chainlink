@@ -477,7 +477,7 @@ func (c Config) DatabaseBackupURL() *url.URL {
 	return uri
 }
 
-// DatabaseBackupDir configures the directory for saving the , if it's to be different from the main on
+// DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
 func (c Config) DatabaseBackupDir() string {
 	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
 }
