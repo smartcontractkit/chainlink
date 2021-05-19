@@ -91,6 +91,7 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
+                        "vrfSpec": null,
 						"errors": []
 					}
 				}
@@ -152,6 +153,7 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
+                        "vrfSpec": null,
 						"errors": []
 					}
 				}
@@ -218,6 +220,7 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
+                        "vrfSpec": null,
 						"errors": []
 					}
 				}
@@ -266,6 +269,7 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": null,
 						"offChainReportingOracleSpec": null,
                         "cronSpec": null,
+                        "vrfSpec": null,
 						"errors": []
 					}
 				}
@@ -312,6 +316,7 @@ func TestJob(t *testing.T) {
                         "directRequestSpec": null,
                         "keeperSpec": null,
                         "offChainReportingOracleSpec": null,
+						"vrfSpec": null,
                         "errors": []
                     }
                 }
@@ -370,6 +375,7 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": null,
                         "cronSpec": null,
 						"offChainReportingOracleSpec": null,
+						"vrfSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
@@ -46,7 +48,7 @@ type Store struct {
 	Config         *orm.Config
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
-	VRFKeyStore    *VRFKeyStore
+	VRFKeyStore    *vrf.VRFKeyStore
 	OCRKeyStore    *offchainreporting.KeyStore
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
@@ -110,7 +112,7 @@ func newStoreWithKeyStore(
 		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},
 	}
-	store.VRFKeyStore = NewVRFKeyStore(store)
+	store.VRFKeyStore = vrf.NewVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil
 }
 

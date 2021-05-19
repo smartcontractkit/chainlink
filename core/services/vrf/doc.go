@@ -31,4 +31,4 @@
 // on-chain verification mechanism in VRF.sol. If you want to know the VRF
 // output independently of the on-chain verification mechanism, you can get it
 // from vrf.UnmarshalSolidityProof(p).Output.
-package vrfkey
+package vrf

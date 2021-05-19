@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 	gormpostgres "gorm.io/driver/postgres"
@@ -1448,35 +1447,6 @@ func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 		return nil
 	}
 	return err
-}
-
-// FirstOrCreateEncryptedVRFKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.FirstOrCreate(k).Error
-}
-
-// ArchiveEncryptedVRFKey soft-deletes k from the encrypted keys table, or errors
-func (orm *ORM) ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Delete(k).Error
-}
-
-// DeleteEncryptedVRFKey deletes k from the encrypted keys table, or errors
-func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Unscoped().Delete(k).Error
-}
-
-// FindEncryptedVRFKeys retrieves matches to where from the encrypted keys table, or errors
-func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
-	retrieved []*vrfkey.EncryptedVRFKey, err error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
-	for _, constraint := range where {
-		c := constraint
-		anonWhere = append(anonWhere, &c)
-	}
-	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
 }
 
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
