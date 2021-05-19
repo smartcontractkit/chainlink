@@ -19,7 +19,7 @@ type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
-	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64) error
+	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error
 	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
 }
 
@@ -71,8 +71,8 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64) error {
-	return o.db.Exec(`
+func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error {
+	return db.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
         ) VALUES (

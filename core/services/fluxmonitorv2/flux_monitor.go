@@ -666,8 +666,13 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
 	}
-	result := results.FinalResult()
-	answer, err := utils.ToDecimal(result.Values[0])
+	result, err := results.FinalResult().SingularResult()
+	if err != nil {
+		logger.Errorw("can't fetch answer", "err", err)
+		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		return
+	}
+	answer, err := utils.ToDecimal(result)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -822,8 +827,13 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
 		return
 	}
-	result := results.FinalResult()
-	answer, err := utils.ToDecimal(result.Values[0])
+	result, err := results.FinalResult().SingularResult()
+	if err != nil {
+		l.Errorw("can't fetch answer", "err", err)
+		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		return
+	}
+	answer, err := utils.ToDecimal(result)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -950,6 +960,7 @@ func (fm *FluxMonitor) queueTransactionForBPTXM(
 
 	// Update the flux monitor round stats
 	err = fm.orm.UpdateFluxMonitorRoundStats(
+		db,
 		fm.contractAddress,
 		roundID,
 		runID,

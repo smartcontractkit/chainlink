@@ -85,13 +85,13 @@ func (_m *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, 
 	return r0, r1
 }
 
-// UpdateFluxMonitorRoundStats provides a mock function with given fields: aggregator, roundID, runID
-func (_m *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64) error {
-	ret := _m.Called(aggregator, roundID, runID)
+// UpdateFluxMonitorRoundStats provides a mock function with given fields: db, aggregator, roundID, runID
+func (_m *ORM) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error {
+	ret := _m.Called(db, aggregator, roundID, runID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, uint32, int64) error); ok {
-		r0 = rf(aggregator, roundID, runID)
+	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Address, uint32, int64) error); ok {
+		r0 = rf(db, aggregator, roundID, runID)
 	} else {
 		r0 = ret.Error(0)
 	}
