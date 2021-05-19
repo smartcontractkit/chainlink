@@ -852,7 +852,8 @@ func EVMBytesToUint64(buf []byte) uint64 {
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state atomic.Int32
+	state      atomic.Int32
+	sync.Mutex // lock is held during statup/shutdown
 }
 
 // StartStopOnceState holds the state for StartStopOnce
@@ -872,6 +873,9 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 		return errors.Errorf("%v has already started once", name)
 	}
 
+	once.Lock()
+	defer once.Unlock()
+
 	return fn()
 }
 
@@ -882,6 +886,9 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
+
+	once.Lock()
+	defer once.Unlock()
 
 	return fn()
 }
