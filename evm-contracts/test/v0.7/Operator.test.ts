@@ -68,7 +68,6 @@ describe('Operator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(operatorFactory, [
-      'EXPIRY_TIME',
       'acceptOwnableContracts',
       'cancelOracleRequest',
       'distributeFunds',
@@ -76,6 +75,7 @@ describe('Operator', () => {
       'fulfillOracleRequest2',
       'getAuthorizedSenders',
       'getChainlinkToken',
+      'getExpiryTime',
       'isAuthorizedSender',
       'onTokenTransfer',
       'oracleRequest',
@@ -85,7 +85,6 @@ describe('Operator', () => {
       'setAuthorizedSenders',
       'setAuthorizedSendersOn',
       'transferOwnableContracts',
-      'validateTokenTransferAction',
       'withdraw',
       'withdrawable',
       // Ownable methods:
@@ -474,6 +473,84 @@ describe('Operator', () => {
         assert.equal(event2?.event, 'AuthorizedSendersChanged')
         assert.equal(event2?.address, forwarder2.address)
         assert.equal(event2?.data, encodedSenders)
+      })
+    })
+  })
+
+  describe.only('#acceptAuthorizedReceivers', () => {
+    let newSenders: string[]
+
+    describe('being called by the owner', () => {
+      let operator2: contract.Instance<Operator__factory>
+      let receipt: ContractReceipt
+
+      beforeEach(async () => {
+        operator2 = await operatorFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address, roles.defaultAccount.address)
+        forwarder1 = await forwarderFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address, operator.address, zeroAddress, '0x')
+        forwarder2 = await forwarderFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address, operator.address, zeroAddress, '0x')
+        await operator
+          .connect(roles.defaultAccount)
+          .transferOwnableContracts(
+            [forwarder1.address, forwarder2.address],
+            operator2.address,
+          )
+        newSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
+
+        const tx = await operator2
+          .connect(roles.defaultAccount)
+          .acceptAuthorizedReceivers([forwarder1.address, forwarder2.address])
+        receipt = await tx.wait()
+      })
+
+      it('sets the new owner on the forwarder', async () => {
+        assert.equal(await forwarder1.owner(), operator2.address)
+      })
+
+      it('emits ownership transferred events', async () => {
+        assert.equal(receipt?.events?.[0]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[0]?.address, forwarder1.address)
+        assert.equal(receipt?.events?.[0]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[0]?.args?.[1], operator2.address)
+
+        assert.equal(receipt?.events?.[1]?.event, 'OwnableContractAccepted')
+        assert.equal(receipt?.events?.[1]?.args?.[0], forwarder1.address)
+
+        assert.equal(receipt?.events?.[2]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[2]?.address, forwarder2.address)
+        assert.equal(receipt?.events?.[2]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[2]?.args?.[1], operator2.address)
+
+        assert.equal(receipt?.events?.[3]?.event, 'OwnableContractAccepted')
+        assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address)
+
+        const encodedSenders = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [newSenders],
+        )
+        assert.equal(receipt?.events?.[4]?.event, 'AuthorizedSendersChanged')
+        assert.equal(receipt?.events?.[4]?.address, forwarder1.address)
+        assert.equal(receipt?.events?.[4]?.data, encodedSenders)
+
+        assert.equal(receipt?.events?.[5]?.event, 'AuthorizedSendersChanged')
+        assert.equal(receipt?.events?.[5]?.address, forwarder2.address)
+        assert.equal(receipt?.events?.[5]?.data, encodedSenders)
+      })
+    })
+
+    describe('being called by a non owner', () => {
+      it('reverts with message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .acceptAuthorizedReceivers([roles.oracleNode2.address])
+          ;('Only callable by owner')
+        })
       })
     })
   })

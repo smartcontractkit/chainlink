@@ -42,11 +42,11 @@ abstract contract LinkTokenReceiver {
   /**
    * @notice Validate the function called on token transfer
    */
-  function validateTokenTransferAction(
+  function _validateTokenTransferAction(
     bytes4 funcSelector,
     bytes memory data
   )
-    public
+    internal
     virtual;
 
   /**
@@ -69,7 +69,7 @@ abstract contract LinkTokenReceiver {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(data, 32))
     }
-    validateTokenTransferAction(funcSelector, data);
+    _validateTokenTransferAction(funcSelector, data);
     _;
   }
 

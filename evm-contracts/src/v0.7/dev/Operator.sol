@@ -28,7 +28,7 @@ contract Operator is
     uint8 dataVersion;
   }
 
-  uint256 constant public EXPIRY_TIME = 5 minutes;
+  uint256 constant public getExpiryTime = 5 minutes;
   uint256 constant private MAXIMUM_DATA_VERSION = 256;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
   uint256 constant private SELECTOR_LENGTH = 4;
@@ -85,8 +85,6 @@ contract Operator is
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
-
-  // EXTERNAL FUNCTIONS
 
   function oracleRequest(
     address sender,
@@ -255,23 +253,6 @@ contract Operator is
   }
 
   /**
-   * @notice Sets the fulfillment permission for
-   * @param targets The addresses to set permissions on
-   * @param senders The addresses that are allowed to send updates
-   */
-  function setAuthorizedSendersOn(
-    address[] calldata targets,
-    address[] calldata senders
-  )
-    external
-    validateAuthorizedSenderSetter()
-  {
-    for (uint256 i = 0; i < targets.length; i++) {
-      AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
-    }
-  }
-
-  /**
    * @notice Transfer the ownership of ownable contracts
    * @param ownable list of addresses to transfer
    * @param newOwner address to transfer ownership to
@@ -296,13 +277,46 @@ contract Operator is
   function acceptOwnableContracts(
     address[] calldata ownable
   )
-    external
+    public
     onlyOwner()
   {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).acceptOwnership();
       emit OwnableContractAccepted(ownable[i]);
     }
+  }
+
+  /**
+   * @notice Sets the fulfillment permission for
+   * @param targets The addresses to set permissions on
+   * @param senders The addresses that are allowed to send updates
+   */
+  function setAuthorizedSendersOn(
+    address[] calldata targets,
+    address[] calldata senders
+  )
+    public
+    validateAuthorizedSenderSetter()
+  {
+    for (uint256 i = 0; i < targets.length; i++) {
+      AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
+    }
+  }
+
+  /**
+   * @notice Sets the fulfillment permission for
+   * @param targets The addresses to set permissions on
+   * @param senders The addresses that are allowed to send updates
+   */
+  function acceptAuthorizedReceivers(
+    address[] calldata targets,
+    address[] calldata senders
+  )
+    external
+    validateAuthorizedSenderSetter()
+  {
+    acceptOwnableContracts(targets);
+    setAuthorizedSendersOn(targets, senders);
   }
 
   /**
@@ -448,17 +462,18 @@ contract Operator is
     return address(linkToken);
   }
 
+
   /**
    * @notice Require that the token transfer action is valid
    * @dev OPERATOR_REQUEST_SELECTOR = multiword, ORACLE_REQUEST_SELECTOR = singleword
    */
-  function validateTokenTransferAction(
+  function _validateTokenTransferAction(
     bytes4 funcSelector,
     bytes memory data
   )
-    public
-    pure
+    internal
     override
+    pure
   {
     require(data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
@@ -480,7 +495,7 @@ contract Operator is
     uint256 nonce,
     uint256 dataVersion
   )
-    internal
+    private
     returns (
       bytes32 requestId,
       uint256 expiration
@@ -489,7 +504,7 @@ contract Operator is
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
-    expiration = block.timestamp.add(EXPIRY_TIME);
+    expiration = block.timestamp.add(getExpiryTime);
     bytes31 paramsHash = _buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, _safeCastToUint8(dataVersion));
     s_tokensInEscrow = s_tokensInEscrow.add(payment);
@@ -568,8 +583,6 @@ contract Operator is
     require(number < MAXIMUM_DATA_VERSION, "number too big to cast");
     return uint8(number);
   }
-
-  // PRIVATE FUNCTIONS
 
   /**
    * @notice Returns the LINK available in this contract, not locked in escrow
