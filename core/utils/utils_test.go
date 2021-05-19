@@ -469,3 +469,39 @@ func Test_WithJitter(t *testing.T) {
 		require.LessOrEqual(t, int(r), int(11*time.Second))
 	}
 }
+
+func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
+	t.Parallel()
+
+	once := utils.StartStopOnce{}
+
+	ch := make(chan int, 3)
+
+	ready := make(chan bool)
+
+	go func() {
+		once.StartOnce("slow service", func() (err error) {
+			ch <- 1
+			ready <- true
+			<-time.After(2 * time.Second)
+			ch <- 2
+
+			return nil
+		})
+
+	}()
+
+	go func() {
+		<-ready // try stopping halfway through startup
+		once.StopOnce("slow service", func() (err error) {
+			ch <- 3
+
+			return nil
+		})
+
+	}()
+
+	require.Equal(t, 1, <-ch)
+	require.Equal(t, 2, <-ch)
+	require.Equal(t, 3, <-ch)
+}
