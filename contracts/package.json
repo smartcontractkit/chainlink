@@ -1,0 +1,22 @@
+{
+  "name": "contracts",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "hardhat test",
+    "clean": "hardhat clean",
+    "prettier": "prettier --config .prettierrc --write \"**/*.{js,json,md,sol,ts}\"",
+    "compile:native": "./scripts/native_solc_compile_all",
+    "compile": "hardhat compile"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/test-helpers": "^0.5.11",
+    "chai": "^4.3.4",
+    "ethereum-waffle": "^3.3.0",
+    "ethers": "^5.1.4",
+    "hardhat": "^2.3.0"
+  }
+}

@@ -37,3 +37,4 @@ evm-contracts/cache/**/*
 solc_bin
 
 docs/
+venv/
