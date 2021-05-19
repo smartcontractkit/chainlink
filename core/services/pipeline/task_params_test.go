@@ -259,7 +259,7 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}{
 		{"[]interface{}", []interface{}{1, 2, 3}, pipeline.SliceParam([]interface{}{1, 2, 3}), nil},
 		{"string", `[1, 2, 3]`, pipeline.SliceParam([]interface{}{float64(1), float64(2), float64(3)}), nil},
-		{"[]byte", `[1, 2, 3]`, pipeline.SliceParam([]interface{}{float64(1), float64(2), float64(3)}), nil},
+		{"[]byte", []byte(`[1, 2, 3]`), pipeline.SliceParam([]interface{}{float64(1), float64(2), float64(3)}), nil},
 		{"bool", true, pipeline.SliceParam(nil), pipeline.ErrBadInput},
 	}
 
@@ -274,4 +274,65 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 			require.Equal(t, test.expected, p)
 		})
 	}
+}
+
+func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+
+	expected := pipeline.DecimalSliceParam{*mustDecimal(t, "1.1"), *mustDecimal(t, "2.2"), *mustDecimal(t, "3.3")}
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"[]interface{}", []interface{}{1.1, "2.2", *mustDecimal(t, "3.3")}, expected, nil},
+		{"string", `[1.1, "2.2", 3.3]`, expected, nil},
+		{"[]byte", `[1.1, "2.2", 3.3]`, expected, nil},
+		{"[]interface{} with error", `[1.1, true, "abc"]`, nil, pipeline.ErrBadInput},
+		{"bool", true, pipeline.DecimalSliceParam(nil), pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p pipeline.DecimalSliceParam
+			err := p.UnmarshalPipelineParam(test.input, nil)
+			require.Equal(t, test.err, errors.Cause(err))
+			require.Equal(t, test.expected, p)
+		})
+	}
+}
+
+func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
+	// t.Parallel()
+
+	// expected := pipeline.StringSliceParam{"foo", "bar", "sergey"}
+
+	// tests := []struct {
+	// 	name     string
+	// 	input    interface{}
+	// 	expected interface{}
+	// 	err      error
+	// }{
+	// 	{"[]interface{}", []interface{}{1.1, "2.2", *mustDecimal(t, "3.3")}, expected, nil},
+	// 	{"string", `[1.1, "2.2", 3.3]`, expected, nil},
+	// 	{"[]byte", `[1.1, "2.2", 3.3]`, expected, nil},
+	// 	{"bool", true, pipeline.StringSliceParam(nil), pipeline.ErrBadInput},
+	// }
+
+	// for _, test := range tests {
+	// 	test := test
+	// 	t.Run(test.name, func(t *testing.T) {
+	// 		t.Parallel()
+
+	// 		var p pipeline.StringSliceParam
+	// 		err := p.UnmarshalPipelineParam(test.input, nil)
+	// 		require.Equal(t, test.err, errors.Cause(err))
+	// 		require.Equal(t, test.expected, p)
+	// 	})
+	// }
 }

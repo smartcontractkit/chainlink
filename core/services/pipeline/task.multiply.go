@@ -38,5 +38,12 @@ func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inp
 	if err != nil {
 		return Result{Error: err}
 	}
-	return Result{Value: a.Decimal().Mul(b.Decimal())}
+
+	value := a.Decimal().Mul(b.Decimal())
+
+	err = vars.Set(t.DotID(), value)
+	if err != nil {
+		return Result{Error: err}
+	}
+	return Result{Value: value}
 }

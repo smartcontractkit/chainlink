@@ -90,6 +90,10 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	// 	"answer", result.Value,
 	// 	"url", url.String(),
 	// )
+	err = vars.Set(t.DotID(), result.Value)
+	if err != nil {
+		return Result{Error: err}
+	}
 	return result
 }
 

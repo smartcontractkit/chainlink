@@ -93,5 +93,9 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, in
 			return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
 		}
 	}
+	err = vars.Set(t.DotID(), decoded)
+	if err != nil {
+		return Result{Error: err}
+	}
 	return Result{Value: decoded}
 }

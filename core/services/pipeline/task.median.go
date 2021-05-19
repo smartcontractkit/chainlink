@@ -45,5 +45,10 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 		return Result{Value: values[k]}
 	}
 	median := values[k].Add(values[k-1]).Div(decimal.NewFromInt(2))
+
+	err = vars.Set(t.DotID(), median)
+	if err != nil {
+		return Result{Error: err}
+	}
 	return Result{Value: median}
 }

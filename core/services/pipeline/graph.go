@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -11,6 +12,11 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
 )
+
+// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
+// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
+// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
+// NOTE: We only permit one child
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
@@ -156,6 +162,7 @@ func (n *TaskDAGNode) String() string {
 }
 
 func (n *TaskDAGNode) SetAttribute(attr encoding.Attribute) error {
+	fmt.Println("ATTR", attr.Key, attr.Value)
 	if n.attrs == nil {
 		n.attrs = make(map[string]string)
 	}

@@ -218,14 +218,15 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) e
 	case []decimal.Decimal:
 		*s = v
 	case []interface{}:
+		var dsp DecimalSliceParam
 		for _, x := range v {
 			d, err := utils.ToDecimal(x)
 			if err != nil {
-				return err
+				return errors.Wrap(ErrBadInput, err.Error())
 			}
-			*s = append(*s, d)
-			return nil
+			dsp = append(dsp, d)
 		}
+		*s = dsp
 	case string:
 		return json.Unmarshal([]byte(v), s)
 	case []byte:
@@ -239,32 +240,23 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) e
 type StringSliceParam []string
 
 func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
-	// var s string
-	// switch v := val.(type) {
-	// case string:
-	//  s = v
-	// default:
-	//  return nil, ErrBadInput
-	// }
-	return nil
-
-	// trimmed := strings.TrimSpace(s)
-	// if len(trimmed) == 0 {
-	//  return nil, ErrBadInput
-	// }
-	// if trimmed[0] == "[" {
-	//  if trimmed[len(trimmed)-1] != "]" {
-	//      return nil, ErrBadInput
-	//  }
-	//  elems := strings.Split(trimmed[1:len(trimmed)-1], ",")
-	//  elems = trimStrings(elems)
-	//  for _, elem := range elems {
-	//      t.Resolve(elem, vars, nil)
-	//  }
-	// }
-}
-
-func (p *StringSliceParam) UnmarshalText(bs []byte) error {
-	*p = strings.Split(string(bs), ",")
+	switch v := val.(type) {
+	case []string:
+		*p = v
+	case []interface{}:
+		var ssp StringSliceParam
+		for _, x := range v {
+			if as, is := x.(string); is {
+				ssp = append(ssp, as)
+			} else {
+				return ErrBadInput
+			}
+		}
+		*p = ssp
+	case string:
+		*p = strings.Split(v, ",")
+	default:
+		return ErrBadInput
+	}
 	return nil
 }

@@ -70,5 +70,10 @@ func (t *ETHABIEncodeTask) Run(_ context.Context, vars Vars, _ JSONSerializable,
 	if err != nil {
 		return Result{Error: err}
 	}
+
+	err = vars.Set(t.DotID(), dataBytes)
+	if err != nil {
+		return Result{Error: err}
+	}
 	return Result{Value: dataBytes}
 }
