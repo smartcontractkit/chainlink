@@ -39,6 +39,7 @@ describe('AuthorizedForwarder', () => {
       'getAuthorizedSenders',
       'getChainlinkToken',
       'isAuthorizedSender',
+      'ownerForward',
       'setAuthorizedSenders',
       'transferOwnershipWithMessage',
       // ConfirmedOwner
@@ -248,6 +249,62 @@ describe('AuthorizedForwarder', () => {
         )
         assert.equal(receipt?.events?.[1]?.args?.[1], roles.stranger.address)
         assert.equal(receipt?.events?.[1]?.args?.[2], message)
+      })
+    })
+  })
+
+  describe('#ownerForward', () => {
+    const bytes = utils.hexlify(utils.randomBytes(100))
+    const payload = getterSetterFactory.interface.functions.setBytes.encode([
+      bytes,
+    ])
+    let mock: contract.Instance<GetterSetter__factory>
+
+    beforeEach(async () => {
+      mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await forwarder
+            .connect(roles.stranger)
+            .ownerForward(mock.address, payload)
+        })
+      })
+    })
+
+    describe('when called by owner', () => {
+      describe('when attempting to forward to the link token', () => {
+        it('does not revert', async () => {
+          const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
+          await forwarder
+            .connect(roles.defaultAccount)
+            .ownerForward(link.address, sighash)
+        })
+      })
+
+      describe('when forwarding to any other address', () => {
+        it('forwards the data', async () => {
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .ownerForward(mock.address, payload)
+          await tx.wait()
+          assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('perceives the message is sent by the Operator', async () => {
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .ownerForward(mock.address, payload)
+          const receipt = await tx.wait()
+          const log: any = receipt.logs?.[0]
+          const logData = mock.interface.events.SetBytes.decode(
+            log.data,
+            log.topics,
+          )
+          assert.equal(utils.getAddress(logData.from), forwarder.address)
+        })
       })
     })
   })
