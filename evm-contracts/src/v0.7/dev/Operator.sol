@@ -278,7 +278,7 @@ contract Operator is
     address[] calldata ownable
   )
     public
-    onlyOwner()
+    validateAuthorizedSenderSetter()
   {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).acceptOwnership();

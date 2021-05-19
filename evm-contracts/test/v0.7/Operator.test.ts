@@ -202,6 +202,16 @@ describe('Operator', () => {
       })
     })
 
+    describe('being called by a non-owner authorized sender', () => {
+      it('does not revert', async () => {
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([roles.oracleNode1.address])
+
+        await operator.connect(roles.oracleNode1).acceptOwnableContracts([])
+      })
+    })
+
     describe('being called by a non owner', () => {
       it('reverts with message', async () => {
         await matchers.evmRevert(async () => {
