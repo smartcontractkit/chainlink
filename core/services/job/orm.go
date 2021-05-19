@@ -21,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -171,9 +170,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 		}
 	}
 
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	// Inherit the parent context so that client side request cancellations are respected.
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		switch jobSpec.Type {
 		case DirectRequest:
@@ -314,7 +313,7 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
 	pse := SpecError{JobID: jobID, Description: description, Occurrences: 1}
-	err := o.db.
+	err := o.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{

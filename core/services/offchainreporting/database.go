@@ -256,12 +256,12 @@ WHERE offchainreporting_oracle_spec_id = $1 AND time < $2
 	return
 }
 
-func (d *db) SaveLatestRoundRequested(rr offchainaggregator.OffchainAggregatorRoundRequested) error {
+func (d *db) SaveLatestRoundRequested(tx *sql.Tx, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal log as JSON")
 	}
-	_, err = d.Exec(`
+	_, err = tx.Exec(`
 INSERT INTO offchainreporting_latest_round_requested (offchainreporting_oracle_spec_id, requester, config_digest, epoch, round, raw)
 VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (offchainreporting_oracle_spec_id) DO UPDATE SET
 	requester = EXCLUDED.requester,

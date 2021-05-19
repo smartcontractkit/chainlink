@@ -1,7 +1,6 @@
 package store
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -172,7 +171,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 
 // DeleteKey hard-deletes a key whose address matches the supplied address.
 func (s *Store) DeleteKey(address common.Address) error {
-	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
 		err := tx.Where("address = ?", address).Delete(&models.Key{}).Error
 		if err != nil {
 			return errors.Wrap(err, "while deleting ETH key from DB")
@@ -210,7 +209,7 @@ func (s *Store) ArchiveKey(address common.Address) error {
 }
 
 func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
-	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
 		_, err := s.KeyStore.Import(keyJSON, oldPassword)
 		if err != nil {
 			return err

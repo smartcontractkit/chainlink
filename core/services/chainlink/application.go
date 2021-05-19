@@ -607,7 +607,7 @@ func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta
 	// Keeper jobs are special in that they do not have a task graph.
 	if jb.Type == job.Keeper {
 		t := time.Now()
-		runID, err = app.pipelineRunner.InsertFinishedRun(ctx, pipeline.Run{
+		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
 			PipelineSpecID: jb.PipelineSpecID,
 			Errors:         pipeline.RunErrors{null.String{}},
 			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},

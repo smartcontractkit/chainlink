@@ -256,7 +256,6 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead models.Head, 
 		go func() {
 			defer wg.Done()
 			listener.HandleLog(&broadcast{
-				orm:               orm,
 				latestBlockNumber: latestBlockNumber,
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
