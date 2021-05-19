@@ -366,7 +366,7 @@ contract Operator is
     validateNotToLINK(to)
   {
     (bool status,) = to.call(data);
-    require(status, "Forwarded call failed.");
+    require(status, "Forwarded call failed");
   }
 
   /**

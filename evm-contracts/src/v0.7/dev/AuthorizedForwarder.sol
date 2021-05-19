@@ -47,7 +47,24 @@ contract AuthorizedForwarder is
   {
     require(to != getChainlinkToken, "Cannot #forward to Link token");
     (bool status,) = to.call(data);
-    require(status, "Forwarded call failed.");
+    require(status, "Forwarded call failed");
+  }
+
+  /**
+   * @notice Forward a call to another contract
+   * @dev Only callable by the owner
+   * @param to address
+   * @param data to forward
+   */
+  function ownerForward(
+    address to,
+    bytes calldata data
+  )
+    external
+    onlyOwner()
+  {
+    (bool status,) = to.call(data);
+    require(status, "Forwarded call failed");
   }
 
   /**
