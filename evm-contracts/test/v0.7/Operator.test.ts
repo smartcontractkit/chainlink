@@ -68,6 +68,7 @@ describe('Operator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(operatorFactory, [
+      'acceptAuthorizedReceivers',
       'acceptOwnableContracts',
       'cancelOracleRequest',
       'distributeFunds',
@@ -477,7 +478,7 @@ describe('Operator', () => {
     })
   })
 
-  describe.only('#acceptAuthorizedReceivers', () => {
+  describe('#acceptAuthorizedReceivers', () => {
     let newSenders: string[]
 
     describe('being called by the owner', () => {
@@ -504,7 +505,10 @@ describe('Operator', () => {
 
         const tx = await operator2
           .connect(roles.defaultAccount)
-          .acceptAuthorizedReceivers([forwarder1.address, forwarder2.address])
+          .acceptAuthorizedReceivers(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          )
         receipt = await tx.wait()
       })
 
@@ -548,7 +552,10 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .acceptAuthorizedReceivers([roles.oracleNode2.address])
+            .acceptAuthorizedReceivers(
+              [forwarder1.address, forwarder2.address],
+              newSenders,
+            )
           ;('Only callable by owner')
         })
       })
