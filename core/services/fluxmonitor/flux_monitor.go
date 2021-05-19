@@ -436,6 +436,10 @@ func NewPollingDeviationChecker(
 	fetcher Fetcher,
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
+	var idleTimer = utils.NewResettableTimer()
+	if !initr.IdleTimer.Disabled {
+		idleTimer.Reset(initr.IdleTimer.Duration.Duration())
+	}
 	pdc := &PollingDeviationChecker{
 		store:            store,
 		logBroadcaster:   logBroadcaster,
@@ -448,7 +452,7 @@ func NewPollingDeviationChecker(
 		fetcher:          fetcher,
 		pollTicker:       utils.NewPausableTicker(initr.PollTimer.Period.Duration()),
 		hibernationTimer: utils.NewResettableTimer(),
-		idleTimer:        utils.NewResettableTimer(),
+		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		minSubmission:    minSubmission,
 		maxSubmission:    maxSubmission,
