@@ -1503,7 +1503,7 @@ func (orm *ORM) GetRoundRobinAddress(db *gorm.DB, addresses ...common.Address) (
 		address = leastRecentlyUsedKey.Address.Address()
 		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
 	})
-	return address, nil
+	return address, err
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
