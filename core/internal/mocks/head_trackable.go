@@ -28,11 +28,6 @@ func (_m *HeadTrackable) Connect(head *models.Head) error {
 	return r0
 }
 
-// Disconnect provides a mock function with given fields:
-func (_m *HeadTrackable) Disconnect() {
-	_m.Called()
-}
-
 // OnNewLongestChain provides a mock function with given fields: ctx, head
 func (_m *HeadTrackable) OnNewLongestChain(ctx context.Context, head models.Head) {
 	_m.Called(ctx, head)

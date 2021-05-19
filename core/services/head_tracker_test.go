@@ -171,7 +171,6 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	<-chStarted
 
 	ht.Stop()
-	<-ht.ExportedDone()
 	ethClient.AssertExpectations(t)
 }
 
@@ -204,17 +203,14 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
-	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
 	headers <- &models.Head{Number: 1}
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(1), checker.ConnectedCount())
-	assert.Equal(t, int32(0), checker.DisconnectedCount())
 
 	require.NoError(t, ht.Stop())
-	assert.Equal(t, int32(1), checker.DisconnectedCount())
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(1), checker.OnNewLongestChainCount())
 }
@@ -244,14 +240,12 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	// connect
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
-	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	// trigger reconnect loop
 	chErr <- errors.New("Test error to force reconnect")
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
 	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
-	assert.Equal(t, int32(1), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	// stop
@@ -361,7 +355,6 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	checker.On("Connect", mock.MatchedBy(func(h *models.Head) bool {
 		return h == nil
 	})).Return(nil).Once()
-	checker.On("Disconnect").Return(nil).Once()
 
 	assert.Nil(t, ht.Start())
 

@@ -11,6 +11,5 @@ import (
 //go:generate mockery --name HeadTrackable --output ../internal/mocks/ --case=underscore
 type HeadTrackable interface {
 	Connect(head *models.Head) error
-	Disconnect()
 	OnNewLongestChain(ctx context.Context, head models.Head)
 }

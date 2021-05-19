@@ -196,6 +196,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("ETH_FINALITY_DEPTH", 1)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
+	// Set low sampling interval to remain within test head waiting timeouts
+	config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 	return config, cleanup
 }
 
