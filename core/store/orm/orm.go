@@ -1483,27 +1483,26 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
 func (orm *ORM) GetRoundRobinAddress(db *gorm.DB, addresses ...common.Address) (address common.Address, err error) {
-	q := db.
-		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Order("last_used ASC NULLS FIRST, id ASC")
-	q = q.Where("is_funding = FALSE")
-	if len(addresses) > 0 {
-		q = q.Where("address in (?)", addresses)
-	}
-	keys := make([]models.Key, 0)
-	err = q.Find(&keys).Error
-	if err != nil {
-		return address, err
-	}
-	if len(keys) == 0 {
-		return address, errors.New("no keys available")
-	}
-	leastRecentlyUsedKey := keys[0]
-	address = leastRecentlyUsedKey.Address.Address()
-	err = db.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
-	if err != nil {
-		return address, err
-	}
+	err = postgres.GormTransactionWithoutContext(db, func(tx *gorm.DB) error {
+		q := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Order("last_used ASC NULLS FIRST, id ASC")
+		q = q.Where("is_funding = FALSE")
+		if len(addresses) > 0 {
+			q = q.Where("address in (?)", addresses)
+		}
+		keys := make([]models.Key, 0)
+		err = q.Find(&keys).Error
+		if err != nil {
+			return err
+		}
+		if len(keys) == 0 {
+			return errors.New("no keys available")
+		}
+		leastRecentlyUsedKey := keys[0]
+		address = leastRecentlyUsedKey.Address.Address()
+		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
+	})
 	return address, nil
 }
 

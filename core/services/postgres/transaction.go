@@ -29,6 +29,23 @@ var (
 	ErrNoDeadlineSet = errors.New("no deadline set")
 )
 
+// WARNING: Only use for nested txes inside ORM methods where you expect db to already have a ctx with a deadline.
+func GormTransactionWithoutContext(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
+	var txOpts sql.TxOptions
+	if len(txOptss) > 0 {
+		txOpts = txOptss[0]
+	} else {
+		txOpts = DefaultSqlTxOptions
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
+		if err != nil {
+			return errors.Wrap(err, "error setting transaction timeouts")
+		}
+		return fc(tx)
+	}, &txOpts)
+}
+
 func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {

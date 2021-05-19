@@ -78,7 +78,7 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxT
 // If saveSuccessfulTaskRuns = false, we only save errored runs.
 // That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
 // which do not provide much value.
-func (o *orm) InsertFinishedRun(tx *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error) {
+func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error) {
 	if run.CreatedAt.IsZero() {
 		return 0, errors.New("run.CreatedAt must be set")
 	}
@@ -92,29 +92,31 @@ func (o *orm) InsertFinishedRun(tx *gorm.DB, run Run, trrs []TaskRunResult, save
 		return 0, errors.New("must provide task run results")
 	}
 
-	if err = tx.Create(&run).Error; err != nil {
-		return 0, errors.Wrap(err, "error inserting finished pipeline_run")
-	}
+	err = postgres.GormTransactionWithoutContext(db, func(tx *gorm.DB) error {
+		if err = tx.Create(&run).Error; err != nil {
+			return errors.Wrap(err, "error inserting finished pipeline_run")
+		}
 
-	runID = run.ID
-	if !saveSuccessfulTaskRuns && !run.HasErrors() {
-		return runID, nil
-	}
+		runID = run.ID
+		if !saveSuccessfulTaskRuns && !run.HasErrors() {
+			return nil
+		}
 
-	sql := `
+		sql := `
 	INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, dot_id, created_at, finished_at)
 	VALUES %s
 	`
-	valueStrings := []string{}
-	valueArgs := []interface{}{}
-	for _, trr := range trrs {
-		valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?)")
-		valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
-	}
+		valueStrings := []string{}
+		valueArgs := []interface{}{}
+		for _, trr := range trrs {
+			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?)")
+			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
+		}
 
-	/* #nosec G201 */
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-	err = tx.Exec(stmt, valueArgs...).Error
+		/* #nosec G201 */
+		stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+		return tx.Exec(stmt, valueArgs...).Error
+	})
 	return runID, err
 }
 

@@ -45,10 +45,9 @@ func (r *RunResultSaver) Start() error {
 				logger.Debugw("RunSaver: saving job run", "run", rr.Run, "task results", rr.TaskRunResults)
 				// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 				// are produced and the successful TaskRuns do not provide value.
-				err := postgres.GormTransactionWithDefaultContext(r.db, func(tx *gorm.DB) error {
-					_, err := r.pipelineRunner.InsertFinishedRun(tx, rr.Run, rr.TaskRunResults, false)
-					return err
-				})
+				ctx, cancel := postgres.DefaultQueryCtx()
+				defer cancel()
+				_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
 				if err != nil {
 					logger.Errorw(fmt.Sprintf("error inserting finished results for job ID %v", r.jobID), "err", err)
 				}
@@ -72,10 +71,9 @@ func (r *RunResultSaver) Close() error {
 		select {
 		case rr := <-r.runResults:
 			logger.Debugw("RunSaver: saving job run before exiting", "run", rr.Run, "task results", rr.TaskRunResults)
-			err := postgres.GormTransactionWithDefaultContext(r.db, func(tx *gorm.DB) error {
-				_, err := r.pipelineRunner.InsertFinishedRun(tx, rr.Run, rr.TaskRunResults, false)
-				return err
-			})
+			ctx, cancel := postgres.DefaultQueryCtx()
+			defer cancel()
+			_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
 			if err != nil {
 				logger.Errorw(fmt.Sprintf("error inserting finished results for job ID %v", r.jobID), "err", err)
 			}

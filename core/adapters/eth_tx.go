@@ -100,26 +100,19 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
 }
 
 func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
-	var address common.Address
-	var err error
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	db := store.DB.WithContext(ctx)
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
-			address, err = store.GetRoundRobinAddress(tx, e.FromAddresses...)
-			return err
-		})
-		return address, err
+		return store.GetRoundRobinAddress(db, e.FromAddresses...)
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
-			address, err = store.GetRoundRobinAddress(tx, e.FromAddresses...)
-			return err
-		})
-		return address, err
+		return store.GetRoundRobinAddress(db, e.FromAddresses...)
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
