@@ -1,13 +1,14 @@
 package pipeline
 
 import (
-	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 )
 
@@ -18,9 +19,49 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	case string:
 		*s = StringParam(v)
 		return nil
+	case []byte:
+		*s = StringParam(string(v))
+		return nil
 	default:
 		return ErrBadInput
 	}
+}
+
+type Uint64Param uint64
+
+func (u *Uint64Param) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	switch v := val.(type) {
+	case uint:
+		*u = Uint64Param(v)
+	case uint8:
+		*u = Uint64Param(v)
+	case uint16:
+		*u = Uint64Param(v)
+	case uint32:
+		*u = Uint64Param(v)
+	case uint64:
+		*u = Uint64Param(v)
+	case int:
+		*u = Uint64Param(v)
+	case int8:
+		*u = Uint64Param(v)
+	case int16:
+		*u = Uint64Param(v)
+	case int32:
+		*u = Uint64Param(v)
+	case int64:
+		*u = Uint64Param(v)
+	case string:
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+		*u = Uint64Param(n)
+		return nil
+	default:
+		return ErrBadInput
+	}
+	return nil
 }
 
 type BoolParam bool
@@ -30,7 +71,7 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	case string:
 		theBool, err := strconv.ParseBool(v)
 		if err != nil {
-			return err
+			return errors.Wrap(ErrBadInput, err.Error())
 		}
 		*b = BoolParam(theBool)
 		return nil
@@ -65,16 +106,33 @@ func (m *MaybeBoolParam) UnmarshalPipelineParam(val interface{}, vars Vars) erro
 	switch val {
 	case "true":
 		*m = MaybeBoolTrue
-		return nil
 	case "false":
 		*m = MaybeBoolFalse
-		return nil
 	case "":
 		*m = MaybeBoolNull
-		return nil
+	case true:
+		*m = MaybeBoolTrue
+	case false:
+		*m = MaybeBoolFalse
 	default:
 		return ErrBadInput
 	}
+	return nil
+}
+
+type DecimalParam decimal.Decimal
+
+func (d *DecimalParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	x, err := utils.ToDecimal(val)
+	if err != nil {
+		return errors.Wrap(ErrBadInput, err.Error())
+	}
+	*d = DecimalParam(x)
+	return nil
+}
+
+func (d DecimalParam) Decimal() decimal.Decimal {
+	return decimal.Decimal(d)
 }
 
 type URLParam url.URL
@@ -84,7 +142,7 @@ func (u *URLParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	case string:
 		theURL, err := url.ParseRequestURI(v)
 		if err != nil {
-			return err
+			return errors.Wrap(ErrBadInput, err.Error())
 		}
 		*u = URLParam(*theURL)
 		return nil
@@ -95,46 +153,6 @@ func (u *URLParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 
 func (u *URLParam) String() string {
 	return (*url.URL)(u).String()
-}
-
-type JSONPathParam []string
-
-func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
-	// var s string
-	// switch v := val.(type) {
-	// case string:
-	//  s = v
-	// default:
-	//  return nil, ErrBadInput
-	// }
-	return nil
-
-	// trimmed := strings.TrimSpace(s)
-	// if len(trimmed) == 0 {
-	//  return nil, ErrBadInput
-	// }
-	// if trimmed[0] == "[" {
-	//  if trimmed[len(trimmed)-1] != "]" {
-	//      return nil, ErrBadInput
-	//  }
-	//  elems := strings.Split(trimmed[1:len(trimmed)-1], ",")
-	//  elems = trimStrings(elems)
-	//  for _, elem := range elems {
-	//      t.Resolve(elem, vars, nil)
-	//  }
-	// }
-}
-
-func (p *JSONPathParam) UnmarshalText(bs []byte) error {
-	*p = strings.Split(string(bs), ",")
-	return nil
-}
-
-func (p *JSONPathParam) Scan(value interface{}) error {
-	return json.Unmarshal(value.([]byte), p)
-}
-func (p JSONPathParam) Value() (driver.Value, error) {
-	return json.Marshal(p)
 }
 
 type MapParam map[string]interface{}
@@ -163,7 +181,6 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(resolved))
 
 		var theMap map[string]interface{}
 		err = json.Unmarshal(resolved, &theMap)
@@ -181,5 +198,73 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 type SliceParam []interface{}
 
 func (s *SliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	switch v := val.(type) {
+	case []interface{}:
+		*s = v
+	case string:
+		return json.Unmarshal([]byte(v), s)
+	case []byte:
+		return json.Unmarshal(v, s)
+	default:
+		return ErrBadInput
+	}
+	return nil
+}
+
+type DecimalSliceParam []decimal.Decimal
+
+func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	switch v := val.(type) {
+	case []decimal.Decimal:
+		*s = v
+	case []interface{}:
+		for _, x := range v {
+			d, err := utils.ToDecimal(x)
+			if err != nil {
+				return err
+			}
+			*s = append(*s, d)
+			return nil
+		}
+	case string:
+		return json.Unmarshal([]byte(v), s)
+	case []byte:
+		return json.Unmarshal(v, s)
+	default:
+		return ErrBadInput
+	}
+	return nil
+}
+
+type StringSliceParam []string
+
+func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	// var s string
+	// switch v := val.(type) {
+	// case string:
+	//  s = v
+	// default:
+	//  return nil, ErrBadInput
+	// }
+	return nil
+
+	// trimmed := strings.TrimSpace(s)
+	// if len(trimmed) == 0 {
+	//  return nil, ErrBadInput
+	// }
+	// if trimmed[0] == "[" {
+	//  if trimmed[len(trimmed)-1] != "]" {
+	//      return nil, ErrBadInput
+	//  }
+	//  elems := strings.Split(trimmed[1:len(trimmed)-1], ",")
+	//  elems = trimStrings(elems)
+	//  for _, elem := range elems {
+	//      t.Resolve(elem, vars, nil)
+	//  }
+	// }
+}
+
+func (p *StringSliceParam) UnmarshalText(bs []byte) error {
+	*p = strings.Split(string(bs), ",")
 	return nil
 }

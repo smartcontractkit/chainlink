@@ -1,8 +1,6 @@
 package pipeline
 
 import (
-	"reflect"
-
 	"gorm.io/gorm"
 )
 
@@ -45,7 +43,7 @@ func (t MultiplyTask) ExportedEquals(otherTask Task) bool {
 		return false
 	} else if t.Index != other.Index {
 		return false
-	} else if !t.Times.Equal(other.Times) {
+	} else if t.Times != other.Times {
 		return false
 	}
 	return true
@@ -67,7 +65,7 @@ func (t JSONParseTask) ExportedEquals(otherTask Task) bool {
 		return false
 	} else if t.Index != other.Index {
 		return false
-	} else if !reflect.DeepEqual(t.Path, other.Path) {
+	} else if t.Path != other.Path {
 		return false
 	}
 	return true
@@ -83,7 +81,7 @@ func (t HTTPTask) ExportedEquals(otherTask Task) bool {
 		return false
 	} else if t.URL != other.URL {
 		return false
-	} else if !reflect.DeepEqual(t.RequestData, other.RequestData) {
+	} else if t.RequestData != other.RequestData {
 		return false
 	}
 	return true
@@ -97,7 +95,7 @@ func (t BridgeTask) ExportedEquals(otherTask Task) bool {
 		return false
 	} else if t.Name != other.Name {
 		return false
-	} else if !reflect.DeepEqual(t.RequestData, other.RequestData) {
+	} else if t.RequestData != other.RequestData {
 		return false
 	}
 	return true

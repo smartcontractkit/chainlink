@@ -1,12 +1,15 @@
 package pipeline
 
 import (
+	"bytes"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 )
+
+//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
 type (
 	Vars map[string]interface{}
@@ -23,25 +26,31 @@ func NewVars() Vars {
 }
 
 func (v Vars) Get(keypath string) (interface{}, error) {
-	keypathParts := strings.Split(keypath, ".")
-	return v.traverse(keypathParts, false)
+	parts := keypathParts(keypath)
+	if len(parts) == 0 {
+		return (map[string]interface{})(v), nil
+	}
+	return v.traverse(parts, false)
 }
 
 func (v Vars) Set(keypath string, val interface{}) error {
-	keypathParts := strings.Split(keypath, ".")
+	parts := keypathParts(keypath)
+	if len(parts) == 0 {
+		return errors.New("can't set the root of a Vars")
+	}
 
-	last, err := v.traverse(keypathParts[:len(keypathParts)-1], true)
+	last, err := v.traverse(parts[:len(parts)-1], true)
 	if err != nil {
 		return err
 	}
-	lastKey := keypathParts[len(keypathParts)-1]
+	lastKey := parts[len(parts)-1]
 
 	switch typed := last.(type) {
 	case map[string]interface{}:
-		typed[lastKey] = val
+		typed[string(lastKey)] = val
 
 	case []interface{}:
-		idx, err := strconv.Atoi(lastKey)
+		idx, err := strconv.Atoi(string(lastKey))
 		if err != nil {
 			return err
 		} else if len(typed) <= idx {
@@ -55,7 +64,28 @@ func (v Vars) Set(keypath string, val interface{}) error {
 	return nil
 }
 
-func (v Vars) traverse(keypathParts []string, create bool) (interface{}, error) {
+var keypathSeparator = []byte(".")
+
+func keypathParts(keypath string) [][]byte {
+	if len(keypath) == 0 {
+		return nil
+	}
+	// The bytes package uses platform-dependent hardware optimizations and
+	// avoids the extra allocations that are required to work with strings.
+	// Keypaths have to be parsed quite a bit, so let's do it well.
+	kp := []byte(keypath)
+	n := 1 + bytes.Count(kp, keypathSeparator)
+	parts := make([][]byte, n)
+	for i := 0; i < n-1; i++ {
+		nextSep := bytes.IndexByte(kp, keypathSeparator[0])
+		parts[i] = kp[:nextSep]
+		kp = kp[nextSep+1:]
+	}
+	parts[len(parts)-1] = kp
+	return parts
+}
+
+func (v Vars) traverse(keypathParts [][]byte, create bool) (interface{}, error) {
 	type M = map[string]interface{}
 	var cur interface{} = M(v)
 
@@ -63,16 +93,16 @@ func (v Vars) traverse(keypathParts []string, create bool) (interface{}, error) 
 		switch typed := cur.(type) {
 		case map[string]interface{}:
 			var exists bool
-			cur, exists = typed[key]
+			cur, exists = typed[string(key)] // Converting []byte to string to access a map is a special-case optimization in Go
 			if !exists && !create {
 				return nil, errors.Errorf("not found: key %v keypathParts %v", key, keypathParts)
 			} else if !exists {
-				typed[key] = make(map[string]interface{})
-				cur = typed[key]
+				typed[string(key)] = make(map[string]interface{})
+				cur = typed[string(key)]
 			}
 
 		case []interface{}:
-			idx, err := strconv.ParseInt(key, 10, 64)
+			idx, err := strconv.ParseInt(string(key), 10, 64)
 			if err != nil {
 				return nil, err
 			} else if idx > int64(len(typed)-1) {
@@ -87,11 +117,11 @@ func (v Vars) traverse(keypathParts []string, create bool) (interface{}, error) 
 	return cur, nil
 }
 
-func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs, validators ...ValidatorFunc) error {
+func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs) error {
 	var val interface{}
 	var err error
 	for _, get := range getters {
-		val, err = get()
+		val, err = get(vars)
 		if errors.Cause(err) == ErrParameterEmpty {
 			continue
 		} else if err != nil {
@@ -99,20 +129,7 @@ func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs,
 		}
 		break
 	}
-
-	err = out.UnmarshalPipelineParam(val, vars)
-	if err != nil {
-		return err
-	}
-
-	for _, validate := range validators {
-		err := validate(out)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return out.UnmarshalPipelineParam(val, vars)
 }
 
 type GetterFuncs []GetterFunc
@@ -124,7 +141,7 @@ func From(getters ...interface{}) GetterFuncs {
 		case GetterFunc:
 			gfs = append(gfs, v)
 		default:
-			gfs = append(gfs, func() (interface{}, error) {
+			gfs = append(gfs, func(_ Vars) (interface{}, error) {
 				return v, nil
 			})
 		}
@@ -132,24 +149,20 @@ func From(getters ...interface{}) GetterFuncs {
 	return gfs
 }
 
-func (gf GetterFuncs) Or(getter GetterFunc) GetterFuncs {
-	return append(gf, getter)
-}
-
-type GetterFunc func() (interface{}, error)
+type GetterFunc func(vars Vars) (interface{}, error)
 
 func VariableExpr(s string) GetterFunc {
-	return func() (interface{}, error) {
-		is, _ := isPureVariableExprString(s)
-		if !is {
+	return func(vars Vars) (interface{}, error) {
+		keypath, ok := variableExprKeypath(s)
+		if !ok {
 			return nil, ErrParameterEmpty
 		}
-		return s, nil
+		return vars.Get(keypath)
 	}
 }
 
 func NonemptyString(s string) GetterFunc {
-	return func() (interface{}, error) {
+	return func(vars Vars) (interface{}, error) {
 		trimmed := strings.TrimSpace(s)
 		if len(trimmed) == 0 {
 			return nil, ErrParameterEmpty
@@ -159,7 +172,7 @@ func NonemptyString(s string) GetterFunc {
 }
 
 func Input(inputs []Result, index int) GetterFunc {
-	return func() (interface{}, error) {
+	return func(vars Vars) (interface{}, error) {
 		if len(inputs)-1 < index {
 			return nil, ErrParameterEmpty
 		}
@@ -167,89 +180,19 @@ func Input(inputs []Result, index int) GetterFunc {
 	}
 }
 
-type ValidatorFunc func(val interface{}) error
-
-func Validate(validators ...ValidatorFunc) []ValidatorFunc {
-	return validators
-}
-
-func MapKeys(keys ...string) ValidatorFunc {
-	return func(val interface{}) error {
-		asMap, isMap := val.(map[string]interface{})
-		if !isMap {
-			return ErrBadInput
-		}
-		for _, k := range keys {
-			_, exists := asMap[k]
-			if !exists {
-				return ErrBadInput
-			}
-		}
-		return nil
+func Inputs(inputs []Result, min, max, maxErrors int) GetterFunc {
+	return func(vars Vars) (interface{}, error) {
+		return CheckInputs(inputs, min, max, maxErrors)
 	}
 }
 
-// func resolve(from, to interface{}, vars Vars) (interface{}, error) {
-// 	switch val := from.(type) {
-// 	case string:
-// 		return resolveString(val, vars)
-// 	case map[string]interface{}:
-// 		return resolveMap(val, vars)
-// 	// case []interface{}:
-// 	// 	return resolveSlice(val, vars)
-// 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
-// 		return val, nil
-// 	default:
-// 		return nil, ErrBadInput
-// 	}
-// }
-
-// func resolveString(s string, vars Vars) (string, error) {
-// 	var err error
-// 	resolved := variableRegexp.ReplaceAllStringFunc(s, func(keypath string) string {
-// 		val, err2 := vars.Get(keypath)
-// 		if err2 != nil {
-// 			err = multierr.Append(err, err2)
-// 			return ""
-// 		}
-// 		return fmt.Sprintf("%s", val)
-// 	})
-// 	return resolved, err
-// }
-
-func isPureVariableExprString(s string) (is bool, keypath string) {
+func variableExprKeypath(s string) (keypath string, ok bool) {
 	trimmed := strings.TrimSpace(s)
 	if strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')' {
-		return true, trimmed[2 : len(trimmed)-1]
+		return strings.TrimSpace(trimmed[2 : len(trimmed)-1]), true
 	}
-	return false, ""
+	return "", false
 }
-
-// func resolveMap(m map[string]interface{}, vars Vars) (map[string]interface{}, error) {
-// 	m2 := make(map[string]interface{})
-// 	for k, v := range m {
-// 		resolvedKey, err := resolveString(k, vars)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		switch val := v.(type) {
-// 		case string:
-
-// 		}
-
-// 		resolvedVal, err := resolve(v, vars)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		m2[resolvedKey] = resolvedVal
-// 	}
-// 	return m2, nil
-// }
-
-// func resolveValue(s string, vars Vars) interface{} {
-
-// }
 
 func trimStrings(strs []string) []string {
 	trimmed := make([]string, len(strs))
@@ -257,4 +200,25 @@ func trimStrings(strs []string) []string {
 		trimmed[i] = strings.TrimSpace(strs[i])
 	}
 	return trimmed
+}
+
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+	if minLen >= 0 && len(inputs) < minLen {
+		return nil, ErrWrongInputCardinality
+	} else if maxLen >= 0 && len(inputs) > maxLen {
+		return nil, ErrWrongInputCardinality
+	}
+	var vals []interface{}
+	var errs int
+	for _, input := range inputs {
+		if input.Error != nil {
+			errs++
+			continue
+		}
+		vals = append(vals, input.Value)
+	}
+	if maxErrors >= 0 && errs > maxErrors {
+		return nil, ErrTooManyErrors
+	}
+	return vals, nil
 }

@@ -36,13 +36,13 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, in
 	}
 
 	var (
-		path JSONPathParam
+		path StringSliceParam
 		data StringParam
 		lax  BoolParam
 	)
 	err = multierr.Combine(
 		vars.ResolveValue(&path, From(NonemptyString(t.Path))),
-		vars.ResolveValue(&data, From(NonemptyString(t.Data), Input(inputs, 0))),
+		vars.ResolveValue(&data, From(VariableExpr(t.Data), NonemptyString(t.Data), Input(inputs, 0))),
 		vars.ResolveValue(&lax, From(NonemptyString(t.Lax))),
 	)
 	if err != nil {

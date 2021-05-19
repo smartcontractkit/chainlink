@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -70,7 +71,7 @@ func TestMedian(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.MedianTask{AllowedFaults: test.allowedFaults}
+			task := pipeline.MedianTask{AllowedFaults: fmt.Sprintf("%v", test.allowedFaults)}
 			output := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))

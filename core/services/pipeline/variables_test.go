@@ -1,60 +1,433 @@
 package pipeline_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 )
 
-func TestResolveMap(t *testing.T) {
+func TestVars_GetSet(t *testing.T) {
+	t.Parallel()
+
+	t.Run("gets the values at keypaths that exist", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": []interface{}{1, "bar", false},
+			"bar": 321,
+		}
+
+		got, err := vars.Get("foo.1")
+		require.NoError(t, err)
+		require.Equal(t, "bar", got)
+
+		got, err = vars.Get("bar")
+		require.NoError(t, err)
+		require.Equal(t, 321, got)
+	})
+
+	t.Run("errors when getting the values at keypaths that don't exist", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": []interface{}{1, "bar", false},
+			"bar": 321,
+		}
+
+		_, err := vars.Get("foo.blah")
+		require.Error(t, err)
+	})
+
+	t.Run("sets values at simple keypaths", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{}
+
+		err := vars.Set("foo", 123)
+		require.NoError(t, err)
+
+		err = vars.Set("bar", []interface{}{"a", "b"})
+		require.NoError(t, err)
+
+		expected := pipeline.Vars{
+			"foo": 123,
+			"bar": []interface{}{"a", "b"},
+		}
+		require.Equal(t, expected, vars)
+	})
+
+	t.Run("sets values in slices that exist", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": []interface{}{1, "bar", false},
+			"bar": 321,
+		}
+		err := vars.Set("foo.1", 123)
+		require.NoError(t, err)
+
+		expected := pipeline.Vars{
+			"foo": []interface{}{1, 123, false},
+			"bar": 321,
+		}
+		require.Equal(t, expected, vars)
+	})
+
+	t.Run("sets values in maps that exist", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": map[string]interface{}{
+				"bar": "hello",
+			},
+			"bar": 321,
+		}
+		err := vars.Set("foo.chain", "link")
+		require.NoError(t, err)
+
+		expected := pipeline.Vars{
+			"foo": map[string]interface{}{
+				"bar":   "hello",
+				"chain": "link",
+			},
+			"bar": 321,
+		}
+		require.Equal(t, expected, vars)
+	})
+
+	t.Run("sets values in nested maps", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": map[string]interface{}{
+				"bar": map[string]interface{}{
+					"chain": "link",
+				},
+			},
+			"bar": 321,
+		}
+		err := vars.Set("foo.bar.sergey", 123)
+		require.NoError(t, err)
+
+		expected := pipeline.Vars{
+			"foo": map[string]interface{}{
+				"bar": map[string]interface{}{
+					"chain":  "link",
+					"sergey": 123,
+				},
+			},
+			"bar": 321,
+		}
+		require.Equal(t, expected, vars)
+	})
+
+	t.Run("sets values in nested maps that don't exist by creating them", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": map[string]interface{}{},
+			"bar": 321,
+		}
+		err := vars.Set("foo.bar.sergey.chain", "link")
+		require.NoError(t, err)
+
+		expected := pipeline.Vars{
+			"foo": map[string]interface{}{
+				"bar": map[string]interface{}{
+					"sergey": map[string]interface{}{
+						"chain": "link",
+					},
+				},
+			},
+			"bar": 321,
+		}
+		require.Equal(t, expected, vars)
+	})
+
+	t.Run("errors when setting values in nested slices outside of their current size", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": []interface{}{1, 2},
+			"bar": 321,
+		}
+		err := vars.Set("foo.2", "link")
+		require.Error(t, err)
+	})
+}
+
+func TestVars_ResolveValue(t *testing.T) {
+	t.Parallel()
+
+	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{}
+
+		param := new(mocks.PipelineParamUnmarshaler)
+		param.On("UnmarshalPipelineParam", mock.Anything, vars).Return(nil)
+
+		called := []int{}
+		getters := []pipeline.GetterFunc{
+			func(_ pipeline.Vars) (interface{}, error) {
+				called = append(called, 0)
+				return nil, errors.Wrap(pipeline.ErrParameterEmpty, "make sure it still notices when wrapped")
+			},
+			func(_ pipeline.Vars) (interface{}, error) {
+				called = append(called, 1)
+				return 123, nil
+			},
+			func(_ pipeline.Vars) (interface{}, error) {
+				called = append(called, 2)
+				return 123, nil
+			},
+		}
+
+		err := vars.ResolveValue(param, getters)
+		require.NoError(t, err)
+		require.Equal(t, []int{0, 1}, called)
+
+		param.AssertExpectations(t)
+	})
+
+	t.Run("returns any GetterFunc error that isn't ErrParameterEmpty", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{}
+		param := new(mocks.PipelineParamUnmarshaler)
+		called := []int{}
+		expectedErr := errors.New("some other issue")
+
+		getters := []pipeline.GetterFunc{
+			func(_ pipeline.Vars) (interface{}, error) {
+				called = append(called, 0)
+				return nil, expectedErr
+			},
+			func(_ pipeline.Vars) (interface{}, error) {
+				called = append(called, 1)
+				return 123, nil
+			},
+			func(_ pipeline.Vars) (interface{}, error) {
+				called = append(called, 2)
+				return 123, nil
+			},
+		}
+
+		err := vars.ResolveValue(param, getters)
+		require.Equal(t, expectedErr, err)
+		require.Equal(t, []int{0}, called)
+	})
+
+	t.Run("calls UnmarshalPipelineParam with the value obtained from the GetterFuncs", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{}
+		expectedValue := 123
+
+		param := new(mocks.PipelineParamUnmarshaler)
+		param.On("UnmarshalPipelineParam", expectedValue, vars).Return(nil)
+
+		getters := []pipeline.GetterFunc{
+			func(_ pipeline.Vars) (interface{}, error) {
+				return expectedValue, nil
+			},
+		}
+
+		err := vars.ResolveValue(param, getters)
+		require.NoError(t, err)
+
+		param.AssertExpectations(t)
+	})
+
+	t.Run("returns any error returned by UnmarshalPipelineParam", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{}
+		expectedValue := 123
+		expectedErr := errors.New("some issue")
+
+		param := new(mocks.PipelineParamUnmarshaler)
+		param.On("UnmarshalPipelineParam", expectedValue, vars).Return(expectedErr)
+
+		getters := []pipeline.GetterFunc{
+			func(_ pipeline.Vars) (interface{}, error) {
+				return expectedValue, nil
+			},
+		}
+
+		err := vars.ResolveValue(param, getters)
+		require.Equal(t, expectedErr, err)
+
+		param.AssertExpectations(t)
+	})
+}
+
+func TestGetters_VariableExpr(t *testing.T) {
 	t.Parallel()
 
 	vars := pipeline.Vars{
 		"foo": map[string]interface{}{
-			"abc": "def",
-		},
-		"bar": "123",
-	}
-
-	// input := map[string]interface{}{
-	// 	"chain": "$(foo)",
-	// 	"link": map[string]interface{}{
-	// 		"sergey": "$(foo.abc)",
-	// 		"$(bar)": "satoshi",
-	// 	},
-	// }
-
-	input := `
-    {
-        "chain": $(foo),
-        "link": {
-            $(bar): "satoshi",
-            "sergey": $(foo.abc)
-        }
-    }
-    `
-
-	expected := pipeline.MapParam{
-		"chain": map[string]interface{}{
-			"abc": "def",
-		},
-		"link": map[string]interface{}{
-			"sergey": "def",
-			"123":    "satoshi",
+			"bar": []interface{}{0, 1, 42},
 		},
 	}
 
-	var got pipeline.MapParam
-	err := got.UnmarshalPipelineParam(input, vars)
+	tests := []struct {
+		expr    string
+		keypath interface{}
+		err     error
+	}{
+		{"$(foo.bar.2)", 42, nil},
+		{" $(foo.bar.2)", 42, nil},
+		{"$(foo.bar.2) ", 42, nil},
+		{"$( foo.bar.2)", 42, nil},
+		{"$(foo.bar.2 )", 42, nil},
+		{"$( foo.bar.2 )", 42, nil},
+		{" $( foo.bar.2 )", 42, nil},
+		{"$()", (map[string]interface{})(vars), nil},
+		{"$(foo.bar.2", nil, pipeline.ErrParameterEmpty},
+		{"$foo.bar.2)", nil, pipeline.ErrParameterEmpty},
+		{"(foo.bar.2)", nil, pipeline.ErrParameterEmpty},
+		{"foo.bar.2", nil, pipeline.ErrParameterEmpty},
+	}
 
-	// got, err := pipeline.ExportedResolveMap(input, vars)
-	require.NoError(t, err)
+	for _, test := range tests {
+		test := test
+		t.Run(test.expr, func(t *testing.T) {
+			val, err := pipeline.VariableExpr(test.expr)(vars)
+			require.Equal(t, test.keypath, val)
+			require.Equal(t, test.err, errors.Cause(err))
+		})
+	}
+}
 
-	bs, _ := json.MarshalIndent(got, "", "    ")
-	fmt.Println(string(bs))
+func TestGetters_NonemptyString(t *testing.T) {
+	t.Parallel()
 
-	require.Equal(t, expected, got)
+	t.Run("returns any non-empty string", func(t *testing.T) {
+		t.Parallel()
+		val, err := pipeline.NonemptyString("foo bar")(nil)
+		require.NoError(t, err)
+		require.Equal(t, "foo bar", val)
+	})
+
+	t.Run("returns ErrParameterEmpty when given an empty string (including only spaces)", func(t *testing.T) {
+		t.Parallel()
+		_, err := pipeline.NonemptyString("")(nil)
+		require.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+		_, err = pipeline.NonemptyString(" ")(nil)
+		require.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+	})
+}
+
+func TestGetters_Input(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the requested input's Value and Error if they exist", func(t *testing.T) {
+		t.Parallel()
+		expectedVal := "bar"
+		expectedErr := errors.New("some err")
+		val, err := pipeline.Input([]pipeline.Result{{Value: "foo"}, {Value: expectedVal, Error: expectedErr}, {Value: "baz"}}, 1)(nil)
+		require.Equal(t, expectedVal, val)
+		require.Equal(t, expectedErr, err)
+	})
+
+	t.Run("returns ErrParameterEmpty if the specified input does not exist", func(t *testing.T) {
+		t.Parallel()
+		_, err := pipeline.Input([]pipeline.Result{{Value: "foo"}}, 1)(nil)
+		require.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+	})
+}
+
+func TestGetters_Inputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		inputs      []pipeline.Result
+		minInputs   int
+		maxInputs   int
+		maxErrors   int
+		expected    []interface{}
+		expectedErr error
+	}{
+		{
+			"returns the values if the inputs meet the spec",
+			[]pipeline.Result{
+				{Value: "foo"},
+				{Value: "bar"},
+				{Value: "baz"},
+			},
+			0, 3, 0,
+			[]interface{}{"foo", "bar", "baz"}, nil,
+		},
+		{
+			"returns the non-error values if the inputs meet the spec",
+			[]pipeline.Result{
+				{Value: "foo"},
+				{Error: errors.New("some issue")},
+				{Value: "baz"},
+			},
+			0, 3, 1,
+			[]interface{}{"foo", "baz"}, nil,
+		},
+		{
+			"returns ErrWrongInputCardinality if there are too few inputs",
+			[]pipeline.Result{
+				{Value: "foo"},
+				{Error: errors.New("some issue")},
+				{Value: "baz"},
+			},
+			4, 5, 2,
+			nil, pipeline.ErrWrongInputCardinality,
+		},
+		{
+			"returns ErrWrongInputCardinality if there are too many inputs",
+			[]pipeline.Result{
+				{Value: "foo"},
+				{Error: errors.New("some issue")},
+				{Value: "baz"},
+			},
+			1, 2, 2,
+			nil, pipeline.ErrWrongInputCardinality,
+		},
+		{
+			"returns ErrTooManyErrors if there are too many errors",
+			[]pipeline.Result{
+				{Value: "foo"},
+				{Error: errors.New("some issue")},
+				{Error: errors.New("some issue")},
+			},
+			1, 3, 1,
+			nil, pipeline.ErrTooManyErrors,
+		},
+		{
+			"-1 disables each spec parameter",
+			[]pipeline.Result{
+				{Value: "foo"},
+				{Error: errors.New("some issue")},
+				{Error: errors.New("some issue")},
+				{Value: "bar"},
+				{Value: "baz"},
+				{Error: errors.New("some issue")},
+			},
+			-1, -1, -1,
+			[]interface{}{"foo", "bar", "baz"}, nil,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run("returns all of the inputs' Values if the provided inputs meet the spec", func(t *testing.T) {
+			t.Parallel()
+
+			val, err := pipeline.Inputs(test.inputs, test.minInputs, test.maxInputs, test.maxErrors)(nil)
+			require.Equal(t, test.expectedErr, errors.Cause(err))
+			require.Equal(t, test.expected, val)
+		})
+	}
 }

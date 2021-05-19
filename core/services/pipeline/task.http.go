@@ -59,7 +59,7 @@ func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self Ta
 }
 
 func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
-	_, err := CheckInputs(inputs, 0, 0, 0)
+	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
 	}
@@ -73,7 +73,7 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, input
 	err = multierr.Combine(
 		vars.ResolveValue(&method, From(NonemptyString(t.Method))),
 		vars.ResolveValue(&url, From(NonemptyString(t.URL))),
-		vars.ResolveValue(&requestData, From(NonemptyString(t.RequestData))),
+		vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0))),
 		vars.ResolveValue(&allowUnrestrictedNetworkAccess, From(t.AllowUnrestrictedNetworkAccess)),
 	)
 	if err != nil {

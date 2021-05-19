@@ -26,17 +26,12 @@ func (t *ETHABIEncodeTask) SetDefaults(inputValues map[string]string, g TaskDAG,
 }
 
 func (t *ETHABIEncodeTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
-	inputValues, err := CheckInputs(inputs, 0, -1, 0)
-	if err != nil {
-		return Result{Error: err}
-	}
-
 	var (
-		data   SliceParam
-		theABI StringParam
+		inputValues SliceParam
+		theABI      StringParam
 	)
-	err = multierr.Combine(
-		vars.ResolveValue(&data, From(VariableExpr(t.Data), Input(inputs, 0))),
+	err := multierr.Combine(
+		vars.ResolveValue(&inputValues, From(VariableExpr(t.Data), Inputs(inputs, 0, -1, 0))),
 		vars.ResolveValue(&theABI, From(NonemptyString(t.ABI))),
 	)
 	if err != nil {

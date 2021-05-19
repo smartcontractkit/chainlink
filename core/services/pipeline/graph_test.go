@@ -3,7 +3,6 @@ package pipeline
 import (
 	"testing"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
@@ -121,14 +120,14 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 
 	answer1 := &MedianTask{
 		BaseTask:      NewBaseTask("answer1", nil, 0, 2),
-		AllowedFaults: 1,
+		AllowedFaults: "1",
 	}
 	answer2 := &BridgeTask{
 		Name:     "election_winner",
 		BaseTask: NewBaseTask("answer2", nil, 1, 0),
 	}
 	ds1_multiply := &MultiplyTask{
-		Times:    decimal.NewFromFloat(1.23),
+		Times:    "1.23",
 		BaseTask: NewBaseTask("ds1_multiply", answer1, 0, 1),
 	}
 	ds1_parse := &JSONParseTask{
@@ -140,7 +139,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		BaseTask: NewBaseTask("ds1", ds1_parse, 0, 0),
 	}
 	ds2_multiply := &MultiplyTask{
-		Times:    decimal.NewFromFloat(4.56),
+		Times:    "4.56",
 		BaseTask: NewBaseTask("ds2_multiply", answer1, 0, 1),
 	}
 	ds2_parse := &JSONParseTask{

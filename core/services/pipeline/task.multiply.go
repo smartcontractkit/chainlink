@@ -3,15 +3,12 @@ package pipeline
 import (
 	"context"
 
-	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/multierr"
 )
 
 type MultiplyTask struct {
 	BaseTask `mapstructure:",squash"`
-	Times    decimal.Decimal `json:"times"`
+	Times    string `json:"times"`
 }
 
 var _ Task = (*MultiplyTask)(nil)
@@ -25,15 +22,21 @@ func (t *MultiplyTask) SetDefaults(inputValues map[string]string, g TaskDAG, sel
 }
 
 func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
-	if len(inputs) != 1 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")}
-	} else if inputs[0].Error != nil {
-		return Result{Error: inputs[0].Error}
-	}
-
-	value, err := utils.ToDecimal(inputs[0].Value)
+	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
 	}
-	return Result{Value: value.Mul(t.Times)}
+
+	var (
+		a DecimalParam
+		b DecimalParam
+	)
+	err = multierr.Combine(
+		vars.ResolveValue(&a, From(Input(inputs, 0))),
+		vars.ResolveValue(&b, From(VariableExpr(t.Times), NonemptyString(t.Times))),
+	)
+	if err != nil {
+		return Result{Error: err}
+	}
+	return Result{Value: a.Decimal().Mul(b.Decimal())}
 }

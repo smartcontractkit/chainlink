@@ -284,23 +284,3 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	}
 	return task, nil
 }
-
-func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
-	if minLen >= 0 && len(inputs) < minLen {
-		return nil, ErrWrongInputCardinality
-	} else if maxLen >= 0 && len(inputs) > maxLen {
-		return nil, ErrWrongInputCardinality
-	}
-	var vals []interface{}
-	var errs int
-	for _, input := range inputs {
-		if input.Error != nil {
-			errs++
-		}
-		vals = append(vals, input.Value)
-	}
-	if maxErrors >= 0 && errs > maxErrors {
-		return nil, ErrTooManyErrors
-	}
-	return vals, nil
-}
