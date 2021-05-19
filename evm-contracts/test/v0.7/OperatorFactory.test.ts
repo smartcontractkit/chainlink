@@ -25,6 +25,9 @@ describe('OperatorFactory', () => {
   let operatorGenerator: contract.Instance<OperatorFactory__factory>
   let operator: contract.Instance<Operator__factory>
   let forwarder: contract.Instance<AuthorizedForwarder__factory>
+  let receipt: ContractReceipt
+  let emittedOperator: string
+  let emittedForwarder: string
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
@@ -39,6 +42,7 @@ describe('OperatorFactory', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(operatorGenerator, [
+      'created',
       'deployNewOperator',
       'deployNewOperatorAndForwarder',
       'deployNewForwarder',
@@ -48,14 +52,13 @@ describe('OperatorFactory', () => {
   })
 
   describe('#deployNewOperator', () => {
-    let receipt: ContractReceipt
-
     beforeEach(async () => {
       const tx = await operatorGenerator
         .connect(roles.oracleNode)
         .deployNewOperator()
 
       receipt = await tx.wait()
+      emittedOperator = helpers.evmWordToAddress(receipt.logs?.[0].topics?.[1])
     })
 
     it('emits an event', async () => {
@@ -64,27 +67,27 @@ describe('OperatorFactory', () => {
     })
 
     it('sets the correct owner', async () => {
-      const emittedAddress = helpers.evmWordToAddress(
-        receipt.logs?.[0].topics?.[1],
-      )
-
       operator = await operatorFactory
         .connect(roles.defaultAccount)
-        .attach(emittedAddress)
+        .attach(emittedOperator)
       const ownerString = await operator.owner()
       assert.equal(ownerString, roles.oracleNode.address)
+    })
+
+    it('records that it deployed that address', async () => {
+      assert.isTrue(await operatorGenerator.created(emittedOperator))
     })
   })
 
   describe('#deployNewOperatorAndForwarder', () => {
-    let receipt: ContractReceipt
-
     beforeEach(async () => {
       const tx = await operatorGenerator
         .connect(roles.oracleNode)
         .deployNewOperatorAndForwarder()
 
       receipt = await tx.wait()
+      emittedOperator = helpers.evmWordToAddress(receipt.logs?.[0].topics?.[1])
+      emittedForwarder = helpers.evmWordToAddress(receipt.logs?.[1].topics?.[1])
     })
 
     it('emits an event recording that the operator was deployed', async () => {
@@ -111,17 +114,21 @@ describe('OperatorFactory', () => {
       const operatorAddress = receipt?.events?.[0]?.args?.[0]
       assert.equal(operatorAddress, await forwarder.owner())
     })
+
+    it('records that it deployed that address', async () => {
+      assert.isTrue(await operatorGenerator.created(emittedOperator))
+      assert.isTrue(await operatorGenerator.created(emittedForwarder))
+    })
   })
 
   describe('#deployNewForwarder', () => {
-    let receipt: ContractReceipt
-
     beforeEach(async () => {
       const tx = await operatorGenerator
         .connect(roles.oracleNode)
         .deployNewForwarder()
 
       receipt = await tx.wait()
+      emittedForwarder = helpers.evmWordToAddress(receipt.logs?.[0].topics?.[1])
     })
 
     it('emits an event', async () => {
@@ -133,27 +140,28 @@ describe('OperatorFactory', () => {
     })
 
     it('sets the caller as the owner', async () => {
-      const emittedAddress = helpers.evmWordToAddress(
-        receipt.logs?.[0].topics?.[1],
-      )
-
       forwarder = await forwarderFactory
         .connect(roles.defaultAccount)
-        .attach(emittedAddress)
+        .attach(emittedForwarder)
       const ownerString = await forwarder.owner()
       assert.equal(ownerString, roles.oracleNode.address)
+    })
+
+    it('records that it deployed that address', async () => {
+      assert.isTrue(await operatorGenerator.created(emittedForwarder))
     })
   })
 
   describe('#deployNewForwarderAndTransferOwnership', () => {
     const message = '0x42'
-    let receipt: ContractReceipt
 
     beforeEach(async () => {
       const tx = await operatorGenerator
         .connect(roles.oracleNode)
         .deployNewForwarderAndTransferOwnership(roles.stranger.address, message)
       receipt = await tx.wait()
+
+      emittedForwarder = helpers.evmWordToAddress(receipt.logs?.[2].topics?.[1])
     })
 
     it('emits an event', async () => {
@@ -164,7 +172,7 @@ describe('OperatorFactory', () => {
     it('sets the caller as the owner', async () => {
       forwarder = await forwarderFactory
         .connect(roles.defaultAccount)
-        .attach(receipt.events?.[2].args?.[0])
+        .attach(emittedForwarder)
       const ownerString = await forwarder.owner()
       assert.equal(ownerString, roles.oracleNode.address)
     })
@@ -192,6 +200,10 @@ describe('OperatorFactory', () => {
 
       const encodedMessage = utils.defaultAbiCoder.encode(['bytes'], [message])
       assert.equal(receipt?.logs?.[1]?.data, encodedMessage)
+    })
+
+    it('records that it deployed that address', async () => {
+      assert.isTrue(await operatorGenerator.created(emittedForwarder))
     })
   })
 })

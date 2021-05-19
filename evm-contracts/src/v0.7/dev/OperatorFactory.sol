@@ -11,6 +11,7 @@ import "./AuthorizedForwarder.sol";
 contract OperatorFactory {
 
   address public immutable getChainlinkToken;
+  mapping(address => bool) private s_created;
 
   event OperatorCreated(
     address indexed operator,
@@ -41,6 +42,7 @@ contract OperatorFactory {
       msg.sender
     );
 
+    s_created[address(operator)] = true;
     emit OperatorCreated(
       address(operator),
       msg.sender
@@ -58,6 +60,7 @@ contract OperatorFactory {
       getChainlinkToken,
       msg.sender
     );
+    s_created[address(operator)] = true;
     emit OperatorCreated(
       address(operator),
       msg.sender
@@ -70,6 +73,7 @@ contract OperatorFactory {
       address(0),
       tmp
     );
+    s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
@@ -90,6 +94,7 @@ contract OperatorFactory {
       tmp
     );
 
+    s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
@@ -112,10 +117,24 @@ contract OperatorFactory {
       message
     );
 
+    s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
       msg.sender
     );
+  }
+
+  /**
+   * @notice indicates whether this factory deployed an address
+   */
+  function created(
+    address query
+  )
+    external
+    view
+    returns (bool)
+  {
+    return s_created[query];
   }
 
 }
