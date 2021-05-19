@@ -1,4 +1,4 @@
-import { contract, setup, helpers } from '@chainlink/test-helpers'
+import { contract, setup, helpers, matchers } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { utils } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
@@ -35,6 +35,16 @@ describe('OperatorFactory', () => {
 
   beforeEach(async () => {
     await deployment()
+  })
+
+  it('has a limited public interface', () => {
+    matchers.publicAbi(operatorGenerator, [
+      'deployNewOperator',
+      'deployNewOperatorAndForwarder',
+      'deployNewForwarder',
+      'deployNewForwarderAndTransferOwnership',
+      'getChainlinkToken',
+    ])
   })
 
   describe('#deployNewOperator', () => {

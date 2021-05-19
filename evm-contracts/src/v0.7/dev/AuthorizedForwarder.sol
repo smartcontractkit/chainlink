@@ -10,7 +10,7 @@ contract AuthorizedForwarder is
   AuthorizedReceiver
 {
 
-  address public immutable linkAddr;
+  address public immutable getChainlinkToken;
 
   event OwnershipTransferRequestedWithMessage(
     address indexed from,
@@ -26,7 +26,7 @@ contract AuthorizedForwarder is
   )
     ConfirmedOwnerWithProposal(owner, recipient)
   {
-    linkAddr = link;
+    getChainlinkToken = link;
     if (recipient != address(0)) {
       emit OwnershipTransferRequestedWithMessage(owner, recipient, message);
     }
@@ -45,7 +45,7 @@ contract AuthorizedForwarder is
     external
     validateAuthorizedSender()
   {
-    require(to != linkAddr, "Cannot #forward to Link token");
+    require(to != getChainlinkToken, "Cannot #forward to Link token");
     (bool status,) = to.call(data);
     require(status, "Forwarded call failed.");
   }

@@ -37,8 +37,8 @@ describe('AuthorizedForwarder', () => {
     matchers.publicAbi(forwarder, [
       'forward',
       'getAuthorizedSenders',
+      'getChainlinkToken',
       'isAuthorizedSender',
-      'linkAddr',
       'setAuthorizedSenders',
       'transferOwnershipWithMessage',
       // ConfirmedOwner
@@ -50,8 +50,7 @@ describe('AuthorizedForwarder', () => {
 
   describe('deployment', () => {
     it('sets the correct link token', async () => {
-      const forwarderLink = await forwarder.linkAddr()
-      assert.equal(forwarderLink, link.address)
+      assert.equal(await forwarder.getChainlinkToken(), link.address)
     })
 
     it('sets no authorized senders', async () => {
