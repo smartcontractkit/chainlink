@@ -505,3 +505,38 @@ func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
 	require.Equal(t, 2, <-ch)
 	require.Equal(t, 3, <-ch)
 }
+
+func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
+	t.Parallel()
+
+	once := utils.StartStopOnce{}
+
+	ch := make(chan int, 3)
+
+	ready := make(chan bool)
+
+	go func() {
+		ch <- 1
+		once.StartOnce("slow service", func() (err error) {
+			ready <- true
+			<-time.After(2 * time.Second)
+
+			return nil
+		})
+		ch <- 2
+
+	}()
+
+	go func() {
+		<-ready // try starting halfway through startup
+		once.StartOnce("slow service", func() (err error) {
+			return nil
+		})
+		ch <- 3
+
+	}()
+
+	require.Equal(t, 1, <-ch)
+	require.Equal(t, 3, <-ch) // 3 arrives before 2 because it returns immediately
+	require.Equal(t, 2, <-ch)
+}
