@@ -31,6 +31,22 @@ func (_m *Broadcast) DecodedLog() interface{} {
 	return r0
 }
 
+// JobID provides a mock function with given fields:
+func (_m *Broadcast) JobID() interface{} {
+	ret := _m.Called()
+
+	var r0 interface{}
+	if rf, ok := ret.Get(0).(func() interface{}); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(interface{})
+		}
+	}
+
+	return r0
+}
+
 // LatestBlockHash provides a mock function with given fields:
 func (_m *Broadcast) LatestBlockHash() common.Hash {
 	ret := _m.Called()
@@ -56,20 +72,6 @@ func (_m *Broadcast) LatestBlockNumber() uint64 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
-// MarkConsumed provides a mock function with given fields:
-func (_m *Broadcast) MarkConsumed() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0
@@ -106,25 +108,4 @@ func (_m *Broadcast) String() string {
 	}
 
 	return r0
-}
-
-// WasAlreadyConsumed provides a mock function with given fields:
-func (_m *Broadcast) WasAlreadyConsumed() (bool, error) {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }

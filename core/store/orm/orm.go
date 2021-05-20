@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 	gormpostgres "gorm.io/driver/postgres"
@@ -333,7 +332,7 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return postgres.GormTransaction(context.Background(), orm.DB, callback)
+	return postgres.GormTransactionWithDefaultContext(orm.DB, callback)
 }
 
 // SaveJobRun updates UpdatedAt for a JobRun and updates its status, finished
@@ -347,9 +346,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err := postgres.GormTransaction(ctx, orm.DB, func(dbtx *gorm.DB) error {
+	err := postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		result := dbtx.Exec(`
 UPDATE job_runs SET "status"=?, "finished_at"=?, "updated_at"=NOW(), "creation_height"=?, "observed_height"=?, "payment"=?
 WHERE updated_at = ? AND "id" = ?`,
@@ -1083,7 +1080,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() error {
-	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		user, err := findUser(dbtx)
 		if err != nil {
 			return err
@@ -1450,42 +1447,13 @@ func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 	return err
 }
 
-// FirstOrCreateEncryptedVRFKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.FirstOrCreate(k).Error
-}
-
-// ArchiveEncryptedVRFKey soft-deletes k from the encrypted keys table, or errors
-func (orm *ORM) ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Delete(k).Error
-}
-
-// DeleteEncryptedVRFKey deletes k from the encrypted keys table, or errors
-func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Unscoped().Delete(k).Error
-}
-
-// FindEncryptedVRFKeys retrieves matches to where from the encrypted keys table, or errors
-func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
-	retrieved []*vrfkey.EncryptedVRFKey, err error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
-	for _, constraint := range where {
-		c := constraint
-		anonWhere = append(anonWhere, &c)
-	}
-	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
-}
-
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
 // This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
 // addresses in the database.
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
-func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
+func (orm *ORM) GetRoundRobinAddress(db *gorm.DB, addresses ...common.Address) (address common.Address, err error) {
+	err = postgres.GormTransactionWithoutContext(db, func(tx *gorm.DB) error {
 		q := tx.
 			Clauses(clause.Locking{Strength: "UPDATE"}).
 			Order("last_used ASC NULLS FIRST, id ASC")
@@ -1505,10 +1473,7 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 		address = leastRecentlyUsedKey.Address.Address()
 		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
 	})
-	if err != nil {
-		return address, err
-	}
-	return address, nil
+	return address, err
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
