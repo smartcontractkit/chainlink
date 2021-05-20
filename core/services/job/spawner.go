@@ -78,6 +78,10 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spa
 	return s
 }
 
+func (js *spawner) Name() string {
+	return "JobSpawner"
+}
+
 func (js *spawner) Start() error {
 	return js.StartOnce("JobSpawner", func() error {
 		go js.runLoop()
