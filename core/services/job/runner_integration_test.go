@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 
 	"github.com/pkg/errors"
 
@@ -598,7 +599,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, headtracker.NewHeadBroadcaster()),
 			pw,
 			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)

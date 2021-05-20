@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -41,7 +42,7 @@ var (
 // store on reboot.
 type HeadTracker struct {
 	log       *logger.Logger
-	callbacks []strpkg.HeadTrackable
+	callbacks []httypes.HeadTrackable
 	store     *strpkg.Store
 
 	backfillMB   utils.Mailbox
@@ -58,7 +59,7 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []httypes.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
 
 	var wgDone sync.WaitGroup
 	chStop := make(chan struct{})
@@ -378,7 +379,7 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 	wg := sync.WaitGroup{}
 	wg.Add(len(ht.callbacks))
 	for idx, trackable := range ht.callbacks {
-		go func(i int, t strpkg.HeadTrackable) {
+		go func(i int, t httypes.HeadTrackable) {
 			start := time.Now()
 			t.OnNewLongestChain(ctx, headWithChain)
 			elapsed := time.Since(start)

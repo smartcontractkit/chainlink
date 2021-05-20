@@ -3,8 +3,8 @@ package keeper
 import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -18,7 +18,7 @@ type Delegate struct {
 	jrm             job.ORM
 	pr              pipeline.Runner
 	ethClient       eth.Client
-	headBroadcaster *services.HeadBroadcaster
+	headBroadcaster *headtracker.HeadBroadcaster
 	logBroadcaster  log.Broadcaster
 }
 
@@ -27,7 +27,7 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
+	headBroadcaster *headtracker.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
 	config *orm.Config,
 ) *Delegate {

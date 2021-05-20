@@ -11,14 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
@@ -109,7 +110,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter          func(int)
 	HeadTracker     *services.HeadTracker
-	HeadBroadcaster *services.HeadBroadcaster
+	HeadBroadcaster *headtracker.HeadBroadcaster
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
 	RunQueue                 services.RunQueue
@@ -143,7 +144,7 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []StartCloser
-	var headTrackables []strpkg.HeadTrackable
+	var headTrackables []httypes.HeadTrackable
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -152,6 +153,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	setupConfig(config, store)
+
+	headBroadcaster := headtracker.NewHeadBroadcaster()
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -209,12 +212,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
 	promReporter := services.NewPromReporter(store.MustSQLDB())
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, headBroadcaster)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
-	headBroadcaster := services.NewHeadBroadcaster()
 
 	subservices = append(subservices, promReporter)
 
@@ -325,7 +327,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headTrackables = append(
 		headTrackables,
-		logBroadcaster,
 		ethConfirmer,
 		jobSubscriber,
 		pendingConnectionResumer,

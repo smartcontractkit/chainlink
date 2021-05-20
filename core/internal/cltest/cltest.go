@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -1830,7 +1830,7 @@ type SimulateIncomingHeadsArgs struct {
 	BackfillDepth        int64
 	Interval             time.Duration
 	Timeout              time.Duration
-	HeadTrackables       []strpkg.HeadTrackable
+	HeadTrackables       []httypes.HeadTrackable
 	Hashes               map[int64]common.Hash
 }
 

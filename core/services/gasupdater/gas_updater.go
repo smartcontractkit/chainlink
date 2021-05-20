@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -52,7 +52,7 @@ type (
 	// GasUpdater listens for new heads and updates the base gas price dynamically
 	// based on the configured percentile of gas prices in that block
 	GasUpdater interface {
-		store.HeadTrackable
+		httypes.HeadTrackable
 		Start() error
 		Close() error
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,7 +30,7 @@ var (
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
-	store.HeadTrackable
+	httypes.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
 	RemoveJob(ID models.JobID) error
 	Jobs() []models.JobSpec

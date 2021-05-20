@@ -1,4 +1,4 @@
-package services
+package headtracker
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -19,13 +19,7 @@ const callbackTimeout = 2 * time.Second
 
 type callbackID [256]byte
 
-// HeadBroadcastable defines the interface for listeners
-type HeadBroadcastable interface {
-	Connect(head *models.Head) error
-	OnNewLongestChain(ctx context.Context, head models.Head)
-}
-
-type callbackSet map[callbackID]HeadBroadcastable
+type callbackSet map[callbackID]httypes.HeadBroadcastable
 
 func (set callbackSet) clone() callbackSet {
 	cp := make(callbackSet)
@@ -58,7 +52,7 @@ type HeadBroadcaster struct {
 	utils.StartStopOnce
 }
 
-var _ store.HeadTrackable = (*HeadBroadcaster)(nil)
+var _ httypes.HeadTrackable = (*HeadBroadcaster)(nil)
 
 func (hr *HeadBroadcaster) Start() error {
 	return hr.StartOnce("HeadBroadcaster", func() error {
@@ -78,6 +72,15 @@ func (hr *HeadBroadcaster) Close() error {
 }
 
 func (hr *HeadBroadcaster) Connect(head *models.Head) error {
+	hr.mutex.RLock()
+	callbacks := hr.callbacks.clone()
+	hr.mutex.RUnlock()
+
+	for i, callback := range callbacks {
+		err := callback.Connect(head)
+		logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
+	}
+
 	return nil
 }
 
@@ -87,7 +90,7 @@ func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.He
 	hr.mailbox.Deliver(head)
 }
 
-func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe func()) {
+func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadBroadcastable) (unsubscribe func()) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
 	id, err := newID()
@@ -138,7 +141,7 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 	wg.Add(len(hr.callbacks))
 
 	for _, callback := range callbacks {
-		go func(hr HeadBroadcastable) {
+		go func(hr httypes.HeadBroadcastable) {
 			defer wg.Done()
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -34,13 +35,13 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
 var _ job.Service = (*UpkeepExecuter)(nil)
-var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
+var _ types.HeadBroadcastable = (*UpkeepExecuter)(nil)
 
 type UpkeepExecuter struct {
 	chStop            chan struct{}
 	ethClient         eth.Client
 	executionQueue    chan struct{}
-	headBroadcaster   *services.HeadBroadcaster
+	headBroadcaster   types.HeadBroadcasterRegistry
 	job               job.Job
 	mailbox           *utils.Mailbox
 	maxGracePeriod    int64
@@ -56,7 +57,7 @@ func NewUpkeepExecuter(
 	db *gorm.DB,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
+	headBroadcaster *headtracker.HeadBroadcaster,
 	config *orm.Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
@@ -97,6 +98,8 @@ func (executer *UpkeepExecuter) Close() error {
 	executer.wgDone.Wait()
 	return nil
 }
+
+func (executer *UpkeepExecuter) Connect(head *models.Head) error { return nil }
 
 func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	executer.mailbox.Deliver(head)
