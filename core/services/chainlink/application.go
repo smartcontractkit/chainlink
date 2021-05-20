@@ -84,6 +84,7 @@ type Application interface {
 	GetLogger() *logger.Logger
 	GetStore() *strpkg.Store
 	GetStatsPusher() synchronization.StatsPusher
+	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
@@ -211,12 +212,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		runManager = &services.NullRunManager{}
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
-	promReporter := services.NewPromReporter(store.MustSQLDB())
+	promReporter := services.NewPromReporter(store.MustSQLDB(), headBroadcaster)
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, headBroadcaster)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
-	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config, headBroadcaster)
 
 	subservices = append(subservices, promReporter)
 
@@ -327,11 +328,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headTrackables = append(
 		headTrackables,
-		ethConfirmer,
 		jobSubscriber,
 		pendingConnectionResumer,
 		balanceMonitor,
-		promReporter,
 		headBroadcaster,
 	)
 
@@ -564,6 +563,10 @@ func (app *ChainlinkApplication) GetJobORM() job.ORM {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) GetHeadBroadcaster() httypes.HeadBroadcasterRegistry {
+	return app.HeadBroadcaster
 }
 
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {

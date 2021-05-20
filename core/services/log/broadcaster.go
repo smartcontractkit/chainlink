@@ -72,7 +72,7 @@ type (
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
 		trackedAddressesCount uint32
-		unsubscribeHead       func()
+		unsubscribeHeads      func()
 	}
 
 	Config interface {
@@ -137,7 +137,7 @@ func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
 
-		b.unsubscribeHead = b.headBroadcaster.Subscribe(b)
+		b.unsubscribeHeads = b.headBroadcaster.Subscribe(b)
 
 		b.wgDone.Add(2)
 		if b.latestHeadFromDb != nil {
@@ -160,7 +160,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 
 func (b *broadcaster) Stop() error {
 	return b.StopOnce("LogBroadcaster", func() error {
-		b.unsubscribeHead()
+		b.unsubscribeHeads()
 		close(b.chStop)
 		b.wgDone.Wait()
 		return nil

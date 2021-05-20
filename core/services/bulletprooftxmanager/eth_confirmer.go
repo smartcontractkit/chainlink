@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -48,21 +49,23 @@ var (
 type ethConfirmer struct {
 	utils.StartStopOnce
 
-	store     *store.Store
-	ethClient eth.Client
-	config    orm.ConfigReader
-	mb        *utils.Mailbox
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	wg        sync.WaitGroup
+	store           *store.Store
+	ethClient       eth.Client
+	config          orm.ConfigReader
+	headBroadcaster httypes.HeadBroadcasterRegistry
+	mb              *utils.Mailbox
+	ctx             context.Context
+	ctxCancel       context.CancelFunc
+	wg              sync.WaitGroup
 
 	reaper *Reaper
 
-	ethResender *EthResender
+	ethResender      *EthResender
+	unsubscribeHeads func()
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
+func NewEthConfirmer(store *store.Store, config orm.ConfigReader, headBroadcaster httypes.HeadBroadcasterRegistry) *ethConfirmer {
 	var ethResender *EthResender
 	var reaper *Reaper
 	if config.EthTxResendAfterThreshold() > 0 {
@@ -81,12 +84,14 @@ func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer 
 		store,
 		store.EthClient,
 		config,
+		headBroadcaster,
 		utils.NewMailbox(1),
 		context,
 		cancel,
 		sync.WaitGroup{},
 		reaper,
 		ethResender,
+		nil,
 	}
 }
 
@@ -117,6 +122,8 @@ func (ec *ethConfirmer) Start() error {
 		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
 	}
 
+	ec.unsubscribeHeads = ec.headBroadcaster.Subscribe(ec)
+
 	if ec.reaper != nil {
 		ec.wg.Add(1)
 		ec.reaper.Start()
@@ -137,6 +144,8 @@ func (ec *ethConfirmer) Close() error {
 	if !ec.OkayToStop() {
 		return errors.New("EthConfirmer has already been stopped")
 	}
+
+	ec.unsubscribeHeads()
 
 	if ec.reaper != nil {
 		go func() {

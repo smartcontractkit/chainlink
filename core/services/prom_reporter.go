@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
@@ -27,6 +28,8 @@ type (
 		wgDone   sync.WaitGroup
 
 		utils.StartStopOnce
+		headBroadcaster  httypes.HeadBroadcasterRegistry
+		unsubscribeHeads func()
 	}
 
 	PrometheusBackend interface {
@@ -83,7 +86,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) *promReporter {
+func NewPromReporter(db *sql.DB, headBroadcaster httypes.HeadBroadcasterRegistry, opts ...PrometheusBackend) *promReporter {
 	var backend PrometheusBackend
 	if len(opts) > 0 {
 		backend = opts[0]
@@ -93,15 +96,17 @@ func NewPromReporter(db *sql.DB, opts ...PrometheusBackend) *promReporter {
 
 	chStop := make(chan struct{})
 	return &promReporter{
-		db:       db,
-		backend:  backend,
-		newHeads: utils.NewMailbox(1),
-		chStop:   chStop,
+		db:              db,
+		headBroadcaster: headBroadcaster,
+		backend:         backend,
+		newHeads:        utils.NewMailbox(1),
+		chStop:          chStop,
 	}
 }
 
 func (pr *promReporter) Start() error {
 	return pr.StartOnce("PromReporter", func() error {
+		pr.unsubscribeHeads = pr.headBroadcaster.Subscribe(pr)
 		pr.wgDone.Add(1)
 		go pr.eventLoop()
 		return nil
@@ -110,6 +115,7 @@ func (pr *promReporter) Start() error {
 
 func (pr *promReporter) Close() error {
 	return pr.StopOnce("PromReporter", func() error {
+		pr.unsubscribeHeads()
 		close(pr.chStop)
 		pr.wgDone.Wait()
 		return nil
