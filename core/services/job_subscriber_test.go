@@ -99,7 +99,7 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	defer jobSubscriber.Stop()
 
 	jobSpec := cltest.NewJobWithLogInitiator()
-	err := jobSubscriber.AddJob(jobSpec, cltest.Head(321), false)
+	err := jobSubscriber.AddJob(jobSpec, cltest.Head(321))
 	require.NoError(t, err)
 
 	// Re-adding the same jobID should be idempotent
@@ -107,7 +107,7 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	jobSpec2 := cltest.NewJobWithLogInitiator()
 	jobSpec2.ID = jobSpec.ID
 	jobSpec2.Name = "should not overwrite"
-	err = jobSubscriber.AddJob(jobSpec, cltest.Head(321), false)
+	err = jobSubscriber.AddJob(jobSpec, cltest.Head(321))
 	require.NoError(t, err)
 	jbs := jobSubscriber.Jobs()
 	require.Equal(t, 1, len(jbs))
@@ -132,7 +132,7 @@ func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
 	defer jobSubscriber.Stop()
 
 	job := models.JobSpec{}
-	err := jobSubscriber.AddJob(job, cltest.Head(1), false)
+	err := jobSubscriber.AddJob(job, cltest.Head(1))
 	require.NoError(t, err)
 }
 

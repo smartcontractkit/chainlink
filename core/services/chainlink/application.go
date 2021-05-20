@@ -585,7 +585,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 	app.Scheduler.AddJob(job)
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
-	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil, false))
+	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
 	return nil
 }
 
@@ -656,7 +656,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	// an ethereum interaction error.
 	// https://www.pivotaltracker.com/story/show/170349568
 	logger.ErrorIf(app.FluxMonitor.AddJob(sa.JobSpec))
-	logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil, false))
+	logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil))
 	return nil
 }
 
