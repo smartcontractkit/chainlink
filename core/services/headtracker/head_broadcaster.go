@@ -21,6 +21,7 @@ type callbackID [256]byte
 
 // HeadBroadcastable defines the interface for listeners
 type HeadBroadcastable interface {
+	Connect(head *models.Head) error
 	OnNewLongestChain(ctx context.Context, head models.Head)
 }
 

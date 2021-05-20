@@ -13,3 +13,13 @@ type HeadTrackable interface {
 	Connect(head *models.Head) error
 	OnNewLongestChain(ctx context.Context, head models.Head)
 }
+
+// HeadBroadcastable defines the interface for listeners
+type HeadBroadcastable interface {
+	Connect(head *models.Head) error
+	OnNewLongestChain(ctx context.Context, head models.Head)
+}
+
+type HeadBroadcasterRegistry interface {
+	Subscribe(callback HeadBroadcastable) (unsubscribe func())
+}
