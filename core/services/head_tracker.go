@@ -92,7 +92,8 @@ func (r *headRingBuffer) run() {
 				return
 			}
 			// We've received a head, reset the no heads alarm
-			t.Reset(noHeadsAlarm)
+			t.Stop()
+			t = time.NewTicker(noHeadsAlarm)
 
 			if h == nil {
 				r.logger().Error("HeadTracker: got nil block header")
@@ -338,7 +339,7 @@ func (ht *HeadTracker) listenForNewHeads() {
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			ht.logger().Errorw("Error in new head subscription, unsubscribed", "err", err)
+			ht.logger().Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			continue
 		} else {
 			break
