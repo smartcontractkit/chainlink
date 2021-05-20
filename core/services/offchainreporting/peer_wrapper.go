@@ -2,13 +2,13 @@ package offchainreporting
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
@@ -32,8 +32,7 @@ type (
 		PeerID        models.PeerID
 		Peer          peer
 
-		startMu *sync.Mutex
-		started bool
+		utils.StartStopOnce
 	}
 )
 
@@ -41,25 +40,18 @@ type (
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
 func NewSingletonPeerWrapper(keyStore *KeyStore, config *orm.Config, db *gorm.DB) *SingletonPeerWrapper {
-	return &SingletonPeerWrapper{keyStore, config, db, nil, "", nil, new(sync.Mutex), false}
+	return &SingletonPeerWrapper{keyStore, config, db, nil, "", nil, utils.StartStopOnce{}}
 }
 
 func (p *SingletonPeerWrapper) IsStarted() bool {
-	p.startMu.Lock()
-	defer p.startMu.Unlock()
-	return p.started
+	return p.State() == utils.StartStopOnce_Started
 }
 
 func (p *SingletonPeerWrapper) Start() (err error) {
-	p.startMu.Lock()
-	defer p.startMu.Unlock()
+	return p.StartOnce("Singleton peer wrapper", p.start)
+}
 
-	if p.started {
-		return errors.New("already started")
-	}
-
-	p.started = true
-
+func (p *SingletonPeerWrapper) start() (err error) {
 	p2pkeys := p.keyStore.DecryptedP2PKeys()
 	listenPort := p.config.P2PListenPort()
 	if listenPort == 0 {
@@ -142,15 +134,11 @@ func (p *SingletonPeerWrapper) Start() (err error) {
 }
 
 // Close closes the peer and peerstore
-func (p SingletonPeerWrapper) Close() (err error) {
-	p.startMu.Lock()
-	defer p.startMu.Unlock()
-	if !p.started {
-		return errors.New("already stopped")
-	}
+func (p *SingletonPeerWrapper) Close() (err error) {
+	return p.StopOnce("Singleton peer wrapper", p.close)
+}
 
-	p.started = false
-
+func (p *SingletonPeerWrapper) close() (err error) {
 	if p.Peer != nil {
 		err = p.Peer.Close()
 	}
