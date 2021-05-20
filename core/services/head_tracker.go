@@ -93,7 +93,8 @@ func (r *headRingBuffer) run() {
 				return
 			}
 			// We've received a head, reset the no heads alarm
-			t.Reset(noHeadsAlarm)
+			t.Stop()
+			t = time.NewTicker(noHeadsAlarm)
 
 			if h == nil {
 				r.logger().Error("HeadTracker: got nil block header")
