@@ -83,6 +83,7 @@ func (r *headRingBuffer) Start() {
 func (r *headRingBuffer) run() {
 	noHeadsAlarm := time.Minute
 	t := time.NewTicker(noHeadsAlarm)
+	defer t.Stop()
 	for {
 		select {
 		case h, ok := <-r.in:
