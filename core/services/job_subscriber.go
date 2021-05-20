@@ -103,7 +103,6 @@ func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
 	js.jobsMutex.RLock()
 	defer js.jobsMutex.RUnlock()
 	if _, exists := js.jobSubscriptions[jobID.String()]; exists {
-		logger.Errorw("job subscription already added", "jobID", jobID)
 		return true
 	}
 	return false
