@@ -30,7 +30,7 @@ var (
 // node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
 	store.HeadTrackable
-	AddJob(job models.JobSpec, bn *models.Head) error
+	AddJob(job models.JobSpec, bn *models.Head, suppressDuplicateError bool) error
 	RemoveJob(ID models.JobID) error
 	Jobs() []models.JobSpec
 	Stop() error
@@ -103,7 +103,6 @@ func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
 	js.jobsMutex.RLock()
 	defer js.jobsMutex.RUnlock()
 	if _, exists := js.jobSubscriptions[jobID.String()]; exists {
-		logger.Errorw("job subscription already added", "jobID", jobID)
 		return true
 	}
 	return false
@@ -111,7 +110,7 @@ func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
 // initiator in the passed job spec.
-func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
+func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head, suppressDuplicateError bool) error {
 	if !job.IsLogInitiated() {
 		return nil
 	}
@@ -121,6 +120,11 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	}
 
 	if js.alreadySubscribed(job.ID) {
+		if suppressDuplicateError {
+			logger.Debugw("job subscription already added", "jobID", job.ID)
+		} else {
+			logger.Errorw("job subscription already added", "jobID", job.ID)
+		}
 		return nil
 	}
 	// Create a new subscription for this job
@@ -176,7 +180,7 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	err := js.store.Jobs(
 		func(j *models.JobSpec) bool {
 			logger.Debugw("JobSubscriber adding job", "jobSpecID", j.ID)
-			merr = multierr.Append(merr, js.AddJob(*j, bn))
+			merr = multierr.Append(merr, js.AddJob(*j, bn, true))
 			return true
 		},
 		models.InitiatorEthLog,
