@@ -37,6 +37,7 @@ describe('ValidatorProxy', () => {
       'proposeNewValidator',
       'upgradeValidator',
       'getValidators',
+      'typeAndVersion',
     ])
   })
 
@@ -67,14 +68,38 @@ describe('ValidatorProxy', () => {
       newAggregator = accounts[3]
     })
 
-    it('should only be called by the owner', async () => {
-      const stranger = accounts[4]
-      await expectRevert(
-        validatorProxy.proposeNewAggregator(newAggregator, {
-          from: stranger,
-        }),
-        'Only callable by owner',
-      )
+    describe('failure', () => {
+      it('should only be called by the owner', async () => {
+        const stranger = accounts[4]
+        await expectRevert(
+          validatorProxy.proposeNewAggregator(newAggregator, {
+            from: stranger,
+          }),
+          'Only callable by owner',
+        )
+      })
+
+      it('should revert if no change in proposal', async () => {
+        await validatorProxy.proposeNewAggregator(newAggregator, {
+          from: owner,
+        })
+
+        await expectRevert(
+          validatorProxy.proposeNewAggregator(newAggregator, {
+            from: owner,
+          }),
+          'Invalid proposal',
+        )
+      })
+
+      it('should revert if the proposal is the same as the current', async () => {
+        await expectRevert(
+          validatorProxy.proposeNewAggregator(aggregator, {
+            from: owner,
+          }),
+          'Invalid proposal',
+        )
+      })
     })
 
     describe('success', () => {
@@ -172,14 +197,38 @@ describe('ValidatorProxy', () => {
       newValidator = accounts[3]
     })
 
-    it('should only be called by the owner', async () => {
-      const stranger = accounts[4]
-      await expectRevert(
-        validatorProxy.proposeNewValidator(newValidator, {
-          from: stranger,
-        }),
-        'Only callable by owner',
-      )
+    describe('failure', () => {
+      it('should only be called by the owner', async () => {
+        const stranger = accounts[4]
+        await expectRevert(
+          validatorProxy.proposeNewValidator(newValidator, {
+            from: stranger,
+          }),
+          'Only callable by owner',
+        )
+      })
+
+      it('should revert if no change in proposal', async () => {
+        await validatorProxy.proposeNewValidator(newValidator, {
+          from: owner,
+        })
+
+        await expectRevert(
+          validatorProxy.proposeNewValidator(newValidator, {
+            from: owner,
+          }),
+          'Invalid proposal',
+        )
+      })
+
+      it('should revert if the proposed is the same as the current', async () => {
+        await expectRevert(
+          validatorProxy.proposeNewValidator(validator, {
+            from: owner,
+          }),
+          'Invalid proposal',
+        )
+      })
     })
 
     describe('success', () => {
@@ -332,7 +381,7 @@ describe('ValidatorProxy', () => {
           })
 
           it('uses a specific amount of gas', async () => {
-            assert.equal(receipt.receipt.gasUsed, 34256)
+            assert.equal(receipt.receipt.gasUsed, 32510)
           })
         })
 
@@ -380,7 +429,7 @@ describe('ValidatorProxy', () => {
           })
 
           it('uses a specific amount of gas', async () => {
-            assert.equal(receipt.receipt.gasUsed, 41958)
+            assert.equal(receipt.receipt.gasUsed, 40629)
           })
         })
       })
