@@ -94,7 +94,7 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 }
 
 func (backup *databaseBackup) Start() error {
-	return backup.StartOnce("Periodic database backup", func() (err error) {
+	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		if backup.frequencyIsTooSmall() {
 			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
 		}
@@ -118,7 +118,7 @@ func (backup *databaseBackup) Start() error {
 }
 
 func (backup *databaseBackup) Close() error {
-	return backup.StopOnce("Periodic database backup", func() (err error) {
+	return backup.StopOnce("DatabaseBackup", func() (err error) {
 		backup.done <- true
 		return nil
 	})

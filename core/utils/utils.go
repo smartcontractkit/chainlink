@@ -890,30 +890,6 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	return fn()
 }
 
-// OkayToStart checks if the state may be started
-func (once *StartStopOnce) OkayToStart() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
-
-	if once.state != StartStopOnce_Unstarted {
-		return false
-	}
-	once.state = StartStopOnce_Started
-	return true
-}
-
-// OkayToStop checks if the state may be stopped
-func (once *StartStopOnce) OkayToStop() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
-
-	if once.state != StartStopOnce_Started {
-		return false
-	}
-	once.state = StartStopOnce_Stopped
-	return true
-}
-
 // State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
 	once.RLock()
