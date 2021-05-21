@@ -290,7 +290,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
       string memory
     )
   {
-    return "ValidatorProxy 1.0.0-alpha";
+    return "ValidatorProxy 1.0.0";
   }
 
 }
