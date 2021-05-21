@@ -50,9 +50,8 @@ type HeadTracker struct {
 	muLogger     sync.RWMutex
 	headListener *headtracker.HeadListener
 	headSaver    *headtracker.HeadSaver
-
-	chStop chan struct{}
-	wgDone *sync.WaitGroup
+	chStop       chan struct{}
+	wgDone       *sync.WaitGroup
 	utils.StartStopOnce
 }
 
