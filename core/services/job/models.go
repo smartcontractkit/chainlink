@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,6 +30,7 @@ const (
 
 type Job struct {
 	ID                            int32 `toml:"-" gorm:"primary_key"`
+	ExternalJobID                 uuid.UUID
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
 	CronSpecID                    *int32
@@ -48,6 +51,12 @@ type Job struct {
 	Name                          null.String
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+}
+
+func (j Job) ExternalIDToTopicHash() common.Hash {
+	var h common.Hash
+	copy(h[:], j.ExternalJobID.Bytes())
+	return h
 }
 
 func (Job) TableName() string {

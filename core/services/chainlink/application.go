@@ -242,7 +242,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
-			job.VRF:    vrf.NewDelegate(vrf.NewORM(store.DB), pipelineRunner, pipelineORM),
+			job.VRF:    vrf.NewDelegate(store.Config.MinIncomingConfirmations(), utils.GetScryptParams(store.Config), store.DB, pipelineRunner, pipelineORM, logBroadcaster, store.EthClient),
 		}
 	)
 

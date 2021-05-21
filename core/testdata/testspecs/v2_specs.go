@@ -108,9 +108,6 @@ name = "vrf-primary"
 coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
 confirmations = 6
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-observationSource="""
-getrandomvalue [type=vrf];
-"""
 `
 )
 
