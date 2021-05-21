@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -191,10 +193,21 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker")
 	}
 
-	runExecutor := services.NewRunExecutor(store, statsPusher)
-	runQueue := services.NewRunQueue(runExecutor)
-	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	var runExecutor services.RunExecutor
+	var runQueue services.RunQueue
+	var runManager services.RunManager
+	var jobSubscriber services.JobSubscriber
+	if config.EnableLegacyJobPipeline() {
+		runExecutor = services.NewRunExecutor(store, statsPusher)
+		runQueue = services.NewRunQueue(runExecutor)
+		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
+		jobSubscriber = services.NewJobSubscriber(store, runManager)
+	} else {
+		runExecutor = &services.NullRunExecutor{}
+		runQueue = &services.NullRunQueue{}
+		runManager = &services.NullRunManager{}
+		jobSubscriber = &services.NullJobSubscriber{}
+	}
 	promReporter := services.NewPromReporter(store.MustSQLDB())
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
@@ -202,6 +215,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	headBroadcaster := services.NewHeadBroadcaster()
+
+	subservices = append(subservices, promReporter)
+
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -226,6 +242,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.VRF:    vrf.NewDelegate(vrf.NewORM(store.DB), pipelineRunner, pipelineORM),
 		}
 	)
 
@@ -590,7 +607,7 @@ func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta
 	// Keeper jobs are special in that they do not have a task graph.
 	if jb.Type == job.Keeper {
 		t := time.Now()
-		runID, err = app.pipelineRunner.InsertFinishedRun(ctx, pipeline.Run{
+		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
 			PipelineSpecID: jb.PipelineSpecID,
 			Errors:         pipeline.RunErrors{null.String{}},
 			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},

@@ -32,17 +32,21 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	fixtureLogAddress := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(fixtureLogAddress, nil)
 	require.NoError(t, err)
+	s, c := cltest.NewStore(t)
+	defer c()
 
 	t.Run("does not update if contract address doesn't match", func(t *testing.T) {
 		db := new(ocrmocks.OCRContractTrackerDB)
+		lb := new(mocks.Broadcaster)
 		tracker, err := offchainreporting.NewOCRContractTracker(
 			mustNewContract(t, cltest.NewAddress()),
 			contractFilterer,
 			nil,
 			nil,
-			nil,
+			lb,
 			42,
 			*logger.Default,
+			s.DB,
 			db,
 		)
 		require.NoError(t, err)
@@ -50,8 +54,8 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast.On("RawLog").Return(rawLog)
-		logBroadcast.On("MarkConsumed").Return(nil)
-		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
+		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 		configDigest, epoch, round, err := tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)
@@ -73,20 +77,22 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 	t.Run("does nothing if log has already been consumed", func(t *testing.T) {
 		db := new(ocrmocks.OCRContractTrackerDB)
+		lb := new(mocks.Broadcaster)
 		tracker, err := offchainreporting.NewOCRContractTracker(
 			mustNewContract(t, cltest.NewAddress()),
 			contractFilterer,
 			nil,
 			nil,
-			nil,
+			lb,
 			42,
 			*logger.Default,
+			s.DB,
 			db,
 		)
 		require.NoError(t, err)
 		logBroadcast := new(mocks.Broadcast)
 
-		logBroadcast.On("WasAlreadyConsumed").Return(true, nil)
+		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(true, nil)
 
 		configDigest, epoch, round, err := tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)
@@ -109,15 +115,16 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	t.Run("for new round requested log", func(t *testing.T) {
 		db := new(ocrmocks.OCRContractTrackerDB)
 		contract := mustNewContract(t, fixtureLogAddress)
-
+		lb := new(mocks.Broadcaster)
 		tracker, err := offchainreporting.NewOCRContractTracker(
 			contract,
 			contractFilterer,
 			nil,
 			nil,
-			nil,
+			lb,
 			42,
 			*logger.Default,
+			s.DB,
 			db,
 		)
 		require.NoError(t, err)
@@ -133,10 +140,10 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast := new(mocks.Broadcast)
 		logBroadcast.On("RawLog").Return(rawLog)
-		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
-		logBroadcast.On("MarkConsumed").Return(nil)
+		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		db.On("SaveLatestRoundRequested", mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 1
 		})).Return(nil)
 
@@ -154,10 +161,10 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		rawLog2 := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_9.json")
 		logBroadcast2 := new(mocks.Broadcast)
 		logBroadcast2.On("RawLog").Return(rawLog2)
-		logBroadcast2.On("WasAlreadyConsumed").Return(false, nil)
-		logBroadcast2.On("MarkConsumed").Return(nil)
+		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		db.On("SaveLatestRoundRequested", mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
@@ -190,10 +197,10 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		rawLog3 := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_2_1.json")
 		logBroadcast3 := new(mocks.Broadcast)
 		logBroadcast3.On("RawLog").Return(rawLog3)
-		logBroadcast3.On("WasAlreadyConsumed").Return(false, nil)
-		logBroadcast3.On("MarkConsumed").Return(nil)
+		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		db.On("SaveLatestRoundRequested", mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
@@ -214,15 +221,16 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	t.Run("does mark consumed or update state if latest round fails to save", func(t *testing.T) {
 		db := new(ocrmocks.OCRContractTrackerDB)
 		contract := mustNewContract(t, fixtureLogAddress)
-
+		lb := new(mocks.Broadcaster)
 		tracker, err := offchainreporting.NewOCRContractTracker(
 			contract,
 			contractFilterer,
 			nil,
 			nil,
-			nil,
+			lb,
 			42,
 			*logger.Default,
+			s.DB,
 			db,
 		)
 		require.NoError(t, err)
@@ -230,9 +238,9 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast := new(mocks.Broadcast)
 		logBroadcast.On("RawLog").Return(rawLog)
-		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
+		lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		db.On("SaveLatestRoundRequested", mock.Anything).Return(errors.New("something exploded"))
+		db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
 		tracker.HandleLog(logBroadcast)
 
@@ -257,6 +265,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			broadcaster,
 			42,
 			*logger.Default,
+			s.DB,
 			db,
 		)
 		require.NoError(t, err)

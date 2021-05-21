@@ -605,8 +605,7 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:        "db",
 					Usage:       "Commands for managing the database.",
-					Description: "Potentially destructive commands for managing the database, only intended for dev/testing purposes.",
-					Hidden:      !client.Config.Dev(),
+					Description: "Potentially destructive commands for managing the database.",
 					Subcommands: []cli.Command{
 						{
 							Name:   "reset",
@@ -625,6 +624,18 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "Reset database and load fixtures.",
 							Hidden: !client.Config.Dev(),
 							Action: client.PrepareTestDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "version",
+							Usage:  "Display the current database version.",
+							Action: client.VersionDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "migrate",
+							Usage:  "Migrate the database to the latest version.",
+							Action: client.MigrateDatabase,
 							Flags:  []cli.Flag{},
 						},
 					},

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -28,10 +30,12 @@ import (
 )
 
 type broadcasterHelper struct {
-	t             *testing.T
-	lb            log.Broadcaster
-	store         *store.Store
-	mockEth       *mockEth
+	t       *testing.T
+	lb      log.Broadcaster
+	store   *store.Store
+	mockEth *mockEth
+
+	// each received channel corresponds to one eth subscription
 	chchRawLogs   chan chan<- types.Log
 	toUnsubscribe []func()
 	storeCleanup  func()
@@ -40,7 +44,7 @@ type broadcasterHelper struct {
 func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *broadcasterHelper {
 	store, cleanup := cltest.NewStore(t)
 
-	chchRawLogs := make(chan chan<- types.Log, 1)
+	chchRawLogs := make(chan chan<- types.Log, timesSubscribe)
 
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
@@ -182,21 +186,21 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 }
 
 type simpleLogListener struct {
-	handler    func(lb log.Broadcast) bool
 	consumerID models.JobID
 	name       string
 	received   *received
+	t          *testing.T
+	db         *gorm.DB
 }
 
 func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
 	var rec received
 	return &simpleLogListener{
-		handler: func(lb log.Broadcast) bool {
-			return handleLogBroadcast(t, lb)
-		},
+		db:         store.DB,
 		consumerID: createJob(t, store).ID,
 		name:       name,
 		received:   &rec,
+		t:          t,
 	}
 }
 
@@ -206,7 +210,7 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	defer listener.received.Unlock()
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
-	consumed := listener.handler(lb)
+	consumed := listener.handleLogBroadcast(listener.t, lb)
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
@@ -237,7 +241,7 @@ func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState
 		received.Lock()
 		defer received.Unlock()
 		return len(received.uniqueLogs) == len(expectedState.uniqueLogs)
-	}, 10*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
+	}, 5*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
 
 	received.Lock()
 	for i := range expectedState.uniqueLogs {
@@ -246,20 +250,27 @@ func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState
 	received.Unlock()
 }
 
-func handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {
+func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {
 	t.Helper()
-	consumed, err := lb.WasAlreadyConsumed()
+	consumed, err := listener.WasAlreadyConsumed(listener.db, lb)
 	require.NoError(t, err)
 	if !consumed {
 
-		err = lb.MarkConsumed()
+		err = listener.MarkConsumed(listener.db, lb)
 		require.NoError(t, err)
 
-		consumed2, err := lb.WasAlreadyConsumed()
+		consumed2, err := listener.WasAlreadyConsumed(listener.db, lb)
 		require.NoError(t, err)
 		require.True(t, consumed2)
 	}
 	return consumed
+}
+
+func (listener simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.consumerID)
+}
+func (listener simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
+	return log.NewORM(listener.db).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.consumerID)
 }
 
 type mockListener struct {
@@ -267,12 +278,14 @@ type mockListener struct {
 	jobIDV2 int32
 }
 
-func (l *mockListener) JobID() models.JobID     { return l.jobID }
-func (l *mockListener) JobIDV2() int32          { return l.jobIDV2 }
-func (l *mockListener) IsV2Job() bool           { return l.jobID.IsZero() }
-func (l *mockListener) OnConnect()              {}
-func (l *mockListener) OnDisconnect()           {}
-func (l *mockListener) HandleLog(log.Broadcast) {}
+func (l *mockListener) JobID() models.JobID                                     { return l.jobID }
+func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
+func (l *mockListener) IsV2Job() bool                                           { return l.jobID.IsZero() }
+func (l *mockListener) OnConnect()                                              {}
+func (l *mockListener) OnDisconnect()                                           {}
+func (l *mockListener) HandleLog(log.Broadcast)                                 {}
+func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
+func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }
 
 func createJob(t *testing.T, store *store.Store) models.JobSpec {
 	t.Helper()
@@ -288,7 +301,7 @@ type mockEth struct {
 	sub              *mocks.Subscription
 	subscribeCalls   int32
 	unsubscribeCalls int32
-	checkBackfill    func(int64)
+	checkFilterLogs  func(int64, int64)
 }
 
 func (mock *mockEth) assertExpectations(t *testing.T) {
@@ -309,13 +322,15 @@ type mockEthClientExpectedCalls struct {
 	HeaderByNumber      int
 	FilterLogs          int
 	Unsubscribe         int
+
+	FilterLogsResult []types.Log
 }
 
 func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
 	mockEth := &mockEth{
-		ethClient:     new(mocks.Client),
-		sub:           new(mocks.Subscription),
-		checkBackfill: nil,
+		ethClient:       new(mocks.Client),
+		sub:             new(mocks.Subscription),
+		checkFilterLogs: nil,
 	}
 	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -333,11 +348,12 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Run(func(args mock.Arguments) {
 			filterQuery := args.Get(1).(ethereum.FilterQuery)
 			fromBlock := filterQuery.FromBlock.Int64()
-			if mockEth.checkBackfill != nil {
-				mockEth.checkBackfill(fromBlock)
+			toBlock := filterQuery.ToBlock.Int64()
+			if mockEth.checkFilterLogs != nil {
+				mockEth.checkFilterLogs(fromBlock, toBlock)
 			}
 		}).
-		Return(nil, nil).
+		Return(expectedCalls.FilterLogsResult, nil).
 		Times(expectedCalls.FilterLogs)
 
 	mockEth.sub.On("Err").

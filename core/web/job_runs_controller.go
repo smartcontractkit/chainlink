@@ -25,7 +25,6 @@ type JobRunsController struct {
 //  "<application>/runs?jobSpecId=:jobSpecId&size=1&page=2"
 func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Query("jobSpecId")
-
 	order := orm.Ascending
 	if c.Query("sort") == "-createdAt" {
 		order = orm.Descending

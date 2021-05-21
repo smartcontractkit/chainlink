@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -21,6 +23,7 @@ const (
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
 	Keeper            Type = "keeper"
+	VRF               Type = "vrf"
 )
 
 type Job struct {
@@ -35,6 +38,8 @@ type Job struct {
 	FluxMonitorSpec               *FluxMonitorSpec
 	KeeperSpecID                  *int32
 	KeeperSpec                    *KeeperSpec
+	VRFSpecID                     *int32
+	VRFSpec                       *VRFSpec
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -209,4 +214,13 @@ type KeeperSpec struct {
 	FromAddress     models.EIP55Address `toml:"fromAddress"`
 	CreatedAt       time.Time           `toml:"-"`
 	UpdatedAt       time.Time           `toml:"-"`
+}
+
+type VRFSpec struct {
+	ID                 int32
+	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
+	Confirmations      uint32              `toml:"confirmations"`
+	CreatedAt          time.Time           `toml:"-"`
+	UpdatedAt          time.Time           `toml:"-"`
 }

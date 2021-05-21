@@ -16,6 +16,10 @@ import (
 // NullClient satisfies the Client but has no side effects
 type NullClient struct{}
 
+// NullClientChainID the ChainID that nullclient will return
+// 0 is never used as a real chain ID so makes sense as a dummy value here
+const NullClientChainID = 0
+
 //
 // Client methods
 //
@@ -86,7 +90,7 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 
 func (nc *NullClient) ChainID(ctx context.Context) (*big.Int, error) {
 	logger.Debug("NullClient#ChainID")
-	return big.NewInt(1), nil
+	return big.NewInt(NullClientChainID), nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {

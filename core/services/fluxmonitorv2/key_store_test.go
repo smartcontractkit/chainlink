@@ -37,7 +37,7 @@ func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ks := fluxmonitorv2.NewKeyStore(s)
 
 	// Gets the only address in the keystore
-	addr, err := ks.GetRoundRobinAddress()
+	addr, err := ks.GetRoundRobinAddress(s.DB)
 	require.NoError(t, err)
 	require.Equal(t, k0Address, addr)
 }

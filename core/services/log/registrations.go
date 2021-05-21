@@ -180,7 +180,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return exists
 }
 
-func (r *registrations) sendLogs(logs []types.Log, orm ORM, latestHead *models.Head) {
+func (r *registrations) sendLogs(logs []types.Log, orm ORM, latestHead models.Head) {
 	updates := make([]listenerMetadataUpdate, 0)
 	for _, log := range logs {
 		r.sendLog(log, orm, latestHead, &updates)
@@ -206,7 +206,7 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head, updates *[]listenerMetadataUpdate) {
+func (r *registrations) sendLog(log types.Log, orm ORM, latestHead models.Head, updates *[]listenerMetadataUpdate) {
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
 	for listener, metadata := range r.registrations[log.Address][log.Topics[0]] {
@@ -256,7 +256,6 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 		go func() {
 			defer wg.Done()
 			listener.HandleLog(&broadcast{
-				orm:               orm,
 				latestBlockNumber: latestBlockNumber,
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
@@ -273,7 +272,7 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 //	After processing the logs in this batch, the listenerMetadata structures that we touched, are updated
 //  with new information about the canonical chain and the lowestAllowedBlockNumber value (higher every time) that is used to guard against double-sends
 //  Note that the updates are applied only after all the logs for the (latest height - num_confirmations) head height were sent.
-func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *models.Head) {
+func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead models.Head) {
 	for _, update := range updates {
 		if update.toUpdate.lastSeenChain == nil || latestHead.IsInChain(update.toUpdate.lastSeenChain.Hash) {
 			if update.toUpdate.lowestAllowedBlockNumber < update.newLowestAllowedBlockNumber {
@@ -294,6 +293,6 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *mode
 			update.toUpdate.lowestAllowedBlockNumber = 0
 		}
 		// Setting as latest head for this listener
-		update.toUpdate.lastSeenChain = latestHead
+		update.toUpdate.lastSeenChain = &latestHead
 	}
 }

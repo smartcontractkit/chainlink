@@ -1,11 +1,12 @@
 package adapters
 
 import (
-	"context"
 	"encoding/json"
 	"math/big"
 	"reflect"
 	"strconv"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -58,16 +59,32 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	jr := input.JobRun()
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
-		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
-		logger.Error(err)
-		return models.NewRunOutputError(err)
+		logger.Errorw("EthTx: unable to find task run tx by runID", "err", err, "runID", input.TaskRunID())
+		return models.NewRunOutputError(errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed"))
 	}
 	if trtx != nil {
+		logger.Debugw("EthTx: checking confirmation of eth tx",
+			"jobID", jr.JobSpecID,
+			"runID", jr.ID,
+			"type", jr.Initiator.Type,
+			"runRequestTxHash", jr.RunRequest.TxHash)
 		return e.checkForConfirmation(*trtx, input, store)
 	}
-	return e.insertEthTx(input, store)
+	logger.Debugw("EthTx: creating eth tx for bptxm",
+		"jobID", jr.JobSpecID,
+		"runID", jr.ID,
+		"type", jr.Initiator.Type,
+		"runRequestTxHash", jr.RunRequest.TxHash,
+		"runRequestRequestID", jr.RunRequest.RequestID)
+	m := models.EthTxMeta{
+		TaskRunID:        input.TaskRunID(),
+		RunRequestID:     jr.RunRequest.RequestID,
+		RunRequestTxHash: jr.RunRequest.TxHash,
+	}
+	return e.insertEthTx(m, input, store)
 }
 
 func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
@@ -83,16 +100,19 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
 }
 
 func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	db := store.DB.WithContext(ctx)
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		return store.GetRoundRobinAddress(e.FromAddresses...)
+		return store.GetRoundRobinAddress(db, e.FromAddresses...)
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		return store.GetRoundRobinAddress()
+		return store.GetRoundRobinAddress(db, e.FromAddresses...)
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
@@ -103,7 +123,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 	return e.FromAddress, nil
 }
 
-func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
+func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *strpkg.Store) models.RunOutput {
 	var (
 		txData, encodedPayload []byte
 		err                    error
@@ -125,7 +145,6 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		return models.NewRunOutputError(err)
 	}
 
-	taskRunID := input.TaskRunID()
 	toAddress := e.ToAddress
 	fromAddress, err := e.pickFromAddress(input, store)
 	if err != nil {
@@ -153,16 +172,15 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		gasLimit = e.GasLimit
 	}
 
-	if err := utils.CheckOKToTransmit(context.Background(), store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
+	if err := utils.CheckOKToTransmit(store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
 		err = errors.Wrap(err, "number of unconfirmed transactions exceeds ETH_MAX_UNCONFIRMED_TRANSACTIONS")
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}
 
-	if err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
-		err = errors.Wrap(err, "insertEthTx failed")
-		logger.Error(err)
-		return models.NewRunOutputError(err)
+	if err := store.IdempotentInsertEthTaskRunTx(m, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
+		logger.Errorw("EthTx: failed to insert eth tx for bptxm", "err", err)
+		return models.NewRunOutputError(errors.Wrap(err, "insertEthTx failed"))
 	}
 
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
@@ -185,10 +203,10 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 	if receipt == nil {
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
-	var r gethTypes.Receipt
+	var r types.Receipt
 	err = json.Unmarshal(receipt.Receipt, &r)
 	if err != nil {
-		logger.Debug("unable to unmarshal tx receipt", err)
+		logger.Debug("EthTx: unable to unmarshal tx receipt", err)
 	}
 	if err == nil && r.Status == 0 {
 		err = errors.Errorf("transaction %s reverted on-chain", r.TxHash)

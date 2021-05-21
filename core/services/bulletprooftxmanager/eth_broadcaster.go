@@ -3,7 +3,6 @@ package bulletprooftxmanager
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -15,13 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
-
-const optimismGasPrice int64 = 1e9 // 1 GWei
 
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
@@ -176,11 +172,13 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 			}
 			return
 		case <-eb.trigger:
+			// EthTx was inserted
 			if !pollDBTimer.Stop() {
 				<-pollDBTimer.C
 			}
 			continue
 		case <-pollDBTimer.C:
+			// DB poller timed out
 			continue
 		}
 	}
@@ -217,7 +215,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		a, err := newAttempt(eb.store, *etx, eb.initialTxGasPrice())
+		a, err := newAttempt(context.TODO(), eb.store, *etx, nil)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -230,13 +228,6 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 	}
-}
-
-func (eb *ethBroadcaster) initialTxGasPrice() *big.Int {
-	if eb.config.OptimismGasFees() {
-		return big.NewInt(optimismGasPrice)
-	}
-	return eb.config.EthGasPriceDefault()
 }
 
 // handleInProgressEthTx checks if there is any transaction
@@ -278,19 +269,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
-	if eb.config.OptimismGasFees() {
-		// Optimism requires special handling, it assumes that clients always call EstimateGas
-		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
-		gasLimit, err := eb.ethClient.EstimateGas(context.TODO(), callMsg)
-		if err != nil {
-			return err
-		}
-		etx.GasLimit = gasLimit
-		// Make sure to never use a bumped gas price; always overwrite with the network-specific value
-		attempt.GasPrice = *utils.NewBigI(optimismGasPrice)
-	}
-
-	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
+	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt, etx)
 
 	if sendError.IsTooExpensive() {
 		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
@@ -472,8 +451,13 @@ func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *eth.SendError, e
 	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}
-	replacementAttempt, err := newAttempt(eb.store, etx, bumpedGasPrice)
-	if err != nil {
+	ctx, cancel := eth.DefaultQueryCtx()
+	defer cancel()
+
+	replacementAttempt, err := newAttempt(ctx, eb.store, etx, bumpedGasPrice)
+	if ctx.Err() != nil {
+		return errors.Wrap(ctx.Err(), "tryAgainWithHigherGasPrice failed, context deadline exceeded")
+	} else if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
 

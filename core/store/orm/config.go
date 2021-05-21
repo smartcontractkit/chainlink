@@ -2,6 +2,7 @@ package orm
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -64,21 +66,26 @@ type (
 	// If you add an entry here which does not contain sensitive information, you
 	// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
 	Config struct {
-		viper           *viper.Viper
-		SecretGenerator SecretGenerator
-		runtimeStore    *ORM
-		Dialect         dialects.DialectName
-		AdvisoryLockID  int64
+		viper            *viper.Viper
+		SecretGenerator  SecretGenerator
+		runtimeStore     *ORM
+		randomP2PPort    uint16
+		randomP2PPortMtx *sync.RWMutex
+		Dialect          dialects.DialectName
+		AdvisoryLockID   int64
 	}
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
 	ChainSpecificDefaultSet struct {
+		EnableLegacyJobPipeline          bool
 		EthGasBumpThreshold              uint64
 		EthGasBumpWei                    *big.Int
 		EthGasPriceDefault               *big.Int
 		EthMaxGasPriceWei                *big.Int
+		EthMinGasPriceWei                *big.Int
 		EthFinalityDepth                 uint
 		EthHeadTrackerHistoryDepth       uint
+		EthHeadTrackerSamplingInterval   time.Duration
 		EthBalanceMonitorBlockDelay      uint16
 		EthTxResendAfterThreshold        time.Duration
 		GasUpdaterBatchSize              *uint32
@@ -98,12 +105,15 @@ func init() {
 	var defaultGasUpdaterBatchSize uint32 = 4
 
 	mainnet := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              3,
 		EthGasBumpWei:                    big.NewInt(5000000000),    // 5 Gwei
 		EthGasPriceDefault:               big.NewInt(20000000000),   // 20 Gwei
 		EthMaxGasPriceWei:                big.NewInt(1500000000000), // 1.5 Twei
+		EthMinGasPriceWei:                big.NewInt(1000000000),    // 1 Gwei
 		EthFinalityDepth:                 50,
 		EthHeadTrackerHistoryDepth:       100,
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      1,
 		EthTxResendAfterThreshold:        30 * time.Second,
 		GasUpdaterBlockDelay:             1,
@@ -117,20 +127,36 @@ func init() {
 
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but requires more in-depth research on their consensus
-	// mechanisms. For now, mainnet defaults ought to be safe
+	// mechanisms. For now, mainnet defaults ought to be safe enough for testnet.
 	kovan := mainnet
 	kovan.HeadTimeBudget = 4 * time.Second
+
+	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
+	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
+	// NOTE: xDai is planning to move to Honeybadger BFT which might have different finality guarantees
+	// https://www.xdaichain.com/for-validators/consensus/honeybadger-bft-consensus
+	// For worst case re-org depth on AuRa, assume 2n+2 (see: https://github.com/poanetwork/wiki/wiki/Aura-Consensus-Protocol-Audit)
+	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
+	// The mainnet default of 50 blocks is ok here
+	xDai := mainnet
+	xDai.EthGasBumpThreshold = 8                      // mainnet * 2.8 ish (5s vs 13s block time)
+	xDai.EthGasPriceDefault = big.NewInt(1000000000)  // 1 Gwei
+	xDai.EthMinGasPriceWei = big.NewInt(1000000000)   // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
+	xDai.EthMaxGasPriceWei = big.NewInt(500000000000) // 500 Gwei
+	xDai.HeadTimeBudget = 5 * time.Second
 
 	// BSC uses Clique consensus with ~3s block times
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              12,                       // mainnet * 4 (3s vs 13s block time)
 		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
 		EthGasPriceDefault:               big.NewInt(5000000000),   // 5 Gwei
 		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
-		EthFinalityDepth:                 50,                       // Keeping this > 11 because it's not expensive and gives us a safety margin
+		EthFinalityDepth:                 50,                       // Keeping this >> 11 because it's not expensive and gives us a safety margin
 		EthHeadTrackerHistoryDepth:       100,
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      2,
 		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockDelay:             2,
@@ -146,15 +172,17 @@ func init() {
 
 	// Matic has a 1s block time and looser finality guarantees than Ethereum.
 	polygonMatic := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              39,                       // mainnet * 13
 		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
 		EthGasPriceDefault:               big.NewInt(1000000000),   // 1 Gwei
 		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
 		EthFinalityDepth:                 200,                      // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
 		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
-		EthBalanceMonitorBlockDelay:      13,                       // equivalent of 1 eth block seems reasonable
-		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
-		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
+		EthBalanceMonitorBlockDelay:      13,              // equivalent of 1 eth block seems reasonable
+		EthTxResendAfterThreshold:        5 * time.Minute, // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+		GasUpdaterBlockDelay:             32,              // Delay needs to be large on matic since re-orgs are so frequent at the top level
 		GasUpdaterBlockHistorySize:       128,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
@@ -165,9 +193,11 @@ func init() {
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
 	optimism := ChainSpecificDefaultSet{
+		EnableLegacyJobPipeline:          false,
 		EthGasBumpThreshold:              0, // Never bump gas on optimism
 		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
 		EthHeadTrackerHistoryDepth:       10,
+		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      0,
 		EthTxResendAfterThreshold:        5 * time.Second,
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
@@ -189,6 +219,8 @@ func init() {
 	ChainSpecificDefaults[56] = bscMainnet
 	ChainSpecificDefaults[128] = hecoMainnet
 	ChainSpecificDefaults[80001] = polygonMatic
+
+	ChainSpecificDefaults[100] = xDai
 }
 
 func chainSpecificConfig(c Config) ChainSpecificDefaultSet {
@@ -219,8 +251,9 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	}
 
 	config := &Config{
-		viper:           v,
-		SecretGenerator: filePersistedSecretGenerator{},
+		viper:            v,
+		SecretGenerator:  filePersistedSecretGenerator{},
+		randomP2PPortMtx: new(sync.RWMutex),
 	}
 
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -249,6 +282,13 @@ func (c *Config) Validate() error {
 		)
 	}
 
+	if c.EthMinGasPriceWei().Cmp(c.EthGasPriceDefault()) > 0 {
+		return errors.New("ETH_MIN_GAS_PRICE_WEI must be less than or equal to ETH_GAS_PRICE_DEFAULT")
+	}
+	if c.EthMaxGasPriceWei().Cmp(c.EthGasPriceDefault()) < 0 {
+		return errors.New("ETH_MAX_GAS_PRICE_WEI must be greater than or equal to ETH_GAS_PRICE_DEFAULT")
+	}
+
 	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
@@ -259,10 +299,6 @@ func (c *Config) Validate() error {
 
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
 		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
-	}
-
-	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
-		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
 
 	if c.EthFinalityDepth() < 1 {
@@ -504,6 +540,14 @@ func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
 }
 
+// EnableLegacyJobPipeline enables the v1 job pipeline (JSON job specs)
+func (c Config) EnableLegacyJobPipeline() bool {
+	if c.viper.IsSet(EnvVarName("EnableLegacyJobPipeline")) {
+		return c.viper.GetBool(EnvVarName("EnableLegacyJobPipeline"))
+	}
+	return chainSpecificConfig(c).EnableLegacyJobPipeline
+}
+
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
@@ -594,7 +638,6 @@ func (c Config) EthGasBumpWei() *big.Int {
 // EthMaxGasPriceWei is the maximum amount in Wei that a transaction will be
 // bumped to before abandoning it and marking it as errored.
 func (c Config) EthMaxGasPriceWei() *big.Int {
-
 	str := c.viper.GetString(EnvVarName("EthMaxGasPriceWei"))
 	if str != "" {
 		n, err := parseBigInt(str)
@@ -616,6 +659,24 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 // 0 value disables
 func (c Config) EthMaxUnconfirmedTransactions() uint64 {
 	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+}
+
+// EthMinGasPriceWei is the minimum amount in Wei that a transaction may be priced.
+// Chainlink will never send a transaction priced below this amount.
+func (c Config) EthMinGasPriceWei() *big.Int {
+	str := c.viper.GetString(EnvVarName("EthMinGasPriceWei"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthMinGasPriceWei, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthMinGasPriceWei
 }
 
 // EthNonceAutoSync enables/disables running the NonceSyncer on application start
@@ -653,8 +714,26 @@ func (c Config) EthGasPriceDefault() *big.Int {
 	return chainSpecificConfig(c).EthGasPriceDefault
 }
 
+// EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
+// multiplied before transmission. So if the value is 1.1, and the GasLimit for
+// a transaction is 10, 10% will be added before transmission.
+//
+// This factor is always applied, so includes Optimism L2 transactions which
+// uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+func (c Config) EthGasLimitMultiplier() float32 {
+	return (float32)(c.getWithFallback("EthGasLimitMultiplier", parseF32).(float64))
+}
+
 // SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
 func (c Config) SetEthGasPriceDefault(value *big.Int) error {
+	min := c.EthMinGasPriceWei()
+	max := c.EthMaxGasPriceWei()
+	if value.Cmp(min) < 0 {
+		return errors.Errorf("cannot set default gas price to %s, it is below the minimum allowed value of %s", value.String(), min.String())
+	}
+	if value.Cmp(max) > 0 {
+		return errors.Errorf("cannot set default gas price to %s, it is above the maximum allowed value of %s", value.String(), max.String())
+	}
 	if c.runtimeStore == nil {
 		return errors.New("No runtime store installed")
 	}
@@ -707,6 +786,24 @@ func (c Config) EthHeadTrackerMaxBufferSize() uint {
 	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", parseUint64).(uint64))
 }
 
+// EthHeadTrackerSamplingInterval is the interval between sampled head callbacks
+// to services that are only interested in the latest head every some time
+func (c Config) EthHeadTrackerSamplingInterval() time.Duration {
+	str := c.viper.GetString(EnvVarName("EthHeadTrackerSamplingInterval"))
+	if str != "" {
+		n, err := parseDuration(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthHeadTrackerSamplingInterval, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(time.Duration)
+		}
+	}
+	return chainSpecificConfig(c).EthHeadTrackerSamplingInterval
+}
+
 // EthTxResendAfterThreshold controls how long the ethResender will wait before
 // re-sending the latest eth_tx_attempt. This is designed a as a fallback to
 // protect against the eth nodes dropping txes (it has been anecdotally
@@ -727,6 +824,24 @@ func (c Config) EthTxResendAfterThreshold() time.Duration {
 		}
 	}
 	return chainSpecificConfig(c).EthTxResendAfterThreshold
+}
+
+// EthTxReaperInterval controls how often the eth tx reaper should run
+func (c Config) EthTxReaperInterval() time.Duration {
+	return c.getWithFallback("EthTxReaperInterval", parseDuration).(time.Duration)
+}
+
+// EthTxReaperThreshold represents how long any confirmed/fatally_errored eth_txes will hang around in the database.
+// If the eth_tx is confirmed but still below ETH_FINALITY_DEPTH it will not be deleted even if it was created at a time older than this value.
+// EXAMPLE
+// With:
+// EthTxReaperThreshold=1h
+// EthFinalityDepth=50
+//
+// Current head is 142, any eth_tx confirmed in block 91 or below will be reaped as long as its created_at was more than EthTxReaperThreshold ago
+// Set to 0 to disable eth_tx reaping
+func (c Config) EthTxReaperThreshold() time.Duration {
+	return c.getWithFallback("EthTxReaperThreshold", parseDuration).(time.Duration)
 }
 
 // EthLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs
@@ -1153,9 +1268,37 @@ func (c Config) P2PListenIP() net.IP {
 	return c.getWithFallback("P2PListenIP", parseIP).(net.IP)
 }
 
-// P2PListenPort is the port that libp2p willl bind to and listen on
-func (c Config) P2PListenPort() uint16 {
-	return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+// P2PListenPort is the port that libp2p will bind to and listen on
+func (c *Config) P2PListenPort() uint16 {
+	if c.viper.IsSet(EnvVarName("P2PListenPort")) {
+		return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+	}
+	// Fast path in case it was already set
+	c.randomP2PPortMtx.RLock()
+	if c.randomP2PPort > 0 {
+		c.randomP2PPortMtx.RUnlock()
+		return c.randomP2PPort
+	}
+	c.randomP2PPortMtx.RUnlock()
+	// Path for initial set
+	c.randomP2PPortMtx.Lock()
+	defer c.randomP2PPortMtx.Unlock()
+	if c.randomP2PPort > 0 {
+		return c.randomP2PPort
+	}
+	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
+	if err != nil {
+		logger.Fatalw("unexpected error generating random port", "err", err)
+	}
+	randPort := uint16(r.Int64() + 1024)
+	logger.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)
+	c.randomP2PPort = randPort
+	return c.randomP2PPort
+}
+
+// P2PListenPortRaw returns the raw string value of P2P_LISTEN_PORT
+func (c Config) P2PListenPortRaw() string {
+	return c.viper.GetString(EnvVarName("P2PListenPort"))
 }
 
 // P2PAnnounceIP is an optional override. If specified it will force the p2p
@@ -1457,6 +1600,11 @@ func parseUint32(s string) (interface{}, error) {
 
 func parseUint64(s string) (interface{}, error) {
 	v, err := strconv.ParseUint(s, 10, 64)
+	return v, err
+}
+
+func parseF32(s string) (interface{}, error) {
+	v, err := strconv.ParseFloat(s, 32)
 	return v, err
 }
 
