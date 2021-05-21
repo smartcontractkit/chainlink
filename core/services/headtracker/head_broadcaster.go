@@ -33,6 +33,7 @@ func (set callbackSet) clone() callbackSet {
 func NewHeadBroadcaster() *HeadBroadcaster {
 	return &HeadBroadcaster{
 		callbacks:     make(callbackSet),
+		toUnsubscribe: make([]func(), 0),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.RWMutex{},
 		chClose:       make(chan struct{}),
@@ -44,11 +45,12 @@ func NewHeadBroadcaster() *HeadBroadcaster {
 // HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 type HeadBroadcaster struct {
-	callbacks callbackSet
-	mailbox   *utils.Mailbox
-	mutex     *sync.RWMutex
-	chClose   chan struct{}
-	wgDone    sync.WaitGroup
+	callbacks     callbackSet
+	toUnsubscribe []func()
+	mailbox       *utils.Mailbox
+	mutex         *sync.RWMutex
+	chClose       chan struct{}
+	wgDone        sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -66,6 +68,11 @@ func (hr *HeadBroadcaster) Close() error {
 	if !hr.OkayToStop() {
 		return errors.New("HeadBroadcaster is already stopped")
 	}
+
+	for _, unsubscribe := range hr.toUnsubscribe {
+		unsubscribe()
+	}
+
 	close(hr.chClose)
 	hr.wgDone.Wait()
 	return nil
@@ -78,7 +85,9 @@ func (hr *HeadBroadcaster) Connect(head *models.Head) error {
 
 	for i, callback := range callbacks {
 		err := callback.Connect(head)
-		logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
+		if err != nil {
+			logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
+		}
 	}
 
 	return nil
@@ -88,6 +97,14 @@ func (hr *HeadBroadcaster) Disconnect() {}
 
 func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	hr.mailbox.Deliver(head)
+}
+
+func (hr *HeadBroadcaster) SubscribeUntilClose(callback httypes.HeadBroadcastable) {
+	hr.toUnsubscribe = append(hr.toUnsubscribe, hr.Subscribe(callback))
+}
+func (hr *HeadBroadcaster) SubscribeForConnectUntilClose(onConnect func() error) {
+	callback := &httypes.HeadTrackableCallback{OnConnect: onConnect}
+	hr.toUnsubscribe = append(hr.toUnsubscribe, hr.Subscribe(callback))
 }
 
 func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadBroadcastable) (unsubscribe func()) {
@@ -136,6 +153,12 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
+
+	logger.Debugw("HeadBroadcaster initiating callbacks",
+		"headNum", head.Number,
+		"chainLength", head.ChainLength(),
+		"numCallbacks", len(hr.callbacks),
+	)
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(hr.callbacks))

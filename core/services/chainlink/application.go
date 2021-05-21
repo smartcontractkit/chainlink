@@ -50,11 +50,6 @@ import (
 
 //go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
 type (
-	// headTrackableCallback is a simple wrapper around an On Connect callback
-	headTrackableCallback struct {
-		onConnect func()
-	}
-
 	StartCloser interface {
 		Start() error
 		Close() error
@@ -66,14 +61,6 @@ type (
 		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
-
-func (c *headTrackableCallback) Connect(*models.Head) error {
-	c.onConnect()
-	return nil
-}
-
-func (c *headTrackableCallback) Disconnect()                                    {}
-func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
@@ -127,7 +114,6 @@ type ChainlinkApplication struct {
 	Store                    *strpkg.Store
 	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
-	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
@@ -296,8 +282,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	store.NotifyNewEthTx = ethBroadcaster
 
-	pendingConnectionResumer := newPendingConnectionResumer(runManager)
-
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
 		JobSubscriber:            jobSubscriber,
@@ -316,7 +300,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
-		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
@@ -326,21 +309,20 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		subservices: subservices,
 	}
 
-	headTrackables = append(
-		headTrackables,
-		jobSubscriber,
-		pendingConnectionResumer,
-		balanceMonitor,
-		headBroadcaster,
-	)
+	headBroadcaster.SubscribeUntilClose(jobSubscriber)
+	headBroadcaster.SubscribeUntilClose(balanceMonitor)
+
+	headBroadcaster.SubscribeForConnectUntilClose(func() error {
+		return runManager.ResumeAllPendingConnection()
+	})
 
 	for _, onConnectCallback := range onConnectCallbacks {
-		headTrackable := &headTrackableCallback{func() {
+		headBroadcaster.SubscribeForConnectUntilClose(func() error {
 			onConnectCallback(app)
-		}}
-		headTrackables = append(headTrackables, headTrackable)
+			return nil
+		})
 	}
-	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headTrackables)
+	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
 
 	// Log Broadcaster uses the last stored head as a limit of log backfill
 	// which needs to be set before it's started
@@ -669,18 +651,3 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
 }
-
-type pendingConnectionResumer struct {
-	runManager services.RunManager
-}
-
-func newPendingConnectionResumer(runManager services.RunManager) *pendingConnectionResumer {
-	return &pendingConnectionResumer{runManager: runManager}
-}
-
-func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	return p.runManager.ResumeAllPendingConnection()
-}
-
-func (p *pendingConnectionResumer) Disconnect()                                    {}
-func (p *pendingConnectionResumer) OnNewLongestChain(context.Context, models.Head) {}

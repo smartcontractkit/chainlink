@@ -186,13 +186,6 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	return multierr.Append(merr, err)
 }
 
-// Called when we disconnect from the head tracker
-// because of an error in the head subscription or shutdown.
-func (js *jobSubscriber) Disconnect() {
-	// Do nothing, subscription connections are managed by
-	// the listenToLogs goroutines.
-}
-
 // OnNewLongestChain resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
 	js.nextBlockWorker.setHead(*head.ToInt())
@@ -203,7 +196,6 @@ func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head
 type NullJobSubscriber struct{}
 
 func (NullJobSubscriber) Connect(head *models.Head) error                         { return nil }
-func (NullJobSubscriber) Disconnect()                                             {}
 func (NullJobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {}
 func (NullJobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	return errors.New("NullJobSubscriber#AddJob should never be called")

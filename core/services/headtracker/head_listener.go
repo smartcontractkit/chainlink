@@ -34,17 +34,11 @@ var (
 		Name: "head_listener_eth_connection_errors",
 		Help: "The total number of eth node connection errors",
 	})
-
-	promHeadTimeoutsCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "head_listener_head_timeouts_count",
-		Help: "The total number of receipts fetched",
-	})
 )
 
 type Config interface {
 	EthHeadTrackerMaxBufferSize() uint
 	EthereumURL() string
-	HeadTimeBudget() time.Duration
 	ChainID() *big.Int
 }
 
@@ -124,19 +118,11 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 			if !open {
 				return errors.New("HeadListener: outHeaders prematurely closed")
 			}
-			timeBudget := hl.config.HeadTimeBudget()
 			{
-				deadlineCtx, cancel := context.WithTimeout(ctx, timeBudget)
-				defer cancel()
-
 				err := handleNewHead(ctx, blockHeader)
 				if ctx.Err() != nil {
 					// the 'ctx' context is closed only on hl.done - on shutdown, so it's safe to return nil
 					return nil
-				} else if deadlineCtx.Err() != nil {
-					promHeadTimeoutsCount.Inc()
-					logger.Warnw("HeadListener: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
-					continue
 				} else if err != nil {
 					return err
 				}

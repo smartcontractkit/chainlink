@@ -23,3 +23,14 @@ type HeadBroadcastable interface {
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadBroadcastable) (unsubscribe func())
 }
+
+// HeadTrackableCallback is a simple wrapper around an On Connect callback
+type HeadTrackableCallback struct {
+	OnConnect func() error
+}
+
+func (c *HeadTrackableCallback) Connect(*models.Head) error {
+	return c.OnConnect()
+}
+
+func (c *HeadTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}

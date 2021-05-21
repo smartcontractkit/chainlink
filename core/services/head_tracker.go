@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"reflect"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -26,24 +24,15 @@ var (
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
 	})
-	promCallbackDuration = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "head_tracker_callback_execution_duration",
-		Help: "How long it took to execute all callbacks (ms)",
-	})
-	promCallbackDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "head_tracker_callback_execution_duration_hist",
-		Help:    "How long it took to execute all callbacks (ms) histogram",
-		Buckets: []float64{50, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 30000, 100000},
-	})
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	log       *logger.Logger
-	callbacks []httypes.HeadTrackable
-	store     *strpkg.Store
+	log             *logger.Logger
+	headBroadcaster *headtracker.HeadBroadcaster
+	store           *strpkg.Store
 
 	backfillMB   utils.Mailbox
 	samplingMB   utils.Mailbox
@@ -58,21 +47,21 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []httypes.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(l *logger.Logger, store *strpkg.Store, headBroadcaster *headtracker.HeadBroadcaster, sleepers ...utils.Sleeper) *HeadTracker {
 
 	var wgDone sync.WaitGroup
 	chStop := make(chan struct{})
 
 	return &HeadTracker{
-		store:        store,
-		callbacks:    callbacks,
-		log:          l,
-		backfillMB:   *utils.NewMailbox(1),
-		samplingMB:   *utils.NewMailbox(1),
-		chStop:       chStop,
-		wgDone:       &wgDone,
-		headListener: headtracker.NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
-		headSaver:    headtracker.NewHeadSaver(store),
+		store:           store,
+		headBroadcaster: headBroadcaster,
+		log:             l,
+		backfillMB:      *utils.NewMailbox(1),
+		samplingMB:      *utils.NewMailbox(1),
+		chStop:          chStop,
+		wgDone:          &wgDone,
+		headListener:    headtracker.NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
+		headSaver:       headtracker.NewHeadSaver(store),
 	}
 }
 
@@ -152,10 +141,8 @@ func (ht *HeadTracker) handleConnected() {
 }
 
 func (ht *HeadTracker) connect(bn *models.Head) {
-	for _, trackable := range ht.callbacks {
-		if err := trackable.Connect(bn); err != nil {
-			ht.logger().Warn(trackable.Connect(bn))
-		}
+	if err := ht.headBroadcaster.Connect(bn); err != nil {
+		ht.logger().Warn(err)
 	}
 }
 
@@ -182,7 +169,7 @@ func (ht *HeadTracker) headSampler() {
 				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
 			}
 
-			ht.onNewLongestChain(ctx, head)
+			ht.headBroadcaster.OnNewLongestChain(ctx, head)
 		}
 	}
 }
@@ -343,48 +330,4 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 	}
 	return nil
-}
-
-// If total callback execution time exceeds this threshold we consider this to
-// be a problem and will log a warning.
-// Here we set it to the average time between blocks.
-func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
-	return ht.store.Config.HeadTimeBudget() / 2
-}
-
-func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain models.Head) {
-	defer func(start time.Time, number int64) {
-		elapsed := time.Since(start)
-		ms := float64(elapsed.Milliseconds())
-		promCallbackDuration.Set(ms)
-		promCallbackDurationHist.Observe(ms)
-		if elapsed > ht.callbackExecutionThreshold() {
-			ht.logger().Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.store.Config.HeadTimeBudget().String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
-		} else {
-			ht.logger().Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
-		}
-	}(time.Now(), headWithChain.Number)
-
-	ht.logger().Debugw("HeadTracker initiating callbacks",
-		"headNum", headWithChain.Number,
-		"chainLength", headWithChain.ChainLength(),
-		"numCallbacks", len(ht.callbacks),
-	)
-
-	ht.concurrentlyExecuteCallbacks(ctx, headWithChain)
-}
-
-func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
-	wg := sync.WaitGroup{}
-	wg.Add(len(ht.callbacks))
-	for idx, trackable := range ht.callbacks {
-		go func(i int, t httypes.HeadTrackable) {
-			start := time.Now()
-			t.OnNewLongestChain(ctx, headWithChain)
-			elapsed := time.Since(start)
-			ht.logger().Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
-			wg.Done()
-		}(idx, trackable)
-	}
-	wg.Wait()
 }
