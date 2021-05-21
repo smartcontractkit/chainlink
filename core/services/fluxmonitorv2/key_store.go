@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	corestore "github.com/smartcontractkit/chainlink/core/store"
+	"gorm.io/gorm"
 )
 
 //go:generate mockery --name KeyStoreInterface --output ./mocks/ --case=underscore
@@ -11,7 +12,7 @@ import (
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {
 	Accounts() []accounts.Account
-	GetRoundRobinAddress() (common.Address, error)
+	GetRoundRobinAddress(db *gorm.DB) (common.Address, error)
 }
 
 // KeyStore implements KeyStoreInterface
@@ -31,6 +32,6 @@ func (ks *KeyStore) Accounts() []accounts.Account {
 
 // GetRoundRobinAddress queries the database for the address of a random
 // ethereum key derived from the id.
-func (ks *KeyStore) GetRoundRobinAddress() (common.Address, error) {
-	return ks.store.GetRoundRobinAddress()
+func (ks *KeyStore) GetRoundRobinAddress(db *gorm.DB) (common.Address, error) {
+	return ks.store.GetRoundRobinAddress(db)
 }

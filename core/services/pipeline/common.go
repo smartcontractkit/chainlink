@@ -231,6 +231,7 @@ const (
 	TaskTypeMultiply  TaskType = "multiply"
 	TaskTypeJSONParse TaskType = "jsonparse"
 	TaskTypeAny       TaskType = "any"
+	TaskTypeVRF       TaskType = "vrf"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -263,6 +264,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+	case TaskTypeVRF:
+		task = &VRFTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

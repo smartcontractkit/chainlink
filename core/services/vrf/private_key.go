@@ -1,13 +1,16 @@
-package vrfkey
+package vrf
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"fmt"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
@@ -24,7 +27,7 @@ import (
 // don't need to know the secret key explicitly. (See, e.g., MarshaledProof.)
 type PrivateKey struct {
 	k         kyber.Scalar
-	PublicKey PublicKey
+	PublicKey secp256k1.PublicKey
 }
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
@@ -42,10 +45,10 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 	if err != nil {
 		panic(errors.Wrapf(err, "could not marshal public key"))
 	}
-	if len(pk) != CompressedPublicKeyLength {
+	if len(pk) != secp256k1.CompressedPublicKeyLength {
 		panic(fmt.Errorf("public key %x has wrong length", pk))
 	}
-	if l := copy(sk.PublicKey[:], pk[:]); l != CompressedPublicKeyLength {
+	if l := copy(sk.PublicKey[:], pk[:]); l != secp256k1.CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
 	}
 	return sk, nil
@@ -53,9 +56,9 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 
 // MarshaledProof is a VRF proof of randomness using i.Key and seed, in the form
 // required by VRFCoordinator.sol's fulfillRandomnessRequest
-func (k *PrivateKey) MarshaledProof(i vrf.PreSeedData) (
-	vrf.MarshaledOnChainResponse, error) {
-	return vrf.GenerateProofResponse(secp256k1.ScalarToHash(k.k), i)
+func (k *PrivateKey) MarshaledProof(i PreSeedData) (
+	MarshaledOnChainResponse, error) {
+	return GenerateProofResponse(secp256k1.ScalarToHash(k.k), i)
 }
 
 // gethKey returns the geth keystore representation of k. Do not abuse this to
@@ -75,7 +78,7 @@ func fromGethKey(gethKey *keystore.Key) *PrivateKey {
 	if err != nil {
 		panic(err) // Only way this can happen is out-of-memory failure
 	}
-	var publicKey PublicKey
+	var publicKey secp256k1.PublicKey
 	copy(publicKey[:], rawPublicKey)
 	return &PrivateKey{secretKey, publicKey}
 }
@@ -107,4 +110,63 @@ func (k *PrivateKey) String() string {
 // GoStringer reduces the risk of accidentally logging the private key
 func (k *PrivateKey) GoStringer() string {
 	return k.String()
+}
+
+// passwordPrefix is added to the beginning of the passwords for
+// EncryptedVRFKey's, so that VRF keys can't casually be used as ethereum
+// keys, and vice-versa. If you want to do that, DON'T.
+var passwordPrefix = "don't mix VRF and Ethereum keys!"
+
+func adulteratedPassword(auth string) string {
+	return passwordPrefix + auth
+}
+
+// Encrypt returns the key encrypted with passphrase auth
+func (k *PrivateKey) Encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedVRFKey, error) {
+	keyJSON, err := keystore.EncryptKey(k.gethKey(), adulteratedPassword(auth),
+		scryptParams.N, scryptParams.P)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not encrypt vrf key")
+	}
+	rv := EncryptedVRFKey{}
+	if e := json.Unmarshal(keyJSON, &rv.VRFKey); e != nil {
+		return nil, errors.Wrapf(e, "geth returned unexpected key material")
+	}
+	rv.PublicKey = k.PublicKey
+	roundTripKey, err := Decrypt(&rv, auth)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not decrypt just-encrypted key!")
+	}
+	if !roundTripKey.k.Equal(k.k) || roundTripKey.PublicKey != k.PublicKey {
+		panic(fmt.Errorf("roundtrip of key resulted in different value"))
+	}
+	return &rv, nil
+}
+
+// Decrypt returns the PrivateKey in e, decrypted via auth, or an error
+func Decrypt(e *EncryptedVRFKey, auth string) (*PrivateKey, error) {
+	// NOTE: We do this shuffle to an anonymous struct
+	// solely to add a a throwaway UUID, so we can leverage
+	// the keystore.DecryptKey from the geth which requires it
+	// as of 1.10.0.
+	keyJSON, err := json.Marshal(struct {
+		Address string              `json:"address"`
+		Crypto  keystore.CryptoJSON `json:"crypto"`
+		Version int                 `json:"version"`
+		Id      string              `json:"id"`
+	}{
+		Address: e.VRFKey.Address,
+		Crypto:  e.VRFKey.Crypto,
+		Version: e.VRFKey.Version,
+		Id:      uuid.New().String(),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "while marshaling key for decryption")
+	}
+	gethKey, err := keystore.DecryptKey(keyJSON, adulteratedPassword(auth))
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not decrypt key %s",
+			e.PublicKey.String())
+	}
+	return fromGethKey(gethKey), nil
 }

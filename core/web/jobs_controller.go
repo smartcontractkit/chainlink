@@ -3,6 +3,8 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -107,6 +109,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
 		js, err = cron.ValidateCronSpec(request.TOML)
+	case job.VRF:
+		js, err = vrf.ValidateVRFSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
