@@ -298,7 +298,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store, cli.Config, app.GetHeadBroadcaster())
+	ec := bulletprooftxmanager.NewEthConfirmer(store, cli.Config, nil)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
