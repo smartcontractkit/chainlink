@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -51,6 +53,10 @@ func (p *PollingDeviationChecker) ExportedBacklog() *utils.BoundedPriorityQueue 
 
 func (p *PollingDeviationChecker) ExportedFluxAggregator() flux_aggregator_wrapper.FluxAggregatorInterface {
 	return p.fluxAggregator
+}
+
+func (p *PollingDeviationChecker) ExportedLogBroadcaster() *logmocks.Broadcaster {
+	return p.logBroadcaster.(*logmocks.Broadcaster)
 }
 
 func (p *PollingDeviationChecker) ExportedRoundState() {

@@ -1,9 +1,12 @@
-package store_test
+package vrf_test
 
 import (
 	"bytes"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
@@ -16,10 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 )
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
@@ -44,7 +44,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ks := strpkg.NewVRFKeyStore(store)
+	ks := vrf.NewVRFKeyStore(vrf.NewORM(store.DB), utils.GetScryptParams(store.Config))
 	key, err := ks.CreateKey(phrase) // NB: Varies from run to run. Shouldn't matter, though
 	require.NoError(t, err, "could not create encrypted key")
 	require.NoError(t, ks.Forget(key), "could not forget a created key from in-memory store")
@@ -76,7 +76,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(10)
-	s := tvrf.SeedData(t, preSeed, blockHash, blockNum)
+	s := vrf.TestXXXSeedData(t, preSeed, blockHash, blockNum)
 	proof, err := ks.GenerateProof(key, s)
 	assert.NoError(t, err, "should be able to generate VRF proofs with unlocked keys")
 
@@ -119,7 +119,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	require.NoError(t, err, "failed to import encrypted key to database")
 
 	err = ks.Import(keyjson, phrase)
-	require.Equal(t, strpkg.MatchingVRFKeyError, err, "should be prevented from importing a key with a public key already present in the DB")
+	require.Equal(t, vrf.MatchingVRFKeyError, err, "should be prevented from importing a key with a public key already present in the DB")
 
 	_, err = ks.GenerateProof(key, s)
 	require.NoError(t, err, "should be able to generate proof with unlocked key")

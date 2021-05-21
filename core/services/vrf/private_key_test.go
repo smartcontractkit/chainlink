@@ -1,4 +1,4 @@
-package vrfkey
+package vrf
 
 import (
 	"encoding/hex"
@@ -7,11 +7,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
-	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -19,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +26,7 @@ var sk = 0xdeadbeefdeadbee
 var k = mustNewPrivateKey(big.NewInt(int64(sk)))
 var pkr = regexp.MustCompile(fmt.Sprintf(
 	`PrivateKey\{k: <redacted>, PublicKey: 0x[[:xdigit:]]{%d}\}`,
-	2*CompressedPublicKeyLength))
+	2*secp256k1.CompressedPublicKeyLength))
 
 func TestPrintingDoesNotLeakKey(t *testing.T) {
 	v := fmt.Sprintf("%v", k)
@@ -42,10 +41,10 @@ func TestMarshaledProof(t *testing.T) {
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
-	s := tvrf.SeedData(t, preSeed, blockHash, blockNum)
+	s := TestXXXSeedData(t, preSeed, blockHash, blockNum)
 	proofResponse, err := k.MarshaledProof(s)
 	require.NoError(t, err)
-	goProof, err := vrf.UnmarshalProofResponse(proofResponse)
+	goProof, err := UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)
 	actualProof, err := goProof.CryptoProof(s)
 	require.NoError(t, err)

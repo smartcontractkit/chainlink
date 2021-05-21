@@ -29,7 +29,7 @@ func NewTransmitter(sqldb *sql.DB, fromAddress gethCommon.Address, gasLimit, max
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error {
-	err := utils.CheckOKToTransmit(ctx, t.db, t.fromAddress, t.maxUnconfirmedTransactions)
+	err := utils.CheckOKToTransmit(t.db, t.fromAddress, t.maxUnconfirmedTransactions)
 	if err != nil {
 		return errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}

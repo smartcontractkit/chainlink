@@ -86,13 +86,13 @@ func (r *headRingBuffer) run() {
 	for {
 		select {
 		case h, ok := <-r.in:
+			// We've received a head, reset the no heads alarm
+			t.Stop()
 			if !ok {
 				// If the channel is closed, do not handle any more heads.
 				close(r.out)
 				return
 			}
-			// We've received a head, reset the no heads alarm
-			t.Stop()
 			t = time.NewTicker(noHeadsAlarm)
 
 			if h == nil {
@@ -339,7 +339,7 @@ func (ht *HeadTracker) listenForNewHeads() {
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			ht.logger().Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			ht.logger().Errorw("Error in new head subscription, unsubscribed", "err", err)
 			continue
 		} else {
 			break
