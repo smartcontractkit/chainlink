@@ -483,7 +483,7 @@ func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
 		once.StartOnce("slow service", func() (err error) {
 			ch <- 1
 			ready <- true
-			<-time.After(2 * time.Second)
+			<-time.After(time.Millisecond * 500) // wait for StopOnce to happen
 			ch <- 2
 
 			return nil
@@ -498,7 +498,6 @@ func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
 
 			return nil
 		})
-
 	}()
 
 	require.Equal(t, 1, <-ch)
@@ -514,12 +513,13 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 	ch := make(chan int, 3)
 
 	ready := make(chan bool)
+	next := make(chan bool)
 
 	go func() {
 		ch <- 1
 		once.StartOnce("slow service", func() (err error) {
 			ready <- true
-			<-time.After(2 * time.Second)
+			<-next // continue after the other StartOnce call fails
 
 			return nil
 		})
@@ -532,6 +532,7 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 		once.StartOnce("slow service", func() (err error) {
 			return nil
 		})
+		next <- true
 		ch <- 3
 
 	}()
