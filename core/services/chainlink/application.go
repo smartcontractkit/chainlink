@@ -11,7 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coreos/pkg/health"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -126,7 +128,8 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
-	subservices              []utils.StartCloser
+	subservices              []service.Service
+	HealthChecker            health.Checker
 	logger                   *logger.Logger
 
 	started     bool
@@ -138,7 +141,7 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
-	var subservices []utils.StartCloser
+	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -356,6 +359,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
 	logBroadcaster.AddDependents(1)
+
+	for _, service := range app.subservices {
+		healthChecker.Register(reflect.TypeOf(service).Name(), service)
+	}
 
 	return app, nil
 }
