@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jinzhu/gorm/dialects/postgres"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -43,6 +45,12 @@ type EthTaskRunTx struct {
 	EthTx     EthTx
 }
 
+type EthTxMeta struct {
+	TaskRunID        uuid.UUID
+	RunRequestID     *common.Hash
+	RunRequestTxHash *common.Hash
+}
+
 type EthTx struct {
 	ID             int64
 	Nonce          *int64
@@ -58,6 +66,10 @@ type EthTx struct {
 	CreatedAt     time.Time
 	State         EthTxState
 	EthTxAttempts []EthTxAttempt `gorm:"->"`
+	// Marshalled EthTxMeta
+	// Used for additional context around transactions which you want to log
+	// at send time.
+	Meta postgres.Jsonb
 }
 
 func (e EthTx) GetError() error {
@@ -405,74 +417,4 @@ func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 		return empty, errors.New("out of bounds slice access")
 	}
 	return ary[start:end], nil
-}
-
-type blockInternal struct {
-	Number       string
-	Hash         common.Hash
-	ParentHash   common.Hash
-	Transactions []types.Transaction
-}
-
-// Int64ToHex converts an int64 into go-ethereum's hex representation
-func Int64ToHex(n int64) string {
-	return hexutil.EncodeBig(big.NewInt(n))
-}
-
-// HexToInt64 performs the inverse of Int64ToHex
-// Returns 0 on invalid input
-func HexToInt64(input interface{}) int64 {
-	switch v := input.(type) {
-	case string:
-		big, err := hexutil.DecodeBig(v)
-		if err != nil {
-			return 0
-		}
-		return big.Int64()
-	case []byte:
-		big, err := hexutil.DecodeBig(string(v))
-		if err != nil {
-			return 0
-		}
-		return big.Int64()
-	default:
-		return 0
-	}
-}
-
-// Block represents an ethereum block
-type Block struct {
-	Number       int64
-	Hash         common.Hash
-	ParentHash   common.Hash
-	Transactions []types.Transaction
-}
-
-// MarshalJSON implements json marshalling for Block
-func (b Block) MarshalJSON() ([]byte, error) {
-	return json.Marshal(blockInternal{
-		Int64ToHex(b.Number),
-		b.Hash,
-		b.ParentHash,
-		b.Transactions,
-	})
-}
-
-// UnmarshalJSON unmarshals to a Block
-func (b *Block) UnmarshalJSON(data []byte) error {
-	bi := blockInternal{}
-	if err := json.Unmarshal(data, &bi); err != nil {
-		return err
-	}
-	n, err := hexutil.DecodeBig(bi.Number)
-	if err != nil {
-		return err
-	}
-	*b = Block{
-		n.Int64(),
-		bi.Hash,
-		bi.ParentHash,
-		bi.Transactions,
-	}
-	return nil
 }

@@ -36,6 +36,8 @@ services:
       - node_password
       - apicredentials
       - keystore
+    depends_on:
+      - explorer
 
   node-2:
     container_name: chainlink-node-2

@@ -18,15 +18,13 @@ type (
 		DecodedLog() interface{}
 		RawLog() types.Log
 		SetDecodedLog(interface{})
-		WasAlreadyConsumed() (bool, error)
-		MarkConsumed() error
 		String() string
 		LatestBlockNumber() uint64
 		LatestBlockHash() common.Hash
+		JobID() interface{}
 	}
 
 	broadcast struct {
-		orm               ORM
 		latestBlockNumber uint64
 		latestBlockHash   common.Hash
 		decodedLog        interface{}
@@ -57,16 +55,6 @@ func (b *broadcast) SetDecodedLog(newLog interface{}) {
 	b.decodedLog = newLog
 }
 
-// WasAlreadyConsumed reports whether the given consumer had already consumed the given log
-func (b *broadcast) WasAlreadyConsumed() (bool, error) {
-	return b.orm.WasBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.JobID())
-}
-
-// MarkConsumed marks the log as having been successfully consumed by the subscriber
-func (b *broadcast) MarkConsumed() error {
-	return b.orm.MarkBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.BlockNumber, b.rawLog.Index, b.JobID())
-}
-
 func (b broadcast) JobID() interface{} {
 	if b.isV2 {
 		return b.jobIDV2
@@ -80,4 +68,16 @@ func (b *broadcast) String() string {
 		jobId = fmt.Sprintf("%v", b.jobIDV2)
 	}
 	return fmt.Sprintf("Broadcast(JobID:%v,LogAddress:%v,Topics(%d):%v)", jobId, b.rawLog.Address, len(b.rawLog.Topics), b.rawLog.Topics)
+}
+
+func NewLogBroadcast() Broadcast {
+	return &broadcast{
+		latestBlockNumber: 0,
+		latestBlockHash:   common.Hash{},
+		decodedLog:        nil,
+		rawLog:            types.Log{},
+		jobID:             models.JobID{},
+		jobIDV2:           0,
+		isV2:              false,
+	}
 }

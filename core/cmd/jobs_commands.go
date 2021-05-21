@@ -106,6 +106,14 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.KeeperSpec != nil {
 			return p.KeeperSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.CronJobSpec:
+		if p.CronSpec != nil {
+			return p.CronSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.VRFJobSpec:
+		if p.VRFSpec != nil {
+			return p.VRFSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}
@@ -183,7 +191,7 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
-		fmt.Printf("Error : %v\n", string(body))
+		fmt.Printf("Response: '%v', Status: %d\n", string(body), resp.StatusCode)
 		return cli.errorOut(err)
 	}
 

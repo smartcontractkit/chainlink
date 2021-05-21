@@ -383,11 +383,11 @@ func assertNoSubmission(t *testing.T,
 func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
-	db.Where("round_id = ?", roundID).Find(&stats)
+	require.NoError(t, db.Where("round_id = ?", roundID).Find(&stats).Error)
 
 	// Verify the pipeline run data
 	run := pipeline.Run{}
-	db.Find(&run, stats.PipelineRunID)
+	require.NoError(t, db.Find(&run, stats.PipelineRunID).Error, "runID %v", stats.PipelineRunID)
 	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
 }
 

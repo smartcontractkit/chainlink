@@ -23,8 +23,8 @@ func (rs *RegistrySynchronizer) processLogs() {
 
 func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	defer done()
-	i := rs.mailRoom.mbSyncRegistry.Retrieve()
-	if i == nil {
+	i, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
+	if !exists {
 		return
 	}
 	broadcast, ok := i.(log.Broadcast)
@@ -34,7 +34,7 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	}
 	txHash := broadcast.RawLog().TxHash.Hex()
 	logger.Debugw("RegistrySynchronizer: processing SyncRegistry log", "jobID", rs.job.ID, "txHash", txHash)
-	was, err := broadcast.WasAlreadyConsumed()
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 		return
@@ -47,15 +47,15 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 		logger.Error(errors.Wrapf(err, "RegistrySynchronizer: unable to sync registry, jobID: %d", rs.job.ID))
 		return
 	}
-	err = broadcast.MarkConsumed()
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 	logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 }
 
 func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 	defer done()
 	for {
-		i := rs.mailRoom.mbUpkeepCanceled.Retrieve()
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -65,7 +65,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 		}
 		txHash := broadcast.RawLog().TxHash.Hex()
 		logger.Debugw("RegistrySynchronizer: processing UpkeepCanceled log", "jobID", rs.job.ID, "txHash", txHash)
-		was, err := broadcast.WasAlreadyConsumed()
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 			continue
@@ -86,7 +86,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 			continue
 		}
 		logger.Debugw(fmt.Sprintf("RegistrySynchronizer: deleted %v upkeep registrations", affected), "jobID", rs.job.ID, "txHash", txHash)
-		err = broadcast.MarkConsumed()
+		err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 	}
 }
@@ -101,8 +101,8 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 		return
 	}
 	for {
-		i := rs.mailRoom.mbUpkeepRegistered.Retrieve()
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -112,7 +112,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 		}
 		txHash := broadcast.RawLog().TxHash.Hex()
 		logger.Debugw("RegistrySynchronizer: processing UpkeepRegistered log", "jobID", rs.job.ID, "txHash", txHash)
-		was, err := broadcast.WasAlreadyConsumed()
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 			continue
@@ -130,7 +130,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 			logger.Error(err)
 			continue
 		}
-		err = broadcast.MarkConsumed()
+		err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 	}
 }
@@ -138,8 +138,8 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 	defer done()
 	for {
-		i := rs.mailRoom.mbUpkeepPerformed.Retrieve()
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -149,7 +149,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 		}
 		txHash := broadcast.RawLog().TxHash.Hex()
 		logger.Debugw("RegistrySynchronizer: processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
-		was, err := broadcast.WasAlreadyConsumed()
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 			continue
@@ -164,13 +164,14 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
+		db := rs.orm.DB.WithContext(ctx)
 		// set last run to 0 so that keeper can resume checkUpkeep()
-		err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
+		err = rs.orm.SetLastRunHeightForUpkeepOnJob(db, rs.job.ID, log.Id.Int64(), 0)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		err = broadcast.MarkConsumed()
+		err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 	}
 }

@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -405,7 +408,9 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		err := db.SaveLatestRoundRequested(rr)
+		err := postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
+			return db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), rr)
+		})
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -419,7 +424,9 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = db.SaveLatestRoundRequested(rr)
+		err = postgres.GormTransactionWithDefaultContext(store.DB, func(tx *gorm.DB) error {
+			return db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), rr)
+		})
 		require.NoError(t, err)
 	})
 
@@ -433,5 +440,10 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, rr, lrr)
+	})
+
+	t.Run("spec with latest round requested can be deleted", func(t *testing.T) {
+		_, err := sqldb.Exec(`DELETE FROM offchainreporting_oracle_specs`)
+		assert.NoError(t, err)
 	})
 }

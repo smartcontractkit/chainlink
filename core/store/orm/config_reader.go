@@ -38,6 +38,7 @@ type ConfigReader interface {
 	EthGasBumpTxDepth() uint16
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
+	EthGasLimitMultiplier() float32
 	EthGasPriceDefault() *big.Int
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint
@@ -45,6 +46,8 @@ type ConfigReader interface {
 	EthMaxGasPriceWei() *big.Int
 	EthNonceAutoSync() bool
 	EthRPCDefaultBatchSize() uint32
+	EthTxReaperInterval() time.Duration
+	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string

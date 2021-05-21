@@ -142,7 +142,9 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 }
 
 func (p *Pstorewrapper) WriteToDB() error {
-	err := postgres.GormTransaction(p.ctx, p.db, func(tx *gorm.DB) error {
+	ctx, cancel := context.WithTimeout(p.ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+	err := postgres.GormTransaction(ctx, p.db, func(tx *gorm.DB) error {
 		err := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = ?`, p.peerID).Error
 		if err != nil {
 			return err

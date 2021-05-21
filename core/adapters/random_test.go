@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -41,7 +40,8 @@ func TestRandom_Perform(t *testing.T) {
 		"blockNum":  blockNum,
 	})
 	require.NoError(t, err) // Can't fail
-	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
+	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
@@ -54,7 +54,7 @@ func TestRandom_Perform(t *testing.T) {
 		vrf.OnChainResponseLength, "wrong response length")
 	response, err := vrf.UnmarshalProofResponse(onChainResponse)
 	require.NoError(t, err, "random adapter produced bad proof response")
-	actualProof, err := response.CryptoProof(tvrf.SeedData(t, seed, hash, blockNum))
+	actualProof, err := response.CryptoProof(vrf.TestXXXSeedData(t, seed, hash, blockNum))
 	require.NoError(t, err, "could not extract proof from random adapter response")
 	expected := common.HexToHash(
 		"0x71a7c50918feaa753485ae039cb84ddd70c5c85f66b236138dea453a23d0f27e")
@@ -63,7 +63,7 @@ func TestRandom_Perform(t *testing.T) {
 			"in RandomValueFromVRFProof has changed?")
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
-	input = models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	input = models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }
@@ -89,7 +89,8 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 		"requestID": utils.AddHexPrefix(common.Bytes2Hex([]byte{1, 2, 3})),
 	})
 	require.NoError(t, err)
-	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
+	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, abi, address.Address())
