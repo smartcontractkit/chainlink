@@ -202,6 +202,24 @@ func init() {
 		OptimismGasFees:                  true,
 	}
 
+	arbitrum := ChainSpecificDefaultSet{
+		// FeatureFluxMonitorV2:             true, // parameter not in ChainSpecificDefaultSet
+		EthGasBumpThreshold: 10,
+		EthGasBumpWei:       big.NewInt(5000000000),
+		EthGasPriceDefault:  big.NewInt(5000000000),
+		EthMaxGasPriceWei:   big.NewInt(500000000000),
+		// EthGasLimitDefault:               3000000, // parameter not in ChainSpecificDefaultSet
+		EthFinalityDepth:                 1,
+		EthHeadTrackerHistoryDepth:       10,
+		EthBalanceMonitorBlockDelay:      0,
+		EthTxResendAfterThreshold:        5 * time.Second,
+		GasUpdaterBlockHistorySize:       0,
+		GasUpdaterEnabled:                false,
+		HeadTimeBudget:                   100 * time.Millisecond,
+		MinIncomingConfirmations:         1,
+		MinRequiredOutgoingConfirmations: 0,
+	}
+
 	GeneralDefaults = mainnet
 	ChainSpecificDefaults[1] = mainnet
 	ChainSpecificDefaults[42] = kovan
@@ -215,6 +233,8 @@ func init() {
 	ChainSpecificDefaults[80001] = polygonMatic
 
 	ChainSpecificDefaults[100] = xDai
+
+	ChainSpecificDefaults[144545313136048] = arbitrum
 }
 
 func chainSpecificConfig(c Config) ChainSpecificDefaultSet {
