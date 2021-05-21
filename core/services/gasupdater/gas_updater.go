@@ -191,7 +191,11 @@ func (gu *gasUpdater) Recalculate(head models.Head) {
 
 	percentileGasPrice, err := gu.percentileGasPrice(percentile)
 	if err != nil {
-		logger.Warnw("GasUpdater: cannot calculate percentile gas price", "err", err)
+		if err == ErrNoSuitableTransactions {
+			logger.Debug("GasUpdater: no suitable transactions, skipping")
+		} else {
+			logger.Warnw("GasUpdater: cannot calculate percentile gas price", "err", err)
+		}
 		return
 	}
 	float := new(big.Float).SetInt(percentileGasPrice)
@@ -333,6 +337,10 @@ func (gu *gasUpdater) batchFetch(ctx context.Context, reqs []rpc.BatchElem) erro
 	return nil
 }
 
+var (
+	ErrNoSuitableTransactions = errors.New("no suitable transactions")
+)
+
 func (gu *gasUpdater) percentileGasPrice(percentile int) (*big.Int, error) {
 	minGasPriceWei := gu.config.EthMinGasPriceWei()
 	chainID := gu.config.ChainID()
@@ -345,7 +353,7 @@ func (gu *gasUpdater) percentileGasPrice(percentile int) (*big.Int, error) {
 		}
 	}
 	if len(gasPrices) == 0 {
-		return big.NewInt(0), errors.New("no suitable transactions")
+		return big.NewInt(0), ErrNoSuitableTransactions
 	}
 	sort.Slice(gasPrices, func(i, j int) bool { return gasPrices[i].Cmp(gasPrices[j]) < 0 })
 	idx := ((len(gasPrices) - 1) * percentile) / 100

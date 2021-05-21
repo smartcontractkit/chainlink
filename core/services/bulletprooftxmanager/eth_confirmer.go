@@ -678,7 +678,9 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
-	logger.Debugf("EthConfirmer: Rebroadcasting %v transactions", len(etxs))
+	if len(etxs) > 0 {
+		logger.Debugf("EthConfirmer: Rebroadcasting %v transactions", len(etxs))
+	}
 	for _, etx := range etxs {
 		// NOTE: This races with OCR transaction insertion that checks for
 		// out-of-eth.  If we check at the wrong moment (while an

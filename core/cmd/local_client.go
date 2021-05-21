@@ -363,7 +363,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
-	if err := migrateTestDB(config); err != nil {
+	if err := migrateDB(config); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -378,6 +378,45 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := insertFixtures(config); err != nil {
 		return cli.errorOut(err)
 	}
+	return nil
+}
+
+// VersionDatabase displays the current database version.
+func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	config := orm.NewConfig()
+	parsed := config.DatabaseURL()
+	if parsed.String() == "" {
+		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+	}
+
+	logger.Infof("Migrating database: %#v", parsed.String())
+	if err := migrateDB(config); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// MigrateDatabase migrates the database
+func (cli *Client) VersionDatabase(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	config := orm.NewConfig()
+	parsed := config.DatabaseURL()
+	if parsed.String() == "" {
+		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+	}
+
+	orm, err := orm.NewORM(parsed.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+
+	version, err := migrations.Current(orm.DB)
+	if err != nil {
+		return fmt.Errorf("migrateDB failed: %v", err)
+	}
+
+	logger.Infof("Database version: %v", version.ID)
 	return nil
 }
 
@@ -407,16 +446,28 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func migrateTestDB(config *orm.Config) error {
+func migrateDB(config *orm.Config) error {
 	dbURL := config.DatabaseURL()
 	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+
+	from, err := migrations.Current(orm.DB)
+	if err != nil {
+		from = &migrations.Migration{
+			ID: "(none)",
+		}
+	}
+
+	to := migrations.Migrations[len(migrations.Migrations)-1]
+
+	logger.Infof("Migrating from %v to %v", from.ID, to.ID)
+
 	err = migrations.Migrate(orm.DB)
 	if err != nil {
-		return fmt.Errorf("migrateTestDB failed: %v", err)
+		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm.Close()
