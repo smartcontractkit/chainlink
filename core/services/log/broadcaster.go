@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/tevino/abool"
@@ -43,6 +45,9 @@ type (
 		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
 		TrackedAddressesCount() uint32
+		// DB interactions
+		WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error)
+		MarkConsumed(db *gorm.DB, lb Broadcast) error
 	}
 
 	broadcaster struct {
@@ -410,4 +415,14 @@ func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 	}()
 
 	return chCombined
+}
+
+// WasAlreadyConsumed reports whether the given consumer had already consumed the given log
+func (b *broadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error) {
+	return b.orm.WasBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().Index, lb.JobID())
+}
+
+// MarkConsumed marks the log as having been successfully consumed by the subscriber
+func (b *broadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
+	return b.orm.MarkBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }

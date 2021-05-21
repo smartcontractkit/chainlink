@@ -4,10 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -331,7 +334,14 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	ethTX, err := orm.CreateEthTransactionForUpkeep(postgres.MustSQLDB(orm.DB), upkeep, payload, 500)
+	var ethTX models.EthTx
+	var err error
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
+		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload, 500)
+		return err
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)

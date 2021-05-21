@@ -58,6 +58,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 
 	fm, err := NewFromJobSpec(
 		spec,
+		d.db,
 		NewORM(d.store.DB),
 		d.jobORM,
 		d.pipelineORM,
