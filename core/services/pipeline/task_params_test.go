@@ -38,6 +38,33 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
+func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"string", "foo bar baz", pipeline.BytesParam("foo bar baz"), nil},
+		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
+		{"int", 12345, pipeline.BytesParam(""), pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p pipeline.BytesParam
+			err := p.UnmarshalPipelineParam(test.input, nil)
+			require.Equal(t, test.err, errors.Cause(err))
+			require.Equal(t, test.expected, p)
+		})
+	}
+}
+
 func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
@@ -290,7 +317,7 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		{"[]interface{}", []interface{}{1.1, "2.2", *mustDecimal(t, "3.3")}, expected, nil},
 		{"string", `[1.1, "2.2", 3.3]`, expected, nil},
 		{"[]byte", `[1.1, "2.2", 3.3]`, expected, nil},
-		{"[]interface{} with error", `[1.1, true, "abc"]`, nil, pipeline.ErrBadInput},
+		{"[]interface{} with error", `[1.1, true, "abc"]`, pipeline.DecimalSliceParam(nil), pipeline.ErrBadInput},
 		{"bool", true, pipeline.DecimalSliceParam(nil), pipeline.ErrBadInput},
 	}
 
@@ -308,31 +335,31 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 }
 
 func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 
-	// expected := pipeline.StringSliceParam{"foo", "bar", "sergey"}
+	expected := pipeline.StringSliceParam{"1.1", "2.2", "3.3", "sergey"}
 
-	// tests := []struct {
-	// 	name     string
-	// 	input    interface{}
-	// 	expected interface{}
-	// 	err      error
-	// }{
-	// 	{"[]interface{}", []interface{}{1.1, "2.2", *mustDecimal(t, "3.3")}, expected, nil},
-	// 	{"string", `[1.1, "2.2", 3.3]`, expected, nil},
-	// 	{"[]byte", `[1.1, "2.2", 3.3]`, expected, nil},
-	// 	{"bool", true, pipeline.StringSliceParam(nil), pipeline.ErrBadInput},
-	// }
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"[]interface{}", []interface{}{"1.1", "2.2", "3.3", "sergey"}, expected, nil},
+		{"string", `1.1,2.2,3.3,sergey`, expected, nil},
+		{"[]byte", []byte(`1.1,2.2,3.3,sergey`), expected, nil},
+		{"bool", true, pipeline.StringSliceParam(nil), pipeline.ErrBadInput},
+	}
 
-	// for _, test := range tests {
-	// 	test := test
-	// 	t.Run(test.name, func(t *testing.T) {
-	// 		t.Parallel()
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	// 		var p pipeline.StringSliceParam
-	// 		err := p.UnmarshalPipelineParam(test.input, nil)
-	// 		require.Equal(t, test.err, errors.Cause(err))
-	// 		require.Equal(t, test.expected, p)
-	// 	})
-	// }
+			var p pipeline.StringSliceParam
+			err := p.UnmarshalPipelineParam(test.input, nil)
+			require.Equal(t, test.err, errors.Cause(err))
+			require.Equal(t, test.expected, p)
+		})
+	}
 }

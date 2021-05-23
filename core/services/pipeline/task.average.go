@@ -6,8 +6,6 @@ package pipeline
 // 	"github.com/pkg/errors"
 // 	"github.com/shopspring/decimal"
 // 	"go.uber.org/multierr"
-
-// 	"github.com/smartcontractkit/chainlink/core/utils"
 // )
 
 // type AverageTask struct {
@@ -22,44 +20,44 @@ package pipeline
 // 	return TaskTypeAverage
 // }
 
-// func (t *AverageTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-// 	if _, exists := inputValues["allowedFaults"]; !exists {
-// 		if len(self.inputs()) == 0 {
-// 			return errors.Wrapf(ErrWrongInputCardinality, "AverageTask requires at least 1 input")
-// 		}
-// 		t.AllowedFaults = uint64(len(self.inputs()) - 1)
-// 	}
-// 	return nil
-// }
-
 // func (t *AverageTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
-// 	if len(inputs) == 0 {
-// 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "AverageTask requires at least 1 input")}
+// 	var (
+// 		maybeAllowedFaults MaybeUint64Param
+// 		valuesAndErrs      SliceParam
+// 		decimalValues      DecimalSliceParam
+// 		allowedFaults      int
+// 		faults             int
+// 	)
+// 	err := multierr.Combine(
+// 		vars.ResolveValue(&maybeAllowedFaults, From(t.AllowedFaults)),
+// 		vars.ResolveValue(&valuesAndErrs, From(VariableExpr(t.Values), Inputs(inputs))),
+// 	)
+// 	if err != nil {
+// 		return Result{Error: err}
 // 	}
 
-// 	fetchErrors := []error{}
-// 	total := decimal.New(0, int32(t.Precision))
-// 	validInputs := 0
+// 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
+// 		allowedFaults = int(allowed)
+// 	} else {
+// 		allowedFaults = len(valuesAndErrs) - 1
+// 	}
 
-// 	for _, input := range inputs {
-// 		if input.Error != nil {
-// 			fetchErrors = append(fetchErrors, input.Error)
-// 			continue
-// 		}
+// 	values, faults := valuesAndErrs.FilterErrors()
+// 	if faults > allowedFaults {
+// 		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to average task > number allowed faults %v", faults, allowedFaults)}
+// 	} else if len(values) == 0 {
+// 		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to average")}
+// 	}
 
-// 		answer, err := utils.ToDecimal(input.Value)
-// 		if err != nil {
-// 			fetchErrors = append(fetchErrors, err)
-// 			continue
-// 		}
+// 	err = decimalValues.UnmarshalPipelineParam(values, nil)
+// 	if err != nil {
+// 		return Result{Error: err}
+// 	}
+
+// 	total := decimal.NewFromFloat(0)
+// 	for _, val := range decimalValues {
 // 		total = total.Add(answer)
-// 		validInputs++
 // 	}
-
-// 	if uint64(len(fetchErrors)) > t.AllowedFaults {
-// 		return Result{Error: errors.Wrapf(ErrBadInput, "Number of faulty inputs %v to average task > number allowed faults %v. Fetch errors: %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
-// 	}
-
-// 	average := total.Div(decimal.NewFromInt(int64(validInputs)))
+// 	average := total.Div(decimal.NewFromInt(len(decimalValues)))
 // 	return Result{Value: average}
 // }

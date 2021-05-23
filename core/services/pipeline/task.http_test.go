@@ -30,13 +30,15 @@ func TestHTTPTask_Happy(t *testing.T) {
 	defer s1.Close()
 
 	task := pipeline.HTTPTask{
+		BaseTask:    pipeline.NewBaseTask("http", nil, 0, 0),
 		Method:      "POST",
 		URL:         s1.URL,
 		RequestData: btcUSDPairing,
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
+	vars := pipeline.Vars{}
+	result := task.Run(context.Background(), vars, pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {

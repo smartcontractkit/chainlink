@@ -247,6 +247,8 @@ func (r *runner) executeRun(
 		return run, nil, false, err
 	}
 
+	vars := Vars{}
+
 	// TODO: Test with multiple and single null successor IDs
 	// https://www.pivotaltracker.com/story/show/176557536
 
@@ -285,7 +287,7 @@ func (r *runner) executeRun(
 					return
 				}
 
-				taskRunResult := r.executeTaskRun(ctx, spec, taskRun, meta, l)
+				taskRunResult := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
 
 				taskRunResultsMu.Lock()
 				taskRunResults = append(taskRunResults, taskRunResult)
@@ -360,7 +362,7 @@ func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInputs []R
 	return headTaskRuns, nil
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
 	start := time.Now()
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
@@ -381,7 +383,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, nil, meta, taskRun.inputsSorted())
+	result := taskRun.task.Run(ctx, vars, meta, taskRun.inputsSorted())
 	loggerFields = append(loggerFields, "result value", result.Value)
 	loggerFields = append(loggerFields, "result error", result.Error)
 	switch v := result.Value.(type) {

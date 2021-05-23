@@ -3,11 +3,13 @@ package pipeline
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
 type MultiplyTask struct {
 	BaseTask `mapstructure:",squash"`
+	Input    string `json:"input"`
 	Times    string `json:"times"`
 }
 
@@ -15,10 +17,6 @@ var _ Task = (*MultiplyTask)(nil)
 
 func (t *MultiplyTask) Type() TaskType {
 	return TaskTypeMultiply
-}
-
-func (t *MultiplyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
 }
 
 func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
@@ -32,8 +30,8 @@ func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inp
 		b DecimalParam
 	)
 	err = multierr.Combine(
-		vars.ResolveValue(&a, From(Input(inputs, 0))),
-		vars.ResolveValue(&b, From(VariableExpr(t.Times), NonemptyString(t.Times))),
+		errors.Wrap(vars.ResolveValue(&a, From(VariableExpr(t.Input), Input(inputs, 0))), "input"),
+		errors.Wrap(vars.ResolveValue(&b, From(VariableExpr(t.Times), NonemptyString(t.Times))), "times"),
 	)
 	if err != nil {
 		return Result{Error: err}

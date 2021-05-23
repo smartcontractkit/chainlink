@@ -12,7 +12,7 @@ const (
     ds1_multiply [type=multiply times=1.23];
 
     // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}"];
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];
     ds2_parse    [type=jsonparse path="three,four"];
     ds2_multiply [type=multiply times=4.56];
 

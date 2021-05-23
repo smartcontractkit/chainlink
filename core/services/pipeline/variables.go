@@ -2,12 +2,19 @@ package pipeline
 
 import (
 	"bytes"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 )
+
+//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
+
+//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
+
+//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
 //go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
@@ -19,7 +26,11 @@ type (
 	}
 )
 
-var variableRegexp = regexp.MustCompile(`\$\(([a-zA-Z0-9_\.]+)\)`)
+var (
+	variableRegexp = regexp.MustCompile(`\$\(([a-zA-Z0-9_\.]+)\)`)
+
+	ErrKeypathNotFound = errors.New("keypath not found")
+)
 
 func NewVars() Vars {
 	return make(Vars)
@@ -86,8 +97,7 @@ func keypathParts(keypath string) [][]byte {
 }
 
 func (v Vars) traverse(keypathParts [][]byte, create bool) (interface{}, error) {
-	type M = map[string]interface{}
-	var cur interface{} = M(v)
+	var cur interface{} = (map[string]interface{})(v)
 
 	for _, key := range keypathParts {
 		switch typed := cur.(type) {
@@ -95,7 +105,7 @@ func (v Vars) traverse(keypathParts [][]byte, create bool) (interface{}, error) 
 			var exists bool
 			cur, exists = typed[string(key)] // Converting []byte to string to access a map is a special-case optimization in Go
 			if !exists && !create {
-				return nil, errors.Errorf("not found: key %v keypathParts %v", key, keypathParts)
+				return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", string(key), bytesToStrings(keypathParts))
 			} else if !exists {
 				typed[string(key)] = make(map[string]interface{})
 				cur = typed[string(key)]
@@ -106,20 +116,29 @@ func (v Vars) traverse(keypathParts [][]byte, create bool) (interface{}, error) 
 			if err != nil {
 				return nil, err
 			} else if idx > int64(len(typed)-1) {
-				return nil, errors.New("index out of range")
+				return nil, errors.Wrapf(ErrKeypathNotFound, "index %v out of range (length %v / keypath %v)", idx, len(typed), bytesToStrings(keypathParts))
 			}
 			cur = typed[idx]
 
 		default:
-			return nil, errors.New("encountered non-map/non-slice")
+			return nil, errors.Wrapf(ErrKeypathNotFound, "encountered non-map/non-slice (keypath %v)", bytesToStrings(keypathParts))
 		}
 	}
 	return cur, nil
 }
 
-func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs) error {
+func bytesToStrings(bs [][]byte) []string {
+	var s []string
+	for _, b := range bs {
+		s = append(s, string(b))
+	}
+	return s
+}
+
+func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs, validators ...ValidatorFuncs) error {
 	var val interface{}
 	var err error
+	var found bool
 	for _, get := range getters {
 		val, err = get(vars)
 		if errors.Cause(err) == ErrParameterEmpty {
@@ -127,9 +146,27 @@ func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs)
 		} else if err != nil {
 			return err
 		}
+		found = true
 		break
 	}
-	return out.UnmarshalPipelineParam(val, vars)
+	if !found {
+		return ErrParameterEmpty
+	}
+
+	for _, validators := range validators {
+		for _, v := range validators {
+			err = v(val)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = out.UnmarshalPipelineParam(val, vars)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type GetterFuncs []GetterFunc
@@ -140,7 +177,9 @@ func From(getters ...interface{}) GetterFuncs {
 		switch v := g.(type) {
 		case GetterFunc:
 			gfs = append(gfs, v)
+
 		default:
+			// If a bare value is passed in, create a simple getter
 			gfs = append(gfs, func(_ Vars) (interface{}, error) {
 				return v, nil
 			})
@@ -180,9 +219,65 @@ func Input(inputs []Result, index int) GetterFunc {
 	}
 }
 
-func Inputs(inputs []Result, min, max, maxErrors int) GetterFunc {
+func Inputs(inputs []Result) GetterFunc {
 	return func(vars Vars) (interface{}, error) {
-		return CheckInputs(inputs, min, max, maxErrors)
+		var vals []interface{}
+		for _, input := range inputs {
+			if input.Error != nil {
+				vals = append(vals, input.Error)
+			} else {
+				vals = append(vals, input.Value)
+			}
+		}
+		return vals, nil
+	}
+}
+
+type ValidatorFuncs []ValidatorFunc
+
+func Require(validators ...ValidatorFunc) ValidatorFuncs {
+	return ValidatorFuncs(validators)
+}
+
+type ValidatorFunc func(val interface{}) error
+
+func Length(min, max int) ValidatorFunc {
+	return func(val interface{}) error {
+		rval := reflect.ValueOf(val)
+		switch rval.Kind() {
+		case reflect.Slice, reflect.Array, reflect.String:
+			length := rval.Len()
+			if min >= 0 && length < min {
+				return ErrWrongInputCardinality
+			} else if max >= 0 && length > max {
+				return ErrWrongInputCardinality
+			}
+			return nil
+
+		default:
+			return errors.Wrapf(ErrBadInput, "Length (got %T)", val)
+		}
+	}
+}
+
+func MaxErrors(maxErrors int) ValidatorFunc {
+	return func(val interface{}) error {
+		switch v := val.(type) {
+		case []interface{}:
+			var errs int
+			for _, input := range v {
+				if _, isErr := input.(error); isErr {
+					errs++
+				}
+			}
+			if maxErrors >= 0 && errs > maxErrors {
+				return ErrTooManyErrors
+			}
+			return nil
+
+		default:
+			return errors.Wrapf(ErrBadInput, "MaxErrors (got %T)", val)
+		}
 	}
 }
 

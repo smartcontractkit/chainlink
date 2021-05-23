@@ -15,7 +15,7 @@ func TestTimeoutAttribute(t *testing.T) {
 	t.Parallel()
 
 	g := pipeline.NewTaskDAG()
-	a := `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}" timeout="10s"];`
+	a := `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
 	err := g.UnmarshalText([]byte(a))
 	require.NoError(t, err)
 	tasks, err := g.TasksInDependencyOrder()
@@ -25,7 +25,7 @@ func TestTimeoutAttribute(t *testing.T) {
 	assert.Equal(t, true, set)
 
 	g = pipeline.NewTaskDAG()
-	a = `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}"];`
+	a = `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];`
 	err = g.UnmarshalText([]byte(a))
 	require.NoError(t, err)
 	tasks, err = g.TasksInDependencyOrder()
@@ -39,7 +39,7 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	g := pipeline.NewTaskDAG()
-	a := `ds1 [type=http allowunrestrictednetworkaccess=true method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}" timeout="10s"];`
+	a := `ds1 [type=http allowunrestrictednetworkaccess=true method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
 	err := g.UnmarshalText([]byte(a))
 	require.NoError(t, err)
 	tasks, err := g.TasksInDependencyOrder()
@@ -47,7 +47,7 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 	require.Len(t, tasks, 1)
 
 	task := tasks[0].(*pipeline.HTTPTask)
-	require.Equal(t, pipeline.MaybeBoolTrue, task.AllowUnrestrictedNetworkAccess)
+	require.Equal(t, string(pipeline.MaybeBoolTrue), task.AllowUnrestrictedNetworkAccess)
 }
 
 func Test_TaskAnyUnmarshal(t *testing.T) {

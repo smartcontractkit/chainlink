@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"net/url"
 	"strconv"
@@ -25,6 +26,28 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	default:
 		return ErrBadInput
 	}
+}
+
+type BytesParam string
+
+func (b *BytesParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	switch v := val.(type) {
+	case string:
+		if len(v) >= 2 && v[:2] == "0x" {
+			bs, err := hex.DecodeString(v[2:])
+			if err != nil {
+				return err
+			}
+			*b = BytesParam(bs)
+			return nil
+		}
+		*b = BytesParam(v)
+	case []byte:
+		*b = BytesParam(v)
+	default:
+		return ErrBadInput
+	}
+	return nil
 }
 
 type Uint64Param uint64
@@ -62,6 +85,57 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 		return ErrBadInput
 	}
 	return nil
+}
+
+type MaybeUint64Param struct {
+	n     uint64
+	isSet bool
+}
+
+func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	var n uint64
+	switch v := val.(type) {
+	case uint:
+		n = uint64(v)
+	case uint8:
+		n = uint64(v)
+	case uint16:
+		n = uint64(v)
+	case uint32:
+		n = uint64(v)
+	case uint64:
+		n = v
+	case int:
+		n = uint64(v)
+	case int8:
+		n = uint64(v)
+	case int16:
+		n = uint64(v)
+	case int32:
+		n = uint64(v)
+	case int64:
+		n = uint64(v)
+	case string:
+		if strings.TrimSpace(v) == "" {
+			*u = MaybeUint64Param{0, false}
+			return nil
+		}
+		var err error
+		n, err = strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+
+	default:
+		return ErrBadInput
+	}
+
+	*u = MaybeUint64Param{n, true}
+	return nil
+}
+
+func (u MaybeUint64Param) Uint64() (uint64, bool) {
+	return u.n, u.isSet
 }
 
 type BoolParam bool
@@ -159,6 +233,10 @@ type MapParam map[string]interface{}
 
 func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	switch v := val.(type) {
+	case nil:
+		*m = nil
+		return nil
+
 	case map[string]interface{}:
 		*m = MapParam(v)
 		return nil
@@ -199,6 +277,8 @@ type SliceParam []interface{}
 
 func (s *SliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	switch v := val.(type) {
+	case nil:
+		*s = nil
 	case []interface{}:
 		*s = v
 	case string:
@@ -211,52 +291,79 @@ func (s *SliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	return nil
 }
 
+func (s SliceParam) FilterErrors() (SliceParam, int) {
+	var s2 SliceParam
+	var errs int
+	for _, x := range s {
+		if _, is := x.(error); is {
+			errs++
+		} else {
+			s2 = append(s2, x)
+		}
+	}
+	return s2, errs
+}
+
 type DecimalSliceParam []decimal.Decimal
 
 func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	var dsp DecimalSliceParam
 	switch v := val.(type) {
+	case nil:
+		dsp = nil
 	case []decimal.Decimal:
-		*s = v
+		dsp = v
 	case []interface{}:
-		var dsp DecimalSliceParam
+		return s.UnmarshalPipelineParam(SliceParam(v), vars)
+	case SliceParam:
 		for _, x := range v {
 			d, err := utils.ToDecimal(x)
 			if err != nil {
-				return errors.Wrap(ErrBadInput, err.Error())
+				return errors.Wrapf(ErrBadInput, "DecimalSliceParam: wrong type of value while decoding decimals: %v", err.Error())
 			}
 			dsp = append(dsp, d)
 		}
-		*s = dsp
 	case string:
-		return json.Unmarshal([]byte(v), s)
+		err := json.Unmarshal([]byte(v), &dsp)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "DecimalSliceParam: %v", err.Error())
+		}
 	case []byte:
-		return json.Unmarshal(v, s)
+		err := json.Unmarshal(v, &dsp)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "DecimalSliceParam: %v", err.Error())
+		}
 	default:
-		return ErrBadInput
+		return errors.Wrap(ErrBadInput, "DecimalSliceParam")
 	}
+	*s = dsp
 	return nil
 }
 
 type StringSliceParam []string
 
 func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+	var ssp StringSliceParam
 	switch v := val.(type) {
+	case nil:
+		ssp = nil
 	case []string:
-		*p = v
+		ssp = v
 	case []interface{}:
-		var ssp StringSliceParam
 		for _, x := range v {
 			if as, is := x.(string); is {
-				ssp = append(ssp, as)
+				ssp = append(ssp, strings.TrimSpace(as))
 			} else {
 				return ErrBadInput
 			}
 		}
-		*p = ssp
 	case string:
-		*p = strings.Split(v, ",")
+		ssp = strings.Split(v, ",")
+	case []byte:
+		ssp = strings.Split(string(v), ",")
 	default:
 		return ErrBadInput
 	}
+	*p = ssp
 	return nil
 }

@@ -120,7 +120,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 
 	answer1 := &MedianTask{
 		BaseTask:      NewBaseTask("answer1", nil, 0, 2),
-		AllowedFaults: "1",
+		AllowedFaults: "",
 	}
 	answer2 := &BridgeTask{
 		Name:     "election_winner",
@@ -131,7 +131,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		BaseTask: NewBaseTask("ds1_multiply", answer1, 0, 1),
 	}
 	ds1_parse := &JSONParseTask{
-		Path:     "[one,two]",
+		Path:     "one,two",
 		BaseTask: NewBaseTask("ds1_parse", ds1_multiply, 0, 1),
 	}
 	ds1 := &BridgeTask{
@@ -143,7 +143,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		BaseTask: NewBaseTask("ds2_multiply", answer1, 0, 1),
 	}
 	ds2_parse := &JSONParseTask{
-		Path:     "[three,four]",
+		Path:     "three,four",
 		BaseTask: NewBaseTask("ds2_parse", ds2_multiply, 0, 1),
 	}
 	ds2 := &HTTPTask{

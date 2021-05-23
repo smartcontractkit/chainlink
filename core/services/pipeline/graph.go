@@ -1,7 +1,7 @@
 package pipeline
 
 import (
-	"fmt"
+	"regexp"
 	"sort"
 	"time"
 
@@ -12,6 +12,16 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
 )
+
+// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
+// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
+// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
+// NOTE: We only permit one child
+
+// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
+// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
+// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
+// NOTE: We only permit one child
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
@@ -72,11 +82,6 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 
 		numPredecessors := g.To(node.ID()).Len()
 		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, numPredecessors)
-		if err != nil {
-			return nil, err
-		}
-
-		err = task.SetDefaults(node.attrs, g, *node)
 		if err != nil {
 			return nil, err
 		}
@@ -161,12 +166,18 @@ func (n *TaskDAGNode) String() string {
 	return n.dotID
 }
 
+var bracketQuotedAttrRegexp = regexp.MustCompile(`^\s*<([^<>]+)>\s*$`)
+
 func (n *TaskDAGNode) SetAttribute(attr encoding.Attribute) error {
-	fmt.Println("ATTR", attr.Key, attr.Value)
 	if n.attrs == nil {
 		n.attrs = make(map[string]string)
 	}
-	n.attrs[attr.Key] = attr.Value
+
+	// Strings quoted in angle brackets (supported natively by DOT) should
+	// have those brackets removed before decoding to task parameter types
+	sanitized := bracketQuotedAttrRegexp.ReplaceAllString(attr.Value, "$1")
+
+	n.attrs[attr.Key] = sanitized
 	return nil
 }
 

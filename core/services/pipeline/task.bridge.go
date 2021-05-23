@@ -2,12 +2,12 @@ package pipeline
 
 import (
 	"context"
-	"fmt"
-	"net/url"
+
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"go.uber.org/multierr"
 )
 
 type BridgeTask struct {
@@ -31,7 +31,7 @@ func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self 
 	return nil
 }
 
-func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) (result Result) {
+func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result {
 	inputValues, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
@@ -43,9 +43,9 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 		includeInputAtKey StringParam
 	)
 	err = multierr.Combine(
-		vars.ResolveValue(&name, From(NonemptyString(t.Name))),
-		vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0))),
-		vars.ResolveValue(&includeInputAtKey, From(NonemptyString(t.IncludeInputAtKey))),
+		errors.Wrap(vars.ResolveValue(&name, From(NonemptyString(t.Name))), "name"),
+		errors.Wrap(vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0), nil)), "requestData"),
+		errors.Wrap(vars.ResolveValue(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -55,12 +55,11 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	if err != nil {
 		return Result{Error: err}
 	}
-	fmt.Println(url)
 
-	var metaMap map[string]interface{}
+	var metaMap MapParam
 	switch v := meta.Val.(type) {
 	case map[string]interface{}:
-		metaMap = v
+		metaMap = MapParam(v)
 	case nil:
 	default:
 		logger.Warnw(`"meta" field on task run is malformed, discarding`,
@@ -70,26 +69,39 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	}
 
 	requestData = withMeta(requestData, metaMap)
-	if t.IncludeInputAtKey != "" && len(inputValues) > 0 {
-		requestData[string(includeInputAtKey)] = inputValues[0]
+	if t.IncludeInputAtKey != "" {
+		logger.Warnw(`The "includeInputAtKey" parameter on Bridge tasks is deprecated. Please migrate to variable interpolation syntax as soon as possible (see CHANGELOG).`,
+			"task", t.DotID(),
+		)
+		if len(inputValues) > 0 {
+			requestData[string(includeInputAtKey)] = inputValues[0]
+		}
 	}
 
-	// result = (&HTTPTask{
-	// 	URL:         models.WebURL(url),
-	// 	Method:      "POST",
-	// 	RequestData: requestData,
-	// 	// URL is "safe" because it comes from the node's own database
-	// 	// Some node operators may run external adapters on their own hardware
-	// 	AllowUnrestrictedNetworkAccess: MaybeBoolTrue,
-	// 	config:                         t.config,
-	// }).Run(ctx, meta, nil)
-	// if result.Error != nil {
-	// 	return result
-	// }
-	// logger.Debugw("Bridge task: fetched answer",
-	// 	"answer", result.Value,
-	// 	"url", url.String(),
-	// )
+	// URL is "safe" because it comes from the node's own database
+	// Some node operators may run external adapters on their own hardware
+	allowUnrestrictedNetworkAccess := BoolParam(true)
+
+	responseBytes, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	// NOTE: We always stringify the response since this is required for all current jobs.
+	// If a binary response is required we might consider adding an adapter
+	// flag such as  "BinaryMode: true" which passes through raw binary as the
+	// value instead.
+	result := Result{Value: string(responseBytes)}
+
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
+
+	logger.Debugw("Bridge task: fetched answer",
+		"answer", result.Value,
+		"url", url.String(),
+		"dotID", t.DotID(),
+	)
+
 	err = vars.Set(t.DotID(), result.Value)
 	if err != nil {
 		return Result{Error: err}
@@ -97,7 +109,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	return result
 }
 
-func (t BridgeTask) getBridgeURLFromName(name StringParam) (url.URL, error) {
+func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
 	task := models.TaskType(name)
 
 	if t.safeTx.txMu != nil {
@@ -107,10 +119,9 @@ func (t BridgeTask) getBridgeURLFromName(name StringParam) (url.URL, error) {
 
 	bridge, err := FindBridge(t.safeTx.tx, task)
 	if err != nil {
-		return url.URL{}, err
+		return URLParam{}, err
 	}
-	bridgeURL := url.URL(bridge.URL)
-	return bridgeURL, nil
+	return URLParam(bridge.URL), nil
 }
 
 func withMeta(request MapParam, meta MapParam) MapParam {

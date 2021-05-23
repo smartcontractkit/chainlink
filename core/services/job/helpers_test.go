@@ -77,7 +77,7 @@ ds1 -> ds1_parse -> ds1_multiply;
 		contractAddress    = "%s"
 		p2pPeerID          = "%s"
 		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
-		isBootstrapPeer    = false 
+		isBootstrapPeer    = false
 		transmitterAddress = "%s"
 		keyBundleID = "%s"
 		observationTimeout = "10s"
@@ -211,6 +211,7 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitte
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
 	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
+	fmt.Println(voterTurnoutJobSpec)
 	return makeOCRJobSpecFromToml(t, db, voterTurnoutJobSpec)
 }
 

@@ -1,133 +1,201 @@
-package pipeline
+package pipeline_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestJSONParseTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name            string
-		input           string
-		path            string
-		lax             bool
-		wantData        interface{}
-		wantResultError bool
+		name              string
+		data              string
+		path              string
+		lax               string
+		vars              pipeline.Vars
+		inputs            []pipeline.Result
+		wantData          interface{}
+		wantErrorCause    error
+		wantErrorContains string
 	}{
-		{"array index path", `{"data":[{"availability":"0.99991"}]}`, "[data,0,availability]", false, "0.99991", false},
-		{"float result", `{"availability":0.99991}`, "[availability]", false, 0.99991, false},
+		{
+			"array index path",
+			"",
+			"data,0,availability",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data":[{"availability":"0.99991"}]}`}},
+			"0.99991",
+			nil,
+			"",
+		},
+		{
+			"float result",
+			"",
+			"availability",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"availability":0.99991}`}},
+			0.99991,
+			nil,
+			"",
+		},
 		{
 			"index array",
-			`{"data": [0, 1]}`,
-			"[data,0]",
-			false,
+			"",
+			"data,0",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			float64(0),
-			false,
+			nil,
+			"",
 		},
 		{
 			"index array of array",
-			`{"data": [[0, 1]]}`,
-			"[data,0,0]",
-			false,
+			"",
+			"data,0,0",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
 			float64(0),
-			false,
+			nil,
+			"",
 		},
 		{
 			"index of negative one",
-			`{"data": [0, 1]}`,
-			"[data,-1]",
-			false,
+			"",
+			"data,-1",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			float64(1),
-			false,
+			nil,
+			"",
 		},
 		{
 			"index of negative array length",
-			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`,
-			"[data,-10]",
-			false,
+			"",
+			"data,-10",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`}},
 			float64(0),
-			false,
+			nil,
+			"",
 		},
 		{
 			"index of negative array length minus one with lax returns nil",
-			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`,
-			"[data,-12]",
-			true,
+			"",
+			"data,-12",
+			"true",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`}},
 			nil,
-			false,
+			nil,
+			"",
 		},
 		{
 			"index of negative array length minus one without lax returns error",
-			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`,
-			"[data,-12]",
-			false,
+			"",
+			"data,-12",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`}},
 			nil,
-			true,
+			pipeline.ErrKeypathNotFound,
+			"",
 		},
 		{
 			"maximum index array with lax returns nil",
-			`{"data": [0, 1]}`,
-			"[data,18446744073709551615]",
-			true,
+			"",
+			"data,18446744073709551615",
+			"true",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
-			false,
+			nil,
+			"",
 		},
 		{
 			"maximum index array without lax returns error",
-			`{"data": [0, 1]}`,
-			"[data,18446744073709551615]",
-			false,
+			"",
+			"data,18446744073709551615",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
-			true,
+			pipeline.ErrKeypathNotFound,
+			"",
 		},
 		{
 			"overflow index array with lax returns nil",
-			`{"data": [0, 1]}`,
-			"[data,18446744073709551616]",
-			true,
+			"",
+			"data,18446744073709551616",
+			"true",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
-			false,
+			nil,
+			"",
 		},
 		{
 			"overflow index array without lax returns error",
-			`{"data": [0, 1]}`,
-			"[data,18446744073709551616]",
-			false,
+			"",
+			"data,18446744073709551616",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
-			true,
+			pipeline.ErrKeypathNotFound,
+			"",
 		},
 		{
 			"return array",
-			`{"data": [[0, 1]]}`,
-			"[data,0]",
-			false,
+			"",
+			"data,0",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
 			[]interface{}{float64(0), float64(1)},
-			false,
+			nil,
+			"",
 		},
 		{
 			"return false",
-			`{"data": false}`,
-			"[data]",
+			"",
+			"data",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": false}`}},
 			false,
-			false,
-			false,
+			nil,
+			"",
 		},
 		{
 			"return true",
-			`{"data": true}`,
-			"[data]",
-			false,
+			"",
+			"data",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"data": true}`}},
 			true,
-			false,
+			nil,
+			"",
 		},
 		{
 			"regression test: keys in the path have dots",
-			`{
+			"",
+			"Realtime Currency Exchange Rate,5. Exchange Rate",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{
                 "Realtime Currency Exchange Rate": {
                     "1. From_Currency Code": "LEND",
                     "2. From_Currency Name": "EthLend",
@@ -139,58 +207,153 @@ func TestJSONParseTask(t *testing.T) {
                     "8. Bid Price": "0.00058217",
                     "9. Ask Price": "0.00058217"
                 }
-            }`,
-			"[Realtime Currency Exchange Rate,5. Exchange Rate]",
-			false,
+            }`}},
 			"0.00058217",
-			false,
+			nil,
+			"",
 		},
 		{
 			"missing top-level key with lax=false returns error",
-			`{"foo": 1}`,
-			"[baz]",
-			false,
+			"",
+			"baz",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"foo": 1}`}},
 			nil,
-			true,
+			pipeline.ErrKeypathNotFound,
+			"",
 		},
 		{
 			"missing nested key with lax=false returns error",
-			`{"foo": {}}`,
-			"[foo,bar]",
-			false,
+			"",
+			"foo,bar",
+			"false",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"foo": {}}`}},
 			nil,
-			true,
+			pipeline.ErrKeypathNotFound,
+			"",
 		},
 		{
 			"missing top-level key with lax=true returns nil",
-			`{}`,
-			"[baz]",
-			true,
+			"",
+			"baz",
+			"true",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{}`}},
 			nil,
-			false,
+			nil,
+			"",
 		},
 		{
 			"missing nested key with lax=true returns nil",
-			`{"foo": {}}`,
-			"[foo,baz]",
-			true,
+			"",
+			"foo,baz",
+			"true",
+			pipeline.Vars{},
+			[]pipeline.Result{{Value: `{"foo": {}}`}},
 			nil,
-			false,
+			nil,
+			"",
+		},
+
+		{
+			"variable path",
+			"",
+			"$(foo.bar)",
+			"false",
+			pipeline.Vars{
+				"foo": map[string]interface{}{"bar": "data,0,availability"},
+			},
+			[]pipeline.Result{{Value: `{"data":[{"availability":"0.99991"}]}`}},
+			"0.99991",
+			nil,
+			"",
+		},
+		{
+			"variable data",
+			"$(foo.bar)",
+			"data,0,availability",
+			"false",
+			pipeline.Vars{
+				"foo": map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
+			},
+			[]pipeline.Result{},
+			"0.99991",
+			nil,
+			"",
+		},
+		{
+			"variable path and data",
+			"$(foo.bar)",
+			"$(chain.link)",
+			"false",
+			pipeline.Vars{
+				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
+				"chain": map[string]interface{}{"link": "data,0,availability"},
+			},
+			[]pipeline.Result{},
+			"0.99991",
+			nil,
+			"",
+		},
+		{
+			"no data or input",
+			"",
+			"$(chain.link)",
+			"false",
+			pipeline.Vars{
+				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
+				"chain": map[string]interface{}{"link": "data,0,availability"},
+			},
+			[]pipeline.Result{},
+			"0.99991",
+			pipeline.ErrParameterEmpty,
+			"data",
+		},
+		{
+			"malformed 'lax' param",
+			"$(foo.bar)",
+			"$(chain.link)",
+			"sergey",
+			pipeline.Vars{
+				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
+				"chain": map[string]interface{}{"link": "data,0,availability"},
+			},
+			[]pipeline.Result{},
+			"0.99991",
+			pipeline.ErrBadInput,
+			"lax",
 		},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			task := JSONParseTask{Path: test.path, Lax: fmt.Sprintf("%v", test.lax)}
-			result := task.Run(context.Background(), nil, JSONSerializable{}, []Result{{Value: test.input}})
+			task := pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask("json", nil, 0, 0),
+				Path:     test.path,
+				Data:     test.data,
+				Lax:      test.lax,
+			}
+			result := task.Run(context.Background(), test.vars, pipeline.JSONSerializable{}, test.inputs)
 
-			if test.wantResultError {
-				require.Error(t, result.Error)
+			if test.wantErrorCause != nil {
+				require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
+				if test.wantErrorContains != "" {
+					require.Contains(t, result.Error.Error(), test.wantErrorContains)
+				}
+
 				require.Nil(t, result.Value)
+				val, err := test.vars.Get("json")
+				require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
+				require.Nil(t, val)
 			} else {
 				require.NoError(t, result.Error)
 				require.Equal(t, test.wantData, result.Value)
+				val, err := test.vars.Get("json")
+				require.NoError(t, err)
+				require.Equal(t, test.wantData, val)
 			}
 		})
 	}

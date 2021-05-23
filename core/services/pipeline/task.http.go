@@ -1,20 +1,13 @@
 package pipeline
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io"
-	"net/http"
-	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -26,11 +19,6 @@ type HTTPTask struct {
 	AllowUnrestrictedNetworkAccess string
 
 	config Config
-}
-
-type PossibleErrorResponses struct {
-	Error        string `json:"error"`
-	ErrorMessage string `json:"errorMessage"`
 }
 
 var _ Task = (*HTTPTask)(nil)
@@ -54,74 +42,26 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
-}
-
 func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
-	_, err := CheckInputs(inputs, 0, 1, 0)
-	if err != nil {
-		return Result{Error: err}
-	}
-
 	var (
 		method                         StringParam
 		url                            URLParam
 		requestData                    MapParam
-		allowUnrestrictedNetworkAccess MaybeBoolParam
+		allowUnrestrictedNetworkAccess BoolParam
 	)
-	err = multierr.Combine(
-		vars.ResolveValue(&method, From(NonemptyString(t.Method))),
-		vars.ResolveValue(&url, From(NonemptyString(t.URL))),
-		vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0))),
-		vars.ResolveValue(&allowUnrestrictedNetworkAccess, From(t.AllowUnrestrictedNetworkAccess)),
+	err := multierr.Combine(
+		errors.Wrap(vars.ResolveValue(&method, From(NonemptyString(t.Method), "GET")), "method"),
+		errors.Wrap(vars.ResolveValue(&url, From(NonemptyString(t.URL))), "url"),
+		errors.Wrap(vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0), nil)), "requestData"),
+		errors.Wrap(vars.ResolveValue(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), t.config.DefaultHTTPAllowUnrestrictedNetworkAccess())), "allowUnrestrictedNetworkAccess"),
 	)
 	if err != nil {
 		return Result{Error: err}
 	}
 
-	var bodyReader io.Reader
-	if requestData != nil {
-		bodyBytes, err := json.Marshal(requestData)
-		if err != nil {
-			return Result{Error: errors.Wrap(err, "failed to encode request body as JSON")}
-		}
-		bodyReader = bytes.NewReader(bodyBytes)
-	}
-
-	request, err := http.NewRequest(string(method), url.String(), bodyReader)
+	responseBytes, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "failed to create http.Request")}
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	config := utils.HTTPRequestConfig{
-		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
-		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
-		SizeLimit:                      t.config.DefaultHTTPLimit(),
-		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(allowUnrestrictedNetworkAccess),
-	}
-
-	httpRequest := utils.HTTPRequest{
-		Request: request,
-		Config:  config,
-	}
-
-	start := time.Now()
-	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
-	if err != nil {
-		if ctx.Err() != nil {
-			return Result{Error: errors.New("http request timed out or interrupted")}
-		}
-		return Result{Error: errors.Wrapf(err, "error making http request")}
-	}
-	elapsed := time.Since(start)
-	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
-	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
-
-	if statusCode >= 400 {
-		maybeErr := bestEffortExtractError(responseBytes)
-		return Result{Error: errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)}
+		return Result{Error: err}
 	}
 
 	logger.Debugw("HTTP task got response",
@@ -129,31 +69,19 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, input
 		"url", url.String(),
 		"dotID", t.DotID(),
 	)
+
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
+
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
 	// value instead.
-	return Result{Value: string(responseBytes)}
-}
+	result := Result{Value: string(responseBytes)}
 
-func (t *HTTPTask) allowUnrestrictedNetworkAccess(mb MaybeBoolParam) bool {
-	b, isSet := mb.Bool()
-	if isSet {
-		return b
-	}
-	return t.config.DefaultHTTPAllowUnrestrictedNetworkAccess()
-}
-
-func bestEffortExtractError(responseBytes []byte) string {
-	var resp PossibleErrorResponses
-	err := json.Unmarshal(responseBytes, &resp)
+	err = vars.Set(t.DotID(), result.Value)
 	if err != nil {
-		return ""
+		return Result{Error: err}
 	}
-	if resp.Error != "" {
-		return resp.Error
-	} else if resp.ErrorMessage != "" {
-		return resp.ErrorMessage
-	}
-	return string(responseBytes)
+	return result
 }

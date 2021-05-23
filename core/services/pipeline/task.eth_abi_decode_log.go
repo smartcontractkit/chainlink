@@ -22,10 +22,6 @@ func (t *ETHABIDecodeLogTask) Type() TaskType {
 	return TaskTypeETHABIDecodeLog
 }
 
-func (t *ETHABIDecodeLogTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
-}
-
 func (t *ETHABIDecodeLogTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {

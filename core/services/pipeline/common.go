@@ -5,7 +5,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"net/url"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +32,6 @@ type (
 		SetOutputTask(task Task)
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error
 		NumPredecessors() int
 	}
 
@@ -273,7 +274,40 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
 
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{Result: task})
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result: task,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+				switch f {
+				case reflect.TypeOf(""):
+					switch t {
+					// case reflect.TypeOf(decimal.Decimal{}):
+					// 	return decimal.NewFromString(data.(string))
+
+					case reflect.TypeOf(int32(0)):
+						i, err2 := strconv.ParseInt(data.(string), 10, 32)
+						return int32(i), err2
+						// case reflect.TypeOf(uint32(0)):
+						// 	i, err2 := strconv.ParseInt(data.(string), 10, 32)
+						// 	return uint32(i), err2
+						// case reflect.TypeOf(int64(0)):
+						// 	i, err2 := strconv.ParseInt(data.(string), 10, 64)
+						// 	return uint32(i), err2
+						// case reflect.TypeOf(uint64(0)):
+						// 	i, err2 := strconv.ParseInt(data.(string), 10, 64)
+						// 	return uint64(i), err2
+						// case reflect.TypeOf(true):
+						// 	b, err2 := strconv.ParseBool(data.(string))
+						// 	return b, err2
+						// case reflect.TypeOf(MaybeBool("")):
+						// 	return MaybeBoolFromString(data.(string))
+					}
+				}
+				return data, nil
+			},
+		),
+	})
 	if err != nil {
 		return nil, err
 	}

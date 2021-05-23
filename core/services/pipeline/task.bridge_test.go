@@ -123,6 +123,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask("bridge", nil, 0, 0),
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
@@ -133,7 +134,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
+	vars := pipeline.Vars{}
+	result := task.Run(context.Background(), vars, pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -175,6 +177,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask("bridge", nil, 0, 0),
 		RequestData: ethUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
@@ -183,7 +186,8 @@ func TestBridgeTask_Meta(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	task.Run(context.Background(), nil, pipeline.JSONSerializable{metaDataForBridge, false}, nil)
+	vars := pipeline.Vars{}
+	task.Run(context.Background(), vars, pipeline.JSONSerializable{metaDataForBridge, false}, nil)
 }
 
 func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
@@ -203,7 +207,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 		{"input, no includeInputAtKey", []pipeline.Result{{Value: decimal.NewFromFloat(123.45)}}, "", nil, nil},
 		{"input, includeInputAtKey", []pipeline.Result{{Value: decimal.NewFromFloat(123.45)}}, "result", "123.45", nil},
 		{"too many inputs", []pipeline.Result{{Value: decimal.NewFromFloat(123.45)}, {Value: decimal.NewFromFloat(321.45)}}, "result", nil, pipeline.ErrWrongInputCardinality},
-		{"input has error", []pipeline.Result{{Error: theErr}}, "result", nil, theErr},
+		{"input has error", []pipeline.Result{{Error: theErr}}, "result", nil, pipeline.ErrTooManyErrors},
 	}
 
 	for _, test := range tests {
@@ -216,11 +220,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
 			defer s1.Close()
 
-			feedURL, err := url.ParseRequestURI(s1.URL)
-			require.NoError(t, err)
-			feedWebURL := (*models.WebURL)(feedURL)
-
 			task := pipeline.BridgeTask{
+				BaseTask:          pipeline.NewBaseTask("bridge", nil, 0, 0),
 				Name:              "foo",
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
@@ -228,11 +229,14 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
 			// Insert bridge
+			feedURL, err := url.ParseRequestURI(s1.URL)
+			require.NoError(t, err)
 			_, bridge := cltest.NewBridgeType(t, task.Name)
-			bridge.URL = *feedWebURL
+			bridge.URL = *(*models.WebURL)(feedURL)
 			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-			result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, test.inputs)
+			vars := pipeline.Vars{}
+			result := task.Run(context.Background(), vars, pipeline.JSONSerializable{emptyMeta, false}, test.inputs)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				require.Nil(t, result.Value)

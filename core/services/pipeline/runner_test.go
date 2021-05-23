@@ -57,15 +57,15 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	d := pipeline.TaskDAG{}
 	s := fmt.Sprintf(`
-ds1 [type=bridge name="example-bridge" timeout=0 requestData="{\"data\": {\"coin\": \"BTC\", \"market\": \"USD\"}}"]
+ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
-ds2 [type=http method="GET" url="%s" requestData="{\"data\": {\"coin\": \"BTC\", \"market\": \"USD\"}}"]
+ds2 [type=http method="GET" url="%s" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds2_parse [type=jsonparse lax=false  path="data,result"]
 ds2_multiply [type=multiply times=1000000000000000000]
 
-ds3 [type=http method="GET" url="blah://test.invalid" requestData="{\"data\": {\"coin\": \"BTC\", \"market\": \"USD\"}}"]
+ds3 [type=http method="GET" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds3_parse [type=jsonparse lax=false  path="data,result"]
 ds3_multiply [type=multiply times=1000000000000000000]
 

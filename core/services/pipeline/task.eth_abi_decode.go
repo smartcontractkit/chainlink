@@ -21,10 +21,6 @@ func (t *ETHABIDecodeTask) Type() TaskType {
 	return TaskTypeETHABIDecode
 }
 
-func (t *ETHABIDecodeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
-}
-
 func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
@@ -32,7 +28,7 @@ func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, _ JSONSerializable,
 	}
 
 	var (
-		data   StringParam
+		data   BytesParam
 		theABI StringParam
 	)
 	err = multierr.Combine(
