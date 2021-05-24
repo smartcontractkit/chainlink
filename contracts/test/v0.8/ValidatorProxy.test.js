@@ -1,4 +1,3 @@
-/* eslint-disable */
 const { ethers } = require("hardhat");
 const { publicAbi } = require("./helpers");
 const { assert, expect } = require("chai");
