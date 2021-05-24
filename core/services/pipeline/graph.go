@@ -17,21 +17,6 @@ import (
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
 // calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
 // NOTE: We only permit one child
-
-// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
-// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
-// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
-// NOTE: We only permit one child
-
-// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
-// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
-// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
-// NOTE: We only permit one child
-
-// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
-// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
-// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
-// NOTE: We only permit one child
 type TaskDAG struct {
 	*simple.DirectedGraph
 	DOTSource string
@@ -191,15 +176,6 @@ func (n *TaskDAGNode) Attributes() []encoding.Attribute {
 		return r[i].Key < r[j].Key
 	})
 	return r
-}
-
-func (n *TaskDAGNode) inputs() []*TaskDAGNode {
-	var nodes []*TaskDAGNode
-	ns := n.g.To(n.ID())
-	for ns.Next() {
-		nodes = append(nodes, ns.Node().(*TaskDAGNode))
-	}
-	return nodes
 }
 
 func (n *TaskDAGNode) outputs() []*TaskDAGNode {

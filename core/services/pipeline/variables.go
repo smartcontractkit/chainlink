@@ -225,14 +225,6 @@ func variableExprKeypath(s string) (keypath string, ok bool) {
 	return "", false
 }
 
-func trimStrings(strs []string) []string {
-	trimmed := make([]string, len(strs))
-	for i := range strs {
-		trimmed[i] = strings.TrimSpace(strs[i])
-	}
-	return trimmed
-}
-
 func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
 	if minLen >= 0 && len(inputs) < minLen {
 		return nil, ErrWrongInputCardinality

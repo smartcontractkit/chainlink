@@ -52,8 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     medianize [type=median]
     submit    [type=bridge name="submit"
                requestData=<{
-                              "result": $medianize,
-                              "fetchedData": [ $parse1, $parse2 ]
+                              "result": $(medianize),
+                              "fetchedData": [ $(parse1), $(parse2) ]
                             }>]
 
     fetch1 -> parse1 -> medianize
