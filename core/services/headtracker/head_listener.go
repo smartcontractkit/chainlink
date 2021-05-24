@@ -169,6 +169,7 @@ func (hl *HeadListener) subscribeToHead(connected func()) error {
 	hl.inHeaders = make(chan *models.Head)
 	var rb *headRingBuffer
 	rb, hl.outHeaders = newHeadRingBuffer(hl.inHeaders, int(hl.config.EthHeadTrackerMaxBufferSize()), func() *logger.Logger { return hl.logger })
+
 	// It will autostop when we close inHeaders channel
 	rb.Start()
 
