@@ -4,7 +4,6 @@ pragma solidity ^0.7.0;
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "./OperatorForwarder.sol";
-import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
@@ -17,7 +16,6 @@ import "../vendor/SafeMathChainlink.sol";
 contract Operator is
   LinkTokenReceiver,
   ConfirmedOwner,
-  ChainlinkRequestInterface,
   OperatorInterface,
   WithdrawalInterface
 {
@@ -34,6 +32,10 @@ contract Operator is
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
+  // oracleRequest is version 1, enabling single word responses
+  bytes4 constant private ORACLE_REQUEST_SELECTOR = this.oracleRequest.selector;
+  // requestOracleData is version 2, enabling multi-word responses
+  bytes4 constant private OPERATOR_REQUEST_SELECTOR = this.requestOracleData.selector;
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
@@ -68,8 +70,8 @@ contract Operator is
     bytes32 indexed requestId
   );
 
-  event ForwarderCreated(
-    address indexed addr
+  event ForwarderChanged(
+    OperatorForwarder indexed addr
   );
 
   /**
@@ -90,6 +92,35 @@ contract Operator is
 
   // EXTERNAL FUNCTIONS
 
+  function oracleRequest(
+    address sender,
+    uint256 payment,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion,
+    bytes calldata data
+  )
+    external
+    override
+  {
+    (bool success, ) = address(this).delegatecall(
+      abi.encodeWithSelector(
+        this.requestOracleData.selector,
+        sender,
+        payment,
+        specId,
+        callbackAddress,
+        callbackFunctionId,
+        nonce,
+        dataVersion,
+        data
+      )
+    );
+    require(success, "Request failed");
+  }
+
   /**
    * @notice Creates the Chainlink request
    * @dev Stores the hash of the params as the on-chain commitment for the request.
@@ -103,7 +134,7 @@ contract Operator is
    * @param dataVersion The specified data version
    * @param data The CBOR payload of the request
    */
-  function oracleRequest(
+  function requestOracleData(
     address sender,
     uint256 payment,
     bytes32 specId,
@@ -282,6 +313,56 @@ contract Operator is
   }
 
   /**
+   * @notice If the s_forwarder is owned by a different address, deploy and set a new one
+   */
+  function deployForwarder()
+    external
+    onlyOwner()
+    returns (
+      OperatorForwarder
+    )
+  {
+    require(address(this) != s_forwarder.owner(), "Operator is forwarder owner");
+    OperatorForwarder newForwarder = new OperatorForwarder(address(linkToken));
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
+    return newForwarder;
+  }
+
+  /**
+   * @notice Transfer the ownership of the s_forwarder
+   * @dev This contract is the owner until the newOwner calls acceptOwnership on the forwarder
+   * @param newOwner address
+   */
+  function transferForwarderOwnership(
+    address newOwner
+  )
+    external
+    override
+    onlyOwner()
+  {
+    s_forwarder.transferOwnership(newOwner);
+  }
+
+  /**
+   * @notice Accept the ownership of a forwarder and set as the s_forwarder
+   * @dev Must be the pending owner on the forwarder
+   * @param forwarderAddr address
+   */
+  function acceptForwarderOwnership(
+    address forwarderAddr
+  )
+    external
+    override
+    onlyOwner()
+  {
+    OperatorForwarder newForwarder = OperatorForwarder(forwarderAddr);
+    newForwarder.acceptOwnership();
+    s_forwarder = newForwarder;
+    emit ForwarderChanged(newForwarder);
+  }
+
+  /**
    * @notice Retrieve a list of authorized senders
    * @return array of addresses
    */
@@ -303,12 +384,11 @@ contract Operator is
   function getForwarder()
     external
     view
-    override
     returns (
-      address
+      OperatorForwarder
     )
   {
-    return address(s_forwarder);
+    return s_forwarder;
   }
 
   /**
@@ -437,6 +517,20 @@ contract Operator is
     )
   {
     return address(linkToken);
+  }
+
+  /**
+   * @notice Require that the token transfer action is valid
+   * @dev OPERATOR_REQUEST_SELECTOR = multiword, ORACLE_REQUEST_SELECTOR = singleword
+   */
+  function validateTokenTransferAction(
+    bytes4 funcSelector
+  )
+    public
+    pure
+    override
+  {
+    require(funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
   }
 
   // INTERNAL FUNCTIONS

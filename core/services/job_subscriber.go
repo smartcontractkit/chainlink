@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -102,7 +103,6 @@ func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
 	js.jobsMutex.RLock()
 	defer js.jobsMutex.RUnlock()
 	if _, exists := js.jobSubscriptions[jobID.String()]; exists {
-		logger.Errorw("job subscription already added", "jobID", jobID)
 		return true
 	}
 	return false
@@ -197,3 +197,18 @@ func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head
 	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
 }
+
+// NullJobSubscriber implements Null pattern for JobSubscriber interface
+type NullJobSubscriber struct{}
+
+func (NullJobSubscriber) Connect(head *models.Head) error                         { return nil }
+func (NullJobSubscriber) Disconnect()                                             {}
+func (NullJobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {}
+func (NullJobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
+	return errors.New("NullJobSubscriber#AddJob should never be called")
+}
+func (NullJobSubscriber) RemoveJob(ID models.JobID) error {
+	return errors.New("NullJobSubscriber#RemoveJob should never be called")
+}
+func (NullJobSubscriber) Jobs() (j []models.JobSpec) { return }
+func (NullJobSubscriber) Stop() error                { return nil }
