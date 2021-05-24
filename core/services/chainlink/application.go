@@ -242,7 +242,19 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
-			job.VRF:    vrf.NewDelegate(store.Config.MinIncomingConfirmations(), utils.GetScryptParams(store.Config), store.DB, pipelineRunner, pipelineORM, logBroadcaster, store.EthClient),
+			job.VRF: vrf.NewDelegate(
+				store.DB, // For transactions.
+				store,
+				pipelineRunner,
+				pipelineORM,
+				logBroadcaster,
+				store.EthClient,
+				vrf.NewConfig(
+					store.Config.MinIncomingConfirmations(),
+					utils.GetScryptParams(store.Config),
+					store.Config.EthGasLimitDefault(),
+					store.Config.EthMaxUnconfirmedTransactions(),
+				)),
 		}
 	)
 

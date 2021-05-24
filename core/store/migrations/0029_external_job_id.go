@@ -4,9 +4,10 @@ import "gorm.io/gorm"
 
 const (
 	up29 = `
+               CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
                ALTER TABLE direct_request_specs DROP COLUMN on_chain_job_spec_id;
                ALTER TABLE jobs ADD COLUMN external_job_id uuid NOT NULL DEFAULT uuid_generate_v4();
-               ADD CONSTRAINT external_job_id_uniq UNIQUE(external_job_id);
+               ALTER TABLE jobs ADD CONSTRAINT external_job_id_uniq UNIQUE(external_job_id);
        `
 	down29 = `
                ALTER TABLE direct_request_specs ADD COLUMN on_chain_job_spec_id bytea;

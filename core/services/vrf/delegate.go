@@ -1,10 +1,13 @@
 package vrf
 
 import (
+	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -20,28 +23,59 @@ import (
 )
 
 type Delegate struct {
-	minIncomingConfs uint32
-	vorm             ORM
-	db               *gorm.DB
-	pr               pipeline.Runner
-	porm             pipeline.ORM
-	ks               *VRFKeyStore
-	ec               eth.Client
-	lb               log.Broadcaster
+	cfg    Config
+	vorm   ORM
+	db     *gorm.DB
+	pr     pipeline.Runner
+	porm   pipeline.ORM
+	vrfks  *VRFKeyStore
+	gethks GethKeyStore
+	ec     eth.Client
+	lb     log.Broadcaster
 }
 
-func NewDelegate(minIncomingConfs uint32, params utils.ScryptParams, db *gorm.DB, pr pipeline.Runner, porm pipeline.ORM, lb log.Broadcaster, ec eth.Client) *Delegate {
+//go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
+
+type GethKeyStore interface {
+	GetRoundRobinAddress(db *gorm.DB, addresses ...common.Address) (common.Address, error)
+}
+
+type Config struct {
+	minIncomingConfs   uint32
+	params             utils.ScryptParams
+	gasLimit           uint64
+	maxUnconfirmedTxes uint64
+}
+
+func NewConfig(minIncomingConfs uint32, params utils.ScryptParams, gasLimit uint64, maxUnconfirmedTxes uint64) Config {
+	return Config{
+		minIncomingConfs:   minIncomingConfs,
+		params:             params,
+		gasLimit:           gasLimit,
+		maxUnconfirmedTxes: maxUnconfirmedTxes,
+	}
+}
+
+func NewDelegate(
+	db *gorm.DB,
+	gethks GethKeyStore,
+	pr pipeline.Runner,
+	porm pipeline.ORM,
+	lb log.Broadcaster,
+	ec eth.Client,
+	cfg Config) *Delegate {
 	vorm := NewORM(db)
-	ks := NewVRFKeyStore(vorm, params)
+	vrfks := NewVRFKeyStore(vorm, cfg.params)
 	return &Delegate{
-		minIncomingConfs: minIncomingConfs,
-		db:               db,
-		ks:               ks,
-		vorm:             vorm,
-		pr:               pr,
-		porm:             porm,
-		lb:               lb,
-		ec:               ec,
+		cfg:    cfg,
+		db:     db,
+		vrfks:  vrfks,
+		gethks: gethks,
+		vorm:   vorm,
+		pr:     pr,
+		porm:   porm,
+		lb:     lb,
+		ec:     ec,
 	}
 }
 
@@ -59,22 +93,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	}
 
 	// Take the larger of the global vs specific
-	minConfirmations := d.minIncomingConfs
-	if jb.VRFSpec.Confirmations > d.minIncomingConfs {
-		minConfirmations = jb.VRFSpec.Confirmations
+	if jb.VRFSpec.Confirmations > d.cfg.minIncomingConfs {
+		d.cfg.minIncomingConfs = jb.VRFSpec.Confirmations
 	}
 
 	logListener := &listener{
-		logBroadcaster:   d.lb,
-		db:               d.db,
-		coordinator:      coordinator,
-		pipelineRunner:   d.pr,
-		ks:               d.ks,
-		pipelineORM:      d.porm,
-		job:              jb,
-		mbLogs:           utils.NewMailbox(1000),
-		minConfirmations: minConfirmations,
-		chStop:           make(chan struct{}),
+		cfg:            d.cfg,
+		logBroadcaster: d.lb,
+		db:             d.db,
+		coordinator:    coordinator,
+		pipelineRunner: d.pr,
+		vrfks:          d.vrfks,
+		gethks:         d.gethks,
+		pipelineORM:    d.porm,
+		job:            jb,
+		mbLogs:         utils.NewMailbox(1000),
+		chStop:         make(chan struct{}),
 	}
 	return []job.Service{logListener}, nil
 }
@@ -85,6 +119,7 @@ var (
 )
 
 type listener struct {
+	cfg              Config
 	logBroadcaster   log.Broadcaster
 	coordinator      *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner   pipeline.Runner
@@ -92,7 +127,8 @@ type listener struct {
 	vorm             ORM
 	job              job.Job
 	db               *gorm.DB
-	ks               *VRFKeyStore
+	vrfks            *VRFKeyStore
+	gethks           GethKeyStore
 	mbLogs           *utils.Mailbox
 	minConfirmations uint32
 	chStop           chan struct{}
@@ -113,7 +149,7 @@ func (l *listener) Start() error {
 			},
 			NumConfirmations: uint64(l.minConfirmations),
 		})
-		go func() {
+		go gracefulpanic.WrapRecover(func() {
 			for {
 				select {
 				case <-l.chStop:
@@ -126,9 +162,9 @@ func (l *listener) Start() error {
 						if !exists {
 							break
 						}
-						lb, ok  := i.(log.Broadcast)
+						lb, ok := i.(log.Broadcast)
 						if !ok {
-							panic("blah")
+							panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 						}
 						alreadyConsumed, err := l.logBroadcaster.WasAlreadyConsumed(l.db, lb)
 						if err != nil {
@@ -137,75 +173,36 @@ func (l *listener) Start() error {
 						} else if alreadyConsumed {
 							continue
 						}
-
 						s := time.Now()
-						req, err := l.coordinator.ParseRandomnessRequest(lb.RawLog())
-						if err != nil {
-							logger.Error("VRFListener: invalid log")
-							continue
-						}
-						// Validate the key against the spec
-						inputs, err := GetVRFInputs(l.job, req)
-						if err != nil {
-							logger.Error("VRFListener: invalid log")
-							continue
-						}
-						var re pipeline.RunErrors
-						var output pipeline.JSONSerializable
-						solidityProof, errGeneratingProof := l.ks.GenerateProof(inputs.pk, inputs.seed)
-						if errGeneratingProof != nil {
-							logger.Errorw("VRFListener: error generating proof", "err", errGeneratingProof)
-							re = append(re, null.StringFrom(errGeneratingProof.Error()))
-							output = pipeline.JSONSerializable{Null: true}
-						} else {
-							re = append(re, null.String{})
-							output = pipeline.JSONSerializable{Val: solidityProof}
-						}
-
-						vrfCoordinatorArgs, err := models.VRFFulfillMethod().Inputs.PackValues(
-							[]interface{}{
-								solidityProof[:], // geth expects slice, even if arg is constant-length
-							})
-						if err != nil {
-							//TODO
-							continue
-						}
+						result, errs := l.ProcessLog(lb)
 						f := time.Now()
 						err = postgres.GormTransactionWithDefaultContext(l.db, func(tx *gorm.DB) error {
 							var etx *models.EthTx
-							if errGeneratingProof != nil {
-								etx, err = l.vorm.CreateEthTransaction(tx, common.Address{}, common.Address{}, vrfCoordinatorArgs, 0, 0)
+							var meta pipeline.JSONSerializable
+							if !errs.HasError() {
+								from, err := l.gethks.GetRoundRobinAddress(tx)
 								if err != nil {
 									return err
 								}
-								_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-									PipelineSpecID: l.job.PipelineSpecID,
-									Meta: pipeline.JSONSerializable{
-										Val: map[string]interface{}{"eth_tx_id": etx.ID},
-									},
-									Errors:     re,
-									Outputs:    output,
-									CreatedAt:  s,
-									FinishedAt: &f,
-								}, nil, false)
+								etx, err = l.vorm.CreateEthTransaction(tx, from, l.coordinator.Address(), result.Val.([]byte), l.cfg.gasLimit, l.cfg.maxUnconfirmedTxes)
 								if err != nil {
-									return errors.Wrap(err, "VRFListener: failed to insert finished run")
+									return err
 								}
-							} else {
-								// Do not submit an eth tx, insert failure
-								_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-									PipelineSpecID: l.job.PipelineSpecID,
-									Meta:           pipeline.JSONSerializable{Null: true},
-									Errors:         re,
-									Outputs:        output,
-									CreatedAt:      s,
-									FinishedAt:     &f,
-								}, nil, false)
-								if err != nil {
-									return errors.Wrap(err, "VRFListener: failed to insert finished run")
+								meta = pipeline.JSONSerializable{
+									Val: map[string]interface{}{"eth_tx_id": etx.ID},
 								}
 							}
-
+							_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+								PipelineSpecID: l.job.PipelineSpecID,
+								Errors:         errs,
+								Outputs:        result,
+								Meta:           meta,
+								CreatedAt:      s,
+								FinishedAt:     &f,
+							}, nil, true)
+							if err != nil {
+								return errors.Wrap(err, "VRFListener: failed to insert finished run")
+							}
 							err = l.logBroadcaster.MarkConsumed(tx, lb)
 							if err != nil {
 								return err
@@ -218,9 +215,39 @@ func (l *listener) Start() error {
 					}
 				}
 			}
-		}()
+		})
 		return nil
 	})
+}
+
+func (l *listener) ProcessLog(lb log.Broadcast) (pipeline.JSONSerializable, pipeline.RunErrors) {
+	req, err := l.coordinator.ParseRandomnessRequest(lb.RawLog())
+	if err != nil {
+		logger.Errorw("VRFListener: failed to parse log", "err", err)
+		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+	}
+	// Validate the key against the spec
+	inputs, err := GetVRFInputs(l.job, req)
+	if err != nil {
+		logger.Errorw("VRFListener: invalid log", "err", err)
+		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+	}
+
+	solidityProof, err := l.vrfks.GenerateProof(inputs.pk, inputs.seed)
+	if err != nil {
+		logger.Errorw("VRFListener: error generating proof", "err", err)
+		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+	}
+
+	vrfCoordinatorArgs, err := models.VRFFulfillMethod().Inputs.PackValues(
+		[]interface{}{
+			solidityProof[:], // geth expects slice, even if arg is constant-length
+		})
+	if err != nil {
+		logger.Errorw("VRFListener: error building fulfill args", "err", err)
+		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+	}
+	return pipeline.JSONSerializable{Val: vrfCoordinatorArgs}, []null.String{{}}
 }
 
 type VRFInputs struct {
@@ -228,9 +255,28 @@ type VRFInputs struct {
 	seed PreSeedData
 }
 
+// Check the key hash against the spec's pubkey
 func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest) (VRFInputs, error) {
-	// Check the key hash against the spec's pubkey, seed fields are not empty etc. etc.
-	return VRFInputs{}, nil
+	var inputs VRFInputs
+	kh, err := jb.VRFSpec.PublicKey.Hash()
+	if err != nil {
+		return inputs, err
+	}
+	if !bytes.Equal(request.KeyHash[:], kh[:]) {
+		return inputs, errors.New("invalid key hash")
+	}
+	preSeed, err := BigToSeed(request.Seed)
+	if err != nil {
+		return inputs, errors.New("unable to parse preseed")
+	}
+	return VRFInputs{
+		pk: jb.VRFSpec.PublicKey,
+		seed: PreSeedData{
+			PreSeed:   preSeed,
+			BlockHash: request.Raw.BlockHash,
+			BlockNum:  request.Raw.BlockNumber,
+		},
+	}, nil
 }
 
 // Close complies with job.Service

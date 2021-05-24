@@ -1,6 +1,9 @@
 package testspecs
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 var (
 	OCRSpec = `
@@ -110,6 +113,47 @@ confirmations = 6
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 `
 )
+
+type VRFSpecParams struct {
+	JobID              string
+	Name               string
+	CoordinatorAddress string
+	Confirmations      int
+	PublicKey          string
+}
+
+func GenerateVRFSpec(params VRFSpecParams) string {
+	jobID := "123e4567-e89b-12d3-a456-426655440000"
+	if params.JobID != "" {
+		jobID = params.JobID
+	}
+	name := "vrf-primary"
+	if params.Name != "" {
+		name = name
+	}
+	coordinatorAddress := "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+	if params.CoordinatorAddress != "" {
+		coordinatorAddress = coordinatorAddress
+	}
+	confirmations := 6
+	if params.Confirmations != 0 {
+		confirmations = confirmations
+	}
+	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+	if params.PublicKey != "" {
+		publicKey = publicKey
+	}
+	template := `
+jobID = "%s"
+type = "vrf"
+schemaVersion = 1
+name = "%s"
+coordinatorAddress = "%s"
+confirmations = %d 
+publicKey = "%s"
+`
+	return fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey)
+}
 
 func OCRSpecWithTransmitterAddress(ta string) string {
 	return strings.Replace(OCRSpec, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", ta, 1)
