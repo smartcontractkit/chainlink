@@ -225,17 +225,13 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP            TaskType = "http"
-	TaskTypeBridge          TaskType = "bridge"
-	TaskTypeMedian          TaskType = "median"
-	TaskTypeMultiply        TaskType = "multiply"
-	TaskTypeJSONParse       TaskType = "jsonparse"
-	TaskTypeETHABIEncode    TaskType = "ethabiencode"
-	TaskTypeETHABIDecode    TaskType = "ethabidecode"
-	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
-	TaskTypeETHCall         TaskType = "ethcall"
-	TaskTypeAny             TaskType = "any"
-	TaskTypeVRF             TaskType = "vrf"
+	TaskTypeHTTP      TaskType = "http"
+	TaskTypeBridge    TaskType = "bridge"
+	TaskTypeMedian    TaskType = "median"
+	TaskTypeMultiply  TaskType = "multiply"
+	TaskTypeJSONParse TaskType = "jsonparse"
+	TaskTypeAny       TaskType = "any"
+	TaskTypeVRF       TaskType = "vrf"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"

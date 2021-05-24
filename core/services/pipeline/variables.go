@@ -29,21 +29,21 @@ func NewVars() Vars {
 	return make(Vars)
 }
 
-func (v Vars) Get(keypath string) (interface{}, error) {
+func (vars Vars) Get(keypath string) (interface{}, error) {
 	parts := keypathParts(keypath)
 	if len(parts) == 0 {
-		return (map[string]interface{})(v), nil
+		return (map[string]interface{})(vars), nil
 	}
-	return v.traverse(parts, false)
+	return vars.traverse(parts, false)
 }
 
-func (v Vars) Set(keypath string, val interface{}) error {
+func (vars Vars) Set(keypath string, val interface{}) error {
 	parts := keypathParts(keypath)
 	if len(parts) == 0 {
 		return errors.New("can't set the root of a Vars")
 	}
 
-	last, err := v.traverse(parts[:len(parts)-1], true)
+	last, err := vars.traverse(parts[:len(parts)-1], true)
 	if err != nil {
 		return err
 	}
@@ -89,8 +89,8 @@ func keypathParts(keypath string) [][]byte {
 	return parts
 }
 
-func (v Vars) traverse(keypathParts [][]byte, create bool) (interface{}, error) {
-	var cur interface{} = (map[string]interface{})(v)
+func (vars Vars) traverse(keypathParts [][]byte, create bool) (interface{}, error) {
+	var cur interface{} = (map[string]interface{})(vars)
 
 	for _, key := range keypathParts {
 		switch typed := cur.(type) {
@@ -133,7 +133,7 @@ func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs)
 	var err error
 	var found bool
 	for _, get := range getters {
-		val, err = get()
+		val, err = get(vars)
 		if errors.Cause(err) == ErrParameterEmpty {
 			continue
 		} else if err != nil {
@@ -172,10 +172,10 @@ func From(getters ...interface{}) GetterFuncs {
 	return gfs
 }
 
-type GetterFunc func() (interface{}, error)
+type GetterFunc func(vars Vars) (interface{}, error)
 
 func VariableExpr(s string) GetterFunc {
-	return func() (interface{}, error) {
+	return func(vars Vars) (interface{}, error) {
 		keypath, ok := variableExprKeypath(s)
 		if !ok {
 			return nil, ErrParameterEmpty
@@ -185,7 +185,7 @@ func VariableExpr(s string) GetterFunc {
 }
 
 func NonemptyString(s string) GetterFunc {
-	return func() (interface{}, error) {
+	return func(_ Vars) (interface{}, error) {
 		trimmed := strings.TrimSpace(s)
 		if len(trimmed) == 0 {
 			return nil, ErrParameterEmpty
@@ -195,7 +195,7 @@ func NonemptyString(s string) GetterFunc {
 }
 
 func Input(inputs []Result, index int) GetterFunc {
-	return func() (interface{}, error) {
+	return func(_ Vars) (interface{}, error) {
 		if len(inputs)-1 < index {
 			return nil, ErrParameterEmpty
 		}
@@ -204,7 +204,7 @@ func Input(inputs []Result, index int) GetterFunc {
 }
 
 func Inputs(inputs []Result) GetterFunc {
-	return func() (interface{}, error) {
+	return func(_ Vars) (interface{}, error) {
 		var vals []interface{}
 		for _, input := range inputs {
 			if input.Error != nil {
