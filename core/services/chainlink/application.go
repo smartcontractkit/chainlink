@@ -246,6 +246,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		}
 	)
 
+	if config.Dev() {
+		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
+
 	if config.Dev() || config.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			store,
