@@ -7,17 +7,17 @@ import (
 	"sort"
 	"time"
 
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/service"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
@@ -27,14 +27,14 @@ type Runner interface {
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
-	ExecuteRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger) (run Run, trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec Spec, vars Vars, meta JSONSerializable, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
 	InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
 	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
-	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 
 	// Test method for inserting completed non-pipeline job runs
 	TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error)
@@ -43,6 +43,8 @@ type Runner interface {
 type runner struct {
 	orm             ORM
 	config          Config
+	ethClient       eth.Client
+	txManager       TxManager
 	runReaperWorker utils.SleeperTask
 
 	utils.StartStopOnce
@@ -80,12 +82,14 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config) *runner {
+func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager) *runner {
 	r := &runner{
-		orm:    orm,
-		config: config,
-		chStop: make(chan struct{}),
-		chDone: make(chan struct{}),
+		orm:       orm,
+		config:    config,
+		ethClient: ethClient,
+		txManager: txManager,
+		chStop:    make(chan struct{}),
+		chDone:    make(chan struct{}),
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -169,7 +173,7 @@ func (err ErrRunPanicked) Error() string {
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
-	pipelineInput interface{},
+	vars Vars,
 	meta JSONSerializable,
 	l logger.Logger,
 ) (Run, TaskRunResults, error) {
@@ -190,16 +194,22 @@ func (r *runner) ExecuteRun(
 
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
-		if task.Type() == TaskTypeHTTP {
+		switch task.Type() {
+		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
-		} else if task.Type() == TaskTypeBridge {
+		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).tx = r.orm.DB()
+			task.(*BridgeTask).db = r.orm.DB()
+		case TaskTypeETHCall:
+			task.(*ETHCallTask).ethClient = r.ethClient
+		case TaskTypeETHTx:
+			task.(*ETHTxTask).txManager = r.txManager
+		default:
 		}
 	}
 
 	todo := context.TODO()
-	scheduler := newScheduler(todo, pipeline, pipelineInput)
+	scheduler := newScheduler(todo, pipeline, vars)
 	go scheduler.Run()
 
 	for taskRun := range scheduler.taskCh {
@@ -300,8 +310,8 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 }
 
 // ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
-	run, trrs, err := r.ExecuteRun(ctx, spec, pipelineInput, meta, l)
+func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
+	run, trrs, err := r.ExecuteRun(ctx, spec, vars, meta, l)
 	if err != nil {
 		return run.ID, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}

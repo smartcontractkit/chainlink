@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -52,6 +51,7 @@ const (
 type FluxMonitor struct {
 	contractAddress   common.Address
 	oracleAddress     common.Address
+	jobSpec           job.Job
 	spec              pipeline.Spec
 	runner            pipeline.Runner
 	db                *gorm.DB
@@ -81,6 +81,7 @@ type FluxMonitor struct {
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
 func NewFluxMonitor(
 	pipelineRunner pipeline.Runner,
+	jobSpec job.Job,
 	spec pipeline.Spec,
 	db *gorm.DB,
 	orm ORM,
@@ -101,6 +102,7 @@ func NewFluxMonitor(
 	fm := &FluxMonitor{
 		db:                db,
 		runner:            pipelineRunner,
+		jobSpec:           jobSpec,
 		spec:              spec,
 		orm:               orm,
 		jobORM:            jobORM,
@@ -221,6 +223,7 @@ func NewFromJobSpec(
 
 	return NewFluxMonitor(
 		pipelineRunner,
+		jobSpec,
 		*jobSpec.PipelineSpec,
 		db,
 		orm,
@@ -357,10 +360,11 @@ func (fm *FluxMonitor) consume() {
 
 	// Subscribe to contract logs
 	unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
-		Contract: fm.fluxAggregator,
-		Logs: []generated.AbigenLog{
-			flux_aggregator_wrapper.FluxAggregatorNewRound{},
-			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		Contract: fm.fluxAggregator.Address(),
+		ParseLog: fm.fluxAggregator.ParseLog,
+		LogsWithTopics: map[common.Hash][][]log.Topic{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{}.Topic():      nil,
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}.Topic(): nil,
 		},
 		NumConfirmations: 1,
 	})
@@ -368,10 +372,11 @@ func (fm *FluxMonitor) consume() {
 
 	if fm.flags.ContractExists() {
 		unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
-			Contract: fm.flags,
-			Logs: []generated.AbigenLog{
-				flags_wrapper.FlagsFlagLowered{},
-				flags_wrapper.FlagsFlagRaised{},
+			Contract: fm.flags.Address(),
+			ParseLog: fm.flags.ParseLog,
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				flags_wrapper.FlagsFlagLowered{}.Topic(): nil,
+				flags_wrapper.FlagsFlagRaised{}.Topic():  nil,
 			},
 			NumConfirmations: 1,
 		})
@@ -675,8 +680,19 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		}
 	}
 
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    fm.jobSpec.ID,
+			"externalJobID": fm.jobSpec.ExternalJobID,
+			"name":          fm.jobSpec.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta": metaDataForBridge,
+		},
+	})
+
 	// Call the v2 pipeline to execute a new job run
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -841,7 +857,19 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as "decimals" in the FM contract.
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    fm.jobSpec.ID,
+			"externalJobID": fm.jobSpec.ExternalJobID,
+			"name":          fm.jobSpec.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta": metaDataForBridge,
+		},
+	})
+
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")

@@ -230,6 +230,15 @@ func MustJobIDFromString(t *testing.T, s string) models.JobID {
 	return id
 }
 
+func MustBigIntFromString(t *testing.T, s string) *big.Int {
+	t.Helper()
+	x, ok := big.NewInt(0).SetString(s, 10)
+	if !ok {
+		t.Fatalf("could not create *big.Int from string '%v'", s)
+	}
+	return x
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
@@ -291,11 +300,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, tc, db)
 	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config)
+	pr := pipeline.NewRunner(prm, tc.Config, ethClient, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,

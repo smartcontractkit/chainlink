@@ -19,7 +19,7 @@ type BridgeTask struct {
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 
-	tx     *gorm.DB
+	db     *gorm.DB
 	config Config
 }
 
@@ -32,7 +32,7 @@ func (t *BridgeTask) Type() TaskType {
 func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result {
 	inputValues, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
 	var (
@@ -112,13 +112,12 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	task := models.TaskType(name)
-
-	bridge, err := FindBridge(t.tx, task)
+	var bt models.BridgeType
+	err := t.db.First(&bt, "name = ?", string(name)).Error
 	if err != nil {
-		return URLParam{}, err
+		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
-	return URLParam(bridge.URL), nil
+	return URLParam(bt.URL), nil
 }
 
 func withMeta(request MapParam, meta MapParam) MapParam {

@@ -38,7 +38,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 		URL:         s1.URL,
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetConfig(config)
+	task.HelperSetDependencies(config)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
@@ -160,7 +160,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        "foo",
 				RequestData: test.requestData,
 			}
-			task.HelperSetConfigAndTxDB(store.Config, store.DB)
+			task.HelperSetDependencies(store.Config, store.DB)
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -212,7 +212,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetConfig(config)
+	task.HelperSetDependencies(config)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
@@ -241,7 +241,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetConfig(config)
+	task.HelperSetDependencies(config)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
