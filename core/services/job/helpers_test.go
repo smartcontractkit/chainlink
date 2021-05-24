@@ -211,7 +211,6 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitte
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
 	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
-	fmt.Println(voterTurnoutJobSpec)
 	return makeOCRJobSpecFromToml(t, db, voterTurnoutJobSpec)
 }
 

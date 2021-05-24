@@ -237,6 +237,11 @@ const (
 	TaskTypePanic TaskType = "panic"
 )
 
+var (
+	stringType = reflect.TypeOf("")
+	int32Type  = reflect.TypeOf(int32(0))
+)
+
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, numPredecessors int) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
@@ -274,30 +279,13 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		Result: task,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
-			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-				switch f {
-				case reflect.TypeOf(""):
-					switch t {
-					// case reflect.TypeOf(decimal.Decimal{}):
-					// 	return decimal.NewFromString(data.(string))
-
-					case reflect.TypeOf(int32(0)):
+			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+				switch from {
+				case stringType:
+					switch to {
+					case int32Type:
 						i, err2 := strconv.ParseInt(data.(string), 10, 32)
 						return int32(i), err2
-						// case reflect.TypeOf(uint32(0)):
-						// 	i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						// 	return uint32(i), err2
-						// case reflect.TypeOf(int64(0)):
-						// 	i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						// 	return uint32(i), err2
-						// case reflect.TypeOf(uint64(0)):
-						// 	i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						// 	return uint64(i), err2
-						// case reflect.TypeOf(true):
-						// 	b, err2 := strconv.ParseBool(data.(string))
-						// 	return b, err2
-						// case reflect.TypeOf(MaybeBool("")):
-						// 	return MaybeBoolFromString(data.(string))
 					}
 				}
 				return data, nil

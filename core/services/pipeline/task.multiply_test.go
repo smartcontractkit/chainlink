@@ -150,7 +150,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.Vars{}, pipeline.ErrBadInput, "input"},
 		{"map as input from var", "100", "$(foo)", nil, pipeline.Vars{"foo": map[string]interface{}{"chain": "link"}}, pipeline.ErrBadInput, "input"},
 		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.Vars{}, pipeline.ErrBadInput, "input"},
-		{"slice as input as var", "100", "$(foo)", nil, pipeline.Vars{"foo": []interface{}{"chain", "link"}}, pipeline.ErrBadInput, "input"},
+		{"slice as input from var", "100", "$(foo)", nil, pipeline.Vars{"foo": []interface{}{"chain", "link"}}, pipeline.ErrBadInput, "input"},
 		{"input as missing var", "100", "$(foo)", nil, pipeline.Vars{}, pipeline.ErrKeypathNotFound, "input"},
 		{"times as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.Vars{}, pipeline.ErrKeypathNotFound, "times"},
 	}
