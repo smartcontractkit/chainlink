@@ -2,19 +2,12 @@ package pipeline
 
 import (
 	"bytes"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 )
-
-//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
-
-//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
-
-//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
 //go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
 
@@ -135,12 +128,12 @@ func bytesToStrings(bs [][]byte) []string {
 	return s
 }
 
-func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs, validators ...ValidatorFuncs) error {
+func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs) error {
 	var val interface{}
 	var err error
 	var found bool
 	for _, get := range getters {
-		val, err = get(vars)
+		val, err = get()
 		if errors.Cause(err) == ErrParameterEmpty {
 			continue
 		} else if err != nil {
@@ -151,15 +144,6 @@ func (vars Vars) ResolveValue(out PipelineParamUnmarshaler, getters GetterFuncs,
 	}
 	if !found {
 		return ErrParameterEmpty
-	}
-
-	for _, validators := range validators {
-		for _, v := range validators {
-			err = v(val)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	err = out.UnmarshalPipelineParam(val, vars)
@@ -188,10 +172,10 @@ func From(getters ...interface{}) GetterFuncs {
 	return gfs
 }
 
-type GetterFunc func(vars Vars) (interface{}, error)
+type GetterFunc func() (interface{}, error)
 
 func VariableExpr(s string) GetterFunc {
-	return func(vars Vars) (interface{}, error) {
+	return func() (interface{}, error) {
 		keypath, ok := variableExprKeypath(s)
 		if !ok {
 			return nil, ErrParameterEmpty
@@ -201,7 +185,7 @@ func VariableExpr(s string) GetterFunc {
 }
 
 func NonemptyString(s string) GetterFunc {
-	return func(vars Vars) (interface{}, error) {
+	return func() (interface{}, error) {
 		trimmed := strings.TrimSpace(s)
 		if len(trimmed) == 0 {
 			return nil, ErrParameterEmpty
@@ -211,7 +195,7 @@ func NonemptyString(s string) GetterFunc {
 }
 
 func Input(inputs []Result, index int) GetterFunc {
-	return func(vars Vars) (interface{}, error) {
+	return func() (interface{}, error) {
 		if len(inputs)-1 < index {
 			return nil, ErrParameterEmpty
 		}
@@ -220,7 +204,7 @@ func Input(inputs []Result, index int) GetterFunc {
 }
 
 func Inputs(inputs []Result) GetterFunc {
-	return func(vars Vars) (interface{}, error) {
+	return func() (interface{}, error) {
 		var vals []interface{}
 		for _, input := range inputs {
 			if input.Error != nil {
@@ -230,54 +214,6 @@ func Inputs(inputs []Result) GetterFunc {
 			}
 		}
 		return vals, nil
-	}
-}
-
-type ValidatorFuncs []ValidatorFunc
-
-func Require(validators ...ValidatorFunc) ValidatorFuncs {
-	return ValidatorFuncs(validators)
-}
-
-type ValidatorFunc func(val interface{}) error
-
-func Length(min, max int) ValidatorFunc {
-	return func(val interface{}) error {
-		rval := reflect.ValueOf(val)
-		switch rval.Kind() {
-		case reflect.Slice, reflect.Array, reflect.String:
-			length := rval.Len()
-			if min >= 0 && length < min {
-				return ErrWrongInputCardinality
-			} else if max >= 0 && length > max {
-				return ErrWrongInputCardinality
-			}
-			return nil
-
-		default:
-			return errors.Wrapf(ErrBadInput, "Length (got %T)", val)
-		}
-	}
-}
-
-func MaxErrors(maxErrors int) ValidatorFunc {
-	return func(val interface{}) error {
-		switch v := val.(type) {
-		case []interface{}:
-			var errs int
-			for _, input := range v {
-				if _, isErr := input.(error); isErr {
-					errs++
-				}
-			}
-			if maxErrors >= 0 && errs > maxErrors {
-				return ErrTooManyErrors
-			}
-			return nil
-
-		default:
-			return errors.Wrapf(ErrBadInput, "MaxErrors (got %T)", val)
-		}
 	}
 }
 
