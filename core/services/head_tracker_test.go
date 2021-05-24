@@ -258,6 +258,50 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	assert.NoError(t, ht.Stop())
 }
 
+func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	logger := store.Config.CreateProductionLogger()
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+	store.EthClient = ethClient
+
+	chchHeaders := make(chan chan<- *models.Head, 1)
+	ethClient.On("ChainID", mock.Anything).Maybe().Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+
+	checker := &cltest.MockHeadTrackable{}
+	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
+
+	// connect
+	assert.Nil(t, ht.Start())
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
+	assert.Equal(t, int32(0), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
+
+	headers := <-chchHeaders
+
+	// trigger reconnect loop
+	close(headers)
+
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
+	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
+	assert.Equal(t, int32(1), checker.DisconnectedCount())
+	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
+
+	// stop
+	assert.NoError(t, ht.Stop())
+}
+
 func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)

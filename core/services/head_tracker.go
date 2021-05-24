@@ -252,6 +252,7 @@ func (ht *HeadTracker) listenForNewHeads() {
 			break
 		} else if err != nil {
 			ht.logger().Errorw("Error in new head subscription, unsubscribed", "err", err)
+			ht.headers = nil
 			continue
 		} else {
 			break
@@ -410,7 +411,7 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 			return nil
 		case blockHeader, open := <-ht.headers:
 			if !open {
-				return errors.New("HeadTracker: outHeaders prematurely closed")
+				return errors.New("HeadTracker: headers prematurely closed")
 			}
 			timeBudget := ht.store.Config.HeadTimeBudget()
 			{
@@ -565,7 +566,12 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 
 	ht.connected = false
 	ht.disconnect()
-	close(ht.headers)
+	// ht.headers will be nil if subscription failed, channel closed, and
+	// receiveHeaders returned from the loop. listenForNewHeads will set it to
+	// nil in that case to avoid a double close panic.
+	if ht.headers != nil {
+		close(ht.headers)
+	}
 	return nil
 }
 
