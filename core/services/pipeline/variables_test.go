@@ -346,6 +346,8 @@ func TestGetters_Input(t *testing.T) {
 func TestGetters_Inputs(t *testing.T) {
 	t.Parallel()
 
+	theErr := errors.New("some issue")
+
 	tests := []struct {
 		name        string
 		inputs      []pipeline.Result
@@ -356,10 +358,10 @@ func TestGetters_Inputs(t *testing.T) {
 			"returns the values and errors",
 			[]pipeline.Result{
 				{Value: "foo"},
-				{Error: errors.New("some issue")},
+				{Error: theErr},
 				{Value: "baz"},
 			},
-			[]interface{}{"foo", errors.New("some issue"), "baz"}, nil,
+			[]interface{}{"foo", theErr, "baz"}, nil,
 		},
 	}
 
