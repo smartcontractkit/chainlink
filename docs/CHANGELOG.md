@@ -23,6 +23,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
+
+    ``` 
+    my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+    ```
+    ... can now be written as:
+    ``` 
+    my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
+    ```
+    Multiline strings are supported with this syntax as well:
+    ``` 
+    my_bridge [type=bridge
+               name="my_bridge"
+               requestData=<{
+                   "hi": "hello",
+                   "foo": "bar"
+               }>]
+    ```
+
+- v2 jobs (those with TOML specs) now support variable interpolation in pipeline definitions. For example:
+
+    ```
+    fetch1    [type=bridge name="fetch"]
+    parse1    [type=jsonparse path="foo,bar"]
+    fetch2    [type=bridge name="fetch"]
+    parse2    [type=jsonparse path="foo,bar"]
+    medianize [type=median]
+    submit    [type=bridge name="submit"
+               requestData=<{
+                              "result": $medianize,
+                              "fetchedData": [ $parse1, $parse2 ]
+                            }>]
+
+    fetch1 -> parse1 -> medianize
+    fetch2 -> parse2 -> medianize
+    medianize -> submit
+    ```
+
+    This syntax is supported by the following tasks/parameters:
+
+    - `bridge`
+        - `requestData`
+    - `http`
+        - `requestData`
+    - `jsonparse`
+        - `path`
+        - `data` (falls back to the first input if unspecified)
+    - `median`
+        - `values` (falls back to the array of inputs if unspecified)
+    - `multiply`
+        - `input` (falls back to the first input if unspecified)
+        - `times`
+
 - Add `ETH_GAS_LIMIT_MULTIPLIER` configuration option, the gas limit is multiplied by this value before transmission. So a value of 1.1 will add 10% to the on chain gas limit when a transaction is submitted.
 
 - Add `ETH_MIN_GAS_PRICE_WEI` configuration option. This defaults to 1Gwei on mainnet. Chainlink will never send a transaction at a price lower than this value.
@@ -32,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the migrations separately outside of application startup.
 
 ### Changed
+
+- The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
 - Chainlink now automatically cleans up old eth_txes to reduce database size. By default, any eth_txes older than a week are pruned on a regular basis. It is recommended to use the default value, however the default can be overridden by setting the `ETH_TX_REAPER_THRESHOLD` env var e.g. `ETH_TX_REAPER_THRESHOLD=24h`. Reaper can be disabled entirely by setting `ETH_TX_REAPER_THRESHOLD=0`. The reaper will run on startup and again every hour (interval is configurable using `ETH_TX_REAPER_INTERVAL`).
 

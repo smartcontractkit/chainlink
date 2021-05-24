@@ -44,7 +44,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	)
 	err = multierr.Combine(
 		errors.Wrap(vars.ResolveValue(&name, From(NonemptyString(t.Name))), "name"),
-		errors.Wrap(vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0), nil)), "requestData"),
+		errors.Wrap(vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), nil)), "requestData"),
 		errors.Wrap(vars.ResolveValue(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 	)
 	if err != nil {

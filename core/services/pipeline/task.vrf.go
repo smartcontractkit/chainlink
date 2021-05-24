@@ -14,11 +14,7 @@ func (t *VRFTask) Type() TaskType {
 	return TaskTypeVRF
 }
 
-func (t *VRFTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
-}
-
-func (t *VRFTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *VRFTask) Run(_ context.Context, _ Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	// TODO
 	return Result{}
 }
