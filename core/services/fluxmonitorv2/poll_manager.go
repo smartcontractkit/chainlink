@@ -66,6 +66,12 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 	if cfg.IdleTimerPeriod < maxBackoffDuration {
 		maxBackoffDuration = cfg.IdleTimerPeriod
 	}
+	// Always initialize the idle timer so that no matter what it has a ticker
+	// and won't get starved by an old startedAt timestamp from the oracle state on boot.
+	var idleTimer = utils.NewResettableTimer()
+	if !cfg.IdleTimerDisabled {
+		idleTimer.Reset(cfg.IdleTimerPeriod)
+	}
 
 	return &PollManager{
 		cfg:    cfg,
@@ -73,7 +79,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 
 		hibernationTimer: utils.NewResettableTimer(),
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
-		idleTimer:        utils.NewResettableTimer(),
+		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
 		chPoll:           make(chan PollRequest),

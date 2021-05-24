@@ -2,11 +2,12 @@ package fluxmonitorv2
 
 import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func (fm *FluxMonitor) ExportedPollIfEligible(threshold, absoluteThreshold float64) {
-	fm.pollIfEligible(PollRequestTypePoll, NewDeviationChecker(threshold, absoluteThreshold))
+	fm.pollIfEligible(PollRequestTypePoll, NewDeviationChecker(threshold, absoluteThreshold), nil)
 }
 
 func (fm *FluxMonitor) ExportedProcessLogs() {
@@ -21,6 +22,6 @@ func (fm *FluxMonitor) ExportedRoundState() {
 	fm.roundState(0)
 }
 
-func (fm *FluxMonitor) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound) {
-	fm.respondToNewRoundLog(*log)
+func (fm *FluxMonitor) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound, broadcast log.Broadcast) {
+	fm.respondToNewRoundLog(*log, broadcast)
 }

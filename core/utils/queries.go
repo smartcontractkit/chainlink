@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"database/sql"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -15,12 +14,12 @@ import (
 // NOTE: This is in the utils package to avoid import cycles, since it is used
 // in both offchainreporting and adapters. Tests can be found in
 // bulletprooftxmanager_test.go
-func CheckOKToTransmit(ctx context.Context, db *sql.DB, fromAddress gethCommon.Address, maxUnconfirmedTransactions uint64) (err error) {
+func CheckOKToTransmit(db *sql.DB, fromAddress gethCommon.Address, maxUnconfirmedTransactions uint64) (err error) {
 	if maxUnconfirmedTransactions == 0 {
 		return nil
 	}
 	var rows *sql.Rows
-	rows, err = db.QueryContext(ctx, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state IN ('unstarted', 'in_progress', 'unconfirmed')`, fromAddress)
+	rows, err = db.Query(`SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state IN ('unstarted', 'in_progress', 'unconfirmed')`, fromAddress)
 	if err != nil {
 		err = errors.Wrap(err, "bulletprooftxmanager.CheckOKToTransmit query failed")
 		return

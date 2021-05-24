@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -79,8 +78,9 @@ func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkee
 	return exec.RowsAffected, exec.Error
 }
 
-func (korm ORM) EligibleUpkeeps(
+func (korm ORM) EligibleUpkeepsForRegistry(
 	ctx context.Context,
+	registryAddress models.EIP55Address,
 	blockNumber int64,
 	gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, _ error) {
@@ -90,6 +90,7 @@ func (korm ORM) EligibleUpkeeps(
 		Order("upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC").
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
 		Where(`
+			keeper_registries.contract_address = ? AND
 			keeper_registries.num_keepers > 0 AND
 			(
 				upkeep_registrations.last_run_block_height = 0 OR (
@@ -100,7 +101,7 @@ func (korm ORM) EligibleUpkeeps(
 			keeper_registries.keeper_index = (
 				upkeep_registrations.positioning_constant + ((? - (? % keeper_registries.block_count_per_turn)) / keeper_registries.block_count_per_turn)
 			) % keeper_registries.num_keepers
-		`, gracePeriod, blockNumber, blockNumber, blockNumber, blockNumber, blockNumber).
+		`, registryAddress, gracePeriod, blockNumber, blockNumber, blockNumber, blockNumber, blockNumber).
 		Find(&upkeeps).
 		Error
 
@@ -134,19 +135,17 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepI
 		).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(sqlDB *sql.DB, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
+func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
 	var etx models.EthTx
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
 	from := upkeep.Registry.FromAddress.Address()
-	err := utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
+	err := utils.CheckOKToTransmit(postgres.MustSQLDB(tx), from, maxUnconfirmedTXs)
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}
 
+	sqlTx := postgres.MustSQLTx(tx)
 	value := 0
-	err = sqlDB.QueryRowContext(ctx, `
+	err = sqlTx.QueryRow(`
 		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
 		SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
 		WHERE NOT EXISTS (
@@ -168,7 +167,7 @@ func (korm ORM) CreateEthTransactionForUpkeep(sqlDB *sql.DB, upkeep UpkeepRegist
 	if etx.ID == 0 {
 		return etx, errors.New("a keeper eth_tx with insufficient eth is present, not creating a new eth_tx")
 	}
-	err = korm.DB.First(&etx).Error
+	err = tx.First(&etx).Error
 	if err != nil {
 		return etx, errors.Wrap(err, "keeper find eth_tx after inserting")
 	}

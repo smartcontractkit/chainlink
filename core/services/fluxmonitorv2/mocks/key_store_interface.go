@@ -6,6 +6,8 @@ import (
 	accounts "github.com/ethereum/go-ethereum/accounts"
 	common "github.com/ethereum/go-ethereum/common"
 
+	gorm "gorm.io/gorm"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -30,13 +32,13 @@ func (_m *KeyStoreInterface) Accounts() []accounts.Account {
 	return r0
 }
 
-// GetRoundRobinAddress provides a mock function with given fields:
-func (_m *KeyStoreInterface) GetRoundRobinAddress() (common.Address, error) {
-	ret := _m.Called()
+// GetRoundRobinAddress provides a mock function with given fields: db
+func (_m *KeyStoreInterface) GetRoundRobinAddress(db *gorm.DB) (common.Address, error) {
+	ret := _m.Called(db)
 
 	var r0 common.Address
-	if rf, ok := ret.Get(0).(func() common.Address); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(*gorm.DB) common.Address); ok {
+		r0 = rf(db)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(common.Address)
@@ -44,8 +46,8 @@ func (_m *KeyStoreInterface) GetRoundRobinAddress() (common.Address, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(*gorm.DB) error); ok {
+		r1 = rf(db)
 	} else {
 		r1 = ret.Error(1)
 	}

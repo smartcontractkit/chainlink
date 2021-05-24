@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -240,8 +242,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.VRF:    vrf.NewDelegate(vrf.NewORM(store.DB), pipelineRunner, pipelineORM),
 		}
 	)
+
+	if config.Dev() {
+		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
 
 	if config.Dev() || config.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
@@ -604,7 +611,7 @@ func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta
 	// Keeper jobs are special in that they do not have a task graph.
 	if jb.Type == job.Keeper {
 		t := time.Now()
-		runID, err = app.pipelineRunner.InsertFinishedRun(ctx, pipeline.Run{
+		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
 			PipelineSpecID: jb.PipelineSpecID,
 			Errors:         pipeline.RunErrors{null.String{}},
 			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},
