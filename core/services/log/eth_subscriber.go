@@ -47,10 +47,10 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 
 		latestBlock, err := sub.ethClient.HeaderByNumber(ctx, nil)
 		if err != nil {
-			logger.Errorw("Log subscriber backfill: could not fetch latest block header", "error", err)
+			logger.Errorw("LogBroadcaster: backfill - could not fetch latest block header, will retry", "err", err)
 			return true
 		} else if latestBlock == nil {
-			logger.Warn("got nil block header")
+			logger.Warn("LogBroadcaster: got nil block header, will retry")
 			return true
 		}
 		currentHeight := uint64(latestBlock.Number)
@@ -75,12 +75,44 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			Topics:    [][]common.Hash{topics},
 		}
 
-		logs, err := sub.ethClient.FilterLogs(ctx, q)
-		if err != nil {
-			logger.Errorw("Log subscriber backfill: could not fetch logs", "error", err)
-			return true
+		logs := make([]types.Log, 0)
+		start := time.Now()
+		// If we are significantly behind the latest head, there could be a very large (1000s)
+		// of blocks to check for logs. We read the blocks in batches to avoid hitting the websocket
+		// request data limit.
+		// On matic its 5MB [https://github.com/maticnetwork/bor/blob/3de2110886522ab17e0b45f3c4a6722da72b7519/rpc/http.go#L35]
+		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
+		batchSize := int64(sub.config.EthLogBackfillBatchSize())
+		for i := q.FromBlock.Int64(); i <= int64(currentHeight); i += batchSize {
+
+			untilIncluded := i + batchSize - 1
+			if untilIncluded > int64(currentHeight) {
+				untilIncluded = int64(currentHeight)
+			}
+			q.FromBlock = big.NewInt(i)
+			q.ToBlock = big.NewInt(untilIncluded)
+			batchLogs, err := sub.ethClient.FilterLogs(ctx, q)
+			if err != nil {
+				if ctx.Err() != nil {
+					logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				} else {
+					logger.Errorw("LogBroadcaster: Unable to backfill a batch of logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				}
+				return true
+			}
+
+			select {
+			case <-sub.chStop:
+				return
+			default:
+				logs = append(logs, batchLogs...)
+			}
 		}
 
+		logger.Infof("LogBroadcaster: Finished getting %v logs for backfill", len(logs))
+
+		// unbufferred channel, as it will be filled in the goroutine,
+		// while the broadcaster's eventLoop is reading from it
 		chBackfilledLogs = make(chan types.Log)
 		go func() {
 			defer close(chBackfilledLogs)
@@ -91,6 +123,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 					return
 				}
 			}
+			logger.Infof("LogBroadcaster: Finished async backfill of %v logs", len(logs))
 		}()
 
 		return false
@@ -128,7 +161,7 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 
 		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
 		if err != nil {
-			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "error", err)
+			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "err", err)
 			return true
 		}
 

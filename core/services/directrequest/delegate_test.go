@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -29,7 +27,6 @@ import (
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	ethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
-	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
 
 	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
@@ -38,7 +35,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minRequiredOutgoingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, ethClient, orm.DB, config)
+	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, orm.DB, config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -55,20 +52,18 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 }
 
 type DirectRequestUniverse struct {
-	spec              *job.Job
-	runner            *pipeline_mocks.Runner
-	service           job.Service
-	jobORM            job.ORM
-	listener          log.Listener
-	headBroadcastable services.HeadBroadcastable
-	logBroadcaster    *log_mocks.Broadcaster
-	cleanup           func()
+	spec           *job.Job
+	runner         *pipeline_mocks.Runner
+	service        job.Service
+	jobORM         job.ORM
+	listener       log.Listener
+	logBroadcaster *log_mocks.Broadcaster
+	cleanup        func()
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *DirectRequestUniverse {
 	gethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
-	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
 
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
@@ -84,7 +79,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 		jobORM.Close()
 	}
 
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, gethClient, db, drConfig)
+	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, db, drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
@@ -93,17 +88,15 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
-	headBroadcastable := service.(services.HeadBroadcastable)
 
 	uni := &DirectRequestUniverse{
-		spec:              spec,
-		runner:            runner,
-		service:           service,
-		jobORM:            jobORM,
-		listener:          nil,
-		headBroadcastable: headBroadcastable,
-		logBroadcaster:    broadcaster,
-		cleanup:           cleanup,
+		spec:           spec,
+		runner:         runner,
+		service:        service,
+		jobORM:         jobORM,
+		listener:       nil,
+		logBroadcaster: broadcaster,
+		cleanup:        cleanup,
 	}
 
 	broadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {}).Run(func(args mock.Arguments) {
@@ -162,8 +155,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.listener.HandleLog(log)
 
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
-
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
@@ -194,11 +185,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		err := uni.service.Start()
 		require.NoError(t, err)
 
-		uni.listener.HandleLog(log)
-
-		// the log should not be received after this call
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 0})
 		log.AssertExpectations(t)
+
+		uni.listener.HandleLog(log)
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
 		runBeganAwaiter := cltest.NewAwaiter()
@@ -207,7 +196,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
 
 		// but should after this one, as the head Number is larger
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 2})
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 		cltest.EventuallyExpectationsMet(t, log, 3*time.Second, 100*time.Millisecond)
 
@@ -231,7 +219,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
 
 		cltest.EventuallyExpectationsMet(t, uni.logBroadcaster, 3*time.Second, 100*time.Millisecond)
 		cltest.EventuallyExpectationsMet(t, uni.runner, 3*time.Second, 100*time.Millisecond)
@@ -261,7 +248,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
 
 		cltest.EventuallyExpectationsMet(t, uni.logBroadcaster, 3*time.Second, 100*time.Millisecond)
 		cltest.EventuallyExpectationsMet(t, uni.runner, 3*time.Second, 100*time.Millisecond)
@@ -320,13 +306,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			}
 		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
 		uni.listener.HandleLog(runLog)
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
 
 		runBeganAwaiter.AwaitOrFail(t, timeout)
 		runLog.AssertExpectations(t)
 
 		uni.listener.HandleLog(cancelLog)
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 11})
 
 		runCancelledAwaiter.AwaitOrFail(t, timeout)
 		cancelLog.AssertExpectations(t)
@@ -377,8 +361,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.listener.HandleLog(log)
 
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
-
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
@@ -418,8 +400,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
-
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
 
 		markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
 

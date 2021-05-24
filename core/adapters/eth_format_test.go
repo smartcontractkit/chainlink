@@ -3,6 +3,9 @@ package adapters_test
 import (
 	"testing"
 
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
@@ -118,8 +121,9 @@ func TestEthUint256_Perform(t *testing.T) {
 	adapter := adapters.EthUint256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
-			result := adapter.Perform(input, nil)
+			jr := cltest.NewJobRun(cltest.NewJobWithRunLogInitiator())
+			input := models.NewRunInput(jr, uuid.NewV4(), cltest.JSONFromString(t, test.json), models.RunStatusUnstarted)
+			result := adapter.Perform(*input, nil)
 
 			if test.errored {
 				require.Error(t, result.Error())

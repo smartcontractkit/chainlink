@@ -183,7 +183,7 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
-		fmt.Printf("Error : %v\n", string(body))
+		fmt.Printf("Response: '%v', Status: %d\n", string(body), resp.StatusCode)
 		return cli.errorOut(err)
 	}
 

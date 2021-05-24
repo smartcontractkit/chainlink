@@ -30,8 +30,8 @@ func TestMailbox(t *testing.T) {
 				return
 			case <-m.Notify():
 				for {
-					x := m.Retrieve()
-					if x == nil {
+					x, exists := m.Retrieve()
+					if !exists {
 						break
 					}
 					recvd = append(recvd, x.(int))
@@ -48,4 +48,72 @@ func TestMailbox(t *testing.T) {
 		t.Fatal("received too few")
 	}
 	require.Equal(t, expected, recvd)
+}
+
+func TestMailbox_EmptyReceivesWhenCapacityIsOne(t *testing.T) {
+	m := utils.NewMailbox(1)
+
+	var (
+		recvd         []int
+		emptyReceives []int
+	)
+
+	chDone := make(chan struct{})
+	go func() {
+		defer close(chDone)
+		for {
+			select {
+			case <-time.After(3 * time.Second):
+				return
+			case <-m.Notify():
+				x, exists := m.Retrieve()
+				if !exists {
+					emptyReceives = append(emptyReceives, recvd[len(recvd)-1])
+				} else {
+					recvd = append(recvd, x.(int))
+				}
+			}
+		}
+	}()
+
+	for i := 0; i < 100000; i++ {
+		m.Deliver(i)
+	}
+
+	<-chDone
+	require.Greater(t, len(emptyReceives), 0)
+}
+
+func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
+	m := utils.NewMailbox(2)
+
+	var (
+		recvd         []int
+		emptyReceives []int
+	)
+
+	chDone := make(chan struct{})
+	go func() {
+		defer close(chDone)
+		for {
+			select {
+			case <-time.After(3 * time.Second):
+				return
+			case <-m.Notify():
+				x, exists := m.Retrieve()
+				if !exists {
+					emptyReceives = append(emptyReceives, recvd[len(recvd)-1])
+				} else {
+					recvd = append(recvd, x.(int))
+				}
+			}
+		}
+	}()
+
+	for i := 0; i < 100000; i++ {
+		m.Deliver(i)
+	}
+
+	<-chDone
+	require.Len(t, emptyReceives, 0)
 }

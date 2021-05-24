@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -295,9 +296,9 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	registry, j := cltest.MustInsertKeeperRegistry(t, store)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 100)
+	orm.SetLastRunHeightForUpkeepOnJob(orm.DB, j.ID, upkeep.UpkeepID, 100)
 	assertLastRunHeight(t, store, upkeep, 100)
-	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 0)
+	orm.SetLastRunHeightForUpkeepOnJob(orm.DB, j.ID, upkeep.UpkeepID, 0)
 	assertLastRunHeight(t, store, upkeep, 0)
 }
 
@@ -312,7 +313,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload, 500)
+	ethTX, err := orm.CreateEthTransactionForUpkeep(postgres.MustSQLDB(orm.DB), upkeep, payload, 500)
 	require.NoError(t, err)
 
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
