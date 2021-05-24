@@ -58,6 +58,7 @@ type (
 		DatabaseBackupMode() orm.DatabaseBackupMode
 		DatabaseBackupFrequency() time.Duration
 		DatabaseBackupURL() *url.URL
+		DatabaseBackupDir() string
 		DatabaseURL() url.URL
 		RootDir() string
 	}
@@ -69,12 +70,22 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 	if dbBackupUrl != nil {
 		dbUrl = *dbBackupUrl
 	}
+
+	outputParentDir := filepath.Join(config.RootDir(), "backup")
+	if config.DatabaseBackupDir() != "" {
+		dir, err := filepath.Abs(config.DatabaseBackupDir())
+		if err != nil {
+			logger.Errorf("Invalid path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+		}
+		outputParentDir = dir
+	}
+
 	return &databaseBackup{
 		logger,
 		dbUrl,
 		config.DatabaseBackupMode(),
 		config.DatabaseBackupFrequency(),
-		config.RootDir(),
+		outputParentDir,
 		make(chan bool),
 	}
 }
@@ -125,9 +136,13 @@ func (backup *databaseBackup) RunBackupGracefully(version string) {
 
 func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
+	err := os.MkdirAll(backup.outputParentDir, os.ModePerm)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("DatabaseBackup: Failed to create directories on the path: %s", backup.outputParentDir))
+	}
 	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "cl_backup_tmp_")
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to create a tmp file")
+		return nil, errors.Wrap(err, "DatabaseBackup: Failed to create a tmp file")
 	}
 	err = os.Remove(tmpFile.Name())
 	if err != nil {
