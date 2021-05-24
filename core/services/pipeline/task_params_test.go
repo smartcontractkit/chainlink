@@ -285,10 +285,15 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		err      error
 	}{
 		{"[]interface{}", []interface{}{1, 2, 3}, pipeline.SliceParam([]interface{}{1, 2, 3}), nil},
-		{"string", `[1, 2, 3]`, pipeline.SliceParam([]interface{}{float64(1), float64(2), float64(3)}), nil},
+		{"[]interface{} with var", []interface{}{1, 2, "$(foo)"}, pipeline.SliceParam([]interface{}{1, 2, "$(foo)"}), nil},
 		{"[]byte", []byte(`[1, 2, 3]`), pipeline.SliceParam([]interface{}{float64(1), float64(2), float64(3)}), nil},
+		{"[]byte with var", []byte(`[1, 2, $(foo)]`), pipeline.SliceParam([]interface{}{float64(1), float64(2), "42"}), nil},
+		{"string", `[1, 2, 3]`, pipeline.SliceParam([]interface{}{float64(1), float64(2), float64(3)}), nil},
+		{"string with var", `[1, 2, $(foo)]`, pipeline.SliceParam([]interface{}{float64(1), float64(2), "42"}), nil},
 		{"bool", true, pipeline.SliceParam(nil), pipeline.ErrBadInput},
 	}
+
+	vars := pipeline.Vars{"foo": "42"}
 
 	for _, test := range tests {
 		test := test
@@ -296,7 +301,7 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 			t.Parallel()
 
 			var p pipeline.SliceParam
-			err := p.UnmarshalPipelineParam(test.input, nil)
+			err := p.UnmarshalPipelineParam(test.input, vars)
 			require.Equal(t, test.err, errors.Cause(err))
 			require.Equal(t, test.expected, p)
 		})

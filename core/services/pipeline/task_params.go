@@ -242,22 +242,12 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 		return nil
 
 	case string:
-		var err error
-		resolved := variableRegexp.ReplaceAllFunc([]byte(v), func(keypath []byte) []byte {
-			val, err2 := vars.Get(string(keypath[2 : len(keypath)-1]))
-			if err2 != nil {
-				err = multierr.Append(err, err2)
-				return nil
-			}
-			bs, err2 := json.Marshal(val)
-			if err2 != nil {
-				err = multierr.Append(err, err2)
-				return nil
-			}
-			return bs
-		})
+		return m.UnmarshalPipelineParam([]byte(v), vars)
+
+	case []byte:
+		resolved, err := expandVariables(v, vars)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "MapParam: %v", err)
 		}
 
 		var theMap map[string]interface{}
@@ -282,9 +272,21 @@ func (s *SliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 	case []interface{}:
 		*s = v
 	case string:
-		return json.Unmarshal([]byte(v), s)
+		return s.UnmarshalPipelineParam([]byte(v), vars)
+
 	case []byte:
-		return json.Unmarshal(v, s)
+		resolved, err := expandVariables(v, vars)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "MapParam: %v", err)
+		}
+		var theSlice []interface{}
+		err = json.Unmarshal(resolved, &theSlice)
+		if err != nil {
+			return err
+		}
+		*s = SliceParam(theSlice)
+		return nil
+
 	default:
 		return ErrBadInput
 	}
@@ -324,15 +326,20 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) e
 			dsp = append(dsp, d)
 		}
 	case string:
-		err := json.Unmarshal([]byte(v), &dsp)
-		if err != nil {
-			return errors.Wrapf(ErrBadInput, "DecimalSliceParam: %v", err.Error())
-		}
+		return s.UnmarshalPipelineParam([]byte(v), vars)
+
 	case []byte:
-		err := json.Unmarshal(v, &dsp)
+		resolved, err := expandVariables(v, vars)
 		if err != nil {
-			return errors.Wrapf(ErrBadInput, "DecimalSliceParam: %v", err.Error())
+			return errors.Wrapf(ErrBadInput, "DecimalSliceParam: %v", err)
 		}
+		var theSlice []interface{}
+		err = json.Unmarshal(resolved, &theSlice)
+		if err != nil {
+			return err
+		}
+		return s.UnmarshalPipelineParam(SliceParam(theSlice), vars)
+
 	default:
 		return errors.Wrap(ErrBadInput, "DecimalSliceParam")
 	}
@@ -366,4 +373,25 @@ func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) er
 	}
 	*p = ssp
 	return nil
+}
+
+func expandVariables(v []byte, vars Vars) ([]byte, error) {
+	var err error
+	resolved := variableRegexp.ReplaceAllFunc(v, func(keypath []byte) []byte {
+		val, err2 := vars.Get(string(keypath[2 : len(keypath)-1]))
+		if err2 != nil {
+			err = multierr.Append(err, err2)
+			return nil
+		}
+		bs, err2 := json.Marshal(val)
+		if err2 != nil {
+			err = multierr.Append(err, err2)
+			return nil
+		}
+		return bs
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
 }
