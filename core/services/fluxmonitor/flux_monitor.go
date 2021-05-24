@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -434,6 +436,10 @@ func NewPollingDeviationChecker(
 	fetcher Fetcher,
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
+	var idleTimer = utils.NewResettableTimer()
+	if !initr.IdleTimer.Disabled {
+		idleTimer.Reset(initr.IdleTimer.Duration.Duration())
+	}
 	pdc := &PollingDeviationChecker{
 		store:            store,
 		logBroadcaster:   logBroadcaster,
@@ -446,7 +452,7 @@ func NewPollingDeviationChecker(
 		fetcher:          fetcher,
 		pollTicker:       utils.NewPausableTicker(initr.PollTimer.Period.Duration()),
 		hibernationTimer: utils.NewResettableTimer(),
-		idleTimer:        utils.NewResettableTimer(),
+		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		minSubmission:    minSubmission,
 		maxSubmission:    maxSubmission,
@@ -727,7 +733,9 @@ func (p *PollingDeviationChecker) processLogs() {
 
 		// If the log is a duplicate of one we've seen before, ignore it (this
 		// happens because of the LogBroadcaster's backfilling behavior).
-		consumed, err := broadcast.WasAlreadyConsumed()
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
 		if err != nil {
 			logger.Errorf("Error determining if log was already consumed: %v", err)
 			continue
@@ -736,17 +744,20 @@ func (p *PollingDeviationChecker) processLogs() {
 			continue
 		}
 
+		ctx, cancel = postgres.DefaultQueryCtx()
+		defer cancel()
+		db := p.store.DB.WithContext(ctx)
 		switch log := broadcast.DecodedLog().(type) {
 		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 			p.respondToNewRoundLog(*log)
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			p.respondToAnswerUpdatedLog(*log)
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
@@ -760,12 +771,12 @@ func (p *PollingDeviationChecker) processLogs() {
 			if !isFlagLowered {
 				p.hibernate()
 			}
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
 			p.reactivate()
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		default:

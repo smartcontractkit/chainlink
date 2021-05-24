@@ -112,7 +112,7 @@ func TestPollManager_IdleTimer(t *testing.T) {
 	}, logger.Default)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
-		StartedAt: uint64(time.Now().Unix()),
+		StartedAt: uint64(time.Now().Unix()) - 10, // Even 10 seconds old the idle timer should tick
 	})
 	t.Cleanup(pm.Stop)
 

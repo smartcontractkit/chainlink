@@ -1,13 +1,15 @@
-package vrfkey
+package secp256k1
 
 import (
+	"database/sql/driver"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,7 +21,7 @@ type PublicKey [CompressedPublicKeyLength]byte
 const CompressedPublicKeyLength = 33
 
 func init() {
-	if CompressedPublicKeyLength != (&secp256k1.Secp256k1{}).Point().MarshalSize() {
+	if CompressedPublicKeyLength != (&Secp256k1{}).Point().MarshalSize() {
 		panic("disparity in expected public key lengths")
 	}
 }
@@ -33,7 +35,7 @@ func (k *PublicKey) Set(l PublicKey) {
 
 // Point returns the secp256k1 point corresponding to k
 func (k *PublicKey) Point() (kyber.Point, error) {
-	p := (&secp256k1.Secp256k1{}).Point()
+	p := (&Secp256k1{}).Point()
 	return p, p.UnmarshalBinary(k[:])
 }
 
@@ -82,7 +84,7 @@ func (k *PublicKey) StringUncompressed() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return hexutil.Encode(secp256k1.LongMarshal(p)), nil
+	return hexutil.Encode(LongMarshal(p)), nil
 }
 
 // Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
@@ -92,7 +94,7 @@ func (k *PublicKey) Hash() (common.Hash, error) {
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return utils.MustHash(string(secp256k1.LongMarshal(p))), nil
+	return utils.MustHash(string(LongMarshal(p))), nil
 }
 
 // MustHash is like Hash, but panics on error. Useful for testing.
@@ -116,4 +118,34 @@ func (k *PublicKey) Address() common.Address {
 // IsZero returns true iff k is the zero value for PublicKey
 func (k *PublicKey) IsZero() bool {
 	return *k == PublicKey{}
+}
+
+// MarshalText renders k as a text string
+func (k PublicKey) MarshalText() ([]byte, error) {
+	return []byte(k.String()), nil
+}
+
+// UnmarshalText reads a PublicKey into k from text, or errors
+func (k *PublicKey) UnmarshalText(text []byte) error {
+	if err := k.SetFromHex(string(text)); err != nil {
+		return errors.Wrapf(err, "while parsing %s as public key", text)
+	}
+	return nil
+}
+
+// Value marshals PublicKey to be saved in the DB
+func (k PublicKey) Value() (driver.Value, error) {
+	return k.String(), nil
+}
+
+// Scan reconstructs a PublicKey from a DB record of it.
+func (k *PublicKey) Scan(value interface{}) error {
+	rawKey, ok := value.(string)
+	if !ok {
+		return errors.Wrap(fmt.Errorf("unable to convert %+v of type %T to PublicKey", value, value), "scan failure")
+	}
+	if err := k.SetFromHex(rawKey); err != nil {
+		return errors.Wrapf(err, "while scanning %s as PublicKey", rawKey)
+	}
+	return nil
 }

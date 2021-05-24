@@ -104,7 +104,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
-		runID, err := pipelineORM.InsertFinishedRun(context.Background(),
+		runID, err := pipelineORM.InsertFinishedRun(
+			corestore.DB,
 			pipeline.Run{
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
@@ -123,7 +124,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 			}, true)
 		require.NoError(t, err)
 
-		err = orm.UpdateFluxMonitorRoundStats(address, roundID, runID)
+		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID)
 		require.NoError(t, err)
 
 		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID)
@@ -173,7 +174,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	orm.CreateEthTransaction(from, to, payload, gasLimit, 0)
+	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
 
 	etx := models.EthTx{}
 	require.NoError(t, corestore.ORM.DB.First(&etx).Error)
@@ -205,7 +206,7 @@ func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, otherKey.Address.Address())
 
-		err := orm.CreateEthTransaction(from, to, payload, gasLimit, 0)
+		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
 		require.NoError(t, err)
 
 		etx := models.EthTx{}
@@ -218,7 +219,7 @@ func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if this key has any transactions with insufficient eth errors, skips transmission entirely", func(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, from)
 
-		err := orm.CreateEthTransaction(from, to, payload, gasLimit, 0)
+		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
 		require.EqualError(t, err, fmt.Sprintf("Skipped Flux Monitor submission because wallet is out of eth: %s", from))
 	})
 
@@ -226,7 +227,7 @@ func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
 		require.NoError(t, corestore.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
 		require.NoError(t, corestore.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
 
-		err := orm.CreateEthTransaction(from, to, payload, gasLimit, 0)
+		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
 		require.NoError(t, err)
 
 		etx := models.EthTx{}

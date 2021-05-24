@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -55,7 +54,7 @@ func TestRandom_Perform(t *testing.T) {
 		vrf.OnChainResponseLength, "wrong response length")
 	response, err := vrf.UnmarshalProofResponse(onChainResponse)
 	require.NoError(t, err, "random adapter produced bad proof response")
-	actualProof, err := response.CryptoProof(tvrf.SeedData(t, seed, hash, blockNum))
+	actualProof, err := response.CryptoProof(vrf.TestXXXSeedData(t, seed, hash, blockNum))
 	require.NoError(t, err, "could not extract proof from random adapter response")
 	expected := common.HexToHash(
 		"0x71a7c50918feaa753485ae039cb84ddd70c5c85f66b236138dea453a23d0f27e")
