@@ -32,6 +32,7 @@ contract MockAggregatorValidator is AggregatorValidatorInterface {
     )
   {
     emit ValidateCalled(id, previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+    return true;
   }
 
 }

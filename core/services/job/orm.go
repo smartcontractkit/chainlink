@@ -21,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -129,6 +128,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 		Preload("KeeperSpec").
 		Preload("PipelineSpec").
 		Preload("CronSpec").
+		Preload("WebhookSpec").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
@@ -171,9 +171,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 		}
 	}
 
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	// Inherit the parent context so that client side request cancellations are respected.
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		switch jobSpec.Type {
 		case DirectRequest:
@@ -192,9 +192,15 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
 			pqErr, ok := err.(*pgconn.PgError)
 			if err != nil && ok && pqErr.Code == "23503" {
-				if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+					return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+				}
+				if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
 					if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 						return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+					}
+					if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+						return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 					}
 				}
 			}
@@ -214,6 +220,18 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
 			}
 			jobSpec.CronSpecID = &jobSpec.CronSpec.ID
+		case VRF:
+			err := tx.Create(&jobSpec.VRFSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
+			}
+			jobSpec.VRFSpecID = &jobSpec.VRFSpec.ID
+		case Webhook:
+			err := tx.Create(&jobSpec.WebhookSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
+			}
+			jobSpec.WebhookSpecId = &jobSpec.WebhookSpec.ID
 		default:
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
@@ -223,28 +241,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
-
-		if jobSpec.DirectRequestSpec != nil {
-			err = tx.FirstOrCreate(&jobSpec.DirectRequestSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "error creating direct request spec")
-			}
-			jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
-		}
-
-		err = tx.Omit("DirectRequestSpec").Create(jobSpec).Error
-		pqErr, ok := err.(*pgconn.PgError)
-		if err != nil && ok && pqErr.Code == "23503" {
-			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
-				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
-			}
-			if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-				}
-			}
-		}
-		return errors.Wrap(err, "failed to create job")
+		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
 	})
 }
 
@@ -323,7 +320,7 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
 	pse := SpecError{JobID: jobID, Description: description, Occurrences: 1}
-	err := o.db.
+	err := o.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{
@@ -351,6 +348,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 		Preload("FluxMonitorSpec").
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
+		Preload("WebhookSpec").
 		Find(&jobs).
 		Error
 	for i := range jobs {
@@ -392,6 +390,8 @@ func (o *orm) FindJob(id int32) (Job, error) {
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
 		Preload("CronSpec").
+		Preload("VRFSpec").
+		Preload("WebhookSpec").
 		First(&job, "jobs.id = ?", id).
 		Error
 	if job.OffchainreportingOracleSpec != nil {

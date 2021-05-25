@@ -11,7 +11,6 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"reflect"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -50,8 +50,6 @@ var ZeroAddress = common.Address{}
 // EmptyHash is a hash of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
-
-var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // WithoutZeroAddresses returns a list of addresses excluding the zero address.
 func WithoutZeroAddresses(addresses []common.Address) []common.Address {
@@ -854,80 +852,83 @@ func EVMBytesToUint64(buf []byte) uint64 {
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state StartStopOnceState
-	sync.RWMutex
+	state      atomic.Int32
+	sync.Mutex // lock is held during statup/shutdown
 }
 
-// StartStopOnceState manages the state for StartStopOnce
-type StartStopOnceState int
+// StartStopOnceState holds the state for StartStopOnce
+type StartStopOnceState int32
 
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
+	StartStopOnce_Starting
+	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
+	// SAFETY: We do this compare-and-swap outside of the lock so that
+	// concurrent StartOnce() calls return immediately.
+	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
+
+	if !success {
+		return errors.Errorf("%v has already started once", name)
+	}
+
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Unstarted {
-		return errors.Errorf("%v has already started once", name)
-	}
-	once.state = StartStopOnce_Started
+	err := fn()
 
-	return fn()
+	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
+	}
+
+	return err
 }
 
 // StopOnce sets the state to Stopped
 func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
+	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
+	// executes. This ensures that a very fast call to Stop will wait for the
+	// code to finish starting up before teardown.
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Started {
+	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
+
+	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
-	once.state = StartStopOnce_Stopped
 
-	return fn()
-}
+	err := fn()
 
-// OkayToStart checks if the state may be started
-func (once *StartStopOnce) OkayToStart() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
+	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
 
-	if once.state != StartStopOnce_Unstarted {
-		return false
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
 	}
-	once.state = StartStopOnce_Started
-	return true
-}
 
-// OkayToStop checks if the state may be stopped
-func (once *StartStopOnce) OkayToStop() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
-
-	if once.state != StartStopOnce_Started {
-		return false
-	}
-	once.state = StartStopOnce_Stopped
-	return true
+	return err
 }
 
 // State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
-	once.RLock()
-	defer once.RUnlock()
-	return once.state
+	state := once.state.Load()
+	return StartStopOnceState(state)
 }
 
 func (once *StartStopOnce) IfStarted(f func()) {
-	once.RLock()
-	defer once.RUnlock()
-	if once.state == StartStopOnce_Started {
+	state := once.state.Load()
+	if StartStopOnceState(state) == StartStopOnce_Started {
 		f()
 	}
 }
@@ -937,39 +938,4 @@ func WithJitter(d time.Duration) time.Duration {
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
-}
-
-// ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
-// an RPC eth_call that reverted by parsing the message from the "data" field
-// ex:
-// kovan (parity)
-// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
-// rinkeby / ropsten (geth)
-// { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
-func ExtractRevertReasonFromRPCError(err error) (string, error) {
-	if err == nil {
-		return "", errors.New("no error present")
-	}
-	field := reflect.ValueOf(err).Elem().FieldByName("Data")
-	if !field.IsValid() {
-		return "", errors.New("invalid error type")
-	}
-	dataStr, ok := field.Interface().(string)
-	if !ok {
-		return "", errors.New("invalid error type")
-	}
-	matches := hexDataRegex.FindStringSubmatch(dataStr)
-	if len(matches) != 1 {
-		return "", errors.New("unknown data payload format")
-	}
-	hexData := RemoveHexPrefix(matches[0])
-	if len(hexData) < 8 {
-		return "", errors.New("unknown data payload format")
-	}
-	bytes, err := hex.DecodeString(RemoveHexPrefix(matches[0])[8:])
-	if err != nil {
-		return "", errors.Wrap(err, "unable to decode hex to bytes")
-	}
-	revertReason := strings.TrimSpace(string(bytes))
-	return revertReason, nil
 }

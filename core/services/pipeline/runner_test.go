@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -85,7 +85,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	trrs, err := r.ExecuteRun(context.Background(), spec, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(ts))
 
@@ -149,7 +149,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	trrs, err := r.ExecuteRun(ctx, spec, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(ctx, spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal {
@@ -168,14 +168,14 @@ func TestPanicTask_Run(t *testing.T) {
 		res.Write([]byte(`{"result":10}`))
 	}))
 	r := pipeline.NewRunner(orm, store.Config)
-	trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds1 [type=http url="%s"]
 ds_parse [type=jsonparse path="result"]
 ds_multiply [type=multiply times=10]
 ds_panic [type=panic msg="oh no"]
 ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
-	}, pipeline.JSONSerializable{}, *logger.Default)
+	}, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)

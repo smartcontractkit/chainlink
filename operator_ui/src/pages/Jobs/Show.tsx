@@ -33,7 +33,7 @@ export const JobsShow = () => {
     recentRuns: [],
     recentRunsCount: 0,
   })
-  const { job, jobSpec } = state
+  const { job, jobSpec, onChainJobSpecID } = state
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
@@ -83,6 +83,7 @@ export const JobsShow = () => {
           const jobSpec = response.data
           setState((s) => {
             let createdAt: string
+            let onChainJobSpecID: string | undefined
             switch (jobSpec.attributes.type) {
               case 'offchainreporting':
                 createdAt =
@@ -95,6 +96,8 @@ export const JobsShow = () => {
                 break
               case 'directrequest':
                 createdAt = jobSpec.attributes.directRequestSpec.createdAt
+                onChainJobSpecID =
+                  jobSpec.attributes.directRequestSpec.onChainJobSpecID
 
                 break
               case 'keeper':
@@ -105,8 +108,10 @@ export const JobsShow = () => {
                 createdAt = jobSpec.attributes.cronSpec.createdAt
 
                 break
-              case 'web':
-                createdAt = jobSpec.attributes.webSpec.createdAt
+              case 'webhook':
+                createdAt = jobSpec.attributes.webhookSpec.createdAt
+                onChainJobSpecID =
+                  jobSpec.attributes.webhookSpec.onChainJobSpecID
 
                 break
             }
@@ -126,6 +131,7 @@ export const JobsShow = () => {
               ...s,
               jobSpec,
               job,
+              onChainJobSpecID,
             }
           })
         })
@@ -158,6 +164,7 @@ export const JobsShow = () => {
     <div>
       <RegionalNav
         jobSpecId={jobSpecId}
+        onChainJobSpecID={onChainJobSpecID}
         job={job}
         getJobSpecRuns={getJobSpecRuns}
         runsCount={state.recentRunsCount}

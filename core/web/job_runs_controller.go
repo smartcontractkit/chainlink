@@ -25,7 +25,6 @@ type JobRunsController struct {
 //  "<application>/runs?jobSpecId=:jobSpecId&size=1&page=2"
 func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Query("jobSpecId")
-
 	order := orm.Ascending
 	if c.Query("sort") == "-createdAt" {
 		order = orm.Descending
@@ -41,7 +40,7 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
 	} else {
 		var runID models.JobID
-		runID, err = models.NewIDFromString(id)
+		runID, err = models.NewJobIDFromString(id)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
@@ -59,7 +58,7 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 //  "<application>/specs/:SpecID/runs"
 func (jrc *JobRunsController) Create(c *gin.Context) {
-	id, err := models.NewIDFromString(c.Param("SpecID"))
+	id, err := models.NewJobIDFromString(c.Param("SpecID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -136,7 +135,7 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 // Example:
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Show(c *gin.Context) {
-	id, err := models.NewIDFromString(c.Param("RunID"))
+	id, err := models.NewJobIDFromString(c.Param("RunID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -162,7 +161,7 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
 
-	runID, err := models.NewIDFromString(c.Param("RunID"))
+	runID, err := models.NewJobIDFromString(c.Param("RunID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -220,7 +219,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 // Example:
 //  "<application>/runs/:RunID/cancellation"
 func (jrc *JobRunsController) Cancel(c *gin.Context) {
-	id, err := models.NewIDFromString(c.Param("RunID"))
+	id, err := models.NewJobIDFromString(c.Param("RunID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return

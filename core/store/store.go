@@ -1,12 +1,13 @@
 package store
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -46,8 +46,7 @@ type Store struct {
 	Config         *orm.Config
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
-	VRFKeyStore    *VRFKeyStore
-	OCRKeyStore    *offchainreporting.KeyStore
+	VRFKeyStore    *vrf.VRFKeyStore
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
@@ -105,12 +104,11 @@ func newStoreWithKeyStore(
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
 		KeyStore:       keyStore,
-		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
 		ORM:            orm,
 		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},
 	}
-	store.VRFKeyStore = NewVRFKeyStore(store)
+	store.VRFKeyStore = vrf.NewVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil
 }
 
@@ -170,7 +168,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 
 // DeleteKey hard-deletes a key whose address matches the supplied address.
 func (s *Store) DeleteKey(address common.Address) error {
-	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
 		err := tx.Where("address = ?", address).Delete(&models.Key{}).Error
 		if err != nil {
 			return errors.Wrap(err, "while deleting ETH key from DB")
@@ -208,7 +206,7 @@ func (s *Store) ArchiveKey(address common.Address) error {
 }
 
 func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
-	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
 		_, err := s.KeyStore.Import(keyJSON, oldPassword)
 		if err != nil {
 			return err

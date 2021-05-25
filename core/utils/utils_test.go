@@ -2,13 +2,11 @@ package utils_test
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -472,51 +470,74 @@ func Test_WithJitter(t *testing.T) {
 	}
 }
 
-// go-ethereum@v1.10.0/rpc/json.go
-type jsonError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
+	t.Parallel()
+
+	once := utils.StartStopOnce{}
+
+	ch := make(chan int, 3)
+
+	ready := make(chan bool)
+
+	go func() {
+		once.StartOnce("slow service", func() (err error) {
+			ch <- 1
+			ready <- true
+			<-time.After(time.Millisecond * 500) // wait for StopOnce to happen
+			ch <- 2
+
+			return nil
+		})
+
+	}()
+
+	go func() {
+		<-ready // try stopping halfway through startup
+		once.StopOnce("slow service", func() (err error) {
+			ch <- 3
+
+			return nil
+		})
+	}()
+
+	require.Equal(t, 1, <-ch)
+	require.Equal(t, 2, <-ch)
+	require.Equal(t, 3, <-ch)
 }
 
-func (err *jsonError) Error() string {
-	if err.Message == "" {
-		return fmt.Sprintf("json-rpc error %d", err.Code)
-	}
-	return err.Message
-}
+func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
+	t.Parallel()
 
-func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
-	t.Run("it extracts revert reasons when present", func(tt *testing.T) {
-		message := "important revert reason"
-		messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
-		sigHash := "12345678"
-		var jsonErr error = &jsonError{
-			Code:    1,
-			Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
-			Message: "something different",
-		}
-		revertReason, err := utils.ExtractRevertReasonFromRPCError(jsonErr)
-		require.NoError(t, err)
-		require.Equal(t, message, revertReason)
-	})
+	once := utils.StartStopOnce{}
 
-	t.Run("it gracefully errors when no data present", func(tt *testing.T) {
-		var jsonErr error = &jsonError{
-			Code:    1,
-			Message: "something different",
-		}
-		_, err := utils.ExtractRevertReasonFromRPCError(jsonErr)
-		require.Error(t, err)
-	})
+	ch := make(chan int, 3)
 
-	t.Run("gracefully errors when given a normal error", func(tt *testing.T) {
-		_, err := utils.ExtractRevertReasonFromRPCError(errors.New("normal error"))
-		require.Error(tt, err)
-	})
+	ready := make(chan bool)
+	next := make(chan bool)
 
-	t.Run("gracefully errors when given no error", func(tt *testing.T) {
-		_, err := utils.ExtractRevertReasonFromRPCError(nil)
-		require.Error(tt, err)
-	})
+	go func() {
+		ch <- 1
+		once.StartOnce("slow service", func() (err error) {
+			ready <- true
+			<-next // continue after the other StartOnce call fails
+
+			return nil
+		})
+		ch <- 2
+
+	}()
+
+	go func() {
+		<-ready // try starting halfway through startup
+		once.StartOnce("slow service", func() (err error) {
+			return nil
+		})
+		next <- true
+		ch <- 3
+
+	}()
+
+	require.Equal(t, 1, <-ch)
+	require.Equal(t, 3, <-ch) // 3 arrives before 2 because it returns immediately
+	require.Equal(t, 2, <-ch)
 }

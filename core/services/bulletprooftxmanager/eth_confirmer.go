@@ -108,54 +108,52 @@ func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head)
 }
 
 func (ec *ethConfirmer) Start() error {
-	if !ec.OkayToStart() {
-		return errors.New("EthConfirmer has already been started")
-	}
-	if ec.config.EthGasBumpThreshold() == 0 {
-		logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
-	} else {
-		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
-	}
+	return ec.StartOnce("EthConfirmer", func() error {
 
-	if ec.reaper != nil {
+		if ec.config.EthGasBumpThreshold() == 0 {
+			logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
+		} else {
+			logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
+		}
+
+		if ec.reaper != nil {
+			ec.wg.Add(1)
+			ec.reaper.Start()
+		}
+
+		if ec.ethResender != nil {
+			ec.wg.Add(1)
+			ec.ethResender.Start()
+		}
+
 		ec.wg.Add(1)
-		ec.reaper.Start()
-	}
+		go ec.runLoop()
 
-	if ec.ethResender != nil {
-		ec.wg.Add(1)
-		ec.ethResender.Start()
-	}
-
-	ec.wg.Add(1)
-	go ec.runLoop()
-
-	return nil
+		return nil
+	})
 }
 
 func (ec *ethConfirmer) Close() error {
-	if !ec.OkayToStop() {
-		return errors.New("EthConfirmer has already been stopped")
-	}
+	return ec.StopOnce("EthConfirmer", func() error {
+		if ec.reaper != nil {
+			go func() {
+				defer ec.wg.Done()
+				ec.reaper.Stop()
+			}()
+		}
 
-	if ec.reaper != nil {
-		go func() {
-			defer ec.wg.Done()
-			ec.reaper.Stop()
-		}()
-	}
+		if ec.ethResender != nil {
+			go func() {
+				defer ec.wg.Done()
+				ec.ethResender.Stop()
+			}()
+		}
 
-	if ec.ethResender != nil {
-		go func() {
-			defer ec.wg.Done()
-			ec.ethResender.Stop()
-		}()
-	}
+		ec.ctxCancel()
+		ec.wg.Wait()
 
-	ec.ctxCancel()
-	ec.wg.Wait()
-
-	return nil
+		return nil
+	})
 }
 
 func (ec *ethConfirmer) runLoop() {
@@ -669,7 +667,9 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
-	logger.Debugf("EthConfirmer: Rebroadcasting %v transactions", len(etxs))
+	if len(etxs) > 0 {
+		logger.Debugf("EthConfirmer: Rebroadcasting %v transactions", len(etxs))
+	}
 	for _, etx := range etxs {
 		// NOTE: This races with OCR transaction insertion that checks for
 		// out-of-eth.  If we check at the wrong moment (while an
@@ -776,7 +776,7 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'").
-		Where("eth_txes.from_address = ?", address).
+		Where("eth_txes.from_address = ? AND eth_txes.state = 'unconfirmed'", address).
 		Order("nonce ASC").
 		Find(&etxs).Error
 

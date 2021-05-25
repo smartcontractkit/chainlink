@@ -2,11 +2,16 @@ package offchainreporting
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -55,6 +60,7 @@ type (
 		jobID            int32
 		logger           logger.Logger
 		db               OCRContractTrackerDB
+		gdb              *gorm.DB
 
 		// Start/Stop lifecycle
 		ctx             context.Context
@@ -72,7 +78,7 @@ type (
 	}
 
 	OCRContractTrackerDB interface {
-		SaveLatestRoundRequested(rr offchainaggregator.OffchainAggregatorRoundRequested) error
+		SaveLatestRoundRequested(tx *sql.Tx, rr offchainaggregator.OffchainAggregatorRoundRequested) error
 		LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
 	}
 )
@@ -86,6 +92,7 @@ func NewOCRContractTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
+	gdb *gorm.DB,
 	db OCRContractTrackerDB,
 ) (o *OCRContractTracker, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,6 +106,7 @@ func NewOCRContractTracker(
 		jobID,
 		logger,
 		db,
+		gdb,
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -112,40 +120,38 @@ func NewOCRContractTracker(
 
 // Start must be called before logs can be delivered
 // It ought to be called before starting OCR
-func (t *OCRContractTracker) Start() (err error) {
-	if !t.OkayToStart() {
-		return errors.New("OCRContractTracker: already started")
-	}
-	unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
-		Contract: t.contract,
-		Logs: []generated.AbigenLog{
-			offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
-			offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
-		},
-		NumConfirmations: 1,
-	})
-	t.unsubscribeLogs = unsubscribe
+func (t *OCRContractTracker) Start() error {
+	return t.StartOnce("OCRContractTracker", func() (err error) {
+		unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
+			Contract: t.contract,
+			Logs: []generated.AbigenLog{
+				offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
+				offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
+			},
+			NumConfirmations: 1,
+		})
+		t.unsubscribeLogs = unsubscribe
 
-	t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
-	if err != nil {
-		unsubscribe()
-		return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
-	}
-	t.wg.Add(1)
-	go t.processLogs()
-	return nil
+		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
+		if err != nil {
+			unsubscribe()
+			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
+		}
+		t.wg.Add(1)
+		go t.processLogs()
+		return nil
+	})
 }
 
 // Close should be called after teardown of the OCR job relying on this tracker
 func (t *OCRContractTracker) Close() error {
-	if !t.OkayToStop() {
-		return errors.New("OCRContractTracker already stopped")
-	}
-	t.ctxCancel()
-	t.wg.Wait()
-	t.unsubscribeLogs()
-	close(t.chConfigs)
-	return nil
+	return t.StopOnce("OCRContractTracker", func() error {
+		t.ctxCancel()
+		t.wg.Wait()
+		t.unsubscribeLogs()
+		close(t.chConfigs)
+		return nil
+	})
 }
 
 func (t *OCRContractTracker) processLogs() {
@@ -186,7 +192,7 @@ func (t *OCRContractTracker) OnDisconnect() {}
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
-	was, err := lb.WasAlreadyConsumed()
+	was, err := t.logBroadcaster.WasAlreadyConsumed(t.gdb, lb)
 	if err != nil {
 		t.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
 		return
@@ -197,22 +203,23 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.logger.ErrorIfCalling(lb.MarkConsumed)
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.logger.ErrorIfCalling(lb.MarkConsumed)
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 		return
 	}
 
+	var consumed bool
 	switch topics[0] {
 	case OCRContractConfigSet:
 		var configSet *offchainaggregator.OffchainAggregatorConfigSet
 		configSet, err = t.contractFilterer.ParseConfigSet(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
-			logger.ErrorIfCalling(lb.MarkConsumed)
+			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 			return
 		}
 		configSet.Raw = lb.RawLog()
@@ -227,14 +234,21 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
-			t.logger.ErrorIfCalling(lb.MarkConsumed)
+			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			if err := t.db.SaveLatestRoundRequested(*rr); err != nil {
-				t.logger.Error(err)
+			err = postgres.GormTransactionWithDefaultContext(t.gdb, func(tx *gorm.DB) error {
+				if err = t.db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), *rr); err != nil {
+					return err
+				}
+				return t.logBroadcaster.MarkConsumed(tx, lb)
+			})
+			if err != nil {
+				logger.Error(err)
 				return
 			}
+			consumed = true
 			t.lrrMu.Lock()
 			t.latestRoundRequested = *rr
 			t.lrrMu.Unlock()
@@ -245,8 +259,9 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	default:
 		logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
-
-	logger.ErrorIfCalling(lb.MarkConsumed)
+	if !consumed {
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+	}
 }
 
 // IsLaterThan returns true if the first log was emitted "after" the second log

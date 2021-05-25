@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -37,9 +39,14 @@ type (
 	}
 )
 
-func NewDelegate(logBroadcaster log.Broadcaster,
-	pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM,
-	ethClient eth.Client, db *gorm.DB, config Config) *Delegate {
+func NewDelegate(
+	logBroadcaster log.Broadcaster,
+	pipelineRunner pipeline.Runner,
+	pipelineORM pipeline.ORM,
+	ethClient eth.Client,
+	db *gorm.DB,
+	config Config,
+) *Delegate {
 	return &Delegate{
 		logBroadcaster,
 		pipelineRunner,
@@ -58,7 +65,7 @@ func (d *Delegate) JobType() job.Type {
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err error) {
 	if job.DirectRequestSpec == nil {
-		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", job)
+		return nil, errors.Errorf("directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", job)
 	}
 	concreteSpec := job.DirectRequestSpec
 
@@ -74,13 +81,14 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
-		config:         d.config,
-		logBroadcaster: d.logBroadcaster,
-		oracle:         oracle,
-		pipelineRunner: d.pipelineRunner,
-		db:             d.db,
-		pipelineORM:    d.pipelineORM,
-		job:            job,
+		config:           d.config,
+		logBroadcaster:   d.logBroadcaster,
+		oracle:           oracle,
+		pipelineRunner:   d.pipelineRunner,
+		db:               d.db,
+		pipelineORM:      d.pipelineORM,
+		job:              job,
+		onChainJobSpecID: job.DirectRequestSpec.OnChainJobSpecID.Hash(),
 
 		// At the moment the mailbox would start skipping if there were
 		// too many relevant logs for the same job (> 50) in each block.
@@ -89,7 +97,6 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		minConfirmations: minConfirmations,
 		chStop:           make(chan struct{}),
 	}
-	copy(logListener.onChainJobSpecID[:], job.DirectRequestSpec.OnChainJobSpecID.Bytes())
 	services = append(services, logListener)
 
 	return
@@ -187,7 +194,9 @@ func (l *listener) handleReceivedLogs() {
 		if !ok {
 			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
 		}
-		was, err := lb.WasAlreadyConsumed()
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
 		if err != nil {
 			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
 			return
@@ -209,18 +218,9 @@ func (l *listener) handleReceivedLogs() {
 
 		switch log := log.(type) {
 		case *oracle_wrapper.OracleOracleRequest:
-			l.handleOracleRequest(log)
-			err = lb.MarkConsumed()
-			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
-			}
+			l.handleOracleRequest(log, lb)
 		case *oracle_wrapper.OracleCancelOracleRequest:
-			l.handleCancelOracleRequest(log)
-			err = lb.MarkConsumed()
-			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
-			}
-
+			l.handleCancelOracleRequest(log, lb)
 		default:
 			logger.Warnf("unexpected log type %T", log)
 		}
@@ -241,7 +241,7 @@ func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]
 	return result
 }
 
-func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleRequest) {
+func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleRequest, lb log.Broadcast) {
 	minimumContractPayment := l.config.MinimumContractPayment()
 	if minimumContractPayment != nil {
 		requestPayment := assets.Link(*request.Payment)
@@ -250,6 +250,11 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 				"minimumContractPayment", minimumContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
+			ctx, cancel := postgres.DefaultQueryCtx()
+			defer cancel()
+			if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+				logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
+			}
 			return
 		}
 	}
@@ -273,8 +278,21 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		}
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
-
-		_, _, err := l.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *l.job.PipelineSpec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
+		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, nil, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
+		if ctx.Err() != nil {
+			return
+		} else if err != nil {
+			logger.Errorw("DirectRequest failed to create run", "err", err)
+		}
+		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+		defer cancel()
+		err = postgres.GormTransaction(ctx, l.db, func(tx *gorm.DB) error {
+			_, err = l.pipelineRunner.InsertFinishedRun(tx, run, trrs, true)
+			if err != nil {
+				return err
+			}
+			return l.logBroadcaster.MarkConsumed(tx, lb)
+		})
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {
@@ -284,10 +302,15 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-func (l *listener) handleCancelOracleRequest(request *oracle_wrapper.OracleCancelOracleRequest) {
+func (l *listener) handleCancelOracleRequest(request *oracle_wrapper.OracleCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
 		close(runCloserChannelIf.(chan struct{}))
+	}
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+		logger.Errorw("DirectRequest: failed to mark log consumed", "log", lb.String())
 	}
 }
 
