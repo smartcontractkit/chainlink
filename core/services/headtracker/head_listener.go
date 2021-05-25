@@ -172,7 +172,6 @@ func (hl *HeadListener) subscribeToHead(connected func()) error {
 
 	// It will autostop when we close inHeaders channel
 	rb.Start()
-
 	sub, err := hl.ethClient.SubscribeNewHead(context.Background(), hl.inHeaders)
 	if err != nil {
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")
