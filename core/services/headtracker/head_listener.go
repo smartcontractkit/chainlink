@@ -172,31 +172,6 @@ func (hl *HeadListener) subscribe(connected func()) bool {
 	}
 }
 
-/*
-
-func (ht *HeadTracker) subscribeToHead() error {
-	ht.headMutex.Lock()
-	defer ht.headMutex.Unlock()
-
-	ht.headers = make(chan *models.Head)
-
-	sub, err := ht.store.EthClient.SubscribeNewHead(context.Background(), ht.headers)
-	if err != nil {
-		return errors.Wrap(err, "EthClient#SubscribeNewHead")
-	}
-
-	if err := verifyEthereumChainID(ht); err != nil {
-		return errors.Wrap(err, "verifyEthereumChainID failed")
-	}
-
-	ht.headSubscription = sub
-	ht.connected = true
-
-	ht.connect(ht.highestSeenHead)
-	return nil
-}
-
-*/
 func (hl *HeadListener) subscribeToHead(connected func()) error {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
