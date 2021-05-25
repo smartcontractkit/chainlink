@@ -36,8 +36,11 @@ func NewSleeperTask(worker Worker) SleeperTask {
 		chStop:  make(chan struct{}),
 		chDone:  make(chan struct{}),
 	}
-	_ = s.OkayToStart()
-	go s.workerLoop()
+
+	_ = s.StartOnce("Sleeper task", func() error {
+		go s.workerLoop()
+		return nil
+	})
 
 	return s
 }
@@ -45,12 +48,11 @@ func NewSleeperTask(worker Worker) SleeperTask {
 // Stop stops the SleeperTask
 // It never returns an error, this is simply to comply with the interface
 func (s *sleeperTask) Stop() error {
-	if !s.OkayToStop() {
-		panic("already stopped")
-	}
-	close(s.chStop)
-	<-s.chDone
-	return nil
+	return s.StopOnce("Sleeper task", func() error {
+		close(s.chStop)
+		<-s.chDone
+		return nil
+	})
 }
 
 func (s *sleeperTask) WakeUpIfStarted() {

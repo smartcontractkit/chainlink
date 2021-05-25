@@ -216,6 +216,13 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
+func MustJobIDFromString(t *testing.T, s string) models.JobID {
+	t.Helper()
+	id, err := models.NewJobIDFromString(s)
+	require.NoError(t, err)
+	return id
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()

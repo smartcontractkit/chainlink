@@ -134,13 +134,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
@@ -179,7 +179,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 			BlockNumber: 0,
 		}).Maybe()
@@ -195,7 +195,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
@@ -242,11 +242,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -273,12 +273,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
-			RequestId:        uni.spec.DirectRequestSpec.OnChainJobSpecID,
+			RequestId:        uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 		}
 		runLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 		})
 		runLog.On("DecodedLog").Return(&logOracleRequest)
@@ -287,11 +287,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 		})
 		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -303,7 +303,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		timeout := 5 * time.Second
 		runBeganAwaiter := cltest.NewAwaiter()
 		runCancelledAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
 		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
@@ -349,17 +349,17 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 		}).Once().Return(int64(1), nil)
 
@@ -400,7 +400,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)

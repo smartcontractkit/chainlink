@@ -6,7 +6,7 @@ import {
   KeeperV2Spec,
   OffChainReportingOracleJobV2Spec,
   CronV2Spec,
-  WebV2Spec,
+  WebhookV2Spec,
 } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
@@ -49,7 +49,7 @@ export function ocrJobSpecV2(
     directRequestSpec: null,
     keeperSpec: null,
     cronSpec: null,
-    webSpec: null,
+    webhookSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -86,7 +86,7 @@ export function fluxMonitorJobV2(
     offChainReportingOracleSpec: null,
     keeperSpec: null,
     cronSpec: null,
-    webSpec: null,
+    webhookSpec: null,
     fluxMonitorSpec,
     errors: [],
     maxTaskDuration: '',
@@ -124,7 +124,7 @@ export function directRequestJobV2(
     offChainReportingOracleSpec: null,
     keeperSpec: null,
     cronSpec: null,
-    webSpec: null,
+    webhookSpec: null,
     fluxMonitorSpec: null,
     errors: [],
     maxTaskDuration: '',
@@ -156,7 +156,7 @@ export function keeperJobV2(
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec: null,
-    webSpec: null,
+    webhookSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -184,7 +184,7 @@ export function cronJobV2(
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec,
-    webSpec: null,
+    webhookSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -193,26 +193,26 @@ export function cronJobV2(
   }
 }
 
-export function webJobV2(
-  spec: Partial<WebV2Spec['webSpec']> = {},
+export function webhookJobV2(
+  spec: Partial<WebhookV2Spec['webhookSpec']> = {},
   config: Partial<{
     name?: string
     id?: string
   }> = {},
 ): JobSpecV2 {
-  const webSpec = partialAsFull<WebV2Spec['webSpec']>({
+  const webhookSpec = partialAsFull<WebhookV2Spec['webhookSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {
     name: config.name || 'Web V2 job',
-    type: 'web',
+    type: 'webhook',
     schemaVersion: 1,
     directRequestSpec: null,
     keeperSpec: null,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec: null,
-    webSpec,
+    webhookSpec,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {

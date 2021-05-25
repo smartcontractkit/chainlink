@@ -73,8 +73,8 @@ function isCronSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'cron'
 }
 
-function isWebSpecV2(job: JobSpecV2) {
-  return job.attributes.type === 'web'
+function isWebhookSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'webhook'
 }
 
 function getCreatedAt(job: CombinedJobs) {
@@ -97,8 +97,8 @@ function getCreatedAt(job: CombinedJobs) {
       case 'cron':
         return job.attributes.cronSpec.createdAt
 
-      case 'web':
-        return job.attributes.webSpec.createdAt
+      case 'webhook':
+        return job.attributes.webhookSpec.createdAt
     }
   } else {
     return new Date().toString()
@@ -161,8 +161,8 @@ export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
       return matchCron(job, search)
     }
 
-    if (isWebSpecV2(job)) {
-      return matchWeb(job, search)
+    if (isWebhookSpecV2(job)) {
+      return matchWebhook(job, search)
     }
   }
 
@@ -293,15 +293,15 @@ function matchCron(job: JobSpecV2, term: string) {
 }
 
 /**
- * matchWeb determines whether the Web job matches the search terms
+ * matchWebhook determines whether the Webhook job matches the search terms
  *
  * @param job {JobSpecV2} The V2 Job Spec
  * @param term {string} The search term
  */
-function matchWeb(job: JobSpecV2, term: string) {
+function matchWebhook(job: JobSpecV2, term: string) {
   const match = searchIncludes(term)
 
-  const dataset: string[] = [job.id, job.attributes.name || '', 'web']
+  const dataset: string[] = [job.id, job.attributes.name || '', 'webhook']
 
   return dataset.some(match)
 }

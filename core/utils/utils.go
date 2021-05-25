@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -851,80 +852,83 @@ func EVMBytesToUint64(buf []byte) uint64 {
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state StartStopOnceState
-	sync.RWMutex
+	state      atomic.Int32
+	sync.Mutex // lock is held during statup/shutdown
 }
 
-// StartStopOnceState manages the state for StartStopOnce
-type StartStopOnceState int
+// StartStopOnceState holds the state for StartStopOnce
+type StartStopOnceState int32
 
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
+	StartStopOnce_Starting
+	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
+	// SAFETY: We do this compare-and-swap outside of the lock so that
+	// concurrent StartOnce() calls return immediately.
+	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
+
+	if !success {
+		return errors.Errorf("%v has already started once", name)
+	}
+
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Unstarted {
-		return errors.Errorf("%v has already started once", name)
-	}
-	once.state = StartStopOnce_Started
+	err := fn()
 
-	return fn()
+	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
+	}
+
+	return err
 }
 
 // StopOnce sets the state to Stopped
 func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
+	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
+	// executes. This ensures that a very fast call to Stop will wait for the
+	// code to finish starting up before teardown.
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Started {
+	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
+
+	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
-	once.state = StartStopOnce_Stopped
 
-	return fn()
-}
+	err := fn()
 
-// OkayToStart checks if the state may be started
-func (once *StartStopOnce) OkayToStart() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
+	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
 
-	if once.state != StartStopOnce_Unstarted {
-		return false
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
 	}
-	once.state = StartStopOnce_Started
-	return true
-}
 
-// OkayToStop checks if the state may be stopped
-func (once *StartStopOnce) OkayToStop() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
-
-	if once.state != StartStopOnce_Started {
-		return false
-	}
-	once.state = StartStopOnce_Stopped
-	return true
+	return err
 }
 
 // State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
-	once.RLock()
-	defer once.RUnlock()
-	return once.state
+	state := once.state.Load()
+	return StartStopOnceState(state)
 }
 
 func (once *StartStopOnce) IfStarted(f func()) {
-	once.RLock()
-	defer once.RUnlock()
-	if once.state == StartStopOnce_Started {
+	state := once.state.Load()
+	if StartStopOnceState(state) == StartStopOnce_Started {
 		f()
 	}
 }
