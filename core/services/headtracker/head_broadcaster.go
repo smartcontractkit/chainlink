@@ -66,13 +66,14 @@ func (hr *HeadBroadcaster) Start() error {
 func (hr *HeadBroadcaster) Close() error {
 	return hr.StopOnce("HeadBroadcaster", func() error {
 
-	for _, unsubscribe := range hr.toUnsubscribe {
-		unsubscribe()
-	}
+		for _, unsubscribe := range hr.toUnsubscribe {
+			unsubscribe()
+		}
 
-	close(hr.chClose)
-	hr.wgDone.Wait()
-	return nil})
+		close(hr.chClose)
+		hr.wgDone.Wait()
+		return nil
+	})
 }
 
 func (hr *HeadBroadcaster) Connect(head *models.Head) error {

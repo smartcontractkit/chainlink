@@ -123,10 +123,10 @@ func (ec *ethConfirmer) Start() error {
 
 		ec.unsubscribeHeads = ec.headBroadcaster.Subscribe(ec)
 
-	if ec.reaper != nil {
-		ec.wg.Add(1)
-		ec.reaper.Start()
-	}
+		if ec.reaper != nil {
+			ec.wg.Add(1)
+			ec.reaper.Start()
+		}
 
 		if ec.ethResender != nil {
 			ec.wg.Add(1)
@@ -144,12 +144,12 @@ func (ec *ethConfirmer) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
 		ec.unsubscribeHeads()
 
-	if ec.reaper != nil {
-		go func() {
-			defer ec.wg.Done()
-			ec.reaper.Stop()
-		}()
-	}
+		if ec.reaper != nil {
+			go func() {
+				defer ec.wg.Done()
+				ec.reaper.Stop()
+			}()
+		}
 
 		if ec.ethResender != nil {
 			go func() {

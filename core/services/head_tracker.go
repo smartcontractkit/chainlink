@@ -47,7 +47,12 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(l *logger.Logger, store *strpkg.Store, headBroadcaster *headtracker.HeadBroadcaster, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(
+	l *logger.Logger,
+	store *strpkg.Store,
+	headBroadcaster *headtracker.HeadBroadcaster,
+	sleepers ...utils.Sleeper,
+) *HeadTracker {
 
 	var wgDone sync.WaitGroup
 	chStop := make(chan struct{})
@@ -70,6 +75,7 @@ func (ht *HeadTracker) SetLogger(logger *logger.Logger) {
 	ht.muLogger.Lock()
 	defer ht.muLogger.Unlock()
 	ht.log = logger
+	ht.headListener.SetLogger(logger)
 }
 
 func (ht *HeadTracker) logger() *logger.Logger {

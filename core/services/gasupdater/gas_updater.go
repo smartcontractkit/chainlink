@@ -125,27 +125,29 @@ func (gu *gasUpdater) Start() error {
 		}
 		gu.unsubscribeHeads = gu.headBroadcaster.Subscribe(gu)
 
-	ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
-	defer cancel()
-	latestHead, err := gu.ethClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		logger.Warnw("GasUpdater: initial check for latest head failed", "err", err)
-	} else {
-		gu.logger.Debugw("GasUpdater: got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
-		gu.FetchBlocksAndRecalculate(ctx, *latestHead)
-	}
-	gu.wg.Add(1)
-	go gu.runLoop()
-	gu.logger.Debugw("GasUpdater: started")
-	return nil})
+		ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
+		defer cancel()
+		latestHead, err := gu.ethClient.HeaderByNumber(ctx, nil)
+		if err != nil {
+			logger.Warnw("GasUpdater: initial check for latest head failed", "err", err)
+		} else {
+			gu.logger.Debugw("GasUpdater: got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
+			gu.FetchBlocksAndRecalculate(ctx, *latestHead)
+		}
+		gu.wg.Add(1)
+		go gu.runLoop()
+		gu.logger.Debugw("GasUpdater: started")
+		return nil
+	})
 }
 
 func (gu *gasUpdater) Close() error {
 	return gu.StopOnce("GasUpdater", func() error {
 		gu.unsubscribeHeads()
-	gu.ctxCancel()
-	gu.wg.Wait()
-	return nil})
+		gu.ctxCancel()
+		gu.wg.Wait()
+		return nil
+	})
 }
 
 func (gu *gasUpdater) runLoop() {

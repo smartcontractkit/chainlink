@@ -276,12 +276,11 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := services.NewHeadTracker(logger, store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
+	ht := createHeadTrackerWithChecker(logger, store, checker)
 
 	// connect
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
-	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
@@ -291,7 +290,6 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
 	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
-	assert.Equal(t, int32(1), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	// stop
