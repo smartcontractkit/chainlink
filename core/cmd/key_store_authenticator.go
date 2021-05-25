@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -17,7 +18,7 @@ import (
 type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) (string, error)
 	AuthenticateVRFKey(*store.Store, string) error
-	AuthenticateOCRKey(store *store.Store, password string) error
+	AuthenticateOCRKey(app chainlink.Application, password string) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -188,8 +189,9 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 }
 
 // AuthenticateOCRKey authenticates OCR keypairs
-func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store, password string) error {
-	err := store.OCRKeyStore.Unlock(password)
+func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(app chainlink.Application, password string) error {
+	ocrKeyStore := app.GetOCRKeyStore()
+	err := ocrKeyStore.Unlock(password)
 	if err != nil {
 		return errors.Wrapf(err,
 			"there are OCR/P2P keys in the DB, but there were errors unlocking "+
@@ -198,29 +200,30 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store,
 				"`chainlink node ocr` and `chainlink node p2p` subcommands")
 	}
 
-	p2pkeys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
+	p2pkeys, err := ocrKeyStore.FindEncryptedP2PKeys()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch encrypted P2P keys from database")
 	}
 	if len(p2pkeys) == 0 {
 		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
 		var k p2pkey.EncryptedP2PKey
-		_, k, err = store.OCRKeyStore.GenerateEncryptedP2PKey()
+		_, k, err = ocrKeyStore.GenerateEncryptedP2PKey()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
 		}
+		store := app.GetStore()
 		if !store.Config.P2PPeerIDIsSet() {
 			store.Config.Set("P2P_PEER_ID", k.PeerID)
 		}
 	}
 
-	ocrkeys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	ocrkeys, err := ocrKeyStore.FindEncryptedOCRKeyBundles()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch encrypted OCR keys from database")
 	}
 	if len(ocrkeys) == 0 {
 		fmt.Println("There are no OCR keys; creating a new key encrypted with given password")
-		_, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+		_, _, err := ocrKeyStore.GenerateEncryptedOCRKeyBundle()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted OCR key")
 		}
