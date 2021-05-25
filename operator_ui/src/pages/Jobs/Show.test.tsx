@@ -87,6 +87,11 @@ describe('pages/Jobs/Show', () => {
         ),
       )
       wrapper.find('Button').find({ children: 'Run' }).first().simulate('click')
+      wrapper
+        .find('RunJobModal')
+        .find({ children: 'Run job' })
+        .first()
+        .simulate('click')
 
       await syncFetch(wrapper)
 

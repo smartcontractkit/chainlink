@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.10.7] - 2021-05-24
+
 - If a CLI command is issued after the session has expired, and an api credentials file is found, auto login should now work.
 
 - GasUpdater now works on RSK and xDai
@@ -33,11 +35,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   node performance on fast chains. The frequency is by default 1 second, and can be changed 
   by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL` env var e.g. `ETH_HEAD_TRACKER_SAMPLING_INTERVAL=5s`.
 
+- Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed 
+  to any chosed directory by setting a new configuration value: `DATABASE_BACKUP_DIR`
+
 ## [0.10.6] - 2021-05-10
 
 ### Added
 
 - Add `MockOracle.sol` for testing contracts
+
+- Web job types can now be created from the operator UI as a new job. 
+
+- See example web job spec below: 
+
+```
+type            = "web"
+schemaVersion   = 1
+jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+observationSource = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
 
 - New CLI command to convert v1 flux monitor jobs (JSON) to 
 v2 flux monitor jobs (TOML). Running it will archive the v1 

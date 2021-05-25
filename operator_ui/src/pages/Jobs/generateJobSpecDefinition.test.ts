@@ -188,7 +188,7 @@ describe('generateTOMLDefinition', () => {
       directRequestSpec: null,
       keeperSpec: null,
       cronSpec: null,
-      webSpec: null,
+      webhookSpec: null,
       schemaVersion: 1,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
@@ -266,7 +266,7 @@ maxTaskDuration = "10s"
       },
       keeperSpec: null,
       cronSpec: null,
-      webSpec: null,
+      webhookSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -309,10 +309,11 @@ observationSource = """
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
-      webSpec: null,
+      webhookSpec: null,
       directRequestSpec: {
         initiator: 'runlog',
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
+        onChainJobSpecID: '0eec7e1dd0d2476ca1a872dfb6633f46',
         createdAt: '2021-02-19T16:00:01.115227+08:00',
       },
       offChainReportingOracleSpec: null,
@@ -327,6 +328,7 @@ observationSource = """
     const expectedOutput = `type = "directrequest"
 schemaVersion = 1
 name = "DR Job Spec"
+onChainJobSpecID = "0eec7e1dd0d2476ca1a872dfb6633f46"
 contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 maxTaskDuration = "10s"
 observationSource = """
@@ -354,7 +356,7 @@ observationSource = """
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
       cronSpec: null,
-      webSpec: null,
+      webhookSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -388,7 +390,7 @@ fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
-      webSpec: null,
+      webhookSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -415,15 +417,16 @@ observationSource = """
     expect(output).toEqual(expectedOutput)
   })
 
-  it('generates a valid Web definition', () => {
+  it('generates a valid Webhook definition', () => {
     const jobSpecAttributesInput = {
-      name: 'Web Job Spec',
+      name: 'Webhook Job Spec',
       schemaVersion: 1,
-      type: 'web',
+      type: 'webhook',
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
-      webSpec: {
+      webhookSpec: {
+        onChainJobSpecID: '0eec7e1dd0d2476ca1a872dfb6633f46',
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
@@ -437,9 +440,10 @@ observationSource = """
       errors: [],
     } as JobSpecV2
 
-    const expectedOutput = `type = "web"
+    const expectedOutput = `type = "webhook"
 schemaVersion = 1
-name = "Web Job Spec"
+name = "Webhook Job Spec"
+onChainJobSpecID = "0eec7e1dd0d2476ca1a872dfb6633f46"
 observationSource = """
     ds    [type=http method=GET url="http://localhost:8001"];
     ds_parse    [type=jsonparse path="data,result"];
