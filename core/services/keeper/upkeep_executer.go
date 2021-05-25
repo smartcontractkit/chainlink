@@ -91,12 +91,11 @@ func (executer *UpkeepExecuter) Start() error {
 }
 
 func (executer *UpkeepExecuter) Close() error {
-	if !executer.OkayToStop() {
-		return errors.New("UpkeepExecuter is already stopped")
-	}
-	close(executer.chStop)
-	executer.wgDone.Wait()
-	return nil
+	return executer.StopOnce("UpkeepExecuter", func() error {
+		close(executer.chStop)
+		executer.wgDone.Wait()
+		return nil
+	})
 }
 
 func (executer *UpkeepExecuter) Connect(head *models.Head) error { return nil }

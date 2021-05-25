@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
@@ -27,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
@@ -86,10 +87,10 @@ type Application interface {
 	GetJobORM() job.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
+	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
-	services.RunManager
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -110,6 +111,7 @@ type ChainlinkApplication struct {
 	jobSpawner               job.Spawner
 	pipelineRunner           pipeline.Runner
 	FluxMonitor              fluxmonitor.Service
+	webhookJobRunner         webhook.JobRunner
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
 	ExternalInitiatorManager ExternalInitiatorManager
@@ -233,6 +235,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		}
 	)
 
+	if config.Dev() {
+		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
+
 	if config.Dev() || config.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			store,
@@ -271,6 +277,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 
+	var webhookJobRunner webhook.JobRunner
+	if config.Dev() || config.FeatureWebhookV2() {
+		delegate := webhook.NewDelegate(pipelineRunner)
+		delegates[job.Webhook] = delegate
+		webhookJobRunner = delegate.WebhookJobRunner()
+	}
+
 	if config.Dev() || config.FeatureCronV2() {
 		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
@@ -293,6 +306,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
+		webhookJobRunner:         webhookJobRunner,
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		SessionReaper:            services.NewStoreReaper(store),
@@ -577,8 +591,20 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name
 	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 
+func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) error {
+	return app.jobSpawner.DeleteJob(ctx, jobID)
+}
+
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
+	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInputs, meta)
+}
+
 // Only used for testing, not supported by the UI.
-func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
+func (app *ChainlinkApplication) RunJobV2(
+	ctx context.Context,
+	jobID int32,
+	meta map[string]interface{},
+) (int64, error) {
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use.")
 	}
@@ -599,10 +625,11 @@ func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta
 			FinishedAt:     &t,
 		}, nil, false)
 	} else {
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.JSONSerializable{
+		meta := pipeline.JSONSerializable{
 			Val:  meta,
 			Null: false,
-		}, *logger.Default, false)
+		}
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, nil, meta, *logger.Default, false)
 	}
 	return runID, err
 }
@@ -620,10 +647,6 @@ func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 		err = errors.Wrapf(err, "failed to delete job with id %s from external initiator", ID)
 	}
 	return multierr.Combine(err, app.Store.ArchiveJob(ID))
-}
-
-func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) error {
-	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs

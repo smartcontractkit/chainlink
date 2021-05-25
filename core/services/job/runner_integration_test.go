@@ -106,7 +106,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
@@ -202,7 +202,7 @@ func TestRunner(t *testing.T) {
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Errors, 1)
@@ -252,7 +252,7 @@ func TestRunner(t *testing.T) {
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -300,7 +300,7 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -657,7 +657,7 @@ ds1 -> ds1_parse;
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.Errors[0])
@@ -668,7 +668,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Create another run
-		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.Error(t, err)
 	})
 
@@ -691,7 +691,7 @@ ds1 -> ds1_parse;
 
 		jb, err := jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
@@ -701,7 +701,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.Errors[0])
@@ -715,7 +715,7 @@ ds1 -> ds1_parse;
 		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.Errors[0])
 	})

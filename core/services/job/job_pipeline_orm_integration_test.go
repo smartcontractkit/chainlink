@@ -122,7 +122,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		pipelineSpecID := pipelineSpecs[0].ID
 
 		// Create the run
-		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], nil, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run

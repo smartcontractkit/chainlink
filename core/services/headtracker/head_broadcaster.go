@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -65,9 +64,7 @@ func (hr *HeadBroadcaster) Start() error {
 }
 
 func (hr *HeadBroadcaster) Close() error {
-	if !hr.OkayToStop() {
-		return errors.New("HeadBroadcaster is already stopped")
-	}
+	return hr.StopOnce("HeadBroadcaster", func() error {
 
 	for _, unsubscribe := range hr.toUnsubscribe {
 		unsubscribe()
@@ -75,7 +72,7 @@ func (hr *HeadBroadcaster) Close() error {
 
 	close(hr.chClose)
 	hr.wgDone.Wait()
-	return nil
+	return nil})
 }
 
 func (hr *HeadBroadcaster) Connect(head *models.Head) error {
