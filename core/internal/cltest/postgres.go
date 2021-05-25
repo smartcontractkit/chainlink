@@ -64,7 +64,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	require.NoError(t, err)
 	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	require.NoError(t, err)
-	orm.SetLogging(true)
+	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
 		require.NoError(t, migrations.Migrate(orm.DB))
