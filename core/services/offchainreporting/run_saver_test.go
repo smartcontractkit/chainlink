@@ -3,6 +3,7 @@ package offchainreporting
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -25,7 +26,7 @@ func TestRunSaver(t *testing.T) {
 		rr,
 		pipelineRunner,
 		make(chan struct{}),
-		1,
+		*logger.Default,
 	)
 	require.NoError(t, rs.Start())
 	for i := 0; i < 100; i++ {
