@@ -72,20 +72,18 @@ func NewRunner(orm ORM, config Config) *runner {
 }
 
 func (r *runner) Start() error {
-	if !r.OkayToStart() {
-		return errors.New("Pipeline runner has already been started")
-	}
-	go r.runReaperLoop()
-	return nil
+	return r.StartOnce("PipelineRunner", func() error {
+		go r.runReaperLoop()
+		return nil
+	})
 }
 
 func (r *runner) Close() error {
-	if !r.OkayToStop() {
-		return errors.New("Pipeline runner has already been stopped")
-	}
-	close(r.chStop)
-	<-r.chDone
-	return nil
+	return r.StopOnce("PipelineRunner", func() error {
+		close(r.chStop)
+		<-r.chDone
+		return nil
+	})
 }
 
 func (r *runner) destroy() {

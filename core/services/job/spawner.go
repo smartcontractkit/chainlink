@@ -79,22 +79,20 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spa
 }
 
 func (js *spawner) Start() error {
-	if !js.OkayToStart() {
-		return errors.New("Job spawner has already been started")
-	}
-	go js.runLoop()
-	return nil
+	return js.StartOnce("JobSpawner", func() error {
+		go js.runLoop()
+		return nil
+
+	})
 }
 
 func (js *spawner) Close() error {
-	if !js.OkayToStop() {
-		return errors.New("Job spawner has already been closed")
-	}
+	return js.StopOnce("JobSpawner", func() error {
+		close(js.chStop)
+		<-js.chDone
+		return nil
 
-	close(js.chStop)
-	<-js.chDone
-
-	return nil
+	})
 }
 
 func (js *spawner) destroy() {

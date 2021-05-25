@@ -4,8 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -98,12 +96,11 @@ func (rs *RegistrySynchronizer) Start() error {
 }
 
 func (rs *RegistrySynchronizer) Close() error {
-	if !rs.OkayToStop() {
-		return errors.New("RegistrySynchronizer is already stopped")
-	}
-	close(rs.chStop)
-	rs.wgDone.Wait()
-	return nil
+	return rs.StopOnce("RegistrySynchronizer", func() error {
+		close(rs.chStop)
+		rs.wgDone.Wait()
+		return nil
+	})
 }
 
 func (rs *RegistrySynchronizer) run() {
