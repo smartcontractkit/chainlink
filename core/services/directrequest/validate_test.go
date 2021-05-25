@@ -1,7 +1,6 @@
 package directrequest
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -29,7 +28,7 @@ observationSource   = """
 
 	assert.Equal(t, int32(0), s.ID)
 	assert.Equal(t, "0x613a38AC1659769640aaE063C651F48E0250454C", s.DirectRequestSpec.ContractAddress.Hex())
-	assert.Equal(t, "a5ac14e876294726b1f11ae053fc829e00000000000000000000000000000000", fmt.Sprintf("%x", s.DirectRequestSpec.OnChainJobSpecID))
+	assert.Equal(t, "a5ac14e876294726b1f11ae053fc829e", s.DirectRequestSpec.OnChainJobSpecID.String())
 	assert.NotZero(t, s.DirectRequestSpec.OnChainJobSpecID[:])
 	assert.Equal(t, time.Time{}, s.DirectRequestSpec.CreatedAt)
 	assert.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
