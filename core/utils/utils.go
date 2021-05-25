@@ -862,12 +862,16 @@ type StartStopOnceState int32
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
+	StartStopOnce_Starting
+	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
-	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Started))
+	// SAFETY: We do this compare-and-swap outside of the lock so that
+	// concurrent StartOnce() calls return immediately.
+	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
 		return errors.Errorf("%v has already started once", name)
@@ -876,21 +880,44 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
 
-	return fn()
+	err := fn()
+
+	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
+	}
+
+	return err
 }
 
 // StopOnce sets the state to Stopped
 func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
-	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopped))
+	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
+	// executes. This ensures that a very fast call to Stop will wait for the
+	// code to finish starting up before teardown.
+	once.Lock()
+	defer once.Unlock()
+
+	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
 
-	once.Lock()
-	defer once.Unlock()
+	err := fn()
 
-	return fn()
+	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
+	}
+
+	return err
 }
 
 // State retrieves the current state
