@@ -718,10 +718,11 @@ func (c Config) EthNonceAutoSync() bool {
 
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
-	if c.viper.IsSet(EnvVarName("EthGasLimitDefault")) {
+	ethGasLimitDefault := chainSpecificConfig(c).EthGasLimitDefault
+	if c.viper.IsSet(EnvVarName("EthGasLimitDefault")) || ethGasLimitDefault == 0 {
 		return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
 	}
-	return chainSpecificConfig(c).EthGasLimitDefault
+	return ethGasLimitDefault
 }
 
 // EthBaseTransactionGasLimit represents how much gas is required to send a eth->eth transfer
@@ -1296,10 +1297,11 @@ func (c Config) MinRequiredOutgoingConfirmations() uint64 {
 // MinimumContractPayment represents the minimum amount of LINK that must be
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
-	if c.viper.IsSet(EnvVarName("MinimumContractPayment")) {
+	minimumContractPayment := chainSpecificConfig(c).MinimumContractPayment
+	if c.viper.IsSet(EnvVarName("MinimumContractPayment")) || minimumContractPayment == nil {
 		return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
 	}
-	return chainSpecificConfig(c).MinimumContractPayment
+	return minimumContractPayment
 }
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
