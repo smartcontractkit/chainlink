@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -75,16 +75,16 @@ func TestClient_ListP2PKeys(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
+	app.GetOCRKeyStore().Unlock(cltest.Password)
 
 	key, err := p2pkey.CreateKey()
 	require.NoError(t, err)
 	encKey, err := key.ToEncryptedP2PKey(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
-	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
+	err = app.GetOCRKeyStore().UpsertEncryptedP2PKey(&encKey)
 	require.NoError(t, err)
 
-	requireP2PKeyCount(t, app.Store, 2) // Created  + fixture key
+	requireP2PKeyCount(t, app, 2) // Created  + fixture key
 
 	client, r := app.NewClientAndRenderer()
 
@@ -100,11 +100,11 @@ func TestClient_CreateP2PKey(t *testing.T) {
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
+	app.GetOCRKeyStore().Unlock(cltest.Password)
 
 	require.NoError(t, client.CreateP2PKey(nilContext))
 
-	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
+	keys, err := app.GetOCRKeyStore().FindEncryptedP2PKeys()
 	require.NoError(t, err)
 
 	// Created + fixture key
@@ -122,16 +122,16 @@ func TestClient_DeleteP2PKey(t *testing.T) {
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
+	app.GetOCRKeyStore().Unlock(cltest.Password)
 
 	key, err := p2pkey.CreateKey()
 	require.NoError(t, err)
 	encKey, err := key.ToEncryptedP2PKey(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
-	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
+	err = app.GetOCRKeyStore().UpsertEncryptedP2PKey(&encKey)
 	require.NoError(t, err)
 
-	requireP2PKeyCount(t, app.Store, 2) // Created  + fixture key
+	requireP2PKeyCount(t, app, 2) // Created  + fixture key
 
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("yes", true, "")
@@ -141,7 +141,7 @@ func TestClient_DeleteP2PKey(t *testing.T) {
 	err = client.DeleteP2PKey(c)
 	require.NoError(t, err)
 
-	requireP2PKeyCount(t, app.Store, 1) // fixture key only
+	requireP2PKeyCount(t, app, 1) // fixture key only
 }
 
 func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
@@ -151,11 +151,10 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
-	store := app.GetStore()
 
-	store.OCRKeyStore.Unlock(cltest.Password)
+	app.GetOCRKeyStore().Unlock(cltest.Password)
 
-	keys := requireP2PKeyCount(t, store, 1)
+	keys := requireP2PKeyCount(t, app, 1)
 	key := keys[0]
 	keyName := keyNameForTest(t)
 
@@ -179,8 +178,8 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	require.NoError(t, client.ExportP2PKey(c))
 	require.NoError(t, utils.JustError(os.Stat(keyName)))
 
-	require.NoError(t, store.OCRKeyStore.DeleteEncryptedP2PKey(&key))
-	requireP2PKeyCount(t, store, 0)
+	require.NoError(t, app.GetOCRKeyStore().DeleteEncryptedP2PKey(&key))
+	requireP2PKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test P2P import", 0)
 	set.Parse([]string{keyName})
@@ -188,13 +187,13 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportP2PKey(c))
 
-	requireP2PKeyCount(t, store, 1)
+	requireP2PKeyCount(t, app, 1)
 }
 
-func requireP2PKeyCount(t *testing.T, store *store.Store, length int) []p2pkey.EncryptedP2PKey {
+func requireP2PKeyCount(t *testing.T, app chainlink.Application, length int) []p2pkey.EncryptedP2PKey {
 	t.Helper()
 
-	keys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
+	keys, err := app.GetOCRKeyStore().FindEncryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, length)
 	return keys

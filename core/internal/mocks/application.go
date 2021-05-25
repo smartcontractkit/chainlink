@@ -18,6 +18,8 @@ import (
 
 	null "gopkg.in/guregu/null.v4"
 
+	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	packr "github.com/gobuffalo/packr"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -224,6 +226,22 @@ func (_m *Application) GetLogger() *logger.Logger {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*logger.Logger)
+		}
+	}
+
+	return r0
+}
+
+// GetOCRKeyStore provides a mock function with given fields:
+func (_m *Application) GetOCRKeyStore() *offchainreporting.KeyStore {
+	ret := _m.Called()
+
+	var r0 *offchainreporting.KeyStore
+	if rf, ok := ret.Get(0).(func() *offchainreporting.KeyStore); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*offchainreporting.KeyStore)
 		}
 	}
 
