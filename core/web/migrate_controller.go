@@ -94,10 +94,7 @@ func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
 func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
-	ca, err := models.EIP55AddressFromAddress(initr.Address)
-	if err != nil {
-		return jb, err
-	}
+	ca := models.EIP55AddressFromAddress(initr.Address)
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		FluxMonitorSpec: &job.FluxMonitorSpec{

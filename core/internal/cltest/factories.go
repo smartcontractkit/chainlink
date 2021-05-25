@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -656,9 +657,8 @@ func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...inter
 	t.Helper()
 
 	k := MustGenerateRandomKey(t, opts...)
-	err := store.KeyStore.Unlock(Password)
-	require.NoError(t, err)
 	MustAddKeyToKeystore(t, &k, store)
+
 	return k, k.Address.Address()
 }
 
@@ -667,9 +667,8 @@ func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
 
 	err := store.KeyStore.Unlock(Password)
 	require.NoError(t, err)
-	_, err = store.KeyStore.Import(key.JSON.Bytes(), Password)
+	err = store.KeyStore.AddKey(key)
 	require.NoError(t, err)
-	require.NoError(t, store.DB.Create(key).Error)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
@@ -697,9 +696,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	}
 	keyjsonbytes, err := keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
 	require.NoError(t, err)
-	keyjson, err := models.ParseJSON(keyjsonbytes)
-	require.NoError(t, err)
-	eip, err := models.EIP55AddressFromAddress(k.Address)
+	eip := models.EIP55AddressFromAddress(k.Address)
 	require.NoError(t, err)
 
 	var nextNonce int64
@@ -719,7 +716,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 
 	key := models.Key{
 		Address:   eip,
-		JSON:      keyjson,
+		JSON:      gormpostgrestypes.Jsonb{RawMessage: keyjsonbytes},
 		NextNonce: nextNonce,
 		IsFunding: funding,
 	}

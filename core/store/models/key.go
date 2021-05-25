@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 )
@@ -20,19 +20,28 @@ import (
 type Key struct {
 	ID        int32 `gorm:"primary_key"`
 	Address   EIP55Address
-	JSON      JSON
+	JSON      postgres.Jsonb
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt
 	// This is the nonce that should be used for the next transaction.
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions
+	// NOTE: Be cautious about using this field, it is provided for convenience
+	// only, can go out of date, and should not be relied upon. The source of
+	// truth is always the database row for the key.
 	NextNonce int64
-	// LastUsed is the time that the address was last assigned to a transaction
-	LastUsed *time.Time
 	// IsFunding marks the address as being used for rescuing the  node and the pending transactions
 	// Only one key can be IsFunding=true at a time.
 	IsFunding bool
+}
+
+// Type returns type of key
+func (k Key) Type() string {
+	if k.IsFunding {
+		return "funding"
+	}
+	return "sending"
 }
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
@@ -48,10 +57,5 @@ func NewKeyFromFile(path string) (Key, error) {
 		return Key{}, multierr.Append(errors.New("unable to create Key model"), err)
 	}
 
-	return Key{Address: address, JSON: JSON{Result: js}}, nil
-}
-
-// WriteToDisk writes this key to disk at the passed path.
-func (k *Key) WriteToDisk(path string) error {
-	return utils.WriteFileWithMaxPerms(path, []byte(k.JSON.String()), 0600)
+	return Key{Address: address, JSON: postgres.Jsonb{RawMessage: dat}}, nil
 }
