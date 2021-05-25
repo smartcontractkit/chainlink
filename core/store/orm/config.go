@@ -77,6 +77,7 @@ type (
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
 	ChainSpecificDefaultSet struct {
 		EnableLegacyJobPipeline          bool
+		EthGasLimitDefault               uint64
 		EthGasBumpThreshold              uint64
 		EthGasBumpWei                    big.Int
 		EthGasPriceDefault               big.Int
@@ -94,6 +95,7 @@ type (
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		OptimismGasFees                  bool
+		MinimumContractPayment           assets.Link
 	}
 )
 
@@ -202,6 +204,17 @@ func init() {
 		OptimismGasFees:                  true,
 	}
 
+	// Fantom
+	fantomTestnet := ChainSpecificDefaultSet{
+		EthGasLimitDefault:               500000,
+		EthGasPriceDefault:               *big.NewInt(15000000000),
+		EthMaxGasPriceWei:                *big.NewInt(100000000000),
+		MinIncomingConfirmations:         3,
+		MinRequiredOutgoingConfirmations: 2,
+		MinimumContractPayment:           *assets.NewLink(3500000000000000),
+	}
+	fantomMainnet := fantomTestnet
+
 	GeneralDefaults = mainnet
 	ChainSpecificDefaults[1] = mainnet
 	ChainSpecificDefaults[42] = kovan
@@ -212,6 +225,8 @@ func init() {
 
 	ChainSpecificDefaults[56] = bscMainnet
 	ChainSpecificDefaults[128] = hecoMainnet
+	ChainSpecificDefaults[250] = fantomMainnet
+	ChainSpecificDefaults[4002] = fantomTestnet
 	ChainSpecificDefaults[80001] = polygonMatic
 
 	ChainSpecificDefaults[100] = xDai
