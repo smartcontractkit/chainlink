@@ -13,6 +13,8 @@ func TestConfig_SetEthGasPriceDefault(t *testing.T) {
 	t.Cleanup(cleanup)
 	config := store.Config
 
+	config.Set("ETH_MAX_GAS_PRICE_WEI", 1500000000000)
+
 	t.Run("sets the gas price", func(t *testing.T) {
 		assert.Equal(t, big.NewInt(20000000000), config.EthGasPriceDefault())
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
@@ -24,6 +23,7 @@ const (
 	OffchainReporting Type = "offchainreporting"
 	Keeper            Type = "keeper"
 	VRF               Type = "vrf"
+	Webhook           Type = "webhook"
 )
 
 type Job struct {
@@ -40,6 +40,8 @@ type Job struct {
 	KeeperSpec                    *KeeperSpec
 	VRFSpecID                     *int32
 	VRFSpec                       *VRFSpec
+	WebhookSpecId                 *int32
+	WebhookSpec                   *WebhookSpec
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -142,10 +144,45 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+type WebhookSpec struct {
+	ID               int32        `toml:"-" gorm:"primary_key"`
+	OnChainJobSpecID models.JobID `toml:"jobID"`
+	CreatedAt        time.Time    `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time    `json:"updatedAt" toml:"-"`
+}
+
+func (w WebhookSpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *WebhookSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
+	return nil
+}
+
+func (w *WebhookSpec) BeforeCreate(db *gorm.DB) error {
+	w.CreatedAt = time.Now()
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (w *WebhookSpec) BeforeSave(db *gorm.DB) error {
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (WebhookSpec) TableName() string {
+	return "webhook_specs"
+}
+
 type DirectRequestSpec struct {
 	ID               int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID common.Hash         `toml:"jobID"`
+	OnChainJobSpecID models.JobID        `toml:"jobID"`
 	NumConfirmations clnull.Uint32       `toml:"numConfirmations"`
 	CreatedAt        time.Time           `toml:"-"`
 	UpdatedAt        time.Time           `toml:"-"`

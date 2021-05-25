@@ -33,7 +33,7 @@ export type JobSpecType =
   | 'offchainreporting'
   | 'keeper'
   | 'cron'
-  | 'web'
+  | 'webhook'
 
 export type JobV2 = BaseJob & {
   dotDagSource: string
@@ -95,4 +95,5 @@ export type JobData = {
   jobSpec?: JobSpecResponse['data']
   recentRuns?: PipelineJobRun[] | DirectRequestJobRun[]
   recentRunsCount: number
+  onChainJobSpecID?: string
 }
