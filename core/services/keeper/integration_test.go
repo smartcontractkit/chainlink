@@ -100,7 +100,6 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// create job
 	regAddrEIP55 := models.EIP55AddressFromAddress(regAddr)
-	require.NoError(t, err)
 	cltest.MustInsertKeeperJob(t, app.Store, nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received
