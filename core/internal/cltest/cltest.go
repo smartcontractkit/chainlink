@@ -196,6 +196,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("ETH_FINALITY_DEPTH", 1)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
+	// Disable verbose migration logging
+	config.Set("LOG_SQL_MIGRATIONS", false)
 	return config, cleanup
 }
 
