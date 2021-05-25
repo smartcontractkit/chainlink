@@ -35,7 +35,7 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
 var _ job.Service = (*UpkeepExecuter)(nil)
-var _ types.HeadBroadcastable = (*UpkeepExecuter)(nil)
+var _ types.HeadTrackable = (*UpkeepExecuter)(nil)
 
 type UpkeepExecuter struct {
 	chStop            chan struct{}

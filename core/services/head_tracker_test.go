@@ -453,7 +453,6 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[5].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent.Parent)
 			require.NotNil(t, h.Parent.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
-			logger.Warn("======================================")
 			return true
 		}
 		return false

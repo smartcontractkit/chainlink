@@ -18,7 +18,7 @@ const callbackTimeout = 2 * time.Second
 
 type callbackID [256]byte
 
-type callbackSet map[callbackID]httypes.HeadBroadcastable
+type callbackSet map[callbackID]httypes.HeadTrackable
 
 func (set callbackSet) clone() callbackSet {
 	cp := make(callbackSet)
@@ -97,7 +97,7 @@ func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.He
 	hr.mailbox.Deliver(head)
 }
 
-func (hr *HeadBroadcaster) SubscribeUntilClose(callback httypes.HeadBroadcastable) {
+func (hr *HeadBroadcaster) SubscribeUntilClose(callback httypes.HeadTrackable) {
 	hr.toUnsubscribe = append(hr.toUnsubscribe, hr.Subscribe(callback))
 }
 func (hr *HeadBroadcaster) SubscribeForConnectUntilClose(onConnect func() error) {
@@ -105,7 +105,7 @@ func (hr *HeadBroadcaster) SubscribeForConnectUntilClose(onConnect func() error)
 	hr.toUnsubscribe = append(hr.toUnsubscribe, hr.Subscribe(callback))
 }
 
-func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadBroadcastable) (unsubscribe func()) {
+func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
 	id, err := newID()
@@ -162,7 +162,7 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 	wg.Add(len(hr.callbacks))
 
 	for _, callback := range callbacks {
-		go func(hr httypes.HeadBroadcastable) {
+		go func(hr httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)

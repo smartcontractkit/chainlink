@@ -106,6 +106,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 			break
 		} else if err != nil {
 			hl.logger().Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			hl.headers = nil
 			continue
 		} else {
 			break
