@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -48,7 +47,6 @@ type Store struct {
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *vrf.VRFKeyStore
-	OCRKeyStore    *offchainreporting.KeyStore
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
@@ -106,7 +104,6 @@ func newStoreWithKeyStore(
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
 		KeyStore:       keyStore,
-		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
 		ORM:            orm,
 		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},

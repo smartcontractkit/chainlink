@@ -72,7 +72,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(store, keyStorePwd); authErr != nil {
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(app, keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
 	}
 
