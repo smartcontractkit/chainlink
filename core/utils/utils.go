@@ -940,6 +940,21 @@ func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
 	return false
 }
 
+func (once *StartStopOnce) Ready() error {
+	if once.State() == StartStopOnce_Started {
+		return nil
+	}
+	return errors.New("not started")
+}
+
+// Override this per-service with more specific implementations
+func (once *StartStopOnce) Healthy() error {
+	if once.State() == StartStopOnce_Started {
+		return nil
+	}
+	return errors.New("not started")
+}
+
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
 	jitter := mrand.Intn(int(d) / 5)
