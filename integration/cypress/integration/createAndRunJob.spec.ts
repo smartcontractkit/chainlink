@@ -15,6 +15,8 @@ context('End to end', function () {
     cy.get('#created-job').click()
     cy.contains('job spec detail')
     cy.clickButton('Run')
+    cy.contains('Pipeline input')
+    cy.clickButton('Run job')
     cy.contains('p', 'Successfully created job run')
       .children('a')
       .click()

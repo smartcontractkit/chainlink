@@ -108,54 +108,52 @@ func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head)
 }
 
 func (ec *ethConfirmer) Start() error {
-	if !ec.OkayToStart() {
-		return errors.New("EthConfirmer has already been started")
-	}
-	if ec.config.EthGasBumpThreshold() == 0 {
-		logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
-	} else {
-		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
-	}
+	return ec.StartOnce("EthConfirmer", func() error {
 
-	if ec.reaper != nil {
+		if ec.config.EthGasBumpThreshold() == 0 {
+			logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
+		} else {
+			logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
+		}
+
+		if ec.reaper != nil {
+			ec.wg.Add(1)
+			ec.reaper.Start()
+		}
+
+		if ec.ethResender != nil {
+			ec.wg.Add(1)
+			ec.ethResender.Start()
+		}
+
 		ec.wg.Add(1)
-		ec.reaper.Start()
-	}
+		go ec.runLoop()
 
-	if ec.ethResender != nil {
-		ec.wg.Add(1)
-		ec.ethResender.Start()
-	}
-
-	ec.wg.Add(1)
-	go ec.runLoop()
-
-	return nil
+		return nil
+	})
 }
 
 func (ec *ethConfirmer) Close() error {
-	if !ec.OkayToStop() {
-		return errors.New("EthConfirmer has already been stopped")
-	}
+	return ec.StopOnce("EthConfirmer", func() error {
+		if ec.reaper != nil {
+			go func() {
+				defer ec.wg.Done()
+				ec.reaper.Stop()
+			}()
+		}
 
-	if ec.reaper != nil {
-		go func() {
-			defer ec.wg.Done()
-			ec.reaper.Stop()
-		}()
-	}
+		if ec.ethResender != nil {
+			go func() {
+				defer ec.wg.Done()
+				ec.ethResender.Stop()
+			}()
+		}
 
-	if ec.ethResender != nil {
-		go func() {
-			defer ec.wg.Done()
-			ec.ethResender.Stop()
-		}()
-	}
+		ec.ctxCancel()
+		ec.wg.Wait()
 
-	ec.ctxCancel()
-	ec.wg.Wait()
-
-	return nil
+		return nil
+	})
 }
 
 func (ec *ethConfirmer) runLoop() {

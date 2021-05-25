@@ -1,7 +1,6 @@
 package offchainreporting
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -35,50 +34,48 @@ func NewResultRunSaver(db *gorm.DB, runResults <-chan pipeline.RunWithResults, p
 }
 
 func (r *RunResultSaver) Start() error {
-	if !r.OkayToStart() {
-		return errors.New("cannot start already started run result saver")
-	}
-	go gracefulpanic.WrapRecover(func() {
+	return r.StartOnce("RunResultSaver", func() error {
+		go gracefulpanic.WrapRecover(func() {
+			for {
+				select {
+				case rr := <-r.runResults:
+					logger.Debugw("RunSaver: saving job run", "run", rr.Run, "task results", rr.TaskRunResults)
+					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
+					// are produced and the successful TaskRuns do not provide value.
+					ctx, cancel := postgres.DefaultQueryCtx()
+					defer cancel()
+					_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
+					if err != nil {
+						logger.Errorw(fmt.Sprintf("error inserting finished results for job ID %v", r.jobID), "err", err)
+					}
+				case <-r.done:
+					return
+				}
+			}
+		})
+		return nil
+	})
+}
+
+func (r *RunResultSaver) Close() error {
+	return r.StopOnce("RunResultSaver", func() error {
+		r.done <- struct{}{}
+
+		// In the unlikely event that there are remaining runResults to write,
+		// drain the channel and save them.
 		for {
 			select {
 			case rr := <-r.runResults:
-				logger.Debugw("RunSaver: saving job run", "run", rr.Run, "task results", rr.TaskRunResults)
-				// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
-				// are produced and the successful TaskRuns do not provide value.
+				logger.Debugw("RunSaver: saving job run before exiting", "run", rr.Run, "task results", rr.TaskRunResults)
 				ctx, cancel := postgres.DefaultQueryCtx()
 				defer cancel()
 				_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
 				if err != nil {
 					logger.Errorw(fmt.Sprintf("error inserting finished results for job ID %v", r.jobID), "err", err)
 				}
-			case <-r.done:
-				return
+			default:
+				return nil
 			}
 		}
 	})
-	return nil
-}
-
-func (r *RunResultSaver) Close() error {
-	if !r.OkayToStop() {
-		return errors.New("cannot close unstarted run result saver")
-	}
-	r.done <- struct{}{}
-
-	// In the unlikely event that there are remaining runResults to write,
-	// drain the channel and save them.
-	for {
-		select {
-		case rr := <-r.runResults:
-			logger.Debugw("RunSaver: saving job run before exiting", "run", rr.Run, "task results", rr.TaskRunResults)
-			ctx, cancel := postgres.DefaultQueryCtx()
-			defer cancel()
-			_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
-			if err != nil {
-				logger.Errorw(fmt.Sprintf("error inserting finished results for job ID %v", r.jobID), "err", err)
-			}
-		default:
-			return nil
-		}
-	}
 }

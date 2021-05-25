@@ -74,6 +74,7 @@ type ConfigSchema struct {
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
+	FeatureWebhookV2                          bool            `env:"FEATURE_WEBHOOK_V2" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`
 	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY"`

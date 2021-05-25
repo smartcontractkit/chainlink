@@ -85,6 +85,7 @@ export class Api {
   private methodFactory(method: http.Method) {
     return <Params, T, NamedPathParams extends object = object>(
       url: string,
+      raw?: boolean,
     ): Method<Params, T, NamedPathParams> => {
       const toPath = pathToRegexp.compile<NamedPathParams>(url)
 
@@ -99,7 +100,7 @@ export class Api {
           query,
         )
 
-        const options = http.getOptions(method)
+        const options = http.getOptions(method, raw)
 
         const fetch = fetchWithTimeout(u.toString(), options(params))
 
