@@ -285,7 +285,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	ocrJobSpec.OffchainreportingOracleSpec = &os
 
-	err = app.Store.OCRKeyStore.Unlock(cltest.Password)
+	err = app.OCRKeyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
