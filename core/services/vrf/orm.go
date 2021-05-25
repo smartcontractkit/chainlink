@@ -14,6 +14,7 @@ type ORM interface {
 	ArchiveEncryptedSecretVRFKey(k *EncryptedVRFKey) error
 	DeleteEncryptedSecretVRFKey(k *EncryptedVRFKey) error
 	FindEncryptedSecretVRFKeys(where ...EncryptedVRFKey) ([]*EncryptedVRFKey, error)
+	// TODO: Should be using the generic keystore for this once available
 	CreateEthTransaction(
 		db *gorm.DB,
 		fromAddress common.Address,
@@ -79,7 +80,7 @@ func (o *orm) CreateEthTransaction(
 	value := 0
 	err = db.Raw(`
 		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
-		SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
+		SELECT ?,?,?,?,?,'unstarted',NOW()
 		WHERE NOT EXISTS (
 			SELECT 1 FROM eth_tx_attempts
 			JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id

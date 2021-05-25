@@ -129,19 +129,19 @@ func GenerateVRFSpec(params VRFSpecParams) string {
 	}
 	name := "vrf-primary"
 	if params.Name != "" {
-		name = name
+		name = params.Name
 	}
 	coordinatorAddress := "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
 	if params.CoordinatorAddress != "" {
-		coordinatorAddress = coordinatorAddress
+		coordinatorAddress = params.CoordinatorAddress
 	}
 	confirmations := 6
 	if params.Confirmations != 0 {
-		confirmations = confirmations
+		confirmations = params.Confirmations
 	}
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
-		publicKey = publicKey
+		publicKey = params.PublicKey
 	}
 	template := `
 jobID = "%s"

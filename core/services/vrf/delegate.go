@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -58,14 +59,14 @@ func NewConfig(minIncomingConfs uint32, params utils.ScryptParams, gasLimit uint
 
 func NewDelegate(
 	db *gorm.DB,
+	vorm ORM,
 	gethks GethKeyStore,
+	vrfks *VRFKeyStore,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	lb log.Broadcaster,
 	ec eth.Client,
 	cfg Config) *Delegate {
-	vorm := NewORM(db)
-	vrfks := NewVRFKeyStore(vorm, cfg.params)
 	return &Delegate{
 		cfg:    cfg,
 		db:     db,
@@ -103,6 +104,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		db:             d.db,
 		coordinator:    coordinator,
 		pipelineRunner: d.pr,
+		vorm:           d.vorm,
 		vrfks:          d.vrfks,
 		gethks:         d.gethks,
 		pipelineORM:    d.porm,
@@ -210,7 +212,7 @@ func (l *listener) Start() error {
 							return nil
 						})
 						if err != nil {
-							logger.Error("VRFListener failed to save run", "err", err)
+							logger.Errorw("VRFListener failed to save run", "err", err)
 						}
 					}
 				}
@@ -263,11 +265,14 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 		return inputs, err
 	}
 	if !bytes.Equal(request.KeyHash[:], kh[:]) {
-		return inputs, errors.New("invalid key hash")
+		return inputs, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(request.KeyHash[:]), hex.EncodeToString(kh[:])))
 	}
 	preSeed, err := BigToSeed(request.Seed)
 	if err != nil {
 		return inputs, errors.New("unable to parse preseed")
+	}
+	if jb.ExternalIDToTopicHash() != request.JobID {
+		return inputs, errors.New("")
 	}
 	return VRFInputs{
 		pk: jb.VRFSpec.PublicKey,

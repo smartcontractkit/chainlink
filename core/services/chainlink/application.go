@@ -231,6 +231,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
+	vorm := vrf.NewORM(store.DB)
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -244,7 +245,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
 			job.VRF: vrf.NewDelegate(
 				store.DB, // For transactions.
+				vorm,
 				store,
+				vrf.NewVRFKeyStore(vorm, utils.GetScryptParams(store.Config)),
 				pipelineRunner,
 				pipelineORM,
 				logBroadcaster,
