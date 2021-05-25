@@ -72,10 +72,11 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		defer cleanup()
 		ethClient := new(mocks.Client)
 
-		_, from := cltest.MustAddRandomKeyToKeystore(t, store, int64(32))
+		k1 := cltest.MustInsertRandomKey(t, store.DB, int64(32))
+		store.KeyStore.Unlock(cltest.Password)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
-			return from == addr
+			return k1.Address.Address() == addr
 		})).Return(uint64(31), nil)
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store, store.Config, ethClient)
@@ -85,7 +86,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		cltest.AssertCount(t, store, models.EthTx{}, 0)
 		cltest.AssertCount(t, store, models.EthTxAttempt{}, 0)
 
-		assertDatabaseNonce(t, store, from, 32)
+		assertDatabaseNonce(t, store, k1.Address.Address(), 32)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -95,23 +96,24 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		defer cleanup()
 		ethClient := new(mocks.Client)
 
-		_, acct1 := cltest.MustAddRandomKeyToKeystore(t, store, int64(0))
-		_, acct2 := cltest.MustAddRandomKeyToKeystore(t, store, int64(32))
+		_, key1 := cltest.MustAddRandomKeyToKeystore(t, store, int64(0))
+		_, key2 := cltest.MustAddRandomKeyToKeystore(t, store, int64(32))
+		store.KeyStore.Unlock(cltest.Password)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
-			// Nothing to do for acct2
-			return acct2 == addr
+			// Nothing to do for key2
+			return key2 == addr
 		})).Return(uint64(32), nil)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
-			// acct1 has chain nonce of 5 which is ahead of local nonce 0
-			return acct1 == addr
+			// key1 has chain nonce of 5 which is ahead of local nonce 0
+			return key1 == addr
 		})).Return(uint64(5), nil)
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store, store.Config, ethClient)
 
 		require.NoError(t, ns.SyncAll(context.Background()))
 
-		assertDatabaseNonce(t, store, acct1, 5)
+		assertDatabaseNonce(t, store, key1, 5)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -120,42 +122,44 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		_, acct1 := cltest.MustAddRandomKeyToKeystore(t, store, int64(0))
+		_, key1 := cltest.MustAddRandomKeyToKeystore(t, store, int64(0))
+		store.KeyStore.Unlock(cltest.Password)
 
-		cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1, acct1)
+		cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1, key1)
 
 		ethClient := new(mocks.Client)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
-			// acct1 has chain nonce of 1 which is ahead of keys.next_nonce (0)
+			// key1 has chain nonce of 1 which is ahead of keys.next_nonce (0)
 			// by 1, but does not need to change when taking into account the in_progress tx
-			return acct1 == addr
+			return key1 == addr
 		})).Return(uint64(1), nil)
 		ns := bulletprooftxmanager.NewNonceSyncer(store, store.Config, ethClient)
 
 		require.NoError(t, ns.SyncAll(context.Background()))
-		assertDatabaseNonce(t, store, acct1, 0)
+		assertDatabaseNonce(t, store, key1, 0)
 
 		ethClient.AssertExpectations(t)
 
 		ethClient = new(mocks.Client)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
-			// acct1 has chain nonce of 2 which is ahead of keys.next_nonce (0)
+			// key1 has chain nonce of 2 which is ahead of keys.next_nonce (0)
 			// by 2, but only ahead by 1 if we count the in_progress tx as +1
-			return acct1 == addr
+			return key1 == addr
 		})).Return(uint64(2), nil)
 		ns = bulletprooftxmanager.NewNonceSyncer(store, store.Config, ethClient)
 
 		require.NoError(t, ns.SyncAll(context.Background()))
-		assertDatabaseNonce(t, store, acct1, 1)
+		assertDatabaseNonce(t, store, key1, 1)
 
 		ethClient.AssertExpectations(t)
 	})
 }
 
-func assertDatabaseNonce(t *testing.T, store *store.Store, from common.Address, nonce int64) {
+func assertDatabaseNonce(t *testing.T, store *store.Store, address common.Address, nonce int64) {
 	t.Helper()
 
-	k, err := store.KeyByAddress(from)
+	var nextNonce int64
+	err := store.DB.Raw(`SELECT next_nonce FROM keys WHERE address = ?`, address).Scan(&nextNonce).Error
 	require.NoError(t, err)
-	assert.Equal(t, nonce, k.NextNonce)
+	assert.Equal(t, nonce, nextNonce)
 }

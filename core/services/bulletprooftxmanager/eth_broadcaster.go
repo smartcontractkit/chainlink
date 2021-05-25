@@ -137,7 +137,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		keys, err := eb.store.SendKeys()
+		keys, err := eb.store.KeyStore.SendingKeys()
 
 		if err != nil {
 			logger.Error(errors.Wrap(err, "monitorEthTxs failed getting key"))
@@ -497,6 +497,8 @@ func IncrementNextNonce(db *gorm.DB, address gethCommon.Address, currentNonce in
 		return errors.Wrap(res.Error, "IncrementNextNonce failed to update keys")
 	}
 	if res.RowsAffected == 0 {
+		var key models.Key
+		db.Where("address = ?", address.Bytes()).First(&key)
 		return errors.New("invariant violation: could not increment nonce because no rows matched query. " +
 			"Either the key is missing or the nonce has been modified by an external process. This is an unrecoverable error")
 	}

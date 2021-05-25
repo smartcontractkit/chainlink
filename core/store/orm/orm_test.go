@@ -3,10 +3,7 @@ package orm_test
 import (
 	"context"
 	"fmt"
-	"io"
 	"math/big"
-	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -1164,76 +1161,6 @@ func TestBulkDeleteRuns(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := store.ORM
-
-	earlier := cltest.MustInsertRandomKey(t, store.DB)
-	later := cltest.MustInsertRandomKey(t, store.DB)
-
-	require.NoError(t, orm.CreateKeyIfNotExists(later))
-
-	keys, err := store.SendKeys()
-	require.NoError(t, err)
-
-	require.Len(t, keys, 2)
-
-	assert.Equal(t, keys[0].Address, earlier.Address)
-	assert.Equal(t, keys[1].Address, later.Address)
-}
-
-func TestORM_SendKeys(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	cltest.MustInsertRandomKey(t, store.DB, false)
-	cltest.MustInsertRandomKey(t, store.DB, true)
-
-	keys, err := store.AllKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 2)
-
-	keys, err = store.SendKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 1)
-}
-
-func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-
-	orm := store.ORM
-
-	dbkeys, err := store.SendKeys()
-	require.NoError(t, err)
-	require.Len(t, dbkeys, 0)
-
-	seed, err := models.NewKeyFromFile(fmt.Sprintf("../../internal/fixtures/keys/%s", cltest.DefaultKeyFixtureFileName))
-	require.NoError(t, err)
-	require.NoError(t, orm.CreateKeyIfNotExists(seed))
-
-	keysDir := store.Config.KeysDir()
-
-	require.True(t, isDirEmpty(t, keysDir))
-	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
-	require.NoError(t, err)
-
-	dbkeys, err = store.SendKeys()
-	require.NoError(t, err)
-	require.Len(t, dbkeys, 1)
-
-	diskkeys, err := utils.FilesInDir(keysDir)
-	require.NoError(t, err)
-	require.Len(t, diskkeys, 1)
-
-	key := dbkeys[0]
-	content, err := utils.FileContents(filepath.Join(keysDir, diskkeys[0]))
-	require.NoError(t, err)
-	assert.Equal(t, key.JSON.String(), content)
-}
-
 const linkEthTxWithTaskRunQuery = `
 INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES (?, ?)
 `
@@ -1395,23 +1322,6 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	foundbridge, err := store.FindBridge("UniqueName")
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
-}
-
-func isDirEmpty(t *testing.T, dir string) bool {
-	f, err := os.Open(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return true
-		}
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true
-	}
-
-	return false
 }
 
 func TestJobs_All(t *testing.T) {
@@ -1916,61 +1826,6 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		require.True(t, fmrs.JobRunID.Valid)
 		require.Equal(t, jobRun.ID, fmrs.JobRunID.UUID)
 	}
-}
-
-func TestORM_GetRoundRobinAddress(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	cltest.MustAddRandomKeyToKeystore(t, store, 0, true)
-	_, k0Address := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	k1, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	k2, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-
-	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
-		address, err := store.GetRoundRobinAddress(store.DB)
-		require.NoError(t, err)
-		assert.Equal(t, k0Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(store.DB)
-		require.NoError(t, err)
-		assert.Equal(t, k1.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(store.DB)
-		require.NoError(t, err)
-		assert.Equal(t, k2.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(store.DB)
-		require.NoError(t, err)
-		assert.Equal(t, k0Address.Hex(), address.Hex())
-	})
-
-	t.Run("with address filter, rotates between given addresses", func(t *testing.T) {
-		addresses := []common.Address{k1.Address.Address(), k2.Address.Address()}
-
-		address, err := store.GetRoundRobinAddress(store.DB, addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k1.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(store.DB, addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k2.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(store.DB, addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k1.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(store.DB, addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k2.Address.Hex(), address.Hex())
-	})
-
-	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := store.GetRoundRobinAddress(store.DB, []common.Address{cltest.NewAddress()}...)
-		require.Error(t, err)
-		require.Equal(t, "no keys available", err.Error())
-	})
 }
 
 func TestORM_SetConfigStrValue(t *testing.T) {

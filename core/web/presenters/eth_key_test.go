@@ -29,7 +29,6 @@ func TestETHKeyResource(t *testing.T) {
 		CreatedAt: now,
 		UpdatedAt: now,
 		NextNonce: nextNonce,
-		LastUsed:  &now,
 		IsFunding: true,
 	}
 
@@ -55,7 +54,6 @@ func TestETHKeyResource(t *testing.T) {
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "nextNonce":1,
-			  "lastUsed":"2000-01-01T00:00:00Z",
 			  "isFunding":true,
 			  "createdAt":"2000-01-01T00:00:00Z",
 			  "updatedAt":"2000-01-01T00:00:00Z",
@@ -88,7 +86,6 @@ func TestETHKeyResource(t *testing.T) {
 				"ethBalance":"1",
 				"linkBalance":"1",
 				"nextNonce":1,
-				"lastUsed":"2000-01-01T00:00:00Z",
 				"isFunding":true,
 				"createdAt":"2000-01-01T00:00:00Z",
 				"updatedAt":"2000-01-01T00:00:00Z",
