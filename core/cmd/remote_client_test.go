@@ -67,11 +67,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 
 	var app *cltest.TestApplication
 	var cleanup func()
-	if sopts.WithKey {
-		app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	} else {
-		app, cleanup = cltest.NewApplicationWithConfig(t, config, sopts.FlagsAndDeps...)
-	}
+	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
 	t.Cleanup(cleanup)
 	app.Logger = app.Config.CreateProductionLogger()
 	app.Logger.SetDB(app.GetStore().DB)

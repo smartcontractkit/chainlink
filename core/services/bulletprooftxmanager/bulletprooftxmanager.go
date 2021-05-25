@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
-	gethAccounts "github.com/ethereum/go-ethereum/accounts"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -65,10 +64,6 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 
 func newAttempt(ctx context.Context, s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
-	account, err := s.KeyStore.GetAccountByAddress(etx.FromAddress)
-	if err != nil {
-		return attempt, errors.Wrapf(err, "error getting account %s for transaction %v", etx.FromAddress.String(), etx.ID)
-	}
 
 	gasPrice := s.Config.EthGasPriceDefault()
 	if suggestedGasPrice != nil {
@@ -90,7 +85,7 @@ func newAttempt(ctx context.Context, s *strpkg.Store, etx models.EthTx, suggeste
 	etx.GasLimit = (uint64)(gasLimit)
 
 	transaction := gethTypes.NewTransaction(uint64(*etx.Nonce), etx.ToAddress, etx.Value.ToInt(), etx.GasLimit, gasPrice, etx.EncodedPayload)
-	hash, signedTxBytes, err := signTx(s.KeyStore, account, transaction, s.Config.ChainID())
+	hash, signedTxBytes, err := signTx(s.KeyStore, etx.FromAddress, transaction, s.Config.ChainID())
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -104,8 +99,8 @@ func newAttempt(ctx context.Context, s *strpkg.Store, etx models.EthTx, suggeste
 	return attempt, nil
 }
 
-func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx *gethTypes.Transaction, chainID *big.Int) (gethCommon.Hash, []byte, error) {
-	signedTx, err := keyStore.SignTx(account, tx, chainID)
+func signTx(keyStore strpkg.KeyStoreInterface, address gethCommon.Address, tx *gethTypes.Transaction, chainID *big.Int) (gethCommon.Hash, []byte, error) {
+	signedTx, err := keyStore.SignTx(address, tx, chainID)
 	if err != nil {
 		return gethCommon.Hash{}, nil, errors.Wrap(err, "signTx failed")
 	}
@@ -148,12 +143,12 @@ func sendEmptyTransaction(
 	nonce uint64,
 	gasLimit uint64,
 	gasPriceWei *big.Int,
-	account gethAccounts.Account,
+	fromAddress gethCommon.Address,
 	chainID *big.Int,
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, account, chainID)
+	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, fromAddress, chainID)
 	if err != nil {
 		return nil, err
 	}
@@ -164,11 +159,11 @@ func sendEmptyTransaction(
 }
 
 // makes a transaction that sends 0 eth to self
-func makeEmptyTransaction(keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+func makeEmptyTransaction(keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, fromAddress gethCommon.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
 	value := big.NewInt(0)
 	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, account.Address, value, gasLimit, gasPriceWei, payload)
-	return keyStore.SignTx(account, tx, chainID)
+	tx := gethTypes.NewTransaction(nonce, fromAddress, value, gasLimit, gasPriceWei, payload)
+	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
 func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {
