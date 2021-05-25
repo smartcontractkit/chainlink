@@ -1501,9 +1501,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%d", dbName, port), true)
 	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, _, err := app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
+	_, _, err := app.OCRKeyStore.GenerateEncryptedP2PKey()
 	require.NoError(t, err)
-	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
+	p2pIDs := app.OCRKeyStore.DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].MustGetPeerID().Raw()
@@ -1527,7 +1527,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.NoError(t, err)
 	b.Commit()
 
-	_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	_, kb, err := app.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
 	return app, peerID, transmitter, kb, func() {
 		ormCleanup()
@@ -1802,7 +1802,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
-	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID.Hash(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
 	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh

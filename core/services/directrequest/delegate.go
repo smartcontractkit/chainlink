@@ -39,9 +39,14 @@ type (
 	}
 )
 
-func NewDelegate(logBroadcaster log.Broadcaster,
-	pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM,
-	ethClient eth.Client, db *gorm.DB, config Config) *Delegate {
+func NewDelegate(
+	logBroadcaster log.Broadcaster,
+	pipelineRunner pipeline.Runner,
+	pipelineORM pipeline.ORM,
+	ethClient eth.Client,
+	db *gorm.DB,
+	config Config,
+) *Delegate {
 	return &Delegate{
 		logBroadcaster,
 		pipelineRunner,
@@ -76,13 +81,14 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
-		config:         d.config,
-		logBroadcaster: d.logBroadcaster,
-		oracle:         oracle,
-		pipelineRunner: d.pipelineRunner,
-		db:             d.db,
-		pipelineORM:    d.pipelineORM,
-		job:            job,
+		config:           d.config,
+		logBroadcaster:   d.logBroadcaster,
+		oracle:           oracle,
+		pipelineRunner:   d.pipelineRunner,
+		db:               d.db,
+		pipelineORM:      d.pipelineORM,
+		job:              job,
+		onChainJobSpecID: job.DirectRequestSpec.OnChainJobSpecID.Hash(),
 
 		// At the moment the mailbox would start skipping if there were
 		// too many relevant logs for the same job (> 50) in each block.
@@ -91,7 +97,6 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		minConfirmations: minConfirmations,
 		chStop:           make(chan struct{}),
 	}
-	copy(logListener.onChainJobSpecID[:], job.DirectRequestSpec.OnChainJobSpecID.Bytes())
 	services = append(services, logListener)
 
 	return
@@ -273,7 +278,7 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		}
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
-		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
+		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, nil, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {

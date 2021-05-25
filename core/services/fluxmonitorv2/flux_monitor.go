@@ -74,6 +74,7 @@ type FluxMonitor struct {
 	backlog       *utils.BoundedPriorityQueue
 	chProcessLogs chan struct{}
 
+	utils.StartStopOnce
 	chStop     chan struct{}
 	waitOnStop chan struct{}
 }
@@ -125,6 +126,7 @@ func NewFluxMonitor(
 			PriorityAnswerUpdatedLog: 1,
 			PriorityFlagChangedLog:   2,
 		}),
+		StartStopOnce: utils.StartStopOnce{},
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
@@ -255,13 +257,15 @@ const (
 // Start implements the job.Service interface. It begins the CSP consumer in a
 // single goroutine to poll the price adapters and listen to NewRound events.
 func (fm *FluxMonitor) Start() error {
-	fm.logger.Debug("Starting Flux Monitor for job")
+	return fm.StartOnce("FluxMonitor", func() error {
+		fm.logger.Debug("Starting Flux Monitor for job")
 
-	go gracefulpanic.WrapRecover(func() {
-		fm.consume()
+		go gracefulpanic.WrapRecover(func() {
+			fm.consume()
+		})
+
+		return nil
 	})
-
-	return nil
 }
 
 func (fm *FluxMonitor) IsHibernating() bool {
@@ -282,11 +286,13 @@ func (fm *FluxMonitor) IsHibernating() bool {
 // Close implements the job.Service interface. It stops this instance from
 // polling, cleaning up resources.
 func (fm *FluxMonitor) Close() error {
-	fm.pollManager.Stop()
-	close(fm.chStop)
-	<-fm.waitOnStop
+	return fm.StopOnce("FluxMonitor", func() error {
+		fm.pollManager.Stop()
+		close(fm.chStop)
+		<-fm.waitOnStop
 
-	return nil
+		return nil
+	})
 }
 
 // JobID implements the listener.Listener interface.
@@ -661,7 +667,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	// Call the v2 pipeline to execute a new job run
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -821,7 +827,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
