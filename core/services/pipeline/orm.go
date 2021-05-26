@@ -88,7 +88,7 @@ func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, save
 	if run.Outputs.Val == nil || len(run.Errors) == 0 {
 		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
-	if len(trrs) == 0 && saveSuccessfulTaskRuns {
+	if len(trrs) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return 0, errors.New("must provide task run results")
 	}
 

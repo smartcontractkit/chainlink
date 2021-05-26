@@ -181,14 +181,9 @@ func (l *listener) Start() error {
 						vrfCoordinatorPayload, req, err := l.ProcessLog(lb)
 						f := time.Now()
 						err = postgres.GormTransactionWithDefaultContext(l.db, func(tx *gorm.DB) error {
-							var (
-								etx     *models.EthTx
-								meta    pipeline.JSONSerializable
-								runErrs pipeline.RunErrors
-								outputs pipeline.JSONSerializable
-							)
 							if err == nil {
 								// No errors processing the log, submit a transaction
+								var etx *models.EthTx
 								var from common.Address
 								from, err = l.gethks.GetRoundRobinAddress(tx)
 								if err != nil {
@@ -207,29 +202,25 @@ func (l *listener) Start() error {
 								if err != nil {
 									return err
 								}
-								meta = pipeline.JSONSerializable{
-									Val: map[string]interface{}{"eth_tx_id": etx.ID},
+								_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+									PipelineSpecID: l.job.PipelineSpecID,
+									Errors:         []null.String{{}},
+									Outputs: pipeline.JSONSerializable{
+										Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
+											etx.FromAddress,
+											etx.ToAddress,
+											hex.EncodeToString(etx.EncodedPayload))},
+										Null: false,
+									},
+									Meta: pipeline.JSONSerializable{
+										Val: map[string]interface{}{"eth_tx_id": etx.ID},
+									},
+									CreatedAt:  s,
+									FinishedAt: &f,
+								}, nil, false)
+								if err != nil {
+									return errors.Wrap(err, "VRFListener: failed to insert finished run")
 								}
-								runErrs = []null.String{{}}
-								outputs = pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v",
-									etx.FromAddress,
-									etx.ToAddress,
-									hex.EncodeToString(etx.EncodedPayload)), Null: false}
-							} else {
-								// Errors processing the log, save a run error
-								runErrs = []null.String{null.StringFrom(err.Error())}
-								outputs = pipeline.JSONSerializable{Null: true}
-							}
-							_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-								PipelineSpecID: l.job.PipelineSpecID,
-								Errors:         runErrs,
-								Outputs:        outputs,
-								Meta:           meta,
-								CreatedAt:      s,
-								FinishedAt:     &f,
-							}, nil, false)
-							if err != nil {
-								return errors.Wrap(err, "VRFListener: failed to insert finished run")
 							}
 							err = l.logBroadcaster.MarkConsumed(tx, lb)
 							if err != nil {

@@ -78,42 +78,43 @@ func TestDelegate(t *testing.T) {
 	defer cleanupDB()
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
+	vuni := setup(t, orm.DB, cfg, store)
+
+	vd := vrf.NewDelegate(orm.DB,
+		vuni.vorm,
+		store,
+		vuni.ks,
+		vuni.jpv2.Pr,
+		vuni.jpv2.Prm,
+		vuni.lb,
+		vuni.ec,
+		vrf.NewConfig(0, utils.FastScryptParams, 1000, 10))
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
+	t.Log(vs.PublicKey)
+	jb, err := vrf.ValidateVRFSpec(vs.Toml())
+	require.NoError(t, err)
+	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, *pipeline.NewTaskDAG()))
+	vl, err := vd.ServicesForSpec(jb)
+	require.NoError(t, err)
+	require.Len(t, vl, 1)
+
+	listener := vl[0]
+	done := make(chan struct{})
+	unsubscribe := func() { done <- struct{}{} }
+
+	var logListener log.Listener
+	vuni.lb.On("Register", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		logListener = args.Get(0).(log.Listener)
+	}).Return(unsubscribe)
+	require.NoError(t, listener.Start())
 
 	t.Run("valid log", func(t *testing.T) {
-		vuni := setup(t, orm.DB, cfg, store)
-		vd := vrf.NewDelegate(orm.DB,
-			vuni.vorm,
-			store,
-			vuni.ks,
-			vuni.jpv2.Pr,
-			vuni.jpv2.Prm,
-			vuni.lb,
-			vuni.ec,
-			vrf.NewConfig(0, utils.FastScryptParams, 1000, 10))
-		vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
-		t.Log(vs.PublicKey)
-		jb, err := vrf.ValidateVRFSpec(vs.Toml())
-		require.NoError(t, err)
-		require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, *pipeline.NewTaskDAG()))
-		vl, err := vd.ServicesForSpec(jb)
-		require.NoError(t, err)
-		require.Len(t, vl, 1)
-
-		listener := vl[0]
-		done := make(chan struct{})
-		unsubscribe := func() { done <- struct{}{} }
-
-		var logListener log.Listener
-		vuni.lb.On("Register", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			logListener = args.Get(0).(log.Listener)
-		}).Return(unsubscribe)
-		require.NoError(t, listener.Start())
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			done <- struct{}{}
 		}).Return(nil)
 
-		// Send a log with a valid key hash
+		// Send a valid log
 		pk, err := secp256k1.NewPublicKeyFromHex(vs.PublicKey)
 		require.NoError(t, err)
 		reqID := cltest.NewHash()
@@ -153,7 +154,7 @@ func TestDelegate(t *testing.T) {
 		assert.Len(t, runs[0].PipelineTaskRuns, 0)
 
 		// Ensure we have queued up a valid eth transaction
-		// Linked to this requestID
+		// Linked to  requestID
 		var ethTxes []models.EthTx
 		err = orm.DB.Find(&ethTxes).Error
 		require.NoError(t, err)
@@ -163,17 +164,57 @@ func TestDelegate(t *testing.T) {
 		err = json.Unmarshal(ethTxes[0].Meta.RawMessage, &em)
 		require.NoError(t, err)
 		assert.Equal(t, reqID, em.RequestID)
-
-		require.NoError(t, listener.Close())
-		select {
-		case <-time.After(1 * time.Second):
-			t.Errorf("failed to unsubscribe")
-		case <-done:
-		}
-		vuni.lb.AssertExpectations(t)
+		require.NoError(t, orm.DB.Exec(`TRUNCATE eth_txes,pipeline_runs CASCADE`).Error)
 	})
 
 	t.Run("invalid log", func(t *testing.T) {
+		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			done <- struct{}{}
+		}).Return(nil)
+		// Send a invalid log (keyhash doesnt match)
+		logListener.HandleLog(log.NewLogBroadcast(types.Log{
+			// Data has all the NON-indexed parameters
+			Data: append(append(append(append(
+				cltest.NewHash().Bytes(),                     // key hash
+				common.BigToHash(big.NewInt(42)).Bytes()...), // seed
+				cltest.NewHash().Bytes()...), // sender
+				cltest.NewHash().Bytes()...), // fee
+				cltest.NewHash().Bytes()...), // requestID
+			// JobID is indexed, thats why it lives in the Topics.
+			Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
+			Address:     common.Address{},
+			BlockNumber: 0,
+			TxHash:      common.Hash{},
+			TxIndex:     0,
+			BlockHash:   common.Hash{},
+			Index:       0,
+			Removed:     false,
+		}))
+		select {
+		case <-time.After(1 * time.Second):
+			t.Errorf("failed to consume log")
+		case <-done:
+		}
 
+		// Ensure we have not created a run.
+		runs, err := vuni.jpv2.Prm.GetAllRuns()
+		require.NoError(t, err)
+		require.Equal(t, len(runs), 0)
+
+		// Ensure we have NOT queued up an eth transaction
+		var ethTxes []models.EthTx
+		err = orm.DB.Find(&ethTxes).Error
+		require.NoError(t, err)
+		require.Len(t, ethTxes, 0)
 	})
+
+	require.NoError(t, listener.Close())
+	select {
+	case <-time.After(1 * time.Second):
+		t.Errorf("failed to unsubscribe")
+	case <-done:
+	}
+
+	vuni.Assert(t)
 }
