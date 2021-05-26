@@ -157,7 +157,7 @@ func TestBulletproofTxManager_CreateTxIfFunded_Happy(t *testing.T) {
 	to := cltest.NewAddress()
 	value := assets.NewEth(1)
 
-	_, err := bulletprooftxmanager.CreateTxIfFunded(context.Background(), store.DB, 500, from, to, *value, []byte{}, 400_000)
+	_, err := bulletprooftxmanager.CreateTxIfFunded(context.Background(), store.DB, from, to, *value, []byte{}, 400_000, 500)
 	require.NoError(t, err)
 }
 
@@ -172,7 +172,7 @@ func TestBulletproofTxManager_CreateTxIfFunded_OutOfEth(t *testing.T) {
 
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, from)
 
-	_, err := bulletprooftxmanager.CreateTxIfFunded(context.Background(), store.DB, 500, from, to, *value, []byte{}, 400_000)
+	_, err := bulletprooftxmanager.CreateTxIfFunded(context.Background(), store.DB, from, to, *value, []byte{}, 400_000, 500)
 	require.Error(t, err)
 }
 

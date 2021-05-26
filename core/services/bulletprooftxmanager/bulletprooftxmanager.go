@@ -66,12 +66,12 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 func CreateTxIfFunded(
 	ctx context.Context,
 	db *gorm.DB,
-	maxUnconfirmedTXs uint64,
 	from,
 	to gethCommon.Address,
 	value assets.Eth,
 	payload []byte,
 	gasLimit uint64,
+	maxUnconfirmedTXs uint64,
 ) (etx models.EthTx, err error) {
 	sqlDB, err := db.DB()
 	if err != nil {

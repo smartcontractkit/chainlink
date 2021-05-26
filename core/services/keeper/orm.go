@@ -139,5 +139,5 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, b *gorm.DB, u
 	to := upkeep.Registry.ContractAddress.Address()
 	value := *assets.NewEth(0)
 	gasLimit := uint64(upkeep.ExecuteGas + gasBuffer)
-	return bulletprooftxmanager.CreateTxIfFunded(ctx, korm.DB, maxUnconfirmedTXs, from, to, value, payload, gasLimit)
+	return bulletprooftxmanager.CreateTxIfFunded(ctx, korm.DB, from, to, value, payload, gasLimit, maxUnconfirmedTXs)
 }
