@@ -18,7 +18,7 @@ func TestEventBroadcaster(t *testing.T) {
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
 	t.Run("doesn't broadcast unrelated events (no payload filter)", func(t *testing.T) {
 		sub, err := eventBroadcaster.Subscribe("foo", "")

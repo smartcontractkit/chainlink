@@ -28,6 +28,48 @@ func (_m *Service) AddJob(_a0 models.JobSpec) error {
 	return r0
 }
 
+// Close provides a mock function with given fields:
+func (_m *Service) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Healthy provides a mock function with given fields:
+func (_m *Service) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Ready provides a mock function with given fields:
+func (_m *Service) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // RemoveJob provides a mock function with given fields: _a0
 func (_m *Service) RemoveJob(_a0 models.JobID) {
 	_m.Called(_a0)
@@ -50,9 +92,4 @@ func (_m *Service) Start() error {
 	}
 
 	return r0
-}
-
-// Stop provides a mock function with given fields:
-func (_m *Service) Stop() {
-	_m.Called()
 }

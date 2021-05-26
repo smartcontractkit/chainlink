@@ -91,7 +91,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 			<-removed
 		})
 
-		fm.Stop()
+		fm.Close()
 
 		dc.AssertExpectations(t)
 	})
@@ -107,7 +107,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		err := fm.Start()
 		require.NoError(t, err)
-		defer fm.Stop()
+		defer fm.Close()
 
 		err = fm.AddJob(job)
 		require.NoError(t, err)

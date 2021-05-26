@@ -165,6 +165,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
+	subservices = append(subservices, explorerClient, statsPusher)
 
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
@@ -227,7 +228,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
 
 	promReporter := services.NewPromReporter(store.MustSQLDB())
-	subservices = append(subservices, promReporter)
+
+	subservices = append(subservices,
+		runQueue,
+		logBroadcaster,
+		eventBroadcaster,
+		fluxMonitor,
+		jobSubscriber,
+	)
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
@@ -235,6 +243,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
+
+	subservices = append(subservices, balanceMonitor)
+
+	subservices = append(subservices, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
@@ -440,24 +452,16 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
-	subtasks := []func() error{
-		app.Store.Start,
-		app.explorerClient.Start,
-		app.StatsPusher.Start,
-		app.RunQueue.Start,
-		app.RunManager.ResumeAllInProgress,
-		app.LogBroadcaster.Start,
-		app.EventBroadcaster.Start,
-		app.FluxMonitor.Start,
+	if err := app.Store.Start(); err != nil {
+		return err
 	}
 
-	for _, task := range subtasks {
-		if err := task(); err != nil {
-			return err
-		}
+	if err := app.RunManager.ResumeAllInProgress(); err != nil {
+		return err
 	}
 
 	for _, subservice := range app.subservices {
+		logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
 			return err
 		}
@@ -536,26 +540,10 @@ func (app *ChainlinkApplication) stop() error {
 
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
-			logger.Debugw(fmt.Sprintf("Closing service %v...", i), "serviceType", reflect.TypeOf(service))
+			logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		logger.Debug("Stopping balanceMonitor...")
-		merr = multierr.Append(merr, app.balanceMonitor.Stop())
-		logger.Debug("Stopping JobSubscriber...")
-		merr = multierr.Append(merr, app.JobSubscriber.Stop())
-		logger.Debug("Stopping FluxMonitor...")
-		app.FluxMonitor.Stop()
-		logger.Debug("Stopping EventBroadcaster...")
-		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
-		logger.Debug("Stopping LogBroadcaster...")
-		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
-		logger.Debug("Stopping RunQueue...")
-		app.RunQueue.Stop()
-		logger.Debug("Stopping StatsPusher...")
-		merr = multierr.Append(merr, app.StatsPusher.Close())
-		logger.Debug("Stopping explorerClient...")
-		merr = multierr.Append(merr, app.explorerClient.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		logger.Debug("Closing Store...")

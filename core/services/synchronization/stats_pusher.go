@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -37,8 +38,7 @@ func init() {
 // are consumed by the Explorer. Currently there is only one event type: an
 // encoding of a JobRun.
 type StatsPusher interface {
-	Start() error
-	Close() error
+	service.Service
 	PushNow()
 	GetURL() url.URL
 	GetStatus() ConnectionStatus
@@ -49,6 +49,8 @@ type NoopStatsPusher struct{}
 
 func (NoopStatsPusher) Start() error                                        { return nil }
 func (NoopStatsPusher) Close() error                                        { return nil }
+func (NoopStatsPusher) Ready() error                                        { return nil }
+func (NoopStatsPusher) Healthy() error                                      { return nil }
 func (NoopStatsPusher) PushNow()                                            {}
 func (NoopStatsPusher) GetURL() url.URL                                     { return url.URL{} }
 func (NoopStatsPusher) GetStatus() ConnectionStatus                         { return ConnectionStatusDisconnected }
@@ -62,6 +64,8 @@ type statsPusher struct {
 	backoffSleeper backoff.Backoff
 	done           chan struct{}
 	waker          chan struct{}
+
+	utils.StartStopOnce
 }
 
 const (
@@ -104,35 +108,38 @@ func (sp *statsPusher) GetStatus() ConnectionStatus {
 
 // Start starts the stats pusher
 func (sp *statsPusher) Start() error {
-	gormCallbacksMutex.Lock()
-	err := sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
-	if err != nil {
-		return err
-	}
-	err = sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
-	if err != nil {
-		return err
-	}
-	gormCallbacksMutex.Unlock()
+	return sp.StartOnce("StatsPusher", func() error {
+		gormCallbacksMutex.Lock()
+		err := sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
+		if err != nil {
+			return err
+		}
+		err = sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+		if err != nil {
+			return err
+		}
+		gormCallbacksMutex.Unlock()
 
-	go sp.eventLoop()
-	return nil
+		go sp.eventLoop()
+		return nil
+	})
 }
 
 // Close shuts down the stats pusher
 func (sp *statsPusher) Close() error {
-	close(sp.done)
+	return sp.StopOnce("StatsPusher", func() error {
+		close(sp.done)
 
-	gormCallbacksMutex.Lock()
-	if err := sp.DB.Callback().Create().Remove(createCallbackName); err != nil {
-		return err
-	}
-	if err := sp.DB.Callback().Update().Remove(updateCallbackName); err != nil {
-		return err
-	}
-	gormCallbacksMutex.Unlock()
-
-	return nil
+		gormCallbacksMutex.Lock()
+		if err := sp.DB.Callback().Create().Remove(createCallbackName); err != nil {
+			return err
+		}
+		if err := sp.DB.Callback().Update().Remove(updateCallbackName); err != nil {
+			return err
+		}
+		gormCallbacksMutex.Unlock()
+		return nil
+	})
 }
 
 // PushNow wakes up the stats pusher, asking it to push all queued events immediately.
