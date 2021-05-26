@@ -781,6 +781,18 @@ func (t *PausableTicker) Pause() {
 	}
 }
 
+// Pause pauses a PausableTicker
+func (t *PausableTicker) Reset(duration time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.ticker != nil {
+		t.ticker.Stop()
+		t.ticker = nil
+	}
+	t.duration = duration
+	t.ticker = time.NewTicker(duration)
+}
+
 // Resume resumes a Ticker
 // using a PausibleTicker's duration
 func (t *PausableTicker) Resume() {
@@ -793,6 +805,11 @@ func (t *PausableTicker) Resume() {
 
 // Destroy pauses the PausibleTicker
 func (t *PausableTicker) Destroy() {
+	t.Pause()
+}
+
+// Destroy pauses the PausibleTicker
+func (t *PausableTicker) Stop() {
 	t.Pause()
 }
 

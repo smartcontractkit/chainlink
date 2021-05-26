@@ -48,7 +48,7 @@ type PollManager struct {
 
 	hibernationTimer utils.ResettableTimer
 	pollTicker       utils.PausableTicker
-	idleTimer        utils.ResettableTimer
+	idleTimer        utils.PausableTicker
 	roundTimer       utils.ResettableTimer
 	retryTicker      utils.BackoffTicker
 	chPoll           chan PollRequest
@@ -68,7 +68,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 	}
 	// Always initialize the idle timer so that no matter what it has a ticker
 	// and won't get starved by an old startedAt timestamp from the oracle state on boot.
-	var idleTimer = utils.NewResettableTimer()
+	var idleTimer = utils.NewPausableTicker(cfg.IdleTimerPeriod)
 	if !cfg.IdleTimerDisabled {
 		idleTimer.Reset(cfg.IdleTimerPeriod)
 	}
@@ -256,8 +256,8 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if deadlineDuration <= 0 {
-		log.Debugw("not resetting idleTimer, negative duration")
-
+		log.Debugw("resetting idleTimer to full IdleTimerPeriod, negative duration")
+		pm.idleTimer.Reset(time.Until(time.Now().Add(pm.cfg.IdleTimerPeriod)))
 		return
 	}
 
