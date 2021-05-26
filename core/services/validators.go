@@ -324,7 +324,7 @@ func validateTaskTypeEthTx(task models.TaskSpec, store *store.Store) error {
 		if !common.IsHexAddress(fromAddress) {
 			return errors.Errorf("cannot set EthTx Task's fromAddress parameter invalid address %v", fromAddress)
 		}
-		key, err := store.KeyByAddress(common.HexToAddress(fromAddress))
+		key, err := store.KeyStore.KeyByAddress(common.HexToAddress(fromAddress))
 		if err != nil {
 			return errors.Errorf("error %v finding key for address %s", err, fromAddress)
 		}
@@ -362,7 +362,11 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	found := false
 	for _, oracle := range sa.Encumbrance.Oracles {
-		if store.KeyStore.HasAccountWithAddress(oracle.Address()) {
+		has, err := store.KeyStore.HasSendingKeyWithAddress(oracle.Address())
+		if err != nil {
+			return err
+		}
+		if has {
 			found = true
 		}
 	}

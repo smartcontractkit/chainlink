@@ -26,16 +26,8 @@ func TestValidateJob(t *testing.T) {
 
 	// Create a funding key.
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-	funding, err := store.KeyStore.NewAccount()
+	fundingKey, _, err := store.KeyStore.EnsureFundingKey()
 	require.NoError(t, err)
-	fundingKey := models.Key{
-		Address:   models.EIP55Address(funding.Address.Hex()),
-		IsFunding: true,
-		JSON: models.JSON{
-			Result: gjson.ParseBytes([]byte(`{"json" : true}`)),
-		},
-	}
-	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
 	tests := []struct {
 		name  string
 		input []byte
@@ -85,7 +77,7 @@ func TestValidateJob(t *testing.T) {
 		{
 			"runlog and ethtx with a fromAddress that doesn't match one of our keys",
 			cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_ethtx_w_missing_fromAddress_job.json"),
-			models.NewJSONAPIErrorsWith("error record not found finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
+			models.NewJSONAPIErrorsWith("error address 0x0f416A5a298F05d386CfE8164f342Bec5b5E10D7 not in keystore finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
 		},
 		{
 			"runlog with two ethtx tasks",
@@ -327,8 +319,6 @@ func TestValidateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	err := store.KeyStore.Unlock(cltest.Password)
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	assert.NoError(t, err)
-	_, err = store.KeyStore.NewAccount()
 	assert.NoError(t, err)
 
 	oracles := []string{fromAddress.Hex()}

@@ -210,7 +210,7 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 	logger.Debugw("EthConfirmer: finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	keys, err := ec.store.SendKeys()
+	keys, err := ec.store.KeyStore.SendingKeys()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch keys")
 	}
@@ -1211,11 +1211,7 @@ func (ec *ethConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if gasLimit == 0 {
 		gasLimit = ec.config.EthGasLimitDefault()
 	}
-	account, err := ec.store.KeyStore.GetAccountByAddress(fromAddress)
-	if err != nil {
-		return gethCommon.Hash{}, errors.Wrap(err, "(ethConfirmer).sendEmptyTransaction failed")
-	}
-	tx, err := sendEmptyTransaction(ec.ethClient, ec.store.KeyStore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), account, ec.config.ChainID())
+	tx, err := sendEmptyTransaction(ec.ethClient, ec.store.KeyStore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, ec.config.ChainID())
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(ethConfirmer).sendEmptyTransaction failed")
 	}

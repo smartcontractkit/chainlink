@@ -177,7 +177,7 @@ func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(*store.Store, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(chainlink.Application, string) error {
 	return nil
 }
 

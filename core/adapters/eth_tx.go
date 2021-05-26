@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -100,19 +98,16 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
 }
 
 func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	db := store.DB.WithContext(ctx)
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		return store.GetRoundRobinAddress(db, e.FromAddresses...)
+		return store.KeyStore.GetRoundRobinAddress(e.FromAddresses...)
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		return store.GetRoundRobinAddress(db, e.FromAddresses...)
+		return store.KeyStore.GetRoundRobinAddress(e.FromAddresses...)
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {

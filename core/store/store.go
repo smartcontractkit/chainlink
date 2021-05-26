@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -16,14 +15,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
@@ -48,22 +45,21 @@ type Store struct {
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *vrf.VRFKeyStore
-	OCRKeyStore    *offchainreporting.KeyStore
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
-type KeyStoreGenerator func(*orm.Config) *KeyStore
+type KeyStoreGenerator func(*gorm.DB, *orm.Config) KeyStoreInterface
 
-func StandardKeyStoreGen(config *orm.Config) *KeyStore {
+func StandardKeyStoreGen(db *gorm.DB, config *orm.Config) KeyStoreInterface {
 	scryptParams := utils.GetScryptParams(config)
-	return NewKeyStore(config.KeysDir(), scryptParams)
+	return NewKeyStore(db, scryptParams)
 }
 
-func InsecureKeyStoreGen(config *orm.Config) *KeyStore {
-	return NewInsecureKeyStore(config.KeysDir())
+func InsecureKeyStoreGen(db *gorm.DB, _ *orm.Config) KeyStoreInterface {
+	return NewInsecureKeyStore(db)
 }
 
 // NewStore will create a new store
@@ -94,11 +90,8 @@ func newStoreWithKeyStore(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
-	if e := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); e != nil {
-		return nil, errors.Wrap(err, "error migrating key store to disk")
-	}
 
-	keyStore := keyStoreGenerator(config)
+	keyStore := keyStoreGenerator(orm.DB, config)
 	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
@@ -106,7 +99,6 @@ func newStoreWithKeyStore(
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
 		KeyStore:       keyStore,
-		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
 		ORM:            orm,
 		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},
@@ -117,7 +109,7 @@ func newStoreWithKeyStore(
 
 // Start initiates all of Store's dependencies
 func (s *Store) Start() error {
-	return s.SyncDiskKeyStoreToDB()
+	return nil
 }
 
 // Close shuts down all of the working parts of the store.
@@ -143,79 +135,6 @@ func (s *Store) Unscoped() *Store {
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
 	return s.ORM.AuthorizedUserWithSession(
 		sessionID, s.Config.SessionTimeout().Duration())
-}
-
-// SyncDiskKeyStoreToDB writes all keys in the keys directory to the underlying
-// orm.
-func (s *Store) SyncDiskKeyStoreToDB() error {
-	files, err := utils.FilesInDir(s.Config.KeysDir())
-	if err != nil {
-		return multierr.Append(errors.New("unable to sync disk keystore to db"), err)
-	}
-
-	var merr error
-	for _, f := range files {
-		key, err := models.NewKeyFromFile(filepath.Join(s.Config.KeysDir(), f))
-		if err != nil {
-			merr = multierr.Append(err, merr)
-			continue
-		}
-
-		err = s.CreateKeyIfNotExists(key)
-		if err != nil {
-			merr = multierr.Append(err, merr)
-		}
-	}
-	return merr
-}
-
-// DeleteKey hard-deletes a key whose address matches the supplied address.
-func (s *Store) DeleteKey(address common.Address) error {
-	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
-		err := tx.Where("address = ?", address).Delete(&models.Key{}).Error
-		if err != nil {
-			return errors.Wrap(err, "while deleting ETH key from DB")
-		}
-		return s.KeyStore.Delete(address)
-	})
-}
-
-// ArchiveKey soft-deletes a key whose address matches the supplied address.
-func (s *Store) ArchiveKey(address common.Address) error {
-	err := s.ORM.DB.Where("address = ?", address).Delete(&models.Key{}).Error
-	if err != nil {
-		return err
-	}
-
-	acct, err := s.KeyStore.GetAccountByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	archivedKeysDir := filepath.Join(s.Config.RootDir(), "archivedkeys")
-	err = utils.EnsureDirAndMaxPerms(archivedKeysDir, os.FileMode(0700))
-	if err != nil {
-		return errors.Wrap(err, "could not create "+archivedKeysDir)
-	}
-
-	basename := filepath.Base(acct.URL.Path)
-	dst := filepath.Join(archivedKeysDir, basename)
-	err = utils.CopyFileWithMaxPerms(acct.URL.Path, dst, os.FileMode(0700))
-	if err != nil {
-		return errors.Wrap(err, "could not copy "+acct.URL.Path+" to "+dst)
-	}
-
-	return s.KeyStore.Delete(address)
-}
-
-func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
-	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
-		_, err := s.KeyStore.Import(keyJSON, oldPassword)
-		if err != nil {
-			return err
-		}
-		return s.SyncDiskKeyStoreToDB()
-	})
 }
 
 func CheckSquashUpgrade(db *gorm.DB) error {
