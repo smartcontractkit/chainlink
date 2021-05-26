@@ -28,7 +28,7 @@ import (
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
 type Fetcher interface {
-	Fetch(context.Context, map[string]interface{}) (decimal.Decimal, error)
+	Fetch(context.Context, map[string]interface{}, logger.Logger) (decimal.Decimal, error)
 }
 
 // httpFetcher retrieves data via HTTP from an external price adapter source.
@@ -57,7 +57,7 @@ func newHTTPFetcher(
 	}
 }
 
-func (p *httpFetcher) Fetch(ctx context.Context, meta map[string]interface{}) (decimal.Decimal, error) {
+func (p *httpFetcher) Fetch(ctx context.Context, meta map[string]interface{}, logger logger.Logger) (decimal.Decimal, error) {
 	request := withIDAndMeta(p.requestData, meta)
 	body, err := json.Marshal(request)
 	if err != nil {
@@ -169,7 +169,7 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 	}, nil
 }
 
-func (m *medianFetcher) Fetch(ctx context.Context, meta map[string]interface{}) (decimal.Decimal, error) {
+func (m *medianFetcher) Fetch(ctx context.Context, meta map[string]interface{}, logger logger.Logger) (decimal.Decimal, error) {
 	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -182,7 +182,7 @@ func (m *medianFetcher) Fetch(ctx context.Context, meta map[string]interface{}) 
 	for _, fetcher := range m.fetchers {
 		fetcher := fetcher
 		go func() {
-			price, err := fetcher.Fetch(ctx, meta)
+			price, err := fetcher.Fetch(ctx, meta, logger)
 			if err != nil {
 				logger.Warn(err)
 				chResults <- result{err: err}
