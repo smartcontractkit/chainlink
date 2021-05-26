@@ -77,7 +77,6 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client) *broa
 	store.EthClient = ethClient
 
 	orm := log.NewORM(store.DB)
-	headBroadcaster := headtracker.NewHeadBroadcaster()
 	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 
 	return &broadcasterHelper{
