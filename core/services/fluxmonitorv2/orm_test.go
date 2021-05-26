@@ -174,7 +174,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
+	orm.CreateEthTransaction(context.Background(), corestore.DB, from, to, payload, gasLimit, 0)
 
 	etx := models.EthTx{}
 	require.NoError(t, corestore.ORM.DB.First(&etx).Error)
@@ -206,7 +206,7 @@ func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, otherKey.Address.Address())
 
-		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
+		err := orm.CreateEthTransaction(context.Background(), corestore.DB, from, to, payload, gasLimit, 0)
 		require.NoError(t, err)
 
 		etx := models.EthTx{}
@@ -219,15 +219,15 @@ func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if this key has any transactions with insufficient eth errors, skips transmission entirely", func(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, from)
 
-		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
-		require.EqualError(t, err, fmt.Sprintf("Skipped Flux Monitor submission because wallet is out of eth: %s", from))
+		err := orm.CreateEthTransaction(context.Background(), corestore.DB, from, to, payload, gasLimit, 0)
+		require.EqualError(t, err, fmt.Sprintf("unable to insert eth TX: node is probably out of eth, address: %s: sql: no rows in result set", from))
 	})
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		require.NoError(t, corestore.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
 		require.NoError(t, corestore.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
 
-		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
+		err := orm.CreateEthTransaction(context.Background(), corestore.DB, from, to, payload, gasLimit, 0)
 		require.NoError(t, err)
 
 		etx := models.EthTx{}

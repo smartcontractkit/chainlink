@@ -34,7 +34,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 
 	keyStore.On("GetRoundRobinAddress", mock.Anything).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
-	orm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit, uint64(0)).Return(nil)
+	orm.On("CreateEthTransaction", mock.Anything, mock.Anything, fromAddress, toAddress, payload, gasLimit, uint64(0)).Return(nil)
 
 	err = submitter.Submit(&gorm.DB{}, roundID, submission)
 	assert.NoError(t, err)

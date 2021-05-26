@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 //go:generate mockery --name ContractSubmitter --output ./mocks/ --case=underscore
@@ -59,8 +60,10 @@ func (c *FluxAggregatorContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, 
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
 	return errors.Wrap(
-		c.orm.CreateEthTransaction(db, fromAddress, c.Address(), payload, c.gasLimit, c.maxUnconfirmedTransactions),
+		c.orm.CreateEthTransaction(ctx, db, fromAddress, c.Address(), payload, c.gasLimit, c.maxUnconfirmedTransactions),
 		"failed to send Eth transaction",
 	)
 }

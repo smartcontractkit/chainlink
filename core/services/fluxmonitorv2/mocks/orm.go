@@ -3,8 +3,12 @@
 package mocks
 
 import (
+	context "context"
+
 	common "github.com/ethereum/go-ethereum/common"
+
 	fluxmonitorv2 "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+
 	gorm "gorm.io/gorm"
 
 	mock "github.com/stretchr/testify/mock"
@@ -15,13 +19,13 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateEthTransaction provides a mock function with given fields: db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions
-func (_m *ORM) CreateEthTransaction(db *gorm.DB, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error {
-	ret := _m.Called(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
+// CreateEthTransaction provides a mock function with given fields: ctx, db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions
+func (_m *ORM) CreateEthTransaction(ctx context.Context, db *gorm.DB, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error {
+	ret := _m.Called(ctx, db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Address, common.Address, []byte, uint64, uint64) error); ok {
-		r0 = rf(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, common.Address, common.Address, []byte, uint64, uint64) error); ok {
+		r0 = rf(ctx, db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
 	} else {
 		r0 = ret.Error(0)
 	}

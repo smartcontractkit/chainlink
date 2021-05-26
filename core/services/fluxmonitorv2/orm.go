@@ -1,13 +1,12 @@
 package fluxmonitorv2
 
 import (
-	"encoding/hex"
+	"context"
 
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -20,7 +19,7 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
+	CreateEthTransaction(ctx context.Context, db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
 }
 
 type orm struct {
@@ -94,6 +93,7 @@ func (o *orm) CountFluxMonitorRoundStats() (int, error) {
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
 func (o *orm) CreateEthTransaction(
+	ctx context.Context,
 	db *gorm.DB,
 	fromAddress common.Address,
 	toAddress common.Address,
@@ -101,40 +101,8 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint64,
 	maxUnconfirmedTransactions uint64,
 ) error {
-	err := utils.CheckOKToTransmit(postgres.MustSQLDB(db), fromAddress, maxUnconfirmedTransactions)
-	if err != nil {
-		return errors.Wrap(err, "orm#CreateEthTransaction")
-	}
-
-	value := 0
-	dbtx := db.Exec(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
-SELECT ?,?,?,?,?,'unstarted',NOW()
-WHERE NOT EXISTS (
-    SELECT 1 FROM eth_tx_attempts
-	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
-	WHERE eth_txes.from_address = ?
-		AND eth_txes.state = 'unconfirmed'
-		AND eth_tx_attempts.state = 'insufficient_eth'
-);
-`, fromAddress, toAddress, payload, value, gasLimit, fromAddress)
-	if dbtx.Error != nil {
-		return errors.Wrap(dbtx.Error, "failed to insert eth_tx")
-	}
-	if dbtx.RowsAffected == 0 {
-		// Unsure why this would be an wallet out of eth error
-		// TODO - What is this error message
-		err := errors.Errorf("Skipped Flux Monitor submission because wallet is out of eth: %s", fromAddress.Hex())
-		logger.Warnw(err.Error(),
-			"fromAddress", fromAddress,
-			"toAddress", toAddress,
-			"payload", "0x"+hex.EncodeToString(payload),
-			"value", value,
-			"gasLimit", gasLimit,
-		)
-
-		return err
-	}
-
-	return nil
+	value := *assets.NewEth(0)
+	return utils.JustError(
+		bulletprooftxmanager.CreateTxIfFunded(ctx, db, fromAddress, toAddress, value, payload, gasLimit, maxUnconfirmedTransactions),
+	)
 }
