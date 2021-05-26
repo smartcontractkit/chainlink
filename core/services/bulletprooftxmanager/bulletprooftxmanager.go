@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -60,6 +61,56 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 	}
 	err = s.DB.Create(&etx).Error
 	return etx, err
+}
+
+func CreateTxIfFunded(
+	ctx context.Context,
+	db *gorm.DB,
+	maxUnconfirmedTXs uint64,
+	from,
+	to gethCommon.Address,
+	value assets.Eth,
+	payload []byte,
+	gasLimit uint64,
+) (etx models.EthTx, err error) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return etx, errors.Wrap(err, "unable to extract sqlDB")
+	}
+
+	err = utils.CheckOKToTransmit(sqlDB, from, maxUnconfirmedTXs)
+	if err != nil {
+		return etx, errors.Wrap(err, "unable to check OK to transmit")
+	}
+
+	var id int64
+	err = sqlDB.QueryRowContext(ctx, `
+		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
+		SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
+		WHERE NOT EXISTS (
+			SELECT 1 FROM eth_tx_attempts
+			JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
+			WHERE eth_txes.from_address = $1
+				AND eth_txes.state = 'unconfirmed'
+				AND eth_tx_attempts.state = 'insufficient_eth'
+		) RETURNING id;`,
+		from,
+		to,
+		payload,
+		value,
+		gasLimit,
+	).Scan(&id)
+
+	if err != nil {
+		return etx, errors.Wrap(err, fmt.Sprintf("unable to insert eth TX: node is probably out of eth, address: %s", from.Hex()))
+	}
+
+	err = db.Where("id = ?", id).First(&etx).Error
+	if err != nil {
+		return etx, errors.Wrap(err, "unable to find eth TX after insertion")
+	}
+
+	return etx, nil
 }
 
 func newAttempt(ctx context.Context, s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
@@ -186,7 +237,7 @@ func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.Eth
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
 func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, error) {
-	baselinePrice := max(originalGasPrice, config.EthGasPriceDefault())
+	baselinePrice := utils.MaxBigs(originalGasPrice, config.EthGasPriceDefault())
 
 	var priceByPercentage = new(big.Int)
 	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EthGasBumpPercent())))
@@ -195,7 +246,7 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, erro
 	var priceByIncrement = new(big.Int)
 	priceByIncrement.Add(baselinePrice, config.EthGasBumpWei())
 
-	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
+	bumpedGasPrice := utils.MaxBigs(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
 		promGasBumpExceedsLimit.Inc()
 		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s)",
@@ -210,11 +261,4 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, erro
 	}
 	promNumGasBumps.Inc()
 	return bumpedGasPrice, nil
-}
-
-func max(a, b *big.Int) *big.Int {
-	if a.Cmp(b) >= 0 {
-		return a
-	}
-	return b
 }

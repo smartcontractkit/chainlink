@@ -1,6 +1,7 @@
 package bulletprooftxmanager_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -145,6 +146,34 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	_, err := bulletprooftxmanager.SendEther(store, from, to, *value)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
+}
+
+func TestBulletproofTxManager_CreateTxIfFunded_Happy(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+	to := cltest.NewAddress()
+	value := assets.NewEth(1)
+
+	_, err := bulletprooftxmanager.CreateTxIfFunded(context.Background(), store.DB, 500, from, to, *value, []byte{}, 400_000)
+	require.NoError(t, err)
+}
+
+func TestBulletproofTxManager_CreateTxIfFunded_OutOfEth(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+	to := cltest.NewAddress()
+	value := assets.NewEth(1)
+
+	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, from)
+
+	_, err := bulletprooftxmanager.CreateTxIfFunded(context.Background(), store.DB, 500, from, to, *value, []byte{}, 400_000)
+	require.Error(t, err)
 }
 
 func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
