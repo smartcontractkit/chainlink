@@ -83,6 +83,11 @@ func CreateTxIfFunded(
 		return etx, errors.Wrap(err, "unable to check OK to transmit")
 	}
 
+	// NOTE: It is important to remember that eth_tx_attempts with state
+	// insufficient_eth can actually hang around long after the node has been
+	// refunded and started sending transactions again.
+	// This is because they are not ever deleted if attached to an eth_tx that
+	// is moved into confirmed/fatal_error state
 	var id int64
 	err = sqlDB.QueryRowContext(ctx, `
 		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)

@@ -45,7 +45,8 @@ func NewDelegate(
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
-	return &Delegate{db,
+	return &Delegate{
+		db,
 		jobORM,
 		config,
 		keyStore,
@@ -187,7 +188,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(gormdb, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()),
+			NewTransmitter(d.db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()),
 			d.logBroadcaster,
 			tracker,
 		)
