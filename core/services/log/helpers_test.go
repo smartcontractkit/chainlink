@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
