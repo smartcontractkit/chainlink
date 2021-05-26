@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		backend := new(mocks.PrometheusBackend)
 		d, _ := store.DB.DB()
-		reporter := services.NewPromReporter(d, headtracker.NewHeadBroadcaster(), backend)
+		reporter := services.NewPromReporter(d, backend)
 		reporter.Start()
 		defer reporter.Close()
 
@@ -55,7 +54,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		backend := new(mocks.PrometheusBackend)
 		d, _ := store.DB.DB()
-		reporter := services.NewPromReporter(d, headtracker.NewHeadBroadcaster(), backend)
+		reporter := services.NewPromReporter(d, backend)
 		reporter.Start()
 		defer reporter.Close()
 
@@ -95,7 +94,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		backend := new(mocks.PrometheusBackend)
 		d, _ := store.DB.DB()
-		reporter := services.NewPromReporter(d, headtracker.NewHeadBroadcaster(), backend)
+		reporter := services.NewPromReporter(d, backend)
 		reporter.Start()
 		defer reporter.Close()
 

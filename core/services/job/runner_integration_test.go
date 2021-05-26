@@ -599,7 +599,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config, headtracker.NewHeadBroadcaster()),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config),
 			pw,
 			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)

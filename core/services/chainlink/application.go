@@ -198,12 +198,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		runManager = &services.NullRunManager{}
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
-	promReporter := services.NewPromReporter(store.MustSQLDB(), headBroadcaster)
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, headBroadcaster)
+	promReporter := services.NewPromReporter(store.MustSQLDB())
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
-	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config, headBroadcaster)
+	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 
 	subservices = append(subservices, promReporter)
 
@@ -321,6 +321,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		subservices: subservices,
 	}
 
+	headBroadcaster.SubscribeUntilClose(logBroadcaster)
+	headBroadcaster.SubscribeUntilClose(promReporter)
+	headBroadcaster.SubscribeUntilClose(ethConfirmer)
 	headBroadcaster.SubscribeUntilClose(jobSubscriber)
 	headBroadcaster.SubscribeUntilClose(balanceMonitor)
 

@@ -59,7 +59,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 
 	dborm := log.NewORM(store.DB)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
-	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config, headBroadcaster)
+	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config)
 	store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
@@ -79,7 +79,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client) *broa
 
 	orm := log.NewORM(store.DB)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config, headBroadcaster)
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 
 	return &broadcasterHelper{
 		t:             t,

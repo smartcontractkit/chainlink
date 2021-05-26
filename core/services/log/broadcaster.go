@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,7 +53,6 @@ type (
 	broadcaster struct {
 		orm              ORM
 		config           Config
-		headBroadcaster  httypes.HeadBroadcasterRegistry
 		connected        *abool.AtomicBool
 		latestHeadFromDb *models.Head
 
@@ -72,7 +70,6 @@ type (
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
 		trackedAddressesCount uint32
-		unsubscribeHeads      func()
 	}
 
 	Config interface {
@@ -112,12 +109,11 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, headBroadcaster httypes.HeadBroadcasterRegistry) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
 		config:           config,
-		headBroadcaster:  headBroadcaster,
 		connected:        abool.New(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
 		registrations:    newRegistrations(),
@@ -136,9 +132,6 @@ func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
-
-		b.unsubscribeHeads = b.headBroadcaster.Subscribe(b)
-
 		b.wgDone.Add(2)
 		if b.latestHeadFromDb != nil {
 			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
@@ -160,7 +153,6 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 
 func (b *broadcaster) Stop() error {
 	return b.StopOnce("LogBroadcaster", func() error {
-		b.unsubscribeHeads()
 		close(b.chStop)
 		b.wgDone.Wait()
 		return nil
