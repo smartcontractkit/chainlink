@@ -37,7 +37,7 @@ type vrfUniverse struct {
 	submitter common.Address
 }
 
-func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s *store.Store) vrfUniverse {
+func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s store.KeyStoreInterface) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
@@ -46,11 +46,10 @@ func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s *store.Store) vr
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, db)
 	vorm := vrf.NewORM(db)
 	ks := vrf.NewVRFKeyStore(vorm, utils.FastScryptParams)
-	require.NoError(t, s.KeyStore.Unlock(cltest.Password))
-	_, err := s.KeyStore.NewAccount()
+	require.NoError(t, s.Unlock(cltest.Password))
+	_, err := s.CreateNewKey()
 	require.NoError(t, err)
-	require.NoError(t, s.SyncDiskKeyStoreToDB())
-	submitter, err := s.GetRoundRobinAddress(db)
+	submitter, err := s.GetRoundRobinAddress()
 	require.NoError(t, err)
 	vrfkey, err := ks.CreateKey("blah")
 	require.NoError(t, err)
@@ -78,11 +77,11 @@ func TestDelegate(t *testing.T) {
 	defer cleanupDB()
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
-	vuni := setup(t, orm.DB, cfg, store)
+	vuni := setup(t, orm.DB, cfg, store.KeyStore)
 
 	vd := vrf.NewDelegate(orm.DB,
 		vuni.vorm,
-		store,
+		store.KeyStore,
 		vuni.ks,
 		vuni.jpv2.Pr,
 		vuni.jpv2.Prm,
