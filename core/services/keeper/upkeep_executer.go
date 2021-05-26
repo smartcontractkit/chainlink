@@ -205,7 +205,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
-		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.maxUnconfirmedTXs)
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(ctxQuery, dbtx, upkeep, performTxData, executer.maxUnconfirmedTXs)
 		if err != nil {
 			return errors.Wrap(err, "failed to create eth_tx for upkeep")
 		}
