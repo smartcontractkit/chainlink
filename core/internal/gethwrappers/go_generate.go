@@ -16,6 +16,10 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/MultiWordConsumer.abi ../../../evm-contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
+// v0.8 VRFConsumer
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id_v08
+
 //go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
 //go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
 
