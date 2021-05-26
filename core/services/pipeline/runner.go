@@ -290,12 +290,12 @@ func (r *runner) executeRun(
 
 				var taskRunResult TaskRunResult
 
-				err := expandVarsInTaskParams(vars, varsMu, taskRun.task)
-				if err != nil {
+				err2 := expandVarsInTaskParams(vars, &varsMu, taskRun.task)
+				if err2 != nil {
 					now := time.Now()
 					taskRunResult = TaskRunResult{
 						Task:       taskRun.task,
-						Result:     Result{Error: errors.Errorf("%+v", err)},
+						Result:     Result{Error: err2},
 						CreatedAt:  now,
 						FinishedAt: now,
 						IsTerminal: taskRun.next == nil,
@@ -304,7 +304,7 @@ func (r *runner) executeRun(
 					taskRunResult = r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
 				}
 
-				saveTaskRunResultToVars(vars, varsMu, taskRun.task.DotID(), taskRunResult.Result)
+				saveTaskRunResultToVars(vars, &varsMu, taskRun.task.DotID(), taskRunResult.Result)
 
 				taskRunResultsMu.Lock()
 				taskRunResults = append(taskRunResults, taskRunResult)
@@ -337,8 +337,7 @@ func (r *runner) executeRun(
 	return run, taskRunResults, retry, err
 }
 
-func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) (err error) {
-	defer func() { err = errors.WithStack(err) }()
+func expandVarsInTaskParams(vars Vars, varsMu *sync.RWMutex, task Task) (err error) {
 	varsMu.RLock()
 	defer varsMu.RUnlock()
 
@@ -357,8 +356,6 @@ func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) (err erro
 			asString, isString := fieldVal.Interface().(string)
 			if !isString {
 				panic("all pipeline task struct fields tagged with @expand_vars must be strings")
-				// error
-				continue
 			}
 			subbed, err := ExpandVars(asString, vars)
 			if err != nil {
@@ -370,7 +367,7 @@ func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) (err erro
 	return nil
 }
 
-func saveTaskRunResultToVars(vars Vars, varsMu sync.RWMutex, dotID string, result Result) {
+func saveTaskRunResultToVars(vars Vars, varsMu *sync.RWMutex, dotID string, result Result) {
 	varsMu.Lock()
 	defer varsMu.Unlock()
 

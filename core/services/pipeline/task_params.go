@@ -239,43 +239,6 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 	}
 }
 
-type MaybeBoolParam string
-
-const (
-	MaybeBoolTrue  = MaybeBoolParam("true")
-	MaybeBoolFalse = MaybeBoolParam("false")
-	MaybeBoolNull  = MaybeBoolParam("")
-)
-
-func (m MaybeBoolParam) Bool() (b bool, isSet bool) {
-	switch m {
-	case MaybeBoolTrue:
-		return true, true
-	case MaybeBoolFalse:
-		return false, true
-	default:
-		return false, false
-	}
-}
-
-func (m *MaybeBoolParam) UnmarshalPipelineParam(val interface{}) error {
-	switch val {
-	case "true":
-		*m = MaybeBoolTrue
-	case "false":
-		*m = MaybeBoolFalse
-	case "":
-		*m = MaybeBoolNull
-	case true:
-		*m = MaybeBoolTrue
-	case false:
-		*m = MaybeBoolFalse
-	default:
-		return ErrBadInput
-	}
-	return nil
-}
-
 type DecimalParam decimal.Decimal
 
 func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {

@@ -47,7 +47,7 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 	require.Len(t, tasks, 1)
 
 	task := tasks[0].(*pipeline.HTTPTask)
-	require.Equal(t, string(pipeline.MaybeBoolTrue), task.AllowUnrestrictedNetworkAccess)
+	require.Equal(t, "true", task.AllowUnrestrictedNetworkAccess)
 }
 
 func Test_TaskAnyUnmarshal(t *testing.T) {

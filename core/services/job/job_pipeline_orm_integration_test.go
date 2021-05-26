@@ -23,7 +23,6 @@ func clearJobsDb(t *testing.T, db *gorm.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
-	t.Skip()
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm", true, true)
 	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
 	config.Set("MAX_HTTP_ATTEMPTS", "1")

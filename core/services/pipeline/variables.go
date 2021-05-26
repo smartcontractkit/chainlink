@@ -14,7 +14,7 @@ var (
 	ErrKeypathNotFound = errors.New("keypath not found")
 	ErrKeypathTooDeep  = errors.New("keypath too deep (maximum 2 keys)")
 
-	variableRegexp = regexp.MustCompile(`\$\(([a-zA-Z0-9_\.]+)\)`)
+	variableRegexp = regexp.MustCompile(`\$\(\s*([a-zA-Z0-9_\.]+)\s*\)`)
 )
 
 func ExpandVars(v string, vars Vars) (string, error) {
@@ -48,72 +48,96 @@ func NewVars() Vars {
 	return make(Vars)
 }
 
-func (vars Vars) Get(keypath string) (interface{}, error) {
-	keypathParts, err := keypathParts(keypath)
+func (vars Vars) Get(keypathStr string) (interface{}, error) {
+	keypath, err := newKeypathFromString(keypathStr)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(keypathParts[0]) == 0 && len(keypathParts[1]) == 0 {
+	numParts := keypath.NumParts()
+
+	if numParts == 0 {
 		return (map[string]interface{})(vars), nil
 	}
 
 	var val interface{}
 	var exists bool
 
-	if len(keypathParts[0]) > 0 {
-		val, exists = vars[string(keypathParts[0])]
+	if numParts >= 1 {
+		val, exists = vars[string(keypath[0])]
 		if !exists {
-			return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", string(keypathParts[0]), keypathPartsToStrings(keypathParts))
+			return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", string(keypath[0]), keypath.String())
 		}
 	}
 
-	if len(keypathParts[1]) > 0 {
+	if numParts == 2 {
 		switch v := val.(type) {
 		case map[string]interface{}:
-			val, exists = v[string(keypathParts[1])]
+			val, exists = v[string(keypath[1])]
 			if !exists {
-				return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", string(keypathParts[1]), keypathPartsToStrings(keypathParts))
+				return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", string(keypath[1]), keypath.String())
 			}
 		case []interface{}:
-			idx, err := strconv.ParseInt(string(keypathParts[1]), 10, 64)
+			idx, err := strconv.ParseInt(string(keypath[1]), 10, 64)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(ErrKeypathNotFound, "could not parse key as integer: %v", err)
 			} else if idx > int64(len(v)-1) {
-				return nil, errors.Wrapf(ErrKeypathNotFound, "index %v out of range (length %v / keypath %v)", idx, len(v), keypathPartsToStrings(keypathParts))
+				return nil, errors.Wrapf(ErrKeypathNotFound, "index %v out of range (length %v / keypath %v)", idx, len(v), keypath.String())
 			}
 			val = v[idx]
+		default:
+			return nil, errors.Wrapf(ErrKeypathNotFound, "value at key '%v' is a %T, not a map or slice", string(keypath[0]), val)
 		}
 	}
 	return val, nil
 }
 
+type Keypath [2][]byte
+
 var keypathSeparator = []byte(".")
 
-func keypathParts(keypath string) ([2][]byte, error) {
-	if len(keypath) == 0 {
-		return [2][]byte{}, nil
+func newKeypathFromString(keypathStr string) (Keypath, error) {
+	if len(keypathStr) == 0 {
+		return Keypath{}, nil
 	}
 	// The bytes package uses platform-dependent hardware optimizations and
 	// avoids the extra allocations that are required to work with strings.
 	// Keypaths have to be parsed quite a bit, so let's do it well.
-	kp := []byte(keypath)
+	kp := []byte(keypathStr)
 
 	n := 1 + bytes.Count(kp, keypathSeparator)
 	if n > 2 {
-		return [2][]byte{}, ErrKeypathTooDeep
+		return Keypath{}, errors.Wrapf(ErrKeypathTooDeep, "while parsing keypath '%v'", keypathStr)
 	}
 	idx := bytes.IndexByte(kp, keypathSeparator[0])
 	if idx == -1 || idx == len(kp)-1 {
-		return [2][]byte{kp, nil}, nil
+		return Keypath{kp, nil}, nil
 	}
-	return [2][]byte{kp[:idx], kp[idx+1:]}, nil
+	return Keypath{kp[:idx], kp[idx+1:]}, nil
 }
 
-func keypathPartsToStrings(bs [2][]byte) []string {
-	var s []string
-	for _, b := range bs {
-		s = append(s, string(b))
+func (keypath Keypath) NumParts() int {
+	switch {
+	case keypath[0] == nil && keypath[1] == nil:
+		return 0
+	case keypath[0] != nil && keypath[1] == nil:
+		return 1
+	case keypath[0] == nil && keypath[1] != nil:
+		panic("invariant violation: keypath part 1 is non-nil but part 0 is nil")
+	default:
+		return 2
 	}
-	return s
+}
+
+func (keypath Keypath) String() string {
+	switch keypath.NumParts() {
+	case 0:
+		return "(empty)"
+	case 1:
+		return string(keypath[0])
+	case 2:
+		return string(keypath[0]) + string(keypathSeparator) + string(keypath[1])
+	default:
+		panic("invariant violation: keypath must have 0, 1, or 2 parts")
+	}
 }

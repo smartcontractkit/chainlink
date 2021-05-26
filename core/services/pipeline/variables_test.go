@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 )
 
-func TestVars_GetSet(t *testing.T) {
+func TestVars_Get(t *testing.T) {
 	t.Parallel()
 
 	t.Run("gets the values at keypaths that exist", func(t *testing.T) {
@@ -40,7 +40,29 @@ func TestVars_GetSet(t *testing.T) {
 		}
 
 		_, err := vars.Get("foo.blah")
-		require.Error(t, err)
+		require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
+	})
+
+	t.Run("errors when asked for a keypath with more than 2 parts", func(t *testing.T) {
+		t.Parallel()
+
+		vars := pipeline.Vars{
+			"foo": map[string]interface{}{
+				"bar": map[string]interface{}{
+					"chainlink": 123,
+				},
+			},
+		}
+		_, err := vars.Get("foo.bar.chainlink")
+		require.Equal(t, pipeline.ErrKeypathTooDeep, errors.Cause(err))
+	})
+
+	t.Run("errors when getting a value at a keypath where the first part is not a map/slice", func(t *testing.T) {
+		vars := pipeline.Vars{
+			"foo": 123,
+		}
+		_, err := vars.Get("foo.bar")
+		require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
 	})
 }
 

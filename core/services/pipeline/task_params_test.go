@@ -130,40 +130,6 @@ func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestMaybeBoolParam_UnmarshalPipelineParam(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name          string
-		input         interface{}
-		expected      interface{}
-		expectedIsSet bool
-		err           error
-	}{
-		{"string true", "true", pipeline.MaybeBoolTrue, true, nil},
-		{"string false", "false", pipeline.MaybeBoolFalse, true, nil},
-		{"string empty", "", pipeline.MaybeBoolNull, false, nil},
-		{"bool true", true, pipeline.MaybeBoolTrue, true, nil},
-		{"bool false", false, pipeline.MaybeBoolFalse, true, nil},
-		{"int", int8(123), pipeline.MaybeBoolNull, false, pipeline.ErrBadInput},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			var p pipeline.MaybeBoolParam
-			err := p.UnmarshalPipelineParam(test.input)
-			require.Equal(t, test.err, errors.Cause(err))
-			require.Equal(t, test.expected, p)
-
-			_, isSet := p.Bool()
-			require.Equal(t, test.expectedIsSet, isSet)
-		})
-	}
-}
-
 func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
