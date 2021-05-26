@@ -63,7 +63,7 @@ func (j Job) ExternalIDToTopicHash() common.Hash {
 	return h
 }
 
-func (Job) TableName() string {
+func (j Job) TableName() string {
 	return "jobs"
 }
 

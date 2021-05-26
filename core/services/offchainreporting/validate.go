@@ -3,6 +3,8 @@ package offchainreporting
 import (
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -17,7 +19,8 @@ import (
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, error) {
 	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(), // Default to a random uuid
+		Pipeline:      *pipeline.NewTaskDAG(),
 	}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)

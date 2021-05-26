@@ -4,13 +4,17 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func ValidateCronSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{Pipeline: *pipeline.NewTaskDAG()}
+	var jb = job.Job{
+		ExternalJobID: uuid.NewV4(),
+		Pipeline:      *pipeline.NewTaskDAG(),
+	}
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -140,7 +142,8 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.Job {
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
 
 	dbSpec := job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
+		Pipeline:      *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecText), &dbSpec)
 	require.NoError(t, err)
@@ -228,6 +231,7 @@ func makeOCRJobSpecFromToml(t *testing.T, db *gorm.DB, jobSpecToml string) *job.
 
 	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
 	require.NoError(t, err)

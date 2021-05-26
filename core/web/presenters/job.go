@@ -31,11 +31,10 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress  models.EIP55Address `json:"contractAddress"`
-	OnChainJobSpecID string              `json:"onChainJobSpecID"`
-	Initiator        string              `json:"initiator"`
-	CreatedAt        time.Time           `json:"createdAt"`
-	UpdatedAt        time.Time           `json:"updatedAt"`
+	ContractAddress models.EIP55Address `json:"contractAddress"`
+	Initiator       string              `json:"initiator"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	UpdatedAt       time.Time           `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a

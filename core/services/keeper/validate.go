@@ -3,13 +3,15 @@ package keeper
 import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func ValidatedKeeperSpec(tomlString string) (job.Job, error) {
 	var j = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(), // Default to a random uuid
+		Pipeline:      *pipeline.NewTaskDAG(),
 	}
 	var spec job.KeeperSpec
 	tree, err := toml.Load(tomlString)

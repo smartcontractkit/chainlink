@@ -6,11 +6,14 @@ const (
 	up31 = `
                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
                ALTER TABLE direct_request_specs DROP COLUMN on_chain_job_spec_id;
+               ALTER TABLE webhook_specs DROP COLUMN on_chain_job_spec_id;
                ALTER TABLE jobs ADD COLUMN external_job_id uuid NOT NULL DEFAULT uuid_generate_v4();
                ALTER TABLE jobs ADD CONSTRAINT external_job_id_uniq UNIQUE(external_job_id);
-       `
+               ALTER TABLE jobs ADD CONSTRAINT non_zero_uuid_check CHECK (external_job_id <> '00000000-0000-0000-0000-000000000000');
+	`
 	down31 = `
                ALTER TABLE direct_request_specs ADD COLUMN on_chain_job_spec_id bytea;
+               ALTER TABLE webhook_specs ADD COLUMN on_chain_job_spec_id;
                ALTER TABLE jobs DROP CONSTRAINT external_job_id_uniq;
        `
 )

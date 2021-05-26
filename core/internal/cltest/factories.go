@@ -782,6 +782,7 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
+		ExternalJobID:     uuid.NewV4(),
 		DirectRequestSpec: drs,
 		Pipeline:          *pipeline.NewTaskDAG(),
 		PipelineSpec:      &pipeline.Spec{},
