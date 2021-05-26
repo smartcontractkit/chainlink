@@ -29,6 +29,7 @@ func NewBackoffTicker(min, max time.Duration) BackoffTicker {
 }
 
 // Start - Starts the ticker
+// Returns true if the ticker was not running yet
 func (t *BackoffTicker) Start() bool {
 	t.Lock()
 	defer t.Unlock()
@@ -46,7 +47,7 @@ func (t *BackoffTicker) Start() bool {
 
 // Stop stops the ticker. A ticker can be restarted by calling Start on a
 // stopped ticker.
-// Stop returns true if the ticker was actually stopped
+// Returns true if the ticker was actually stopped
 func (t *BackoffTicker) Stop() bool {
 	t.Lock()
 	defer t.Unlock()

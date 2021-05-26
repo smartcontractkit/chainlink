@@ -138,10 +138,7 @@ func (pm *PollManager) Start(hibernate bool, roundState flux_aggregator_wrapper.
 		}()
 	}
 
-	if !pm.cfg.IdleTimerDisabled && !pm.cfg.PollTickerDisabled && pm.cfg.IdleTimerPeriod < pm.cfg.PollTickerInterval {
-		pm.logger.Warnw("The value of IdleTimerPeriod is lower than PollTickerInterval. The idle timer should usually be less frequent that poll",
-			"IdleTimerPeriod", pm.cfg.IdleTimerPeriod, "PollTickerInterval", pm.cfg.PollTickerInterval)
-	}
+	pm.maybeWarnAboutIdleAndPollIntervals()
 
 	if hibernate {
 		pm.Hibernate()
@@ -303,4 +300,12 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 
 func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {
 	return rs.StartedAt + rs.Timeout
+}
+
+// ShouldPerformInitialPoll determines whether to perform an initial poll
+func (pm *PollManager) maybeWarnAboutIdleAndPollIntervals() {
+	if !pm.cfg.IdleTimerDisabled && !pm.cfg.PollTickerDisabled && pm.cfg.IdleTimerPeriod < pm.cfg.PollTickerInterval {
+		pm.logger.Warnw("The value of IdleTimerPeriod is lower than PollTickerInterval. The idle timer should usually be less frequent that poll",
+			"IdleTimerPeriod", pm.cfg.IdleTimerPeriod, "PollTickerInterval", pm.cfg.PollTickerInterval)
+	}
 }
