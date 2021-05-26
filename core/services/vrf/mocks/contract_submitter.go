@@ -16,13 +16,13 @@ type ContractSubmitter struct {
 	mock.Mock
 }
 
-// CreateEthTransaction provides a mock function with given fields: db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions
-func (_m *ContractSubmitter) CreateEthTransaction(db *gorm.DB, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) (*models.EthTx, error) {
-	ret := _m.Called(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
+// CreateEthTransaction provides a mock function with given fields: db, meta, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions
+func (_m *ContractSubmitter) CreateEthTransaction(db *gorm.DB, meta models.EthTxMetaV2, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) (*models.EthTx, error) {
+	ret := _m.Called(db, meta, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
 
 	var r0 *models.EthTx
-	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Address, common.Address, []byte, uint64, uint64) *models.EthTx); ok {
-		r0 = rf(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
+	if rf, ok := ret.Get(0).(func(*gorm.DB, models.EthTxMetaV2, common.Address, common.Address, []byte, uint64, uint64) *models.EthTx); ok {
+		r0 = rf(db, meta, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.EthTx)
@@ -30,8 +30,8 @@ func (_m *ContractSubmitter) CreateEthTransaction(db *gorm.DB, fromAddress commo
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*gorm.DB, common.Address, common.Address, []byte, uint64, uint64) error); ok {
-		r1 = rf(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
+	if rf, ok := ret.Get(1).(func(*gorm.DB, models.EthTxMetaV2, common.Address, common.Address, []byte, uint64, uint64) error); ok {
+		r1 = rf(db, meta, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
 	} else {
 		r1 = ret.Error(1)
 	}

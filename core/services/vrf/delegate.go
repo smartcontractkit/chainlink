@@ -154,89 +154,92 @@ func (l *listener) Start() error {
 			NumConfirmations: uint64(l.minConfirmations),
 		})
 		go gracefulpanic.WrapRecover(func() {
-			for {
-				select {
-				case <-l.chStop:
-					unsubscribeLogs()
-					return
-				case <-l.mbLogs.Notify():
-					// Process all the logs in the queue if one is added
-					for {
-						i, exists := l.mbLogs.Retrieve()
-						if !exists {
-							break
-						}
-						lb, ok := i.(log.Broadcast)
-						if !ok {
-							panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
-						}
-						alreadyConsumed, err := l.logBroadcaster.WasAlreadyConsumed(l.db, lb)
-						if err != nil {
-							logger.Errorw("VRFListener: could not determine if log was already consumed", "error", err)
-							continue
-						} else if alreadyConsumed {
-							continue
-						}
-						s := time.Now()
-						vrfCoordinatorPayload, req, err := l.ProcessLog(lb)
-						f := time.Now()
-						err = postgres.GormTransactionWithDefaultContext(l.db, func(tx *gorm.DB) error {
-							if err == nil {
-								// No errors processing the log, submit a transaction
-								var etx *models.EthTx
-								var from common.Address
-								from, err = l.gethks.GetRoundRobinAddress(tx)
-								if err != nil {
-									return err
-								}
-								etx, err = cs.CreateEthTransaction(
-									tx, models.EthTxMetaV2{
-										JobID:         l.job.ID,
-										RequestID:     req.RequestID,
-										RequestTxHash: lb.RawLog().TxHash,
-									},
-									from, l.coordinator.Address(),
-									vrfCoordinatorPayload,
-									l.cfg.gasLimit, l.cfg.maxUnconfirmedTxes,
-								)
-								if err != nil {
-									return err
-								}
-								_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-									PipelineSpecID: l.job.PipelineSpecID,
-									Errors:         []null.String{{}},
-									Outputs: pipeline.JSONSerializable{
-										Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
-											etx.FromAddress,
-											etx.ToAddress,
-											hex.EncodeToString(etx.EncodedPayload))},
-										Null: false,
-									},
-									Meta: pipeline.JSONSerializable{
-										Val: map[string]interface{}{"eth_tx_id": etx.ID},
-									},
-									CreatedAt:  s,
-									FinishedAt: &f,
-								}, nil, false)
-								if err != nil {
-									return errors.Wrap(err, "VRFListener: failed to insert finished run")
-								}
-							}
-							err = l.logBroadcaster.MarkConsumed(tx, lb)
-							if err != nil {
-								return err
-							}
-							return nil
-						})
-						if err != nil {
-							logger.Errorw("VRFListener failed to save run", "err", err)
-						}
-					}
-				}
-			}
+			l.run(unsubscribeLogs, cs)
 		})
 		return nil
 	})
+}
+
+func (l *listener) run(unsubscribeLogs func(), submitter ContractSubmitter) {
+	for {
+		select {
+		case <-l.chStop:
+			unsubscribeLogs()
+			return
+		case <-l.mbLogs.Notify():
+			// Process all the logs in the queue if one is added
+			for {
+				i, exists := l.mbLogs.Retrieve()
+				if !exists {
+					break
+				}
+				lb, ok := i.(log.Broadcast)
+				if !ok {
+					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
+				}
+				alreadyConsumed, err := l.logBroadcaster.WasAlreadyConsumed(l.db, lb)
+				if err != nil {
+					logger.Errorw("VRFListener: could not determine if log was already consumed", "error", err)
+					continue
+				} else if alreadyConsumed {
+					continue
+				}
+				s := time.Now()
+				vrfCoordinatorPayload, req, err := l.ProcessLog(lb)
+				f := time.Now()
+				err = postgres.GormTransactionWithDefaultContext(l.db, func(tx *gorm.DB) error {
+					if err == nil {
+						// No errors processing the log, submit a transaction
+						var etx *models.EthTx
+						var from common.Address
+						from, err = l.gethks.GetRoundRobinAddress(tx)
+						if err != nil {
+							return err
+						}
+						etx, err = submitter.CreateEthTransaction(
+							tx, models.EthTxMetaV2{
+								JobID:         l.job.ID,
+								RequestID:     req.RequestID,
+								RequestTxHash: lb.RawLog().TxHash,
+							},
+							from, l.coordinator.Address(),
+							vrfCoordinatorPayload,
+							l.cfg.gasLimit, l.cfg.maxUnconfirmedTxes,
+						)
+						if err != nil {
+							return err
+						}
+						_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+							PipelineSpecID: l.job.PipelineSpecID,
+							Errors:         []null.String{{}},
+							Outputs: pipeline.JSONSerializable{
+								Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
+									etx.FromAddress,
+									etx.ToAddress,
+									hex.EncodeToString(etx.EncodedPayload))},
+							},
+							Meta: pipeline.JSONSerializable{
+								Val: map[string]interface{}{"eth_tx_id": etx.ID},
+							},
+							CreatedAt:  s,
+							FinishedAt: &f,
+						}, nil, false)
+						if err != nil {
+							return errors.Wrap(err, "VRFListener: failed to insert finished run")
+						}
+					}
+					err = l.logBroadcaster.MarkConsumed(tx, lb)
+					if err != nil {
+						return err
+					}
+					return nil
+				})
+				if err != nil {
+					logger.Errorw("VRFListener failed to save run", "err", err)
+				}
+			}
+		}
+	}
 }
 
 func (l *listener) ProcessLog(lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {

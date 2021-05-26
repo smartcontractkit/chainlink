@@ -17,6 +17,7 @@ type ContractSubmitter interface {
 	// TODO: Should be using the generic keystore for this once available
 	CreateEthTransaction(
 		db *gorm.DB,
+		meta models.EthTxMetaV2,
 		fromAddress common.Address,
 		toAddress common.Address,
 		payload []byte,
@@ -32,7 +33,7 @@ func NewContractSubmitter() *contractSubmitter {
 }
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
-func (contractSubmitter) CreateEthTransaction(
+func (*contractSubmitter) CreateEthTransaction(
 	db *gorm.DB,
 	meta models.EthTxMetaV2,
 	fromAddress common.Address,

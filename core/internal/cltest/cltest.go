@@ -278,8 +278,6 @@ type JobPipelineV2TestHelper struct {
 }
 
 func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2TestHelper {
-	//config, cleanupCfg := NewConfig(t)
-	//t.Cleanup(cleanupCfg)
 	prm, eb, cleanup := NewPipelineORM(t, tc, db)
 	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
