@@ -256,8 +256,8 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if deadlineDuration <= 0 {
-		log.Debugw("resetting idleTimer to full IdleTimerPeriod, negative duration")
-		pm.idleTimer.Reset(time.Until(time.Now().Add(pm.cfg.IdleTimerPeriod)))
+		log.Debugw("resetting idleTimer to full IdleTimerPeriod, because of negative duration since startedAt")
+		pm.idleTimer.Reset(pm.cfg.IdleTimerPeriod)
 		return
 	}
 
