@@ -60,7 +60,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -693,9 +692,8 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 		config,
 		ethClient,
 	)
-	kst := new(mocks.KeyStoreInterface)
-	app.Store.KeyStore = kst
 	defer cleanup()
+	cltest.MustAddRandomKeyToKeystore(t, app.Store)
 
 	app.InstantClock()
 	require.NoError(t, app.Start())
@@ -716,7 +714,6 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
 	cltest.WaitForJobRunToComplete(t, app.Store, run)
-	kst.AssertExpectations(t)
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
@@ -974,15 +971,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	)
 	defer appCleanup()
 
-	_, address := cltest.MustAddRandomKeyToKeystore(t, app.Store, 0)
-
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("HasAccountWithAddress", address).Return(true)
-	kst.On("GetAccountByAddress", mock.Anything).Maybe().Return(accounts.Account{}, nil)
-	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(types.NewTx(&types.LegacyTx{}), nil)
-	kst.On("Accounts").Return([]accounts.Account{})
-
-	app.Store.KeyStore = kst
+	_, address := cltest.MustAddRandomKeyToKeystore(t, app.Store)
 
 	// Start, connect, and initialize node
 	sub.On("Err").Return(nil).Maybe()
@@ -1095,7 +1084,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
 
-	ethClient.AssertExpectations(t)
 	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 }
@@ -1382,15 +1370,17 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
-	authorizedSenders := []common.Address{app.Store.KeyStore.Accounts()[0].Address}
-	_, err := operatorContract.SetAuthorizedSenders(user, authorizedSenders)
+	sendingKeys, err := app.Store.KeyStore.SendingKeys()
+	require.NoError(t, err)
+	authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
+	_, err = operatorContract.SetAuthorizedSenders(user, authorizedSenders)
 	require.NoError(t, err)
 	b.Commit()
 
 	// Fund node account with ETH.
 	n, err := b.NonceAt(context.Background(), user.From, nil)
 	require.NoError(t, err)
-	tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
 	signedTx, err := user.Signer(user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
@@ -1501,9 +1491,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%d", dbName, port), true)
 	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, _, err := app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
+	_, _, err := app.OCRKeyStore.GenerateEncryptedP2PKey()
 	require.NoError(t, err)
-	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
+	p2pIDs := app.OCRKeyStore.DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].MustGetPeerID().Raw()
@@ -1514,7 +1504,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 	app.Config.Set("CHAINLINK_DEV", true) // Disables ocr spec validation so we can have fast polling for the test.
 
-	transmitter := app.Store.KeyStore.Accounts()[0].Address
+	sendingKeys, err := app.Store.KeyStore.SendingKeys()
+	require.NoError(t, err)
+	transmitter := sendingKeys[0].Address.Address()
 
 	// Fund the transmitter address with some ETH
 	n, err := b.NonceAt(context.Background(), owner.From, nil)
@@ -1527,7 +1519,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.NoError(t, err)
 	b.Commit()
 
-	_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	_, kb, err := app.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
 	return app, peerID, transmitter, kb, func() {
 		ormCleanup()
@@ -1802,7 +1794,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
-	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID.Hash(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
 	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh

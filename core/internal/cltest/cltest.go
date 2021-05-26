@@ -53,7 +53,6 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -216,6 +215,13 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
+func MustJobIDFromString(t *testing.T, s string) models.JobID {
+	t.Helper()
+	id, err := models.NewJobIDFromString(s)
+	require.NoError(t, err)
+	return id
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
@@ -373,9 +379,6 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication
 	c, cfgCleanup := NewConfig(t)
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
-	app.Store.KeyStore = kst
 
 	return app, func() {
 		cleanup()
@@ -424,6 +427,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
+	var ks strpkg.KeyStoreInterface
+
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -432,12 +437,23 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 			advisoryLocker = dep
 		case chainlink.ExternalInitiatorManager:
 			externalInitiatorManager = dep
+		case strpkg.KeyStoreInterface:
+			ks = dep
 		}
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
+	var keyStoreGenerator strpkg.KeyStoreGenerator
+	if ks == nil {
+		keyStoreGenerator = strpkg.InsecureKeyStoreGen
+	} else {
+		keyStoreGenerator = func(*gorm.DB, *orm.Config) strpkg.KeyStoreInterface {
+			return ks
+		}
+	}
+
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, externalInitiatorManager, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	})
 	require.NoError(t, err)
@@ -506,6 +522,7 @@ func (ta *TestApplication) NewBox() packr.Box {
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
+	ta.ChainlinkApplication.Store.KeyStore.Unlock(Password)
 
 	err := ta.ChainlinkApplication.Start()
 	return err
@@ -565,7 +582,7 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
+	_, err := ta.Store.KeyStore.ImportKey([]byte(content), Password)
 	require.NoError(ta.t, err)
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
@@ -1957,7 +1974,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
 	t.Helper()
 	var count int64
-	err := store.DB.Model(model).Count(&count).Error
+	err := store.DB.Unscoped().Model(model).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

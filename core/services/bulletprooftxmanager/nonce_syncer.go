@@ -76,7 +76,7 @@ func NewNonceSyncer(store *store.Store, config orm.ConfigReader, ethClient eth.C
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
 func (s NonceSyncer) SyncAll(ctx context.Context) (merr error) {
-	keys, err := s.store.SendKeys()
+	keys, err := s.store.KeyStore.AllKeys()
 	if err != nil {
 		return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed to get keys")
 	}

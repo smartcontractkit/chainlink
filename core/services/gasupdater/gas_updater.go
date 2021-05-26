@@ -116,35 +116,34 @@ func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
 }
 
 func (gu *gasUpdater) Start() error {
-	if !gu.OkayToStart() {
-		return errors.New("GasUpdater has already been started")
-	}
-	gu.logger.Debugw("GasUpdater: starting")
-	if uint(gu.config.GasUpdaterBlockHistorySize()) > gu.config.EthFinalityDepth() {
-		gu.logger.Warnf("GasUpdater: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every gas updater cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", gu.config.GasUpdaterBlockHistorySize(), gu.config.EthFinalityDepth())
-	}
-	ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
-	defer cancel()
-	latestHead, err := gu.ethClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		logger.Warnw("GasUpdater: initial check for latest head failed", "err", err)
-	} else {
-		gu.logger.Debugw("GasUpdater: got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
-		gu.FetchBlocksAndRecalculate(ctx, *latestHead)
-	}
-	gu.wg.Add(1)
-	go gu.runLoop()
-	gu.logger.Debugw("GasUpdater: started")
-	return nil
+	return gu.StartOnce("GasUpdater", func() error {
+		gu.logger.Debugw("GasUpdater: starting")
+		if uint(gu.config.GasUpdaterBlockHistorySize()) > gu.config.EthFinalityDepth() {
+			gu.logger.Warnf("GasUpdater: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every gas updater cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", gu.config.GasUpdaterBlockHistorySize(), gu.config.EthFinalityDepth())
+		}
+		ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
+		defer cancel()
+		latestHead, err := gu.ethClient.HeaderByNumber(ctx, nil)
+		if err != nil {
+			logger.Warnw("GasUpdater: initial check for latest head failed", "err", err)
+		} else {
+			gu.logger.Debugw("GasUpdater: got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
+			gu.FetchBlocksAndRecalculate(ctx, *latestHead)
+		}
+		gu.wg.Add(1)
+		go gu.runLoop()
+		gu.logger.Debugw("GasUpdater: started")
+		return nil
+	})
 }
 
 func (gu *gasUpdater) Close() error {
-	if !gu.OkayToStop() {
-		return errors.New("GasUpdater has already been stopped")
-	}
-	gu.ctxCancel()
-	gu.wg.Wait()
-	return nil
+	return gu.StopOnce("GasUpdater", func() error {
+		gu.ctxCancel()
+		gu.wg.Wait()
+		return nil
+
+	})
 }
 
 func (gu *gasUpdater) runLoop() {

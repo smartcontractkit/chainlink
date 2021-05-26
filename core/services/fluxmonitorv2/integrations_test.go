@@ -101,7 +101,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	}
 
 	key := cltest.MustGenerateRandomKey(t)
-	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 

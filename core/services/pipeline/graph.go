@@ -64,8 +64,8 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
-		nPreds := g.To(node.ID()).Len()
-		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, nPreds)
+		numPredecessors := g.To(node.ID()).Len()
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, numPredecessors)
 		if err != nil {
 			return nil, err
 		}

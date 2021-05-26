@@ -61,7 +61,7 @@ func TestCronV2Schedule(t *testing.T) {
 	}
 	runner := new(pipelinemocks.Runner)
 
-	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).
+	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).
 		Return(int64(0), pipeline.FinalResult{}, nil)
 
 	service, err := cron.NewCronFromJobSpec(spec, runner)

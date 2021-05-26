@@ -276,7 +276,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	t.Parallel()
 
-	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	id, err := models.NewJobIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)
 	i := models.Initiator{
 		Type:      models.InitiatorRunLog,
@@ -303,9 +303,9 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 func TestFilterQueryFactory_InitiatorVRFLog(t *testing.T) {
 	t.Parallel()
 
-	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	id, err := models.NewJobIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)
-	filterID, err := models.NewIDFromString("679fd3c51581478f89f95f5e24de5e09")
+	filterID, err := models.NewJobIDFromString("679fd3c51581478f89f95f5e24de5e09")
 	require.NoError(t, err)
 
 	t.Run("it only uses the jobID if no additional filter present", func(tt *testing.T) {
@@ -455,7 +455,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 }
 
 func TestIDToTopic(t *testing.T) {
-	id, err := models.NewIDFromString("ffffffffffffffffffffffffffffffff")
+	id, err := models.NewJobIDFromString("ffffffffffffffffffffffffffffffff")
 	require.NoError(t, err)
 	assert.Equal(t, common.Hash{
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -464,7 +464,7 @@ func TestIDToTopic(t *testing.T) {
 }
 
 func TestIDToIDToHexTopic(t *testing.T) {
-	id, err := models.NewIDFromString("ffffffffffffffffffffffffffffffff")
+	id, err := models.NewJobIDFromString("ffffffffffffffffffffffffffffffff")
 	require.NoError(t, err)
 	assert.Equal(t, common.Hash{
 		0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,

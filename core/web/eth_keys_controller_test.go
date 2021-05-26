@@ -24,9 +24,8 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 		ethClient,
 	)
 	t.Cleanup(cleanup)
-	_, err := app.Store.KeyStore.NewAccount()
-	require.NoError(t, err)
-	require.NoError(t, app.Store.SyncDiskKeyStoreToDB())
+
+	cltest.MustAddRandomKeyToKeystore(t, app.Store, true)
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
@@ -40,20 +39,21 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	expectedAccounts := app.Store.KeyStore.Accounts()
+	expectedKeys, err := app.Store.KeyStore.AllKeys()
+	require.NoError(t, err)
 	var actualBalances []webpresenters.ETHKeyResource
 	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 	assert.NoError(t, err)
 
-	assert.Len(t, actualBalances, 2)
+	require.Len(t, actualBalances, 2)
 
 	first := actualBalances[0]
-	assert.Equal(t, expectedAccounts[0].Address.Hex(), first.Address)
+	assert.Equal(t, expectedKeys[0].Address.Hex(), first.Address)
 	assert.Equal(t, "0.000000000000000256", first.EthBalance.String())
 	assert.Equal(t, "0.000000000000000256", first.LinkBalance.String())
 
 	second := actualBalances[1]
-	assert.Equal(t, expectedAccounts[1].Address.Hex(), second.Address)
+	assert.Equal(t, expectedKeys[1].Address.Hex(), second.Address)
 	assert.Equal(t, "0.000000000000000001", second.EthBalance.String())
 	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
 }
