@@ -103,15 +103,6 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `
-	VRFSpec = `
-jobID = "123e4567-e89b-12d3-a456-426655440000"
-type = "vrf"
-schemaVersion = 1
-name = "vrf-primary"
-coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
-confirmations = 6
-publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-`
 )
 
 type VRFSpecParams struct {
@@ -122,7 +113,16 @@ type VRFSpecParams struct {
 	PublicKey          string
 }
 
-func GenerateVRFSpec(params VRFSpecParams) string {
+type VRFSpec struct {
+	VRFSpecParams
+	toml string
+}
+
+func (vs VRFSpec) Toml() string {
+	return vs.toml
+}
+
+func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	jobID := "123e4567-e89b-12d3-a456-426655440000"
 	if params.JobID != "" {
 		jobID = params.JobID
@@ -152,7 +152,13 @@ coordinatorAddress = "%s"
 confirmations = %d 
 publicKey = "%s"
 `
-	return fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey)
+	return VRFSpec{VRFSpecParams: VRFSpecParams{
+		JobID:              jobID,
+		Name:               name,
+		CoordinatorAddress: coordinatorAddress,
+		Confirmations:      confirmations,
+		PublicKey:          publicKey,
+	}, toml: fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey)}
 }
 
 func OCRSpecWithTransmitterAddress(ta string) string {

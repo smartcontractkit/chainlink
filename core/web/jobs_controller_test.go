@@ -198,7 +198,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "vrf",
-			toml: testspecs.VRFSpec,
+			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}

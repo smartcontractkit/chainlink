@@ -1790,7 +1790,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
-	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
+	pipelineORM := pipeline.NewORM(store.ORM.DB, config)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))

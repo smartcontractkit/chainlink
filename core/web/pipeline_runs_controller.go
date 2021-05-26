@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"gorm.io/gorm"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -47,10 +46,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
-		Where("pipeline_runs.id = ?", pipelineRun.ID).
-		First(&pipelineRun).Error
-
+	pipelineRun, err = prc.App.GetPipelineORM().FindRun(pipelineRun.ID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -71,30 +67,16 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	}
 
 	jobRunID, err := prc.App.RunJobV2(c, jobSpec.ID, nil)
-
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	pipelineRun := pipeline.Run{}
-	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
-		Where("pipeline_runs.id = ?", jobRunID).
-		First(&pipelineRun).Error
-
+	pipelineRun, err := prc.App.GetPipelineORM().FindRun(jobRunID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
-}
-
-func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
-	return db.
-		Preload("PipelineSpec").
-		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Order("created_at ASC, id ASC")
-		})
 }

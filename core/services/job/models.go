@@ -29,8 +29,8 @@ const (
 )
 
 type Job struct {
-	ID                            int32 `toml:"-" gorm:"primary_key"`
-	ExternalJobID                 uuid.UUID
+	ID                            int32     `toml:"-" gorm:"primary_key"`
+	ExternalJobID                 uuid.UUID `toml:"jobID"`
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
 	CronSpecID                    *int32

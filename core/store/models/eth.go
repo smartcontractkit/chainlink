@@ -51,6 +51,12 @@ type EthTxMeta struct {
 	RunRequestTxHash *common.Hash
 }
 
+type EthTxMetaV2 struct {
+	JobID         int32
+	RequestID     common.Hash
+	RequestTxHash common.Hash
+}
+
 type EthTx struct {
 	ID             int64
 	Nonce          *int64

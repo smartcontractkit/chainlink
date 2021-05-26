@@ -95,6 +95,7 @@ type Application interface {
 
 	// V2 Jobs (TOML specified)
 	GetJobORM() job.ORM
+	GetPipelineORM() pipeline.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	// Testing only
@@ -119,6 +120,7 @@ type ChainlinkApplication struct {
 	EventBroadcaster         postgres.EventBroadcaster
 	JobORM                   job.ORM
 	jobSpawner               job.Spawner
+	PipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
@@ -226,7 +228,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	var (
-		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
+		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
@@ -323,6 +325,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		JobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
+		PipelineORM:              pipelineORM,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -578,6 +581,10 @@ func (app *ChainlinkApplication) GetLogger() *logger.Logger {
 
 func (app *ChainlinkApplication) GetJobORM() job.ORM {
 	return app.JobORM
+}
+
+func (app *ChainlinkApplication) GetPipelineORM() pipeline.ORM {
+	return app.PipelineORM
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() ExternalInitiatorManager {

@@ -20,6 +20,8 @@ import (
 
 	packr "github.com/gobuffalo/packr"
 
+	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	store "github.com/smartcontractkit/chainlink/core/store"
 
 	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -222,6 +224,22 @@ func (_m *Application) GetLogger() *logger.Logger {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*logger.Logger)
+		}
+	}
+
+	return r0
+}
+
+// GetPipelineORM provides a mock function with given fields:
+func (_m *Application) GetPipelineORM() pipeline.ORM {
+	ret := _m.Called()
+
+	var r0 pipeline.ORM
+	if rf, ok := ret.Get(0).(func() pipeline.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(pipeline.ORM)
 		}
 	}
 

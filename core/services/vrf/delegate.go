@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -19,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -139,6 +140,7 @@ type listener struct {
 
 // Start complies with job.Service
 func (l *listener) Start() error {
+	cs := NewContractSubmitter()
 	return l.StartOnce("VRFListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.coordinator,
@@ -176,32 +178,56 @@ func (l *listener) Start() error {
 							continue
 						}
 						s := time.Now()
-						result, errs := l.ProcessLog(lb)
+						vrfCoordinatorPayload, req, err := l.ProcessLog(lb)
 						f := time.Now()
 						err = postgres.GormTransactionWithDefaultContext(l.db, func(tx *gorm.DB) error {
-							var etx *models.EthTx
-							var meta pipeline.JSONSerializable
-							if !errs.HasError() {
-								from, err := l.gethks.GetRoundRobinAddress(tx)
+							var (
+								etx     *models.EthTx
+								meta    pipeline.JSONSerializable
+								runErrs pipeline.RunErrors
+								outputs pipeline.JSONSerializable
+							)
+							if err == nil {
+								// No errors processing the log, submit a transaction
+								var from common.Address
+								from, err = l.gethks.GetRoundRobinAddress(tx)
 								if err != nil {
 									return err
 								}
-								etx, err = l.vorm.CreateEthTransaction(tx, from, l.coordinator.Address(), result.Val.([]byte), l.cfg.gasLimit, l.cfg.maxUnconfirmedTxes)
+								etx, err = cs.CreateEthTransaction(
+									tx, models.EthTxMetaV2{
+										JobID:         l.job.ID,
+										RequestID:     req.RequestID,
+										RequestTxHash: lb.RawLog().TxHash,
+									},
+									from, l.coordinator.Address(),
+									vrfCoordinatorPayload,
+									l.cfg.gasLimit, l.cfg.maxUnconfirmedTxes,
+								)
 								if err != nil {
 									return err
 								}
 								meta = pipeline.JSONSerializable{
 									Val: map[string]interface{}{"eth_tx_id": etx.ID},
 								}
+								runErrs = []null.String{{}}
+								outputs = pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v",
+									etx.FromAddress,
+									etx.ToAddress,
+									hex.EncodeToString(etx.EncodedPayload)), Null: false}
+							} else {
+								// Errors processing the log, save a run error
+								runErrs = []null.String{null.StringFrom(err.Error())}
+								outputs = pipeline.JSONSerializable{Null: true}
 							}
 							_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
 								PipelineSpecID: l.job.PipelineSpecID,
-								Errors:         errs,
-								Outputs:        result,
+								Errors:         runErrs,
+								Outputs:        outputs,
 								Meta:           meta,
 								CreatedAt:      s,
 								FinishedAt:     &f,
-							}, nil, true)
+							}, nil, false)
 							if err != nil {
 								return errors.Wrap(err, "VRFListener: failed to insert finished run")
 							}
@@ -222,23 +248,23 @@ func (l *listener) Start() error {
 	})
 }
 
-func (l *listener) ProcessLog(lb log.Broadcast) (pipeline.JSONSerializable, pipeline.RunErrors) {
+func (l *listener) ProcessLog(lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {
 	req, err := l.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
 		logger.Errorw("VRFListener: failed to parse log", "err", err)
-		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+		return nil, req, err
 	}
 	// Validate the key against the spec
 	inputs, err := GetVRFInputs(l.job, req)
 	if err != nil {
 		logger.Errorw("VRFListener: invalid log", "err", err)
-		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+		return nil, req, err
 	}
 
 	solidityProof, err := l.vrfks.GenerateProof(inputs.pk, inputs.seed)
 	if err != nil {
 		logger.Errorw("VRFListener: error generating proof", "err", err)
-		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+		return nil, req, err
 	}
 
 	vrfCoordinatorArgs, err := models.VRFFulfillMethod().Inputs.PackValues(
@@ -247,9 +273,9 @@ func (l *listener) ProcessLog(lb log.Broadcast) (pipeline.JSONSerializable, pipe
 		})
 	if err != nil {
 		logger.Errorw("VRFListener: error building fulfill args", "err", err)
-		return pipeline.JSONSerializable{Null: true}, []null.String{null.StringFrom(err.Error())}
+		return nil, req, err
 	}
-	return pipeline.JSONSerializable{Val: vrfCoordinatorArgs}, []null.String{{}}
+	return vrfCoordinatorArgs, req, nil
 }
 
 type VRFInputs struct {
@@ -271,8 +297,9 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 	if err != nil {
 		return inputs, errors.New("unable to parse preseed")
 	}
-	if jb.ExternalIDToTopicHash() != request.JobID {
-		return inputs, errors.New("")
+	expectedJobID := jb.ExternalIDToTopicHash()
+	if !bytes.Equal(expectedJobID[:], request.JobID[:]) {
+		return inputs, errors.New(fmt.Sprintf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDToTopicHash().Bytes()))
 	}
 	return VRFInputs{
 		pk: jb.VRFSpec.PublicKey,

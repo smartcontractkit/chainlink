@@ -1,9 +1,15 @@
 package vrf_test
 
 import (
+	"context"
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -11,7 +17,6 @@ import (
 	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
-	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -23,8 +28,7 @@ import (
 )
 
 type vrfUniverse struct {
-	pr        *pipeline_mocks.Runner
-	porm      *pipeline_mocks.ORM
+	jpv2      cltest.JobPipelineV2TestHelper
 	lb        *log_mocks.Broadcaster
 	ec        *eth_mocks.Client
 	vorm      vrf.ORM
@@ -33,13 +37,15 @@ type vrfUniverse struct {
 	submitter common.Address
 }
 
-func setup(t *testing.T, db *gorm.DB, s *store.Store) vrfUniverse {
-	pr := new(pipeline_mocks.Runner)
-	porm := new(pipeline_mocks.ORM)
+func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s *store.Store) vrfUniverse {
+	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
+
+	// Don't mock db interactions
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, db)
 	vorm := vrf.NewORM(db)
-	ks := vrf.NewVRFKeyStore(vrf.NewORM(db), utils.FastScryptParams)
+	ks := vrf.NewVRFKeyStore(vorm, utils.FastScryptParams)
 	require.NoError(t, s.KeyStore.Unlock(cltest.Password))
 	_, err := s.KeyStore.NewAccount()
 	require.NoError(t, err)
@@ -50,9 +56,9 @@ func setup(t *testing.T, db *gorm.DB, s *store.Store) vrfUniverse {
 	require.NoError(t, err)
 	_, err = ks.Unlock("blah")
 	require.NoError(t, err)
+
 	return vrfUniverse{
-		pr:        pr,
-		porm:      porm,
+		jpv2:      jpv2,
 		lb:        lb,
 		ec:        ec,
 		vorm:      vorm,
@@ -64,8 +70,6 @@ func setup(t *testing.T, db *gorm.DB, s *store.Store) vrfUniverse {
 
 func (v vrfUniverse) Assert(t *testing.T) {
 	v.lb.AssertExpectations(t)
-	v.porm.AssertExpectations(t)
-	v.pr.AssertExpectations(t)
 	v.ec.AssertExpectations(t)
 }
 
@@ -75,19 +79,22 @@ func TestDelegate(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
 
-	t.Run("creates a transaction on valid log", func(t *testing.T) {
-		vuni := setup(t, orm.DB, store)
+	t.Run("valid log", func(t *testing.T) {
+		vuni := setup(t, orm.DB, cfg, store)
 		vd := vrf.NewDelegate(orm.DB,
 			vuni.vorm,
 			store,
 			vuni.ks,
-			vuni.pr,
-			vuni.porm,
+			vuni.jpv2.Pr,
+			vuni.jpv2.Prm,
 			vuni.lb,
 			vuni.ec,
 			vrf.NewConfig(0, utils.FastScryptParams, 1000, 10))
-		jb, err := vrf.ValidateVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()}))
+		vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
+		t.Log(vs.PublicKey)
+		jb, err := vrf.ValidateVRFSpec(vs.Toml())
 		require.NoError(t, err)
+		require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, *pipeline.NewTaskDAG()))
 		vl, err := vd.ServicesForSpec(jb)
 		require.NoError(t, err)
 		require.Len(t, vl, 1)
@@ -102,20 +109,24 @@ func TestDelegate(t *testing.T) {
 		}).Return(unsubscribe)
 		require.NoError(t, listener.Start())
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		vuni.pr.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			done <- struct{}{}
 		}).Return(nil)
 
 		// Send a log with a valid key hash
+		pk, err := secp256k1.NewPublicKeyFromHex(vs.PublicKey)
+		require.NoError(t, err)
+		reqID := cltest.NewHash()
 		logListener.HandleLog(log.NewLogBroadcast(types.Log{
+			// Data has all the NON-indexed parameters
 			Data: append(append(append(append(
-				vuni.vrfkey.MustHash().Bytes(),
-				common.BigToHash(big.NewInt(42)).Bytes()...),
-				cltest.NewHash().Bytes()...),
-				cltest.NewHash().Bytes()...),
-				cltest.NewHash().Bytes()...),
-			Topics:      []common.Hash{{}, common.BytesToHash([]byte("1234567890abcdef1234567890abcdef"))},
+				pk.MustHash().Bytes(),                        // key hash
+				common.BigToHash(big.NewInt(42)).Bytes()...), // seed
+				cltest.NewHash().Bytes()...), // sender
+				cltest.NewHash().Bytes()...), // fee
+				reqID.Bytes()...), // requestID
+			// JobID is indexed, thats why it lives in the Topics.
+			Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
 			Address:     common.Address{},
 			BlockNumber: 0,
 			TxHash:      common.Hash{},
@@ -128,19 +139,41 @@ func TestDelegate(t *testing.T) {
 		case <-time.After(1 * time.Second):
 			t.Errorf("failed to consume log")
 		case <-done:
-			t.Log("woo done")
 		}
+
+		// Ensure we created a successful run.
+		runs, err := vuni.jpv2.Prm.GetAllRuns()
+		require.NoError(t, err)
+		require.Len(t, runs, 1)
+		assert.False(t, runs[0].Errors.HasError())
+		m, ok := runs[0].Meta.Val.(map[string]interface{})
+		require.True(t, ok)
+		_, ok = m["eth_tx_id"]
+		assert.True(t, ok)
+		assert.Len(t, runs[0].PipelineTaskRuns, 0)
+
+		// Ensure we have queued up a valid eth transaction
+		// Linked to this requestID
+		var ethTxes []models.EthTx
+		err = orm.DB.Find(&ethTxes).Error
+		require.NoError(t, err)
+		require.Len(t, ethTxes, 1)
+		assert.Equal(t, vs.CoordinatorAddress, ethTxes[0].ToAddress.String())
+		var em models.EthTxMetaV2
+		err = json.Unmarshal(ethTxes[0].Meta.RawMessage, &em)
+		require.NoError(t, err)
+		assert.Equal(t, reqID, em.RequestID)
+
 		require.NoError(t, listener.Close())
 		select {
 		case <-time.After(1 * time.Second):
 			t.Errorf("failed to unsubscribe")
 		case <-done:
-			t.Log("woo done")
 		}
 		vuni.lb.AssertExpectations(t)
 	})
 
-	t.Run("should not create an eth transction if invalid log", func(t *testing.T) {
+	t.Run("invalid log", func(t *testing.T) {
 
 	})
 }
