@@ -97,7 +97,7 @@ You can configure your node's behavior by setting environment variables. All the
 
 ## Project Structure
 
-Chainlink is a monorepo containing several logicaly separatable and relatable
+Chainlink is a monorepo containing several logically separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
