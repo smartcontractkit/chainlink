@@ -15,6 +15,6 @@ func (t *PanicTask) Type() TaskType {
 	return TaskTypePanic
 }
 
-func (t *PanicTask) Run(_ context.Context, _ Vars, _ JSONSerializable, _ []Result) (result Result) {
+func (t *PanicTask) Run(_ context.Context, _ JSONSerializable, _ []Result) (result Result) {
 	panic(t.Msg)
 }

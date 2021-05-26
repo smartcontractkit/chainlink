@@ -11,7 +11,6 @@ import (
 
 type MedianTask struct {
 	BaseTask      `mapstructure:",squash"`
-	Values        string `json:"values"`
 	AllowedFaults string `json:"allowedFaults"`
 }
 
@@ -21,7 +20,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *MedianTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam
@@ -30,8 +29,8 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 		faults             int
 	)
 	err := multierr.Combine(
-		errors.Wrap(vars.ResolveValue(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
-		errors.Wrap(vars.ResolveValue(&valuesAndErrs, From(VariableExpr(t.Values), Inputs(inputs))), "values"),
+		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
+		errors.Wrap(ResolveParam(&valuesAndErrs, From(Inputs(inputs))), "values"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -50,7 +49,7 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}
 	}
 
-	err = decimalValues.UnmarshalPipelineParam(values, nil)
+	err = decimalValues.UnmarshalPipelineParam(values)
 	if err != nil {
 		return Result{Error: err}
 	}
@@ -63,10 +62,5 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 		return Result{Value: decimalValues[k]}
 	}
 	median := decimalValues[k].Add(decimalValues[k-1]).Div(decimal.NewFromInt(2))
-
-	err = vars.Set(t.DotID(), median)
-	if err != nil {
-		return Result{Error: err}
-	}
 	return Result{Value: median}
 }

@@ -27,7 +27,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
+		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -301,4 +301,25 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		return nil, err
 	}
 	return task, nil
+}
+
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+	if minLen >= 0 && len(inputs) < minLen {
+		return nil, ErrWrongInputCardinality
+	} else if maxLen >= 0 && len(inputs) > maxLen {
+		return nil, ErrWrongInputCardinality
+	}
+	var vals []interface{}
+	var errs int
+	for _, input := range inputs {
+		if input.Error != nil {
+			errs++
+			continue
+		}
+		vals = append(vals, input.Value)
+	}
+	if maxErrors >= 0 && errs > maxErrors {
+		return nil, ErrTooManyErrors
+	}
+	return vals, nil
 }

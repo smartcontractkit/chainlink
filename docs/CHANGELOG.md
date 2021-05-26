@@ -70,8 +70,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `jsonparse`
         - `path`
         - `data` (falls back to the first input if unspecified)
-    - `median`
-        - `values` (falls back to the array of inputs if unspecified)
     - `multiply`
         - `input` (falls back to the first input if unspecified)
         - `times`

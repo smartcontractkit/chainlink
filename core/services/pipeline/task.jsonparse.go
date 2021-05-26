@@ -12,8 +12,8 @@ import (
 
 type JSONParseTask struct {
 	BaseTask `mapstructure:",squash"`
-	Path     string `json:"path"`
-	Data     string `json:"data"`
+	Path     string `json:"path" pipeline:"@expand_vars"`
+	Data     string `json:"data" pipeline:"@expand_vars"`
 	// Lax when disabled will return an error if the path does not exist
 	// Lax when enabled will return nil with no error if the path does not exist
 	Lax string
@@ -25,7 +25,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
@@ -37,9 +37,9 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, in
 		maybeLax MaybeBoolParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(vars.ResolveValue(&path, From(VariableExpr(t.Path), t.Path)), "path"),
-		errors.Wrap(vars.ResolveValue(&data, From(VariableExpr(t.Data), Input(inputs, 0))), "data"),
-		errors.Wrap(vars.ResolveValue(&maybeLax, From(t.Lax)), "lax"),
+		errors.Wrap(ResolveParam(&path, From(t.Path)), "path"),
+		errors.Wrap(ResolveParam(&data, From(t.Data, Input(inputs, 0))), "data"),
+		errors.Wrap(ResolveParam(&maybeLax, From(t.Lax)), "lax"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -93,10 +93,6 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, in
 		default:
 			return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
 		}
-	}
-	err = vars.Set(t.DotID(), decoded)
-	if err != nil {
-		return Result{Error: err}
 	}
 	return Result{Value: decoded}
 }

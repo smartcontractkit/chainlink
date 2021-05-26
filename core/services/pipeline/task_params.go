@@ -10,12 +10,94 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/multierr"
 )
+
+//go:generate mockery --name PipelineParamUnmarshaler --output ./mocks/ --case=underscore
+
+type PipelineParamUnmarshaler interface {
+	UnmarshalPipelineParam(val interface{}) error
+}
+
+func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
+	var val interface{}
+	var err error
+	var found bool
+	for _, get := range getters {
+		val, err = get()
+		if errors.Cause(err) == ErrParameterEmpty {
+			continue
+		} else if err != nil {
+			return err
+		}
+		found = true
+		break
+	}
+	if !found {
+		return ErrParameterEmpty
+	}
+
+	err = out.UnmarshalPipelineParam(val)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type GetterFunc func() (interface{}, error)
+
+func From(getters ...interface{}) []GetterFunc {
+	var gfs []GetterFunc
+	for _, g := range getters {
+		switch v := g.(type) {
+		case GetterFunc:
+			gfs = append(gfs, v)
+
+		default:
+			// If a bare value is passed in, create a simple getter
+			gfs = append(gfs, func() (interface{}, error) {
+				return v, nil
+			})
+		}
+	}
+	return gfs
+}
+
+func NonemptyString(s string) GetterFunc {
+	return func() (interface{}, error) {
+		trimmed := strings.TrimSpace(s)
+		if len(trimmed) == 0 {
+			return nil, ErrParameterEmpty
+		}
+		return trimmed, nil
+	}
+}
+
+func Input(inputs []Result, index int) GetterFunc {
+	return func() (interface{}, error) {
+		if len(inputs)-1 < index {
+			return nil, ErrParameterEmpty
+		}
+		return inputs[index].Value, inputs[index].Error
+	}
+}
+
+func Inputs(inputs []Result) GetterFunc {
+	return func() (interface{}, error) {
+		var vals []interface{}
+		for _, input := range inputs {
+			if input.Error != nil {
+				vals = append(vals, input.Error)
+			} else {
+				vals = append(vals, input.Value)
+			}
+		}
+		return vals, nil
+	}
+}
 
 type StringParam string
 
-func (s *StringParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		*s = StringParam(v)
@@ -30,7 +112,7 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 
 type BytesParam string
 
-func (b *BytesParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		if len(v) >= 2 && v[:2] == "0x" {
@@ -52,7 +134,7 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 
 type Uint64Param uint64
 
-func (u *Uint64Param) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case uint:
 		*u = Uint64Param(v)
@@ -92,7 +174,7 @@ type MaybeUint64Param struct {
 	isSet bool
 }
 
-func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	var n uint64
 	switch v := val.(type) {
 	case uint:
@@ -140,7 +222,7 @@ func (u MaybeUint64Param) Uint64() (uint64, bool) {
 
 type BoolParam bool
 
-func (b *BoolParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		theBool, err := strconv.ParseBool(v)
@@ -176,7 +258,7 @@ func (m MaybeBoolParam) Bool() (b bool, isSet bool) {
 	}
 }
 
-func (m *MaybeBoolParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (m *MaybeBoolParam) UnmarshalPipelineParam(val interface{}) error {
 	switch val {
 	case "true":
 		*m = MaybeBoolTrue
@@ -196,7 +278,7 @@ func (m *MaybeBoolParam) UnmarshalPipelineParam(val interface{}, vars Vars) erro
 
 type DecimalParam decimal.Decimal
 
-func (d *DecimalParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
 	x, err := utils.ToDecimal(val)
 	if err != nil {
 		return errors.Wrap(ErrBadInput, err.Error())
@@ -211,7 +293,7 @@ func (d DecimalParam) Decimal() decimal.Decimal {
 
 type URLParam url.URL
 
-func (u *URLParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (u *URLParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		theURL, err := url.ParseRequestURI(v)
@@ -231,7 +313,7 @@ func (u *URLParam) String() string {
 
 type MapParam map[string]interface{}
 
-func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case nil:
 		*m = nil
@@ -242,16 +324,11 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 		return nil
 
 	case string:
-		return m.UnmarshalPipelineParam([]byte(v), vars)
+		return m.UnmarshalPipelineParam([]byte(v))
 
 	case []byte:
-		resolved, err := expandVariables(v, vars)
-		if err != nil {
-			return errors.Wrapf(ErrBadInput, "MapParam: %v", err)
-		}
-
 		var theMap map[string]interface{}
-		err = json.Unmarshal(resolved, &theMap)
+		err := json.Unmarshal(v, &theMap)
 		if err != nil {
 			return err
 		}
@@ -265,22 +342,18 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
 
 type SliceParam []interface{}
 
-func (s *SliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (s *SliceParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case nil:
 		*s = nil
 	case []interface{}:
 		*s = v
 	case string:
-		return s.UnmarshalPipelineParam([]byte(v), vars)
+		return s.UnmarshalPipelineParam([]byte(v))
 
 	case []byte:
-		resolved, err := expandVariables(v, vars)
-		if err != nil {
-			return errors.Wrapf(ErrBadInput, "MapParam: %v", err)
-		}
 		var theSlice []interface{}
-		err = json.Unmarshal(resolved, &theSlice)
+		err := json.Unmarshal(v, &theSlice)
 		if err != nil {
 			return err
 		}
@@ -308,7 +381,7 @@ func (s SliceParam) FilterErrors() (SliceParam, int) {
 
 type DecimalSliceParam []decimal.Decimal
 
-func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	var dsp DecimalSliceParam
 	switch v := val.(type) {
 	case nil:
@@ -316,7 +389,7 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) e
 	case []decimal.Decimal:
 		dsp = v
 	case []interface{}:
-		return s.UnmarshalPipelineParam(SliceParam(v), vars)
+		return s.UnmarshalPipelineParam(SliceParam(v))
 	case SliceParam:
 		for _, x := range v {
 			d, err := utils.ToDecimal(x)
@@ -326,19 +399,15 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) e
 			dsp = append(dsp, d)
 		}
 	case string:
-		return s.UnmarshalPipelineParam([]byte(v), vars)
+		return s.UnmarshalPipelineParam([]byte(v))
 
 	case []byte:
-		resolved, err := expandVariables(v, vars)
-		if err != nil {
-			return errors.Wrapf(ErrBadInput, "DecimalSliceParam: %v", err)
-		}
 		var theSlice []interface{}
-		err = json.Unmarshal(resolved, &theSlice)
+		err := json.Unmarshal(v, &theSlice)
 		if err != nil {
 			return err
 		}
-		return s.UnmarshalPipelineParam(SliceParam(theSlice), vars)
+		return s.UnmarshalPipelineParam(SliceParam(theSlice))
 
 	default:
 		return errors.Wrap(ErrBadInput, "DecimalSliceParam")
@@ -349,7 +418,7 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) e
 
 type StringSliceParam []string
 
-func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) error {
+func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	var ssp StringSliceParam
 	switch v := val.(type) {
 	case nil:
@@ -373,25 +442,4 @@ func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}, vars Vars) er
 	}
 	*p = ssp
 	return nil
-}
-
-func expandVariables(v []byte, vars Vars) ([]byte, error) {
-	var err error
-	resolved := variableRegexp.ReplaceAllFunc(v, func(keypath []byte) []byte {
-		val, err2 := vars.Get(string(keypath[2 : len(keypath)-1]))
-		if err2 != nil {
-			err = multierr.Append(err, err2)
-			return nil
-		}
-		bs, err2 := json.Marshal(val)
-		if err2 != nil {
-			err = multierr.Append(err, err2)
-			return nil
-		}
-		return bs
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resolved, nil
 }

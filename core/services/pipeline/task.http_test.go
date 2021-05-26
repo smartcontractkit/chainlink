@@ -5,17 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -40,8 +37,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	vars := pipeline.Vars{}
-	result := task.Run(context.Background(), vars, pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -51,143 +47,6 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	json.Unmarshal([]byte(result.Value.(string)), &x)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
-}
-
-func TestHTTPTask_Variables(t *testing.T) {
-	t.Parallel()
-
-	validMeta := map[string]interface{}{"theMeta": "yes"}
-
-	tests := []struct {
-		name                  string
-		requestData           string
-		meta                  pipeline.JSONSerializable
-		inputs                []pipeline.Result
-		vars                  pipeline.Vars
-		expectedRequestData   map[string]interface{}
-		expectedErrorCause    error
-		expectedErrorContains string
-	}{
-		{
-			"requestData (empty) + meta",
-			``,
-			pipeline.JSONSerializable{validMeta, false},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
-			map[string]interface{}{},
-			nil,
-			"",
-		},
-		{
-			"requestData (pure variable) + meta",
-			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, false},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
-			map[string]interface{}{"foo": 543.21},
-			nil,
-			"",
-		},
-		{
-			"requestData (pure variable)",
-			`$(some_data)`,
-			pipeline.JSONSerializable{nil, true},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
-			map[string]interface{}{"foo": 543.21},
-			nil,
-			"",
-		},
-		{
-			"requestData (pure variable, missing)",
-			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, false},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"not_some_data": map[string]interface{}{"foo": 543.21}},
-			nil,
-			pipeline.ErrKeypathNotFound,
-			"requestData",
-		},
-		{
-			"requestData (pure variable, not a map)",
-			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, false},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": 543.21},
-			nil,
-			pipeline.ErrBadInput,
-			"requestData",
-		},
-		{
-			"requestData (interpolation) + meta",
-			`{"data":{"result":$(medianize)}}`,
-			pipeline.JSONSerializable{validMeta, false},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"medianize": 543.21},
-			map[string]interface{}{"data": map[string]interface{}{"result": 543.21}},
-			nil,
-			"",
-		},
-		{
-			"requestData (interpolation, missing)",
-			`{"data":{"result":$(medianize)}}`,
-			pipeline.JSONSerializable{validMeta, false},
-			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"nope": "foo bar"},
-			nil,
-			pipeline.ErrKeypathNotFound,
-			"requestData",
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
-
-			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
-			defer s1.Close()
-
-			feedURL, err := url.ParseRequestURI(s1.URL)
-			require.NoError(t, err)
-			feedWebURL := (*models.WebURL)(feedURL)
-
-			task := pipeline.BridgeTask{
-				BaseTask:    pipeline.NewBaseTask("bridge", nil, 0, 0),
-				Name:        "foo",
-				RequestData: test.requestData,
-			}
-			task.HelperSetConfigAndTxDB(store.Config, store.DB)
-
-			// Insert bridge
-			_, bridge := cltest.NewBridgeType(t, task.Name)
-			bridge.URL = *feedWebURL
-			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
-
-			result := task.Run(context.Background(), test.vars, test.meta, test.inputs)
-			if test.expectedErrorCause != nil {
-				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
-				if test.expectedErrorContains != "" {
-					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
-				}
-
-			} else {
-				require.NoError(t, result.Error)
-				require.NotNil(t, result.Value)
-				var x struct {
-					Data struct {
-						Result decimal.Decimal `json:"result"`
-					} `json:"data"`
-				}
-				json.Unmarshal([]byte(result.Value.(string)), &x)
-				require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
-			}
-		})
-	}
 }
 
 func TestHTTPTask_ErrorMessage(t *testing.T) {
@@ -215,7 +74,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -244,7 +103,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)

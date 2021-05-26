@@ -15,7 +15,7 @@ type HTTPTask struct {
 	BaseTask                       `mapstructure:",squash"`
 	Method                         string
 	URL                            string
-	RequestData                    string `json:"requestData"`
+	RequestData                    string `json:"requestData" pipeline:"@expand_vars"`
 	AllowUnrestrictedNetworkAccess string
 
 	config Config
@@ -42,7 +42,7 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result) Result {
 	var (
 		method                         StringParam
 		url                            URLParam
@@ -50,10 +50,10 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, input
 		allowUnrestrictedNetworkAccess BoolParam
 	)
 	err := multierr.Combine(
-		errors.Wrap(vars.ResolveValue(&method, From(NonemptyString(t.Method), "GET")), "method"),
-		errors.Wrap(vars.ResolveValue(&url, From(NonemptyString(t.URL))), "url"),
-		errors.Wrap(vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), Input(inputs, 0), nil)), "requestData"),
-		errors.Wrap(vars.ResolveValue(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), t.config.DefaultHTTPAllowUnrestrictedNetworkAccess())), "allowUnrestrictedNetworkAccess"),
+		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
+		errors.Wrap(ResolveParam(&url, From(NonemptyString(t.URL))), "url"),
+		errors.Wrap(ResolveParam(&requestData, From(NonemptyString(t.RequestData), Input(inputs, 0), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), t.config.DefaultHTTPAllowUnrestrictedNetworkAccess())), "allowUnrestrictedNetworkAccess"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -77,11 +77,5 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, input
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
 	// value instead.
-	result := Result{Value: string(responseBytes)}
-
-	err = vars.Set(t.DotID(), result.Value)
-	if err != nil {
-		return Result{Error: err}
-	}
-	return result
+	return Result{Value: string(responseBytes)}
 }

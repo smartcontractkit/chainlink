@@ -18,7 +18,6 @@ func TestJSONParseTask(t *testing.T) {
 		data              string
 		path              string
 		lax               string
-		vars              pipeline.Vars
 		inputs            []pipeline.Result
 		wantData          interface{}
 		wantErrorCause    error
@@ -29,7 +28,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,0,availability",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data":[{"availability":"0.99991"}]}`}},
 			"0.99991",
 			nil,
@@ -40,7 +38,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"availability",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"availability":0.99991}`}},
 			0.99991,
 			nil,
@@ -51,7 +48,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,0",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			float64(0),
 			nil,
@@ -62,7 +58,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,0,0",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
 			float64(0),
 			nil,
@@ -73,7 +68,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,-1",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			float64(1),
 			nil,
@@ -84,7 +78,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,-10",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`}},
 			float64(0),
 			nil,
@@ -95,7 +88,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,-12",
 			"true",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`}},
 			nil,
 			nil,
@@ -106,7 +98,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,-12",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`}},
 			nil,
 			pipeline.ErrKeypathNotFound,
@@ -117,7 +108,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,18446744073709551615",
 			"true",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
 			nil,
@@ -128,7 +118,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,18446744073709551615",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
 			pipeline.ErrKeypathNotFound,
@@ -139,7 +128,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,18446744073709551616",
 			"true",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
 			nil,
@@ -150,7 +138,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,18446744073709551616",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
 			nil,
 			pipeline.ErrKeypathNotFound,
@@ -161,7 +148,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data,0",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
 			[]interface{}{float64(0), float64(1)},
 			nil,
@@ -172,7 +158,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": false}`}},
 			false,
 			nil,
@@ -183,7 +168,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"data",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"data": true}`}},
 			true,
 			nil,
@@ -194,7 +178,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"Realtime Currency Exchange Rate,5. Exchange Rate",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{
                 "Realtime Currency Exchange Rate": {
                     "1. From_Currency Code": "LEND",
@@ -217,7 +200,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"baz",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"foo": 1}`}},
 			nil,
 			pipeline.ErrKeypathNotFound,
@@ -228,7 +210,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"foo,bar",
 			"false",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"foo": {}}`}},
 			nil,
 			pipeline.ErrKeypathNotFound,
@@ -239,7 +220,6 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"baz",
 			"true",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{}`}},
 			nil,
 			nil,
@@ -250,80 +230,10 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 			"foo,baz",
 			"true",
-			pipeline.Vars{},
 			[]pipeline.Result{{Value: `{"foo": {}}`}},
 			nil,
 			nil,
 			"",
-		},
-
-		{
-			"variable path",
-			"",
-			"$(foo.bar)",
-			"false",
-			pipeline.Vars{
-				"foo": map[string]interface{}{"bar": "data,0,availability"},
-			},
-			[]pipeline.Result{{Value: `{"data":[{"availability":"0.99991"}]}`}},
-			"0.99991",
-			nil,
-			"",
-		},
-		{
-			"variable data",
-			"$(foo.bar)",
-			"data,0,availability",
-			"false",
-			pipeline.Vars{
-				"foo": map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
-			},
-			[]pipeline.Result{},
-			"0.99991",
-			nil,
-			"",
-		},
-		{
-			"variable path and data",
-			"$(foo.bar)",
-			"$(chain.link)",
-			"false",
-			pipeline.Vars{
-				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
-				"chain": map[string]interface{}{"link": "data,0,availability"},
-			},
-			[]pipeline.Result{},
-			"0.99991",
-			nil,
-			"",
-		},
-		{
-			"no data or input",
-			"",
-			"$(chain.link)",
-			"false",
-			pipeline.Vars{
-				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
-				"chain": map[string]interface{}{"link": "data,0,availability"},
-			},
-			[]pipeline.Result{},
-			"0.99991",
-			pipeline.ErrParameterEmpty,
-			"data",
-		},
-		{
-			"malformed 'lax' param",
-			"$(foo.bar)",
-			"$(chain.link)",
-			"sergey",
-			pipeline.Vars{
-				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
-				"chain": map[string]interface{}{"link": "data,0,availability"},
-			},
-			[]pipeline.Result{},
-			"0.99991",
-			pipeline.ErrBadInput,
-			"lax",
 		},
 	}
 
@@ -336,24 +246,17 @@ func TestJSONParseTask(t *testing.T) {
 				Data:     test.data,
 				Lax:      test.lax,
 			}
-			result := task.Run(context.Background(), test.vars, pipeline.JSONSerializable{}, test.inputs)
+			result := task.Run(context.Background(), pipeline.JSONSerializable{}, test.inputs)
 
 			if test.wantErrorCause != nil {
 				require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
 				if test.wantErrorContains != "" {
 					require.Contains(t, result.Error.Error(), test.wantErrorContains)
 				}
-
 				require.Nil(t, result.Value)
-				val, err := test.vars.Get("json")
-				require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
-				require.Nil(t, val)
 			} else {
 				require.NoError(t, result.Error)
 				require.Equal(t, test.wantData, result.Value)
-				val, err := test.vars.Get("json")
-				require.NoError(t, err)
-				require.Equal(t, test.wantData, val)
 			}
 		})
 	}

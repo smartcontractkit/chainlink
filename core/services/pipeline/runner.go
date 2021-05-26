@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"sort"
 	"sync"
@@ -113,10 +114,10 @@ type memoryTaskRun struct {
 	task                  Task
 	next                  *memoryTaskRun
 	predecessorsRemaining int
-	finished              bool
 	inputs                []input
 	predMu                sync.RWMutex
-	finishMu              sync.Mutex
+	claimed               bool
+	claimedMu             sync.Mutex
 }
 
 // Returns the results sorted by index. It is not thread-safe.
@@ -141,12 +142,12 @@ func (m *memoryTaskRun) numPredecessorsRemaining() int {
 }
 
 func (m *memoryTaskRun) tryToClaim() (ok bool) {
-	m.finishMu.Lock()
-	defer m.finishMu.Unlock()
-	if m.finished {
+	m.claimedMu.Lock()
+	defer m.claimedMu.Unlock()
+	if m.claimed {
 		return false
 	}
-	m.finished = true
+	m.claimed = true
 	return true
 }
 
@@ -247,8 +248,6 @@ func (r *runner) executeRun(
 		return run, nil, false, err
 	}
 
-	vars := Vars{}
-
 	// TODO: Test with multiple and single null successor IDs
 	// https://www.pivotaltracker.com/story/show/176557536
 
@@ -260,8 +259,10 @@ func (r *runner) executeRun(
 	//  - it processes the final task
 
 	var (
-		taskRunResultsMu sync.Mutex
+		vars             = NewVars()
+		varsMu           sync.RWMutex
 		taskRunResults   TaskRunResults
+		taskRunResultsMu sync.Mutex
 		wg               sync.WaitGroup
 		retry            bool
 	)
@@ -287,7 +288,23 @@ func (r *runner) executeRun(
 					return
 				}
 
-				taskRunResult := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
+				var taskRunResult TaskRunResult
+
+				err := expandVarsInTaskParams(vars, varsMu, taskRun.task)
+				if err != nil {
+					now := time.Now()
+					taskRunResult = TaskRunResult{
+						Task:       taskRun.task,
+						Result:     Result{Error: err},
+						CreatedAt:  now,
+						FinishedAt: now,
+						IsTerminal: taskRun.next == nil,
+					}
+				} else {
+					taskRunResult = r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
+				}
+
+				saveTaskRunResultToVars(vars, varsMu, taskRun.task.DotID(), taskRunResult.Result)
 
 				taskRunResultsMu.Lock()
 				taskRunResults = append(taskRunResults, taskRunResult)
@@ -318,6 +335,48 @@ func (r *runner) executeRun(
 		run.FinishedAt = &finishRun
 	}
 	return run, taskRunResults, retry, err
+}
+
+func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) error {
+	varsMu.RLock()
+	defer varsMu.RUnlock()
+
+	rtask := reflect.ValueOf(task)
+	if rtask.Kind() == reflect.Ptr {
+		rtask = rtask.Elem()
+	}
+	if rtask.Kind() != reflect.Struct {
+		panic("all pipeline tasks are structs")
+	}
+
+	for i := 0; i < rtask.Type().NumField(); i++ {
+		field := rtask.Type().Field(i)
+		if field.Tag.Get("pipeline") == "@expand_vars" {
+			fieldVal := rtask.Field(i)
+			asString, isString := fieldVal.Interface().(string)
+			if !isString {
+				// error
+				continue
+			}
+			subbed, err := ExpandVars(asString, vars)
+			if err != nil {
+				return errors.Wrap(err, "while expanding pipeline spec variables")
+			}
+			fieldVal.Set(reflect.ValueOf(subbed))
+		}
+	}
+	return nil
+}
+
+func saveTaskRunResultToVars(vars Vars, varsMu sync.RWMutex, dotID string, result Result) {
+	varsMu.Lock()
+	defer varsMu.Unlock()
+
+	if result.Error != nil {
+		vars[dotID] = result.Error
+	} else {
+		vars[dotID] = result.Value
+	}
 }
 
 func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInputs []Result, txdb *gorm.DB) (headTaskRuns []*memoryTaskRun, _ error) {
@@ -383,7 +442,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskR
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, vars, meta, taskRun.inputsSorted())
+	result := taskRun.task.Run(ctx, meta, taskRun.inputsSorted())
 	loggerFields = append(loggerFields, "result value", result.Value)
 	loggerFields = append(loggerFields, "result error", result.Error)
 	switch v := result.Value.(type) {

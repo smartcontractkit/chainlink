@@ -14,7 +14,7 @@ type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
 	Name              string `json:"name"`
-	RequestData       string `json:"requestData"`
+	RequestData       string `json:"requestData"  pipeline:"@expand_vars"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 
 	safeTx SafeTx
@@ -27,11 +27,7 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
-}
-
-func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result {
+func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result {
 	inputValues, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
@@ -43,9 +39,9 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 		includeInputAtKey StringParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(vars.ResolveValue(&name, From(NonemptyString(t.Name))), "name"),
-		errors.Wrap(vars.ResolveValue(&requestData, From(VariableExpr(t.RequestData), NonemptyString(t.RequestData), nil)), "requestData"),
-		errors.Wrap(vars.ResolveValue(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
+		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
+		errors.Wrap(ResolveParam(&requestData, From(NonemptyString(t.RequestData), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -101,11 +97,6 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 		"url", url.String(),
 		"dotID", t.DotID(),
 	)
-
-	err = vars.Set(t.DotID(), result.Value)
-	if err != nil {
-		return Result{Error: err}
-	}
 	return result
 }
 
