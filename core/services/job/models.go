@@ -69,12 +69,12 @@ func (j Job) TableName() string {
 
 // SetID takes the id as a string and attempts to convert it to an int32. If
 // it succeeds, it will set it as the id on the job
-func (job *Job) SetID(value string) error {
+func (j *Job) SetID(value string) error {
 	id, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		return err
 	}
-	job.ID = int32(id)
+	j.ID = int32(id)
 	return nil
 }
 

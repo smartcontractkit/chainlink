@@ -230,7 +230,7 @@ func makeOCRJobSpecFromToml(t *testing.T, db *gorm.DB, jobSpecToml string) *job.
 	t.Helper()
 
 	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
+		Pipeline:      *pipeline.NewTaskDAG(),
 		ExternalJobID: uuid.NewV4(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
