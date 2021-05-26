@@ -203,6 +203,32 @@ yarn setup
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
+### Nix Flake
+
+A [flake](https://nixos.wiki/wiki/Flakes) is provided for use with the [Nix
+package manager](https://nixos.org/). It defines a declarative, reproducible
+development environment.
+
+To use it:
+
+1. [Nix has to be installed with flake support](https://nixos.wiki/wiki/Flakes#Installing_flakes).
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
+   Alternatively, a `direnv` integration exists to automatically change the
+   environment when `cd`-ing into the folder.
+3. Create a local postgres database:
+
+```
+cd $PGDATA/
+initdb
+pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start
+createdb chainlink_test -h localhost
+createuser --superuser --no-password chainlink -h localhost
+```
+
+4. Start postgres, `pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start`
+
+Now you can run tests or compile code as usual.
+
 ### Development Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
