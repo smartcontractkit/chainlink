@@ -20,7 +20,7 @@ $SCRIPTPATH/native_solc6_compile tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc7_compile dev/Operator.sol
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 
-$SCRIPTPATH/native_solc8_compile dev/Chainlink.sol
-$SCRIPTPATH/native_solc8_compile dev/ChainlinkClient.sol
-$SCRIPTPATH/native_solc8_compile dev/VRFRequestIDBase.sol
-$SCRIPTPATH/native_solc8_compile dev/VRFConsumerBase.sol
+$SCRIPTPATH/native_solc6_compile Chainlink.sol
+$SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
+$SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
+$SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
