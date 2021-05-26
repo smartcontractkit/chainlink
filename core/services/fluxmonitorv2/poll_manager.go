@@ -138,6 +138,11 @@ func (pm *PollManager) Start(hibernate bool, roundState flux_aggregator_wrapper.
 		}()
 	}
 
+	if !pm.cfg.IdleTimerDisabled && !pm.cfg.PollTickerDisabled && pm.cfg.IdleTimerPeriod < pm.cfg.PollTickerInterval {
+		pm.logger.Warnw("The value of IdleTimerPeriod is lower than PollTickerInterval. The idle timer should usually be less frequent that poll",
+			"IdleTimerPeriod", pm.cfg.IdleTimerPeriod, "PollTickerInterval", pm.cfg.PollTickerInterval)
+	}
+
 	if hibernate {
 		pm.Hibernate()
 	} else {
@@ -168,13 +173,13 @@ func (pm *PollManager) ResetIdleTimer(roundStartedAtUTC uint64) {
 }
 
 // StartRetryTicker starts the retry ticker
-func (pm *PollManager) StartRetryTicker() {
-	pm.retryTicker.Start()
+func (pm *PollManager) StartRetryTicker() bool {
+	return pm.retryTicker.Start()
 }
 
 // StopRetryTicker stops the retry ticker
-func (pm *PollManager) StopRetryTicker() {
-	pm.retryTicker.Stop()
+func (pm *PollManager) StopRetryTicker() bool {
+	return pm.retryTicker.Stop()
 }
 
 // Stop stops all timers/tickers
@@ -228,8 +233,6 @@ func (pm *PollManager) startPollTicker() {
 
 // startIdleTimer starts the idle timer if it is enabled
 func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
-	// Stop the retry timer when the idle timer is started
-	pm.retryTicker.Stop()
 
 	if pm.cfg.IdleTimerDisabled {
 		pm.idleTimer.Stop()
@@ -239,7 +242,7 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 
 	// Keep using the idleTimer we already have
 	if roundStartedAtUTC == 0 {
-		pm.logger.Debugw("keeping existing timer, no active round")
+		pm.logger.Debugw("not resetting idleTimer, no active round")
 
 		return
 	}
@@ -256,9 +259,13 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if deadlineDuration <= 0 {
-		log.Debugw("resetting idleTimer to full IdleTimerPeriod, because of negative duration since startedAt")
-		pm.idleTimer.Reset(pm.cfg.IdleTimerPeriod)
+		log.Debugw("not resetting idleTimer, round was started in the future")
 		return
+	}
+
+	// Stop the retry timer when the idle timer is started
+	if pm.retryTicker.Stop() {
+		pm.logger.Debugw("stopped the retryTicker")
 	}
 
 	pm.idleTimer.Reset(deadlineDuration)
@@ -284,7 +291,7 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 	timeoutDuration := time.Until(timesOutAt)
 
 	if timeoutDuration <= 0 {
-		log.Debugw("roundTimer has run down; disabling")
+		log.Debugw("disabling roundTimer, as timeoutDuration is zero or negative")
 		pm.roundTimer.Stop()
 
 		return

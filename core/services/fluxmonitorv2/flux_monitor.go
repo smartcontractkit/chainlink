@@ -784,7 +784,10 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	defer func() {
 		if pollReq == PollRequestTypeIdle {
 			if err != nil {
-				fm.pollManager.StartRetryTicker()
+				if fm.pollManager.StartRetryTicker() {
+					min, max := fm.pollManager.retryTicker.Bounds()
+					l.Debugw(fmt.Sprintf("starting retry ticker (bounds: %v - %v)", min, max))
+				}
 				return
 			}
 			fm.pollManager.StopRetryTicker()

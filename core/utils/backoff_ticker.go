@@ -28,34 +28,37 @@ func NewBackoffTicker(min, max time.Duration) BackoffTicker {
 	}
 }
 
-// Starts the ticker
-func (t *BackoffTicker) Start() {
+// Start - Starts the ticker
+func (t *BackoffTicker) Start() bool {
 	t.Lock()
 	defer t.Unlock()
 
 	if t.isRunning {
-		return
+		return false
 	}
 
 	// Reset the backoff
 	t.b.Reset()
 	go t.run()
 	t.isRunning = true
+	return true
 }
 
 // Stop stops the ticker. A ticker can be restarted by calling Start on a
 // stopped ticker.
-func (t *BackoffTicker) Stop() {
+// Stop returns true if the ticker was actually stopped
+func (t *BackoffTicker) Stop() bool {
 	t.Lock()
 	defer t.Unlock()
 
 	if !t.isRunning {
-		return
+		return false
 	}
 
 	t.chStop <- struct{}{}
 	t.timer = nil
 	t.isRunning = false
+	return true
 }
 
 func (t *BackoffTicker) run() {
@@ -81,4 +84,8 @@ func (t *BackoffTicker) run() {
 
 func (t *BackoffTicker) Ticks() <-chan time.Time {
 	return t.C
+}
+
+func (t *BackoffTicker) Bounds() (time.Duration, time.Duration) {
+	return t.b.Min, t.b.Max
 }
