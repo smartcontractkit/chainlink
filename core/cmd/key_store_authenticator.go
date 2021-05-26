@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -17,7 +18,7 @@ import (
 type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) (string, error)
 	AuthenticateVRFKey(*store.Store, string) error
-	AuthenticateOCRKey(store *store.Store, password string) error
+	AuthenticateOCRKey(app chainlink.Application, password string) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -33,15 +34,18 @@ type TerminalKeyStoreAuthenticator struct {
 func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, password string) (string, error) {
 	passwordProvided := len(password) != 0
 	interactive := auth.Prompter.IsTerminal()
-	hasAccounts := store.KeyStore.HasAccounts()
+	hasSendingKeys, err := store.KeyStore.HasDBSendingKeys()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to query DB for send keys")
+	}
 
-	if passwordProvided && hasAccounts {
+	if passwordProvided && hasSendingKeys {
 		return auth.unlockExistingWithPassword(store, password)
-	} else if passwordProvided && !hasAccounts {
+	} else if passwordProvided && !hasSendingKeys {
 		return auth.unlockNewWithPassword(store, password)
-	} else if !passwordProvided && interactive && hasAccounts {
+	} else if !passwordProvided && interactive && hasSendingKeys {
 		return auth.promptExistingPassword(store)
-	} else if !passwordProvided && interactive && !hasAccounts {
+	} else if !passwordProvided && interactive && !hasSendingKeys {
 		return auth.promptNewPassword(store)
 	} else {
 		return "", errors.New("No password provided")
@@ -88,7 +92,7 @@ func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(store *store.
 	var instances int
 	for i := 0; i < len(password); i++ {
 		if password[i] == c {
-			instances += 1
+			instances++
 		} else {
 			instances = 1
 		}
@@ -133,12 +137,8 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 		if err != nil {
 			return password, errors.Wrap(err, "unexpectedly failed to unlock KeyStore")
 		}
-		_, err = store.KeyStore.NewAccount()
-		if err != nil {
-			return password, errors.Wrap(err, "failed to create new ETH key")
-		}
-		err = store.SyncDiskKeyStoreToDB()
-		return password, errors.Wrapf(err, "while syncing disk key store to DB")
+		_, err = store.KeyStore.CreateNewKey()
+		return password, errors.Wrap(err, "failed to create new ETH key")
 	}
 }
 
@@ -152,12 +152,8 @@ func (auth TerminalKeyStoreAuthenticator) unlockNewWithPassword(store *store.Sto
 		return "", errors.Wrap(err, "Error unlocking key store")
 	}
 	fmt.Println("There are no accounts, creating a new account with the specified password")
-	_, err = store.KeyStore.NewAccount()
-	if err != nil {
-		return password, errors.Wrap(err, "failed to create new ETH key")
-	}
-	err = store.SyncDiskKeyStoreToDB()
-	return password, errors.Wrapf(err, "while syncing disk key store to DB")
+	_, err = store.KeyStore.CreateNewKey()
+	return password, errors.Wrap(err, "failed to create new ETH key")
 }
 
 func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(store *store.Store, password string) (string, error) {
@@ -188,8 +184,9 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 }
 
 // AuthenticateOCRKey authenticates OCR keypairs
-func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store, password string) error {
-	err := store.OCRKeyStore.Unlock(password)
+func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(app chainlink.Application, password string) error {
+	ocrKeyStore := app.GetOCRKeyStore()
+	err := ocrKeyStore.Unlock(password)
 	if err != nil {
 		return errors.Wrapf(err,
 			"there are OCR/P2P keys in the DB, but there were errors unlocking "+
@@ -198,29 +195,30 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store,
 				"`chainlink node ocr` and `chainlink node p2p` subcommands")
 	}
 
-	p2pkeys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
+	p2pkeys, err := ocrKeyStore.FindEncryptedP2PKeys()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch encrypted P2P keys from database")
 	}
 	if len(p2pkeys) == 0 {
 		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
 		var k p2pkey.EncryptedP2PKey
-		_, k, err = store.OCRKeyStore.GenerateEncryptedP2PKey()
+		_, k, err = ocrKeyStore.GenerateEncryptedP2PKey()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
 		}
+		store := app.GetStore()
 		if !store.Config.P2PPeerIDIsSet() {
 			store.Config.Set("P2P_PEER_ID", k.PeerID)
 		}
 	}
 
-	ocrkeys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	ocrkeys, err := ocrKeyStore.FindEncryptedOCRKeyBundles()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch encrypted OCR keys from database")
 	}
 	if len(ocrkeys) == 0 {
 		fmt.Println("There are no OCR keys; creating a new key encrypted with given password")
-		_, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+		_, _, err := ocrKeyStore.GenerateEncryptedOCRKeyBundle()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted OCR key")
 		}

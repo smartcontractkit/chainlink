@@ -76,45 +76,41 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader, eventBroadca
 }
 
 func (eb *ethBroadcaster) Start() error {
-	if !eb.OkayToStart() {
-		return errors.New("EthBroadcaster is already started")
-	}
-
-	var err error
-	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
-	if err != nil {
-		return errors.Wrap(err, "EthBroadcaster could not start")
-	}
-
-	if eb.config.EthNonceAutoSync() {
-		syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
-		if err := syncer.SyncAll(eb.ctx); err != nil {
-			return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+	return eb.StartOnce("EthBroadcaster", func() error {
+		var err error
+		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
+		if err != nil {
+			return errors.Wrap(err, "EthBroadcaster could not start")
 		}
-	}
 
-	eb.wg.Add(1)
-	go eb.monitorEthTxs()
+		if eb.config.EthNonceAutoSync() {
+			syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
+			if err := syncer.SyncAll(eb.ctx); err != nil {
+				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+			}
+		}
 
-	eb.wg.Add(1)
-	go eb.ethTxInsertTriggerer()
+		eb.wg.Add(1)
+		go eb.monitorEthTxs()
 
-	return nil
+		eb.wg.Add(1)
+		go eb.ethTxInsertTriggerer()
+
+		return nil
+	})
 }
 
 func (eb *ethBroadcaster) Close() error {
-	if !eb.OkayToStop() {
-		return errors.New("EthBroadcaster is already stopped")
-	}
+	return eb.StopOnce("EthBroadcaster", func() error {
+		if eb.ethTxInsertListener != nil {
+			eb.ethTxInsertListener.Close()
+		}
 
-	if eb.ethTxInsertListener != nil {
-		eb.ethTxInsertListener.Close()
-	}
+		eb.ctxCancel()
+		eb.wg.Wait()
 
-	eb.ctxCancel()
-	eb.wg.Wait()
-
-	return nil
+		return nil
+	})
 }
 
 func (eb *ethBroadcaster) Trigger() {
@@ -141,7 +137,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		keys, err := eb.store.SendKeys()
+		keys, err := eb.store.KeyStore.SendingKeys()
 
 		if err != nil {
 			logger.Error(errors.Wrap(err, "monitorEthTxs failed getting key"))
@@ -501,6 +497,8 @@ func IncrementNextNonce(db *gorm.DB, address gethCommon.Address, currentNonce in
 		return errors.Wrap(res.Error, "IncrementNextNonce failed to update keys")
 	}
 	if res.RowsAffected == 0 {
+		var key models.Key
+		db.Where("address = ?", address.Bytes()).First(&key)
 		return errors.New("invariant violation: could not increment nonce because no rows matched query. " +
 			"Either the key is missing or the nonce has been modified by an external process. This is an unrecoverable error")
 	}

@@ -39,7 +39,7 @@ type Delegate struct {
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
 
 type GethKeyStore interface {
-	GetRoundRobinAddress(db *gorm.DB, addresses ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(addresses ...common.Address) (common.Address, error)
 }
 
 type Config struct {
@@ -192,7 +192,7 @@ func (l *listener) run(unsubscribeLogs func(), submitter ContractSubmitter) {
 						// No errors processing the log, submit a transaction
 						var etx *models.EthTx
 						var from common.Address
-						from, err = l.gethks.GetRoundRobinAddress(tx)
+						from, err = l.gethks.GetRoundRobinAddress() // TODO TX
 						if err != nil {
 							return err
 						}

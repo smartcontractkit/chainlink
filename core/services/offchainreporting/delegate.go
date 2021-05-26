@@ -123,6 +123,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
+		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
@@ -224,7 +225,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			jobSpec.ID,
+			*loggerWith,
 		)}, services...)
 	}
 

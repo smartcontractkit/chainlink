@@ -3,15 +3,15 @@ package pipeline
 import "time"
 
 type BaseTask struct {
-	outputTask Task
-	dotID      string        `mapstructure:"-"`
-	nPreds     int           `mapstructure:"-"`
-	Index      int32         `mapstructure:"index" json:"-" `
-	Timeout    time.Duration `mapstructure:"timeout"`
+	outputTask      Task
+	dotID           string        `mapstructure:"-"`
+	numPredecessors int           `mapstructure:"-"`
+	Index           int32         `mapstructure:"index" json:"-" `
+	Timeout         time.Duration `mapstructure:"timeout"`
 }
 
-func (t BaseTask) NPreds() int {
-	return t.nPreds
+func (t BaseTask) NumPredecessors() int {
+	return t.numPredecessors
 }
 
 func (t BaseTask) DotID() string {

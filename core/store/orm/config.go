@@ -560,19 +560,24 @@ func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
 }
 
-// FeatureFluxMonitor enables the Flux Monitor feature.
+// FeatureFluxMonitor enables the Flux Monitor job type.
 func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
 }
 
-// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 job type.
 func (c Config) FeatureFluxMonitorV2() bool {
 	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
 }
 
-// FeatureOffchainReporting enables the Flux Monitor feature.
+// FeatureOffchainReporting enables the Flux Monitor job type.
 func (c Config) FeatureOffchainReporting() bool {
 	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
+}
+
+// FeatureWebhookV2 enables the Webhook v2 job type
+func (c Config) FeatureWebhookV2() bool {
+	return c.getWithFallback("FeatureWebhookV2", parseBool).(bool)
 }
 
 // MaximumServiceDuration is the maximum time that a service agreement can run
@@ -1456,11 +1461,6 @@ func (c Config) UnAuthenticatedRateLimit() int64 {
 // UnAuthenticatedRateLimitPeriod defines the period to which unauthenticated requests get limited
 func (c Config) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
-}
-
-// KeysDir returns the path of the keys directory (used for keystore files).
-func (c Config) KeysDir() string {
-	return filepath.Join(c.RootDir(), "tempkeys")
 }
 
 func (c Config) tlsDir() string {

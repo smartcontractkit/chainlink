@@ -22,7 +22,7 @@ type P2PKeysController struct {
 // Example:
 // "GET <application>/keys/p2p"
 func (p2pkc *P2PKeysController) Index(c *gin.Context) {
-	keys, err := p2pkc.App.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
+	keys, err := p2pkc.App.GetOCRKeyStore().FindEncryptedP2PKeys()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -34,7 +34,7 @@ func (p2pkc *P2PKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/p2p"
 func (p2pkc *P2PKeysController) Create(c *gin.Context) {
-	_, key, err := p2pkc.App.GetStore().OCRKeyStore.GenerateEncryptedP2PKey()
+	_, key, err := p2pkc.App.GetOCRKeyStore().GenerateEncryptedP2PKey()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -63,15 +63,15 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	key, err := p2pkc.App.GetStore().OCRKeyStore.FindEncryptedP2PKeyByID(ep2pk.ID)
+	key, err := p2pkc.App.GetOCRKeyStore().FindEncryptedP2PKeyByID(ep2pk.ID)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
 	if hardDelete {
-		err = p2pkc.App.GetStore().OCRKeyStore.DeleteEncryptedP2PKey(key)
+		err = p2pkc.App.GetOCRKeyStore().DeleteEncryptedP2PKey(key)
 	} else {
-		err = p2pkc.App.GetStore().OCRKeyStore.ArchiveEncryptedP2PKey(key)
+		err = p2pkc.App.GetOCRKeyStore().ArchiveEncryptedP2PKey(key)
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -86,14 +86,13 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
-	store := p2pkc.App.GetStore()
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	key, err := store.OCRKeyStore.ImportP2PKey(bytes, oldPassword)
+	key, err := p2pkc.App.GetOCRKeyStore().ImportP2PKey(bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -116,7 +115,7 @@ func (p2pkc *P2PKeysController) Export(c *gin.Context) {
 	}
 	id := int32(id64)
 	newPassword := c.Query("newpassword")
-	bytes, err := p2pkc.App.GetStore().OCRKeyStore.ExportP2PKey(id, newPassword)
+	bytes, err := p2pkc.App.GetOCRKeyStore().ExportP2PKey(id, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

@@ -73,6 +73,7 @@ func GormTransactionWithDefaultContext(db *gorm.DB, fc func(tx *gorm.DB) error, 
 		txOpts = DefaultSqlTxOptions
 	}
 	ctx, cancel := DefaultQueryCtx()
+	defer cancel()
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		err := tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
 		if err != nil {
@@ -80,6 +81,11 @@ func GormTransactionWithDefaultContext(db *gorm.DB, fc func(tx *gorm.DB) error, 
 		}
 		return fc(tx)
 	}, &txOpts)
-	cancel()
 	return err
+}
+
+func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
+	ctx, cancel := DefaultQueryCtx()
+	defer cancel()
+	return fc(db.WithContext(ctx))
 }

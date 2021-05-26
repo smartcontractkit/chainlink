@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Changed
+
+- Chainlink no longers writes/reads eth key files to disk
+
 ## [0.10.7] - 2021-05-24
 
 - If a CLI command is issued after the session has expired, and an api credentials file is found, auto login should now work.
@@ -43,6 +47,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `MockOracle.sol` for testing contracts
+
+- Web job types can now be created from the operator UI as a new job. 
+
+- See example web job spec below: 
+
+```
+type            = "web"
+schemaVersion   = 1
+jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+observationSource = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
 
 - New CLI command to convert v1 flux monitor jobs (JSON) to 
 v2 flux monitor jobs (TOML). Running it will archive the v1 
