@@ -32,20 +32,18 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 	}
 
 	var (
-		path     StringSliceParam
-		data     StringParam
-		maybeLax MaybeBoolParam
+		path StringSliceParam
+		data StringParam
+		lax  BoolParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&path, From(t.Path)), "path"),
-		errors.Wrap(ResolveParam(&data, From(t.Data, Input(inputs, 0))), "data"),
-		errors.Wrap(ResolveParam(&maybeLax, From(t.Lax)), "lax"),
+		errors.Wrap(ResolveParam(&data, From(NonemptyString(t.Data), Input(inputs, 0))), "data"),
+		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
 	)
 	if err != nil {
 		return Result{Error: err}
 	}
-
-	lax, _ := maybeLax.Bool()
 
 	var decoded interface{}
 	err = json.Unmarshal([]byte(data), &decoded)
@@ -58,7 +56,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 		case map[string]interface{}:
 			var exists bool
 			decoded, exists = d[part]
-			if !exists && lax {
+			if !exists && bool(lax) {
 				decoded = nil
 				break
 			} else if !exists {
@@ -70,7 +68,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 			if !ok {
 				return Result{Error: errors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}
 			} else if !bigindex.IsInt64() {
-				if lax {
+				if bool(lax) {
 					decoded = nil
 					break
 				}
@@ -82,7 +80,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 			}
 
 			exists := index >= 0 && index < len(d)
-			if !exists && lax {
+			if !exists && bool(lax) {
 				decoded = nil
 				break
 			} else if !exists {

@@ -295,7 +295,7 @@ func (r *runner) executeRun(
 					now := time.Now()
 					taskRunResult = TaskRunResult{
 						Task:       taskRun.task,
-						Result:     Result{Error: err},
+						Result:     Result{Error: errors.Errorf("%+v", err)},
 						CreatedAt:  now,
 						FinishedAt: now,
 						IsTerminal: taskRun.next == nil,
@@ -337,7 +337,8 @@ func (r *runner) executeRun(
 	return run, taskRunResults, retry, err
 }
 
-func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) error {
+func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) (err error) {
+	defer func() { err = errors.WithStack(err) }()
 	varsMu.RLock()
 	defer varsMu.RUnlock()
 
@@ -346,7 +347,7 @@ func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) error {
 		rtask = rtask.Elem()
 	}
 	if rtask.Kind() != reflect.Struct {
-		panic("all pipeline tasks are structs")
+		panic("all pipeline tasks must be structs")
 	}
 
 	for i := 0; i < rtask.Type().NumField(); i++ {
@@ -355,12 +356,13 @@ func expandVarsInTaskParams(vars Vars, varsMu sync.RWMutex, task Task) error {
 			fieldVal := rtask.Field(i)
 			asString, isString := fieldVal.Interface().(string)
 			if !isString {
+				panic("all pipeline task struct fields tagged with @expand_vars must be strings")
 				// error
 				continue
 			}
 			subbed, err := ExpandVars(asString, vars)
 			if err != nil {
-				return errors.Wrap(err, "while expanding pipeline spec variables")
+				return errors.Wrapf(err, "while expanding pipeline spec variables (task: %v, field: %v, field value: %v)", task.DotID(), field.Name, asString)
 			}
 			fieldVal.Set(reflect.ValueOf(subbed))
 		}

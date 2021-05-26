@@ -30,7 +30,7 @@ func (t *MultiplyTask) Run(_ context.Context, _ JSONSerializable, inputs []Resul
 		b DecimalParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&a, From(t.Input, Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&a, From(NonemptyString(t.Input), Input(inputs, 0))), "input"),
 		errors.Wrap(ResolveParam(&b, From(NonemptyString(t.Times))), "times"),
 	)
 	if err != nil {

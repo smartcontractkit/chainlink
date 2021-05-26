@@ -126,12 +126,11 @@ func TestVars_ResolveValue(t *testing.T) {
 	t.Run("returns any error returned by UnmarshalPipelineParam", func(t *testing.T) {
 		t.Parallel()
 
-		vars := pipeline.Vars{}
 		expectedValue := 123
 		expectedErr := errors.New("some issue")
 
 		param := new(mocks.PipelineParamUnmarshaler)
-		param.On("UnmarshalPipelineParam", expectedValue, vars).Return(expectedErr)
+		param.On("UnmarshalPipelineParam", expectedValue).Return(expectedErr)
 
 		getters := []pipeline.GetterFunc{
 			func() (interface{}, error) {
