@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -75,33 +74,29 @@ type (
 		utils.StartStopOnce
 		ethClient           eth.Client
 		config              Config
-		headBroadcaster     *headtracker.HeadBroadcaster
 		rollingBlockHistory []Block
 		mb                  *utils.Mailbox
 		wg                  *sync.WaitGroup
 		ctx                 context.Context
 		ctxCancel           context.CancelFunc
 
-		logger           *logger.Logger
-		unsubscribeHeads func()
+		logger *logger.Logger
 	}
 )
 
 // NewGasUpdater returns a new gas updater.
-func NewGasUpdater(ethClient eth.Client, config Config, headBroadcaster *headtracker.HeadBroadcaster) GasUpdater {
+func NewGasUpdater(ethClient eth.Client, config Config) GasUpdater {
 	ctx, cancel := context.WithCancel(context.Background())
 	gu := &gasUpdater{
 		utils.StartStopOnce{},
 		ethClient,
 		config,
-		headBroadcaster,
 		make([]Block, 0),
 		utils.NewMailbox(1),
 		new(sync.WaitGroup),
 		ctx,
 		cancel,
 		logger.CreateLogger(logger.Default.With("id", "gas_updater")),
-		nil,
 	}
 
 	return gu
@@ -123,7 +118,6 @@ func (gu *gasUpdater) Start() error {
 		if uint(gu.config.GasUpdaterBlockHistorySize()) > gu.config.EthFinalityDepth() {
 			gu.logger.Warnf("GasUpdater: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every gas updater cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", gu.config.GasUpdaterBlockHistorySize(), gu.config.EthFinalityDepth())
 		}
-		gu.unsubscribeHeads = gu.headBroadcaster.Subscribe(gu)
 
 		ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
 		defer cancel()
@@ -143,7 +137,6 @@ func (gu *gasUpdater) Start() error {
 
 func (gu *gasUpdater) Close() error {
 	return gu.StopOnce("GasUpdater", func() error {
-		gu.unsubscribeHeads()
 		gu.ctxCancel()
 		gu.wg.Wait()
 		return nil

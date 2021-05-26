@@ -156,7 +156,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config, headBroadcaster)
+		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
+		headBroadcaster.SubscribeUntilClose(gasUpdater)
 		subservices = append(subservices, gasUpdater)
 	} else {
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())

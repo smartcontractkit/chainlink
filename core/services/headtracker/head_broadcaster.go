@@ -91,8 +91,6 @@ func (hr *HeadBroadcaster) Connect(head *models.Head) error {
 	return nil
 }
 
-func (hr *HeadBroadcaster) Disconnect() {}
-
 func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	hr.mailbox.Deliver(head)
 }
