@@ -34,7 +34,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		defer bm.Close()
 
 		k0bal := big.NewInt(42)
 		k1bal := big.NewInt(43)
@@ -68,7 +68,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		defer bm.Close()
 		k0bal := big.NewInt(42)
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
@@ -92,7 +92,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
 			Once().
@@ -120,7 +120,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		defer bm.Close()
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -200,7 +200,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 		mockUnblocker <- time.Time{}
 	})
 
-	bm.Stop()
+	bm.Close()
 
 	// Make sure the BalanceAt mock wasn't called more than once
 	assert.LessOrEqual(t, atomic.LoadInt32(&callCount), int32(1))

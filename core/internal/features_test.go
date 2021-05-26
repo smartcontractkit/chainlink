@@ -1780,7 +1780,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	store := app.Store
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
 	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})

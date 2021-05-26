@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -21,7 +22,7 @@ type (
 	BalanceMonitor interface {
 		httypes.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
-		Stop() error
+		service.Service
 	}
 
 	balanceMonitor struct {
@@ -52,9 +53,21 @@ func (bm *balanceMonitor) Connect(_ *models.Head) error {
 	return nil
 }
 
-// Stop shuts down the BalanceMonitor, should not be used after this
-func (bm *balanceMonitor) Stop() error {
+func (bm *balanceMonitor) Start() error {
+	return nil
+}
+
+// Close shuts down the BalanceMonitor, should not be used after this
+func (bm *balanceMonitor) Close() error {
 	return bm.sleeperTask.Stop()
+}
+
+func (bm *balanceMonitor) Ready() error {
+	return nil
+}
+
+func (bm *balanceMonitor) Healthy() error {
+	return nil
 }
 
 // Disconnect complies with HeadTrackable
@@ -150,9 +163,10 @@ func (w *worker) checkAccountBalance(k models.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Stop() error {
-	return nil
-}
+func (*NullBalanceMonitor) Start() error   { return nil }
+func (*NullBalanceMonitor) Close() error   { return nil }
+func (*NullBalanceMonitor) Ready() error   { return nil }
+func (*NullBalanceMonitor) Healthy() error { return nil }
 func (*NullBalanceMonitor) Connect(head *models.Head) error {
 	return nil
 }

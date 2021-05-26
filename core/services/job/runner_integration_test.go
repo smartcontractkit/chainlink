@@ -45,7 +45,7 @@ func TestRunner(t *testing.T) {
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
 	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
 	runner := pipeline.NewRunner(pipelineORM, config)
