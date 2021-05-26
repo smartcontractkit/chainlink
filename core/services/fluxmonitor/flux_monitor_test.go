@@ -67,7 +67,6 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		headBroadcaster := headtracker.NewHeadBroadcaster()
 		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config)
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, runManager, lb)
