@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
@@ -54,11 +56,11 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID: 1,
 				DirectRequestSpec: &job.DirectRequestSpec{
-					ContractAddress:  contractAddress,
-					OnChainJobSpecID: cltest.MustJobIDFromString(t, "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
-					CreatedAt:        timestamp,
-					UpdatedAt:        timestamp,
+					ContractAddress: contractAddress,
+					CreatedAt:       timestamp,
+					UpdatedAt:       timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,

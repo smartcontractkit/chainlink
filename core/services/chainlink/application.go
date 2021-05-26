@@ -122,7 +122,7 @@ type ChainlinkApplication struct {
 	EventBroadcaster postgres.EventBroadcaster
 	JobORM           job.ORM
 	jobSpawner       job.Spawner
-	PipelineORM              pipeline.ORM
+	PipelineORM      pipeline.ORM
 	pipelineRunner   pipeline.Runner
 	FluxMonitor      fluxmonitor.Service
 	webhookJobRunner webhook.JobRunner

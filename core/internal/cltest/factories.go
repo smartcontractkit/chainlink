@@ -779,8 +779,6 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
 	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID := uuid.NewV4()
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,

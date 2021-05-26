@@ -42,8 +42,7 @@ type DirectRequestSpec struct {
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:  spec.ContractAddress,
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
+		ContractAddress: spec.ContractAddress,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",

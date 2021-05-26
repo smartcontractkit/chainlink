@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -83,6 +85,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, db, drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
+	spec.ExternalJobID = uuid.NewV4()
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
 	serviceArray, err := delegate.ServicesForSpec(*spec)
@@ -134,7 +137,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -179,7 +182,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 			BlockNumber: 0,
 		}).Maybe()
@@ -242,11 +245,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash()}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -273,12 +276,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
-			RequestId:        uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+			RequestId:        uni.spec.ExternalIDToTopicHash(),
 		}
 		runLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		runLog.On("DecodedLog").Return(&logOracleRequest)
@@ -287,11 +290,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash()}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -349,7 +352,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -400,7 +403,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)

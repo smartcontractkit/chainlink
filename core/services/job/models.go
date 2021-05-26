@@ -2,9 +2,10 @@ package job
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"strconv"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -192,7 +193,6 @@ func (WebhookSpec) TableName() string {
 type DirectRequestSpec struct {
 	ID               int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID models.JobID        `toml:"jobID"`
 	NumConfirmations clnull.Uint32       `toml:"numConfirmations"`
 	CreatedAt        time.Time           `toml:"-"`
 	UpdatedAt        time.Time           `toml:"-"`

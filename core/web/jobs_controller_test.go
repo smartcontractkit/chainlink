@@ -173,7 +173,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
 				require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
-				require.NotZero(t, jb.DirectRequestSpec.OnChainJobSpecID[:])
+				require.NotZero(t, jb.ExternalJobID[:])
 			},
 		},
 		{

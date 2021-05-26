@@ -88,7 +88,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		db:               d.db,
 		pipelineORM:      d.pipelineORM,
 		job:              job,
-		onChainJobSpecID: job.DirectRequestSpec.OnChainJobSpecID.Hash(),
+		onChainJobSpecID: job.ExternalIDToTopicHash(),
 
 		// At the moment the mailbox would start skipping if there were
 		// too many relevant logs for the same job (> 50) in each block.

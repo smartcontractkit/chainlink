@@ -32,7 +32,6 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 		return jb, err
 	}
 	jb.DirectRequestSpec = &job.DirectRequestSpec{ContractAddress: spec.ContractAddress}
-	copy(jb.DirectRequestSpec.OnChainJobSpecID[:], spec.OnChainJobSpecID.Bytes())
 
 	if jb.Type != job.DirectRequest {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
