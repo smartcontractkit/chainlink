@@ -91,6 +91,20 @@ func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, pipelineIn
 	return r0, r1, r2
 }
 
+// Healthy provides a mock function with given fields:
+func (_m *Runner) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // InsertFinishedRun provides a mock function with given fields: db, run, trrs, saveSuccessfulTaskRuns
 func (_m *Runner) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs pipeline.TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	ret := _m.Called(db, run, trrs, saveSuccessfulTaskRuns)
@@ -110,6 +124,20 @@ func (_m *Runner) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs pipeline
 	}
 
 	return r0, r1
+}
+
+// Ready provides a mock function with given fields:
+func (_m *Runner) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Start provides a mock function with given fields:
