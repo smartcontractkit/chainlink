@@ -4,6 +4,7 @@
   "workspaces": [
     "evm-test-helpers",
     "evm-contracts",
+    "contracts",
     "integration",
     "integration-scripts",
     "operator_ui",

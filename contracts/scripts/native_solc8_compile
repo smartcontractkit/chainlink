@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# This script generates .abi and .bin files for a selected .sol contract.
+# Example call:
+#   ./evm-contracts/scripts/native_solc_compile dev/Operator.sol
+#
+# The resulting abi and bin files are stored in ./evm-contracts/solc/v0.8
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd .. && pwd -P )"
+
+solc-select use 0.8.4
+solc --overwrite --optimize --optimize-runs 1000000 --metadata-hash none \
+    -o $SCRIPTPATH/solc/v0.8 \
+    --abi --bin --allow-paths $SCRIPTPATH/contracts/v0.8,$SCRIPTPATH/contracts/v0.8/dev,$SCRIPTPATH/constracts/v0.8/interfaces,$SCRIPTPATH/contracts/v0.8/vendor \
+    $SCRIPTPATH/contracts/v0.8/$1
