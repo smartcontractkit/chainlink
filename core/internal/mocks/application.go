@@ -9,6 +9,8 @@ import (
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
+	health "github.com/smartcontractkit/chainlink/core/services/health"
+
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
@@ -211,6 +213,22 @@ func (_m *Application) GetHeadBroadcaster() types.HeadBroadcasterRegistry {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(types.HeadBroadcasterRegistry)
+		}
+	}
+
+	return r0
+}
+
+// GetHealthChecker provides a mock function with given fields:
+func (_m *Application) GetHealthChecker() health.Checker {
+	ret := _m.Called()
+
+	var r0 health.Checker
+	if rf, ok := ret.Get(0).(func() health.Checker); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(health.Checker)
 		}
 	}
 
