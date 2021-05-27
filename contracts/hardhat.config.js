@@ -8,11 +8,11 @@ module.exports = {
   paths: {
     artifacts: "./artifacts",
     cache: "./cache",
-    sources: "./contracts",
+    sources: "./src",
     tests: "./test",
   },
   overrides: {
-    "contracts/v0.8/*": {
+    "src/v0.8/*": {
       version: "0.8.4",
       optimizer: {
         enabled: true,
