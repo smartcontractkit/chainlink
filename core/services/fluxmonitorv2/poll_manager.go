@@ -256,7 +256,7 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if deadlineDuration <= 0 {
-		log.Debugw("not resetting idleTimer, round was started in the future")
+		log.Debugw("not resetting idleTimer, round was started further in the past than idle timer period")
 		return
 	}
 
