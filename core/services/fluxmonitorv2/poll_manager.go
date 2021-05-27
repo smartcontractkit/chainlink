@@ -288,7 +288,7 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 	timeoutDuration := time.Until(timesOutAt)
 
 	if timeoutDuration <= 0 {
-		log.Debugw("disabling roundTimer, as timeoutDuration is zero or negative")
+		log.Debugw("disabling roundTimer, as the round is already past its timeout")
 		pm.roundTimer.Stop()
 
 		return
