@@ -47,7 +47,7 @@ func (t *BackoffTicker) Start() bool {
 
 // Stop stops the ticker. A ticker can be restarted by calling Start on a
 // stopped ticker.
-// Returns true if the ticker was actually stopped
+// Returns true if the ticker was actually stopped at this invocation (was previously running)
 func (t *BackoffTicker) Stop() bool {
 	t.Lock()
 	defer t.Unlock()
