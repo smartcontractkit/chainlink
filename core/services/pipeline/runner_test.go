@@ -56,7 +56,6 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	r := pipeline.NewRunner(orm, store.Config)
 
-	d := pipeline.TaskDAG{}
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
@@ -78,9 +77,7 @@ median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
 `, s2.URL, s4.URL, s5.URL)
-	err = d.UnmarshalText([]byte(s))
-	require.NoError(t, err)
-	ts, err := d.TasksInDependencyOrder()
+	d, err := pipeline.Parse([]byte(s))
 	require.NoError(t, err)
 
 	spec := pipeline.Spec{
@@ -88,7 +85,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	_, trrs, err := r.ExecuteRun(context.Background(), spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
-	require.Len(t, trrs, len(ts))
+	require.Len(t, trrs, len(d.Tasks))
 
 	finalResults := trrs.FinalResult()
 	require.Len(t, finalResults.Values, 3)
@@ -102,7 +99,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
-		if trr.Result.Error != nil && !trr.IsTerminal {
+		if trr.Result.Error != nil && !trr.IsTerminal() {
 			errorResults = append(errorResults, trr)
 		}
 	}
@@ -237,11 +234,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			orm.On("DB").Return(store.DB)
 
 			runner := pipeline.NewRunner(orm, store.Config)
-			taskDAG := pipeline.TaskDAG{}
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
-			err := taskDAG.UnmarshalText([]byte(specStr))
-			require.NoError(t, err)
-			tasks, err := taskDAG.TasksInDependencyOrder()
+			p, err := pipeline.Parse([]byte(specStr))
 			require.NoError(t, err)
 
 			spec := pipeline.Spec{
@@ -255,22 +249,22 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			}
 			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, test.pipelineInput, meta, *logger.Default)
 			require.NoError(t, err)
-			require.Len(t, taskRunResults, len(tasks))
+			require.Len(t, taskRunResults, len(p.Tasks))
 
 			type M = map[string]interface{}
 			expectedResults := map[string]pipeline.Result{
-				"ds1":          pipeline.Result{Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
-				"ds1_parse":    pipeline.Result{Value: M{"result": "9700", "times": "1000000000000000000"}},
-				"ds1_multiply": pipeline.Result{Value: *mustDecimal(t, "9700000000000000000000")},
-				"ds2":          pipeline.Result{Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
-				"ds2_parse":    pipeline.Result{Value: M{"result": "9600", "times": "1000000000000000000"}},
-				"ds2_multiply": pipeline.Result{Value: *mustDecimal(t, "9600000000000000000000")},
-				"ds3":          pipeline.Result{Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
-				"ds3_parse":    pipeline.Result{Error: pipeline.ErrTooManyErrors},
-				"ds3_multiply": pipeline.Result{Error: pipeline.ErrTooManyErrors},
-				"ds4":          pipeline.Result{Value: "some random string"},
-				"median":       pipeline.Result{Value: *mustDecimal(t, "9650000000000000000000")},
-				"submit":       pipeline.Result{Value: `{"ok":true}` + "\n"},
+				"ds1":          {Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
+				"ds1_parse":    {Value: M{"result": "9700", "times": "1000000000000000000"}},
+				"ds1_multiply": {Value: *mustDecimal(t, "9700000000000000000000")},
+				"ds2":          {Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
+				"ds2_parse":    {Value: M{"result": "9600", "times": "1000000000000000000"}},
+				"ds2_multiply": {Value: *mustDecimal(t, "9600000000000000000000")},
+				"ds3":          {Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
+				"ds3_parse":    {Error: pipeline.ErrTooManyErrors},
+				"ds3_multiply": {Error: pipeline.ErrTooManyErrors},
+				"ds4":          {Value: "some random string"},
+				"median":       {Value: *mustDecimal(t, "9650000000000000000000")},
+				"submit":       {Value: `{"ok":true}` + "\n"},
 			}
 
 			for _, r := range taskRunResults {
@@ -332,7 +326,7 @@ answer1 [type=median                      index=0];
 	_, trrs, err := r.ExecuteRun(ctx, spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
-		if trr.IsTerminal {
+		if trr.IsTerminal() {
 			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.(decimal.Decimal))
 		}
 	}

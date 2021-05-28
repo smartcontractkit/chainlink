@@ -55,21 +55,20 @@ func (p JobPresenter) toRow(task string) []string {
 // GetTasks extracts the tasks from the dependency graph
 func (p JobPresenter) GetTasks() ([]string, error) {
 	types := []string{}
-	dag := pipeline.NewTaskDAG()
-	err := dag.UnmarshalText([]byte(p.PipelineSpec.DotDAGSource))
+	pipeline, err := pipeline.Parse([]byte(p.PipelineSpec.DotDAGSource))
 	if err != nil {
 		return nil, err
 	}
 
-	tasks, err := dag.TasksInDependencyOrder()
-	if err != nil {
-		return nil, err
-	}
+	// TODO: toposort
+	// tasks, err := pipeline.TasksInDependencyOrder()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Reverse the order as dependency tasks start from output and end at the
 	// inputs.
-	for i := len(tasks) - 1; i >= 0; i-- {
-		t := tasks[i]
+	for _, t := range pipeline.Tasks {
 		types = append(types, fmt.Sprintf("%s %s", t.DotID(), t.Type()))
 	}
 

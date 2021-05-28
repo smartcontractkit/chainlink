@@ -77,7 +77,7 @@ type Job struct {
 	SchemaVersion                 uint32
 	Name                          null.String
 	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
 func (j Job) ExternalIDToTopicHash() common.Hash {
