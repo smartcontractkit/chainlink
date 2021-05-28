@@ -73,7 +73,6 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		SubscribeFilterLogs: backfillTimes,
 		HeaderByNumber:      backfillTimes,
 		FilterLogs:          backfillTimes,
-		Unsubscribe:         backfillTimes,
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
@@ -86,17 +85,15 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	// the first backfill should use the last known height from db
+	// the first backfill should use the last known height from db minus 1 (num confirmations of subscriber)
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		atomic.StoreInt64(backfillCountPtr, 1)
-		require.Equal(t, lastStoredBlockHeight, fromBlock)
+		require.Equal(t, lastStoredBlockHeight-1, fromBlock)
 	}
 
 	listener := helper.newLogListener("initial")
 	helper.register(listener, newMockContract(), 1)
 	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
-
-	defer helper.stop()
 
 	for i := 0; i < numContracts; i++ {
 		listener := helper.newLogListener("")
@@ -125,6 +122,55 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 2 }, 5*time.Second, 10*time.Millisecond)
 
+	helper.stop()
+	helper.mockEth.assertExpectations(t)
+}
+
+func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
+	t.Parallel()
+
+	const (
+		lastStoredBlockHeight       = 100
+		blockHeight           int64 = 125
+	)
+
+	backfillTimes := 1
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: backfillTimes,
+		HeaderByNumber:      backfillTimes,
+		FilterLogs:          backfillTimes,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper.mockEth = mockEth
+
+	maxNumConfirmations := int64(10)
+
+	var backfillCount int64
+	var backfillCountPtr = &backfillCount
+
+	listener := helper.newLogListener("one")
+	helper.register(listener, newMockContract(), uint64(maxNumConfirmations))
+
+	listener2 := helper.newLogListener("two")
+	helper.register(listener2, newMockContract(), uint64(2))
+
+	// the first backfill should use the last known height from db minus max num confirmations
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+		atomic.StoreInt64(backfillCountPtr, 1)
+		require.Equal(t, lastStoredBlockHeight-maxNumConfirmations, fromBlock)
+	}
+
+	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+	helper.stop()
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
 	helper.mockEth.assertExpectations(t)
 }
 
@@ -133,7 +179,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	const (
 		blockHeight           int64  = 120
-		lastStoredBlockHeight        = blockHeight - 30
+		lastStoredBlockHeight        = blockHeight - 29
 		backfillTimes                = 1
 		batchSize             uint32 = 5
 		// expecting 7 batch calls, not 6, because last call is inclusive (will be from 120 to 120)
@@ -144,7 +190,6 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 		SubscribeFilterLogs: backfillTimes,
 		HeaderByNumber:      backfillTimes,
 		FilterLogs:          expectedBatches,
-		Unsubscribe:         backfillTimes,
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
@@ -229,7 +274,6 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 		SubscribeFilterLogs: backfillTimes,
 		HeaderByNumber:      backfillTimes,
 		FilterLogs:          expectedBatches,
-		Unsubscribe:         backfillTimes,
 
 		FilterLogsResult: backfilledLogs,
 	}

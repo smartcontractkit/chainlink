@@ -50,7 +50,6 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
 		FilterLogs:          1,
-		Unsubscribe:         1,
 	}
 
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
@@ -95,9 +94,9 @@ func (helper *broadcasterHelper) start() {
 }
 
 func (helper *broadcasterHelper) startWithLatestHeadInDb(head *models.Head) {
+	helper.lb.SetLatestHeadFromStorage(head)
 	err := helper.lb.Start()
 	require.NoError(helper.t, err)
-	helper.lb.SetLatestHeadFromStorage(head)
 }
 
 func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint64) {
@@ -321,7 +320,6 @@ type mockEthClientExpectedCalls struct {
 	SubscribeFilterLogs int
 	HeaderByNumber      int
 	FilterLogs          int
-	Unsubscribe         int
 
 	FilterLogsResult []types.Log
 }
@@ -361,7 +359,8 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 
 	mockEth.sub.On("Unsubscribe").
 		Return().
-		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
+		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) }) //.
+
 	return mockEth
 }
 

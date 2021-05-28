@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -237,7 +238,15 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
+		var backfillFrom null.Int64
+		if b.latestHeadFromDb != nil {
+			// the backfill needs to start at an earlier block than the one last saved in DB,
+			// because any log is sent after a delay since the highest seen head -
+			// so at node re-start we need to account for those not-sent-yet logs that were in the buffer
+			backfillFrom = null.Int64From(b.latestHeadFromDb.Number - int64(b.registrations.highestNumConfirmations))
+		}
+
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(backfillFrom, addresses, topics)
 		if abort {
 			return
 		}
