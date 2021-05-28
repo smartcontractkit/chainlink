@@ -32,7 +32,6 @@ func (set callbackSet) clone() callbackSet {
 func NewHeadBroadcaster() *HeadBroadcaster {
 	return &HeadBroadcaster{
 		callbacks:     make(callbackSet),
-		toUnsubscribe: make([]func(), 0),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.RWMutex{},
 		chClose:       make(chan struct{}),
@@ -44,12 +43,11 @@ func NewHeadBroadcaster() *HeadBroadcaster {
 // HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 type HeadBroadcaster struct {
-	callbacks     callbackSet
-	toUnsubscribe []func()
-	mailbox       *utils.Mailbox
-	mutex         *sync.RWMutex
-	chClose       chan struct{}
-	wgDone        sync.WaitGroup
+	callbacks callbackSet
+	mailbox   *utils.Mailbox
+	mutex     *sync.RWMutex
+	chClose   chan struct{}
+	wgDone    sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -66,9 +64,9 @@ func (hr *HeadBroadcaster) Start() error {
 func (hr *HeadBroadcaster) Close() error {
 	return hr.StopOnce("HeadBroadcaster", func() error {
 
-		for _, unsubscribe := range hr.toUnsubscribe {
-			unsubscribe()
-		}
+		hr.mutex.Lock()
+		hr.callbacks = make(callbackSet)
+		hr.mutex.Unlock()
 
 		close(hr.chClose)
 		hr.wgDone.Wait()
@@ -111,7 +109,6 @@ func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscrib
 		defer hr.mutex.Unlock()
 		delete(hr.callbacks, id)
 	}
-	hr.toUnsubscribe = append(hr.toUnsubscribe, unsubscribe)
 	return
 }
 
