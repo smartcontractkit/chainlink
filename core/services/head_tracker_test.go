@@ -799,7 +799,7 @@ func createHeadTrackerWithNeverSleeper(logger *logger.Logger, store *strpkg.Stor
 
 func createHeadTrackerWithChecker(logger *logger.Logger, store *strpkg.Store, checker httypes.HeadTrackable) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
-	hb.SubscribeUntilClose(checker)
+	hb.Subscribe(checker)
 	hb.Start()
 	return &headTrackerUniverse{
 		headTracker:     services.NewHeadTracker(logger, store, hb, cltest.NeverSleeper{}),
