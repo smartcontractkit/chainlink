@@ -359,7 +359,7 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 
 	mockEth.sub.On("Unsubscribe").
 		Return().
-		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) }) //.
+		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
 
 	return mockEth
 }
