@@ -144,7 +144,6 @@ func TestConfig_ChainSpecificDefaults(t *testing.T) {
 		config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", "42s")
 		config.Set("GAS_UPDATER_BLOCK_DELAY", "42")
 		config.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", "42")
-		config.Set("HEAD_TIME_BUDGET", "42s")
 		config.Set("MIN_INCOMING_CONFIRMATIONS", "42")
 		config.Set("MIN_OUTGOING_CONFIRMATIONS", "42")
 
