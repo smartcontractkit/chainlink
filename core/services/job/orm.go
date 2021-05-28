@@ -40,7 +40,7 @@ type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
 	ListenForDeletedJobs() (postgres.Subscription, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]Job, error)
-	CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.TaskDAG) error
+	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) error
 	JobsV2() ([]Job, error)
 	FindJob(id int32) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
@@ -178,15 +178,8 @@ func (o *orm) claimedJobIDs() (ids []int32) {
 	return
 }
 
-func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.TaskDAG) error {
-	if taskDAG.HasCycles() {
-		return errors.New("task DAG has cycles, which are not permitted")
-	}
-	tasks, err := taskDAG.TasksInDependencyOrder()
-	if err != nil {
-		return err
-	}
-	for _, task := range tasks {
+func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) error {
+	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeBridge {
 			// Bridge must exist
 			name := task.(*pipeline.BridgeTask).Name
@@ -271,7 +264,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
 
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG, jobSpec.MaxTaskDuration)
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, p, jobSpec.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
@@ -469,16 +462,11 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 	}
 	var jids []int32
 	for _, job := range jobs {
-		d := pipeline.TaskDAG{}
-		err = d.UnmarshalText([]byte(job.PipelineSpec.DotDagSource))
+		p, err := pipeline.Parse([]byte(job.PipelineSpec.DotDagSource))
 		if err != nil {
 			return nil, err
 		}
-		tasks, err := d.TasksInDependencyOrder()
-		if err != nil {
-			return nil, err
-		}
-		for _, task := range tasks {
+		for _, task := range p.Tasks {
 			if task.Type() == pipeline.TaskTypeBridge {
 				if task.(*pipeline.BridgeTask).Name == name {
 					jids = append(jids, job.ID)

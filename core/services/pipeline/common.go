@@ -26,8 +26,12 @@ import (
 type (
 	Task interface {
 		Type() TaskType
+		ID() int64
 		DotID() string
 		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
+		Base() *BaseTask
+		Outputs() []Task
+		Inputs() []Task
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -145,7 +149,10 @@ type TaskRunResult struct {
 	Result     Result
 	CreatedAt  time.Time
 	FinishedAt time.Time
-	IsTerminal bool
+}
+
+func (result *TaskRunResult) IsTerminal() bool {
+	return len(result.Task.Outputs()) == 0
 }
 
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
@@ -160,7 +167,7 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
 	})
 	for _, trr := range trrs {
-		if trr.IsTerminal {
+		if trr.IsTerminal() {
 			fr.Values = append(fr.Values, trr.Result.Value)
 			fr.Errors = append(fr.Errors, trr.Result.Error)
 			found = true
@@ -246,7 +253,7 @@ var (
 	int32Type  = reflect.TypeOf(int32(0))
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, numPredecessors int) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int64, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, numPredecessors int) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
@@ -260,19 +267,21 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	var task Task
 	switch taskType {
 	case TaskTypePanic:
-		task = &PanicTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &PanicTask{BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeHTTP:
-		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &HTTPTask{config: config, BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, safeTx: SafeTx{txdb, txdbMutex}, BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &BridgeTask{config: config, safeTx: SafeTx{txdb, txdbMutex}, BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeMedian:
-		task = &MedianTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeAny:
-		task = &AnyTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
+	case TaskTypeVRF:
+		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID, numPredecessors: numPredecessors}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

@@ -184,8 +184,7 @@ func TestMedian(t *testing.T) {
 func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 	t.Parallel()
 
-	var taskDAG pipeline.TaskDAG
-	err := taskDAG.UnmarshalText([]byte(`
+	p, err := pipeline.Parse([]byte(`
 	// data source 1
 	ds1          [type=bridge name=voter_turnout];
 	ds1_parse    [type=jsonparse path="one,two"];
@@ -203,9 +202,7 @@ func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 	answer2 [type=bridge name=election_winner index=1];
 `))
 	require.NoError(t, err)
-	ts, err := taskDAG.TasksInDependencyOrder()
-	require.NoError(t, err)
-	for _, task := range ts {
+	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeMedian {
 			assert.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
 		}

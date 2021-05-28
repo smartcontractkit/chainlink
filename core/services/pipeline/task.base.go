@@ -3,6 +3,10 @@ package pipeline
 import "time"
 
 type BaseTask struct {
+	outputs []Task
+	inputs  []Task
+
+	id              int64
 	outputTask      Task
 	dotID           string
 	numPredecessors int
@@ -14,8 +18,16 @@ func NewBaseTask(dotID string, t Task, index int32, numPredecessors int) BaseTas
 	return BaseTask{dotID: dotID, outputTask: t, Index: index, numPredecessors: numPredecessors}
 }
 
+func (t *BaseTask) Base() *BaseTask {
+	return t
+}
+
 func (t BaseTask) NumPredecessors() int {
 	return t.numPredecessors
+}
+
+func (t BaseTask) ID() int64 {
+	return t.id
 }
 
 func (t BaseTask) DotID() string {
@@ -28,6 +40,14 @@ func (t BaseTask) OutputIndex() int32 {
 
 func (t BaseTask) OutputTask() Task {
 	return t.outputTask
+}
+
+func (t BaseTask) Outputs() []Task {
+	return t.outputs
+}
+
+func (t BaseTask) Inputs() []Task {
+	return t.inputs
 }
 
 func (t *BaseTask) SetOutputTask(outputTask Task) {

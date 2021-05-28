@@ -28,17 +28,8 @@ func (Spec) TableName() string {
 	return "pipeline_specs"
 }
 
-func (s Spec) TasksInDependencyOrder() ([]Task, error) {
-	d := TaskDAG{}
-	err := d.UnmarshalText([]byte(s.DotDagSource))
-	if err != nil {
-		return nil, err
-	}
-	tasks, err := d.TasksInDependencyOrder()
-	if err != nil {
-		return nil, err
-	}
-	return tasks, nil
+func (s Spec) Pipeline() (*Pipeline, error) {
+	return Parse([]byte(s.DotDagSource))
 }
 
 type Run struct {

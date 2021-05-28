@@ -135,13 +135,8 @@ func (r *runner) runReaperLoop() {
 }
 
 type memoryTaskRun struct {
-	task                  Task
-	next                  *memoryTaskRun
-	predecessorsRemaining int
-	inputs                []input
-	predMu                sync.RWMutex
-	claimed               bool
-	claimedMu             sync.Mutex
+	task   Task
+	inputs []input
 }
 
 // Returns the results sorted by index. It is not thread-safe.
@@ -157,29 +152,6 @@ func (m *memoryTaskRun) inputsSorted() (a []Result) {
 	}
 
 	return
-}
-
-func (m *memoryTaskRun) numPredecessorsRemaining() int {
-	m.predMu.RLock()
-	defer m.predMu.RUnlock()
-	return m.predecessorsRemaining
-}
-
-func (m *memoryTaskRun) tryToClaim() (ok bool) {
-	m.claimedMu.Lock()
-	defer m.claimedMu.Unlock()
-	if m.claimed {
-		return false
-	}
-	m.claimed = true
-	return true
-}
-
-func (m *memoryTaskRun) predecessorFinished(result Result, index int32) {
-	m.predMu.Lock()
-	defer m.predMu.Unlock()
-	m.inputs = append(m.inputs, input{result: result, index: index})
-	m.predecessorsRemaining--
 }
 
 type input struct {
@@ -223,23 +195,116 @@ func (r *runner) panickedRunResults(spec Spec) (Run, []TaskRunResult, error) {
 	run.PipelineSpecID = spec.ID
 	run.CreatedAt = time.Now()
 	run.FinishedAt = &run.CreatedAt
-	tasks, err := spec.TasksInDependencyOrder()
+	p, err := spec.Pipeline()
 	if err != nil {
 		return run, nil, err
 	}
 	f := time.Now()
-	for _, task := range tasks {
+	for _, task := range p.Tasks {
 		panickedTrrs = append(panickedTrrs, TaskRunResult{
 			Task:       task,
 			CreatedAt:  f,
 			Result:     Result{Value: nil, Error: ErrRunPanicked},
 			FinishedAt: time.Now(),
-			IsTerminal: task.OutputTask() == nil,
 		})
 	}
 	run.Outputs = TaskRunResults(panickedTrrs).FinalResult().OutputsDB()
 	run.Errors = TaskRunResults(panickedTrrs).FinalResult().ErrorsDB()
 	return run, panickedTrrs, nil
+}
+
+type scheduler struct {
+	pipeline     *Pipeline
+	dependencies map[int64]uint
+	input        interface{}
+	waiting      uint
+	// roots are the tasks at the start of the pipeline
+	roots   []Task
+	results map[int64]TaskRunResult
+
+	taskCh   chan *memoryTaskRun
+	resultCh chan TaskRunResult
+}
+
+func newScheduler(p *Pipeline, i interface{}) *scheduler {
+	dependencies := make(map[int64]uint, len(p.Tasks))
+	var roots []Task
+
+	for id, task := range p.Tasks {
+		i := len(task.Inputs())
+		dependencies[id] = uint(i)
+
+		// no inputs: this is a root
+		if i == 0 {
+			roots = append(roots, task)
+		}
+	}
+	s := &scheduler{
+		pipeline:     p,
+		dependencies: dependencies,
+		input:        i,
+		results:      make(map[int64]TaskRunResult, len(p.Tasks)),
+
+		// taskCh should never block
+		taskCh:   make(chan *memoryTaskRun, len(dependencies)),
+		resultCh: make(chan TaskRunResult),
+	}
+
+	for _, task := range roots {
+		run := &memoryTaskRun{task: task}
+		// fill in the inputs
+		run.inputs = append(run.inputs, input{index: 0, result: Result{Value: s.input}})
+
+		s.taskCh <- run
+		s.waiting++
+	}
+
+	go s.run()
+
+	return s
+}
+
+func (s *scheduler) run() {
+	for result := range s.resultCh {
+		s.waiting--
+
+		// mark job as complete
+		s.results[result.Task.ID()] = result
+
+		for _, output := range result.Task.Outputs() {
+			id := output.ID()
+			s.dependencies[id]--
+
+			// if all dependencies are done, schedule task run
+			if s.dependencies[id] == 0 {
+				task := s.pipeline.Tasks[id]
+				run := &memoryTaskRun{task: task}
+
+				// fill in the inputs
+				for _, i := range task.Inputs() {
+					run.inputs = append(run.inputs, input{index: int32(i.OutputIndex()), result: s.results[i.ID()].Result})
+				}
+
+				s.taskCh <- run
+				s.waiting++
+			}
+		}
+
+		// if we are done, stop execution
+		if s.waiting == 0 {
+			close(s.taskCh)
+			break
+		}
+	}
+}
+
+// When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
+type panicError struct {
+	v interface{}
+}
+
+func (err panicError) Error() string {
+	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
 func (r *runner) executeRun(
@@ -260,133 +325,94 @@ func (r *runner) executeRun(
 		}
 	)
 
-	var taskDAG TaskDAG
-	err := taskDAG.UnmarshalText([]byte(spec.DotDagSource))
+	pipeline, err := Parse([]byte(spec.DotDagSource))
 	if err != nil {
 		return run, nil, false, err
 	}
 
-	headTaskRuns, err := r.memoryTaskRunDAGFromTaskDAG(taskDAG, pipelineInput, txdb)
-	if err != nil {
-		return run, nil, false, err
-	}
-
-	// TODO: Test with multiple and single null successor IDs
-	// https://www.pivotaltracker.com/story/show/176557536
-
-	// We execute tasks using "fan in" job processing because tasks have only one
-	// output but potentially many inputs. Start one goroutine per "head task",
-	// having it proceed down its chain of successors until:
-	//  - it encounters a task with unfulfilled predecessors
-	//  - it encounters a task that has already been claimed/finished
-	//  - it processes the final task
-
-	var (
-		vars             = NewVarsFrom(map[string]interface{}{"input": pipelineInput})
-		taskRunResults   TaskRunResults
-		taskRunResultsMu sync.Mutex
-		wg               sync.WaitGroup
-		retry            bool
-	)
-	wg.Add(len(headTaskRuns))
-	for _, mtr := range headTaskRuns {
-		go func(taskRun *memoryTaskRun) {
-			defer func() {
-				if err := recover(); err != nil {
-					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
-					// No mutex needed: if any goroutine panics, we retry the run.
-					retry = true
-				}
-				wg.Done()
-			}()
-			for taskRun != nil {
-				// If this one is still waiting another chain, abandon this
-				// goroutine and let the other handle it
-				if taskRun.numPredecessorsRemaining() > 0 {
-					return
-				}
-				// Avoid double execution, only one goroutine may finish the task
-				if ok := taskRun.tryToClaim(); !ok {
-					return
-				}
-
-				taskRunResult := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
-
-				if taskRunResult.Result.Error != nil {
-					vars.Set(taskRunResult.Task.DotID(), taskRunResult.Result.Error)
-				} else {
-					vars.Set(taskRunResult.Task.DotID(), taskRunResult.Result.Value)
-				}
-
-				taskRunResultsMu.Lock()
-				taskRunResults = append(taskRunResults, taskRunResult)
-				taskRunResultsMu.Unlock()
-
-				logTaskRunToPrometheus(taskRunResult, spec)
-
-				if taskRun.next == nil {
-					return
-				}
-				taskRun.next.predecessorFinished(taskRunResult.Result, taskRun.task.OutputIndex())
-				taskRun = taskRun.next
-			}
-		}(mtr)
-	}
-
-	wg.Wait()
-	finishRun := time.Now()
-	runTime := finishRun.Sub(startRun)
-	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
-	PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
-	if retry || taskRunResults.FinalResult().HasErrors() {
-		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
-	}
-	if !retry {
-		run.Errors = taskRunResults.FinalResult().ErrorsDB()
-		run.Outputs = taskRunResults.FinalResult().OutputsDB()
-		run.FinishedAt = &finishRun
-	}
-	return run, taskRunResults, retry, err
-}
-
-func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInput interface{}, txdb *gorm.DB) (headTaskRuns []*memoryTaskRun, _ error) {
-	tasks, err := taskDAG.TasksInDependencyOrder()
-	if err != nil {
-		return nil, err
-	}
-
-	all := make(map[string]*memoryTaskRun)
+	// initialize certain task params
 	txMu := &sync.Mutex{}
-
-	for _, task := range tasks {
+	for _, task := range pipeline.Tasks {
 		if task.Type() == TaskTypeHTTP {
 			task.(*HTTPTask).config = r.config
 		} else if task.Type() == TaskTypeBridge {
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).safeTx = SafeTx{txdb, txMu}
 		}
-
-		mtr := memoryTaskRun{
-			predecessorsRemaining: task.NumPredecessors(),
-			task:                  task,
-		}
-		if mtr.numPredecessorsRemaining() == 0 {
-			headTaskRuns = append(headTaskRuns, &mtr)
-			mtr.inputs = append(mtr.inputs, input{index: 0, result: Result{Value: pipelineInput}})
-		}
-		all[task.DotID()] = &mtr
 	}
 
-	// Populate next pointers
-	for dotID, mtr := range all {
-		if mtr.task.OutputTask() != nil {
-			all[dotID].next = all[mtr.task.OutputTask().DotID()]
-		} else {
-			all[dotID].next = nil
-		}
+	scheduler := newScheduler(pipeline, pipelineInput)
+
+	// TODO: Test with multiple and single null successor IDs
+	// https://www.pivotaltracker.com/story/show/176557536
+
+	var (
+		vars  = NewVarsFrom(map[string]interface{}{"input": pipelineInput})
+		retry bool
+	)
+
+	for taskRun := range scheduler.taskCh {
+		// execute
+		go func(taskRun *memoryTaskRun) {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+
+					// No mutex needed: if any goroutine panics, we retry the run.
+					retry = true
+
+					scheduler.resultCh <- TaskRunResult{
+						Task:       taskRun.task,
+						Result:     Result{Error: panicError{err}},
+						FinishedAt: time.Now(),
+						// TODO: CreatedAt
+					}
+				}
+			}()
+			result := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
+
+			// TODO: remove vars locks by constructing Vars instances per task?
+			if result.Result.Error != nil {
+				vars.Set(result.Task.DotID(), result.Result.Error)
+			} else {
+				vars.Set(result.Task.DotID(), result.Result.Value)
+			}
+
+			logTaskRunToPrometheus(result, spec)
+
+			// report the result back to the scheduler
+			scheduler.resultCh <- result
+		}(taskRun)
 	}
 
-	return headTaskRuns, nil
+	finishRun := time.Now()
+	runTime := finishRun.Sub(startRun)
+	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
+	PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
+
+	var taskRunResults TaskRunResults
+	for _, result := range scheduler.results {
+		taskRunResults = append(taskRunResults, result)
+	}
+
+	var errors bool
+	if retry {
+		errors = true
+	} else {
+		finalResult := taskRunResults.FinalResult()
+		if finalResult.HasErrors() {
+			errors = true
+		}
+		run.Errors = finalResult.ErrorsDB()
+		run.Outputs = finalResult.OutputsDB()
+		run.FinishedAt = &finishRun
+	}
+
+	if errors {
+		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
+	}
+
+	return run, taskRunResults, retry, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
@@ -425,7 +451,6 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskR
 		Result:     result,
 		CreatedAt:  start,
 		FinishedAt: time.Now(),
-		IsTerminal: taskRun.next == nil,
 	}
 }
 

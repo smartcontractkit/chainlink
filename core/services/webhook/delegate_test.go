@@ -24,7 +24,6 @@ func TestWebhookDelegate(t *testing.T) {
 			SchemaVersion: 1,
 			ExternalJobID: uuid.NewV4(),
 			WebhookSpec:   &job.WebhookSpec{},
-			Pipeline:      *pipeline.NewTaskDAG(),
 			PipelineSpec:  &pipeline.Spec{},
 		}
 
