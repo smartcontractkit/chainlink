@@ -302,7 +302,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 						return uint32(i), err2
 					case reflect.TypeOf(int64(0)):
 						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return uint32(i), err2
+						return int64(i), err2
 					case reflect.TypeOf(uint64(0)):
 						i, err2 := strconv.ParseInt(data.(string), 10, 64)
 						return uint64(i), err2
