@@ -31,27 +31,17 @@ var _ ocrtypes.DataSource = (*dataSource)(nil)
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	var observation ocrtypes.Observation
-	start := time.Now()
 	md, err := models.MarshalBridgeMetaData(ds.currentBridgeMetadata.LatestAnswer, ds.currentBridgeMetadata.UpdatedAt)
 	if err != nil {
 		logger.Warnw("unable to attach metadata for run", "err", err)
 	}
-	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, pipeline.JSONSerializable{
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, nil, pipeline.JSONSerializable{
 		Val: md,
 	}, ds.ocrLogger)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	end := time.Now()
-
-	var run pipeline.Run
-	run.PipelineSpecID = ds.spec.ID
-	run.CreatedAt = start
-	run.FinishedAt = &end
-
 	finalResult := trrs.FinalResult()
-	run.Outputs = finalResult.OutputsDB()
-	run.Errors = finalResult.ErrorsDB()
 
 	// Do the database write in a non-blocking fashion
 	// so we can return the observation results immediately.
@@ -79,7 +69,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 
 	asDecimal, err := utils.ToDecimal(result.Value)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot convert observation to decimal")
 	}
 	ds.currentBridgeMetadata = models.BridgeMetaData{
 		LatestAnswer: asDecimal.BigInt(),

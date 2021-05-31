@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,7 @@ ALTER TABLE flux_monitor_specs ALTER COLUMN min_payment TYPE varchar(255) USING 
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0012_change_jobs_to_numeric",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up12).Error

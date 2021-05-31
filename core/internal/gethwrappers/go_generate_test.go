@@ -3,14 +3,12 @@
 package gethwrappers
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -18,14 +16,16 @@ import (
 	"github.com/fatih/color"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/tidwall/gjson"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+const compileCommand = "../../../evm-contracts/scripts/native_solc_compile_all"
+const compileCommandv08 = "../../../contracts/scripts/native_solc_compile_all"
+
 // TestCheckContractHashesFromLastGoGenerate compares the abi and bytecode of the
-// contract artifacts in evm-contracts/abi with the abi and bytecode stored in the
+// contract artifacts in evm-contracts/solc with the abi and bytecode stored in the
 // contract wrapper
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions, err := ReadVersionsDB()
@@ -41,7 +41,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 			"changes", wd)))
 
 	for _, contractVersionInfo := range versions.ContractVersions {
-		if isOCRContract(contractVersionInfo.CompilerArtifactPath) {
+		if isOCRContract(contractVersionInfo.AbiPath) {
 			continue
 		}
 		compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
@@ -54,52 +54,8 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		"should never differ!")
 }
 
-// TestArtifactCompilerVersionMatchesConfig compares the solidity version in the contract artifacts
-// with the version specified in evm-contracts/app.config.json - this ensures we
-// use the correct artifacts to generate the golang wrappers.
-func TestArtifactCompilerVersionMatchesConfig(t *testing.T) {
-	appConfig, err := ioutil.ReadFile(fmt.Sprintf("%v/evm-contracts/app.config.json", getProjectRoot(t)))
-	require.NoError(t, err)
-	versionConfigJSON := gjson.Get(string(appConfig), `compilerSettings.versions`).String() // eg {"v0.6": "0.6.6"}
-
-	wrapperVersions, err := os.Open("./generation/generated-wrapper-dependency-versions-do-not-edit.txt")
-	require.NoError(t, err)
-	defer wrapperVersions.Close()
-
-	artifactRegex := regexp.MustCompile(`evm-contracts/abi/.*\.json`)
-	patchVersionRegex := regexp.MustCompile(`\d+\.\d+\.\d+`)
-	minorVersionRegex := regexp.MustCompile(`v\d+\.\d+`)
-
-	scanner := bufio.NewScanner(wrapperVersions)
-	for scanner.Scan() {
-		artifact := artifactRegex.FindString(scanner.Text())
-		if artifact == "" {
-			continue
-		}
-		beltArtifactPath := fmt.Sprintf("%v/%v", getProjectRoot(t), artifact)
-		beltArtifact, err := ioutil.ReadFile(beltArtifactPath)
-		require.NoError(t, err)
-		metadata := gjson.Get(string(beltArtifact), "compilerOutput.metadata").String()
-		fullVersion := gjson.Get(metadata, "compiler.version").String()                 // eg 0.6.6+commit.6c089d02
-		patchVersionInArtifact := patchVersionRegex.FindString(fullVersion)             // eg 0.6.6
-		if minorVersion := minorVersionRegex.FindString(artifact); minorVersion != "" { // eg v0.6
-			escapedMinorVersion := strings.ReplaceAll(minorVersion, ".", `\.`)                 // eg v0\.6
-			patchVersionInConfig := gjson.Get(versionConfigJSON, escapedMinorVersion).String() // eg 0.6.6
-			assert.Equal(t, patchVersionInArtifact, patchVersionInConfig)
-
-		} else if isOCRContract(artifact) {
-			// OCR contracts' solc version is defined in libocr. This assertion must be kept in sync.
-			assert.Equal(t, patchVersionInArtifact, "0.7.6")
-		} else {
-			t.Fatalf("directory layout has changed: could not assert that the contract '%v' was compiled with the right version of solc", artifact)
-		}
-	}
-
-	require.NoError(t, scanner.Err())
-}
-
 func isOCRContract(fullpath string) bool {
-	return strings.Contains(fullpath, fmt.Sprintf("%[1]sOCR%[1]s", string(filepath.Separator)))
+	return strings.Contains(fullpath, "OffchainAggregator")
 }
 
 // rootDir is the local chainlink root working directory
@@ -118,7 +74,7 @@ func init() { // compute rootDir
 }
 
 // compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources checks that
-// the file at each ContractVersion.CompilerArtifactPath hashes to its
+// the file at each ContractVersion.AbiPath and ContractVersion.BinaryPath hashes to its
 // ContractVersion.Hash, and that the solidity source code recorded in the
 // compiler artifact matches the current solidity contracts.
 //
@@ -133,35 +89,12 @@ func init() { // compute rootDir
 func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo ContractVersion,
 ) {
-	apath := versionInfo.CompilerArtifactPath
-	contract, err := ExtractContractDetails(apath)
-	require.NoError(t, err, "could not get details for contract %s", versionInfo)
-	hash := contract.VersionHash()
+	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
 	recompileCommand := fmt.Sprintf("(cd %s; make go-solidity-wrappers)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
-		boxOutput(`compiler artifact %s has changed; please rerun
+		boxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
-and commit the changes`, apath, recompileCommand))
-
-	// Check that each of the contract source codes hasn't changed
-	soliditySourceRoot := filepath.Dir(filepath.Dir(filepath.Dir(apath)))
-	contractPath := filepath.Join(soliditySourceRoot, "src", filepath.Base(filepath.Dir(versionInfo.CompilerArtifactPath)))
-	for sourcePath, sourceCode := range contract.Sources { // compare to current source
-		sourcePath = filepath.Join(contractPath, sourcePath)
-		actualSource, err := ioutil.ReadFile(sourcePath)
-		require.NoError(t, err, "could not read "+sourcePath)
-		// These outputs are huge, so silence them by assert.True on explicit equality
-		assert.True(t, string(actualSource) == sourceCode,
-			boxOutput(`Change detected in %s,
-which is a dependency of %s.
-
-For the gethwrappers package, please run
-
-%s
-
-and commit the changes`,
-				sourcePath, versionInfo.CompilerArtifactPath, recompileCommand))
-	}
+and commit the changes`, versionInfo.AbiPath, versionInfo.BinaryPath, recompileCommand))
 }
 
 // Ensure that solidity compiler artifacts are present before running this test,
@@ -187,25 +120,18 @@ func init() {
 		solidityArtifactsMissing)
 	// Don't want to run "make go-solidity-wrappers" here, because that would
 	// result in an infinite loop
-	cmd := exec.Command("bash", "-c", compileCommand(nil))
+	cmd := exec.Command("bash", "-c", compileCommand)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
-}
-
-// compileCommand() is a shell command which compiles chainlink's solidity
-// contracts.
-func compileCommand(t *testing.T) string {
-	cmd, err := ioutil.ReadFile("./generation/compile_command.txt")
-	if err != nil {
-		if t != nil {
-			t.Fatal(err)
-		}
+	cmd = exec.Command("bash", "-c", compileCommandv08)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
-	return strings.Trim(string(cmd), "\n")
 }
 
 // boxOutput formats its arguments as fmt.Printf, and encloses them in a box of

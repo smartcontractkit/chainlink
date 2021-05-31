@@ -1,7 +1,6 @@
 package bulletprooftxmanager
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -30,31 +30,31 @@ const defaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender struct {
-	db           *gorm.DB
-	ethClient    eth.Client
-	interval     time.Duration
-	ageThreshold time.Duration
+	db        *gorm.DB
+	ethClient eth.Client
+	interval  time.Duration
+	config    orm.ConfigReader
 
 	chStop chan struct{}
 	chDone chan struct{}
 }
 
-func NewEthResender(db *gorm.DB, ethClient eth.Client, pollInterval, ethTxResendAfterThreshold time.Duration) *EthResender {
-	if ethTxResendAfterThreshold == 0 {
+func NewEthResender(db *gorm.DB, ethClient eth.Client, pollInterval time.Duration, config orm.ConfigReader) *EthResender {
+	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	return &EthResender{
 		db,
 		ethClient,
 		pollInterval,
-		ethTxResendAfterThreshold,
+		config,
 		make(chan struct{}),
 		make(chan struct{}),
 	}
 }
 
 func (er *EthResender) Start() {
-	logger.Infof("EthResender: Enabled with poll interval of %s and age threshold of %s", er.interval, er.ageThreshold)
+	logger.Infof("EthResender: Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
 	go er.runLoop()
 }
 
@@ -85,7 +85,9 @@ func (er *EthResender) runLoop() {
 }
 
 func (er *EthResender) resendUnconfirmed() error {
-	olderThan := time.Now().Add(-er.ageThreshold)
+	ageThreshold := er.config.EthTxResendAfterThreshold()
+
+	olderThan := time.Now().Add(-ageThreshold)
 	attempts, err := FindEthTxesRequiringResend(er.db, olderThan)
 	if err != nil {
 		return errors.Wrap(err, "failed to findEthTxAttemptsRequiringReceiptFetch")
@@ -95,7 +97,7 @@ func (er *EthResender) resendUnconfirmed() error {
 		return nil
 	}
 
-	logger.Debugw(fmt.Sprintf("EthResender: re-sending %d transactions that were last sent over %s ago", len(attempts), er.ageThreshold), "n", len(attempts))
+	logger.Debugw(fmt.Sprintf("EthResender: re-sending %d transactions that were last sent over %s ago", len(attempts), ageThreshold), "n", len(attempts))
 
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
@@ -110,12 +112,27 @@ func (er *EthResender) resendUnconfirmed() error {
 	}
 
 	now := time.Now()
-	if err := er.ethClient.RoundRobinBatchCallContext(context.Background(), reqs); err != nil {
-		return errors.Wrap(err, "failed to re-send transactions")
+	batchSize := int(er.config.EthRPCDefaultBatchSize())
+	if batchSize == 0 {
+		batchSize = len(reqs)
 	}
+	for i := 0; i < len(reqs); i += batchSize {
+		j := i + batchSize
+		if j > len(reqs) {
+			j = len(reqs)
+		}
 
-	if err := er.updateBroadcastAts(now, ethTxIDs); err != nil {
-		return errors.Wrap(err, "failed to update last succeeded on attempts")
+		logger.Debugw(fmt.Sprintf("EthResender: batch resending transactions %v thru %v", i, j))
+
+		ctx, cancel := eth.DefaultQueryCtx()
+		defer cancel()
+		if err := er.ethClient.RoundRobinBatchCallContext(ctx, reqs[i:j]); err != nil {
+			return errors.Wrap(err, "failed to re-send transactions")
+		}
+
+		if err := er.updateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
+			return errors.Wrap(err, "failed to update last succeeded on attempts")
+		}
 	}
 
 	logResendResult(reqs)

@@ -59,7 +59,7 @@ type fluxAggregatorUniverse struct {
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, key models.Key, min, max *big.Int) fluxAggregatorUniverse {
-	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
@@ -275,7 +275,7 @@ func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSu
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		return log.Raw.BlockNumber, log.Submission.Int64()
-	case <-time.After(10 * pollTimerPeriod):
+	case <-time.After(20 * pollTimerPeriod):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 		return 0, 0 // unreachable
 	}
@@ -351,7 +351,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -466,6 +466,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	config.Config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
 	defer cleanup()
@@ -501,7 +502,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -592,7 +593,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	}
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
 	defer mockServer.Close()
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]

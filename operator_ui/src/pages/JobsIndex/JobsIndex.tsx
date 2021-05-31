@@ -69,6 +69,14 @@ function isOCRJobSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'offchainreporting'
 }
 
+function isCronSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'cron'
+}
+
+function isWebhookSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'webhook'
+}
+
 function getCreatedAt(job: CombinedJobs) {
   if (isJobSpecV1(job)) {
     return job.attributes.createdAt
@@ -85,6 +93,12 @@ function getCreatedAt(job: CombinedJobs) {
 
       case 'keeper':
         return job.attributes.keeperSpec.createdAt
+
+      case 'cron':
+        return job.attributes.cronSpec.createdAt
+
+      case 'webhook':
+        return job.attributes.webhookSpec.createdAt
     }
   } else {
     return new Date().toString()
@@ -141,6 +155,14 @@ export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
 
     if (isKeeperSpecV2(job)) {
       return matchKeeper(job, search)
+    }
+
+    if (isCronSpecV2(job)) {
+      return matchCron(job, search)
+    }
+
+    if (isWebhookSpecV2(job)) {
+      return matchWebhook(job, search)
     }
   }
 
@@ -256,6 +278,34 @@ function matchKeeper(job: JobSpecV2, term: string) {
   return dataset.some(match)
 }
 
+/**
+ * matchCron determines whether the Cron job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchCron(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [job.id, job.attributes.name || '', 'cron']
+
+  return dataset.some(match)
+}
+
+/**
+ * matchWebhook determines whether the Webhook job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchWebhook(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [job.id, job.attributes.name || '', 'webhook']
+
+  return dataset.some(match)
+}
+
 const styles = (theme: Theme) =>
   createStyles({
     card: {
@@ -281,7 +331,9 @@ export const JobsIndex = ({
     document.title = 'Jobs'
   }, [])
 
-  const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
+  const jobFilter = React.useMemo(() => simpleJobFilter(search.trim()), [
+    search,
+  ])
 
   useEffect(() => {
     getJobs().then(setJobs).catch(setError)

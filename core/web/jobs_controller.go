@@ -3,9 +3,12 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -14,8 +17,8 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gopkg.in/guregu/null.v4"
 )
@@ -69,11 +72,16 @@ type GenericJobSpec struct {
 	Name          null.String `toml:"name"`
 }
 
+// CreateJobRequest represents a request to create and start a job (V2).
+type CreateJobRequest struct {
+	TOML string `json:"toml"`
+}
+
 // Create validates, saves and starts a new job.
 // Example:
 // "POST <application>/jobs"
 func (jc *JobsController) Create(c *gin.Context) {
-	request := models.CreateJobSpecRequest{}
+	request := CreateJobRequest{}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -100,6 +108,12 @@ func (jc *JobsController) Create(c *gin.Context) {
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	case job.Keeper:
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
+	case job.Cron:
+		js, err = cron.ValidateCronSpec(request.TOML)
+	case job.VRF:
+		js, err = vrf.ValidateVRFSpec(request.TOML)
+	case job.Webhook:
+		js, err = webhook.ValidateWebhookSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
@@ -127,7 +141,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
 }
 
-// Delete soft deletes an OCR job spec.
+// Delete soft deletes a job spec.
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {

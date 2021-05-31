@@ -4,28 +4,75 @@ pragma solidity ^0.7.0;
 import "../interfaces/OperatorInterface.sol";
 import "./ConfirmedOwner.sol";
 
-contract OperatorForwarder {
-  address public immutable authorizedSender1;
-  address public immutable authorizedSender2;
-  address public immutable authorizedSender3;
+contract OperatorForwarder is ConfirmedOwner {
+
+  mapping(address => bool) private s_authorizedSenders;
+  address[] private s_authorizedSenderList;
 
   address public immutable linkAddr;
 
+  event AuthorizedSendersChanged(
+    address[] senders
+  );
+
   constructor(
     address link
-  ) {
+  ) 
+    ConfirmedOwner(msg.sender)
+  {
     linkAddr = link;
-    authorizedSender1 = ConfirmedOwner(msg.sender).owner();
-    address[] memory authorizedSenders = OperatorInterface(msg.sender).getAuthorizedSenders();
-    authorizedSender2 = (authorizedSenders.length > 0) ? authorizedSenders[0] : address(0);
-    authorizedSender3 = (authorizedSenders.length > 1) ? authorizedSenders[1] : address(0);
   }
 
+  /**
+   * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
+   * @param senders The addresses of the authorized Chainlink node
+   */
+  function setAuthorizedSenders(
+    address[] calldata senders
+  )
+    external
+    onlyOwner()
+  {
+    require(senders.length > 0, "Must have at least 1 authorized sender");
+    // Set previous authorized senders to false
+    uint256 authorizedSendersLength = s_authorizedSenderList.length;
+    for (uint256 i = 0; i < authorizedSendersLength; i++) {
+      s_authorizedSenders[s_authorizedSenderList[i]] = false;
+    }
+    // Set new to true
+    for (uint256 i = 0; i < senders.length; i++) {
+      s_authorizedSenders[senders[i]] = true;
+    }
+    // Replace list
+    s_authorizedSenderList = senders;
+    emit AuthorizedSendersChanged(senders);
+  }
+
+  /**
+   * @notice Retrieve a list of authorized senders
+   * @return array of addresses
+   */
+  function getAuthorizedSenders()
+    external
+    view
+    returns (
+      address[] memory
+    )
+  {
+    return s_authorizedSenderList;
+  }
+
+  /**
+   * @notice Forward a call to another contract
+   * @dev Only callable by an authorized sender
+   * @param to address
+   * @param data to forward
+   */
   function forward(
     address to,
     bytes calldata data
   )
-    public
+    external
     onlyAuthorizedSender()
   {
     require(to != linkAddr, "Cannot #forward to Link token");
@@ -34,11 +81,7 @@ contract OperatorForwarder {
   }
 
   modifier onlyAuthorizedSender() {
-    require(msg.sender == authorizedSender1
-      || msg.sender == authorizedSender2
-      || msg.sender == authorizedSender3,
-      "Not authorized to fulfill requests"
-    );
+    require(s_authorizedSenders[msg.sender], "Not an authorized node to fulfill requests");
     _;
   }
 }

@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	gethAccounts "github.com/ethereum/go-ethereum/accounts"
+	ethereum "github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -25,12 +25,6 @@ import (
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
-
-const (
-	// maxEthNodeRequestTime is the worst case time we will wait for a response
-	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 15 * time.Second
-)
 
 var (
 	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
@@ -42,7 +36,14 @@ var (
 		Name: "tx_manager_gas_bump_exceeds_limit",
 		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
 	})
+
+	promRevertedTxCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_num_tx_reverted",
+		Help: "Number of times a transaction reverted on-chain",
+	})
 )
+
+const optimismGasPrice int64 = 1e9 // 1 GWei
 
 // SendEther creates a transaction that transfers the given value of ether
 func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (etx models.EthTx, err error) {
@@ -61,15 +62,30 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 	return etx, err
 }
 
-func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.EthTxAttempt, error) {
+func newAttempt(ctx context.Context, s *strpkg.Store, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
-	account, err := s.KeyStore.GetAccountByAddress(etx.FromAddress)
-	if err != nil {
-		return attempt, errors.Wrapf(err, "error getting account %s for transaction %v", etx.FromAddress.String(), etx.ID)
+
+	gasPrice := s.Config.EthGasPriceDefault()
+	if suggestedGasPrice != nil {
+		gasPrice = suggestedGasPrice
 	}
 
+	if s.Config.OptimismGasFees() {
+		// Optimism requires special handling, it assumes that clients always call EstimateGas
+		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
+		gasLimit, estimateGasErr := s.EthClient.EstimateGas(ctx, callMsg)
+		if estimateGasErr != nil {
+			return attempt, errors.Wrapf(estimateGasErr, "error getting gas price for new transaction %v", etx.ID)
+		}
+		etx.GasLimit = gasLimit
+		gasPrice = big.NewInt(optimismGasPrice)
+	}
+
+	gasLimit := decimal.NewFromBigInt(big.NewInt(0).SetUint64(etx.GasLimit), 0).Mul(decimal.NewFromFloat32(s.Config.EthGasLimitMultiplier())).IntPart()
+	etx.GasLimit = (uint64)(gasLimit)
+
 	transaction := gethTypes.NewTransaction(uint64(*etx.Nonce), etx.ToAddress, etx.Value.ToInt(), etx.GasLimit, gasPrice, etx.EncodedPayload)
-	hash, signedTxBytes, err := signTx(s.KeyStore, account, transaction, s.Config.ChainID())
+	hash, signedTxBytes, err := signTx(s.KeyStore, etx.FromAddress, transaction, s.Config.ChainID())
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -83,8 +99,8 @@ func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.Et
 	return attempt, nil
 }
 
-func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx *gethTypes.Transaction, chainID *big.Int) (gethCommon.Hash, []byte, error) {
-	signedTx, err := keyStore.SignTx(account, tx, chainID)
+func signTx(keyStore strpkg.KeyStoreInterface, address gethCommon.Address, tx *gethTypes.Transaction, chainID *big.Int) (gethCommon.Hash, []byte, error) {
+	signedTx, err := keyStore.SignTx(address, tx, chainID)
 	if err != nil {
 		return gethCommon.Hash{}, nil, errors.Wrap(err, "signTx failed")
 	}
@@ -98,18 +114,19 @@ func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx 
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt, e models.EthTx) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return eth.NewFatalSendError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
 	defer cancel()
+
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
-	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64())
+	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
@@ -126,27 +143,27 @@ func sendEmptyTransaction(
 	nonce uint64,
 	gasLimit uint64,
 	gasPriceWei *big.Int,
-	account gethAccounts.Account,
+	fromAddress gethCommon.Address,
 	chainID *big.Int,
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, account, chainID)
+	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, fromAddress, chainID)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx()
 	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
 }
 
 // makes a transaction that sends 0 eth to self
-func makeEmptyTransaction(keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+func makeEmptyTransaction(keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, fromAddress gethCommon.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
 	value := big.NewInt(0)
 	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, account.Address, value, gasLimit, gasPriceWei, payload)
-	return keyStore.SignTx(account, tx, chainID)
+	tx := gethTypes.NewTransaction(nonce, fromAddress, value, gasLimit, gasPriceWei, payload)
+	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
 func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {

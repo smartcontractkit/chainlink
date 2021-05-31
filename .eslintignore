@@ -9,9 +9,12 @@ core/
 **/lib/**
 evm-contracts/ethers
 evm-contracts/truffle
+evm-contracts/hardhat.config.js
+evm-contracts/test/v0.8
 truffle-config.js
 truffle.js
 gethload.js
 craco.config.js
 solc_bin/**
 integration/apocalypse/**
+contracts/

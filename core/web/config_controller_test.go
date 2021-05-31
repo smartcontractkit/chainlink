@@ -20,10 +20,10 @@ import (
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -41,7 +41,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint16(6689), cp.TLSPort)
 	assert.Equal(t, "", cp.TLSHost)
 	assert.Contains(t, cp.EthereumURL, "ws://127.0.0.1:")
-	assert.Equal(t, big.NewInt(3), cp.ChainID)
+	assert.Equal(t, big.NewInt(eth.NullClientChainID), cp.ChainID)
 	assert.Contains(t, cp.ClientNodeURL, "http://127.0.0.1:")
 	assert.Equal(t, uint64(6), cp.MinRequiredOutgoingConfirmations)
 	assert.Equal(t, uint32(1), cp.MinIncomingConfirmations)

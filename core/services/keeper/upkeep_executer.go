@@ -2,8 +2,15 @@ package keeper
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sync"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 
@@ -14,107 +21,119 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 const (
-	checkUpkeep        = "checkUpkeep"
-	performUpkeep      = "performUpkeep"
-	executionQueueSize = 10
+	checkUpkeep          = "checkUpkeep"
+	performUpkeep        = "performUpkeep"
+	executionQueueSize   = 10
+	queuedEthTransaction = "successfully queued performUpkeep eth transaction"
 )
 
-func NewUpkeepExecutor(
-	job job.Job,
-	db *gorm.DB,
-	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
-	maxGracePeriod int64,
-) *UpkeepExecutor {
-	return &UpkeepExecutor{
-		chStop:          make(chan struct{}),
-		ethClient:       ethClient,
-		executionQueue:  make(chan struct{}, executionQueueSize),
-		headBroadcaster: headBroadcaster,
-		job:             job,
-		mailbox:         utils.NewMailbox(1),
-		maxGracePeriod:  maxGracePeriod,
-		orm:             NewORM(db),
-		wgDone:          sync.WaitGroup{},
-		StartStopOnce:   utils.StartStopOnce{},
-	}
-}
+// UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
+var _ job.Service = (*UpkeepExecuter)(nil)
+var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
 
-// UpkeepExecutor fulfills Service and HeadBroadcastable interfaces
-var _ job.Service = (*UpkeepExecutor)(nil)
-var _ services.HeadBroadcastable = (*UpkeepExecutor)(nil)
-
-type UpkeepExecutor struct {
-	chStop          chan struct{}
-	ethClient       eth.Client
-	executionQueue  chan struct{}
-	headBroadcaster *services.HeadBroadcaster
-	job             job.Job
-	mailbox         *utils.Mailbox
-	maxGracePeriod  int64
-	orm             ORM
-	wgDone          sync.WaitGroup
+type UpkeepExecuter struct {
+	chStop            chan struct{}
+	ethClient         eth.Client
+	executionQueue    chan struct{}
+	headBroadcaster   *services.HeadBroadcaster
+	job               job.Job
+	mailbox           *utils.Mailbox
+	maxGracePeriod    int64
+	maxUnconfirmedTXs uint64
+	orm               ORM
+	pr                pipeline.Runner
+	wgDone            sync.WaitGroup
 	utils.StartStopOnce
 }
 
-func (executor *UpkeepExecutor) Start() error {
-	return executor.StartOnce("UpkeepExecutor", func() error {
-		executor.wgDone.Add(2)
-		go executor.run()
-		unsubscribe := executor.headBroadcaster.Subscribe(executor)
+func NewUpkeepExecuter(
+	job job.Job,
+	db *gorm.DB,
+	pr pipeline.Runner,
+	ethClient eth.Client,
+	headBroadcaster *services.HeadBroadcaster,
+	config *orm.Config,
+) *UpkeepExecuter {
+	return &UpkeepExecuter{
+		chStop:            make(chan struct{}),
+		ethClient:         ethClient,
+		executionQueue:    make(chan struct{}, executionQueueSize),
+		headBroadcaster:   headBroadcaster,
+		job:               job,
+		mailbox:           utils.NewMailbox(1),
+		maxUnconfirmedTXs: config.EthMaxUnconfirmedTransactions(),
+		maxGracePeriod:    config.KeeperMaximumGracePeriod(),
+		orm:               NewORM(db),
+		pr:                pr,
+		wgDone:            sync.WaitGroup{},
+		StartStopOnce:     utils.StartStopOnce{},
+	}
+}
+
+func (executer *UpkeepExecuter) Start() error {
+	return executer.StartOnce("UpkeepExecuter", func() error {
+		executer.wgDone.Add(2)
+		go executer.run()
+		unsubscribe := executer.headBroadcaster.Subscribe(executer)
 		go func() {
 			defer unsubscribe()
-			defer executor.wgDone.Done()
-			<-executor.chStop
+			defer executer.wgDone.Done()
+			<-executer.chStop
 		}()
 		return nil
 	})
 }
 
-func (executor *UpkeepExecutor) Close() error {
-	if !executor.OkayToStop() {
-		return errors.New("UpkeepExecutor is already stopped")
-	}
-	close(executor.chStop)
-	executor.wgDone.Wait()
-	return nil
+func (executer *UpkeepExecuter) Close() error {
+	return executer.StopOnce("UpkeepExecuter", func() error {
+		close(executer.chStop)
+		executer.wgDone.Wait()
+		return nil
+	})
 }
 
-func (executor *UpkeepExecutor) OnNewLongestChain(ctx context.Context, head models.Head) {
-	executor.mailbox.Deliver(head)
+func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
+	executer.mailbox.Deliver(head)
 }
 
-func (executor *UpkeepExecutor) run() {
-	defer executor.wgDone.Done()
+func (executer *UpkeepExecuter) run() {
+	defer executer.wgDone.Done()
 	for {
 		select {
-		case <-executor.chStop:
+		case <-executer.chStop:
 			return
-		case <-executor.mailbox.Notify():
-			executor.processActiveUpkeeps()
+		case <-executer.mailbox.Notify():
+			executer.processActiveUpkeeps()
 		}
 	}
 }
 
-func (executor *UpkeepExecutor) processActiveUpkeeps() {
+func (executer *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	head, ok := executor.mailbox.Retrieve().(models.Head)
+	item, exists := executer.mailbox.Retrieve()
+	if !exists {
+		logger.Info("UpkeepExecuter: no head to retrieve. It might have been skipped")
+		return
+	}
+
+	head, ok := item.(models.Head)
 	if !ok {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
 
-	logger.Debugw("UpkeepExecutor: checking active upkeeps", "blockheight", head.Number, "jobID", executor.job.ID)
+	logger.Debugw("UpkeepExecuter: checking active upkeeps", "blockheight", head.Number, "jobID", executer.job.ID)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, head.Number, executor.maxGracePeriod)
+
+	activeUpkeeps, err := executer.orm.EligibleUpkeepsForRegistry(ctx, executer.job.KeeperSpec.ContractAddress, head.Number, executer.maxGracePeriod)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -122,10 +141,10 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
-	done := func() { <-executor.executionQueue; wg.Done() }
+	done := func() { <-executer.executionQueue; wg.Done() }
 	for _, reg := range activeUpkeeps {
-		executor.executionQueue <- struct{}{}
-		go executor.execute(reg, head.Number, done)
+		executer.executionQueue <- struct{}{}
+		go executer.execute(reg, head.Number, done)
 	}
 
 	wg.Wait()
@@ -133,11 +152,11 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 
 // execute will call checkForUpkeep and, if it succeeds, trigger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
-func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
+func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
-
+	start := time.Now()
 	logArgs := []interface{}{
-		"jobID", executor.job.ID,
+		"jobID", executer.job.ID,
 		"blockNum", headNumber,
 		"registryAddress", upkeep.Registry.ContractAddress.Hex(),
 		"upkeepID", upkeep.UpkeepID,
@@ -149,14 +168,19 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 		return
 	}
 
-	logger.Debugw("UpkeepExecutor: checking upkeep", logArgs...)
+	logger.Debugw("UpkeepExecuter: checking upkeep", logArgs...)
 
-	ctxService, cancel := utils.ContextFromChan(executor.chStop)
+	ctxService, cancel := utils.ContextFromChan(executer.chStop)
 	defer cancel()
 
-	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
+	checkUpkeepResult, err := executer.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		logger.Debugw("UpkeepExecutor: checkUpkeep failed", logArgs...)
+		revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
+		if err2 != nil {
+			revertReason = fmt.Sprintf("unknown revert reason: error during extraction: %v", err2)
+		}
+		logArgs = append(logArgs, "revertReason", revertReason)
+		logger.Debugw(fmt.Sprintf("UpkeepExecuter: checkUpkeep failed: %v", err), logArgs...)
 		return
 	}
 
@@ -166,27 +190,51 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 		return
 	}
 
-	logger.Debugw("UpkeepExecutor: performing upkeep", logArgs...)
+	logger.Debugw("UpkeepExecuter: performing upkeep", logArgs...)
 
-	ctxQuery, _ := postgres.DefaultQueryCtx()
-	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
-	defer cancel()
-
-	err = executor.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
-	if err != nil {
-		logger.Error(err)
+	// Save a run indicating we performed an upkeep.
+	f := time.Now()
+	var runErrors pipeline.RunErrors
+	if err == nil {
+		runErrors = pipeline.RunErrors{null.String{}}
+	} else {
+		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to update database state").Error())}
 	}
 
-	ctxQuery, cancel = postgres.DefaultQueryCtx()
+	var etx models.EthTx
+	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	ctxCombined, cancel = utils.CombinedContext(executor.chStop, ctxQuery)
-	defer cancel()
-	// DEV: this is the block that initiated the run, not the block height when broadcast nor the block
-	// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
-	// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
-	err = executor.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executor.job.ID, upkeep.UpkeepID, headNumber)
+	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.maxUnconfirmedTXs)
+		if err != nil {
+			return errors.Wrap(err, "failed to create eth_tx for upkeep")
+		}
+
+		// NOTE: this is the block that initiated the run, not the block height when broadcast nor the block
+		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
+		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
+		err = executer.orm.SetLastRunHeightForUpkeepOnJob(dbtx, executer.job.ID, upkeep.UpkeepID, headNumber)
+		if err != nil {
+			return errors.Wrap(err, "failed to set last run height for upkeep")
+		}
+
+		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+			PipelineSpecID: executer.job.PipelineSpecID,
+			Meta: pipeline.JSONSerializable{
+				Val: map[string]interface{}{"eth_tx_id": etx.ID},
+			},
+			Errors:     runErrors,
+			Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
+			CreatedAt:  start,
+			FinishedAt: &f,
+		}, nil, false)
+		if err != nil {
+			return errors.Wrap(err, "UpkeepExecuter: failed to insert finished run")
+		}
+		return nil
+	})
 	if err != nil {
-		logger.Errorw("UpkeepExecutor: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
+		logger.Errorw("UpkeepExecuter: failed to update database state", "err", err)
 	}
 }
 

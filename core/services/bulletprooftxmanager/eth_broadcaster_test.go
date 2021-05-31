@@ -2,11 +2,15 @@ package bulletprooftxmanager_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
+
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -22,7 +26,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	gethAccounts "github.com/ethereum/go-ethereum/accounts"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 )
@@ -117,6 +120,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Earlier
+		h := gethCommon.HexToHash("0x4ea4bb19d0847a0465d003ea11bcaef62935cec3c673238d057f6cacb3e7a405")
+		tr := uuid.NewV4()
+		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr, RunRequestID: &h, RunRequestTxHash: &h})
+		require.NoError(t, err)
 		earlierEthTx := models.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -125,6 +132,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
 			State:          models.EthTxUnstarted,
+			Meta:           gormpostgrestypes.Jsonb{RawMessage: b},
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			if tx.Nonce() != uint64(0) {
@@ -181,6 +189,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
+		var m models.EthTxMeta
+		err = json.Unmarshal(earlierEthTx.Meta.RawMessage, &m)
+		require.NoError(t, err)
+		assert.Equal(t, tr, m.TaskRunID)
+		assert.Equal(t, h.String(), m.RunRequestTxHash.String())
+		assert.Equal(t, h.String(), m.RunRequestID.String())
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -218,20 +232,99 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	})
 }
 
-func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
-	var err error
+func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	store.KeyStore.Unlock(cltest.Password)
+	store.Config.Set("OPTIMISM_GAS_FEES", "true")
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ethNodeNonce := uint64(22)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
 
-	// Insert new key to test we only update the intended one
-	dummykey := cltest.MustInsertRandomKey(t, store.DB)
+	eb, cleanup := cltest.NewEthBroadcaster(t, store, config)
+	defer cleanup()
+
+	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+
+	estimatedGas := uint64(9007199254740993)
+
+	tx := models.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          assets.NewEthValue(242),
+		GasLimit:       estimatedGas,
+		CreatedAt:      time.Unix(0, 0),
+		State:          models.EthTxUnstarted,
+	}
+	ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
+	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		assert.Equal(t, big.NewInt(1000000000), tx.GasPrice())
+		assert.Equal(t, estimatedGas, tx.Gas())
+		return true
+	})).Return(nil).Once()
+
+	require.NoError(t, store.DB.Save(&tx).Error)
+
+	// Do the thing
+	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+	ethClient.AssertExpectations(t)
+}
+
+func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	store.KeyStore.Unlock(cltest.Password)
+	store.Config.Set("ETH_GAS_LIMIT_MULTIPLIER", "1.3")
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	eb, cleanup := cltest.NewEthBroadcaster(t, store, config)
+	defer cleanup()
+
+	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		assert.Equal(t, uint64(1600), tx.Gas())
+		return true
+	})).Return(nil).Once()
+
+	tx := models.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411"),
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          assets.NewEthValue(242),
+		GasLimit:       1231,
+		CreatedAt:      time.Unix(0, 0),
+		State:          models.EthTxUnstarted,
+	}
+	require.NoError(t, store.DB.Save(&tx).Error)
+
+	// Do the thing
+	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+	ethClient.AssertExpectations(t)
+}
+
+func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
+	var err error
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, true)
+	_, dummyAddress := cltest.MustAddRandomKeyToKeystore(t, store, false)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	config.Set("ETH_NONCE_AUTO_SYNC", "true")
+
+	ethNodeNonce := uint64(22)
 
 	t.Run("when eth node returns error", func(t *testing.T) {
 		ethClient := new(mocks.Client)
@@ -241,7 +334,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		defer cleanup()
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == dummykey.Address.Hex()
+			return account.Hex() == dummyAddress.Hex()
 		})).Return(uint64(0), nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
@@ -254,7 +347,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 
 		// dummy address got updated
 		var n int
-		err := store.DB.Raw(`SELECT next_nonce FROM keys WHERE address = ?`, dummykey.Address).Scan(&n).Error
+		err := store.DB.Raw(`SELECT next_nonce FROM keys WHERE address = ?`, dummyAddress).Scan(&n).Error
 		require.NoError(t, err)
 		require.Equal(t, 0, n)
 
@@ -274,30 +367,29 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		defer cleanup()
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == dummykey.Address.Hex()
+			return account.Hex() == dummyAddress.Hex()
 		})).Return(uint64(0), nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, nil).Once()
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil)
 
 		require.NoError(t, eb.Start())
 		defer eb.Close()
 
 		// Check key to make sure it has correct nonce assigned
-		keys, err := store.SendKeys()
+		var keys []models.Key
+		err := store.DB.Order("created_at asc").Find(&keys).Error
 		require.NoError(t, err)
 		key := keys[0]
 
-		require.NotNil(t, key.NextNonce)
-		require.Equal(t, int64(ethNodeNonce), key.NextNonce)
+		assert.NotNil(t, key.NextNonce)
+		assert.Equal(t, int64(ethNodeNonce), key.NextNonce)
 
 		// The dummy key did not get updated
 		key2 := keys[1]
-		require.Equal(t, dummykey.Address, key2.Address)
-		require.Equal(t, 0, int(key2.NextNonce))
+		assert.Equal(t, dummyAddress.Hex(), key2.Address.Hex())
+		assert.Equal(t, 0, int(key2.NextNonce))
 
-		// TODO: Test for zero transaction insertion
 		ethClient.AssertExpectations(t)
 	})
 }
@@ -308,14 +400,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	gasLimit := uint64(242)
 	encodedPayload := []byte{0, 1}
 	nextNonce := int64(916714082576372851)
+	firstNonce := nextNonce
+	secondNonce := nextNonce + 1
 
 	t.Run("cannot be more than one transaction per address in an unfinished state", func(t *testing.T) {
-		firstNonce := nextNonce + 1
-		secondNonce := nextNonce + 2
-
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, nextNonce)
 
 		firstInProgress := models.EthTx{
 			FromAddress:    fromAddress,
@@ -364,11 +455,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
-		nonce := nextNonce
-		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce, fromAddress)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, firstNonce, fromAddress)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(nonce)
+			return tx.Nonce() == uint64(firstNonce)
 		})).Return(nil).Once()
 
 		// Do the thing
@@ -404,11 +494,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
-		nonce := nextNonce
-		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce, fromAddress)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, firstNonce, fromAddress)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(nonce)
+			return tx.Nonce() == uint64(firstNonce)
 		})).Return(errors.New("exceeds block gas limit")).Once()
 
 		// Do the thing
@@ -443,11 +532,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
-		nonce := nextNonce
-		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce, fromAddress)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, firstNonce, fromAddress)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(nonce)
+			return tx.Nonce() == uint64(firstNonce)
 		})).Return(errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
@@ -482,11 +570,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
-		nonce := nextNonce
-		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce, fromAddress)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, firstNonce, fromAddress)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(nonce)
+			return tx.Nonce() == uint64(firstNonce)
 		})).Return(errors.New("nonce too low")).Once()
 
 		// Do the thing
@@ -523,11 +610,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
-		nonce := nextNonce
-		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce, fromAddress)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, firstNonce, fromAddress)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(nonce)
+			return tx.Nonce() == uint64(firstNonce)
 		})).Return(failedToReachNodeError).Once()
 
 		// Do the thing
@@ -568,8 +654,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
-		nonce := nextNonce
-		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce, fromAddress)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, firstNonce, fromAddress)
 		require.Len(t, inProgressEthTx.EthTxAttempts, 1)
 		attempt := inProgressEthTx.EthTxAttempts[0]
 
@@ -577,7 +662,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			// Ensure that the gas price is the same as the original attempt
 			s, e := attempt.GetSignedTx()
 			require.NoError(t, e)
-			return tx.Nonce() == uint64(nonce) && tx.GasPrice().Int64() == s.GasPrice().Int64()
+			return tx.Nonce() == uint64(firstNonce) && tx.GasPrice().Int64() == s.GasPrice().Int64()
 		})).Return(errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
@@ -641,7 +726,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			State:          models.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
-		taskRunID := cltest.MustInsertTaskRun(t, store)
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
 		_, err = store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
 		require.NoError(t, err)
 
@@ -1032,39 +1117,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	eb, cleanup := cltest.NewEthBroadcaster(t, store, config)
 	defer cleanup()
 
-	t.Run("keystore does not have the unlocked key", func(t *testing.T) {
-		etx := models.EthTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: encodedPayload,
-			Value:          value,
-			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
-		}
-		require.NoError(t, store.DB.Save(&etx).Error)
-
-		kst.On("GetAccountByAddress", fromAddress).Return(gethAccounts.Account{}, errors.New("authentication needed: password or unlock")).Once()
-
-		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(key)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "authentication needed: password or unlock")
-
-		// Check that the transaction is left in unstarted state
-		etx, err = store.FindEthTxWithAttempts(etx.ID)
-		require.NoError(t, err)
-
-		assert.Equal(t, models.EthTxUnstarted, etx.State)
-		assert.Len(t, etx.EthTxAttempts, 0)
-
-		// Check that the key did not have its nonce incremented
-		require.NoError(t, store.DB.First(&key).Error)
-		require.NotNil(t, key.NextNonce)
-		require.Equal(t, int64(localNonce), key.NextNonce)
-
-		kst.AssertExpectations(t)
-	})
-
 	t.Run("tx signing fails", func(t *testing.T) {
 		etx := models.EthTx{
 			FromAddress:    fromAddress,
@@ -1076,12 +1128,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
-		signingAccount := gethAccounts.Account{Address: fromAddress}
-		kst.On("GetAccountByAddress", fromAddress).Return(signingAccount, nil).Once()
-
 		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
 		kst.On("SignTx",
-			mock.AnythingOfType("accounts.Account"),
+			fromAddress,
 			mock.AnythingOfType("*types.Transaction"),
 			mock.MatchedBy(func(chainID *big.Int) bool {
 				return chainID.Cmp(store.Config.ChainID()) == 0

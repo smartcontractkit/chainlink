@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
 
@@ -52,7 +53,6 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -191,6 +191,10 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("GAS_UPDATER_ENABLED", false)
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
+	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
+	config.Set("ETH_FINALITY_DEPTH", 1)
+	// Disable the EthTxReaper
+	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	return config, cleanup
 }
 
@@ -209,6 +213,13 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func MustJobIDFromString(t *testing.T, s string) models.JobID {
+	t.Helper()
+	id, err := models.NewJobIDFromString(s)
+	require.NoError(t, err)
+	return id
 }
 
 // NewTestConfig returns a test configuration
@@ -231,7 +242,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.AdvisoryLockID = NewRandomInt64()
 
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ETH_CHAIN_ID", 3)
+	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
 	rawConfig.Set("MIGRATE_DATABASE", false)
@@ -249,6 +260,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
 	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
 	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
+	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -262,6 +274,28 @@ func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) 
 	config.Set("ETH_URL", url)
 	config.wsServer = wsserver
 	return config
+}
+
+type JobPipelineV2TestHelper struct {
+	Prm pipeline.ORM
+	Eb  postgres.EventBroadcaster
+	Jrm job.ORM
+	Pr  pipeline.Runner
+}
+
+func NewJobPipelineV2(t testing.TB, db *gorm.DB) JobPipelineV2TestHelper {
+	config, cleanupCfg := NewConfig(t)
+	t.Cleanup(cleanupCfg)
+	prm, eb, cleanup := NewPipelineORM(t, config, db)
+	jrm := job.NewORM(db, config.Config, prm, eb, &postgres.NullAdvisoryLocker{})
+	t.Cleanup(cleanup)
+	pr := pipeline.NewRunner(prm, config.Config)
+	return JobPipelineV2TestHelper{
+		prm,
+		eb,
+		jrm,
+		pr,
+	}
 }
 
 func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
@@ -287,6 +321,7 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Config           *TestConfig
+	Logger           *logger.Logger
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -344,9 +379,6 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication
 	c, cfgCleanup := NewConfig(t)
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
-	app.Store.KeyStore = kst
 
 	return app, func() {
 		cleanup()
@@ -395,6 +427,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
+	var ks strpkg.KeyStoreInterface
+
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -403,12 +437,23 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 			advisoryLocker = dep
 		case chainlink.ExternalInitiatorManager:
 			externalInitiatorManager = dep
+		case strpkg.KeyStoreInterface:
+			ks = dep
 		}
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
+	var keyStoreGenerator strpkg.KeyStoreGenerator
+	if ks == nil {
+		keyStoreGenerator = strpkg.InsecureKeyStoreGen
+	} else {
+		keyStoreGenerator = func(*gorm.DB, *orm.Config) strpkg.KeyStoreInterface {
+			return ks
+		}
+	}
+
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, externalInitiatorManager, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	})
 	require.NoError(t, err)
@@ -434,32 +479,33 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	}
 }
 
-func NewEthMocks(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
-	r := new(mocks.RPCClient)
-	g := new(mocks.GethClient)
+func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+	c := new(mocks.Client)
 	s := new(mocks.Subscription)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
 		assertMocksCalled = func() {
-			r.AssertExpectations(tt)
-			g.AssertExpectations(tt)
+			c.AssertExpectations(tt)
 			s.AssertExpectations(tt)
 		}
 	case *testing.B:
 		assertMocksCalled = func() {}
 	}
-	return r, g, s, assertMocksCalled
+	return c, s, assertMocksCalled
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
-	r, g, s, assertMocksCalled := NewEthMocks(t)
-	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
-	g.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
+func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+	c, s, assertMocksCalled := NewEthMocks(t)
+	c.On("Dial", mock.Anything).Maybe().Return(nil)
+	c.On("ChainID", mock.Anything).Maybe().Return(NewTestConfig(t).ChainID(), nil)
+	c.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
+	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
-	return r, g, s, assertMocksCalled
+	return c, s, assertMocksCalled
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -476,6 +522,7 @@ func (ta *TestApplication) NewBox() packr.Box {
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
+	ta.ChainlinkApplication.Store.KeyStore.Unlock(Password)
 
 	err := ta.ChainlinkApplication.Start()
 	return err
@@ -535,7 +582,7 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
+	_, err := ta.Store.KeyStore.ImportKey([]byte(content), Password)
 	require.NoError(ta.t, err)
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
@@ -621,6 +668,7 @@ func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interf
 	if err != nil {
 		require.NoError(t, err)
 	}
+	s.Config.SetRuntimeStore(s.ORM)
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
@@ -803,11 +851,11 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.Job {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -881,7 +929,29 @@ func CreateJobRunViaExternalInitiator(
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()
 
-	buffer := MustReadFile(t, "testdata/hello_world_job.json")
+	buffer := []byte(`
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    { "type": "HTTPGetWithUnrestrictedNetworkAccess", "params": {
+		"get": "https://bitstamp.net/api/ticker/",
+        "headers": {
+          "Key1": ["value"],
+          "Key2": ["value", "value"]
+        }
+      }
+    },
+    { "type": "JsonParse", "params": { "path": ["last"] }},
+    { "type": "EthBytes32" },
+    {
+      "type": "EthTx", "params": {
+        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
+        "functionSelector": "0x609ff1bd"
+      }
+    }
+  ]
+}
+`)
 
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
@@ -898,13 +968,13 @@ func UpdateJobRunViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	jr models.JobRun,
-	bta *models.BridgeTypeAuthentication,
+	bridgeResource *webpresenters.BridgeResource,
 	body string,
 ) models.JobRun {
 	t.Helper()
 
 	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
+	headers := map[string]string{"Authorization": "Bearer " + bridgeResource.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 
@@ -921,7 +991,7 @@ func CreateBridgeTypeViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	payload string,
-) *models.BridgeTypeAuthentication {
+) *webpresenters.BridgeResource {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -931,7 +1001,7 @@ func CreateBridgeTypeViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
-	bt := &models.BridgeTypeAuthentication{}
+	bt := &webpresenters.BridgeResource{}
 	err := ParseJSONAPIResponse(t, resp, bt)
 	require.NoError(t, err)
 
@@ -1019,7 +1089,7 @@ func SendBlocksUntilComplete(
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
 	start int64,
-	gethClient *mocks.GethClient,
+	ethClient *mocks.Client,
 ) models.JobRun {
 	t.Helper()
 
@@ -1042,7 +1112,7 @@ func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
-	status models.RunStatus,
+	wantStatus models.RunStatus,
 
 ) models.JobRun {
 	t.Helper()
@@ -1052,8 +1122,13 @@ func WaitForJobRunStatus(
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		st := jr.GetStatus()
+		if wantStatus != models.RunStatusErrored {
+			if st == models.RunStatusErrored {
+				t.Fatalf("waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
+			}
+		}
 		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(wantStatus))
 	return jr
 }
 
@@ -1148,18 +1223,37 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+
+	var err error
+	prs := []pipeline.Run{}
+	gomega.NewGomegaWithT(t).Eventually(func() []pipeline.Run {
+		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
+		assert.NoError(t, err)
+		return prs
+	}, timeout, poll).Should(gomega.HaveLen(want))
+
+	return prs
+}
+
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
+
 	var pr []pipeline.Run
-	g.Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		var completed []pipeline.Run
+
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
-					completed = append(completed, prs[i])
+					// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+					// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+					if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
+						completed = append(completed, prs[i])
+					}
 				}
 			}
 		}
@@ -1333,10 +1427,10 @@ func Head(val interface{}) *models.Head {
 }
 
 // TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []types.Transaction {
-	txs := make([]types.Transaction, len(gasPrices))
+func TransactionsFromGasPrices(gasPrices ...int64) []gasupdater.Transaction {
+	txs := make([]gasupdater.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = *types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
+		txs[i] = gasupdater.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
 	}
 	return txs
 }
@@ -1525,6 +1619,8 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 func (a Awaiter) ItHappened() { close(a) }
 
 func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
+	t.Helper()
+
 	duration := 10 * time.Second
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
@@ -1533,7 +1629,7 @@ func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
 	select {
 	case <-a:
 	case <-time.After(duration):
-		t.Fatal("timed out waiting for Awaiter to get ItHappened")
+		t.Fatal("Timed out waiting for Awaiter to get ItHappened")
 	}
 }
 
@@ -1628,7 +1724,7 @@ func MakeRoundStateReturnData(
 
 var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
-func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
+func MockFluxAggCall(client *mocks.Client, address common.Address, funcName string) *mock.Call {
 	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)
 	if len(funcSig) != 10 {
 		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
@@ -1713,9 +1809,9 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	}
 }
 
-func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- models.Log {
-	logsCh := make(chan chan<- models.Log, 1)
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+func MockSubscribeToLogsCh(ethClient *mocks.Client, sub *mocks.Subscription) chan chan<- types.Log {
+	logsCh := make(chan chan<- types.Log, 1)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
 			logsCh <- args.Get(2).(chan<- types.Log)
@@ -1737,6 +1833,13 @@ func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 		len(req.Args) == 1 && req.Args[0] == hash
 }
 
+func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+	t.Helper()
+	if !BatchElemMatchesHash(req, hash) {
+		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
+	}
+}
+
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
 	BackfillDepth        int64
@@ -1746,7 +1849,7 @@ type SimulateIncomingHeadsArgs struct {
 	Hashes               map[int64]common.Hash
 }
 
-func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanup func()) {
+func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
 	t.Helper()
 
 	if args.BackfillDepth == 0 {
@@ -1812,6 +1915,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 					ht.OnNewLongestChain(ctx, *heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
+					chDone <- struct{}{}
 					return
 				}
 				current++
@@ -1820,12 +1924,13 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 		}
 	}()
 	var once sync.Once
-	return func() {
+	cleanup := func() {
 		once.Do(func() {
 			close(chDone)
 			cancel()
 		})
 	}
+	return cleanup, chDone
 }
 
 type HeadTrackableFunc func(context.Context, models.Head)
@@ -1869,7 +1974,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
 	t.Helper()
 	var count int64
-	err := store.DB.Model(model).Count(&count).Error
+	err := store.DB.Unscoped().Model(model).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

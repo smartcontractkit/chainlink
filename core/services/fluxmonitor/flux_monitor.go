@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -29,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/tevino/abool"
 	"gorm.io/gorm"
 )
 
@@ -57,12 +58,15 @@ type Service interface {
 	RemoveJob(models.JobID)
 	Start() error
 	Stop()
+	SetLogger(logger *logger.Logger)
 }
 
 type concreteFluxMonitor struct {
+	muLogger       sync.RWMutex
 	store          *store.Store
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
+	log            *logger.Logger
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
 	chRemove       chan models.JobID
@@ -102,6 +106,19 @@ func New(
 	}
 }
 
+// SetLogger sets and reconfigures the log for the flux monitor service
+func (fm *concreteFluxMonitor) SetLogger(logger *logger.Logger) {
+	fm.muLogger.Lock()
+	defer fm.muLogger.Unlock()
+	fm.log = logger
+}
+
+func (fm *concreteFluxMonitor) logger() *logger.Logger {
+	fm.muLogger.RLock()
+	defer fm.muLogger.RUnlock()
+	return fm.log
+}
+
 func (fm *concreteFluxMonitor) Start() error {
 	go fm.serveInternalRequests()
 	fm.started = true
@@ -110,7 +127,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
 		if j == nil {
 			err := errors.New("received nil job")
-			logger.Error(err)
+			fm.logger().Error(err)
 			return true
 		}
 		job := *j
@@ -287,7 +304,6 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	f.logBroadcaster.AddDependents(1)
 	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.store.EthClient)
 	if err != nil {
 		return nil, err
@@ -320,7 +336,6 @@ func (f pollingDeviationCheckerFactory) New(
 		minJobPayment,
 		runManager,
 		fetcher,
-		func() { f.logBroadcaster.DependentReady() },
 		min,
 		max,
 	)
@@ -396,7 +411,6 @@ type PollingDeviationChecker struct {
 	precision     int32
 
 	isHibernating    bool
-	connected        *abool.AtomicBool
 	backlog          *utils.BoundedPriorityQueue
 	chProcessLogs    chan struct{}
 	pollTicker       utils.PausableTicker
@@ -406,9 +420,8 @@ type PollingDeviationChecker struct {
 
 	minSubmission, maxSubmission *big.Int
 
-	readyForLogs func()
-	chStop       chan struct{}
-	waitOnStop   chan struct{}
+	chStop     chan struct{}
+	waitOnStop chan struct{}
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -421,11 +434,13 @@ func NewPollingDeviationChecker(
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
-	readyForLogs func(),
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
+	var idleTimer = utils.NewResettableTimer()
+	if !initr.IdleTimer.Disabled {
+		idleTimer.Reset(initr.IdleTimer.Duration.Duration())
+	}
 	pdc := &PollingDeviationChecker{
-		readyForLogs:     readyForLogs,
 		store:            store,
 		logBroadcaster:   logBroadcaster,
 		fluxAggregator:   fluxAggregator,
@@ -437,12 +452,11 @@ func NewPollingDeviationChecker(
 		fetcher:          fetcher,
 		pollTicker:       utils.NewPausableTicker(initr.PollTimer.Period.Duration()),
 		hibernationTimer: utils.NewResettableTimer(),
-		idleTimer:        utils.NewResettableTimer(),
+		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		minSubmission:    minSubmission,
 		maxSubmission:    maxSubmission,
 		isHibernating:    false,
-		connected:        abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
@@ -519,22 +533,6 @@ func (p *PollingDeviationChecker) Stop() {
 	<-p.waitOnStop
 }
 
-func (p *PollingDeviationChecker) OnConnect() {
-	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
-		"jobID", p.initr.JobSpecID.String(),
-		"address", p.initr.Address.Hex(),
-	)
-	p.connected.Set()
-}
-
-func (p *PollingDeviationChecker) OnDisconnect() {
-	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
-		"jobID", p.initr.JobSpecID.String(),
-		"address", p.initr.Address.Hex(),
-	)
-	p.connected.UnSet()
-}
-
 func (p *PollingDeviationChecker) JobID() models.JobID {
 	return p.initr.JobSpecID
 }
@@ -584,34 +582,28 @@ func (p *PollingDeviationChecker) consume() {
 	}
 
 	// subscribe to contract logs
-	isConnected, unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
+	unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
 		Contract: p.fluxAggregator,
 		Logs: []generated.AbigenLog{
 			flux_aggregator_wrapper.FluxAggregatorNewRound{},
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 		},
+		NumConfirmations: 1,
 	})
 	defer unsubscribe()
 
 	if p.flags != nil {
-		flagsConnected, unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
+		unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
 			Contract: p.flags,
 			Logs: []generated.AbigenLog{
 				flags_wrapper.FlagsFlagLowered{},
 				flags_wrapper.FlagsFlagRaised{},
 			},
+			NumConfirmations: 1,
 		})
-		isConnected = isConnected && flagsConnected
 		defer unsubscribe()
 	}
 
-	if isConnected {
-		p.connected.Set()
-	} else {
-		p.connected.UnSet()
-	}
-
-	p.readyForLogs()
 	p.setIsHibernatingStatus()
 	p.setInitialTickers()
 	p.performInitialPoll()
@@ -672,10 +664,13 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	accounts := p.store.KeyStore.Accounts()
-	for _, acct := range accounts {
+	keys, err := p.store.KeyStore.SendingKeys()
+	if err != nil {
+		return errors.Wrap(err, "failed to load send keys")
+	}
+	for _, k := range keys {
 		for _, oracleAddr := range oracleAddrs {
-			if acct.Address.Hex() == oracleAddr.Hex() {
+			if k.Address.Hex() == oracleAddr.Hex() {
 				p.oracleAddress = oracleAddr
 				return nil
 			}
@@ -683,12 +678,12 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	}
 
 	log = log.With(
-		"accounts", accounts,
+		"keys", keys,
 		"oracleAddresses", oracleAddrs,
 	)
 
-	if len(accounts) > 0 {
-		addr := accounts[0].Address
+	if len(keys) > 0 {
+		addr := keys[0].Address.Address()
 
 		log.Warnw(
 			"None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
@@ -741,7 +736,9 @@ func (p *PollingDeviationChecker) processLogs() {
 
 		// If the log is a duplicate of one we've seen before, ignore it (this
 		// happens because of the LogBroadcaster's backfilling behavior).
-		consumed, err := broadcast.WasAlreadyConsumed()
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
 		if err != nil {
 			logger.Errorf("Error determining if log was already consumed: %v", err)
 			continue
@@ -750,17 +747,20 @@ func (p *PollingDeviationChecker) processLogs() {
 			continue
 		}
 
+		ctx, cancel = postgres.DefaultQueryCtx()
+		defer cancel()
+		db := p.store.DB.WithContext(ctx)
 		switch log := broadcast.DecodedLog().(type) {
 		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 			p.respondToNewRoundLog(*log)
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			p.respondToAnswerUpdatedLog(*log)
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
@@ -774,12 +774,12 @@ func (p *PollingDeviationChecker) processLogs() {
 			if !isFlagLowered {
 				p.hibernate()
 			}
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
 			p.reactivate()
-			err = broadcast.MarkConsumed()
+			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		default:
@@ -931,7 +931,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge)
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
 	if err != nil {
 		l.Errorw("unable to fetch median price", "err", err)
 		return
@@ -1008,8 +1008,8 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		"absoluteThreshold", thresholds.Abs,
 	)
 
-	if !p.connected.IsSet() {
-		l.Warnw("not connected to Ethereum node, skipping poll")
+	if !p.logBroadcaster.IsConnected() {
+		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")
 		return
 	}
 
@@ -1068,7 +1068,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge)
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")

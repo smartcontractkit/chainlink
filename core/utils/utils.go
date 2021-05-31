@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -68,7 +69,7 @@ func Uint64ToHex(i uint64) string {
 
 var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
-// Uint256ToBytes(x) is x represented as the bytes of a uint256
+// Uint256ToBytes is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 	if x.Cmp(maxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
@@ -237,6 +238,7 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
+// RetryWithBackoff retries the sleeper and backs off if not Done
 func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	sleeper := NewBackoffSleeper()
 	sleeper.Reset()
@@ -418,7 +420,7 @@ func JustError(_ interface{}, err error) error {
 
 var zero = big.NewInt(0)
 
-// CheckUint256(n) returns an error if n is out of bounds for a uint256
+// CheckUint256 returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
 	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
@@ -448,6 +450,7 @@ func Uint256ToHex(n *big.Int) (string, error) {
 	return common.BigToHash(n).Hex(), nil
 }
 
+// ToDecimal converts an input to a decimal
 func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	switch v := input.(type) {
 	case string:
@@ -483,7 +486,7 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	case *decimal.Decimal:
 		return *v, nil
 	default:
-		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal", input)
+		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
 	}
 }
 
@@ -555,6 +558,7 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 	return ctx, cancel
 }
 
+// DependentAwaiter contains Dependent funcs
 type DependentAwaiter interface {
 	AwaitDependents() <-chan struct{}
 	AddDependents(n int)
@@ -566,6 +570,7 @@ type dependentAwaiter struct {
 	ch <-chan struct{}
 }
 
+// NewDependentAwaiter creates a new DependentAwaiter
 func NewDependentAwaiter() DependentAwaiter {
 	return &dependentAwaiter{
 		wg: &sync.WaitGroup{},
@@ -587,13 +592,14 @@ func (da *dependentAwaiter) DependentReady() {
 	da.wg.Done()
 }
 
-// FIFO queue that discards older items when it reaches its capacity.
+// BoundedQueue is a FIFO queue that discards older items when it reaches its capacity.
 type BoundedQueue struct {
 	capacity uint
 	items    []interface{}
 	mu       *sync.RWMutex
 }
 
+// NewBoundedQueue creates a new BoundedQueue instance
 func NewBoundedQueue(capacity uint) *BoundedQueue {
 	return &BoundedQueue{
 		capacity: capacity,
@@ -601,6 +607,7 @@ func NewBoundedQueue(capacity uint) *BoundedQueue {
 	}
 }
 
+// Add appends items to a BoundedQueue
 func (q *BoundedQueue) Add(x interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -611,6 +618,7 @@ func (q *BoundedQueue) Add(x interface{}) {
 	}
 }
 
+// Take pulls the first item from the array and removes it
 func (q *BoundedQueue) Take() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -622,18 +630,22 @@ func (q *BoundedQueue) Take() interface{} {
 	return x
 }
 
+// Empty check is a BoundedQueue is empty
 func (q *BoundedQueue) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return len(q.items) == 0
 }
 
+// Full checks if a BoundedQueue is over capacity.
 func (q *BoundedQueue) Full() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return uint(len(q.items)) >= q.capacity
 }
 
+// BoundedPriorityQueue stores a series of BoundedQueues
+// with associated priorities and capacities
 type BoundedPriorityQueue struct {
 	queues     map[uint]*BoundedQueue
 	priorities []uint
@@ -641,6 +653,7 @@ type BoundedPriorityQueue struct {
 	mu         *sync.RWMutex
 }
 
+// NewBoundedPriorityQueue creates a new BoundedPriorityQueue
 func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
 	queues := make(map[uint]*BoundedQueue)
 	var priorities []uint
@@ -657,6 +670,7 @@ func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
 	}
 }
 
+// Add pushes an item into a subque within a BoundedPriorityQueue
 func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -669,6 +683,7 @@ func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 	subqueue.Add(x)
 }
 
+// Take takes from the BoundedPriorityQueue's subque
 func (q *BoundedPriorityQueue) Take() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -683,6 +698,8 @@ func (q *BoundedPriorityQueue) Take() interface{} {
 	return nil
 }
 
+// Empty checks the BoundedPriorityQueue
+// if all subqueues are empty
 func (q *BoundedPriorityQueue) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -710,12 +727,14 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+// LogIfError logs an error if not nil
 func LogIfError(err *error, msg string) {
 	if *err != nil {
 		logger.Errorf(msg+": %+v", *err)
 	}
 }
 
+// DebugPanic logs a panic exception being called
 func DebugPanic() {
 	if err := recover(); err != nil {
 		pc := make([]uintptr, 10) // at least 1 entry needed
@@ -727,12 +746,14 @@ func DebugPanic() {
 	}
 }
 
+// PausableTicker stores a ticker with a duration
 type PausableTicker struct {
 	ticker   *time.Ticker
 	duration time.Duration
 	mu       *sync.RWMutex
 }
 
+// NewPausableTicker creates a new PausableTicker
 func NewPausableTicker(duration time.Duration) PausableTicker {
 	return PausableTicker{
 		duration: duration,
@@ -740,6 +761,7 @@ func NewPausableTicker(duration time.Duration) PausableTicker {
 	}
 }
 
+// Ticks retrieves the ticks from a PausableTicker
 func (t PausableTicker) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -749,6 +771,7 @@ func (t PausableTicker) Ticks() <-chan time.Time {
 	return t.ticker.C
 }
 
+// Pause pauses a PausableTicker
 func (t *PausableTicker) Pause() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -758,6 +781,8 @@ func (t *PausableTicker) Pause() {
 	}
 }
 
+// Resume resumes a Ticker
+// using a PausibleTicker's duration
 func (t *PausableTicker) Resume() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -766,21 +791,25 @@ func (t *PausableTicker) Resume() {
 	}
 }
 
+// Destroy pauses the PausibleTicker
 func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+// ResettableTimer stores a timer
 type ResettableTimer struct {
 	timer *time.Timer
 	mu    *sync.RWMutex
 }
 
+// NewResettableTimer creates a new ResettableTimer
 func NewResettableTimer() ResettableTimer {
 	return ResettableTimer{
 		mu: &sync.RWMutex{},
 	}
 }
 
+// Ticks retrieves the ticks from a ResettableTimer
 func (t ResettableTimer) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -790,6 +819,7 @@ func (t ResettableTimer) Ticks() <-chan time.Time {
 	return t.timer.C
 }
 
+// Stop stops a ResettableTimer
 func (t *ResettableTimer) Stop() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -799,6 +829,8 @@ func (t *ResettableTimer) Stop() {
 	}
 }
 
+// Reset stops a ResettableTimer
+// and resets it with a new duration
 func (t *ResettableTimer) Reset(duration time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -808,6 +840,8 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 	t.timer = time.NewTimer(duration)
 }
 
+// EVMBytesToUint64 converts
+// a bytebuffer to uint64
 func EVMBytesToUint64(buf []byte) uint64 {
 	var result uint64
 	for _, b := range buf {
@@ -816,69 +850,87 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
+// StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state StartStopOnceState
-	sync.RWMutex
+	state      atomic.Int32
+	sync.Mutex // lock is held during statup/shutdown
 }
 
-type StartStopOnceState int
+// StartStopOnceState holds the state for StartStopOnce
+type StartStopOnceState int32
 
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
+	StartStopOnce_Starting
+	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
 
+// StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
-	once.Lock()
-	defer once.Unlock()
+	// SAFETY: We do this compare-and-swap outside of the lock so that
+	// concurrent StartOnce() calls return immediately.
+	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
-	if once.state != StartStopOnce_Unstarted {
+	if !success {
 		return errors.Errorf("%v has already started once", name)
 	}
-	once.state = StartStopOnce_Started
 
-	return fn()
-}
-
-func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Started {
+	err := fn()
+
+	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
+	}
+
+	return err
+}
+
+// StopOnce sets the state to Stopped
+func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
+	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
+	// executes. This ensures that a very fast call to Stop will wait for the
+	// code to finish starting up before teardown.
+	once.Lock()
+	defer once.Unlock()
+
+	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
+
+	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
-	once.state = StartStopOnce_Stopped
 
-	return fn()
-}
+	err := fn()
 
-func (once *StartStopOnce) OkayToStart() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
+	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
 
-	if once.state != StartStopOnce_Unstarted {
-		return false
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
 	}
-	once.state = StartStopOnce_Started
-	return true
+
+	return err
 }
 
-func (once *StartStopOnce) OkayToStop() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
-
-	if once.state != StartStopOnce_Started {
-		return false
-	}
-	once.state = StartStopOnce_Stopped
-	return true
-}
-
+// State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
-	once.RLock()
-	defer once.RUnlock()
-	return once.state
+	state := once.state.Load()
+	return StartStopOnceState(state)
+}
+
+func (once *StartStopOnce) IfStarted(f func()) {
+	state := once.state.Load()
+	if StartStopOnceState(state) == StartStopOnce_Started {
+		f()
+	}
 }
 
 // WithJitter adds +/- 10% to a duration

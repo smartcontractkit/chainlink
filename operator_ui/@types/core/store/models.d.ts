@@ -468,11 +468,11 @@ declare module 'core/store/models' {
 
   interface BaseJobSpecV2 {
     name: string | null
-    errors: JobSpecError[]    
+    errors: JobSpecError[]
     maxTaskDuration: string
     pipelineSpec: {
       dotDagSource: string
-    }    
+    }
     schemaVersion: number
   }
 
@@ -481,12 +481,15 @@ declare module 'core/store/models' {
     directRequestSpec: {
       initiator: 'runlog'
       contractAddress: common.Address
+      onChainJobSpecID: string
       createdAt: time.Time
     }
     fluxMonitorSpec: null
-    offChainReportingOracleSpec: null 
+    offChainReportingOracleSpec: null
     keeperSpec: null
-  }  
+    cronSpec: null
+    webhookSpec: null
+  }
 
   export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
     type: 'fluxmonitor'
@@ -502,6 +505,8 @@ declare module 'core/store/models' {
       minPayment: number | null
       createdAt: time.Time
     }
+    cronSpec: null
+    webhookSpec: null
     directRequestSpec: null
     offChainReportingOracleSpec: null
     keeperSpec: null
@@ -524,26 +529,64 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
-    } 
+    }
+    cronSpec: null
+    webhookSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     keeperSpec: null
   }
 
   export type KeeperV2Spec = BaseJobSpecV2 & {
-    type: 'keeper',
+    type: 'keeper'
     keeperSpec: {
       contractAddress: common.Address
       fromAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
     }
+    cronSpec: null
+    webhookSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
   }
 
-  export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec | KeeperV2Spec
+  export type CronV2Spec = BaseJobSpecV2 & {
+    type: 'cron'
+    keeperSpec: null
+    cronSpec: {
+      schedule: string
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    webhookSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type WebhookV2Spec = BaseJobSpecV2 & {
+    type: 'webhook'
+    keeperSpec: null
+    webhookSpec: {
+      onChainJobSpecID: string
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    cronSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type JobSpecV2 =
+    | DirectRequestJobV2Spec
+    | FluxMonitorJobV2Spec
+    | OffChainReportingOracleJobV2Spec
+    | KeeperV2Spec
+    | CronV2Spec
+    | WebhookV2Spec
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]
@@ -561,14 +604,14 @@ declare module 'core/store/models' {
   export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
 
   export interface LogConfig {
-     level: LogConfigLevel
-     sqlEnabled: boolean
-  }  
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }
 
   export interface LogConfigRequest {
     level: LogConfigLevel
     sqlEnabled: boolean
-  }  
+  }
 }
 
 export interface PipelineTaskRun {
@@ -579,4 +622,3 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
-

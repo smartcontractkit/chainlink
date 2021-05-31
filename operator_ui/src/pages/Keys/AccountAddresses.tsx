@@ -15,19 +15,16 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
 import { TimeAgo } from 'components/TimeAgo'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import { Copy } from './Copy'
 
-const styles = (theme: Theme) =>
+const styles = () =>
   createStyles({
-    card: {
-      padding: theme.spacing.unit,
-      marginBottom: theme.spacing.unit * 3,
+    cardContent: {
+      padding: 0,
+      '&:last-child': {
+        padding: 0,
+      },
     },
   })
 
@@ -58,10 +55,10 @@ export const AccountAddresses = withStyles(styles)(
       <Grid item xs={12}>
         <ErrorComponent />
 
-        <Card className={classes.card}>
+        <Card>
           <CardHeader title="Account addresses" />
 
-          <CardContent>
+          <CardContent className={classes.cardContent}>
             <Table>
               <TableHead>
                 <TableRow>

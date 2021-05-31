@@ -5,8 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+
 	gormpostgres "gorm.io/driver/postgres"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/mock"
@@ -172,6 +175,15 @@ func TestORM(t *testing.T) {
 			Preload("JobSpecErrors").
 			First(&j2, "jobs.id = ?", jobSpec.ID).
 			Error
+		require.NoError(t, err)
+	})
+
+	t.Run("creates a job with a direct request spec", func(t *testing.T) {
+		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
+		require.NoError(t, err)
+		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
+		require.NoError(t, err)
+		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 	})
 }

@@ -38,8 +38,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	// setup node key
 	nodeKey := cltest.MustGenerateRandomKey(t)
 	nodeAddress := nodeKey.Address.Address()
-	nodeAddressEIP55, err := models.EIP55AddressFromAddress(nodeAddress)
-	require.NoError(t, err)
+	nodeAddressEIP55 := models.EIP55AddressFromAddress(nodeAddress)
 
 	// setup blockchain
 	sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
@@ -66,7 +65,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, err)
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 	require.NoError(t, err)
-	regAddr, _, registryContract, err := keeper_registry_wrapper.DeployKeeperRegistry(steve, backend, linkAddr, linkFeedAddr, gasFeedAddr, 250_000_000, big.NewInt(1), 20_000_000, big.NewInt(3600), big.NewInt(60000000000), big.NewInt(20000000000000000))
+	regAddr, _, registryContract, err := keeper_registry_wrapper.DeployKeeperRegistry(steve, backend, linkAddr, linkFeedAddr, gasFeedAddr, 250_000_000, big.NewInt(1), 20_000_000, big.NewInt(3600), 1, big.NewInt(60000000000), big.NewInt(20000000000000000))
 	require.NoError(t, err)
 	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 	require.NoError(t, err)
@@ -100,8 +99,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	// create job
-	regAddrEIP55, err := models.EIP55AddressFromAddress(regAddr)
-	require.NoError(t, err)
+	regAddrEIP55 := models.EIP55AddressFromAddress(regAddr)
 	cltest.MustInsertKeeperJob(t, app.Store, nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received

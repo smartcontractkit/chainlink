@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -99,7 +101,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	}
 
 	key := cltest.MustGenerateRandomKey(t)
-	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
@@ -381,11 +383,11 @@ func assertNoSubmission(t *testing.T,
 func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
-	db.Where("round_id = ?", roundID).Find(&stats)
+	require.NoError(t, db.Where("round_id = ?", roundID).Find(&stats).Error)
 
 	// Verify the pipeline run data
 	run := pipeline.Run{}
-	db.Find(&run, stats.PipelineRunID)
+	require.NoError(t, db.Find(&run, stats.PipelineRunID).Error, "runID %v", stats.PipelineRunID)
 	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
 }
 
@@ -467,7 +469,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -584,7 +586,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -600,6 +602,15 @@ ds1 -> ds1_parse
 		isNewRound:      true,
 		completesAnswer: false,
 	})
+
+	// Waiting for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+	assert.Eventually(t, func() bool {
+		return app.LogBroadcaster.TrackedAddressesCount() >= 2
+	}, 3*time.Second, 200*time.Millisecond)
+
+	// Finally, the logs from log broadcaster are sent only after a next block is received.
+	fa.backend.Commit()
 
 	// Wait for the node's submission, and ensure it submits to the round
 	// started by the fake node
@@ -679,7 +690,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -787,7 +798,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -887,7 +898,7 @@ ds1 -> ds1_parse -> ds1_multiply
 	`
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "200ms", mockServer.URL)
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)

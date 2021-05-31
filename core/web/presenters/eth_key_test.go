@@ -1,6 +1,8 @@
 package presenters
 
 import (
+	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,14 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestETHKeyResource(t *testing.T) {
 	var (
-		now       = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-		nextNonce = int64(1)
+		now        = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		nextNonce  = int64(1)
+		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
 	)
-	address, err := models.NewEIP55Address("0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD")
+	address, err := models.NewEIP55Address(addressStr)
 	require.NoError(t, err)
 
 	key := models.Key{
@@ -25,7 +29,6 @@ func TestETHKeyResource(t *testing.T) {
 		CreatedAt: now,
 		UpdatedAt: now,
 		NextNonce: nextNonce,
-		LastUsed:  &now,
 		IsFunding: true,
 	}
 
@@ -41,17 +44,16 @@ func TestETHKeyResource(t *testing.T) {
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
 
-	expected := `
+	expected := fmt.Sprintf(`
 	{
 		"data":{
 		   "type":"eTHKeys",
-		   "id":"0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD",
+		   "id":"%s",
 		   "attributes":{
-			  "address":"0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD",
+			  "address":"%s",
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "nextNonce":1,
-			  "lastUsed":"2000-01-01T00:00:00Z",
 			  "isFunding":true,
 			  "createdAt":"2000-01-01T00:00:00Z",
 			  "updatedAt":"2000-01-01T00:00:00Z",
@@ -59,7 +61,40 @@ func TestETHKeyResource(t *testing.T) {
 		   }
 		}
 	 }
-	`
+	`, addressStr, addressStr)
+
+	assert.JSONEq(t, expected, string(b))
+
+	// With a deleted field
+	key.DeletedAt = gorm.DeletedAt(sql.NullTime{Time: now, Valid: true})
+
+	r, err = NewETHKeyResource(key,
+		SetETHKeyEthBalance(assets.NewEth(1)),
+		SetETHKeyLinkBalance(assets.NewLink(1)),
+	)
+	require.NoError(t, err)
+	b, err = jsonapi.Marshal(r)
+	require.NoError(t, err)
+
+	expected = fmt.Sprintf(`
+	{
+		"data": {
+			"type":"eTHKeys",
+			"id":"%s",
+			"attributes":{
+				"address":"%s",
+				"ethBalance":"1",
+				"linkBalance":"1",
+				"nextNonce":1,
+				"isFunding":true,
+				"createdAt":"2000-01-01T00:00:00Z",
+				"updatedAt":"2000-01-01T00:00:00Z",
+				"deletedAt":"2000-01-01T00:00:00Z"
+			}
+		}
+	}`,
+		addressStr, addressStr,
+	)
 
 	assert.JSONEq(t, expected, string(b))
 }

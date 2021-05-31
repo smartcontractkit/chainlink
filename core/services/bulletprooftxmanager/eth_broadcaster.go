@@ -76,43 +76,41 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader, eventBroadca
 }
 
 func (eb *ethBroadcaster) Start() error {
-	if !eb.OkayToStart() {
-		return errors.New("EthBroadcaster is already started")
-	}
+	return eb.StartOnce("EthBroadcaster", func() error {
+		var err error
+		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
+		if err != nil {
+			return errors.Wrap(err, "EthBroadcaster could not start")
+		}
 
-	var err error
-	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
-	if err != nil {
-		return errors.Wrap(err, "EthBroadcaster could not start")
-	}
+		if eb.config.EthNonceAutoSync() {
+			syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
+			if err := syncer.SyncAll(eb.ctx); err != nil {
+				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+			}
+		}
 
-	syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
-	if err := syncer.SyncAll(eb.ctx); err != nil {
-		return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
-	}
+		eb.wg.Add(1)
+		go eb.monitorEthTxs()
 
-	eb.wg.Add(1)
-	go eb.monitorEthTxs()
+		eb.wg.Add(1)
+		go eb.ethTxInsertTriggerer()
 
-	eb.wg.Add(1)
-	go eb.ethTxInsertTriggerer()
-
-	return nil
+		return nil
+	})
 }
 
 func (eb *ethBroadcaster) Close() error {
-	if !eb.OkayToStop() {
-		return errors.New("EthBroadcaster is already stopped")
-	}
+	return eb.StopOnce("EthBroadcaster", func() error {
+		if eb.ethTxInsertListener != nil {
+			eb.ethTxInsertListener.Close()
+		}
 
-	if eb.ethTxInsertListener != nil {
-		eb.ethTxInsertListener.Close()
-	}
+		eb.ctxCancel()
+		eb.wg.Wait()
 
-	eb.ctxCancel()
-	eb.wg.Wait()
-
-	return nil
+		return nil
+	})
 }
 
 func (eb *ethBroadcaster) Trigger() {
@@ -139,7 +137,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		keys, err := eb.store.SendKeys()
+		keys, err := eb.store.KeyStore.SendingKeys()
 
 		if err != nil {
 			logger.Error(errors.Wrap(err, "monitorEthTxs failed getting key"))
@@ -170,11 +168,13 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 			}
 			return
 		case <-eb.trigger:
+			// EthTx was inserted
 			if !pollDBTimer.Stop() {
 				<-pollDBTimer.C
 			}
 			continue
 		case <-pollDBTimer.C:
+			// DB poller timed out
 			continue
 		}
 	}
@@ -211,7 +211,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		a, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
+		a, err := newAttempt(context.TODO(), eb.store, *etx, nil)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -265,9 +265,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
-	ctx, cancel := context.WithTimeout(eb.ctx, maxEthNodeRequestTime)
-	defer cancel()
-	sendError := sendTransaction(ctx, eb.ethClient, attempt)
+	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt, etx)
 
 	if sendError.IsTooExpensive() {
 		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
@@ -449,8 +447,13 @@ func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *eth.SendError, e
 	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}
-	replacementAttempt, err := newAttempt(eb.store, etx, bumpedGasPrice)
-	if err != nil {
+	ctx, cancel := eth.DefaultQueryCtx()
+	defer cancel()
+
+	replacementAttempt, err := newAttempt(ctx, eb.store, etx, bumpedGasPrice)
+	if ctx.Err() != nil {
+		return errors.Wrap(ctx.Err(), "tryAgainWithHigherGasPrice failed, context deadline exceeded")
+	} else if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
 
@@ -494,6 +497,8 @@ func IncrementNextNonce(db *gorm.DB, address gethCommon.Address, currentNonce in
 		return errors.Wrap(res.Error, "IncrementNextNonce failed to update keys")
 	}
 	if res.RowsAffected == 0 {
+		var key models.Key
+		db.Where("address = ?", address.Bytes()).First(&key)
 		return errors.New("invariant violation: could not increment nonce because no rows matched query. " +
 			"Either the key is missing or the nonce has been modified by an external process. This is an unrecoverable error")
 	}

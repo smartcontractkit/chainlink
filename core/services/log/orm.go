@@ -14,8 +14,8 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore --structname ORM --filename orm.go
 
 type ORM interface {
-	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error)
-	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error
+	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error)
+	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error
 }
 
 type orm struct {
@@ -28,7 +28,7 @@ func NewORM(db *gorm.DB) *orm {
 	return &orm{db}
 }
 
-func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) (consumed bool, err error) {
+func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID interface{}) (consumed bool, err error) {
 	var jobIDName string
 	switch v := jobID.(type) {
 	case models.JobID:
@@ -53,30 +53,30 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID i
 	}
 
 	stmt := fmt.Sprintf(q, jobIDName)
-	err = o.db.Raw(stmt, args...).Row().Scan(&consumed)
+	err = tx.Raw(stmt, args...).Row().Scan(&consumed)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
 	return consumed, err
 }
 
-func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {
-	var jobIDName string
+func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {
+
+	var jobID1Value interface{} = nil
+	var jobID2Value interface{} = nil
+
 	switch v := jobID.(type) {
 	case models.JobID:
-		jobIDName = "job_id"
+		jobID1Value = jobID
 	case int32:
-		jobIDName = "job_id_v2"
+		jobID2Value = jobID
 	default:
 		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
-	q := `
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, %[1]s, created_at, consumed) VALUES (?, ?, ?, ?, NOW(), true)
-    `
-
-	stmt := fmt.Sprintf(q, jobIDName)
-	query := o.db.Exec(stmt, blockHash, blockNumber, logIndex, jobID)
+	query := tx.Exec(`
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, job_id_v2, created_at, consumed) VALUES (?, ?, ?, ?, ?, NOW(), true)
+    `, blockHash, blockNumber, logIndex, jobID1Value, jobID2Value)
 	if query.Error != nil {
 		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
 	} else if query.RowsAffected == 0 {

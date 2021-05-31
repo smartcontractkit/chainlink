@@ -1,12 +1,15 @@
 package eth
 
 import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/core"
-
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
@@ -31,11 +34,13 @@ func (s *SendError) Fatal() bool {
 	return s != nil && s.fatal
 }
 
-// Geth errors
-
-var (
-	gethTxFeeExceedsCap = regexp.MustCompile(`^tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)`)
-)
+// CauseStr returns the string of the original error
+func (s *SendError) CauseStr() string {
+	if s.err != nil {
+		return errors.Cause(s.err).Error()
+	}
+	return ""
+}
 
 // Parity errors
 var (
@@ -43,7 +48,7 @@ var (
 	parTooCheapToReplace    = regexp.MustCompile("^Transaction gas price .+is too low. There is another transaction with same nonce in the queue")
 	parLimitReached         = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
 	parAlreadyImported      = "Transaction with the same hash was already imported."
-	parOld                  = "Transaction nonce is too low. Try incrementing the nonce."
+	parNonceTooLow          = "Transaction nonce is too low. Try incrementing the nonce."
 	parInsufficientGasPrice = regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price")
 	parInsufficientEth      = regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)")
 
@@ -60,15 +65,38 @@ var (
 	parInvalidRlp       = regexp.MustCompile("^Invalid RLP data:")
 )
 
-// Arbitrum errors
+// Geth and geth-compatible errors
 var (
-	arbNonceTooLow          = errors.Wrap(core.ErrNonceTooLow, "transaction rejected")
-	arbErrInsufficientFunds = errors.Wrap(core.ErrInsufficientFunds, "transaction rejected")
+	gethNonceTooLow                       = regexp.MustCompile(`(: |^)nonce too low$`)
+	gethReplacementTransactionUnderpriced = regexp.MustCompile(`(: |^)replacement transaction underpriced$`)
+	gethKnownTransaction                  = regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`)
+	gethTransactionUnderpriced            = regexp.MustCompile(`(: |^)transaction underpriced$`)
+	gethInsufficientEth                   = regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`)
+	gethTxFeeExceedsCap                   = regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)$`)
+
+	// Fatal Errors
+	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
+	gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
 )
+
+var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+
+	switch {
+	case gethReplacementTransactionUnderpriced.MatchString(str):
+		return true
+	case parTooCheapToReplace.MatchString(str):
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
@@ -76,49 +104,69 @@ func (s *SendError) IsNonceTooLowError() bool {
 		return false
 	}
 
-	switch s.Error() {
-	// Geth
-	case "nonce too low":
+	str := s.CauseStr()
+	switch {
+	case gethNonceTooLow.MatchString(str):
 		return true
-	// Arbitrum
-	case arbNonceTooLow.Error():
+	case str == parNonceTooLow:
 		return true
-	// Parity
-	case parOld:
-		return true
+	default:
+		return false
 	}
-	return false
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
 func (s *SendError) IsTransactionAlreadyInMempool() bool {
-	return s != nil && s.err != nil && (strings.HasPrefix(strings.ToLower(s.Error()), "known transaction") || s.Error() == "already known" || s.Error() == parAlreadyImported)
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+	switch {
+	case gethKnownTransaction.MatchString(str):
+		return true
+	case str == parAlreadyImported:
+		return true
+	default:
+		return false
+	}
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far
 // underpriced the node won't even accept it in the first place
 func (s *SendError) IsTerminallyUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || parInsufficientGasPrice.MatchString(s.Error()))
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	str := s.CauseStr()
+	switch {
+	case gethTransactionUnderpriced.MatchString(str):
+		return true
+	case parInsufficientGasPrice.MatchString(str):
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s != nil && s.err != nil && s.Error() == parLimitReached
+	return s != nil && s.err != nil && s.CauseStr() == parLimitReached
 }
 
 func (s *SendError) IsInsufficientEth() bool {
 	if s == nil || s.err == nil {
 		return false
 	}
-	switch s.Error() {
-	// Geth
-	case "insufficient funds for transfer", "insufficient funds for gas * price + value", "insufficient balance for transfer":
+
+	str := s.CauseStr()
+	switch {
+	case gethInsufficientEth.MatchString(str):
 		return true
-	// Arbitrum
-	case arbErrInsufficientFunds.Error():
+	case parInsufficientEth.MatchString(str):
 		return true
-	// Parity
 	default:
-		return parInsufficientEth.MatchString(s.Error())
+		return false
 	}
 }
 
@@ -130,7 +178,10 @@ func (s *SendError) IsTooExpensive() bool {
 	if s == nil || s.err == nil {
 		return false
 	}
-	return gethTxFeeExceedsCap.MatchString(s.Error())
+
+	str := s.CauseStr()
+
+	return gethTxFeeExceedsCap.MatchString(str)
 }
 
 func NewFatalSendErrorS(s string) *SendError {
@@ -163,19 +214,12 @@ func isFatalSendError(err error) bool {
 	if err == nil {
 		return false
 	}
-	s := err.Error()
-	return isGethFatal(s) || isParityFatal(s)
+	str := errors.Cause(err).Error()
+	return isGethFatal(str) || isParityFatal(str)
 }
 
 func isGethFatal(s string) bool {
-	switch s {
-	// Geth errors
-	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
-	case "exceeds block gas limit", "invalid sender", "negative value", "oversized data", "gas uint64 overflow", "intrinsic gas too low", "nonce too high":
-		return true
-	default:
-		return false
-	}
+	return gethFatal.MatchString(s)
 }
 
 // See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420
@@ -190,4 +234,60 @@ func isParityFatal(s string) bool {
 			parGasLimitExceeded.MatchString(s) ||
 			parInvalidSignature.MatchString(s) ||
 			parInvalidRlp.MatchString(s))
+}
+
+// go-ethereum@v1.10.0/rpc/json.go
+type JsonError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+func (err *JsonError) Error() string {
+	if err.Message == "" {
+		return fmt.Sprintf("json-rpc error %d", err.Code)
+	}
+	return err.Message
+}
+
+// ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
+// an RPC eth_call that reverted by parsing the message from the "data" field
+// ex:
+// kovan (parity)
+// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
+// rinkeby / ropsten (geth)
+// { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
+func ExtractRevertReasonFromRPCError(err error) (string, error) {
+	if err == nil {
+		return "", errors.New("no error present")
+	}
+	cause := errors.Cause(err)
+	jsonBytes, err := json.Marshal(cause)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to marshal err to json")
+	}
+	jErr := JsonError{}
+	err = json.Unmarshal(jsonBytes, &jErr)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to unmarshal json into jsonError struct")
+	}
+	dataStr, ok := jErr.Data.(string)
+	if !ok {
+		return "", errors.New("invalid error type")
+	}
+	matches := hexDataRegex.FindStringSubmatch(dataStr)
+	if len(matches) != 1 {
+		return "", errors.New("unknown data payload format")
+	}
+	hexData := utils.RemoveHexPrefix(matches[0])
+	if len(hexData) < 8 {
+		return "", errors.New("unknown data payload format")
+	}
+	revertReasonBytes, err := hex.DecodeString(hexData[8:])
+	if err != nil {
+		return "", errors.Wrap(err, "unable to decode hex to bytes")
+	}
+	revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+	revertReason := strings.TrimSpace(string(revertReasonBytes))
+	return revertReason, nil
 }

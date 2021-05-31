@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func panicErr(err error) {
@@ -18,12 +21,13 @@ func panicErr(err error) {
 }
 
 func main() {
-	cb := func(log models.Log) {}
-	c, err := eth.NewClient("ws://localhost:8546")
+	cb := func(rm services.RunManager, lr models.LogRequest) {}
+	c, err := eth.NewClient("ws://localhost:8546", nil, []url.URL{})
 	panicErr(err)
 	err = c.Dial(context.Background())
 	panicErr(err)
-	sub, err := services.NewManagedSubscription(c, ethereum.FilterQuery{}, cb, 0)
+	rm := new(mocks.RunManager)
+	sub, err := services.NewInitiatorSubscription(models.Initiator{}, c, rm, ethereum.FilterQuery{}, 0, cb)
 	panicErr(err)
 	fmt.Println(sub)
 	time.Sleep(30 * time.Second)

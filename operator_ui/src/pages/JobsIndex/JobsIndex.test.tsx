@@ -8,6 +8,8 @@ import {
   fluxMonitorJobResource,
   ocrJobResource,
   keeperJobResource,
+  cronJobResource,
+  webJobResource,
 } from 'support/factories/jsonApiJobs'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
@@ -46,6 +48,14 @@ describe('pages/JobsIndex/JobsIndex', () => {
           createdAt: new Date().toISOString(),
         }),
         keeperJobResource({
+          id: '4000000',
+          createdAt: new Date().toISOString(),
+        }),
+        cronJobResource({
+          id: '4000000',
+          createdAt: new Date().toISOString(),
+        }),
+        webJobResource({
           id: '4000000',
           createdAt: new Date().toISOString(),
         }),
@@ -120,7 +130,7 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
     wrapper
       .find('input[name="search"]')
-      .simulate('change', { target: { value: 'web' } })
+      .simulate('change', { target: { value: 'web   ' } }) // Tests trimming whitespace as well
 
     expect(wrapper.find('tbody').children().length).toEqual(1)
   })

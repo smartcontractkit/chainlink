@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,51 +16,63 @@ import (
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
-	t.Parallel()
-
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	// Invalid request
-	resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(""))
-	defer cleanup()
-	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
-	require.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
-	assert.Len(t, errors.Errors, 1)
+	testCases := []struct {
+		name           string
+		reqBody        string
+		wantStatusCode int
+		wantErrCount   int
+		wantErrMessage string
+	}{
+		{
+			name:           "Invalid request",
+			reqBody:        "",
+			wantStatusCode: http.StatusUnprocessableEntity,
+			wantErrCount:   1,
+		},
+		{
+			name:           "Incorrect old password",
+			reqBody:        `{"oldPassword": "wrong password"}`,
+			wantStatusCode: http.StatusConflict,
+			wantErrCount:   1,
+			wantErrMessage: "old password does not match",
+		},
+		{
+			name:           "Success",
+			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, cltest.Password, cltest.Password),
+			wantStatusCode: http.StatusOK,
+		},
+	}
 
-	// Old password is wrong
-	resp, cleanup = client.Patch(
-		"/v2/user/password",
-		bytes.NewBufferString(`{"oldPassword": "wrong password"}`))
-	defer cleanup()
-	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
-	require.Equal(t, http.StatusConflict, resp.StatusCode)
-	assert.Len(t, errors.Errors, 1)
-	assert.Equal(t, "old password does not match", errors.Errors[0].Detail)
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Success
-	resp, cleanup = client.Patch(
-		"/v2/user/password",
-		bytes.NewBufferString(fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, cltest.Password, cltest.Password)))
-	defer cleanup()
-	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
-	assert.Len(t, errors.Errors, 0)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+			resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(tc.reqBody))
+			t.Cleanup(cleanup)
+			errors := cltest.ParseJSONAPIErrors(t, resp.Body)
+
+			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
+			assert.Len(t, errors.Errors, tc.wantErrCount)
+			if tc.wantErrMessage != "" {
+				assert.Equal(t, tc.wantErrMessage, errors.Errors[0].Detail)
+			}
+		})
+	}
 }
 
 func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -86,10 +96,10 @@ func TestUserController_NewAPIToken(t *testing.T) {
 func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -107,10 +117,10 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -129,10 +139,10 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())

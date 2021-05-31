@@ -8,8 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -86,15 +84,15 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	_, gethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
-	store.EthClient = eth.NewClientWith(nil, gethClient)
+	store.EthClient = ethClient
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(2),
 	})
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
@@ -104,7 +102,16 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	err := jobSubscriber.AddJob(jobSpec, cltest.Head(321))
 	require.NoError(t, err)
 
-	assert.Len(t, jobSubscriber.Jobs(), 1)
+	// Re-adding the same jobID should be idempotent
+	// and NOT create a new subscription and overwrite
+	jobSpec2 := cltest.NewJobWithLogInitiator()
+	jobSpec2.ID = jobSpec.ID
+	jobSpec2.Name = "should not overwrite"
+	err = jobSubscriber.AddJob(jobSpec, cltest.Head(321))
+	require.NoError(t, err)
+	jbs := jobSubscriber.Jobs()
+	require.Equal(t, 1, len(jbs))
+	require.Equal(t, "", jbs[0].Name)
 
 	err = jobSubscriber.RemoveJob(jobSpec.ID)
 	require.NoError(t, err)
@@ -152,15 +159,15 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
-	gethClient := new(mocks.GethClient)
-	defer gethClient.AssertExpectations(t)
-	store.EthClient = eth.NewClientWith(nil, gethClient)
+	ethClient := new(mocks.Client)
+	defer ethClient.AssertExpectations(t)
+	store.EthClient = ethClient
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(500),
 	})
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	jobSpec1 := cltest.NewJobWithLogInitiator()
 	jobSpec2 := cltest.NewJobWithLogInitiator()
@@ -169,11 +176,9 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 
 	require.Nil(t, jobSubscriber.Connect(cltest.Head(491)))
 
-	jobSubscriber.Stop()
-
 	assert.Len(t, jobSubscriber.Jobs(), 2)
 
-	jobSubscriber.Disconnect()
+	jobSubscriber.Stop()
 
 	assert.Len(t, jobSubscriber.Jobs(), 0)
 }

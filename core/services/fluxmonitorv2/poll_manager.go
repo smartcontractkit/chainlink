@@ -51,6 +51,7 @@ type PollManager struct {
 	idleTimer        utils.ResettableTimer
 	roundTimer       utils.ResettableTimer
 	retryTicker      utils.BackoffTicker
+	chPoll           chan PollRequest
 
 	logger *logger.Logger
 }
@@ -65,6 +66,12 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 	if cfg.IdleTimerPeriod < maxBackoffDuration {
 		maxBackoffDuration = cfg.IdleTimerPeriod
 	}
+	// Always initialize the idle timer so that no matter what it has a ticker
+	// and won't get starved by an old startedAt timestamp from the oracle state on boot.
+	var idleTimer = utils.NewResettableTimer()
+	if !cfg.IdleTimerDisabled {
+		idleTimer.Reset(cfg.IdleTimerPeriod)
+	}
 
 	return &PollManager{
 		cfg:    cfg,
@@ -72,9 +79,10 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 
 		hibernationTimer: utils.NewResettableTimer(),
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
-		idleTimer:        utils.NewResettableTimer(),
+		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
+		chPoll:           make(chan PollRequest),
 	}
 }
 
@@ -98,13 +106,40 @@ func (pm *PollManager) RoundTimerTicks() <-chan time.Time {
 	return pm.roundTimer.Ticks()
 }
 
+// RetryTickerTicks ticks with a backoff when the retry ticker is activated
 func (pm *PollManager) RetryTickerTicks() <-chan time.Time {
 	return pm.retryTicker.Ticks()
+}
+
+// Poll returns a channel which the manager will use to send polling requests
+//
+// Note: In the future, we should change the tickers above to send their request
+// through this channel to simplify the listener.
+func (pm *PollManager) Poll() <-chan PollRequest {
+	return pm.chPoll
 }
 
 // Start initializes all the timers and determines whether to go into immediate
 // hibernation.
 func (pm *PollManager) Start(hibernate bool, roundState flux_aggregator_wrapper.OracleRoundState) {
+	pm.cfg.IsHibernating = hibernate
+
+	if pm.ShouldPerformInitialPoll() {
+		// We want this to be non blocking but if there is no received for the
+		// polling channel, this go routine would hang around forever. Since we
+		// should always have a receiver for the polling channel, set a timeout
+		// of 5 seconds to kill the goroutine.
+		go func() {
+			select {
+			case pm.chPoll <- PollRequest{PollRequestTypeInitial, time.Now()}:
+			case <-time.After(5 * time.Second):
+				pm.logger.Warn("Start up poll was not consumed")
+			}
+		}()
+	}
+
+	pm.maybeWarnAboutIdleAndPollIntervals()
+
 	if hibernate {
 		pm.Hibernate()
 	} else {
@@ -135,13 +170,13 @@ func (pm *PollManager) ResetIdleTimer(roundStartedAtUTC uint64) {
 }
 
 // StartRetryTicker starts the retry ticker
-func (pm *PollManager) StartRetryTicker() {
-	pm.retryTicker.Start()
+func (pm *PollManager) StartRetryTicker() bool {
+	return pm.retryTicker.Start()
 }
 
 // StopRetryTicker stops the retry ticker
-func (pm *PollManager) StopRetryTicker() {
-	pm.retryTicker.Stop()
+func (pm *PollManager) StopRetryTicker() bool {
+	return pm.retryTicker.Stop()
 }
 
 // Stop stops all timers/tickers
@@ -195,8 +230,6 @@ func (pm *PollManager) startPollTicker() {
 
 // startIdleTimer starts the idle timer if it is enabled
 func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
-	// Stop the retry timer when the idle timer is started
-	pm.retryTicker.Stop()
 
 	if pm.cfg.IdleTimerDisabled {
 		pm.idleTimer.Stop()
@@ -206,7 +239,7 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 
 	// Keep using the idleTimer we already have
 	if roundStartedAtUTC == 0 {
-		pm.logger.Debugw("keeping existing timer, no active round")
+		pm.logger.Debugw("not resetting idleTimer, no active round")
 
 		return
 	}
@@ -223,9 +256,13 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if deadlineDuration <= 0 {
-		log.Debugw("not resetting idleTimer, negative duration")
-
+		log.Debugw("not resetting idleTimer, round was started further in the past than idle timer period")
 		return
+	}
+
+	// Stop the retry timer when the idle timer is started
+	if pm.retryTicker.Stop() {
+		pm.logger.Debugw("stopped the retryTicker")
 	}
 
 	pm.idleTimer.Reset(deadlineDuration)
@@ -251,7 +288,7 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 	timeoutDuration := time.Until(timesOutAt)
 
 	if timeoutDuration <= 0 {
-		log.Debugw("roundTimer has run down; disabling")
+		log.Debugw("disabling roundTimer, as the round is already past its timeout")
 		pm.roundTimer.Stop()
 
 		return
@@ -263,4 +300,12 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 
 func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {
 	return rs.StartedAt + rs.Timeout
+}
+
+// ShouldPerformInitialPoll determines whether to perform an initial poll
+func (pm *PollManager) maybeWarnAboutIdleAndPollIntervals() {
+	if !pm.cfg.IdleTimerDisabled && !pm.cfg.PollTickerDisabled && pm.cfg.IdleTimerPeriod < pm.cfg.PollTickerInterval {
+		pm.logger.Warnw("The value of IdleTimerPeriod is lower than PollTickerInterval. The idle timer should usually be less frequent that poll",
+			"IdleTimerPeriod", pm.cfg.IdleTimerPeriod, "PollTickerInterval", pm.cfg.PollTickerInterval)
+	}
 }

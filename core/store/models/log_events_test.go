@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -26,13 +25,13 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
 		{
 			name:        "20190207 without indexes",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
+			log:         cltest.LogFromFixture(t, "../../testdata/jsonrpc/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
@@ -43,7 +42,7 @@ func TestParseRunLog(t *testing.T) {
 		},
 		{
 			name:        "20190207 without indexes and padded CBOR",
-			log:         cltest.LogFromFixture(t, "testdata/request20200212paddedCBOR.json"),
+			log:         cltest.LogFromFixture(t, "../../testdata/jsonrpc/request20200212paddedCBOR.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"address":"0xfeb35e1f7abe4ef198b7c8df895e19767f3ab8a5",
@@ -68,14 +67,14 @@ func TestParseRunLog(t *testing.T) {
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	exampleLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          models.Log
+		el          types.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "testdata/subscription_logs.json")},
+		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "../../testdata/jsonrpc/subscription_logs.json")},
 	}
 
 	for _, test := range tests {
@@ -96,7 +95,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, models.JobID, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) types.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -117,18 +116,24 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+			ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 			defer assertMocksCalled()
 			app, cleanup := cltest.NewApplicationWithKey(t,
-				eth.NewClientWith(rpcClient, gethClient),
+				ethClient,
 			)
 			defer cleanup()
 
 			js := test.job
-			log := test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+			log := test.logFactory(t, models.IDToTopic(js.ID), cltest.NewAddress(), test.requester, 1, `{}`)
 
-			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
+			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+
 			assert.NoError(t, app.StartAndConnect())
 
 			js.Initiators[0].Requesters = []common.Address{requester}
@@ -271,7 +276,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	t.Parallel()
 
-	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	id, err := models.NewJobIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)
 	i := models.Initiator{
 		Type:      models.InitiatorRunLog,
@@ -298,9 +303,9 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 func TestFilterQueryFactory_InitiatorVRFLog(t *testing.T) {
 	t.Parallel()
 
-	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	id, err := models.NewJobIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)
-	filterID, err := models.NewIDFromString("679fd3c51581478f89f95f5e24de5e09")
+	filterID, err := models.NewJobIDFromString("679fd3c51581478f89f95f5e24de5e09")
 	require.NoError(t, err)
 
 	t.Run("it only uses the jobID if no additional filter present", func(tt *testing.T) {
@@ -361,13 +366,13 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
 		{
 			name:        "20190207 without indexes",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
+			log:         cltest.LogFromFixture(t, "../../testdata/jsonrpc/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1000000000000000001),
 		},
@@ -390,13 +395,13 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		want        common.Address
 	}{
 		{
 			name:        "20190207 without indexes",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
+			log:         cltest.LogFromFixture(t, "../../testdata/jsonrpc/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db40"),
 		},
@@ -419,7 +424,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           models.Log
+		log           types.Log
 		wantRequestID common.Hash
 		wantTxHash    string
 		wantBlockHash string
@@ -427,7 +432,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 	}{
 		{
 			name:          "20190207 without indexes",
-			log:           cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
+			log:           cltest.LogFromFixture(t, "../../testdata/jsonrpc/requestLog20190207withoutIndexes.json"),
 			wantRequestID: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
 			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
 			wantBlockHash: "0x000c0d01ce8bd7100b73b1609ababc020e7f51dac75186bb799277c6b4b71e1c",
@@ -450,7 +455,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 }
 
 func TestIDToTopic(t *testing.T) {
-	id, err := models.NewIDFromString("ffffffffffffffffffffffffffffffff")
+	id, err := models.NewJobIDFromString("ffffffffffffffffffffffffffffffff")
 	require.NoError(t, err)
 	assert.Equal(t, common.Hash{
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -459,7 +464,7 @@ func TestIDToTopic(t *testing.T) {
 }
 
 func TestIDToIDToHexTopic(t *testing.T) {
-	id, err := models.NewIDFromString("ffffffffffffffffffffffffffffffff")
+	id, err := models.NewJobIDFromString("ffffffffffffffffffffffffffffffff")
 	require.NoError(t, err)
 	assert.Equal(t, common.Hash{
 		0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,

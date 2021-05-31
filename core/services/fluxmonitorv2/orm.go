@@ -1,8 +1,9 @@
 package fluxmonitorv2
 
 import (
-	"context"
 	"encoding/hex"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -18,8 +19,8 @@ type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
-	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64) error
-	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
+	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
 }
 
 type orm struct {
@@ -70,8 +71,8 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64) error {
-	return o.db.Exec(`
+func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error {
+	return db.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
         ) VALUES (
@@ -93,25 +94,20 @@ func (o *orm) CountFluxMonitorRoundStats() (int, error) {
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
 func (o *orm) CreateEthTransaction(
+	db *gorm.DB,
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
 	gasLimit uint64,
 	maxUnconfirmedTransactions uint64,
 ) error {
-	db, err := o.db.DB()
-	if err != nil {
-		return errors.Wrap(err, "orm#CreateEthTransaction")
-	}
-
-	err = utils.CheckOKToTransmit(context.Background(), db, fromAddress, maxUnconfirmedTransactions)
+	err := utils.CheckOKToTransmit(postgres.MustSQLDB(db), fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return errors.Wrap(err, "orm#CreateEthTransaction")
 	}
 
 	value := 0
-
-	dbtx := o.db.Exec(`
+	dbtx := db.Exec(`
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
 SELECT ?,?,?,?,?,'unstarted',NOW()
 WHERE NOT EXISTS (

@@ -13,7 +13,7 @@ import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
 import { Runs as JobRuns } from './Runs'
-import { isOcrJob } from './utils'
+import { isJobV2 } from './utils'
 import {
   transformDirectRequestJobRun,
   transformPipelineJobRun,
@@ -33,7 +33,7 @@ export const JobsShow = () => {
     recentRuns: [],
     recentRunsCount: 0,
   })
-  const { job, jobSpec } = state
+  const { job, jobSpec, onChainJobSpecID } = state
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
@@ -44,7 +44,7 @@ export const JobsShow = () => {
         page,
         size,
       }
-      if (isOcrJob(jobSpecId)) {
+      if (isJobV2(jobSpecId)) {
         return v2.ocrRuns
           .getJobSpecRuns(requestParams)
           .then((jobSpecRunsResponse) => {
@@ -76,13 +76,14 @@ export const JobsShow = () => {
   )
 
   const getJobSpec = React.useCallback(async () => {
-    if (isOcrJob(jobSpecId)) {
+    if (isJobV2(jobSpecId)) {
       return v2.jobs
         .getJobSpec(jobSpecId)
         .then((response) => {
           const jobSpec = response.data
           setState((s) => {
             let createdAt: string
+            let onChainJobSpecID: string | undefined
             switch (jobSpec.attributes.type) {
               case 'offchainreporting':
                 createdAt =
@@ -95,10 +96,22 @@ export const JobsShow = () => {
                 break
               case 'directrequest':
                 createdAt = jobSpec.attributes.directRequestSpec.createdAt
+                onChainJobSpecID =
+                  jobSpec.attributes.directRequestSpec.onChainJobSpecID
 
                 break
               case 'keeper':
                 createdAt = jobSpec.attributes.keeperSpec.createdAt
+
+                break
+              case 'cron':
+                createdAt = jobSpec.attributes.cronSpec.createdAt
+
+                break
+              case 'webhook':
+                createdAt = jobSpec.attributes.webhookSpec.createdAt
+                onChainJobSpecID =
+                  jobSpec.attributes.webhookSpec.onChainJobSpecID
 
                 break
             }
@@ -118,6 +131,7 @@ export const JobsShow = () => {
               ...s,
               jobSpec,
               job,
+              onChainJobSpecID,
             }
           })
         })
@@ -150,6 +164,7 @@ export const JobsShow = () => {
     <div>
       <RegionalNav
         jobSpecId={jobSpecId}
+        onChainJobSpecID={onChainJobSpecID}
         job={job}
         getJobSpecRuns={getJobSpecRuns}
         runsCount={state.recentRunsCount}

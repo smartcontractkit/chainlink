@@ -42,7 +42,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
-1. [Install Go 1.14](https://golang.org/doc/install?download=go1.14.9.darwin-amd64.pkg), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.15](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS 12.18](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 12.18 && nvm use 12.18`
@@ -173,24 +173,70 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
+> Note: `evm-contracts/` directory houses Solidity versions <=0.7. New contracts, using v0.8, are being developed in the `contracts/` directory, using hardhat.
+
+Inside the `evm-contracts/` directory:
+
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 2. Install the dependencies:
 
 ```bash
 yarn
-yarn setup:contracts
+yarn setup
 ```
 
 3. Run tests:
 
+   i. Solidity versions `0.4.x` to `0.7.x`:
+
+   ```bash
+   yarn test
+   ```
+
+#### Solidity >=v0.8
+
+Inside the `contracts/` directory:
+1. Install dependencies:
+
 ```bash
-cd evm-contracts
+yarn
+```
+
+2. Run tests:
+
+```bash
 yarn test
 ```
 
 ### Use of Go Generate
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+
+### Nix Flake
+
+A [flake](https://nixos.wiki/wiki/Flakes) is provided for use with the [Nix
+package manager](https://nixos.org/). It defines a declarative, reproducible
+development environment.
+
+To use it:
+
+1. [Nix has to be installed with flake support](https://nixos.wiki/wiki/Flakes#Installing_flakes).
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
+   Alternatively, a `direnv` integration exists to automatically change the
+   environment when `cd`-ing into the folder.
+3. Create a local postgres database:
+
+```
+cd $PGDATA/
+initdb
+pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start
+createdb chainlink_test -h localhost
+createuser --superuser --no-password chainlink -h localhost
+```
+
+4. Start postgres, `pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start`
+
+Now you can run tests or compile code as usual.
 
 ### Development Tips
 

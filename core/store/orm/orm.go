@@ -7,10 +7,9 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,21 +22,27 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/ethereum/go-ethereum/common"
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	// We've specified a later version in go.mod than is currently used by gorm
+	// to get this fix in https://github.com/jackc/pgx/pull/975.
+	// As soon as pgx releases a 4.12 and gorm [https://github.com/go-gorm/postgres/blob/master/go.mod#L6]
+	// bumps their version to 4.12, we can remove this.
+	_ "github.com/jackc/pgx/v4"
 )
 
 var (
@@ -325,7 +330,7 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return postgres.GormTransaction(context.Background(), orm.DB, callback)
+	return postgres.GormTransactionWithDefaultContext(orm.DB, callback)
 }
 
 // SaveJobRun updates UpdatedAt for a JobRun and updates its status, finished
@@ -339,9 +344,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err := postgres.GormTransaction(ctx, orm.DB, func(dbtx *gorm.DB) error {
+	err := postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		result := dbtx.Exec(`
 UPDATE job_runs SET "status"=?, "finished_at"=?, "updated_at"=NOW(), "creation_height"=?, "observed_height"=?, "payment"=?
 WHERE updated_at = ? AND "id" = ?`,
@@ -460,10 +463,40 @@ WHERE run_results.id = updates.id
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.DB.Create(run).Error
+	return orm.convenientTransaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&run.RunRequest).Error
+		if err != nil {
+			return err
+		}
+
+		err = tx.Create(&run.Result).Error
+		if err != nil {
+			return err
+		}
+
+		run.RunRequestID = clnull.Int64From(run.RunRequest.ID)
+		run.ResultID = clnull.Int64From(run.Result.ID)
+		err = tx.Create(run).Error
+		if err != nil {
+			return err
+		}
+
+		for i := range run.TaskRuns {
+			err = tx.Create(&run.TaskRuns[i].Result).Error
+			if err != nil {
+				return err
+			}
+
+			run.TaskRuns[i].JobRunID = run.ID
+			run.TaskRuns[i].ResultID = clnull.Int64From(run.TaskRuns[i].Result.ID)
+			err = tx.Create(&run.TaskRuns[i]).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // LinkEarnedFor shows the total link earnings for a job
@@ -578,14 +611,14 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
+	return Batch(func(offset, limit uint) (uint, error) {
+		scope := orm.DB.Order("job_specs.id asc").Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
 			scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 		}
 		var ids []string
-		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
+		err := scope.Table("job_specs").Distinct("job_specs.id").Pluck("job_specs.id", &ids).Error
 		if err != nil {
 			return 0, err
 		}
@@ -647,6 +680,19 @@ func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
 	return int(count), err
 }
 
+func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string) (int, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
+	var count int64
+	err := orm.DB.
+		Model(&models.JobRun{}).
+		Where("job_spec_id = ?", jobSpecID).
+		Where("status = ?", status).
+		Count(&count).Error
+	return int(count), err
+}
+
 // Sessions returns all sessions limited by the parameters.
 func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 	var sessions []models.Session
@@ -703,18 +749,38 @@ func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value strin
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
-	return orm.createJob(orm.DB, job)
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return orm.createJob(orm.DB, job)
+	})
 }
 
 func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	for i := range job.Initiators {
-		job.Initiators[i].JobSpecID = job.ID
+
+	err := tx.Create(job).Error
+	if err != nil {
+		return nil
 	}
 
-	return tx.Create(job).Error
+	for i := range job.Tasks {
+		job.Tasks[i].JobSpecID = job.ID
+		err := tx.Create(&job.Tasks[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := range job.Initiators {
+		job.Initiators[i].JobSpecID = job.ID
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job.Initiators[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ArchiveJob soft deletes the job, job_runs and its initiator.
@@ -739,6 +805,12 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 			return errors.Wrap(err, "Failed to create job for SA")
 		}
 
+		err = dbtx.Create(&sa.Encumbrance).Error
+		if err != nil {
+			return errors.Wrap(err, "Failed to create Encumberance for SA")
+		}
+
+		sa.EncumbranceID = sa.Encumbrance.ID
 		return dbtx.Create(sa).Error
 	})
 }
@@ -759,7 +831,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		return errors.Wrap(err, "finding job ids")
 	}
 
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
+	return Batch(func(offset, limit uint) (uint, error) {
 		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
 		var runs []models.JobRun
 		err := orm.Unscoped().
@@ -822,7 +894,11 @@ func (orm *ORM) FindJobIDsWithBridge(bridgeName string) ([]models.JobID, error) 
 
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
-func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+func (orm *ORM) IdempotentInsertEthTaskRunTx(meta models.EthTxMeta, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+	metaBytes, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
 	etx := models.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
@@ -830,16 +906,17 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 		Value:          assets.NewEthValue(0),
 		GasLimit:       gasLimit,
 		State:          models.EthTxUnstarted,
+		Meta:           gormpostgrestypes.Jsonb{RawMessage: metaBytes},
 	}
 	ethTaskRunTransaction := models.EthTaskRunTx{
-		TaskRunID: taskRunID,
+		TaskRunID: meta.TaskRunID,
 	}
-	err := orm.DB.Transaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Save(&etx).Error; err != nil {
+	err = orm.DB.Transaction(func(dbtx *gorm.DB) error {
+		if err = dbtx.Create(&etx).Error; err != nil {
 			return err
 		}
 		ethTaskRunTransaction.EthTxID = etx.ID
-		if err := dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
+		if err = dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
 			return err
 		}
 		return nil
@@ -847,7 +924,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 	switch v := err.(type) {
 	case *pgconn.PgError:
 		if v.ConstraintName == "idx_eth_task_run_txes_task_run_id" {
-			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID)
+			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(meta.TaskRunID)
 			if e != nil {
 				return e
 			}
@@ -857,7 +934,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 					"transaction already exists for task run ID %s but it has different parameters\n"+
 						"New parameters: toAddress: %s, encodedPayload: 0x%s"+
 						"Existing record has: toAddress: %s, encodedPayload: 0x%s",
-					taskRunID.String(),
+					meta.TaskRunID.String(),
 					toAddress.String(), hex.EncodeToString(encodedPayload),
 					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload),
 				)
@@ -1001,7 +1078,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() error {
-	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
 		user, err := findUser(dbtx)
 		if err != nil {
 			return err
@@ -1107,15 +1184,22 @@ func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.Jo
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, limit int) ([]models.JobRun, int, int, int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
 	count, err := orm.JobRunsCountFor(id)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
-
+	completedCount, err := orm.JobRunsCountForGivenStatus(id, "completed")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	erroredCount, err := orm.JobRunsCountForGivenStatus(id, "errored")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
 	var runs []models.JobRun
 	err = orm.preloadJobRuns().
 		Where("job_spec_id = ?", id).
@@ -1123,7 +1207,7 @@ func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, li
 		Limit(limit).
 		Offset(offset).
 		Find(&runs).Error
-	return runs, count, err
+	return runs, count, completedCount, erroredCount, err
 }
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
@@ -1285,10 +1369,19 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := dbtx.Exec(`
 			WITH deleted_job_runs AS (
-				DELETE FROM job_runs WHERE status IN (?) AND updated_at < ? RETURNING result_id, run_request_id
+				DELETE FROM job_runs as jr
+				USING task_runs as tr
+				WHERE
+					jr.status IN (?) AND
+					jr.updated_at < ? AND
+					jr.id = tr.job_run_id
+				RETURNING jr.result_id as job_run_result_id, jr.run_request_id, tr.result_id as task_run_result_id
 			),
-			deleted_run_results AS (
-				DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
+			deleted_job_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+			),
+			deleted_task_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
 			)
 			DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
@@ -1298,119 +1391,6 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 
 		return nil
 	})
-}
-
-// AllKeys returns all of the keys recorded in the database including the funding key.
-// You should use SendKeys() to retrieve all but the funding keys.
-func (orm *ORM) AllKeys() ([]models.Key, error) {
-	var keys []models.Key
-	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
-}
-
-// SendKeys will return only the keys that are not is_funding=true.
-func (orm *ORM) SendKeys() ([]models.Key, error) {
-	var keys []models.Key
-	err := orm.DB.Where("is_funding != TRUE").Order("created_at ASC, address ASC").Find(&keys).Error
-	return keys, err
-}
-
-// KeyByAddress returns the key matching provided address
-func (orm *ORM) KeyByAddress(address common.Address) (models.Key, error) {
-	var key models.Key
-	err := orm.DB.Where("address = ?", address).First(&key).Error
-	return key, err
-}
-
-// KeyExists returns true if a key exists in the database for this address
-func (orm *ORM) KeyExists(address common.Address) (bool, error) {
-	var key models.Key
-	err := orm.DB.Where("address = ?", address).First(&key).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	return true, err
-}
-
-// DeleteKey deletes a key whose address matches the supplied bytes.
-func (orm *ORM) DeleteKey(address common.Address) error {
-	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
-}
-
-// CreateKeyIfNotExists inserts a key if a key with that address doesn't exist already
-// If a key with this address exists, it does nothing
-func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	err := orm.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "address"}},
-		DoUpdates: clause.Assignments(map[string]interface{}{"deleted_at": nil}),
-	}).Create(&k).Error
-	if err == nil || err.Error() == "sql: no rows in result set" {
-		return nil
-	}
-	return err
-}
-
-// FirstOrCreateEncryptedVRFKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.FirstOrCreate(k).Error
-}
-
-// ArchiveEncryptedVRFKey soft-deletes k from the encrypted keys table, or errors
-func (orm *ORM) ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Delete(k).Error
-}
-
-// DeleteEncryptedVRFKey deletes k from the encrypted keys table, or errors
-func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Unscoped().Delete(k).Error
-}
-
-// FindEncryptedVRFKeys retrieves matches to where from the encrypted keys table, or errors
-func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
-	retrieved []*vrfkey.EncryptedVRFKey, err error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
-	for _, constraint := range where {
-		c := constraint
-		anonWhere = append(anonWhere, &c)
-	}
-	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
-}
-
-// GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
-// This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
-// addresses in the database.
-// NOTE: We can add more advanced logic here later such as sorting by priority
-// etc
-func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
-		q := tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Order("last_used ASC NULLS FIRST, id ASC")
-		q = q.Where("is_funding = FALSE")
-		if len(addresses) > 0 {
-			q = q.Where("address in (?)", addresses)
-		}
-		keys := make([]models.Key, 0)
-		err = q.Find(&keys).Error
-		if err != nil {
-			return err
-		}
-		if len(keys) == 0 {
-			return errors.New("no keys available")
-		}
-		leastRecentlyUsedKey := keys[0]
-		address = leastRecentlyUsedKey.Address.Address()
-		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
-	})
-	if err != nil {
-		return address, err
-	}
-	return address, nil
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
@@ -1468,71 +1448,76 @@ func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID u
     `, aggregator, roundID, jobRunID).Error
 }
 
-// ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
-// the keys folder on disk, deleting anything there prior.
-func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
-	if err := os.RemoveAll(keysDir); err != nil {
-		return err
-	}
-
-	if err := utils.EnsureDirAndMaxPerms(keysDir, 0700); err != nil {
-		return err
-	}
-
-	keys, err := orm.AllKeys()
-	if err != nil {
-		return err
-	}
-
-	var merr error
-	for _, k := range keys {
-		merr = multierr.Append(
-			k.WriteToDisk(filepath.Join(keysDir, keyFileName(k.Address, k.CreatedAt))),
-			merr)
-	}
-	return merr
-}
-
-// Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
-func keyFileName(keyAddr models.EIP55Address, createdAt time.Time) string {
-	return fmt.Sprintf("UTC--%s--%s", toISO8601(createdAt), keyAddr[2:])
-}
-
-// Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
-func toISO8601(t time.Time) string {
-	var tz string
-	name, offset := t.Zone()
-	if name == "UTC" {
-		tz = "Z"
-	} else {
-		tz = fmt.Sprintf("%03d00", offset/3600)
-	}
-	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s",
-		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
-}
-
-// These two queries trigger cascading deletes in the following tables:
-// (run_requests) --> (job_runs) --> (task_runs)
-// (eth_txes) --> (eth_tx_attempts) --> (eth_receipts)
 const removeUnstartedJobRunsQuery = `
-DELETE FROM run_requests
-WHERE id IN (
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs as jr
+	USING
+		task_runs as tr
+	WHERE
+		jr.status = 'unstarted' AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
 	SELECT run_request_id
 	FROM job_runs
-	WHERE status = 'unstarted'
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
 )
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
+
 const removeUnstartedTransactionsQuery = `
-DELETE FROM eth_txes
-WHERE state = 'unstarted'
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs AS jr
+	USING
+		task_runs AS tr,
+		eth_txes AS tx,
+		eth_task_run_txes AS tx_tr
+	WHERE
+		tx.state = 'unstarted' AND
+		tx_tr.eth_tx_id = tx.id AND
+		tx_tr.task_run_id = tr.id AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
+	SELECT run_request_id
+	FROM job_runs
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
+)
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
 
 func (orm *ORM) RemoveUnstartedTransactions() error {
 	return orm.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(removeUnstartedJobRunsQuery).Error; err != nil {
+		if err := tx.Exec(removeUnstartedTransactionsQuery).Error; err != nil {
 			return err
 		}
-		return tx.Exec(removeUnstartedTransactionsQuery).Error
+		return tx.Exec(removeUnstartedJobRunsQuery).Error
 	})
 }
 
@@ -1644,15 +1629,19 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	if d == nil {
+		return nil, errors.Errorf("unable to open %s received a nil connection", ct.uri)
+	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		Conn: d,
 		DSN:  originalURI,
 	}), &gorm.Config{Logger: newLogger})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB conn %v", ct.uri, d)
 	}
+	db = db.Omit(clause.Associations).Session(&gorm.Session{})
 
-	if err = dbutil.SetTimezone(db); err != nil {
+	if err = db.Exec(`SET TIME ZONE 'UTC'`).Error; err != nil {
 		return nil, err
 	}
 	d.SetMaxOpenConns(ct.maxOpenConns)
@@ -1661,15 +1650,16 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	return db, nil
 }
 
-// BatchSize is the safe number of records to cache during Batch calls for
-// SQLite without causing load problems.
-// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
-const BatchSize = 100
+// BatchSize is the default number of DB records to access in one batch
+const BatchSize uint = 1000
 
-// Batch is an iterator _like_ for batches of records
-func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+// BatchFunc is the function to execute on each batch of records, should return the count of records affected
+type BatchFunc func(offset, limit uint) (count uint, err error)
+
+// Batch is an iterator for batches of records
+func Batch(cb BatchFunc) error {
 	offset := uint(0)
-	limit := uint(1000)
+	limit := BatchSize
 
 	for {
 		count, err := cb(offset, limit)

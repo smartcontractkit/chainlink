@@ -215,7 +215,7 @@ export function convertCancelParams(
 }
 
 /**
- * Abi encode parameters to call the `oracleRequest` method on the [Oracle.sol](../../../evm/contracts/Oracle.sol) contract.
+ * Abi encode parameters to call the `oracleRequest` method on the Oracle.sol contract.
  * ```solidity
  *  function oracleRequest(
  *    address _sender,
@@ -246,6 +246,47 @@ export function encodeOracleRequest(
   const oracleRequestSighash = '0x40429946'
   return encodeRequest(
     oracleRequestSighash,
+    specId,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    data,
+    dataVersion,
+  )
+}
+
+/**
+ * Abi encode parameters to call the `requestOracleData` method on the Operator.sol contract.
+ * ```solidity
+ *  function requestOracleData(
+ *    address _sender,
+ *    uint256 _payment,
+ *    bytes32 _specId,
+ *    address _callbackAddress,
+ *    bytes4 _callbackFunctionId,
+ *    uint256 _nonce,
+ *    uint256 _dataVersion,
+ *    bytes _data
+ *  )
+ * ```
+ *
+ * @param specId The Job Specification ID
+ * @param callbackAddr The callback contract address for the response
+ * @param callbackFunctionId The callback function id for the response
+ * @param nonce The nonce sent by the requester
+ * @param data The CBOR payload of the request
+ */
+export function encodeRequestOracleData(
+  specId: string,
+  callbackAddr: string,
+  callbackFunctionId: string,
+  nonce: number,
+  data: BigNumberish,
+  dataVersion: BigNumberish = 2,
+): string {
+  const requestOracleDataSignhash = '0x6de879d6'
+  return encodeRequest(
+    requestOracleDataSignhash,
     specId,
     callbackAddr,
     callbackFunctionId,

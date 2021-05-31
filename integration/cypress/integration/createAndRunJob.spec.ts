@@ -15,6 +15,8 @@ context('End to end', function () {
     cy.get('#created-job').click()
     cy.contains('job spec detail')
     cy.clickButton('Run')
+    cy.contains('Pipeline input')
+    cy.clickButton('Run job')
     cy.contains('p', 'Successfully created job run')
       .children('a')
       .click()
@@ -23,7 +25,7 @@ context('End to end', function () {
     cy.contains('a > p', 'JSON').click()
 
     // Wait for job run to complete
-    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 500 })
+    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 1500 })
     cy.contains('h5', 'Completed').should('exist')
 
     // Navigate to transactions page

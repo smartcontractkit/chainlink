@@ -88,7 +88,7 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 
