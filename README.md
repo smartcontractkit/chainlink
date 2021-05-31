@@ -193,7 +193,7 @@ yarn setup
    yarn test
    ```
 
-#### Soldiity >=v0.8
+#### Solidity >=v0.8
 
 Inside the `contracts/` directory:
 1. Install dependencies:
