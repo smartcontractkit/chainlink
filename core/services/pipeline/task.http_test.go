@@ -40,7 +40,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -72,7 +72,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			``,
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{},
 			nil,
 			"",
@@ -82,7 +82,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{"foo": 543.21},
 			nil,
 			"",
@@ -92,7 +92,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			pipeline.JSONSerializable{nil, true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{"foo": 543.21},
 			nil,
 			"",
@@ -102,7 +102,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"not_some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"not_some_data": map[string]interface{}{"foo": 543.21}}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -112,7 +112,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": 543.21},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": 543.21}),
 			nil,
 			pipeline.ErrBadInput,
 			"requestData",
@@ -122,7 +122,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"medianize": 543.21},
+			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
 			map[string]interface{}{"data": map[string]interface{}{"result": 543.21}},
 			nil,
 			"",
@@ -132,7 +132,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"nope": "foo bar"},
+			pipeline.NewVarsFrom(map[string]interface{}{"nope": "foo bar"}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -214,7 +214,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -243,7 +243,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)

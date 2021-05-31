@@ -91,7 +91,7 @@ func TestMedian(t *testing.T) {
 				BaseTask:      pipeline.NewBaseTask("task", nil, 0, 0),
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, test.inputs)
+			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -104,7 +104,7 @@ func TestMedian(t *testing.T) {
 
 	for _, test := range tests {
 		test := test
-		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
+		t.Run(test.name+" (VarExpr)", func(t *testing.T) {
 			t.Parallel()
 
 			var inputs []interface{}
@@ -115,9 +115,9 @@ func TestMedian(t *testing.T) {
 					inputs = append(inputs, input.Value)
 				}
 			}
-			vars := pipeline.Vars{
+			vars := pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": map[string]interface{}{"bar": inputs},
-			}
+			})
 			task := pipeline.MedianTask{
 				BaseTask:      pipeline.NewBaseTask("task", nil, 0, 0),
 				Values:        "$(foo.bar)",
@@ -133,31 +133,52 @@ func TestMedian(t *testing.T) {
 			}
 		})
 	}
-}
 
-func TestMedian_MedianizeResultsOfJSONParse(t *testing.T) {
-	t.Parallel()
+	for _, test := range tests {
+		test := test
+		t.Run(test.name+" (JSONWithVarExprs)", func(t *testing.T) {
+			t.Parallel()
 
-	vars := pipeline.Vars{
-		"input": map[string]interface{}{"response": `{"data": [1, 3, 5, 7]}`},
+			var inputs []interface{}
+			for _, input := range test.inputs {
+				if input.Error != nil {
+					inputs = append(inputs, input.Error)
+				} else {
+					inputs = append(inputs, input.Value)
+				}
+			}
+			var valuesParam string
+			var vars pipeline.Vars
+			switch len(inputs) {
+			case 0:
+				valuesParam = "[]"
+				vars = pipeline.NewVarsFrom(nil)
+			case 1:
+				valuesParam = "[ $(foo) ]"
+				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0]})
+			case 3:
+				valuesParam = "[ $(foo), $(bar), $(chain) ]"
+				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2]})
+			case 4:
+				valuesParam = "[ $(foo), $(bar), $(chain), $(link) ]"
+				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2], "link": inputs[3]})
+			}
+
+			task := pipeline.MedianTask{
+				BaseTask:      pipeline.NewBaseTask("task", nil, 0, 0),
+				Values:        valuesParam,
+				AllowedFaults: test.allowedFaults,
+			}
+			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			if output.Error != nil {
+				require.Equal(t, test.want.Error, errors.Cause(output.Error))
+				require.Nil(t, output.Value)
+			} else {
+				require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+				require.NoError(t, output.Error)
+			}
+		})
 	}
-
-	jsonParse := pipeline.JSONParseTask{
-		BaseTask: pipeline.NewBaseTask("json", nil, 0, 0),
-		Path:     "data",
-		Data:     "$(input.response)",
-	}
-	result := jsonParse.Run(context.Background(), vars, pipeline.JSONSerializable{}, []pipeline.Result{})
-	require.NoError(t, result.Error)
-	require.NotNil(t, result.Value)
-
-	median := pipeline.MedianTask{
-		BaseTask: pipeline.NewBaseTask("median", nil, 0, 0),
-		Values:   "$(json)",
-	}
-	result = median.Run(context.Background(), vars, pipeline.JSONSerializable{}, []pipeline.Result{})
-	require.NoError(t, result.Error)
-	require.True(t, mustDecimal(t, "4").Equal(result.Value.(decimal.Decimal)))
 }
 
 func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {

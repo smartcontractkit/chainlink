@@ -66,6 +66,9 @@ func From(getters ...interface{}) []GetterFunc {
 func VarExpr(s string, vars Vars) GetterFunc {
 	return func() (interface{}, error) {
 		trimmed := strings.TrimSpace(s)
+		if len(trimmed) == 0 {
+			return nil, ErrParameterEmpty
+		}
 		isVariableExpr := strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')'
 		if !isVariableExpr {
 			return nil, ErrParameterEmpty
@@ -73,7 +76,7 @@ func VarExpr(s string, vars Vars) GetterFunc {
 		keypath := strings.TrimSpace(trimmed[2 : len(trimmed)-1])
 		val, err := vars.Get(keypath)
 		if err != nil {
-			return nil, errors.Wrapf(ErrBadInput, "VarExpr: %v", err)
+			return nil, err
 		} else if as, is := val.(error); is {
 			return nil, errors.Wrapf(ErrTooManyErrors, "VarExpr: %v", as)
 		}
@@ -118,7 +121,10 @@ func JSONWithVarExprs(s string, vars Vars, allowErrors bool) GetterFunc {
 	}
 }
 
-func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (interface{}, error) {
+func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (x interface{}, err error) {
+	defer func() {
+		fmt.Println("MAP", x, err)
+	}()
 	type item struct {
 		val         interface{}
 		parentMap   map[string]interface{}
@@ -129,7 +135,6 @@ func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (i
 
 	stack := []item{{val: v}}
 	var current item
-	// var firstLoop = true
 
 	for len(stack) > 0 {
 		current = stack[0]
@@ -139,11 +144,6 @@ func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (i
 		if err != nil {
 			return nil, err
 		}
-
-		// if firstLoop {
-		// 	v = val
-		// 	firstLoop = false
-		// }
 
 		if current.parentMap != nil {
 			current.parentMap[current.parentKey] = val
@@ -162,14 +162,6 @@ func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (i
 		}
 	}
 	return v, nil
-}
-
-func variableExprKeypath(s string) (keypath string, ok bool) {
-	trimmed := strings.TrimSpace(s)
-	if strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')' {
-		return strings.TrimSpace(trimmed[2 : len(trimmed)-1]), true
-	}
-	return "", false
 }
 
 func NonemptyString(s string) GetterFunc {

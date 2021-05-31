@@ -17,10 +17,10 @@ func TestVars_Get(t *testing.T) {
 	t.Run("gets the values at keypaths that exist", func(t *testing.T) {
 		t.Parallel()
 
-		vars := pipeline.Vars{
+		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": []interface{}{1, "bar", false},
 			"bar": 321,
-		}
+		})
 
 		got, err := vars.Get("foo.1")
 		require.NoError(t, err)
@@ -34,10 +34,10 @@ func TestVars_Get(t *testing.T) {
 	t.Run("errors when getting the values at keypaths that don't exist", func(t *testing.T) {
 		t.Parallel()
 
-		vars := pipeline.Vars{
+		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": []interface{}{1, "bar", false},
 			"bar": 321,
-		}
+		})
 
 		_, err := vars.Get("foo.blah")
 		require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
@@ -46,83 +46,35 @@ func TestVars_Get(t *testing.T) {
 	t.Run("errors when asked for a keypath with more than 2 parts", func(t *testing.T) {
 		t.Parallel()
 
-		vars := pipeline.Vars{
+		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": map[string]interface{}{
 				"bar": map[string]interface{}{
 					"chainlink": 123,
 				},
 			},
-		}
+		})
 		_, err := vars.Get("foo.bar.chainlink")
 		require.Equal(t, pipeline.ErrKeypathTooDeep, errors.Cause(err))
 	})
 
 	t.Run("errors when getting a value at a keypath where the first part is not a map/slice", func(t *testing.T) {
-		vars := pipeline.Vars{
+		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": 123,
-		}
+		})
 		_, err := vars.Get("foo.bar")
 		require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
 	})
 
 	t.Run("errors when getting a value at a keypath with more than 2 components", func(t *testing.T) {
-		vars := pipeline.Vars{
+		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": 123,
-		}
+		})
 		_, err := vars.Get("foo.bar.baz")
 		require.Equal(t, pipeline.ErrKeypathTooDeep, errors.Cause(err))
 	})
 }
 
-func TestExpandVars(t *testing.T) {
-	tests := []struct {
-		unexpanded         string
-		expected           string
-		expectedErrorCause error
-	}{
-		{`$(foo)`, `{"bar":123}`, nil},
-		{`$(foo.bar)`, `123`, nil},
-		{`$(foo.chainlink)`, ``, pipeline.ErrKeypathNotFound},
-		{`$(foo.bar.baz)`, ``, pipeline.ErrKeypathTooDeep},
-
-		{`$(baz)`, `[1,2,3]`, nil},
-		{`$(baz.1)`, `2`, nil},
-		{`$(baz.4)`, ``, pipeline.ErrKeypathNotFound},
-		{`$(baz.1.hello)`, ``, pipeline.ErrKeypathTooDeep},
-
-		{`{"data": $(foo)}`, `{"data": {"bar":123}}`, nil},
-		{`{"data": $(foo.bar)}`, `{"data": 123}`, nil},
-		{`{"data": $(foo.chainlink)}`, ``, pipeline.ErrKeypathNotFound},
-		{`{"data": $(foo.bar.baz)}`, ``, pipeline.ErrKeypathTooDeep},
-
-		{`{"data": $(baz)}`, `{"data": [1,2,3]}`, nil},
-		{`{"data": $(baz.1)}`, `{"data": 2}`, nil},
-		{`{"data": $(baz.4)}`, ``, pipeline.ErrKeypathNotFound},
-		{`{"data": $(baz.1.hello)}`, ``, pipeline.ErrKeypathTooDeep},
-	}
-
-	vars := pipeline.Vars{
-		"foo": map[string]interface{}{
-			"bar": 123,
-		},
-		"baz": []interface{}{1, 2, 3},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.unexpanded, func(t *testing.T) {
-			expanded, err := pipeline.ExpandVars(test.unexpanded, vars)
-			if test.expectedErrorCause != nil {
-				require.Equal(t, test.expectedErrorCause, errors.Cause(err))
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, test.expected, expanded)
-			}
-		})
-	}
-}
-
-func TestVars_ResolveValue(t *testing.T) {
+func TestResolveValue(t *testing.T) {
 	t.Parallel()
 
 	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {
@@ -226,36 +178,36 @@ func TestVars_ResolveValue(t *testing.T) {
 func TestGetters_VarExpr(t *testing.T) {
 	t.Parallel()
 
-	vars := pipeline.Vars{
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"foo": map[string]interface{}{
-			"bar": []interface{}{0, 1, 42},
+			"bar": 42,
 		},
-	}
+	})
 
 	tests := []struct {
-		expr    string
-		keypath interface{}
-		err     error
+		expr  string
+		value interface{}
+		err   error
 	}{
-		{"$(foo.bar.2)", 42, nil},
-		{" $(foo.bar.2)", 42, nil},
-		{"$(foo.bar.2) ", 42, nil},
-		{"$( foo.bar.2)", 42, nil},
-		{"$(foo.bar.2 )", 42, nil},
-		{"$( foo.bar.2 )", 42, nil},
-		{" $( foo.bar.2 )", 42, nil},
-		{"$()", (map[string]interface{})(vars), nil},
-		{"$(foo.bar.2", nil, pipeline.ErrParameterEmpty},
-		{"$foo.bar.2)", nil, pipeline.ErrParameterEmpty},
-		{"(foo.bar.2)", nil, pipeline.ErrParameterEmpty},
-		{"foo.bar.2", nil, pipeline.ErrParameterEmpty},
+		{"$(foo.bar)", 42, nil},
+		{" $(foo.bar)", 42, nil},
+		{"$(foo.bar) ", 42, nil},
+		{"$( foo.bar)", 42, nil},
+		{"$(foo.bar )", 42, nil},
+		{"$( foo.bar )", 42, nil},
+		{" $( foo.bar )", 42, nil},
+		{"$()", nil, pipeline.ErrVarsRoot},
+		{"$(foo.bar", nil, pipeline.ErrParameterEmpty},
+		{"$foo.bar)", nil, pipeline.ErrParameterEmpty},
+		{"(foo.bar)", nil, pipeline.ErrParameterEmpty},
+		{"foo.bar", nil, pipeline.ErrParameterEmpty},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.expr, func(t *testing.T) {
 			val, err := pipeline.VarExpr(test.expr, vars)()
-			require.Equal(t, test.keypath, val)
+			require.Equal(t, test.value, val)
 			require.Equal(t, test.err, errors.Cause(err))
 		})
 	}

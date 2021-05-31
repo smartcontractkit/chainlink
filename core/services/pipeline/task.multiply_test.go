@@ -108,7 +108,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			vars := pipeline.Vars{}
+			vars := pipeline.NewVarsFrom(nil)
 			task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask("task", nil, 0, 0), Times: test.times}
 			result := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
 			require.NoError(t, result.Error)
@@ -119,10 +119,10 @@ func TestMultiplyTask_Happy(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
-			vars := pipeline.Vars{
+			vars := pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":   map[string]interface{}{"bar": test.input},
 				"chain": map[string]interface{}{"link": test.times},
-			}
+			})
 			task := pipeline.MultiplyTask{
 				BaseTask: pipeline.NewBaseTask("task", nil, 0, 0),
 				Input:    "$(foo.bar)",
@@ -147,12 +147,12 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 		wantErrorCause    error
 		wantErrorContains string
 	}{
-		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.Vars{}, pipeline.ErrBadInput, "input"},
-		{"map as input from var", "100", "$(foo)", nil, pipeline.Vars{"foo": map[string]interface{}{"chain": "link"}}, pipeline.ErrBadInput, "input"},
-		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.Vars{}, pipeline.ErrBadInput, "input"},
-		{"slice as input from var", "100", "$(foo)", nil, pipeline.Vars{"foo": []interface{}{"chain", "link"}}, pipeline.ErrBadInput, "input"},
-		{"input as missing var", "100", "$(foo)", nil, pipeline.Vars{}, pipeline.ErrKeypathNotFound, "input"},
-		{"times as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.Vars{}, pipeline.ErrKeypathNotFound, "times"},
+		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
+		{"map as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": map[string]interface{}{"chain": "link"}}), pipeline.ErrBadInput, "input"},
+		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
+		{"slice as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": []interface{}{"chain", "link"}}), pipeline.ErrBadInput, "input"},
+		{"input as missing var", "100", "$(foo)", nil, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "input"},
+		{"times as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "times"},
 	}
 
 	for _, tt := range tests {

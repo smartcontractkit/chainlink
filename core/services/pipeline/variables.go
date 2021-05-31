@@ -2,54 +2,41 @@ package pipeline
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 var (
 	ErrKeypathNotFound = errors.New("keypath not found")
 	ErrKeypathTooDeep  = errors.New("keypath too deep (maximum 2 keys)")
+	ErrVarsRoot        = errors.New("cannot get/set the root of a pipeline.Vars")
 
 	variableRegexp = regexp.MustCompile(`\$\(\s*([a-zA-Z0-9_\.]+)\s*\)`)
 )
 
-func ExpandVars(v string, vars Vars) (string, error) {
-	var err error
-	resolved := variableRegexp.ReplaceAllFunc([]byte(v), func(keypath []byte) []byte {
-		val, err2 := vars.Get(string(keypath[2 : len(keypath)-1]))
-		if err2 != nil {
-			err = multierr.Append(err, err2)
-			return nil
-		} else if asErr, isErr := val.(error); isErr {
-			err = multierr.Append(err, asErr)
-			return nil
-		}
-
-		bs, err2 := json.Marshal(val)
-		if err2 != nil {
-			err = multierr.Append(err, err2)
-			return nil
-		}
-		return bs
-	})
-	if err != nil {
-		return "", err
-	}
-	return string(resolved), nil
+type Vars struct {
+	mu   *sync.RWMutex
+	vars map[string]interface{}
 }
 
-type Vars map[string]interface{}
-
-func NewVars() Vars {
-	return make(Vars)
+func NewVarsFrom(m map[string]interface{}) Vars {
+	if m == nil {
+		m = make(map[string]interface{})
+	}
+	return Vars{
+		mu:   &sync.RWMutex{},
+		vars: m,
+	}
 }
 
 func (vars Vars) Get(keypathStr string) (interface{}, error) {
+	vars.mu.RLock()
+	defer vars.mu.RUnlock()
+
 	keypath, err := newKeypathFromString(keypathStr)
 	if err != nil {
 		return nil, err
@@ -58,14 +45,14 @@ func (vars Vars) Get(keypathStr string) (interface{}, error) {
 	numParts := keypath.NumParts()
 
 	if numParts == 0 {
-		return (map[string]interface{})(vars), nil
+		return nil, ErrVarsRoot
 	}
 
 	var val interface{}
 	var exists bool
 
 	if numParts >= 1 {
-		val, exists = vars[string(keypath[0])]
+		val, exists = vars.vars[string(keypath[0])]
 		if !exists {
 			return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", string(keypath[0]), keypath.String())
 		}
@@ -91,11 +78,19 @@ func (vars Vars) Get(keypathStr string) (interface{}, error) {
 		}
 	}
 
-	if keypathStr == "ds1_parse.times" {
-		fmt.Printf("XYZZY (%T) %v\n", val, val)
-	}
-
 	return val, nil
+}
+
+func (vars Vars) Set(dotID string, value interface{}) {
+	dotID = strings.TrimSpace(dotID)
+	if len(dotID) == 0 {
+		panic(ErrVarsRoot)
+	} else if strings.IndexByte(dotID, keypathSeparator[0]) >= 0 {
+		panic("cannot set a nested key of a pipeline.Vars")
+	}
+	vars.mu.Lock()
+	defer vars.mu.Unlock()
+	vars.vars[dotID] = value
 }
 
 type Keypath [2][]byte

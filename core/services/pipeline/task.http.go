@@ -52,7 +52,7 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, input
 	err := multierr.Combine(
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
 		errors.Wrap(ResolveParam(&url, From(NonemptyString(t.URL))), "url"),
-		errors.Wrap(ResolveParam(&requestData, From(JSONWithVarExprs(t.RequestData, vars, false), Input(inputs, 0), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), t.config.DefaultHTTPAllowUnrestrictedNetworkAccess())), "allowUnrestrictedNetworkAccess"),
 	)
 	if err != nil {

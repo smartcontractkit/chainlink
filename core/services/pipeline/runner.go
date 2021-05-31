@@ -258,8 +258,7 @@ func (r *runner) executeRun(
 	//  - it processes the final task
 
 	var (
-		vars             = Vars{"input": pipelineInput}
-		varsMu           sync.RWMutex
+		vars             = NewVarsFrom(map[string]interface{}{"input": pipelineInput})
 		taskRunResults   TaskRunResults
 		taskRunResultsMu sync.Mutex
 		wg               sync.WaitGroup
@@ -289,7 +288,11 @@ func (r *runner) executeRun(
 
 				taskRunResult := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
 
-				saveTaskRunResultToVars(vars, &varsMu, taskRun.task.DotID(), taskRunResult.Result)
+				if taskRunResult.Result.Error != nil {
+					vars.Set(taskRunResult.Task.DotID(), taskRunResult.Result.Error)
+				} else {
+					vars.Set(taskRunResult.Task.DotID(), taskRunResult.Result.Value)
+				}
 
 				taskRunResultsMu.Lock()
 				taskRunResults = append(taskRunResults, taskRunResult)
@@ -320,17 +323,6 @@ func (r *runner) executeRun(
 		run.FinishedAt = &finishRun
 	}
 	return run, taskRunResults, retry, err
-}
-
-func saveTaskRunResultToVars(vars Vars, varsMu *sync.RWMutex, dotID string, result Result) {
-	varsMu.Lock()
-	defer varsMu.Unlock()
-
-	if result.Error != nil {
-		vars[dotID] = result.Error
-	} else {
-		vars[dotID] = result.Value
-	}
 }
 
 func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInput interface{}, txdb *gorm.DB) (headTaskRuns []*memoryTaskRun, _ error) {

@@ -134,7 +134,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -168,7 +168,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{
 				"input": 123.45,
 				"meta":  validMeta,
@@ -182,7 +182,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{
 				"foo":   543.21,
 				"input": 123.45,
@@ -197,7 +197,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{nil, true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{
 				"foo":   543.21,
 				"input": 123.45,
@@ -211,7 +211,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{
 				"foo":  543.21,
 				"meta": validMeta,
@@ -225,7 +225,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"not_some_data": map[string]interface{}{"foo": 543.21}},
+			pipeline.NewVarsFrom(map[string]interface{}{"not_some_data": map[string]interface{}{"foo": 543.21}}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -236,7 +236,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"some_data": 543.21},
+			pipeline.NewVarsFrom(map[string]interface{}{"some_data": 543.21}),
 			nil,
 			pipeline.ErrBadInput,
 			"requestData",
@@ -247,7 +247,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"medianize": 543.21},
+			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
 			map[string]interface{}{
 				"data":  map[string]interface{}{"result": 543.21},
 				"input": 123.45,
@@ -262,7 +262,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{nil, true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"medianize": 543.21},
+			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
 			map[string]interface{}{
 				"data":  map[string]interface{}{"result": 543.21},
 				"input": 123.45,
@@ -276,7 +276,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"medianize": 543.21},
+			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
 			map[string]interface{}{
 				"data": map[string]interface{}{"result": 543.21},
 				"meta": validMeta,
@@ -290,7 +290,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			"input",
 			pipeline.JSONSerializable{validMeta, false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.Vars{"nope": "foo bar"},
+			pipeline.NewVarsFrom(map[string]interface{}{"nope": "foo bar"}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -387,7 +387,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	task.Run(context.Background(), nil, pipeline.JSONSerializable{metaDataForBridge, false}, nil)
+	task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{metaDataForBridge, false}, nil)
 }
 
 func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
@@ -406,7 +406,6 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 		{"no input, includeInputAtKey", nil, "result", nil, nil},
 		{"input, no includeInputAtKey", []pipeline.Result{{Value: decimal.NewFromFloat(123.45)}}, "", nil, nil},
 		{"input, includeInputAtKey", []pipeline.Result{{Value: decimal.NewFromFloat(123.45)}}, "result", "123.45", nil},
-		{"too many inputs", []pipeline.Result{{Value: decimal.NewFromFloat(123.45)}, {Value: decimal.NewFromFloat(321.45)}}, "result", nil, pipeline.ErrWrongInputCardinality},
 		{"input has error", []pipeline.Result{{Error: theErr}}, "result", nil, pipeline.ErrTooManyErrors},
 	}
 
@@ -435,7 +434,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			bridge.URL = *(*models.WebURL)(feedURL)
 			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-			result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, test.inputs)
+			result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, test.inputs)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				require.Nil(t, result.Value)
@@ -485,7 +484,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -520,7 +519,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
@@ -538,7 +537,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
-	result := task.Run(context.Background(), nil, pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.Nil(t, result.Value)
 	require.Error(t, result.Error)
 	require.Equal(t, "could not find bridge with name 'foo': record not found", result.Error.Error())

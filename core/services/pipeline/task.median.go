@@ -31,7 +31,7 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 	)
 	err := multierr.Combine(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
-		errors.Wrap(ResolveParam(&valuesAndErrs, From(JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
+		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
 		return Result{Error: err}
