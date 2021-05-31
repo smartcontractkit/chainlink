@@ -931,7 +931,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge)
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
 	if err != nil {
 		l.Errorw("unable to fetch median price", "err", err)
 		return
@@ -1068,7 +1068,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge)
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")
