@@ -18,7 +18,7 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
-	log := requestRandomness(t, coordinator, keyHash, fee, seed)
+	log := requestRandomness(t, coordinator, keyHash, fee)
 	preSeed, err := vrf.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
 	s := vrf.PreSeedData{
