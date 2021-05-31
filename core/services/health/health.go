@@ -126,15 +126,20 @@ func (c *checker) update() {
 	state := make(map[string]State, len(c.services))
 
 	c.srvMutex.RLock()
-
+	// copy services into a new map to avoid lock contention while doing checks
+	services := make(map[string]Checkable, len(c.services))
 	for name, s := range c.services {
+		services[name] = s
+	}
+	c.srvMutex.RUnlock()
+
+	// now, do all the checks
+	for name, s := range services {
 		ready := s.Ready()
 		healthy := s.Healthy()
 
 		state[name] = State{ready, healthy}
 	}
-
-	c.srvMutex.RUnlock()
 
 	// we use a separate lock to avoid holding the lock over state while talking
 	// to services
