@@ -9,8 +9,8 @@ import (
 
 type MultiplyTask struct {
 	BaseTask `mapstructure:",squash"`
-	Input    string `json:"input" pipeline:"@expand_vars"`
-	Times    string `json:"times" pipeline:"@expand_vars"`
+	Input    string `json:"input"`
+	Times    string `json:"times"`
 }
 
 var _ Task = (*MultiplyTask)(nil)
@@ -19,7 +19,7 @@ func (t *MultiplyTask) Type() TaskType {
 	return TaskTypeMultiply
 }
 
-func (t *MultiplyTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
@@ -30,8 +30,8 @@ func (t *MultiplyTask) Run(_ context.Context, _ JSONSerializable, inputs []Resul
 		b DecimalParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&a, From(NonemptyString(t.Input), Input(inputs, 0))), "input"),
-		errors.Wrap(ResolveParam(&b, From(NonemptyString(t.Times))), "times"),
+		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&b, From(VarExpr(t.Times, vars), NonemptyString(t.Times))), "times"),
 	)
 	if err != nil {
 		return Result{Error: err}

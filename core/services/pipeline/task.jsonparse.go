@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -12,8 +13,8 @@ import (
 
 type JSONParseTask struct {
 	BaseTask `mapstructure:",squash"`
-	Path     string `json:"path" pipeline:"@expand_vars"`
-	Data     string `json:"data" pipeline:"@expand_vars"`
+	Path     string `json:"path"`
+	Data     string `json:"data"`
 	// Lax when disabled will return an error if the path does not exist
 	// Lax when enabled will return nil with no error if the path does not exist
 	Lax string
@@ -25,7 +26,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: err}
@@ -38,12 +39,13 @@ func (t *JSONParseTask) Run(_ context.Context, _ JSONSerializable, inputs []Resu
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&path, From(t.Path)), "path"),
-		errors.Wrap(ResolveParam(&data, From(NonemptyString(t.Data), Input(inputs, 0))), "data"),
+		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
 		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
 	)
 	if err != nil {
 		return Result{Error: err}
 	}
+	fmt.Println("DATA", string(data))
 
 	var decoded interface{}
 	err = json.Unmarshal([]byte(data), &decoded)

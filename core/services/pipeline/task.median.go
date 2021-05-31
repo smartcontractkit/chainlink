@@ -11,6 +11,7 @@ import (
 
 type MedianTask struct {
 	BaseTask      `mapstructure:",squash"`
+	Values        string `json:"values"`
 	AllowedFaults string `json:"allowedFaults"`
 }
 
@@ -20,7 +21,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *MedianTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam
@@ -30,7 +31,7 @@ func (t *MedianTask) Run(_ context.Context, _ JSONSerializable, inputs []Result)
 	)
 	err := multierr.Combine(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
-		errors.Wrap(ResolveParam(&valuesAndErrs, From(Inputs(inputs))), "values"),
+		errors.Wrap(ResolveParam(&valuesAndErrs, From(JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
 		return Result{Error: err}

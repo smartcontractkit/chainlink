@@ -64,6 +64,62 @@ func TestVars_Get(t *testing.T) {
 		_, err := vars.Get("foo.bar")
 		require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
 	})
+
+	t.Run("errors when getting a value at a keypath with more than 2 components", func(t *testing.T) {
+		vars := pipeline.Vars{
+			"foo": 123,
+		}
+		_, err := vars.Get("foo.bar.baz")
+		require.Equal(t, pipeline.ErrKeypathTooDeep, errors.Cause(err))
+	})
+}
+
+func TestExpandVars(t *testing.T) {
+	tests := []struct {
+		unexpanded         string
+		expected           string
+		expectedErrorCause error
+	}{
+		{`$(foo)`, `{"bar":123}`, nil},
+		{`$(foo.bar)`, `123`, nil},
+		{`$(foo.chainlink)`, ``, pipeline.ErrKeypathNotFound},
+		{`$(foo.bar.baz)`, ``, pipeline.ErrKeypathTooDeep},
+
+		{`$(baz)`, `[1,2,3]`, nil},
+		{`$(baz.1)`, `2`, nil},
+		{`$(baz.4)`, ``, pipeline.ErrKeypathNotFound},
+		{`$(baz.1.hello)`, ``, pipeline.ErrKeypathTooDeep},
+
+		{`{"data": $(foo)}`, `{"data": {"bar":123}}`, nil},
+		{`{"data": $(foo.bar)}`, `{"data": 123}`, nil},
+		{`{"data": $(foo.chainlink)}`, ``, pipeline.ErrKeypathNotFound},
+		{`{"data": $(foo.bar.baz)}`, ``, pipeline.ErrKeypathTooDeep},
+
+		{`{"data": $(baz)}`, `{"data": [1,2,3]}`, nil},
+		{`{"data": $(baz.1)}`, `{"data": 2}`, nil},
+		{`{"data": $(baz.4)}`, ``, pipeline.ErrKeypathNotFound},
+		{`{"data": $(baz.1.hello)}`, ``, pipeline.ErrKeypathTooDeep},
+	}
+
+	vars := pipeline.Vars{
+		"foo": map[string]interface{}{
+			"bar": 123,
+		},
+		"baz": []interface{}{1, 2, 3},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.unexpanded, func(t *testing.T) {
+			expanded, err := pipeline.ExpandVars(test.unexpanded, vars)
+			if test.expectedErrorCause != nil {
+				require.Equal(t, test.expectedErrorCause, errors.Cause(err))
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, test.expected, expanded)
+			}
+		})
+	}
 }
 
 func TestVars_ResolveValue(t *testing.T) {
@@ -167,6 +223,44 @@ func TestVars_ResolveValue(t *testing.T) {
 	})
 }
 
+func TestGetters_VarExpr(t *testing.T) {
+	t.Parallel()
+
+	vars := pipeline.Vars{
+		"foo": map[string]interface{}{
+			"bar": []interface{}{0, 1, 42},
+		},
+	}
+
+	tests := []struct {
+		expr    string
+		keypath interface{}
+		err     error
+	}{
+		{"$(foo.bar.2)", 42, nil},
+		{" $(foo.bar.2)", 42, nil},
+		{"$(foo.bar.2) ", 42, nil},
+		{"$( foo.bar.2)", 42, nil},
+		{"$(foo.bar.2 )", 42, nil},
+		{"$( foo.bar.2 )", 42, nil},
+		{" $( foo.bar.2 )", 42, nil},
+		{"$()", (map[string]interface{})(vars), nil},
+		{"$(foo.bar.2", nil, pipeline.ErrParameterEmpty},
+		{"$foo.bar.2)", nil, pipeline.ErrParameterEmpty},
+		{"(foo.bar.2)", nil, pipeline.ErrParameterEmpty},
+		{"foo.bar.2", nil, pipeline.ErrParameterEmpty},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.expr, func(t *testing.T) {
+			val, err := pipeline.VarExpr(test.expr, vars)()
+			require.Equal(t, test.keypath, val)
+			require.Equal(t, test.err, errors.Cause(err))
+		})
+	}
+}
+
 func TestGetters_NonemptyString(t *testing.T) {
 	t.Parallel()
 
@@ -237,4 +331,59 @@ func TestGetters_Inputs(t *testing.T) {
 			require.Equal(t, test.expected, val)
 		})
 	}
+}
+
+func TestKeypath(t *testing.T) {
+	t.Run("can be constructed from a period-delimited string with 2 or fewer parts", func(t *testing.T) {
+		kp, err := pipeline.NewKeypathFromString("")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{nil, nil}, kp)
+
+		kp, err = pipeline.NewKeypathFromString("foo")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{[]byte("foo"), nil}, kp)
+
+		kp, err = pipeline.NewKeypathFromString("foo.bar")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{[]byte("foo"), []byte("bar")}, kp)
+	})
+
+	t.Run("errors if constructor is passed more than 2 parts", func(t *testing.T) {
+		_, err := pipeline.NewKeypathFromString("foo.bar.baz")
+		require.Equal(t, pipeline.ErrKeypathTooDeep, errors.Cause(err))
+	})
+
+	t.Run("accurately reports its NumParts", func(t *testing.T) {
+		kp, err := pipeline.NewKeypathFromString("")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{nil, nil}, kp)
+		require.Equal(t, 0, kp.NumParts())
+
+		kp, err = pipeline.NewKeypathFromString("foo")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{[]byte("foo"), nil}, kp)
+		require.Equal(t, 1, kp.NumParts())
+
+		kp, err = pipeline.NewKeypathFromString("foo.bar")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{[]byte("foo"), []byte("bar")}, kp)
+		require.Equal(t, 2, kp.NumParts())
+	})
+
+	t.Run("stringifies correctly", func(t *testing.T) {
+		kp, err := pipeline.NewKeypathFromString("")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{nil, nil}, kp)
+		require.Equal(t, "(empty)", kp.String())
+
+		kp, err = pipeline.NewKeypathFromString("foo")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{[]byte("foo"), nil}, kp)
+		require.Equal(t, "foo", kp.String())
+
+		kp, err = pipeline.NewKeypathFromString("foo.bar")
+		require.NoError(t, err)
+		require.Equal(t, pipeline.Keypath{[]byte("foo"), []byte("bar")}, kp)
+		require.Equal(t, "foo.bar", kp.String())
+	})
 }

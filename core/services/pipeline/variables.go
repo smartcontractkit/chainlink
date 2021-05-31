@@ -3,6 +3,7 @@ package pipeline
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strconv"
 
@@ -89,6 +90,11 @@ func (vars Vars) Get(keypathStr string) (interface{}, error) {
 			return nil, errors.Wrapf(ErrKeypathNotFound, "value at key '%v' is a %T, not a map or slice", string(keypath[0]), val)
 		}
 	}
+
+	if keypathStr == "ds1_parse.times" {
+		fmt.Printf("XYZZY (%T) %v\n", val, val)
+	}
+
 	return val, nil
 }
 

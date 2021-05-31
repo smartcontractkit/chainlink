@@ -23,6 +23,24 @@ func clearJobsDb(t *testing.T, db *gorm.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
+	const DotStr = `
+        // data source 1
+        ds1          [type=bridge name=voter_turnout];
+        ds1_parse    [type=jsonparse path="one,two"];
+        ds1_multiply [type=multiply times=1.23];
+
+        // data source 2
+        ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];
+        ds2_parse    [type=jsonparse path="three,four"];
+        ds2_multiply [type=multiply times=4.56];
+
+        ds1 -> ds1_parse -> ds1_multiply -> answer1;
+        ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+        answer1 [type=median                      index=0];
+        answer2 [type=bridge name=election_winner index=1];
+    `
+
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm", true, true)
 	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
 	config.Set("MAX_HTTP_ATTEMPTS", "1")
@@ -79,7 +97,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		defer cleanup()
 
 		g := pipeline.NewTaskDAG()
-		err := g.UnmarshalText([]byte(pipeline.DotStr))
+		err := g.UnmarshalText([]byte(DotStr))
 		require.NoError(t, err)
 
 		specID, err = orm.CreateSpec(context.Background(), db, *g, models.Interval(0))
@@ -90,7 +108,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, specs, 1)
 		require.Equal(t, specID, specs[0].ID)
-		require.Equal(t, pipeline.DotStr, specs[0].DotDagSource)
+		require.Equal(t, DotStr, specs[0].DotDagSource)
 
 		require.NoError(t, db.Exec(`DELETE FROM pipeline_specs`).Error)
 	})

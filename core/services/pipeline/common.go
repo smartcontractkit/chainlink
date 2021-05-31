@@ -27,7 +27,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
+		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -55,6 +55,10 @@ var (
 	ErrBadInput              = errors.New("bad input for task")
 	ErrParameterEmpty        = errors.New("parameter is empty")
 	ErrTooManyErrors         = errors.New("too many errors")
+)
+
+const (
+	InputTaskKey = "input"
 )
 
 // Bundled tx and txmutex for multiple goroutines inside the same transaction.
@@ -173,6 +177,13 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 type RunWithResults struct {
 	Run            Run
 	TaskRunResults TaskRunResults
+}
+
+type JSONString string
+
+func (s JSONString) MarshalJSON() ([]byte, error) {
+	logger.Errorf("XYZZY: %v", s)
+	return []byte(s), nil
 }
 
 type JSONSerializable struct {
@@ -305,9 +316,9 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 
 func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
 	if minLen >= 0 && len(inputs) < minLen {
-		return nil, ErrWrongInputCardinality
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	} else if maxLen >= 0 && len(inputs) > maxLen {
-		return nil, ErrWrongInputCardinality
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	}
 	var vals []interface{}
 	var errs int

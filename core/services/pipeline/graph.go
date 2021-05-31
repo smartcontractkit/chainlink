@@ -65,6 +65,10 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
+		if node.dotID == InputTaskKey {
+			return nil, errors.Errorf("'%v' is a reserved keyword that cannot be used as a task's name", InputTaskKey)
+		}
+
 		numPredecessors := g.To(node.ID()).Len()
 		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, numPredecessors)
 		if err != nil {

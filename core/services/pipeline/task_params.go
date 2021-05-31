@@ -3,6 +3,7 @@ package pipeline
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -60,6 +61,115 @@ func From(getters ...interface{}) []GetterFunc {
 		}
 	}
 	return gfs
+}
+
+func VarExpr(s string, vars Vars) GetterFunc {
+	return func() (interface{}, error) {
+		trimmed := strings.TrimSpace(s)
+		isVariableExpr := strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')'
+		if !isVariableExpr {
+			return nil, ErrParameterEmpty
+		}
+		keypath := strings.TrimSpace(trimmed[2 : len(trimmed)-1])
+		val, err := vars.Get(keypath)
+		if err != nil {
+			return nil, errors.Wrapf(ErrBadInput, "VarExpr: %v", err)
+		} else if as, is := val.(error); is {
+			return nil, errors.Wrapf(ErrTooManyErrors, "VarExpr: %v", as)
+		}
+		return val, nil
+	}
+}
+
+func JSONWithVarExprs(s string, vars Vars, allowErrors bool) GetterFunc {
+	return func() (interface{}, error) {
+		if strings.TrimSpace(s) == "" {
+			return nil, ErrParameterEmpty
+		}
+		replaced := variableRegexp.ReplaceAllFunc([]byte(s), func(expr []byte) []byte {
+			keypathStr := strings.TrimSpace(string(expr[2 : len(expr)-1]))
+			return []byte(fmt.Sprintf(`{ "__chainlink_var_expr__": "%v" }`, keypathStr))
+		})
+		var val interface{}
+		err := json.Unmarshal(replaced, &val)
+		if err != nil {
+			return nil, errors.Wrapf(ErrBadInput, "while interpolating variables in JSON payload: %v", err)
+		}
+		return mapGoValue(val, func(val interface{}) (interface{}, error) {
+			if m, is := val.(map[string]interface{}); is {
+				maybeKeypath, exists := m["__chainlink_var_expr__"]
+				if !exists {
+					return val, nil
+				}
+				keypath, is := maybeKeypath.(string)
+				if !is {
+					return nil, errors.New("you cannot use __chainlink_var_expr__ in your JSON")
+				}
+				newVal, err := vars.Get(keypath)
+				if err != nil {
+					return nil, err
+				} else if err, is := newVal.(error); is && !allowErrors {
+					return nil, errors.Wrapf(ErrBadInput, "JSONWithVarExprs: %v", err)
+				}
+				return newVal, nil
+			}
+			return val, nil
+		})
+	}
+}
+
+func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (interface{}, error) {
+	type item struct {
+		val         interface{}
+		parentMap   map[string]interface{}
+		parentKey   string
+		parentSlice []interface{}
+		parentIdx   int
+	}
+
+	stack := []item{{val: v}}
+	var current item
+	// var firstLoop = true
+
+	for len(stack) > 0 {
+		current = stack[0]
+		stack = stack[1:]
+
+		val, err := fn(current.val)
+		if err != nil {
+			return nil, err
+		}
+
+		// if firstLoop {
+		// 	v = val
+		// 	firstLoop = false
+		// }
+
+		if current.parentMap != nil {
+			current.parentMap[current.parentKey] = val
+		} else if current.parentSlice != nil {
+			current.parentSlice[current.parentIdx] = val
+		}
+
+		if asMap, isMap := val.(map[string]interface{}); isMap {
+			for key := range asMap {
+				stack = append(stack, item{val: asMap[key], parentMap: asMap, parentKey: key})
+			}
+		} else if asSlice, isSlice := val.([]interface{}); isSlice {
+			for i := range asSlice {
+				stack = append(stack, item{val: asSlice[i], parentSlice: asSlice, parentIdx: i})
+			}
+		}
+	}
+	return v, nil
+}
+
+func variableExprKeypath(s string) (keypath string, ok bool) {
+	trimmed := strings.TrimSpace(s)
+	if strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')' {
+		return strings.TrimSpace(trimmed[2 : len(trimmed)-1]), true
+	}
+	return "", false
 }
 
 func NonemptyString(s string) GetterFunc {
@@ -242,6 +352,8 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 type DecimalParam decimal.Decimal
 
 func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
+	fmt.Printf("DECIMAL PARAM: (%T) %v\n", val, val)
+
 	x, err := utils.ToDecimal(val)
 	if err != nil {
 		return errors.Wrap(ErrBadInput, err.Error())

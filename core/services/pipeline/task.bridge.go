@@ -14,7 +14,7 @@ type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
 	Name              string `json:"name"`
-	RequestData       string `json:"requestData"  pipeline:"@expand_vars"`
+	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 
 	safeTx SafeTx
@@ -27,8 +27,8 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result {
-	inputValues, err := CheckInputs(inputs, 0, 1, 0)
+func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result {
+	inputValues, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: err}
 	}
@@ -40,7 +40,7 @@ func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Re
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
-		errors.Wrap(ResolveParam(&requestData, From(NonemptyString(t.RequestData), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&requestData, From(JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 	)
 	if err != nil {
