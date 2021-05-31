@@ -29,6 +29,7 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+.direnv
 .idea 
 
 # codeship
@@ -41,3 +42,10 @@ gcr_creds.env
 # DB backups
 
 cl_backup_*.tar.gz
+
+# Test artifacts
+core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+
+# DB state
+db/
+.s.PGSQL.5432.lock

@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,8 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -76,7 +77,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURLs()...)
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
 		if err != nil {
 			return nil, err
 		}
@@ -97,9 +98,13 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
-	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
-	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	config := app.GetStore().Config
+	mode := gin.ReleaseMode
+	if config.Dev() && config.LogLevel().Level < zapcore.InfoLevel {
+		mode = gin.DebugMode
+	}
+	gin.SetMode(mode)
+	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	var g errgroup.Group
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
@@ -239,6 +244,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		if cookieerr != nil {
 			return response, err
 		}
+		request.Header.Set("Cookie", "")
 		request.AddCookie(cookie)
 		response, err = h.client.Do(request)
 		if err != nil {
@@ -491,7 +497,7 @@ func credentialsFromFile(file string) (models.SessionRequest, error) {
 // ChangePasswordPrompter is an interface primarily used for DI to obtain a
 // password change request from the User.
 type ChangePasswordPrompter interface {
-	Prompt() (models.ChangePasswordRequest, error)
+	Prompt() (web.UpdatePasswordRequest, error)
 }
 
 // NewChangePasswordPrompter returns the production password change request prompter
@@ -504,7 +510,7 @@ type changePasswordPrompter struct {
 	prompter Prompter
 }
 
-func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
+func (c changePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
 	fmt.Println("Changing your chainlink account password.")
 	fmt.Println("NOTE: This will terminate any other sessions.")
 	oldPassword := c.prompter.PasswordPrompt("Password:")
@@ -514,10 +520,10 @@ func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 	confirmPassword := c.prompter.PasswordPrompt("Confirmation:")
 
 	if newPassword != confirmPassword {
-		return models.ChangePasswordRequest{}, errors.New("new password and confirmation did not match")
+		return web.UpdatePasswordRequest{}, errors.New("new password and confirmation did not match")
 	}
 
-	return models.ChangePasswordRequest{
+	return web.UpdatePasswordRequest{
 		OldPassword: oldPassword,
 		NewPassword: newPassword,
 	}, nil

@@ -5,30 +5,102 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/pkg/errors"
-	clipkg "github.com/urfave/cli"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/urfave/cli"
 )
+
+type VRFKeyPresenter struct {
+	Compressed   string     `json:"compressed"`
+	Uncompressed string     `json:"uncompressed"`
+	Hash         string     `json:"hash"`
+	CreatedAt    *time.Time `json:"createdAt"`
+	UpdatedAt    *time.Time `json:"updatedAt"`
+	DeletedAt    *time.Time `json:"deletedAt"`
+}
+
+func (p VRFKeyPresenter) FriendlyCreatedAt() string {
+	if p.CreatedAt != nil {
+		return p.CreatedAt.String()
+	}
+
+	return ""
+}
+
+func (p VRFKeyPresenter) FriendlyUpdatedAt() string {
+	if p.UpdatedAt != nil {
+		return p.UpdatedAt.String()
+	}
+
+	return ""
+}
+
+func (p VRFKeyPresenter) FriendlyDeletedAt() string {
+	if p.DeletedAt != nil {
+		return p.DeletedAt.String()
+	}
+
+	return ""
+}
+
+// RenderTable implements TableRenderer
+func (p *VRFKeyPresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
+	rows := [][]string{p.ToRow()}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
+func (p *VRFKeyPresenter) ToRow() []string {
+	return []string{
+		p.Compressed,
+		p.Uncompressed,
+		p.Hash,
+		p.FriendlyCreatedAt(),
+		p.FriendlyUpdatedAt(),
+		p.FriendlyDeletedAt(),
+	}
+}
+
+type VRFKeyPresenters []VRFKeyPresenter
+
+// RenderTable implements TableRenderer
+func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
 
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the password file
-func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
+func (cli *Client) CreateVRFKey(c *cli.Context) error {
 	cli.Config.Dialect = dialects.PostgresWithoutLock
 	password, err := getPassword(c)
 	if err != nil {
 		return err
 	}
+
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
+
 	vrfKeyStore := app.GetStore().VRFKeyStore
 	key, err := vrfKeyStore.CreateKey(string(password))
 	if err != nil {
@@ -46,16 +118,17 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	fmt.Printf(`Created keypair.
 
 Compressed public key (use this for interactions with the chainlink node):
-  %s
+%s
 Uncompressed public key (use this to register key with the VRFCoordinator):
-  %s
+%s
 Hash of public key (use this to request randomness from your consuming contract):
-  %s
+%s
 
 The following command will export the encrypted secret key from the db to <save_path>:
 
 chainlink local vrf export -f <save_path> -pk %s
 `, key, uncompressedKey, hashStr, key)
+
 	return nil
 }
 
@@ -65,7 +138,7 @@ chainlink local vrf export -f <save_path> -pk %s
 // bruteforcing of the encrypted key material. For testing purposes only!
 //
 // The key is only stored at the specified file location, not stored in the DB.
-func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
+func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
 	password, err := getPassword(c)
 	if err != nil {
 		return err
@@ -91,24 +164,26 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
 
 // getPasswordAndKeyFile retrieves the password and key json from the files
 // specified on the CL, or errors
-func getPasswordAndKeyFile(c *clipkg.Context) (password []byte, keyjson []byte, err error) {
+func getPasswordAndKeyFile(c *cli.Context) (password []byte, keyjson []byte, err error) {
 	password, err = getPassword(c)
 	if err != nil {
 		return nil, nil, err
 	}
-	if !c.IsSet("file") {
+
+	if c.String("file") == "" {
 		return nil, nil, fmt.Errorf("must specify key file")
 	}
 	keypath := c.String("file")
 	keyjson, err = ioutil.ReadFile(keypath)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to read file %s", keypath)
+
 	}
 	return password, keyjson, nil
 }
 
 // ImportVRFKey reads a file into an EncryptedVRFKey in the db
-func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
+func (cli *Client) ImportVRFKey(c *cli.Context) error {
 	password, keyjson, err := getPasswordAndKeyFile(c)
 	if err != nil {
 		return err
@@ -119,7 +194,7 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 	}
 	vrfKeyStore := app.GetStore().VRFKeyStore
 	if err := vrfKeyStore.Import(keyjson, string(password)); err != nil {
-		if err == store.MatchingVRFKeyError {
+		if err == vrf.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
 			if e := json.Unmarshal(keyjson, &key); e != nil {
@@ -144,12 +219,12 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 
 // ExportVRFKey saves encrypted copy of VRF key with given public key to
 // requested file path.
-func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
+func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	encryptedKey, err := getKeys(cli, c)
 	if err != nil {
 		return err
 	}
-	if !c.IsSet("file") {
+	if c.String("file") == "" {
 		return fmt.Errorf("must specify file to export to") // Or could default to stdout?
 	}
 	keypath := c.String("file")
@@ -169,7 +244,7 @@ func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 }
 
 // getKeys retrieves the keys for an ExportVRFKey request
-func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedVRFKey, error) {
+func getKeys(cli *Client, c *cli.Context) (*vrf.EncryptedVRFKey, error) {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return nil, err
@@ -191,7 +266,7 @@ func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedVRFKey, error) {
 //
 // Since this runs in an independent process from any chainlink node, it cannot
 // cause running nodes to forget the key, if they already have it unlocked.
-func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
+func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return err
@@ -210,14 +285,14 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	hardDelete := c.Bool("hard")
 	if hardDelete {
 		if err := vrfKeyStore.Delete(publicKey); err != nil {
-			if err == store.AttemptToDeleteNonExistentKeyFromDB {
+			if err == vrf.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
 		}
 	} else {
 		if err := vrfKeyStore.Archive(publicKey); err != nil {
-			if err == store.AttemptToDeleteNonExistentKeyFromDB {
+			if err == vrf.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
@@ -226,19 +301,20 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	return nil
 }
 
-func getPublicKey(c *clipkg.Context) (vrfkey.PublicKey, error) {
-	if !c.IsSet("publicKey") {
-		return vrfkey.PublicKey{}, fmt.Errorf("must specify public key")
+func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
+	if c.String("publicKey") == "" {
+		return secp256k1.PublicKey{}, fmt.Errorf("must specify public key")
 	}
-	publicKey, err := vrfkey.NewPublicKeyFromHex(c.String("publicKey"))
+	publicKey, err := secp256k1.NewPublicKeyFromHex(c.String("publicKey"))
 	if err != nil {
-		return vrfkey.PublicKey{}, errors.Wrap(err, "failed to parse public key")
+		return secp256k1.PublicKey{}, errors.Wrap(err, "failed to parse public key")
 	}
 	return publicKey, nil
 }
 
 // ListKeys Lists the keys in the db
-func (cli *Client) ListKeys(c *clipkg.Context) error {
+func (cli *Client) ListVRFKeys(c *cli.Context) error {
+	cli.Config.Dialect = dialects.PostgresWithoutLock
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
@@ -248,7 +324,8 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	var rows [][]string
+
+	var presenters VRFKeyPresenters
 	for _, key := range keys {
 		uncompressed, err := key.StringUncompressed()
 		if err != nil {
@@ -263,31 +340,27 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 		} else {
 			hashStr = hash.Hex()
 		}
-		var createdAt, updatedAt, deletedAt string
+		var createdAt, updatedAt, deletedAt *time.Time
 		specificKey, err := vrfKeyStore.GetSpecificKey(*key)
-		if err != nil {
-			createdAt = "error fetching key from DB"
-			updatedAt = "error fetching key from DB"
-			deletedAt = "error fetching key from DB"
-		} else {
-			createdAt = specificKey.CreatedAt.String()
-			updatedAt = specificKey.CreatedAt.String()
+		if err == nil {
+			createdAt = &specificKey.CreatedAt
+			updatedAt = &specificKey.CreatedAt
 			if specificKey.DeletedAt.Valid {
-				deletedAt = specificKey.DeletedAt.Time.String()
+				deletedAt = &specificKey.DeletedAt.Time
 			}
 		}
-		rows = append(rows, []string{
-			key.String(),
-			uncompressed,
-			hashStr,
-			fmt.Sprintf("%v", createdAt),
-			fmt.Sprintf("%v", updatedAt),
-			fmt.Sprintf("%v", deletedAt),
+
+		presenters = append(presenters, VRFKeyPresenter{
+			Compressed:   key.String(),
+			Uncompressed: uncompressed,
+			Hash:         hashStr,
+			CreatedAt:    createdAt,
+			UpdatedAt:    updatedAt,
+			DeletedAt:    deletedAt,
 		})
 	}
-	fmt.Println("\n🔑 VRF Keys")
-	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows)
-	return nil
+
+	return cli.errorOut(cli.Render(&presenters, "🔑 VRF Keys"))
 }
 
 func noFileToOverwrite(path string) bool {

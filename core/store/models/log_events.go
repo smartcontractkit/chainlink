@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -52,8 +53,8 @@ var (
 )
 
 type logRequestParser interface {
-	parseJSON(Log) (JSON, error)
-	parseRequestID(Log) (common.Hash, error)
+	parseJSON(types.Log) (JSON, error)
+	parseRequestID(types.Log) (common.Hash, error)
 }
 
 // topicFactoryMap maps the log topic to a factory method that returns an
@@ -141,7 +142,7 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 // types of LogEvents.
 // i.e. EthLogEvent, RunLogEvent, OracleLogEvent
 type LogRequest interface {
-	GetLog() Log
+	GetLog() types.Log
 	GetJobSpecID() JobID
 	GetInitiator() Initiator
 
@@ -157,7 +158,7 @@ type LogRequest interface {
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
 // InitiatorSubscription, and acts as a base struct for other log-initiated events
 type InitiatorLogEvent struct {
-	Log       Log
+	Log       types.Log
 	Initiator Initiator
 }
 
@@ -179,7 +180,7 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 }
 
 // GetLog returns the log.
-func (le InitiatorLogEvent) GetLog() Log {
+func (le InitiatorLogEvent) GetLog() types.Log {
 	return le.Log
 }
 
@@ -198,7 +199,12 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Initiator.JobSpecID.String(),
-		"log", le.Log.BlockNumber,
+		"blockNum", le.Log.BlockNumber,
+		"blockHash", le.Log.BlockHash.Hex(),
+		"txHash", le.Log.TxHash.Hex(),
+		"txIndex", le.Log.TxIndex,
+		"logIndex", le.Log.Index,
+		"removed", le.Log.Removed,
 		"initiator", le.Initiator,
 	}
 	for index, topic := range le.Log.Topics {
@@ -281,7 +287,7 @@ func (le RunLogEvent) Validate() bool {
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func contractPayment(log Log) (*assets.Link, error) {
+func contractPayment(log types.Log) (*assets.Link, error) {
 	var encodedAmount common.Hash
 	paymentStart := requesterSize + idSize
 	paymentData, err := UntrustedBytes(log.Data).SafeByteSlice(paymentStart, paymentStart+paymentSize)
@@ -367,7 +373,7 @@ func (le RunLogEvent) JSON() (JSON, error) {
 	return ParseRunLog(le.Log)
 }
 
-func parserFromLog(log Log) (logRequestParser, error) {
+func parserFromLog(log types.Log) (logRequestParser, error) {
 	if len(log.Topics) == 0 {
 		return nil, errors.New("log has no topics")
 	}
@@ -380,7 +386,7 @@ func parserFromLog(log Log) (logRequestParser, error) {
 }
 
 // ParseRunLog decodes the CBOR in the ABI of the log event.
-func ParseRunLog(log Log) (JSON, error) {
+func ParseRunLog(log types.Log) (JSON, error) {
 	parser, err := parserFromLog(log)
 	if err != nil {
 		return JSON{}, err
@@ -395,7 +401,7 @@ func ParseRunLog(log Log) (JSON, error) {
 // payment amount, callback, expiration, and data.
 type parseRunLog20190207withoutIndexes struct{}
 
-func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
+func (parseRunLog20190207withoutIndexes) parseJSON(log types.Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
@@ -460,7 +466,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 	})
 }
 
-func (parseRunLog20190207withoutIndexes) parseRequestID(log Log) (common.Hash, error) {
+func (parseRunLog20190207withoutIndexes) parseRequestID(log types.Log) (common.Hash, error) {
 	start := requesterSize
 	requestIDBytes, err := UntrustedBytes(log.Data).SafeByteSlice(start, start+idSize)
 	if err != nil {

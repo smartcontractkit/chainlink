@@ -26,75 +26,67 @@ func TestValidateJob(t *testing.T) {
 
 	// Create a funding key.
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-	funding, err := store.KeyStore.NewAccount()
+	fundingKey, _, err := store.KeyStore.EnsureFundingKey()
 	require.NoError(t, err)
-	fundingKey := models.Key{
-		Address:   models.EIP55Address(funding.Address.Hex()),
-		IsFunding: true,
-		JSON: models.JSON{
-			Result: gjson.ParseBytes([]byte(`{"json" : true}`)),
-		},
-	}
-	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
 	tests := []struct {
 		name  string
 		input []byte
 		want  error
 	}{
-		{"base case", cltest.MustReadFile(t, "testdata/hello_world_job.json"), nil},
+		{"base case", cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_job.json"), nil},
 		{
 			"error in job",
-			cltest.MustReadFile(t, "testdata/invalid_endat_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/invalid_endat_job.json"),
 			models.NewJSONAPIErrorsWith("StartAt cannot be before EndAt"),
 		},
 		{
 			"error in runat initr",
-			cltest.MustReadFile(t, "testdata/run_at_wo_time_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/run_at_wo_time_job.json"),
 			models.NewJSONAPIErrorsWith("RunAt must have a time"),
 		},
 		{
 			"error in task",
-			cltest.MustReadFile(t, "testdata/nonexistent_task_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/nonexistent_task_job.json"),
 			models.NewJSONAPIErrorsWith("idonotexist is not a supported adapter type"),
 		},
 		{
 			"zero initiators",
-			cltest.MustReadFile(t, "testdata/zero_initiators.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/zero_initiators.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
 		{
 			"one initiator only",
-			cltest.MustReadFile(t, "testdata/initiator_only_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/initiator_only_job.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
 		{
 			"one task only",
-			cltest.MustReadFile(t, "testdata/task_only_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/task_only_job.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
 		{
 			"runlog and ethtx with an address",
-			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_address_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_ethtx_w_address_job.json"),
 			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's address parameter with a RunLog Initiator"),
 		},
 		{
 			"runlog and ethtx with a function selector",
-			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_funcselector_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_ethtx_w_funcselector_job.json"),
 			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's function selector parameter with a RunLog Initiator"),
 		},
 		{
 			"runlog and ethtx with a fromAddress that doesn't match one of our keys",
-			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_missing_fromAddress_job.json"),
-			models.NewJSONAPIErrorsWith("error record not found finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_ethtx_w_missing_fromAddress_job.json"),
+			models.NewJSONAPIErrorsWith("error address 0x0f416A5a298F05d386CfE8164f342Bec5b5E10D7 not in keystore finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
 		},
 		{
 			"runlog with two ethtx tasks",
-			cltest.MustReadFile(t, "testdata/runlog_2_ethlogs_job.json"),
+			cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_2_ethlogs_job.json"),
 			models.NewJSONAPIErrorsWith("Cannot RunLog initiated jobs cannot have more than one EthTx Task"),
 		},
 		{
 			"cannot use funding key",
-			[]byte(fmt.Sprintf(string(cltest.MustReadFile(t, "testdata/runlog_ethtx_template_fromAddress_job.json")), fundingKey.Address.String())),
+			[]byte(fmt.Sprintf(string(cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_ethtx_template_fromAddress_job.json")), fundingKey.Address.String())),
 			models.NewJSONAPIErrorsWith(fmt.Sprintf("address %v is a funding address, cannot use it to send transactions", fundingKey.Address.String())),
 		},
 	}
@@ -328,12 +320,10 @@ func TestValidateServiceAgreement(t *testing.T) {
 	err := store.KeyStore.Unlock(cltest.Password)
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	assert.NoError(t, err)
-	_, err = store.KeyStore.NewAccount()
-	assert.NoError(t, err)
 
 	oracles := []string{fromAddress.Hex()}
 
-	basic := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	basic := string(cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_agreement.json"))
 	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)
 	threeDays, _ := time.ParseDuration("72h")
 	basic = cltest.MustJSONSet(t, basic, "endAt", time.Now().Add(threeDays))
@@ -508,7 +498,7 @@ func TestValidateJob_VRF_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	input := cltest.MustReadFile(t, "testdata/randomness_job.json")
+	input := cltest.MustReadFile(t, "../testdata/jsonspecs/randomness_job.json")
 
 	var j models.JobSpec
 	assert.NoError(t, json.Unmarshal(input, &j))
@@ -522,7 +512,7 @@ func TestValidateJob_VRF_Error(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	input := cltest.MustReadFile(t, "testdata/randomness_job.json")
+	input := cltest.MustReadFile(t, "../testdata/jsonspecs/randomness_job.json")
 
 	makeVRFJob := func() models.JobSpec {
 		var job models.JobSpec

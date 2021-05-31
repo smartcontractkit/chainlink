@@ -12,6 +12,7 @@ func getPassword(c *clipkg.Context) ([]byte, error) {
 	if c.String("password") == "" {
 		return nil, fmt.Errorf("must specify password file")
 	}
+
 	rawPassword, err := passwordFromFile(c.String("password"))
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read password from file %s",

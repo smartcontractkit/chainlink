@@ -10,14 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,50 +76,6 @@ func TestHead_NextInt(t *testing.T) {
 	}
 }
 
-func TestTx_PresenterMatchesHex(t *testing.T) {
-	t.Parallel()
-
-	nonce := int64(32776)
-	broadcast := int64(1745)
-	value, err := assets.NewEthValueS("777")
-	require.NoError(t, err)
-
-	txAttempt := models.EthTxAttempt{
-		GasPrice:                *utils.NewBig(big.NewInt(333)),
-		SignedRawTx:             hexutil.MustDecode("0xcafe"),
-		Hash:                    common.HexToHash("0x0"),
-		BroadcastBeforeBlockNum: &broadcast,
-	}
-	createdTx := models.EthTx{
-		FromAddress:    common.HexToAddress("0xf208"),
-		ToAddress:      common.HexToAddress("0x70"),
-		EncodedPayload: []byte(`{"data": "is wilding out"}`),
-		Nonce:          &nonce,
-		Value:          value,
-		GasLimit:       1999,
-		State:          models.EthTxConfirmed,
-		EthTxAttempts:  []models.EthTxAttempt{txAttempt},
-	}
-	txAttempt.EthTx = createdTx
-
-	ptx := presenters.NewEthTxFromAttempt(txAttempt)
-	bytes, err := json.Marshal(ptx)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{`+
-		`"data":"0x7b2264617461223a202269732077696c64696e67206f7574227d",`+
-		`"from":"0x000000000000000000000000000000000000f208",`+
-		`"gasLimit":"1999",`+
-		`"gasPrice":"333",`+
-		`"hash":"0x0000000000000000000000000000000000000000000000000000000000000000",`+
-		`"rawHex":"0xcafe",`+
-		`"nonce":"32776",`+
-		`"sentAt":"1745",`+
-		`"state":"confirmed",`+
-		`"to":"0x0000000000000000000000000000000000000070",`+
-		`"value":"777.000000000000000000"`+
-		`}`, string(bytes))
-}
-
 func TestEthTx_GetID(t *testing.T) {
 	tx := models.EthTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
@@ -136,12 +88,9 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store.KeyStore.Unlock(cltest.Password)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	account, err := store.KeyStore.GetAccountByAddress(fromAddress)
-	require.NoError(t, err)
-
 	chainID := big.NewInt(3)
 
-	signedTx, err := store.KeyStore.SignTx(account, tx, chainID)
+	signedTx, err := store.KeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
 	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)
@@ -295,9 +244,9 @@ func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
 		path string
 		want bool
 	}{
-		{"basic", "../../services/eth/testdata/getTransactionReceipt.json", false},
-		{"runlog request", "../../services/eth/testdata/runlogReceipt.json", false},
-		{"runlog response", "../../services/eth/testdata/responseReceipt.json", true},
+		{"basic", "../../testdata/jsonrpc/getTransactionReceipt.json", false},
+		{"runlog request", "../../testdata/jsonrpc/runlogReceipt.json", false},
+		{"runlog response", "../../testdata/jsonrpc/responseReceipt.json", true},
 	}
 
 	for _, test := range tests {

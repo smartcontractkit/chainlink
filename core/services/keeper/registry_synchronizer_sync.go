@@ -105,7 +105,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 	if err != nil {
 		return err
 	}
-	positioningConstant, err := calcPositioningConstant(upkeepID, registry.ContractAddress)
+	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,8 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	return rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	return err
 }
 
 // newRegistryFromChain returns a Registry stuct with fields synched from those on chain
@@ -141,6 +142,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)
 	if err != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		rs.jrm.RecordError(ctx, rs.job.ID, err.Error())
 		return Registry{}, err
 	}
 	keeperAddresses, err := rs.contract.GetKeeperList(nil)
@@ -169,7 +173,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 }
 
 // the positioning constant is fixed because upkeepID and registryAddress are immutable
-func calcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(upkeepBytes, upkeepID)
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
@@ -177,6 +181,6 @@ func calcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address
 	if err != nil {
 		return 0, err
 	}
-	constant := binary.BigEndian.Uint32(checksum[:4])
+	constant := binary.BigEndian.Uint16(checksum[:2])
 	return int32(constant), nil
 }

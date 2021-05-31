@@ -6,6 +6,8 @@ import {
   JobSpecV2,
   OffChainReportingOracleJobV2Spec,
   KeeperV2Spec,
+  CronV2Spec,
+  WebhookV2Spec,
 } from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
@@ -115,6 +117,14 @@ export const generateTOMLDefinition = (
     return generateKeeperDefinition(jobSpecAttributes)
   }
 
+  if (jobSpecAttributes.type === 'cron') {
+    return generateCronDefinition(jobSpecAttributes)
+  }
+
+  if (jobSpecAttributes.type === 'webhook') {
+    return generateWebhookDefinition(jobSpecAttributes)
+  }
+
   return ''
 }
 
@@ -194,13 +204,14 @@ function generateDirectRequestDefinition(
     type,
     maxTaskDuration,
   } = attrs
-  const { contractAddress } = directRequestSpec
+  const { contractAddress, onChainJobSpecID } = directRequestSpec
 
   return stringifyJobSpec({
     value: {
       type,
       schemaVersion,
       name,
+      onChainJobSpecID,
       contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
@@ -222,6 +233,42 @@ function generateKeeperDefinition(
       name,
       contractAddress,
       fromAddress,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateCronDefinition(
+  attrs: ApiResponse<CronV2Spec>['data']['attributes'],
+) {
+  const { cronSpec, pipelineSpec, name, schemaVersion, type } = attrs
+  const { schedule } = cronSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      schedule,
+      observationSource: pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateWebhookDefinition(
+  attrs: ApiResponse<WebhookV2Spec>['data']['attributes'],
+) {
+  const { pipelineSpec, name, schemaVersion, type, webhookSpec } = attrs
+  const { onChainJobSpecID } = webhookSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      onChainJobSpecID,
+      observationSource: pipelineSpec.dotDagSource,
     },
     format: JobSpecFormats.TOML,
   })

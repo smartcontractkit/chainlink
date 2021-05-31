@@ -39,11 +39,11 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress, time.Unix(1616509200, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress, time.Unix(1616509300, 0)),
 	}
-	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID, store)
+	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(10))
 	require.NoError(t, store.DB.Create(&attempt1_2).Error)
 
-	attempt3_2 := newInProgressEthTxAttempt(t, etxs[2].ID, store)
+	attempt3_2 := newInProgressEthTxAttempt(t, etxs[2].ID)
 	attempt3_2.GasPrice = *utils.NewBig(big.NewInt(10))
 	require.NoError(t, store.DB.Create(&attempt3_2).Error)
 
@@ -61,28 +61,37 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	t.Cleanup(cleanup)
+	// This can be anything as long as it isn't zero
+	store.Config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", "42h")
+	// Set batch size low to test batching
+	store.Config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", "1")
 	key := cltest.MustInsertRandomKey(t, store.DB)
 	fromAddress := key.Address.Address()
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 
-		er := bulletprooftxmanager.NewEthResender(store.DB, ethClient, 100*time.Millisecond, 1*time.Hour)
+		er := bulletprooftxmanager.NewEthResender(store.DB, ethClient, 100*time.Millisecond, store.Config)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress, originalBroadcastAt)
 		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress, originalBroadcastAt)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress, time.Now().Add(1*time.Hour))
 
+		// First batch of 1
 		ethClient.On("RoundRobinBatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 2 &&
-				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx) &&
-				b[1].Method == "eth_sendRawTransaction" && b[1].Args[0] == hexutil.Encode(etx2.EthTxAttempts[0].SignedRawTx)
+			return len(b) == 1 &&
+				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx)
+		})).Return(nil)
+		// Second batch of 1
+		ethClient.On("RoundRobinBatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 &&
+				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx2.EthTxAttempts[0].SignedRawTx)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// It should update BroadcastAt even if there is an error here
-			elems[1].Error = errors.New("kaboom")
+			elems[0].Error = errors.New("kaboom")
 		})
 
 		func() {

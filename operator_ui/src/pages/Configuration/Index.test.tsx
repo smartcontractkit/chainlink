@@ -11,8 +11,8 @@ describe('pages/Configuration', () => {
     expect.assertions(4)
 
     const configurationResponse = configurationFactory({
-      band: 'Major Lazer',
-      singer: 'Bob Marley',
+      BAND: 'Major Lazer',
+      SINGER: 'Bob Marley',
     })
     global.fetch.getOnce(globPath('/v2/config'), configurationResponse)
 

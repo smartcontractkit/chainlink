@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
@@ -14,6 +15,8 @@ import (
 type Delegate struct {
 	config          *orm.Config
 	db              *gorm.DB
+	jrm             job.ORM
+	pr              pipeline.Runner
 	ethClient       eth.Client
 	headBroadcaster *services.HeadBroadcaster
 	logBroadcaster  log.Broadcaster
@@ -21,6 +24,8 @@ type Delegate struct {
 
 func NewDelegate(
 	db *gorm.DB,
+	jrm job.ORM,
+	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster *services.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
@@ -29,6 +34,8 @@ func NewDelegate(
 	return &Delegate{
 		config:          config,
 		db:              db,
+		jrm:             jrm,
+		pr:              pr,
 		ethClient:       ethClient,
 		headBroadcaster: headBroadcaster,
 		logBroadcaster:  logBroadcaster,
@@ -57,21 +64,22 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		spec,
 		contract,
 		d.db,
-		d.headBroadcaster,
+		d.jrm,
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),
 		d.config.KeeperMinimumRequiredConfirmations(),
 	)
-	upkeepExecutor := NewUpkeepExecutor(
+	upkeepExecuter := NewUpkeepExecuter(
 		spec,
 		d.db,
+		d.pr,
 		d.ethClient,
 		d.headBroadcaster,
-		d.config.KeeperMaximumGracePeriod(),
+		d.config,
 	)
 
 	return []job.Service{
 		registrySynchronizer,
-		upkeepExecutor,
+		upkeepExecuter,
 	}, nil
 }

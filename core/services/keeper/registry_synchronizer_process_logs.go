@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -8,24 +9,22 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func (rs *RegistrySynchronizer) processLogs(head models.Head) {
+func (rs *RegistrySynchronizer) processLogs() {
 	wg := sync.WaitGroup{}
 	wg.Add(4)
-	go rs.handleSyncRegistryLog(head, wg.Done)
-	go rs.handleUpkeepCanceledLogs(head, wg.Done)
-	go rs.handleUpkeepRegisteredLogs(head, wg.Done)
-	go rs.handleUpkeepPerformedLogs(head, wg.Done)
+	go rs.handleSyncRegistryLog(wg.Done)
+	go rs.handleUpkeepCanceledLogs(wg.Done)
+	go rs.handleUpkeepRegisteredLogs(wg.Done)
+	go rs.handleUpkeepPerformedLogs(wg.Done)
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) handleSyncRegistryLog(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
-	i := rs.mailRoom.mbSyncRegistry.RetrieveIf(oldEnough)
-	if i == nil {
+	i, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
+	if !exists {
 		return
 	}
 	broadcast, ok := i.(log.Broadcast)
@@ -35,7 +34,7 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(head models.Head, done fun
 	}
 	txHash := broadcast.RawLog().TxHash.Hex()
 	logger.Debugw("RegistrySynchronizer: processing SyncRegistry log", "jobID", rs.job.ID, "txHash", txHash)
-	was, err := broadcast.WasAlreadyConsumed()
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 		return
@@ -43,24 +42,20 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(head models.Head, done fun
 	if was {
 		return
 	}
-	if !head.IsInChain(broadcast.RawLog().BlockHash) {
-		return
-	}
 	_, err = rs.syncRegistry()
 	if err != nil {
 		logger.Error(errors.Wrapf(err, "RegistrySynchronizer: unable to sync registry, jobID: %d", rs.job.ID))
 		return
 	}
-	err = broadcast.MarkConsumed()
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 	logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 }
 
-func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
 	for {
-		i := rs.mailRoom.mbUpkeepCanceled.RetrieveIf(oldEnough)
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -70,15 +65,12 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(head models.Head, done 
 		}
 		txHash := broadcast.RawLog().TxHash.Hex()
 		logger.Debugw("RegistrySynchronizer: processing UpkeepCanceled log", "jobID", rs.job.ID, "txHash", txHash)
-		was, err := broadcast.WasAlreadyConsumed()
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 			continue
 		}
 		if was {
-			continue
-		}
-		if !head.IsInChain(broadcast.RawLog().BlockHash) {
 			continue
 		}
 		log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepCanceled)
@@ -88,19 +80,19 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(head models.Head, done 
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
-		err = rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, []int64{log.Id.Int64()})
+		affected, err := rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, []int64{log.Id.Int64()})
 		if err != nil {
 			logger.Error(errors.Wrapf(err, "RegistrySynchronizer: unable to batch delete upkeeps, jobID: %d", rs.job.ID))
 			continue
 		}
-		err = broadcast.MarkConsumed()
+		logger.Debugw(fmt.Sprintf("RegistrySynchronizer: deleted %v upkeep registrations", affected), "jobID", rs.job.ID, "txHash", txHash)
+		err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 	}
 }
 
-func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	registry, err := rs.orm.RegistryForJob(ctx, rs.job.ID)
@@ -109,8 +101,8 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, don
 		return
 	}
 	for {
-		i := rs.mailRoom.mbUpkeepRegistered.RetrieveIf(oldEnough)
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -120,15 +112,12 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, don
 		}
 		txHash := broadcast.RawLog().TxHash.Hex()
 		logger.Debugw("RegistrySynchronizer: processing UpkeepRegistered log", "jobID", rs.job.ID, "txHash", txHash)
-		was, err := broadcast.WasAlreadyConsumed()
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 			continue
 		}
 		if was {
-			continue
-		}
-		if !head.IsInChain(broadcast.RawLog().BlockHash) {
 			continue
 		}
 		log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepRegistered)
@@ -141,17 +130,16 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, don
 			logger.Error(err)
 			continue
 		}
-		err = broadcast.MarkConsumed()
+		err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
 	}
 }
 
-func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(head models.Head, done func()) {
+func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 	defer done()
-	oldEnough := isOldEnoughConstructor(head, rs.minConfirmations)
 	for {
-		i := rs.mailRoom.mbUpkeepPerformed.RetrieveIf(oldEnough)
-		if i == nil {
+		i, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
+		if !exists {
 			return
 		}
 		broadcast, ok := i.(log.Broadcast)
@@ -161,15 +149,12 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(head models.Head, done
 		}
 		txHash := broadcast.RawLog().TxHash.Hex()
 		logger.Debugw("RegistrySynchronizer: processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
-		was, err := broadcast.WasAlreadyConsumed()
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 			continue
 		}
 		if was {
-			continue
-		}
-		if !head.IsInChain(broadcast.RawLog().BlockHash) {
 			continue
 		}
 		log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
@@ -179,24 +164,14 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(head models.Head, done
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
+		db := rs.orm.DB.WithContext(ctx)
 		// set last run to 0 so that keeper can resume checkUpkeep()
-		err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
+		err = rs.orm.SetLastRunHeightForUpkeepOnJob(db, rs.job.ID, log.Id.Int64(), 0)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		err = broadcast.MarkConsumed()
+		err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
 		logger.ErrorIf((errors.Wrapf(err, "RegistrySynchronizer: unable to mark log as consumed, jobID: %d", rs.job.ID)))
-	}
-}
-
-func isOldEnoughConstructor(head models.Head, minConfirmations uint64) func(interface{}) bool {
-	return func(i interface{}) bool {
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			return true // we want to get bad data out of the queue
-		}
-		logHeight := broadcast.RawLog().BlockNumber
-		return (logHeight + uint64(minConfirmations) - 1) <= uint64(head.Number)
 	}
 }

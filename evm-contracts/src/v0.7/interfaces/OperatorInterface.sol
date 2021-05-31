@@ -2,8 +2,21 @@
 pragma solidity ^0.7.0;
 
 import "./OracleInterface.sol";
+import "./ChainlinkRequestInterface.sol";
 
-interface OperatorInterface is OracleInterface {
+interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
+
+  function requestOracleData(
+    address sender,
+    uint256 payment,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion,
+    bytes calldata data
+  )
+    external;
   
   function fulfillOracleRequest2(
     bytes32 requestId,
@@ -45,9 +58,11 @@ interface OperatorInterface is OracleInterface {
     address[] calldata senders
   ) external;
 
-  function getForwarders()
-    external
-    returns (
-      address[] memory
-    );
+  function transferForwarderOwnership(
+    address newOwner
+  ) external;
+
+  function acceptForwarderOwnership(
+    address newOwner
+  ) external;
 }

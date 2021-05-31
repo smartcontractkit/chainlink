@@ -29,7 +29,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	defer cleanup()
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		_, err := w.Write([]byte(mustReadFile(t, "../testdata/coinmarketcap.error.json")))
+		_, err := w.Write([]byte(mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.error.json")))
 		require.NoError(t, err)
 	})
 

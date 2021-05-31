@@ -1,19 +1,12 @@
-import {
-  contract,
-  helpers as h,
-  matchers,
-  // oracle,
-  setup,
-} from '@chainlink/test-helpers'
+import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { utils } from 'ethers'
+import { ContractReceipt } from 'ethers/contract'
 import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
 import { OperatorForwarder__factory } from '../../ethers/v0.7/factories/OperatorForwarder__factory'
-import { OperatorForwarderDeployer__factory } from '../../ethers/v0.7/factories/OperatorForwarderDeployer__factory'
 
 const getterSetterFactory = new GetterSetter__factory()
 const operatorForwarderFactory = new OperatorForwarder__factory()
-const operatorForwarderDeployerFactory = new OperatorForwarderDeployer__factory()
 const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
@@ -26,25 +19,13 @@ beforeAll(async () => {
 })
 
 describe('OperatorForwarder', () => {
-  let authorizedSenders: string[]
   let link: contract.Instance<contract.LinkToken__factory>
-  let operatorForwarderDeployer: contract.Instance<OperatorForwarderDeployer__factory>
   let operatorForwarder: contract.Instance<OperatorForwarder__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
-    authorizedSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
-    operatorForwarderDeployer = await operatorForwarderDeployerFactory
-      .connect(roles.defaultAccount)
-      .deploy(link.address, authorizedSenders)
-    const tx = await operatorForwarderDeployer.createForwarder()
-    const receipt = await tx.wait()
-    const event = h.findEventIn(
-      receipt,
-      operatorForwarderDeployer.interface.events.ForwarderDeployed,
-    )
     operatorForwarder = await operatorForwarderFactory
       .connect(roles.defaultAccount)
-      .attach(event?.args?.[0])
+      .deploy(link.address)
   })
 
   beforeEach(async () => {
@@ -53,10 +34,13 @@ describe('OperatorForwarder', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(operatorForwarder, [
-      'authorizedSender1',
-      'authorizedSender2',
-      'authorizedSender3',
+      'transferOwnership',
+      'acceptOwnership',
+      'owner',
+      // OperatorForwarder
       'linkAddr',
+      'setAuthorizedSenders',
+      'getAuthorizedSenders',
       'forward',
     ])
   })
@@ -67,13 +51,89 @@ describe('OperatorForwarder', () => {
       assert.equal(forwarderLink, link.address)
     })
 
-    it('sets the correct authorized senders', async () => {
-      const auth1 = await operatorForwarder.authorizedSender1()
-      const auth2 = await operatorForwarder.authorizedSender2()
-      const auth3 = await operatorForwarder.authorizedSender3()
-      assert.equal(auth1, roles.defaultAccount.address)
-      assert.equal(auth2, authorizedSenders[0])
-      assert.equal(auth3, authorizedSenders[1])
+    it('sets no authorized senders', async () => {
+      const senders = await operatorForwarder.getAuthorizedSenders()
+      assert.equal(senders.length, 0)
+    })
+  })
+
+  describe('#setAuthorizedSenders', () => {
+    let newSenders: string[]
+    let receipt: ContractReceipt
+    describe('when called by the owner', () => {
+      describe('setting 3 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = [
+            roles.oracleNode1.address,
+            roles.oracleNode2.address,
+            roles.oracleNode3.address,
+          ]
+          const tx = await operatorForwarder
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders)
+          receipt = await tx.wait()
+        })
+
+        it('adds the authorized nodes', async () => {
+          const authorizedSenders = await operatorForwarder.getAuthorizedSenders()
+          assert.equal(newSenders.length, authorizedSenders.length)
+          for (let i = 0; i < authorizedSenders.length; i++) {
+            assert.equal(authorizedSenders[i], newSenders[i])
+          }
+        })
+
+        it('emits an event', async () => {
+          assert.equal(receipt.events?.length, 1)
+          const responseEvent = receipt.events?.[0]
+          assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
+          const encodedSenders = utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [newSenders],
+          )
+          assert.equal(responseEvent?.data, encodedSenders)
+        })
+
+        it('replaces the authorized nodes', async () => {
+          const newSenders = await operatorForwarder
+            .connect(roles.defaultAccount)
+            .getAuthorizedSenders()
+          assert.notIncludeOrderedMembers(newSenders, [
+            roles.oracleNode.address,
+          ])
+        })
+
+        afterAll(async () => {
+          await operatorForwarder
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders([roles.oracleNode.address])
+        })
+      })
+
+      describe('setting 0 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = []
+        })
+
+        it('reverts with a minimum senders message', async () => {
+          await matchers.evmRevert(async () => {
+            await operatorForwarder
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
+              'Must have at least 1 authorized sender'
+          })
+        })
+      })
+    })
+
+    describe('when called by a non-owner', () => {
+      it('cannot add an authorized node', async () => {
+        await matchers.evmRevert(async () => {
+          await operatorForwarder
+            .connect(roles.stranger)
+            .setAuthorizedSenders([roles.stranger.address])
+          ;('Only callable by owner')
+        })
+      })
     })
   })
 
@@ -99,6 +159,12 @@ describe('OperatorForwarder', () => {
     })
 
     describe('when called by an authorized node', () => {
+      beforeEach(async () => {
+        await operatorForwarder
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([roles.defaultAccount.address])
+      })
+
       describe('when attempting to forward to the link token', () => {
         it('reverts', async () => {
           const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function

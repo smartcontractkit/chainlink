@@ -1,11 +1,9 @@
-import { decamelizeKeys } from 'humps'
-
 export default (configOptions) => {
-  return decamelizeKeys({
+  return {
     data: {
       id: 'someConfigId',
       type: 'configPrinters',
       attributes: configOptions,
     },
-  })
+  }
 }

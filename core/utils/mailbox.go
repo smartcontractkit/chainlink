@@ -4,6 +4,10 @@ import (
 	"sync"
 )
 
+// Mailbox contains a notify channel,
+// a mutual exclusive lock,
+// a queue of interfaces,
+// and a queue capacity.
 type Mailbox struct {
 	chNotify chan struct{}
 	mu       sync.Mutex
@@ -11,6 +15,7 @@ type Mailbox struct {
 	capacity uint64
 }
 
+// NewMailbox creates a new mailbox instance
 func NewMailbox(capacity uint64) *Mailbox {
 	queueCap := capacity
 	if queueCap == 0 {
@@ -23,53 +28,39 @@ func NewMailbox(capacity uint64) *Mailbox {
 	}
 }
 
+// Notify returns the contents of the notify channel
 func (m *Mailbox) Notify() chan struct{} {
 	return m.chNotify
 }
 
-func (m *Mailbox) Deliver(x interface{}) {
+// Deliver appends an interface to the queue
+func (m *Mailbox) Deliver(x interface{}) (wasOverCapacity bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.queue = append([]interface{}{x}, m.queue...)
 	if uint64(len(m.queue)) > m.capacity && m.capacity > 0 {
 		m.queue = m.queue[:len(m.queue)-1]
+		wasOverCapacity = true
 	}
 
 	select {
 	case m.chNotify <- struct{}{}:
 	default:
 	}
+	return
 }
 
-func (m *Mailbox) Retrieve() interface{} {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.retrieve()
-}
-
-// RetrieveIf returns the first item in the mailbox if it meets the provided criteria
-func (m *Mailbox) RetrieveIf(conditional func(interface{}) bool) interface{} {
+// Retrieve fetches an interface from the queue
+func (m *Mailbox) Retrieve() (interface{}, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.queue) == 0 {
-		return nil
-	}
-	x := m.queue[len(m.queue)-1]
-	if !conditional(x) {
-		return nil
-	}
-	return m.retrieve()
-}
-
-// DEV: not thread safe - caller must hold lock
-func (m *Mailbox) retrieve() interface{} {
-	if len(m.queue) == 0 {
-		return nil
+		return nil, false
 	}
 	x := m.queue[len(m.queue)-1]
 	m.queue = m.queue[:len(m.queue)-1]
-	return x
+	return x, true
 }
 
 func (m *Mailbox) RetrieveLatestAndClear() interface{} {

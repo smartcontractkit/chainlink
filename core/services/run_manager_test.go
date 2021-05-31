@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -202,10 +201,10 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 
 func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -232,10 +231,10 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -260,10 +259,10 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -324,21 +323,20 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 
-			gethClient := new(mocks.GethClient)
-			rpcClient := new(mocks.RPCClient)
+			ethClient := new(mocks.Client)
+
 			sub := new(mocks.Subscription)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config,
-				eth.NewClientWith(rpcClient, gethClient),
+				ethClient,
 			)
-			gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
-			gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil)
-			gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(sub, nil)
-			rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(sub, nil)
+			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			kst := new(mocks.KeyStoreInterface)
-			app.Store.KeyStore = kst
 			defer cleanup()
 
 			app.StartAndConnect()
@@ -362,7 +360,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.TaskRuns[0].Status)
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
 
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(&types.Receipt{
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(&types.Receipt{
 				TxHash:      initiatingTxHash,
 				BlockHash:   test.receiptBlockHash,
 				BlockNumber: big.NewInt(3),
@@ -376,7 +374,6 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.True(t, run.TaskRuns[0].MinRequiredIncomingConfirmations.Valid)
 			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].ObservedIncomingConfirmations.Uint32, "task run should track its current confirmations")
 			assert.True(t, run.TaskRuns[0].ObservedIncomingConfirmations.Valid)
-			kst.AssertExpectations(t)
 		})
 	}
 }
@@ -624,13 +621,11 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	defer cfgCleanup()
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
-	kst := new(mocks.KeyStoreInterface)
-	app.Store.KeyStore = kst
 	defer cleanup()
 
 	require.NoError(t, app.StartAndConnect())
@@ -661,8 +656,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	updatedJR := cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, *jr)
 	assert.True(t, updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
-
-	kst.AssertExpectations(t)
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {

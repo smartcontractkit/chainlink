@@ -5,6 +5,8 @@ import {
   FluxMonitorJobV2Spec,
   KeeperV2Spec,
   OffChainReportingOracleJobV2Spec,
+  CronV2Spec,
+  WebhookV2Spec,
 } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
@@ -46,6 +48,8 @@ export function ocrJobSpecV2(
     fluxMonitorSpec: null,
     directRequestSpec: null,
     keeperSpec: null,
+    cronSpec: null,
+    webhookSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -81,6 +85,8 @@ export function fluxMonitorJobV2(
     directRequestSpec: null,
     offChainReportingOracleSpec: null,
     keeperSpec: null,
+    cronSpec: null,
+    webhookSpec: null,
     fluxMonitorSpec,
     errors: [],
     maxTaskDuration: '',
@@ -117,6 +123,8 @@ export function directRequestJobV2(
     directRequestSpec,
     offChainReportingOracleSpec: null,
     keeperSpec: null,
+    cronSpec: null,
+    webhookSpec: null,
     fluxMonitorSpec: null,
     errors: [],
     maxTaskDuration: '',
@@ -147,6 +155,64 @@ export function keeperJobV2(
     keeperSpec,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
+    cronSpec: null,
+    webhookSpec: null,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
+    },
+  }
+}
+
+export function cronJobV2(
+  spec: Partial<CronV2Spec['cronSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const cronSpec = partialAsFull<CronV2Spec['cronSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Cron V2 job',
+    type: 'cron',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec: null,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec,
+    webhookSpec: null,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
+    },
+  }
+}
+
+export function webhookJobV2(
+  spec: Partial<WebhookV2Spec['webhookSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const webhookSpec = partialAsFull<WebhookV2Spec['webhookSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Web V2 job',
+    type: 'webhook',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec: null,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec: null,
+    webhookSpec,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {

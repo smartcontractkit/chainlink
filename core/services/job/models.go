@@ -5,74 +5,75 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/lib/pq"
-
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
 	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	gethCommon "github.com/ethereum/go-ethereum/common"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 const (
+	Cron              Type = "cron"
 	DirectRequest     Type = "directrequest"
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
 	Keeper            Type = "keeper"
+	VRF               Type = "vrf"
+	Webhook           Type = "webhook"
 )
 
-type IDEmbed struct {
-	ID int32 `json:"-" toml:"-"                 gorm:"primary_key"`
-}
-
-func (id IDEmbed) GetID() string {
-	return fmt.Sprintf("%v", id.ID)
-}
-
-func (id *IDEmbed) SetID(value string) error {
-	ID, err := strconv.ParseInt(value, 10, 32)
-	if err != nil {
-		return err
-	}
-	id.ID = int32(ID)
-	return nil
-}
-
 type Job struct {
-	IDEmbed
-	OffchainreportingOracleSpecID *int32                       `json:"-"`
-	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec"`
-	DirectRequestSpecID           *int32                       `json:"-"`
-	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
-	FluxMonitorSpecID             *int32                       `json:"-"`
-	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
-	KeeperSpecID                  *int32                       `json:"-"`
-	KeeperSpec                    *KeeperSpec                  `json:"keeperSpec"`
-	PipelineSpecID                int32                        `json:"-"`
-	PipelineSpec                  *pipeline.Spec               `json:"pipelineSpec"`
-	JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
-	Type                          Type                         `json:"type"`
-	SchemaVersion                 uint32                       `json:"schemaVersion"`
-	Name                          null.String                  `json:"name"`
-	MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
-	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource" gorm:"-"`
+	ID                            int32 `toml:"-" gorm:"primary_key"`
+	OffchainreportingOracleSpecID *int32
+	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
+	CronSpecID                    *int32
+	CronSpec                      *CronSpec
+	DirectRequestSpecID           *int32
+	DirectRequestSpec             *DirectRequestSpec
+	FluxMonitorSpecID             *int32
+	FluxMonitorSpec               *FluxMonitorSpec
+	KeeperSpecID                  *int32
+	KeeperSpec                    *KeeperSpec
+	VRFSpecID                     *int32
+	VRFSpec                       *VRFSpec
+	WebhookSpecId                 *int32
+	WebhookSpec                   *WebhookSpec
+	PipelineSpecID                int32
+	PipelineSpec                  *pipeline.Spec
+	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
+	Type                          Type
+	SchemaVersion                 uint32
+	Name                          null.String
+	MaxTaskDuration               models.Interval
+	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
 }
 
 func (Job) TableName() string {
 	return "jobs"
 }
 
+// SetID takes the id as a string and attempts to convert it to an int32. If
+// it succeeds, it will set it as the id on the job
+func (job *Job) SetID(value string) error {
+	id, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	job.ID = int32(id)
+	return nil
+}
+
 type SpecError struct {
-	ID          int64     `json:"id" gorm:"primary_key"`
-	JobID       int32     `json:"-"`
-	Description string    `json:"description"`
-	Occurrences uint      `json:"occurrences"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID          int64 `gorm:"primary_key"`
+	JobID       int32
+	Description string
+	Occurrences uint
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (SpecError) TableName() string {
@@ -99,20 +100,20 @@ func (pr *PipelineRun) SetID(value string) error {
 // TODO: remove pointers when upgrading to gormv2
 // which has https://github.com/go-gorm/gorm/issues/2748 fixed.
 type OffchainReportingOracleSpec struct {
-	IDEmbed
-	ContractAddress                        models.EIP55Address  `json:"contractAddress" toml:"contractAddress"`
-	P2PPeerID                              *models.PeerID       `json:"p2pPeerID" toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
-	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers" toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
-	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer" toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash   `json:"keyBundleID" toml:"keyBundleID"                 gorm:"type:bytea"`
-	TransmitterAddress                     *models.EIP55Address `json:"transmitterAddress" toml:"transmitterAddress"`
-	ObservationTimeout                     models.Interval      `json:"observationTimeout" toml:"observationTimeout" gorm:"type:bigint;default:null"`
-	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
-	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
-	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
-	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations" toml:"contractConfigConfirmations"`
-	CreatedAt                              time.Time            `json:"createdAt" toml:"-"`
-	UpdatedAt                              time.Time            `json:"updatedAt" toml:"-"`
+	ID                                     int32                `toml:"-" gorm:"primary_key"`
+	ContractAddress                        models.EIP55Address  `toml:"contractAddress"`
+	P2PPeerID                              *models.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
+	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
+	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
+	TransmitterAddress                     *models.EIP55Address `toml:"transmitterAddress"`
+	ObservationTimeout                     models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
+	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
+	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
+	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	CreatedAt                              time.Time            `toml:"-"`
+	UpdatedAt                              time.Time            `toml:"-"`
 }
 
 func (s OffchainReportingOracleSpec) GetID() string {
@@ -143,41 +144,120 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+type WebhookSpec struct {
+	ID               int32        `toml:"-" gorm:"primary_key"`
+	OnChainJobSpecID models.JobID `toml:"jobID"`
+	CreatedAt        time.Time    `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time    `json:"updatedAt" toml:"-"`
+}
+
+func (w WebhookSpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *WebhookSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
+	return nil
+}
+
+func (w *WebhookSpec) BeforeCreate(db *gorm.DB) error {
+	w.CreatedAt = time.Now()
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (w *WebhookSpec) BeforeSave(db *gorm.DB) error {
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (WebhookSpec) TableName() string {
+	return "webhook_specs"
+}
+
 type DirectRequestSpec struct {
-	IDEmbed
-	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
-	// OnChainJobSpecID is the sha256 of the TOML that created this job spec
-	OnChainJobSpecID gethCommon.Hash
-	CreatedAt        time.Time `json:"createdAt" toml:"-"`
-	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
+	ID               int32               `toml:"-" gorm:"primary_key"`
+	ContractAddress  models.EIP55Address `toml:"contractAddress"`
+	OnChainJobSpecID models.JobID        `toml:"jobID"`
+	NumConfirmations clnull.Uint32       `toml:"numConfirmations"`
+	CreatedAt        time.Time           `toml:"-"`
+	UpdatedAt        time.Time           `toml:"-"`
 }
 
 func (DirectRequestSpec) TableName() string {
 	return "direct_request_specs"
 }
 
+type CronSpec struct {
+	ID           int32     `toml:"-" gorm:"primary_key"`
+	CronSchedule string    `toml:"schedule"`
+	CreatedAt    time.Time `toml:"-"`
+	UpdatedAt    time.Time `toml:"-"`
+}
+
+func (s CronSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *CronSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
+}
+
+func (s *CronSpec) BeforeCreate(db *gorm.DB) error {
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (s *CronSpec) BeforeSave(db *gorm.DB) error {
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (CronSpec) TableName() string {
+	return "cron_specs"
+}
+
 type FluxMonitorSpec struct {
-	IDEmbed
-	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
-	Precision       int32               `json:"precision,omitempty" gorm:"type:smallint"`
-	Threshold       float32             `json:"threshold,omitempty" toml:"threshold,float"`
+	ID              int32               `toml:"-" gorm:"primary_key"`
+	ContractAddress models.EIP55Address `toml:"contractAddress"`
+	Precision       int32               `gorm:"type:smallint"`
+	Threshold       float32             `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold float32       `json:"absoluteThreshold" toml:"absoluteThreshold,float" gorm:"type:float;not null"`
-	PollTimerPeriod   time.Duration `json:"pollTimerPeriod,omitempty" gorm:"type:jsonb"`
-	PollTimerDisabled bool          `json:"pollTimerDisabled,omitempty" gorm:"type:jsonb"`
-	IdleTimerPeriod   time.Duration `json:"idleTimerPeriod,omitempty" gorm:"type:jsonb"`
-	IdleTimerDisabled bool          `json:"idleTimerDisabled,omitempty" gorm:"type:jsonb"`
-	MinPayment        *assets.Link  `json:"minPayment,omitempty"`
-	CreatedAt         time.Time     `json:"createdAt" toml:"-"`
-	UpdatedAt         time.Time     `json:"updatedAt" toml:"-"`
+	AbsoluteThreshold float32       `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
+	PollTimerPeriod   time.Duration `gorm:"type:jsonb"`
+	PollTimerDisabled bool          `gorm:"type:jsonb"`
+	IdleTimerPeriod   time.Duration `gorm:"type:jsonb"`
+	IdleTimerDisabled bool          `gorm:"type:jsonb"`
+	MinPayment        *assets.Link
+	CreatedAt         time.Time `toml:"-"`
+	UpdatedAt         time.Time `toml:"-"`
 }
 
 type KeeperSpec struct {
-	IDEmbed
-	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
-	FromAddress     models.EIP55Address `json:"fromAddress" toml:"fromAddress"`
-	CreatedAt       time.Time           `json:"createdAt" toml:"-"`
-	UpdatedAt       time.Time           `json:"updatedAt" toml:"-"`
+	ID              int32               `toml:"-" gorm:"primary_key"`
+	ContractAddress models.EIP55Address `toml:"contractAddress"`
+	FromAddress     models.EIP55Address `toml:"fromAddress"`
+	CreatedAt       time.Time           `toml:"-"`
+	UpdatedAt       time.Time           `toml:"-"`
+}
+
+type VRFSpec struct {
+	ID                 int32
+	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
+	Confirmations      uint32              `toml:"confirmations"`
+	CreatedAt          time.Time           `toml:"-"`
+	UpdatedAt          time.Time           `toml:"-"`
 }

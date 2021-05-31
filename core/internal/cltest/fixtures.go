@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,7 +28,12 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 }
 
 func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) job.Job {
-	return CreateJobViaWeb(t, app, string(MustReadFile(t, path)))
+	request := web.CreateJobRequest{
+		TOML: string(MustReadFile(t, path)),
+	}
+	output, err := json.Marshal(request)
+	require.NoError(t, err)
+	return CreateJobViaWeb(t, app, output)
 }
 
 // JSONFromFixture create models.JSON from file path
@@ -41,9 +48,9 @@ func JSONResultFromFixture(t *testing.T, path string) models.JSON {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(t *testing.T, path string) models.Log {
+func LogFromFixture(t *testing.T, path string) types.Log {
 	value := gjson.Get(string(MustReadFile(t, path)), "params.result")
-	var el models.Log
+	var el types.Log
 	require.NoError(t, json.Unmarshal([]byte(value.String()), &el))
 
 	return el

@@ -8,29 +8,24 @@ import (
 	"time"
 
 	"github.com/jpillora/backoff"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
-// Unsubscriber is the interface for all subscriptions, allowing one to unsubscribe.
-type Unsubscriber interface {
-	Unsubscribe()
-}
-
 // JobSubscription listens to event logs being pushed from the Ethereum Node to a job.
 type JobSubscription struct {
-	Job           models.JobSpec
-	unsubscribers []Unsubscriber
+	Job                    models.JobSpec
+	initiatorSubscriptions []InitiatorSubscription
 }
 
 // StartJobSubscription constructs a JobSubscription which listens for and
@@ -38,58 +33,87 @@ type JobSubscription struct {
 // there is at least one successful subscription to an initiator log.
 func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
 	var merr error
-	var unsubscribers []Unsubscriber
+	var initatorSubscriptions []InitiatorSubscription
+	var nextHead *big.Int
 
 	initrs := job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
 
-	nextHead := head.NextInt() // Exclude current block from subscription
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if head == nil {
+		latestBlock, err := store.EthClient.BlockByNumber(ctx, nil)
+		if err != nil {
+			return JobSubscription{}, err
+		}
+		backfillDepth := new(big.Int).SetUint64(store.Config.BlockBackfillDepth())
+		nextHead = new(big.Int).Sub(latestBlock.Number(), backfillDepth)
+		if nextHead.Cmp(big.NewInt(0)) < 1 {
+			nextHead = big.NewInt(1)
+		}
+	} else {
+		nextHead = head.NextInt() // Exclude current block from subscription
+	}
+
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
 		if replayFromBlock >= nextHead.Int64() {
-			logger.Infof("StartJobSubscription: Next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
+			logger.Infof("StartJobSubscription: next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
 			replayFromBlockBN := big.NewInt(replayFromBlock)
 			nextHead = replayFromBlockBN
 		}
-		logger.Warnf("StartJobSubscription: ReplayFromBlock was set to %v which is older than the next head of %v, will subscribe from blocknum %v", replayFromBlock, nextHead, nextHead)
+		logger.Warnf("StartJobSubscription: replayFromBlock was set to %v which is older than the next head of %v, will subscribe from blocknum %v", replayFromBlock, nextHead, nextHead)
 	}
 
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, store.Config, ReceiveLogRequest)
-		if err == nil {
-			unsubscribers = append(unsubscribers, unsubscriber)
-		} else {
+		filter, err := models.FilterQueryFactory(initr, nextHead, store.Config.OperatorContractAddress())
+		if err != nil {
 			merr = multierr.Append(merr, err)
+			continue
+		}
+		is, err := NewInitiatorSubscription(initr, store.EthClient, runManager, filter, store.Config.EthLogBackfillBatchSize(), ProcessLogRequest)
+		if err != nil {
+			merr = multierr.Append(merr, err)
+		} else {
+			is.Start()
+			initatorSubscriptions = append(initatorSubscriptions, *is)
 		}
 	}
 
-	if len(unsubscribers) == 0 {
+	if len(initatorSubscriptions) == 0 {
 		return JobSubscription{}, multierr.Append(
 			merr, errors.New(
 				"unable to subscribe to any logs, check earlier errors in this message, and the initiator types"))
 	}
-	return JobSubscription{Job: job, unsubscribers: unsubscribers}, merr
+	return JobSubscription{Job: job, initiatorSubscriptions: initatorSubscriptions}, merr
 }
 
 // Unsubscribe stops the subscription and cleans up associated resources.
 func (js JobSubscription) Unsubscribe() {
-	waiter := sync.WaitGroup{}
-	waiter.Add(len(js.unsubscribers))
-	for _, sub := range js.unsubscribers {
-		go func(sub Unsubscriber) {
-			sub.Unsubscribe()
-			waiter.Done()
+	var wg sync.WaitGroup
+	wg.Add(len(js.initiatorSubscriptions))
+	for _, sub := range js.initiatorSubscriptions {
+		go func(s InitiatorSubscription) {
+			defer wg.Done()
+			logger.Debugw("JobSubscription: unsubscribing", "initiator", s.Initiator)
+			s.Unsubscribe()
 		}(sub)
 	}
-	waiter.Wait()
+	wg.Wait()
 }
 
 // InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription
 // for use with a Chainlink Initiator. Initiator specific functionality is delegated
 // to the callback.
 type InitiatorSubscription struct {
-	*ManagedSubscription
-	runManager RunManager
-	Initiator  models.Initiator
-	callback   func(RunManager, models.LogRequest)
+	done              chan struct{}
+	logSubscriber     eth.Client
+	logs              chan types.Log
+	ethSubscription   ethereum.Subscription
+	filter            ethereum.FilterQuery
+	backfillBatchSize uint32
+	runManager        RunManager
+	Initiator         models.Initiator
+	callback          func(RunManager, models.LogRequest)
 }
 
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
@@ -98,170 +122,77 @@ func NewInitiatorSubscription(
 	initr models.Initiator,
 	client eth.Client,
 	runManager RunManager,
-	nextHead *big.Int,
-	config orm.ConfigReader,
+	filter ethereum.FilterQuery,
+	backfillBatchSize uint32,
 	callback func(RunManager, models.LogRequest),
-) (InitiatorSubscription, error) {
-
-	filter, err := models.FilterQueryFactory(initr, nextHead, config.OperatorContractAddress())
-	if err != nil {
-		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
-	}
-
-	sub := InitiatorSubscription{
-		runManager: runManager,
-		Initiator:  initr,
-		callback:   callback,
-	}
-
-	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog, config.EthLogBackfillBatchSize())
-	if err != nil {
-		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
-	}
-
-	sub.ManagedSubscription = managedSub
-	loggerLogListening(initr, filter.FromBlock)
-	return sub, nil
-}
-
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
-	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
-		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
-
-	base := models.InitiatorLogEvent{
-		Initiator: sub.Initiator,
-		Log:       log,
-	}
-	sub.callback(sub.runManager, base.LogRequest())
-}
-
-func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
-	msg := fmt.Sprintf("Listening for %v from block %v", initr.Type, presenters.FriendlyBigInt(blockNumber))
-	logger.Infow(msg, "address", utils.LogListeningAddress(initr.Address), "jobID", initr.JobSpecID.String())
-}
-
-// ReceiveLogRequest parses the log and runs the job it indicated by its
-// GetJobSpecID method
-func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
-	if !le.Validate() {
-		logger.Debugw("discarding INVALID EVENT LOG", "log", le.GetLog())
-		return
-	}
-
-	if le.GetLog().Removed {
-		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpecID().String())
-		return
-	}
-
-	le.ToDebug()
-
-	runJob(runManager, le)
-
-}
-
-func runJob(runManager RunManager, le models.LogRequest) {
-	jobSpecID := le.GetJobSpecID()
-	initiator := le.GetInitiator()
-
-	if err := le.ValidateRequester(); err != nil {
-		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
-		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
-		return
-	}
-
-	rr, err := le.RunRequest()
-	if err != nil {
-		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
-		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
-		return
-	}
-
-	_, err = runManager.Create(jobSpecID, &initiator, le.BlockNumber(), &rr)
-	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
-	}
-}
-
-// ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
-// ethereum node subscription.
-type ManagedSubscription struct {
-	logSubscriber     eth.Client
-	logs              chan models.Log
-	ethSubscription   ethereum.Subscription
-	callback          func(models.Log)
-	backfillBatchSize uint32
-}
-
-// NewManagedSubscription subscribes to the ethereum node with the passed filter
-// and delegates incoming logs to callback.
-func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(models.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
-	ctx := context.Background()
-	logs := make(chan models.Log)
-	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
+) (*InitiatorSubscription, error) {
+	logs := make(chan types.Log)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	es, err := client.SubscribeFilterLogs(ctx, filter, logs)
 	if err != nil {
 		return nil, err
 	}
-
-	sub := &ManagedSubscription{
-		logSubscriber:     logSubscriber,
-		callback:          callback,
-		logs:              logs,
+	return &InitiatorSubscription{
+		Initiator:         initr,
+		done:              make(chan struct{}),
+		logSubscriber:     client,
 		ethSubscription:   es,
+		filter:            filter,
+		logs:              logs,
+		runManager:        runManager,
 		backfillBatchSize: backfillBatchSize,
-	}
-	go sub.listenToLogs(filter)
-	return sub, nil
+		callback:          callback,
+	}, nil
 }
 
-// Unsubscribe closes channels and cleans up resources.
-func (sub ManagedSubscription) Unsubscribe() {
-	if sub.ethSubscription != nil {
-		timedUnsubscribe(sub.ethSubscription)
-	}
-	close(sub.logs)
+func (sub *InitiatorSubscription) Start() {
+	go gracefulpanic.WrapRecover(func() {
+		sub.listenForLogs()
+	})
 }
 
-// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
-// unblocking the application. This is an effort to mitigate the occasional
-// indefinite block described here from go-ethereum:
-// https://chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(unsubscriber Unsubscriber) {
-	unsubscribed := make(chan struct{})
-	go func() {
-		unsubscriber.Unsubscribe()
-		close(unsubscribed)
-	}()
-	select {
-	case <-unsubscribed:
-	case <-time.After(100 * time.Millisecond):
-		logger.Warnf("Subscription %T Unsubscribe timed out.", unsubscriber)
-	}
-}
-
-func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
+func (sub *InitiatorSubscription) listenForLogs() {
 	// If we spend too long backfilling without processing
 	// logs from our subscription, geth will consider the client dead
 	// and drop the subscription, so we set an upper bound on backlog processing time.
 	// https://github.com/ethereum/go-ethereum/blob/2e5d14170846ae72adc47467a1129e41d6800349/rpc/client.go#L430
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	backfilledSet := sub.backfillLogs(ctx, q)
+	l := logger.CreateLogger(logger.Default.With(
+		"jobID", sub.Initiator.JobSpecID,
+		"initiatorID", sub.Initiator.ID,
+		"type", sub.Initiator.Type,
+		"topics", sub.Initiator.InitiatorParams.Topics,
+	))
+	backfilledSet := sub.backfillLogs(ctx, sub.filter, *l)
+	l.Debugw("InitiatorSubscription: listening for logs",
+		"fromBlock", sub.filter.FromBlock,
+	)
 	for {
 		select {
-		case log, open := <-sub.logs:
-			if !open {
-				return
-			}
+		case <-sub.done:
+			close(sub.logs)
+			return
+		case log := <-sub.logs:
 			if _, present := backfilledSet[log.BlockHash.String()]; !present {
-				sub.callback(log)
+				logger.Infow("InitiatorSubscription: log received",
+					"blockNumber", log.BlockNumber,
+					"txHash", log.TxHash.Hex(),
+					"logIndex", log.Index,
+					"address", log.Address,
+					"log", log,
+				)
+				sub.callback(sub.runManager, models.InitiatorLogEvent{
+					Initiator: sub.Initiator,
+					Log:       log,
+				}.LogRequest())
 			}
 		case err, ok := <-sub.ethSubscription.Err():
+			// If !ok, then we intentionally closed the subscription,
+			// do not try and reconnect.
 			if ok {
-				logger.Warnw("Error in log subscription. Attempting to reconnect to eth node", "err", err)
+				l.Warnw("InitiatorSubscription: error in log subscription, attempting to reconnect to eth node", "err", err)
 				b := &backoff.Backoff{
 					Min:    100 * time.Millisecond,
 					Max:    10 * time.Second,
@@ -269,16 +200,16 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					Jitter: false,
 				}
 				for {
-					newLogs := make(chan models.Log)
-					newSub, err := sub.logSubscriber.SubscribeFilterLogs(context.Background(), q, newLogs)
+					newLogs := make(chan types.Log)
+					newSub, err := sub.logSubscriber.SubscribeFilterLogs(context.Background(), sub.filter, newLogs)
 					if err != nil {
-						logger.Warnw(fmt.Sprintf("Failed to reconnect to eth node. Trying again in %v", b.Duration()), "err", err.Error())
+						l.Warnw(fmt.Sprintf("InitiatorSubscription: failed to reconnect to eth node, trying again in %v", b.Duration()), "err", err.Error())
 						time.Sleep(b.Duration())
 						continue
 					}
 					sub.ethSubscription = newSub
 					sub.logs = newLogs
-					logger.Infow("Successfully reconnected to eth node.")
+					l.Infow("InitiatorSubscription: successfully reconnected to eth node")
 					break
 				}
 			}
@@ -289,7 +220,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 // Manually retrieve old logs since SubscribeFilterLogs(ctx, filter, chLogs) only returns newly
 // imported blocks: https://github.com/ethereum/go-ethereum/wiki/RPC-PUB-SUB#logs
 // Therefore TxManager.FilterLogs does a one time retrieval of old logs.
-func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.FilterQuery) map[string]bool {
+func (sub *InitiatorSubscription) backfillLogs(ctx context.Context, q ethereum.FilterQuery, l logger.Logger) map[string]bool {
 	start := time.Now()
 	backfilledSet := map[string]bool{}
 	if q.FromBlock == nil {
@@ -297,7 +228,7 @@ func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.Filt
 	}
 	b, err := sub.logSubscriber.BlockByNumber(ctx, nil)
 	if err != nil {
-		logger.Errorw("Unable to backfill logs: couldn't read latest block", "err", err)
+		l.Errorw("InitiatorSubscriber: unable to backfill logs couldn't read latest block", "err", err)
 		return backfilledSet
 	}
 
@@ -315,22 +246,97 @@ func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.Filt
 		batchLogs, err := sub.logSubscriber.FilterLogs(ctx, q)
 		if err != nil {
 			if ctx.Err() != nil {
-				logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				l.Errorw("InitiatorSubscriber: deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 			} else {
-				logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				l.Errorw("InitiatorSubscriber: unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 			}
 			return backfilledSet
 		}
 		for _, log := range batchLogs {
 			select {
 			case <-ctx.Done():
-				logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				l.Errorw("InitiatorSubscriber: deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 				return backfilledSet
 			default:
 				backfilledSet[log.BlockHash.String()] = true
-				sub.callback(log)
+				logger.Infow("InitiatorSubscription: backfilled log received",
+					"blockNumber", log.BlockNumber,
+					"txHash", log.TxHash.Hex(),
+					"logIndex", log.Index,
+					"address", log.Address,
+					"log", log,
+				)
+				sub.callback(sub.runManager, models.InitiatorLogEvent{
+					Initiator: sub.Initiator,
+					Log:       log,
+				}.LogRequest())
 			}
 		}
 	}
 	return backfilledSet
+}
+
+// Unsubscribe closes channels and cleans up resources.
+func (sub *InitiatorSubscription) Unsubscribe() {
+	if sub.ethSubscription != nil {
+		timedUnsubscribe(sub.ethSubscription)
+	}
+	close(sub.done)
+}
+
+// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
+// unblocking the application. This is an effort to mitigate the occasional
+// indefinite block described here from go-ethereum:
+// https://chainlink/pull/600#issuecomment-426320971
+func timedUnsubscribe(s ethereum.Subscription) {
+	unsubscribed := make(chan struct{})
+	go func() {
+		s.Unsubscribe()
+		close(unsubscribed)
+	}()
+	select {
+	case <-unsubscribed:
+	case <-time.After(100 * time.Millisecond):
+		logger.Warnf("Subscription %T Unsubscribe timed out.", s)
+	}
+}
+
+// ReceiveLogRequest parses the log and runs the job it indicated by its
+// GetJobSpecID method
+func ProcessLogRequest(runManager RunManager, le models.LogRequest) {
+	if !le.Validate() {
+		logger.Debugw("InitiatorSubscription: discarding invalid event log", le.ForLogger()...)
+		return
+	}
+
+	if le.GetLog().Removed {
+		logger.Debugw("InitiatorSubscription: skipping run for removed log", le.ForLogger()...)
+		return
+	}
+
+	le.ToDebug()
+	jobSpecID := le.GetJobSpecID()
+	initiator := le.GetInitiator()
+
+	if err := le.ValidateRequester(); err != nil {
+		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
+			logger.Errorw("InitiatorSubscription: invalid requester, error creating errored job", le.ForLogger("err", e.Error())...)
+		}
+		logger.Errorw("InitiatorSubscription: invalid requester, created errored job", le.ForLogger("err", err)...)
+		return
+	}
+
+	rr, err := le.RunRequest()
+	if err != nil {
+		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
+			logger.Errorw("InitiatorSubscription: invalid run request, error creating errored job", le.ForLogger("err", e.Error())...)
+		}
+		logger.Errorw("InitiatorSubscription: invalid run request, created errored job", le.ForLogger("err", err)...)
+		return
+	}
+
+	_, err = runManager.Create(jobSpecID, &initiator, le.BlockNumber(), &rr)
+	if err != nil {
+		logger.Errorw("InitiatorSubscription: error creating run from log", le.ForLogger("err", err)...)
+	}
 }

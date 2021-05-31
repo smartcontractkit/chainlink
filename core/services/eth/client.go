@@ -2,11 +2,13 @@ package eth
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -17,20 +19,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 )
 
 //go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name GethClient --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name RPCClient --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Client --output mocks/ --case=underscore
 //go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	GethClient
-
 	Dial(ctx context.Context) error
 	Close()
 
@@ -38,7 +36,7 @@ type Client interface {
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
 	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
 
-	SendRawTx(bytes []byte) (common.Hash, error)
+	// Wrapped RPC methods
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -49,15 +47,13 @@ type Client interface {
 	// type to capture the correct hash from the RPC response.
 	HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
-}
 
-// GethClient is an interface that represents go-ethereum's own ethclient
-// https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
-type GethClient interface {
+	// Wrapped Geth client methods
 	ChainID(ctx context.Context) (*big.Int, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
@@ -69,16 +65,6 @@ type GethClient interface {
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
-// RPCClient is an interface that represents go-ethereum's own rpc.Client.
-// https://github.com/ethereum/go-ethereum/blob/master/rpc/client.go
-type RPCClient interface {
-	Call(result interface{}, method string, args ...interface{}) error
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
-	EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error)
-	Close()
-}
-
 // This interface only exists so that we can generate a mock for it.  It is
 // identical to `ethereum.Subscription`.
 type Subscription interface {
@@ -86,74 +72,73 @@ type Subscription interface {
 	Unsubscribe()
 }
 
-// client implements the ethereum Client interface using a
-// CallerSubscriber instance.
+// DefaultQueryCtx returns a context with a sensible sanity limit timeout for
+// queries to the eth node
+func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel context.CancelFunc) {
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	} else {
+		ctx = context.Background()
+	}
+	return context.WithTimeout(ctx, 15*time.Second)
+}
+
+// client represents an abstract client that manages connections to
+// multiple ethereum nodes
 type client struct {
-	GethClient
-	RPCClient
-	url                  string // For reestablishing the connection after a disconnect
-	SecondaryGethClients []GethClient
-	SecondaryRPCClients  []RPCClient
-	secondaryURLs        []url.URL
-	mocked               bool
+	primary     *node
+	secondaries []*secondarynode
+	mocked      bool
 
 	roundRobinCount uint32
 }
 
 var _ Client = (*client)(nil)
 
-func NewClient(rpcUrl string, secondaryRPCURLs ...url.URL) (*client, error) {
+func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
 	}
+
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	for _, url := range secondaryRPCURLs {
+	c := client{}
+
+	// for now only one primary is supported
+	c.primary = newNode(*parsed, rpcHTTPURL, "eth-primary-0")
+
+	for i, url := range secondaryRPCURLs {
 		if url.Scheme != "http" && url.Scheme != "https" {
 			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", url.String())
 		}
+		s := newSecondaryNode(url, fmt.Sprintf("eth-secondary-%d", i))
+		c.secondaries = append(c.secondaries, s)
 	}
-	return &client{url: rpcUrl, secondaryURLs: secondaryRPCURLs}, nil
-}
-
-// This alternate constructor exists for testing purposes.
-func NewClientWith(rpcClient RPCClient, gethClient GethClient) *client {
-	return &client{
-		GethClient: gethClient,
-		RPCClient:  rpcClient,
-		mocked:     true,
-	}
+	return &c, nil
 }
 
 func (client *client) Dial(ctx context.Context) error {
-	logger.Debugw("eth.Client#Dial(...)")
 	if client.mocked {
 		return nil
-	} else if client.RPCClient != nil || client.GethClient != nil {
-		panic("eth.Client.Dial(...) should only be called once during the application's lifetime.")
 	}
-
-	rpcClient, err := rpc.DialContext(ctx, client.url)
-	if err != nil {
+	if err := client.primary.Dial(ctx); err != nil {
 		return err
 	}
-	client.RPCClient = &rpcClientWrapper{rpcClient}
-	client.GethClient = ethclient.NewClient(rpcClient)
 
-	client.SecondaryGethClients = []GethClient{}
-	client.SecondaryRPCClients = []RPCClient{}
-	for _, url := range client.secondaryURLs {
-		secondaryRPCClient, err := rpc.DialContext(ctx, url.String())
+	for _, s := range client.secondaries {
+		err := s.Dial()
 		if err != nil {
 			return err
 		}
-		client.SecondaryRPCClients = append(client.SecondaryRPCClients, &rpcClientWrapper{secondaryRPCClient})
-		client.SecondaryGethClients = append(client.SecondaryGethClients, ethclient.NewClient(secondaryRPCClient))
 	}
 	return nil
+}
+
+func (client *client) Close() {
+	client.primary.Close()
 }
 
 // CallArgs represents the data used to call the balance method of a contract.
@@ -166,10 +151,6 @@ type CallArgs struct {
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
 func (client *client) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
-	logger.Debugw("eth.Client#GetERC20Balance(...)",
-		"address", address,
-		"contractAddress", contractAddress,
-	)
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
@@ -178,7 +159,7 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 		To:   contractAddress,
 		Data: data,
 	}
-	err := client.RPCClient.Call(&result, "eth_call", args, "latest")
+	err := client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
 		return numLinkBigInt, err
 	}
@@ -203,105 +184,82 @@ func (client *client) GetEthBalance(ctx context.Context, account common.Address,
 	return (*assets.Eth)(balance), nil
 }
 
-// SendRawTx sends a signed transaction to the transaction pool.
-func (client *client) SendRawTx(bytes []byte) (common.Hash, error) {
-	logger.Debugw("eth.Client#SendRawTx(...)",
-		"bytes", bytes,
-	)
-	result := common.Hash{}
-	err := client.RPCClient.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
-	return result, err
-}
-
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
 // when we're talking to a Parity node that has no receipt yet.
-func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	logger.Debugw("eth.Client#TransactionReceipt(...)",
-		"txHash", txHash,
-	)
-	receipt, err := client.GethClient.TransactionReceipt(ctx, txHash)
+func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+	receipt, err = client.primary.TransactionReceipt(ctx, txHash)
+
 	if err != nil && strings.Contains(err.Error(), "missing required field") {
 		return nil, ethereum.NotFound
 	}
-	return receipt, err
+	return
 }
 
 func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
-	logger.Debugw("eth.Client#ChainID(...)")
-	return client.GethClient.ChainID(ctx)
+	return client.primary.ChainID(ctx)
 }
 
-// SendTransaction also uses the secondary HTTP RPC URL if set
+// SendTransaction also uses the secondary HTTP RPC URLs if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	logger.Debugw("eth.Client#SendTransaction(...)",
-		"tx", tx,
-	)
-
-	for _, gethClient := range client.SecondaryGethClients {
+	for _, s := range client.secondaries {
 		// Parallel send to secondary node
-		logger.Tracew("eth.SecondaryClient#SendTransaction(...)", "tx", tx)
-
 		var wg sync.WaitGroup
 		defer wg.Wait()
 		wg.Add(1)
-		go func(gethClient GethClient) {
+		go func(s *secondarynode) {
 			defer wg.Done()
-			err := NewSendError(gethClient.SendTransaction(ctx, tx))
+			err := NewSendError(s.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
 				// Nonce too low or transaction known errors are expected since
 				// the primary SendTransaction may well have succeeded already
 				return
 			}
 			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
-		}(gethClient)
+		}(s)
 	}
 
-	return client.GethClient.SendTransaction(ctx, tx)
+	return client.primary.SendTransaction(ctx, tx)
 }
 
 func (client *client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	logger.Debugw("eth.Client#PendingNonceAt(...)",
-		"account", account,
-	)
-	return client.GethClient.PendingNonceAt(ctx, account)
+	return client.primary.PendingNonceAt(ctx, account)
+}
+
+func (client *client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	return client.primary.NonceAt(ctx, account, blockNumber)
 }
 
 func (client *client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	logger.Debugw("eth.Client#PendingCodeAt(...)",
-		"account", account,
-	)
-	return client.GethClient.PendingCodeAt(ctx, account)
+	return client.primary.PendingCodeAt(ctx, account)
 }
 
 func (client *client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	logger.Debugw("eth.Client#EstimateGas(...)",
-		"call", call,
-	)
-	return client.GethClient.EstimateGas(ctx, call)
+	return client.primary.EstimateGas(ctx, call)
 }
 
 func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	logger.Debugw("eth.Client#SuggestGasPrice()")
-	return client.GethClient.SuggestGasPrice(ctx)
+	return client.primary.SuggestGasPrice(ctx)
+}
+
+func (client *client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	return client.primary.CallContract(ctx, msg, blockNumber)
+}
+
+func (client *client) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
+	return client.primary.CodeAt(ctx, account, blockNumber)
 }
 
 func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	logger.Debugw("eth.Client#BlockByNumber(...)",
-		"number", number,
-	)
-	return client.GethClient.BlockByNumber(ctx, number)
+	return client.primary.BlockByNumber(ctx, number)
 }
 
-func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*models.Head, error) {
-	logger.Debugw("eth.Client#HeaderByNumber(...)",
-		"number", number,
-	)
-	var head *models.Head
-	err := client.RPCClient.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
+func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {
+	hex := toBlockNumArg(number)
+	err = client.primary.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
 	if err == nil && head == nil {
 		err = ethereum.NotFound
 	}
-	return head, err
+	return
 }
 
 func toBlockNumArg(number *big.Int) string {
@@ -311,72 +269,46 @@ func toBlockNumArg(number *big.Int) string {
 	return hexutil.EncodeBig(number)
 }
 
-type MaybeHeader struct {
-	Header models.Head
-	Error  error
-}
-
 func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	logger.Debugw("eth.Client#BalanceAt(...)",
-		"account", account,
-		"blockNumber", blockNumber,
-	)
-	return client.GethClient.BalanceAt(ctx, account, blockNumber)
+	return client.primary.BalanceAt(ctx, account, blockNumber)
 }
 
 func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	logger.Debugw("eth.Client#FilterLogs(...)",
-		"q", q,
-	)
-	return client.GethClient.FilterLogs(ctx, q)
+	return client.primary.FilterLogs(ctx, q)
 }
 
 func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
 		"q", q,
 	)
-	return client.GethClient.SubscribeFilterLogs(ctx, q, ch)
+	return client.primary.SubscribeFilterLogs(ctx, q, ch)
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
-	logger.Debugw("eth.Client#SubscribeNewHead(...)")
-	return client.RPCClient.EthSubscribe(ctx, ch, "newHeads")
+	return client.primary.EthSubscribe(ctx, ch, "newHeads")
 }
 
-type rpcClientWrapper struct {
-	*rpc.Client
-}
-
-func (w *rpcClientWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
-	return w.Client.EthSubscribe(ctx, channel, args...)
+func (client *client) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+	return client.primary.EthSubscribe(ctx, channel, args...)
 }
 
 func (client *client) Call(result interface{}, method string, args ...interface{}) error {
-	logger.Debugw("eth.Client#Call(...)",
-		"method", method,
-		"args", args,
-	)
-	return client.RPCClient.Call(result, method, args...)
+	ctx, cancel := DefaultQueryCtx()
+	defer cancel()
+	return client.primary.CallContext(ctx, result, method, args...)
 }
 
 func (client *client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	logger.Debugw("eth.Client#Call(...)",
-		"method", method,
-		"args", args,
-	)
-	return client.RPCClient.CallContext(ctx, result, method, args...)
+	return client.primary.CallContext(ctx, result, method, args...)
 }
 
 func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	logger.Debugw("eth.Client#BatchCall(...)",
-		"nBatchElems", len(b),
-	)
-	return client.RPCClient.BatchCallContext(ctx, b)
+	return client.primary.BatchCallContext(ctx, b)
 }
 
 // RoundRobinBatchCallContext rotates through Primary and all Secondaries, changing node on each call
 func (client *client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	nSecondaries := len(client.SecondaryRPCClients)
+	nSecondaries := len(client.secondaries)
 	if nSecondaries == 0 {
 		return client.BatchCallContext(ctx, b)
 	}
@@ -389,5 +321,5 @@ func (client *client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.Ba
 	if rr == 0 {
 		return client.BatchCallContext(ctx, b)
 	}
-	return client.SecondaryRPCClients[rr-1].BatchCallContext(ctx, b)
+	return client.secondaries[rr-1].BatchCallContext(ctx, b)
 }

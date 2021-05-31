@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/stretchr/testify/assert"
@@ -15,19 +14,23 @@ import (
 
 func TestServiceAgreementsController_Show(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	input := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")
+	j := models.NewJob()
+	require.NoError(t, app.Store.CreateJob(&j))
+
+	input := cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	require.NoError(t, err)
+	sa.JobSpecID = j.ID
 	require.NoError(t, app.Store.CreateServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)

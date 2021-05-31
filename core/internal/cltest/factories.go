@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -293,16 +294,16 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create models.Log for given jobid, address, block, and json
+// NewRunLog create types.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID models.JobID,
+	jobID common.Hash,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
 	json string,
-) models.Log {
-	return models.Log{
+) types.Log {
+	return types.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -310,7 +311,7 @@ func NewRunLog(
 		BlockHash:   NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
-			models.IDToTopic(jobID),
+			jobID,
 		},
 	}
 }
@@ -318,10 +319,10 @@ func NewRunLog(
 // NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
 // the randomness request log represented by r.
 func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
-	emitter common.Address, blk int) models.Log {
+	emitter common.Address, blk int) types.Log {
 	rawData, err := r.RawData()
 	require.NoError(t, err)
-	return models.Log{
+	return types.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        rawData,
@@ -450,28 +451,17 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	return dst
 }
 
-func NewRunInput(value models.JSON) models.RunInput {
-	jobRunID := uuid.NewV4()
-	taskRunID := uuid.NewV4()
-	return *models.NewRunInput(jobRunID, taskRunID, value, models.RunStatusUnstarted)
-}
-
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
-	jobRunID := uuid.NewV4()
 	taskRunID := uuid.NewV4()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
+	jr := NewJobRun(NewJobWithRunLogInitiator())
+	return *models.NewRunInput(jr, taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
-	jobRunID := uuid.NewV4()
+	jr := NewJobRun(NewJobWithRunLogInitiator())
 	taskRunID := uuid.NewV4()
-	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
-}
-
-func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID uuid.UUID) models.RunInput {
-	taskRunID := uuid.NewV4()
-	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
+	return *models.NewRunInputWithResult(jr, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
@@ -487,21 +477,21 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 		},
 	}
 	lb := new(logmocks.Broadcaster)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, func() {}, big.NewInt(0), big.NewInt(100000000000))
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	return checker
 }
 
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) uuid.UUID {
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) (uuid.UUID, models.JobRun) {
 	taskRunID := uuid.NewV4()
 
 	job := NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 	jobRun := NewJobRun(job)
-	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
+	jobRun.TaskRuns = []models.TaskRun{{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
 	require.NoError(t, store.CreateJobRun(&jobRun))
 
-	return taskRunID
+	return taskRunID, jobRun
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
@@ -511,10 +501,11 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
 		GasLimit:       uint64(1000000000),
+		State:          models.EthTxUnstarted,
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
 	broadcastAt := time.Now()
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -529,6 +520,11 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
 	require.NoError(t, store.DB.Save(&etx).Error)
+	return etx
+}
+
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, store, nonce, fromAddress, opts...)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -601,6 +597,13 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	return etx
 }
 
+func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
+	etx.State = models.EthTxUnstarted
+	require.NoError(t, store.DB.Save(&etx).Error)
+	return etx
+}
+
 func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
 	gasPrice := utils.NewBig(big.NewInt(1))
 	return models.EthTxAttempt{
@@ -610,6 +613,7 @@ func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:        NewHash(),
+		State:       models.EthTxAttemptInProgress,
 	}
 }
 
@@ -633,6 +637,12 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 	return r
 }
 
+func MustInsertConfirmedEthTxWithReceipt(t *testing.T, s *strpkg.Store, fromAddress common.Address, nonce, blockNum int64) (etx models.EthTx) {
+	etx = MustInsertConfirmedEthTxWithAttempt(t, s, nonce, blockNum, fromAddress)
+	MustInsertEthReceipt(t, s, blockNum, NewHash(), etx.EthTxAttempts[0].Hash)
+	return etx
+}
+
 func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
 	etx := NewEthTx(t, store, fromAddress)
 	errStr := "something exploded"
@@ -647,9 +657,8 @@ func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...inter
 	t.Helper()
 
 	k := MustGenerateRandomKey(t, opts...)
-	err := store.KeyStore.Unlock(Password)
-	require.NoError(t, err)
 	MustAddKeyToKeystore(t, &k, store)
+
 	return k, k.Address.Address()
 }
 
@@ -658,9 +667,8 @@ func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
 
 	err := store.KeyStore.Unlock(Password)
 	require.NoError(t, err)
-	_, err = store.KeyStore.Import(key.JSON.Bytes(), Password)
+	err = store.KeyStore.AddKey(key)
 	require.NoError(t, err)
-	require.NoError(t, store.DB.Create(key).Error)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
@@ -688,9 +696,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	}
 	keyjsonbytes, err := keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
 	require.NoError(t, err)
-	keyjson, err := models.ParseJSON(keyjsonbytes)
-	require.NoError(t, err)
-	eip, err := models.EIP55AddressFromAddress(k.Address)
+	eip := models.EIP55AddressFromAddress(k.Address)
 	require.NoError(t, err)
 
 	var nextNonce int64
@@ -710,7 +716,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 
 	key := models.Key{
 		Address:   eip,
-		JSON:      keyjson,
+		JSON:      gormpostgrestypes.Jsonb{RawMessage: keyjsonbytes},
 		NextNonce: nextNonce,
 		IsFunding: funding,
 	}
@@ -730,13 +736,20 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
+	pipelineSpec := pipeline.Spec{}
+	err = store.DB.Create(&pipelineSpec).Error
+	require.NoError(t, err)
+
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
 	jb := job.Job{
-		OffchainreportingOracleSpec: &oracleSpec,
-		Type:                        job.OffchainReporting,
-		SchemaVersion:               1,
-		PipelineSpec:                &pipeline.Spec{},
+		OffchainreportingOracleSpec:   &oracleSpec,
+		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		Type:                          job.OffchainReporting,
+		SchemaVersion:                 1,
+		PipelineSpec:                  &pipelineSpec,
+		PipelineSpecID:                pipelineSpec.ID,
 	}
+
 	err = store.DB.Create(&jb).Error
 	require.NoError(t, err)
 	return jb
@@ -763,6 +776,21 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 	return spec
 }
 
+func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
+	t.Helper()
+	drs := &job.DirectRequestSpec{}
+	onChainJobSpecID := uuid.NewV4()
+	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
+	spec := &job.Job{
+		Type:              job.DirectRequest,
+		SchemaVersion:     1,
+		DirectRequestSpec: drs,
+		Pipeline:          *pipeline.NewTaskDAG(),
+		PipelineSpec:      &pipeline.Spec{},
+	}
+	return spec
+}
+
 func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	j := NewJob()
 	require.NoError(t, s.CreateJob(&j))
@@ -771,17 +799,22 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 
 func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
 	t.Helper()
+	pipelineSpec := pipeline.Spec{}
+	err := store.DB.Create(&pipelineSpec).Error
+	require.NoError(t, err)
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
 	}
-	err := store.DB.Create(&keeperSpec).Error
+	err = store.DB.Create(&keeperSpec).Error
 	require.NoError(t, err)
 	specDB := job.Job{
-		KeeperSpec:    &keeperSpec,
-		Type:          job.Keeper,
-		SchemaVersion: 1,
-		PipelineSpec:  &pipeline.Spec{},
+		KeeperSpec:     &keeperSpec,
+		KeeperSpecID:   &keeperSpec.ID,
+		Type:           job.Keeper,
+		SchemaVersion:  1,
+		PipelineSpec:   &pipelineSpec,
+		PipelineSpecID: pipelineSpec.ID,
 	}
 	err = store.DB.Create(&specDB).Error
 	require.NoError(t, err)
@@ -816,8 +849,12 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 		UpkeepID:   upkeepID,
 		ExecuteGas: int32(10_000),
 		Registry:   registry,
+		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),
 	}
+	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
+	require.NoError(t, err)
+	upkeep.PositioningConstant = positioningConstant
 	err = store.DB.Create(&upkeep).Error
 	require.NoError(t, err)
 	return upkeep
@@ -891,14 +928,19 @@ func RandomLog(t *testing.T) types.Log {
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
-
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
+	topics := []common.Hash{topic, NewHash(), NewHash()}
+	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
+}
+
+func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool, topics []common.Hash) types.Log {
+	t.Helper()
 	return types.Log{
 		Address:     contractAddr,
 		BlockHash:   blockHash,
 		BlockNumber: blockNumber,
 		Index:       logIndex,
-		Topics:      []common.Hash{topic, NewHash(), NewHash()},
+		Topics:      topics,
 		Data:        []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 		Removed:     removed,
 	}

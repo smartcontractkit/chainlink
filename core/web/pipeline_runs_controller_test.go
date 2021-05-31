@@ -2,66 +2,162 @@ package web_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/job"
+	"time"
 
 	"github.com/pelletier/go-toml"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/web"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/web"
 )
 
-func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
+func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
+	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
+	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
+	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 	require.NoError(t, app.Start())
-	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+	// Setup the bridge
+	{
+		mockServer, cleanup := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
+			defer r.Body.Close()
+			bs, err := ioutil.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.Equal(t, `{"meta":null,"result":"12345"}`, string(bs))
+		})
+		defer cleanup()
 
-	client := app.NewHTTPClient()
+		_, bridge := cltest.NewBridgeType(t, "my_bridge", mockServer.URL)
+		require.NoError(t, app.Store.DB.Create(bridge).Error)
+	}
 
-	var ocrJobSpecFromFile job.Job
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
-	require.NoError(t, err)
-	err = tree.Unmarshal(&ocrJobSpecFromFile)
-	require.NoError(t, err)
-	var ocrSpec job.OffchainReportingOracleSpec
-	err = tree.Unmarshal(&ocrSpec)
-	require.NoError(t, err)
-	ocrJobSpecFromFile.OffchainreportingOracleSpec = &ocrSpec
+	// Add the job
+	var uuid uuid.UUID
+	{
+		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-with-body.toml")
+		require.NoError(t, err)
+		webhookJobSpecFromFile, err := webhook.ValidateWebhookSpec(tree.String())
+		require.NoError(t, err)
 
-	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
+		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
+		require.NoError(t, err)
 
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
+		copy(uuid[:], webhookJobSpecFromFile.WebhookSpec.OnChainJobSpecID[:])
+	}
 
-	response, cleanup := client.Post("/v2/jobs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
+	// Give the job.Spawner ample time to discover the job and start its service
+	// (because Postgres events don't seem to work here)
+	time.Sleep(3 * time.Second)
+
+	// Make the request
+	{
+		client := app.NewHTTPClient()
+		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
+		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
+		defer cleanup()
+		cltest.AssertServerResponse(t, response, http.StatusOK)
+
+		var parsedResponse pipeline.Run
+		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
+		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
+		fmt.Println(string(bs))
+		assert.NoError(t, err)
+		assert.NotNil(t, parsedResponse.ID)
+		assert.NotNil(t, parsedResponse.CreatedAt)
+		assert.NotNil(t, parsedResponse.FinishedAt)
+		require.Len(t, parsedResponse.PipelineTaskRuns, 3)
+	}
+}
+
+func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, response, http.StatusOK)
+	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
+	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
+	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
+	require.NoError(t, app.Start())
 
-	var parsedResponse pipeline.Run
-	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
-	assert.NoError(t, err)
-	assert.NotNil(t, parsedResponse.ID)
-	assert.NotNil(t, parsedResponse.CreatedAt)
-	assert.Nil(t, parsedResponse.FinishedAt)
-	require.Len(t, parsedResponse.PipelineTaskRuns, 8)
+	// Setup the bridges
+	{
+		mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
+		defer cleanup()
+
+		_, bridge := cltest.NewBridgeType(t, "fetch_bridge", mockServer.URL)
+		require.NoError(t, app.Store.DB.Create(bridge).Error)
+
+		mockServer, cleanup = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
+			defer r.Body.Close()
+			bs, err := ioutil.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.Equal(t, `{"meta":null,"result":"12345"}`, string(bs))
+		})
+		defer cleanup()
+
+		_, bridge = cltest.NewBridgeType(t, "submit_bridge", mockServer.URL)
+		require.NoError(t, app.Store.DB.Create(bridge).Error)
+	}
+
+	// Add the job
+	var uuid uuid.UUID
+	{
+		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-no-body.toml")
+		require.NoError(t, err)
+		webhookJobSpecFromFile, err := webhook.ValidateWebhookSpec(tree.String())
+		require.NoError(t, err)
+
+		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
+		require.NoError(t, err)
+
+		copy(uuid[:], webhookJobSpecFromFile.WebhookSpec.OnChainJobSpecID[:])
+	}
+
+	// Give the job.Spawner ample time to discover the job and start its service
+	// (because Postgres events don't seem to work here)
+	time.Sleep(3 * time.Second)
+
+	// Make the request
+	{
+		client := app.NewHTTPClient()
+		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, response, http.StatusOK)
+
+		var parsedResponse pipeline.Run
+		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
+		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
+		fmt.Println(string(bs))
+		assert.NoError(t, err)
+		assert.NotNil(t, parsedResponse.ID)
+		assert.NotNil(t, parsedResponse.CreatedAt)
+		assert.NotNil(t, parsedResponse.FinishedAt)
+		require.Len(t, parsedResponse.PipelineTaskRuns, 4)
+	}
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
@@ -83,7 +179,8 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, runIDs[0])
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
-	require.Len(t, parsedResponse[1].PipelineTaskRuns, 4)
+	// Successful pipeline runs does not save task runs.
+	require.Len(t, parsedResponse[1].PipelineTaskRuns, 0)
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
@@ -106,7 +203,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	assert.Equal(t, parsedResponse[0].ID, runIDs[1])
 	assert.NotNil(t, parsedResponse[0].CreatedAt)
 	assert.NotNil(t, parsedResponse[0].FinishedAt)
-	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
+	require.Len(t, parsedResponse[0].PipelineTaskRuns, 0)
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
@@ -127,15 +224,15 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse.ID, runIDs[0])
 	assert.NotNil(t, parsedResponse.CreatedAt)
 	assert.NotNil(t, parsedResponse.FinishedAt)
-	require.Len(t, parsedResponse.PipelineTaskRuns, 4)
+	require.Len(t, parsedResponse.PipelineTaskRuns, 0)
 }
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -148,10 +245,10 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -188,7 +285,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	ocrJobSpec.OffchainreportingOracleSpec = &os
 
-	err = app.Store.OCRKeyStore.Unlock(cltest.Password)
+	err = app.OCRKeyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
@@ -197,11 +294,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	firstRunID, err := app.RunJobV2(context.Background(), jobID, nil)
 	require.NoError(t, err)
 	secondRunID, err := app.RunJobV2(context.Background(), jobID, nil)
-	require.NoError(t, err)
-
-	err = app.AwaitRun(context.Background(), firstRunID)
-	require.NoError(t, err)
-	err = app.AwaitRun(context.Background(), secondRunID)
 	require.NoError(t, err)
 
 	return client, jobID, []int64{firstRunID, secondRunID}, func() {

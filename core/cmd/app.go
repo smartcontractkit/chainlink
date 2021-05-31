@@ -159,6 +159,21 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:   "logpkg",
+					Usage:  "Set package specific logging",
+					Action: client.SetLogPkg,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "pkg",
+							Usage: "set log filter for package specific logging",
+						},
+						cli.StringFlag{
+							Name:  "level",
+							Usage: "set log level for specified pkg",
+						},
+					},
+				},
+				{
 					Name:   "logsql",
 					Usage:  "Enable/disable sql statement logging",
 					Action: client.SetLogSQL,
@@ -237,6 +252,11 @@ func NewApp(client *Client) *cli.App {
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
+				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
+					Action: client.Migrate,
 				},
 			},
 		},
@@ -461,7 +481,7 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name: "list", Usage: "List the public keys in the db",
-							Action: client.ListKeys,
+							Action: client.ListVRFKeys,
 						},
 						{
 							Name: "",
@@ -585,8 +605,7 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:        "db",
 					Usage:       "Commands for managing the database.",
-					Description: "Potentially destructive commands for managing the database, only intended for dev/testing purposes.",
-					Hidden:      !client.Config.Dev(),
+					Description: "Potentially destructive commands for managing the database.",
 					Subcommands: []cli.Command{
 						{
 							Name:   "reset",
@@ -605,6 +624,18 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "Reset database and load fixtures.",
 							Hidden: !client.Config.Dev(),
 							Action: client.PrepareTestDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "version",
+							Usage:  "Display the current database version.",
+							Action: client.VersionDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "migrate",
+							Usage:  "Migrate the database to the latest version.",
+							Action: client.MigrateDatabase,
 							Flags:  []cli.Flag{},
 						},
 					},

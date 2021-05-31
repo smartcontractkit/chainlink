@@ -1,11 +1,32 @@
 package gethwrappers
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
+
+// VersionHash is the hash used to detect changes in the underlying contract
+func VersionHash(abiPath string, binPath string) (hash string) {
+	abi, err := ioutil.ReadFile(abiPath)
+	if err != nil {
+		Exit("Could not read abi path to create version hash", err)
+	}
+	bin := []byte("")
+	if binPath != "-" {
+		bin, err = ioutil.ReadFile(binPath)
+		if err != nil {
+			Exit("Could not read abi path to create version hash", err)
+		}
+	}
+	hashMsg := string(abi) + string(bin) + "\n"
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(hashMsg)))
+}
 
 func Exit(msg string, err error) {
 	if err != nil {
@@ -44,4 +65,24 @@ func TempDir(dirPrefix string) (string, func()) {
 			fmt.Println("failure while cleaning up temporary working directory:", err)
 		}
 	}
+}
+
+func CopyLog(l types.Log) types.Log {
+	var cpy types.Log
+	cpy.Address = l.Address
+	if l.Topics != nil {
+		cpy.Topics = make([]common.Hash, len(l.Topics))
+		copy(cpy.Topics, l.Topics)
+	}
+	if l.Data != nil {
+		cpy.Data = make([]byte, len(l.Data))
+		copy(cpy.Data, l.Data)
+	}
+	cpy.BlockNumber = l.BlockNumber
+	cpy.TxHash = l.TxHash
+	cpy.TxIndex = l.TxIndex
+	cpy.BlockHash = l.BlockHash
+	cpy.Index = l.Index
+	cpy.Removed = l.Removed
+	return cpy
 }

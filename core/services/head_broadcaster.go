@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -68,12 +67,11 @@ func (hr *HeadBroadcaster) Start() error {
 }
 
 func (hr *HeadBroadcaster) Close() error {
-	if !hr.OkayToStop() {
-		return errors.New("HeadBroadcaster is already stopped")
-	}
-	close(hr.chClose)
-	hr.wgDone.Wait()
-	return nil
+	return hr.StopOnce("HeadBroadcaster", func() error {
+		close(hr.chClose)
+		hr.wgDone.Wait()
+		return nil
+	})
 }
 
 func (hr *HeadBroadcaster) Connect(head *models.Head) error {
@@ -91,7 +89,7 @@ func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe fu
 	defer hr.mutex.Unlock()
 	id, err := newID()
 	if err != nil {
-		logger.Errorf("Unable to create ID for head relayble callback: %v", err)
+		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
 		return
 	}
 	hr.callbacks[id] = callback
@@ -122,7 +120,12 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 	callbacks := hr.callbacks.clone()
 	hr.mutex.RUnlock()
 
-	head, ok := hr.mailbox.Retrieve().(models.Head)
+	item, exists := hr.mailbox.Retrieve()
+	if !exists {
+		logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
+		return
+	}
+	head, ok := item.(models.Head)
 	if !ok {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
