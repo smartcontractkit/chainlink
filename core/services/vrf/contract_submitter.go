@@ -2,12 +2,11 @@ package vrf
 
 import (
 	"encoding/json"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +42,7 @@ func (*contractSubmitter) CreateEthTransaction(
 	maxUnconfirmedTransactions uint64,
 ) (*models.EthTx, error) {
 	var etx models.EthTx
-	err := utils.CheckOKToTransmit(postgres.MustSQLDB(db), fromAddress, maxUnconfirmedTransactions)
+	err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return nil, errors.Wrap(err, "VRFListener: failed to check if ok to transmit")
 	}

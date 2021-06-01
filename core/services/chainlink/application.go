@@ -268,7 +268,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 					store.Config.MinIncomingConfirmations(),
 					utils.GetScryptParams(store.Config),
 					store.Config.EthGasLimitDefault(),
-					store.Config.EthMaxUnconfirmedTransactions(),
+					store.Config.EthMaxQueuedTransactions(),
 				)),
 		}
 	)
