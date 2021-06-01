@@ -778,7 +778,10 @@ func (p *PollingDeviationChecker) processLogs() {
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
-			p.reactivate()
+			if p.isHibernating {
+				p.reactivate()
+			}
+
 			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 

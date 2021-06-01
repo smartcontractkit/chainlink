@@ -488,7 +488,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
 	defer mockServer.Close()
 
-	// // When event appears on submissionReceived, flux monitor job run is complete
+	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := make(chan *faw.FluxAggregatorSubmissionReceived)
 	subscription, err := fa.aggregatorContract.WatchSubmissionReceived(
 		nil,
@@ -528,11 +528,14 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	reportPrice = int64(2) // change in price should trigger run
 	_, _ = awaitSubmission(t, submissionReceived)
 
-	// lower contract's flag - should have no effect (but currently does)
-	// TODO - https://www.pivotaltracker.com/story/show/175419789
+	// lower contract's flag - should have no effect
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	_, _ = awaitSubmission(t, submissionReceived)
+	select {
+	case <-submissionReceived:
+		t.Fatalf("should not trigger a new run, while already in hibernation mode")
+	case <-time.After(2 * time.Second):
+	}
 
 	// change in price should trigger run
 	reportPrice = int64(4)
