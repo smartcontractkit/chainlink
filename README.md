@@ -173,6 +173,8 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
+> Note: `evm-contracts/` directory houses Solidity versions <=0.7. New contracts, using v0.8, are being developed in the `contracts/` directory, using hardhat.
+
 Inside the `evm-contracts/` directory:
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
@@ -191,13 +193,20 @@ yarn setup
    yarn test
    ```
 
-   ii. Solidity versions `>=0.8.x`:
+#### Solidity >=v0.8
 
-   As of Solidity version 0.8, we are using Hardhat to compile and test smart contracts.
+Inside the `contracts/` directory:
+1. Install dependencies:
 
-   ```bash
-   yarn test:new
-   ```
+```bash
+yarn
+```
+
+2. Run tests:
+
+```bash
+yarn test
+```
 
 ### Use of Go Generate
 
