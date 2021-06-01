@@ -185,9 +185,9 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
-	Confirmations      uint32              `toml:"confirmations"`
+	CoordinatorAddress models.EIP55Address `json:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `json:"publicKey"`
+	Confirmations      uint32              `json:"confirmations"`
 	CreatedAt          time.Time           `json:"createdAt"`
 	UpdatedAt          time.Time           `json:"updatedAt"`
 }

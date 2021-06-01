@@ -104,6 +104,9 @@ export const JobsShow = () => {
               case 'webhook':
                 createdAt = jobSpec.attributes.webhookSpec.createdAt
                 break
+              case 'vrf':
+                createdAt = jobSpec.attributes.vrfSpec.createdAt
+                break
             }
 
             const job: JobV2 = {

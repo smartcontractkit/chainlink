@@ -57,7 +57,6 @@ export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
       case 'directrequest':
         return job.attributes.directRequestSpec.initiator
       case 'vrf':
-        return job.attributes.vrfSpec.initiator
       case 'keeper':
       case 'cron':
       case 'webhook':

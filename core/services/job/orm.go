@@ -27,6 +27,7 @@ var (
 	ErrNoSuchPeerID             = errors.New("no such peer id exists")
 	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
+	ErrNoSuchPublicKey          = errors.New("no such public key exists")
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -78,7 +79,7 @@ func NewORM(db *gorm.DB, config *storm.Config, pipelineORM pipeline.ORM, eventBr
 }
 
 func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
-	return 	db.Preload("FluxMonitorSpec").
+	return db.Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("KeeperSpec").
@@ -226,8 +227,14 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			jobSpec.CronSpecID = &jobSpec.CronSpec.ID
 		case VRF:
 			err := tx.Create(&jobSpec.VRFSpec).Error
+			pqErr, ok := err.(*pgconn.PgError)
+			if err != nil && ok && pqErr.Code == "23503" {
+				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
+					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jobSpec.VRFSpec.PublicKey.String())
+				}
+			}
 			if err != nil {
-				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
+				return errors.Wrap(err, "failed to create VRFSpec for jobSpec")
 			}
 			jobSpec.VRFSpecID = &jobSpec.VRFSpec.ID
 		case Webhook:

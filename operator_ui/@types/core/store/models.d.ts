@@ -589,7 +589,6 @@ declare module 'core/store/models' {
     type: 'vrf'
     keeperSpec: null
     vrfSpec: {
-      initiator: 'randomnesslog'
       confirmations: number
       publicKey: string
       coordinatorAddress: common.Address,
