@@ -7,9 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
+
+    ``` 
+    my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+    ```
+    ... can now be written as:
+    ``` 
+    my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
+    ```
+    Multiline strings are supported with this syntax as well:
+    ``` 
+    my_bridge [type=bridge
+               name="my_bridge"
+               requestData=<{
+                   "hi": "hello",
+                   "foo": "bar"
+               }>]
+    ```
+
+- v2 jobs (those with TOML specs) now support variable interpolation in pipeline definitions. For example:
+
+    ```
+    fetch1    [type=bridge name="fetch"]
+    parse1    [type=jsonparse path="foo,bar"]
+    fetch2    [type=bridge name="fetch"]
+    parse2    [type=jsonparse path="foo,bar"]
+    medianize [type=median]
+    submit    [type=bridge name="submit"
+               requestData=<{
+                              "result": $(medianize),
+                              "fetchedData": [ $(parse1), $(parse2) ]
+                            }>]
+
+    fetch1 -> parse1 -> medianize
+    fetch2 -> parse2 -> medianize
+    medianize -> submit
+    ```
+
+    This syntax is supported by the following tasks/parameters:
+
+    - `bridge`
+        - `requestData`
+    - `http`
+        - `requestData`
+    - `jsonparse`
+        - `data` (falls back to the first input if unspecified)
+    - `median`
+        - `values` (falls back to the array of inputs if unspecified)
+    - `multiply`
+        - `input` (falls back to the first input if unspecified)
+        - `times`
+
 ### Fixed
 
 ### Changed
+
+- The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
 - Chainlink no longers writes/reads eth key files to disk
 

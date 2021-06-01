@@ -28,14 +28,14 @@ type Runner interface {
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
-	ExecuteRun(ctx context.Context, spec Spec, pipelineInputs []Result, meta JSONSerializable, l logger.Logger) (run Run, trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
 	InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
 	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
-	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInputs []Result, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 }
 
 type runner struct {
@@ -113,10 +113,10 @@ type memoryTaskRun struct {
 	task                  Task
 	next                  *memoryTaskRun
 	predecessorsRemaining int
-	finished              bool
 	inputs                []input
 	predMu                sync.RWMutex
-	finishMu              sync.Mutex
+	claimed               bool
+	claimedMu             sync.Mutex
 }
 
 // Returns the results sorted by index. It is not thread-safe.
@@ -141,12 +141,12 @@ func (m *memoryTaskRun) numPredecessorsRemaining() int {
 }
 
 func (m *memoryTaskRun) tryToClaim() (ok bool) {
-	m.finishMu.Lock()
-	defer m.finishMu.Unlock()
-	if m.finished {
+	m.claimedMu.Lock()
+	defer m.claimedMu.Unlock()
+	if m.claimed {
 		return false
 	}
-	m.finished = true
+	m.claimed = true
 	return true
 }
 
@@ -162,7 +162,7 @@ type input struct {
 	index  int32
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, spec Spec, pipelineInputs []Result, meta JSONSerializable, l logger.Logger) (Run, TaskRunResults, error) {
+func (r *runner) ExecuteRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger) (Run, TaskRunResults, error) {
 	var (
 		trrs            TaskRunResults
 		err             error
@@ -178,7 +178,7 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, pipelineInputs []Res
 		Jitter: false,
 	}
 	for i = 0; i < numPanicRetries; i++ {
-		run, trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, pipelineInputs, meta, l)
+		run, trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, pipelineInput, meta, l)
 		if retry {
 			time.Sleep(b.Duration())
 			continue
@@ -222,7 +222,7 @@ func (r *runner) executeRun(
 	ctx context.Context,
 	txdb *gorm.DB,
 	spec Spec,
-	pipelineInputs []Result,
+	pipelineInput interface{},
 	meta JSONSerializable,
 	l logger.Logger,
 ) (Run, TaskRunResults, bool, error) {
@@ -242,7 +242,7 @@ func (r *runner) executeRun(
 		return run, nil, false, err
 	}
 
-	headTaskRuns, err := r.memoryTaskRunDAGFromTaskDAG(taskDAG, pipelineInputs, txdb)
+	headTaskRuns, err := r.memoryTaskRunDAGFromTaskDAG(taskDAG, pipelineInput, txdb)
 	if err != nil {
 		return run, nil, false, err
 	}
@@ -258,8 +258,9 @@ func (r *runner) executeRun(
 	//  - it processes the final task
 
 	var (
-		taskRunResultsMu sync.Mutex
+		vars             = NewVarsFrom(map[string]interface{}{"input": pipelineInput})
 		taskRunResults   TaskRunResults
+		taskRunResultsMu sync.Mutex
 		wg               sync.WaitGroup
 		retry            bool
 	)
@@ -285,7 +286,13 @@ func (r *runner) executeRun(
 					return
 				}
 
-				taskRunResult := r.executeTaskRun(ctx, spec, taskRun, meta, l)
+				taskRunResult := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
+
+				if taskRunResult.Result.Error != nil {
+					vars.Set(taskRunResult.Task.DotID(), taskRunResult.Result.Error)
+				} else {
+					vars.Set(taskRunResult.Task.DotID(), taskRunResult.Result.Value)
+				}
 
 				taskRunResultsMu.Lock()
 				taskRunResults = append(taskRunResults, taskRunResult)
@@ -318,7 +325,7 @@ func (r *runner) executeRun(
 	return run, taskRunResults, retry, err
 }
 
-func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInputs []Result, txdb *gorm.DB) (headTaskRuns []*memoryTaskRun, _ error) {
+func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInput interface{}, txdb *gorm.DB) (headTaskRuns []*memoryTaskRun, _ error) {
 	tasks, err := taskDAG.TasksInDependencyOrder()
 	if err != nil {
 		return nil, err
@@ -339,11 +346,9 @@ func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInputs []R
 			predecessorsRemaining: task.NumPredecessors(),
 			task:                  task,
 		}
-		if mtr.predecessorsRemaining == 0 {
+		if mtr.numPredecessorsRemaining() == 0 {
 			headTaskRuns = append(headTaskRuns, &mtr)
-			for i, pi := range pipelineInputs {
-				mtr.inputs = append(mtr.inputs, input{index: int32(i), result: pi})
-			}
+			mtr.inputs = append(mtr.inputs, input{index: 0, result: Result{Value: pipelineInput}})
 		}
 		all[task.DotID()] = &mtr
 	}
@@ -360,7 +365,7 @@ func (r *runner) memoryTaskRunDAGFromTaskDAG(taskDAG TaskDAG, pipelineInputs []R
 	return headTaskRuns, nil
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
 	start := time.Now()
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
@@ -381,7 +386,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, meta, taskRun.inputsSorted())
+	result := taskRun.task.Run(ctx, vars, meta, taskRun.inputsSorted())
 	loggerFields = append(loggerFields, "result value", result.Value)
 	loggerFields = append(loggerFields, "result error", result.Error)
 	switch v := result.Value.(type) {
@@ -414,8 +419,8 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 }
 
 // ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInputs []Result, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
-	run, trrs, err := r.ExecuteRun(ctx, spec, pipelineInputs, meta, l)
+func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
+	run, trrs, err := r.ExecuteRun(ctx, spec, pipelineInput, meta, l)
 	if err != nil {
 		return run.ID, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
