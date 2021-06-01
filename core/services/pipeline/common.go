@@ -179,13 +179,6 @@ type RunWithResults struct {
 	TaskRunResults TaskRunResults
 }
 
-type JSONString string
-
-func (s JSONString) MarshalJSON() ([]byte, error) {
-	logger.Errorf("XYZZY: %v", s)
-	return []byte(s), nil
-}
-
 type JSONSerializable struct {
 	Val  interface{}
 	Null bool
