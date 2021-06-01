@@ -78,20 +78,7 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 	}
 }
 
-// Do nothing on connect, simply wait for the next head
-func (ec *ethConfirmer) Connect(*models.Head) error {
-	return nil
-}
-
-// OnNewLongestChain delivers sampled latest heads to be picked up by the runLoop
-func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	ec.mb.Deliver(head)
-	if ec.reaper != nil {
-		ec.reaper.SetLatestBlockNum(head.Number)
-	}
-}
-
-func (ec *ethConfirmer) Start() error {
+func (ec *EthConfirmer) Start() error {
 	return ec.StartOnce("EthConfirmer", func() error {
 		if ec.config.EthGasBumpThreshold() == 0 {
 			logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
@@ -108,21 +95,6 @@ func (ec *ethConfirmer) Start() error {
 
 func (ec *EthConfirmer) Close() error {
 	return ec.StopOnce("EthConfirmer", func() error {
-
-		if ec.reaper != nil {
-			go func() {
-				defer ec.wg.Done()
-				ec.reaper.Stop()
-			}()
-		}
-
-		if ec.ethResender != nil {
-			go func() {
-				defer ec.wg.Done()
-				ec.ethResender.Stop()
-			}()
-		}
-
 		ec.ctxCancel()
 		ec.wg.Wait()
 

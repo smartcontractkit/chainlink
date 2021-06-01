@@ -328,7 +328,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headBroadcaster.Subscribe(logBroadcaster)
 	headBroadcaster.Subscribe(promReporter)
-	headBroadcaster.Subscribe(ethConfirmer)
 	headBroadcaster.Subscribe(jobSubscriber)
 	headBroadcaster.Subscribe(balanceMonitor)
 
