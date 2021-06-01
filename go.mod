@@ -39,7 +39,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.11.0
+	github.com/onsi/gomega v1.13.0
 	github.com/pelletier/go-toml v1.9.0
 	github.com/peterh/liner v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
@@ -69,7 +69,7 @@ require (
 	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/text v0.3.6
-	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58
+	golang.org/x/tools v0.0.0-20201224043029-2b0845dc783e
 	gonum.org/v1/gonum v0.9.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gorm.io/driver/postgres v1.0.8
