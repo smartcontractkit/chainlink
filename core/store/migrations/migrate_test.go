@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -350,14 +352,22 @@ func TestMigrate_CreateCronTables(t *testing.T) {
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0024_add_cron_spec_tables"))
 }
 
+type WebhookSpec struct {
+	ID               int32     `toml:"-" gorm:"primary_key"`
+	CreatedAt        time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
+	OnChainJobSpecID uuid.UUID
+}
+
 func TestMigrate_CreateWebhookTables(t *testing.T) {
 	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_webhook_tables", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0029_add_webhook_spec_tables"))
 
-	cs := job.WebhookSpec{
-		ID: int32(1),
+	cs := WebhookSpec{
+		ID:               int32(1),
+		OnChainJobSpecID: uuid.FromStringOrNil("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"),
 	}
 	require.NoError(t, orm.DB.Create(&cs).Error)
 	require.NoError(t, orm.DB.Find(&cs).Error)

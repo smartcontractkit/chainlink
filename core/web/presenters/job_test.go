@@ -344,8 +344,8 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID: 1,
 				WebhookSpec: &job.WebhookSpec{
-					CreatedAt:        timestamp,
-					UpdatedAt:        timestamp,
+					CreatedAt: timestamp,
+					UpdatedAt: timestamp,
 				},
 				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
 				PipelineSpec: &pipeline.Spec{

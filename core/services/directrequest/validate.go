@@ -9,7 +9,7 @@ import (
 )
 
 type DirectRequestToml struct {
-	ContractAddress  models.EIP55Address `toml:"contractAddress"`
+	ContractAddress models.EIP55Address `toml:"contractAddress"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {

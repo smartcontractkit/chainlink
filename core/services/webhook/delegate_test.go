@@ -2,8 +2,9 @@ package webhook_test
 
 import (
 	"context"
-	uuid "github.com/satori/go.uuid"
 	"testing"
+
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/pkg/errors"
 
@@ -21,10 +22,9 @@ func TestWebhookDelegate(t *testing.T) {
 			Type:          job.Webhook,
 			SchemaVersion: 1,
 			ExternalJobID: uuid.NewV4(),
-			WebhookSpec: &job.WebhookSpec{
-			},
-			Pipeline:     *pipeline.NewTaskDAG(),
-			PipelineSpec: &pipeline.Spec{},
+			WebhookSpec:   &job.WebhookSpec{},
+			Pipeline:      *pipeline.NewTaskDAG(),
+			PipelineSpec:  &pipeline.Spec{},
 		}
 
 		pipelineInputs = []pipeline.Result{{Value: "foo"}}

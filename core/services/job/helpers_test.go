@@ -189,6 +189,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 		Pipeline:      *pipeline.NewTaskDAG(),
 		Type:          job.OffchainReporting,
 		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
 	c, cl := cltest.NewConfig(t)

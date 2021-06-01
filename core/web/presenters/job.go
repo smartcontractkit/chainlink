@@ -1,8 +1,9 @@
 package presenters
 
 import (
-	uuid "github.com/satori/go.uuid"
 	"time"
+
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
@@ -155,15 +156,15 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 
 // WebhookSpec defines the spec details of a Webhook Job
 type WebhookSpec struct {
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
 func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 	return &WebhookSpec{
-		CreatedAt:        spec.CreatedAt,
-		UpdatedAt:        spec.UpdatedAt,
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
 	}
 }
 
@@ -227,7 +228,7 @@ type JobResource struct {
 	Type                  JobSpecType            `json:"type"`
 	SchemaVersion         uint32                 `json:"schemaVersion"`
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
-	ExternalJobID         uuid.UUID 			 `json:"externalJobID"`
+	ExternalJobID         uuid.UUID              `json:"externalJobID"`
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	CronSpec              *CronSpec              `json:"cronSpec"`

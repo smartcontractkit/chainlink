@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"encoding/json"
+
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
 	"github.com/ethereum/go-ethereum/common"

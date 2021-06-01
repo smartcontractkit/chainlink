@@ -12,6 +12,7 @@ schemaVersion      = 1
 name               = "web oracle spec"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
+externalJobID     =  "123e4567-e89b-12d3-a456-426655440001"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
@@ -48,11 +49,13 @@ schemaVersion   = 1
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+externalJobID     =  "123e4567-e89b-12d3-a456-426655440002"
 `
 	CronSpec = `
 type            = "cron"
 schemaVersion   = 1
 schedule        = "CRON_TZ=UTC 0 0 1 1 *"
+externalJobID     =  "123e4567-e89b-12d3-a456-426655440003"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
@@ -65,7 +68,7 @@ type                = "directrequest"
 schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-jobID               = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+externalJobID     =  "123e4567-e89b-12d3-a456-426655440004"
 observationSource   = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];
@@ -78,6 +81,7 @@ type              = "fluxmonitor"
 schemaVersion       = 1
 name                = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+externalJobID     =  "123e4567-e89b-12d3-a456-426655440005"
 precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0 # optional

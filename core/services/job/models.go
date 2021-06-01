@@ -156,9 +156,9 @@ func (OffchainReportingOracleSpec) TableName() string {
 }
 
 type WebhookSpec struct {
-	ID               int32        `toml:"-" gorm:"primary_key"`
-	CreatedAt        time.Time    `json:"createdAt" toml:"-"`
-	UpdatedAt        time.Time    `json:"updatedAt" toml:"-"`
+	ID        int32     `toml:"-" gorm:"primary_key"`
+	CreatedAt time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt time.Time `json:"updatedAt" toml:"-"`
 }
 
 func (w WebhookSpec) GetID() string {

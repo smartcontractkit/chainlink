@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -112,6 +114,7 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 		},
 		Type:          job.FluxMonitor,
 		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
 	}
 	ps, pd, err := BuildFMTaskDAG(js)
 	if err != nil {
