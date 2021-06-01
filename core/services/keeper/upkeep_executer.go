@@ -37,17 +37,17 @@ var _ job.Service = (*UpkeepExecuter)(nil)
 var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
 
 type UpkeepExecuter struct {
-	chStop            chan struct{}
-	ethClient         eth.Client
-	executionQueue    chan struct{}
-	headBroadcaster   *services.HeadBroadcaster
-	job               job.Job
-	mailbox           *utils.Mailbox
-	maxGracePeriod    int64
-	maxUnconfirmedTXs uint64
-	orm               ORM
-	pr                pipeline.Runner
-	wgDone            sync.WaitGroup
+	chStop                   chan struct{}
+	ethClient                eth.Client
+	executionQueue           chan struct{}
+	headBroadcaster          *services.HeadBroadcaster
+	job                      job.Job
+	mailbox                  *utils.Mailbox
+	maxGracePeriod           int64
+	ethMaxQueuedTransactions uint64
+	orm                      ORM
+	pr                       pipeline.Runner
+	wgDone                   sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -60,18 +60,18 @@ func NewUpkeepExecuter(
 	config *orm.Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:            make(chan struct{}),
-		ethClient:         ethClient,
-		executionQueue:    make(chan struct{}, executionQueueSize),
-		headBroadcaster:   headBroadcaster,
-		job:               job,
-		mailbox:           utils.NewMailbox(1),
-		maxUnconfirmedTXs: config.EthMaxUnconfirmedTransactions(),
-		maxGracePeriod:    config.KeeperMaximumGracePeriod(),
-		orm:               NewORM(db),
-		pr:                pr,
-		wgDone:            sync.WaitGroup{},
-		StartStopOnce:     utils.StartStopOnce{},
+		chStop:                   make(chan struct{}),
+		ethClient:                ethClient,
+		executionQueue:           make(chan struct{}, executionQueueSize),
+		headBroadcaster:          headBroadcaster,
+		job:                      job,
+		mailbox:                  utils.NewMailbox(1),
+		ethMaxQueuedTransactions: config.EthMaxQueuedTransactions(),
+		maxGracePeriod:           config.KeeperMaximumGracePeriod(),
+		orm:                      NewORM(db),
+		pr:                       pr,
+		wgDone:                   sync.WaitGroup{},
+		StartStopOnce:            utils.StartStopOnce{},
 	}
 }
 
@@ -205,7 +205,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
-		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.maxUnconfirmedTXs)
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.ethMaxQueuedTransactions)
 		if err != nil {
 			return errors.Wrap(err, "failed to create eth_tx for upkeep")
 		}
