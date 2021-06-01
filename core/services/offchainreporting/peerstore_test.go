@@ -4,12 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/require"
 )
@@ -26,26 +25,26 @@ func Test_Peerstore_Start(t *testing.T) {
 		'/ip4/127.0.0.1/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		?	
+		?
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-	 	?	
+	 	?
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		?	
+		?
 	)
 	`, cltest.DefaultP2PPeerID, cltest.DefaultP2PPeerID, cltest.NonExistentP2PPeerID).Error
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, models.PeerID(cltest.DefaultP2PPeerID))
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
 	require.NoError(t, err)
 
 	err = wrapper.Start()
@@ -68,7 +67,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
 	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, models.PeerID(cltest.DefaultP2PPeerID))
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")

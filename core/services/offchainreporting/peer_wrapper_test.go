@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +22,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	config := store.Config
 
 	t.Run("with locked KeyStore returns nil", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
 
 		require.NoError(t, pw.Start())
@@ -31,7 +32,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	require.NoError(t, db.Exec(`DELETE FROM encrypted_p2p_keys`).Error)
 
 	t.Run("with no p2p keys returns nil", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
 
@@ -42,7 +43,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	var err error
 
 	t.Run("with one p2p key and matching P2P_PEER_ID returns nil", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 		k, _, err = keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
@@ -58,7 +59,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with one p2p key and no P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 
 		store.Config.Set("P2P_PEER_ID", "")
@@ -69,7 +70,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with one p2p key and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 
 		store.Config.Set("P2P_PEER_ID", cltest.DefaultP2PPeerID)
@@ -82,7 +83,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	var k2 p2pkey.Key
 
 	t.Run("with multiple p2p keys and valid P2P_PEER_ID returns nil", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 		k2, _, err = keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
@@ -98,7 +99,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 
 		store.Config.Set("P2P_PEER_ID", cltest.DefaultP2PPeerID.String())

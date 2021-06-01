@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -35,7 +36,7 @@ func TestJob(t *testing.T) {
 	)
 	p2pPeerID, err := peer.Decode(peerIDStr)
 	require.NoError(t, err)
-	peerID := models.PeerID(p2pPeerID)
+	peerID := p2pkey.PeerID(p2pPeerID)
 	transmitterAddress, err := models.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
 	require.NoError(t, err)
 	ocrKeyBundleIDSha256, err := models.Sha256HashFromHex(ocrKeyBundleID)

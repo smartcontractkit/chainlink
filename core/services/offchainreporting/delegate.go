@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -26,7 +27,7 @@ type Delegate struct {
 	db                 *gorm.DB
 	jobORM             job.ORM
 	config             *orm.Config
-	keyStore           *KeyStore
+	keyStore           *keystore.OCRKeyStore
 	pipelineRunner     pipeline.Runner
 	ethClient          eth.Client
 	logBroadcaster     log.Broadcaster
@@ -40,7 +41,7 @@ func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
 	config *orm.Config,
-	keyStore *KeyStore,
+	keyStore *keystore.OCRKeyStore,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
