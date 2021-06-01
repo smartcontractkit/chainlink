@@ -156,7 +156,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-				require.Equal(t, "0 0 1 1 *", jb.CronSpec.CronSchedule)
+				require.Equal(t, "CRON_TZ=UTC 0 0 1 1 *", jb.CronSpec.CronSchedule)
 			},
 		},
 		{

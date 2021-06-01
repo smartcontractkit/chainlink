@@ -51,11 +51,6 @@ import (
 
 //go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
 type (
-	StartCloser interface {
-		Start() error
-		Close() error
-	}
-
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
@@ -88,7 +83,7 @@ type Application interface {
 	GetJobORM() job.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
@@ -101,11 +96,11 @@ type ChainlinkApplication struct {
 	Exiter          func(int)
 	HeadTracker     *services.HeadTracker
 	HeadBroadcaster *headtracker.HeadBroadcaster
+	BPTXM           *bulletprooftxmanager.BulletproofTxManager
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
 	RunQueue         services.RunQueue
 	JobSubscriber    services.JobSubscriber
-	EthBroadcaster   bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster   log.Broadcaster
 	EventBroadcaster postgres.EventBroadcaster
 	JobORM           job.ORM
@@ -131,7 +126,7 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
-	subservices              []StartCloser
+	subservices              []utils.StartCloser
 	logger                   *logger.Logger
 
 	started     bool
@@ -143,7 +138,7 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
-	var subservices []StartCloser
+	var subservices []utils.StartCloser
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -192,7 +187,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	headTrackerLogger, err := globalLogger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
 	if err != nil {
-		logger.Fatal("error starting logger for head tracker")
+		logger.Fatal("error starting logger for head tracker", err)
 	}
 
 	var runExecutor services.RunExecutor
@@ -214,8 +209,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
-	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
-	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
 
 	subservices = append(subservices, promReporter)
 
@@ -257,11 +252,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			ethClient,
 			logBroadcaster,
 			fluxmonitorv2.Config{
-				DefaultHTTPTimeout:         store.Config.DefaultHTTPTimeout().Duration(),
-				FlagsContractAddress:       store.Config.FlagsContractAddress(),
-				MinContractPayment:         store.Config.MinimumContractPayment(),
-				EthGasLimit:                store.Config.EthGasLimitDefault(),
-				MaxUnconfirmedTransactions: store.Config.EthMaxUnconfirmedTransactions(),
+				DefaultHTTPTimeout:       store.Config.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:     store.Config.FlagsContractAddress(),
+				MinContractPayment:       store.Config.MinimumContractPayment(),
+				EthGasLimit:              store.Config.EthGasLimitDefault(),
+				EthMaxQueuedTransactions: store.Config.EthMaxQueuedTransactions(),
 			},
 		)
 	}
@@ -300,14 +295,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, headBroadcaster)
-
-	store.NotifyNewEthTx = ethBroadcaster
+	subservices = append(subservices, jobSpawner, pipelineRunner, bptxm, headBroadcaster)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
+		BPTXM:                    bptxm,
 		JobSubscriber:            jobSubscriber,
-		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
 		JobORM:                   jobORM,
@@ -614,8 +607,8 @@ func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) e
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
-	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInputs, meta)
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
+	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInput, meta)
 }
 
 // Only used for testing, not supported by the UI.
