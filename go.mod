@@ -73,7 +73,7 @@ require (
 	gonum.org/v1/gonum v0.9.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gorm.io/driver/postgres v1.0.8
-	gorm.io/gorm v1.20.12
+	gorm.io/gorm v1.21.10
 )
 
 // To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
