@@ -61,6 +61,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - `input` (falls back to the first input if unspecified)
         - `times`
 
+- Add `ETH_MAX_IN_FLIGHT_TRANSACTIONS` configuration option. This defaults to 16 and controls how many unconfirmed transactions may be in-flight at any given moment. This is set conservatively by default, node operators running many jobs on high throughput chains will probably need to increase this above the default to avoid lagging behind. However, before increasing this value, you MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise your node may get permanently stuck. Set to 0 to disable the limit entirely (the old behaviour). Disabling this setting is not recommended.
+
+Relevant settings for geth (and forks e.g. BSC)
+
+```toml
+[Eth.TxPool]
+Locals = ["0xYourNodeAddress1", "0xYourNodeAddress2"]  # Add your node addresses here
+NoLocals = false # Disabled by default but might as well make sure
+Journal = "transactions.rlp" # Make sure you set a journal file
+Rejournal = 3600000000000 # Default 1h, it might make sense to reduce this to e.g. 5m
+PriceBump = 10 # Must be set less than or equal to chainlink's ETH_GAS_BUMP_PERCENT
+AccountSlots = 16 # Highly recommended to increase this, must be greater than or equal to chainlink's ETH_MAX_IN_FLIGHT_TRANSACTIONS setting
+GlobalSlots = 4096 # Increase this as necessary
+AccountQueue = 64 # Increase this as necessary
+GlobalQueue = 1024 # Increase this as necessary
+Lifetime = 10800000000000 # Default 3h, this is probably ok, you might even consider reducing it
+
+```
+
+Relevant settings for parity/openethereum (and forks e.g. xDai)
+
+NOTE: There is a bug in parity (and xDai) where occasionally local transactions are inexplicably culled. See: https://github.com/openethereum/parity-ethereum/issues/10228
+
+Adjusting the settings below might help.
+
+```toml
+tx_queue_locals = ["0xYourNodeAddress1", "0xYourNodeAddress2"] # Add your node addresses here
+tx_queue_size = 8192 # Increase this as necessary
+tx_queue_per_sender = 16 # Highly recommended to increase this, must be greater than or equal to chainlink's ETH_MAX_IN_FLIGHT_TRANSACTIONS setting
+tx_queue_mem_limit = 4 # In MB. Highly recommended to increase this or set to 0
+tx_queue_no_early_reject = true # Recommended to set this
+tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as well make sure
+```
+
 ### Fixed
 
 ### Changed
@@ -68,6 +102,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
 - Chainlink no longers writes/reads eth key files to disk
+
+- Rename `ETH_MAX_UNCONFIRMED_TRANSACTIONS` to `ETH_MAX_QUEUED_TRANSACTIONS`. It still performs the same function but the name was misleading and would have caused confusion with the new `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
+
 
 ## [0.10.7] - 2021-05-24
 

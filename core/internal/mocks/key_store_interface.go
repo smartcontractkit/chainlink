@@ -351,6 +351,31 @@ func (_m *KeyStoreInterface) SignTx(fromAddress common.Address, tx *types.Transa
 	return r0, r1
 }
 
+// SubscribeToKeyChanges provides a mock function with given fields:
+func (_m *KeyStoreInterface) SubscribeToKeyChanges() (chan struct{}, func()) {
+	ret := _m.Called()
+
+	var r0 chan struct{}
+	if rf, ok := ret.Get(0).(func() chan struct{}); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chan struct{})
+		}
+	}
+
+	var r1 func()
+	if rf, ok := ret.Get(1).(func() func()); ok {
+		r1 = rf()
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(func())
+		}
+	}
+
+	return r0, r1
+}
+
 // Unlock provides a mock function with given fields: password
 func (_m *KeyStoreInterface) Unlock(password string) error {
 	ret := _m.Called(password)
