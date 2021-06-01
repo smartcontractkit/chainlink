@@ -111,7 +111,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 	}
 	newUpkeep := UpkeepRegistration{
 		CheckData:           upkeepConfig.CheckData,
-		ExecuteGas:          int32(upkeepConfig.ExecuteGas),
+		ExecuteGas:          uint64(upkeepConfig.ExecuteGas),
 		RegistryID:          registry.ID,
 		PositioningConstant: positioningConstant,
 		UpkeepID:            upkeepID,

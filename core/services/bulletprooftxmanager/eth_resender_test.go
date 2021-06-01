@@ -29,7 +29,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 10)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -49,11 +49,19 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 0)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
 		assert.Equal(t, etxs[1].EthTxAttempts[0].ID, attempts[1].ID)
+	})
+
+	t.Run("applies limit", func(t *testing.T) {
+		olderThan := time.Unix(1616509200, 0)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 1)
+		require.NoError(t, err)
+		assert.Len(t, attempts, 1)
+		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
 	})
 }
 
