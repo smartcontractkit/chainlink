@@ -13,7 +13,6 @@ function publicAbi(contract, expectedPublic) {
       actualPublic.push(m);
     }
   }
-  console.log(actualPublic);
 
   for (const method of actualPublic) {
     const index = expectedPublic.indexOf(method);

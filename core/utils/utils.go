@@ -852,8 +852,8 @@ func EVMBytesToUint64(buf []byte) uint64 {
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state      atomic.Int32
-	sync.Mutex // lock is held during statup/shutdown
+	state        atomic.Int32
+	sync.RWMutex // lock is held during statup/shutdown, RLock is held while executing functions dependent on a particular state
 }
 
 // StartStopOnceState holds the state for StartStopOnce
@@ -926,11 +926,18 @@ func (once *StartStopOnce) State() StartStopOnceState {
 	return StartStopOnceState(state)
 }
 
-func (once *StartStopOnce) IfStarted(f func()) {
+// IfStarted runs the func and returns true only if started, otherwise returns false
+func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
+	once.RLock()
+	defer once.RUnlock()
+
 	state := once.state.Load()
+
 	if StartStopOnceState(state) == StartStopOnce_Started {
 		f()
+		return true
 	}
+	return false
 }
 
 // WithJitter adds +/- 10% to a duration

@@ -40,6 +40,7 @@ type KeyStoreInterface interface {
 	ExportKey(address common.Address, newPassword string) ([]byte, error)
 	AddKey(key *models.Key) error
 	RemoveKey(address common.Address, hardDelete bool) (deletedKey models.Key, err error)
+	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 
 	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
@@ -65,19 +66,20 @@ type combinedKey struct {
 
 // KeyStore manages an in-memory key list backed by a database table
 // It never exposes private keys to consumers
-// TODO: In future we may want to make keys hot-loadable, and will need to
-// expose a channel that fires when a key is loaded/deleted
 type KeyStore struct {
 	db           *gorm.DB
 	password     string
 	scryptParams utils.ScryptParams
 	keys         []combinedKey
 	mu           *sync.RWMutex
+
+	subscribers   [](chan struct{})
+	subscribersMu *sync.RWMutex
 }
 
 // NewKeyStore creates a keystore for the given directory.
 func NewKeyStore(db *gorm.DB, scryptParams utils.ScryptParams) *KeyStore {
-	return &KeyStore{db, "", scryptParams, make([]combinedKey, 0), new(sync.RWMutex)}
+	return &KeyStore{db, "", scryptParams, make([]combinedKey, 0), new(sync.RWMutex), make([](chan struct{}), 0), new(sync.RWMutex)}
 }
 
 // NewInsecureKeyStore creates an *INSECURE* keystore for the given directory.
@@ -173,6 +175,7 @@ func (ks *KeyStore) createNewKey(isFunding bool) (k models.Key, err error) {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 	ks.keys = append(ks.keys, cKey)
+	ks.notify()
 	return key, nil
 }
 
@@ -272,6 +275,7 @@ func (ks *KeyStore) ImportKey(keyJSON []byte, oldPassword string) (key models.Ke
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 	ks.keys = append(ks.keys, cKey)
+	ks.notify()
 	return key, nil
 }
 
@@ -311,6 +315,7 @@ func (ks *KeyStore) AddKey(key *models.Key) error {
 	defer ks.mu.Unlock()
 	cKey := combinedKey{DBKey: *key, DecryptedKey: *dKey}
 	ks.keys = append(ks.keys, cKey)
+	ks.notify()
 	return nil
 }
 
@@ -326,6 +331,7 @@ func (ks *KeyStore) RemoveKey(address common.Address, hardDelete bool) (removedK
 		if cKey.DecryptedKey.Address == address {
 			removedKey = cKey.DBKey
 			ks.keys = append(ks.keys[:i], ks.keys[i+1:]...)
+			ks.notify()
 		}
 	}
 	ks.mu.Unlock()
@@ -345,6 +351,36 @@ func (ks *KeyStore) RemoveKey(address common.Address, hardDelete bool) (removedK
 	})
 
 	return
+}
+
+// SubscribeToKeyChanges returns a channel that will fire if a key is added or removed
+// Consumers should call unsubscribe when they are done to close the channel
+func (ks *KeyStore) SubscribeToKeyChanges() (ch chan struct{}, unsubscribe func()) {
+	ch = make(chan struct{}, 1)
+	ks.subscribersMu.Lock()
+	defer ks.subscribersMu.Unlock()
+	ks.subscribers = append(ks.subscribers, ch)
+	return ch, func() {
+		ks.subscribersMu.Lock()
+		defer ks.subscribersMu.Unlock()
+		for i, sub := range ks.subscribers {
+			if sub == ch {
+				ks.subscribers = append(ks.subscribers[:i], ks.subscribers[i+1:]...)
+				close(ch)
+			}
+		}
+	}
+}
+
+func (ks *KeyStore) notify() {
+	ks.subscribersMu.RLock()
+	defer ks.subscribersMu.RUnlock()
+	for _, ch := range ks.subscribers {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // AllKeys returns all keys
