@@ -40,3 +40,32 @@ func TestConfig_SetEthGasPriceDefault(t *testing.T) {
 		assert.Equal(t, big.NewInt(42000000000), config.EthGasPriceDefault())
 	})
 }
+
+func TestConfig_EthGasLimitDefault(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	t.Cleanup(cleanup)
+	config := store.Config
+
+	t.Run("returns the default", func(t *testing.T) {
+		assert.Equal(t, uint64(500000), config.EthGasLimitDefault())
+	})
+	t.Run("for fantom returns ", func(t *testing.T) {
+		config.Set("ETH_CHAIN_ID", 250)
+		assert.Equal(t, uint64(500000), config.EthGasLimitDefault())
+
+		config.Set("ETH_CHAIN_ID", 4002)
+		assert.Equal(t, uint64(500000), config.EthGasLimitDefault())
+	})
+	t.Run("allows an override", func(t *testing.T) {
+		config.Set("ETH_GAS_LIMIT_DEFAULT", 9)
+		assert.Equal(t, uint64(9), config.EthGasLimitDefault())
+	})
+	t.Run("allows an override on fantom", func(t *testing.T) {
+		config.Set("ETH_CHAIN_ID", 250)
+		config.Set("ETH_GAS_LIMIT_DEFAULT", 9)
+		assert.Equal(t, uint64(9), config.EthGasLimitDefault())
+
+		config.Set("ETH_CHAIN_ID", 4002)
+		assert.Equal(t, uint64(9), config.EthGasLimitDefault())
+	})
+}
