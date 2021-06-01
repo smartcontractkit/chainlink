@@ -36,7 +36,7 @@
     "javascript-stringify": "^2.0.1",
     "json-api-normalizer": "^0.4.13",
     "json-pretty-html": "^1.1.2",
-    "local-storage-fallback": "^4.1.1",
+    "local-storage-fallback": "^4.1.2",
     "lodash": "^4.17.19",
     "moment": "^2.29.1",
     "normalize-url": "^4.5.0",
