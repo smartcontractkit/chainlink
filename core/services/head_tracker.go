@@ -49,7 +49,7 @@ var (
 // store on reboot.
 type HeadTracker struct {
 	log                   *logger.Logger
-	callbacks             []strpkg.HeadTrackable
+	callbacks             []models.HeadTrackable
 	headers               chan *models.Head
 	headSubscription      ethereum.Subscription
 	highestSeenHead       *models.Head
@@ -69,7 +69,7 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []models.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]
@@ -481,6 +481,9 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", ht.highestSeenHead.Number)
+		if head.Number < prevHead.Number-int64(ht.store.Config.EthFinalityDepth()) {
+			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
+		}
 	}
 	return nil
 }
@@ -521,7 +524,7 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 	wg := sync.WaitGroup{}
 	wg.Add(len(ht.callbacks))
 	for idx, trackable := range ht.callbacks {
-		go func(i int, t strpkg.HeadTrackable) {
+		go func(i int, t models.HeadTrackable) {
 			start := time.Now()
 			t.OnNewLongestChain(ctx, headWithChain)
 			elapsed := time.Since(start)

@@ -1593,6 +1593,17 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		// But the second insert did not change the gas limit
 		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
 	})
+
+	t.Run("returns error if fromAddress does not correspond to a key", func(t *testing.T) {
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: taskRunID}, cltest.NewAddress(), toAddress, encodedPayload, gasLimit)
+		assert.Error(t, err)
+		assert.EqualError(t, err, "ERROR: insert or update on table \"eth_txes\" violates foreign key constraint \"eth_txes_from_address_fkey\" (SQLSTATE 23503)")
+	})
 }
 
 func TestORM_FindJobWithErrorsPreloadsJobSpecErrors(t *testing.T) {

@@ -138,6 +138,8 @@ func (pm *PollManager) Start(hibernate bool, roundState flux_aggregator_wrapper.
 		}()
 	}
 
+	pm.maybeWarnAboutIdleAndPollIntervals()
+
 	if hibernate {
 		pm.Hibernate()
 	} else {
@@ -168,13 +170,13 @@ func (pm *PollManager) ResetIdleTimer(roundStartedAtUTC uint64) {
 }
 
 // StartRetryTicker starts the retry ticker
-func (pm *PollManager) StartRetryTicker() {
-	pm.retryTicker.Start()
+func (pm *PollManager) StartRetryTicker() bool {
+	return pm.retryTicker.Start()
 }
 
 // StopRetryTicker stops the retry ticker
-func (pm *PollManager) StopRetryTicker() {
-	pm.retryTicker.Stop()
+func (pm *PollManager) StopRetryTicker() bool {
+	return pm.retryTicker.Stop()
 }
 
 // Stop stops all timers/tickers
@@ -228,8 +230,6 @@ func (pm *PollManager) startPollTicker() {
 
 // startIdleTimer starts the idle timer if it is enabled
 func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
-	// Stop the retry timer when the idle timer is started
-	pm.retryTicker.Stop()
 
 	if pm.cfg.IdleTimerDisabled {
 		pm.idleTimer.Stop()
@@ -239,7 +239,7 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 
 	// Keep using the idleTimer we already have
 	if roundStartedAtUTC == 0 {
-		pm.logger.Debugw("keeping existing timer, no active round")
+		pm.logger.Debugw("not resetting idleTimer, no active round")
 
 		return
 	}
@@ -256,9 +256,13 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if deadlineDuration <= 0 {
-		log.Debugw("not resetting idleTimer, negative duration")
-
+		log.Debugw("not resetting idleTimer, round was started further in the past than idle timer period")
 		return
+	}
+
+	// Stop the retry timer when the idle timer is started
+	if pm.retryTicker.Stop() {
+		pm.logger.Debugw("stopped the retryTicker")
 	}
 
 	pm.idleTimer.Reset(deadlineDuration)
@@ -284,7 +288,7 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 	timeoutDuration := time.Until(timesOutAt)
 
 	if timeoutDuration <= 0 {
-		log.Debugw("roundTimer has run down; disabling")
+		log.Debugw("disabling roundTimer, as the round is already past its timeout")
 		pm.roundTimer.Stop()
 
 		return
@@ -296,4 +300,12 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 
 func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {
 	return rs.StartedAt + rs.Timeout
+}
+
+// ShouldPerformInitialPoll determines whether to perform an initial poll
+func (pm *PollManager) maybeWarnAboutIdleAndPollIntervals() {
+	if !pm.cfg.IdleTimerDisabled && !pm.cfg.PollTickerDisabled && pm.cfg.IdleTimerPeriod < pm.cfg.PollTickerInterval {
+		pm.logger.Warnw("The value of IdleTimerPeriod is lower than PollTickerInterval. The idle timer should usually be less frequent that poll",
+			"IdleTimerPeriod", pm.cfg.IdleTimerPeriod, "PollTickerInterval", pm.cfg.PollTickerInterval)
+	}
 }

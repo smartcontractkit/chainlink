@@ -31,12 +31,6 @@ const (
 	AutoMigrate = "auto_migrate"
 )
 
-// NotifyNewEthTx allows to notify the ethBroadcaster of a new transaction
-//go:generate mockery --name NotifyNewEthTx --output ../internal/mocks/ --case=underscore
-type NotifyNewEthTx interface {
-	Trigger()
-}
-
 // Store contains fields for the database, Config, and KeyStore
 // for keeping the application state in sync with the database.
 type Store struct {
@@ -46,7 +40,6 @@ type Store struct {
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *vrf.VRFKeyStore
 	EthClient      eth.Client
-	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }

@@ -10,6 +10,10 @@ type BaseTask struct {
 	Timeout         time.Duration `mapstructure:"timeout"`
 }
 
+func NewBaseTask(dotID string, t Task, index int32, numPredecessors int) BaseTask {
+	return BaseTask{dotID: dotID, outputTask: t, Index: index, numPredecessors: numPredecessors}
+}
+
 func (t BaseTask) NumPredecessors() int {
 	return t.numPredecessors
 }

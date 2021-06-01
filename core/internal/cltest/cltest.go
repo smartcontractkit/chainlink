@@ -305,11 +305,11 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, store *strpkg.Store, config *TestConfig) (bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, store *strpkg.Store, config *TestConfig, keys ...models.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	return bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster), func() {
+	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys), func() {
 		eventBroadcaster.Stop()
 	}
 }
@@ -501,6 +501,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
+	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
 	return c, s, assertMocksCalled
@@ -1843,7 +1844,7 @@ type SimulateIncomingHeadsArgs struct {
 	BackfillDepth        int64
 	Interval             time.Duration
 	Timeout              time.Duration
-	HeadTrackables       []strpkg.HeadTrackable
+	HeadTrackables       []models.HeadTrackable
 	Hashes               map[int64]common.Hash
 }
 
@@ -2009,4 +2010,11 @@ func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
+}
+
+func MustSendingKeys(t *testing.T, ks strpkg.KeyStoreInterface) (keys []models.Key) {
+	var err error
+	keys, err = ks.SendingKeys()
+	require.NoError(t, err)
+	return keys
 }
