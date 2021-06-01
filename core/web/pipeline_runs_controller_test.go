@@ -62,7 +62,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
 		require.NoError(t, err)
 
-		copy(uuid[:], webhookJobSpecFromFile.WebhookSpec.OnChainJobSpecID[:])
+		uuid = webhookJobSpecFromFile.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -134,7 +134,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
 		require.NoError(t, err)
 
-		copy(uuid[:], webhookJobSpecFromFile.WebhookSpec.OnChainJobSpecID[:])
+		uuid = webhookJobSpecFromFile.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service

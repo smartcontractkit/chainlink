@@ -388,18 +388,18 @@ func (_m *Application) RunJobV2(ctx context.Context, jobID int32, meta map[strin
 }
 
 // RunWebhookJobV2 provides a mock function with given fields: ctx, jobUUID, pipelineInputs, meta
-func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
+func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
 	ret := _m.Called(ctx, jobUUID, pipelineInputs, meta)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, models.JobID, []pipeline.Result, pipeline.JSONSerializable) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, []pipeline.Result, pipeline.JSONSerializable) int64); ok {
 		r0 = rf(ctx, jobUUID, pipelineInputs, meta)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, models.JobID, []pipeline.Result, pipeline.JSONSerializable) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, []pipeline.Result, pipeline.JSONSerializable) error); ok {
 		r1 = rf(ctx, jobUUID, pipelineInputs, meta)
 	} else {
 		r1 = ret.Error(1)

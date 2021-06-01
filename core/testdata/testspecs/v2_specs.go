@@ -144,7 +144,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 		publicKey = params.PublicKey
 	}
 	template := `
-jobID = "%s"
+externalJobID = "%s"
 type = "vrf"
 schemaVersion = 1
 name = "%s"

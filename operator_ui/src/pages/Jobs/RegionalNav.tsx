@@ -143,7 +143,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRunV2: Function
   deleteJobSpec: Function
   jobSpecId: string
-  onChainJobSpecID?: string
+  externalJobID?: string
   job: JobData['job']
   runsCount: JobData['recentRunsCount']
   getJobSpecRuns: (props: { page?: number; size?: number }) => Promise<void>
@@ -158,7 +158,7 @@ const RegionalNavComponent = ({
   deleteJobSpec,
   getJobSpecRuns,
   runsCount,
-  onChainJobSpecID,
+  externalJobID,
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
@@ -177,7 +177,7 @@ const RegionalNavComponent = ({
 
     if (job?.id && isJobV2(job.id)) {
       await createJobRunV2(
-        onChainJobSpecID || jobSpecId,
+        externalJobID || jobSpecId,
         pipelineInput,
         CreateRunSuccessNotification,
         ErrorMessage,

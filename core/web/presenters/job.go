@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	uuid "github.com/satori/go.uuid"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -154,7 +155,6 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 
 // WebhookSpec defines the spec details of a Webhook Job
 type WebhookSpec struct {
-	OnChainJobSpecID string    `json:"onChainJobSpecID"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
@@ -162,7 +162,6 @@ type WebhookSpec struct {
 // NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
 func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 	return &WebhookSpec{
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
 		CreatedAt:        spec.CreatedAt,
 		UpdatedAt:        spec.UpdatedAt,
 	}
@@ -228,6 +227,7 @@ type JobResource struct {
 	Type                  JobSpecType            `json:"type"`
 	SchemaVersion         uint32                 `json:"schemaVersion"`
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
+	ExternalJobID         uuid.UUID 			 `json:"externalJobID"`
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	CronSpec              *CronSpec              `json:"cronSpec"`
@@ -248,6 +248,7 @@ func NewJobResource(j job.Job) *JobResource {
 		SchemaVersion:   j.SchemaVersion,
 		MaxTaskDuration: j.MaxTaskDuration,
 		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
+		ExternalJobID:   j.ExternalJobID,
 	}
 
 	switch j.Type {

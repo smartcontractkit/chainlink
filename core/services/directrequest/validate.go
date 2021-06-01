@@ -1,7 +1,6 @@
 package directrequest
 
 import (
-	"github.com/gofrs/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -11,7 +10,6 @@ import (
 
 type DirectRequestToml struct {
 	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID uuid.UUID           `toml:"jobID"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {

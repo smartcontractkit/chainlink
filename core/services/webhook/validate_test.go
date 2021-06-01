@@ -23,7 +23,7 @@ func TestValidateWebJobSpec(t *testing.T) {
 			toml: `
 			type            = "webhook"
 			schemaVersion   = 1
-            jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+            externalJobID           = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 			observationSource   = """
 				ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 				ds_parse    [type=jsonparse path="data,price"];
@@ -38,7 +38,7 @@ func TestValidateWebJobSpec(t *testing.T) {
 				var r job.WebhookSpec
 				err = jsonapi.Unmarshal(b, &r)
 				require.NoError(t, err)
-				require.Equal(t, "0eec7e1dd0d2476ca1a872dfb6633f46", r.OnChainJobSpecID.String())
+				require.Equal(t, "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46", s.ExternalJobID.String())
 			},
 		},
 		{
@@ -46,7 +46,7 @@ func TestValidateWebJobSpec(t *testing.T) {
 			toml: `
 			type            = "webhookjob"
 			schemaVersion   = 1
-            jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+            externalJobID           = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 			observationSource   = """
 			    ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 			    ds_parse    [type=jsonparse path="data,price"];

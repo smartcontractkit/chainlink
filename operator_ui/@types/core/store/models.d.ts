@@ -474,6 +474,7 @@ declare module 'core/store/models' {
       dotDagSource: string
     }
     schemaVersion: number
+    externalJobID: string
   }
 
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
@@ -481,7 +482,6 @@ declare module 'core/store/models' {
     directRequestSpec: {
       initiator: 'runlog'
       contractAddress: common.Address
-      onChainJobSpecID: string
       createdAt: time.Time
     }
     fluxMonitorSpec: null
@@ -570,7 +570,6 @@ declare module 'core/store/models' {
     type: 'webhook'
     keeperSpec: null
     webhookSpec: {
-      onChainJobSpecID: string
       createdAt: time.Time
       updatedAt: time.Time
     }

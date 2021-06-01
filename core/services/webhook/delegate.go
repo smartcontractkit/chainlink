@@ -4,12 +4,13 @@ import (
 	"context"
 	"sync"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,14 +20,14 @@ type (
 	}
 
 	JobRunner interface {
-		RunJob(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error)
+		RunJob(ctx context.Context, jobUUID uuid.UUID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error)
 	}
 )
 
 func NewDelegate(runner pipeline.Runner) *Delegate {
 	return &Delegate{
 		webhookJobRunner: &webhookJobRunner{
-			specsByUUID: make(map[models.JobID]registeredJob),
+			specsByUUID: make(map[uuid.UUID]registeredJob),
 			runner:      runner,
 		},
 	}
@@ -65,7 +66,7 @@ func (s pseudoService) Close() error {
 }
 
 type webhookJobRunner struct {
-	specsByUUID   map[models.JobID]registeredJob
+	specsByUUID   map[uuid.UUID]registeredJob
 	muSpecsByUUID sync.RWMutex
 	runner        pipeline.Runner
 }
@@ -78,38 +79,35 @@ type registeredJob struct {
 func (r *webhookJobRunner) addSpec(spec job.Job) error {
 	r.muSpecsByUUID.Lock()
 	defer r.muSpecsByUUID.Unlock()
-	_, exists := r.specsByUUID[spec.WebhookSpec.OnChainJobSpecID]
+	_, exists := r.specsByUUID[spec.ExternalJobID]
 	if exists {
-		return errors.Errorf("a webhook job with that UUID already exists (uuid: %v)", spec.WebhookSpec.OnChainJobSpecID)
+		return errors.Errorf("a webhook job with that UUID already exists (uuid: %v)", spec.ExternalJobID)
 	}
-	r.specsByUUID[spec.WebhookSpec.OnChainJobSpecID] = registeredJob{spec, make(chan struct{})}
+	r.specsByUUID[spec.ExternalJobID] = registeredJob{spec, make(chan struct{})}
 	return nil
 }
 
 func (r *webhookJobRunner) rmSpec(spec job.Job) {
 	r.muSpecsByUUID.Lock()
 	defer r.muSpecsByUUID.Unlock()
-	j, exists := r.specsByUUID[spec.WebhookSpec.OnChainJobSpecID]
+	j, exists := r.specsByUUID[spec.ExternalJobID]
 	if exists {
 		close(j.chRemove)
-		delete(r.specsByUUID, spec.WebhookSpec.OnChainJobSpecID)
+		delete(r.specsByUUID, spec.ExternalJobID)
 	}
 }
 
-func (r *webhookJobRunner) spec(jobID models.JobID) (registeredJob, bool) {
+func (r *webhookJobRunner) spec(externalJobID uuid.UUID) (registeredJob, bool) {
 	r.muSpecsByUUID.RLock()
 	defer r.muSpecsByUUID.RUnlock()
-	spec, exists := r.specsByUUID[jobID]
+	spec, exists := r.specsByUUID[externalJobID]
 	return spec, exists
 }
 
 var ErrJobNotExists = errors.New("job does not exist")
 
-func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
-	var uuidHash models.JobID
-	copy(uuidHash[:], jobUUID[:])
-
-	spec, exists := r.spec(uuidHash)
+func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
+	spec, exists := r.spec(jobUUID)
 	if !exists {
 		return 0, ErrJobNotExists
 	}
@@ -117,7 +115,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID models.JobID, pip
 	logger := logger.CreateLogger(
 		logger.Default.With(
 			"jobID", spec.ID,
-			"uuid", spec.WebhookSpec.OnChainJobSpecID,
+			"uuid", spec.ExternalJobID,
 		),
 	)
 

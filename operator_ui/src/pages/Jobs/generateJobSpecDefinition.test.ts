@@ -185,6 +185,7 @@ describe('generateTOMLDefinition', () => {
       name: 'Job spec v2',
       type: 'offchainreporting',
       fluxMonitorSpec: null,
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       directRequestSpec: null,
       keeperSpec: null,
       cronSpec: null,
@@ -240,6 +241,7 @@ observationSource = """
     fetch -> parse -> multiply;
 """
 maxTaskDuration = "10s"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -251,6 +253,7 @@ maxTaskDuration = "10s"
       name: 'FM Job Spec',
       schemaVersion: 1,
       type: 'fluxmonitor',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: {
         absoluteThreshold: 1,
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
@@ -295,6 +298,7 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -306,6 +310,7 @@ observationSource = """
       name: 'DR Job Spec',
       schemaVersion: 1,
       type: 'directrequest',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
@@ -313,7 +318,6 @@ observationSource = """
       directRequestSpec: {
         initiator: 'runlog',
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
-        onChainJobSpecID: '0eec7e1dd0d2476ca1a872dfb6633f46',
         createdAt: '2021-02-19T16:00:01.115227+08:00',
       },
       offChainReportingOracleSpec: null,
@@ -328,7 +332,6 @@ observationSource = """
     const expectedOutput = `type = "directrequest"
 schemaVersion = 1
 name = "DR Job Spec"
-onChainJobSpecID = "0eec7e1dd0d2476ca1a872dfb6633f46"
 contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 maxTaskDuration = "10s"
 observationSource = """
@@ -337,6 +340,7 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -348,6 +352,7 @@ observationSource = """
       name: 'Keeper Job Spec',
       schemaVersion: 1,
       type: 'keeper',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: {
         contractAddress: '0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba',
@@ -372,6 +377,7 @@ schemaVersion = 1
 name = "Keeper Job Spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -384,6 +390,7 @@ fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
       schemaVersion: 1,
       type: 'cron',
       fluxMonitorSpec: null,
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       keeperSpec: null,
       cronSpec: {
         schedule: '*/2 * * * *',
@@ -411,6 +418,7 @@ observationSource = """
     ds_multiply [type=multiply times=100];
     ds -> ds_parse -> ds_multiply;
 """
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -422,11 +430,11 @@ observationSource = """
       name: 'Webhook Job Spec',
       schemaVersion: 1,
       type: 'webhook',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
       webhookSpec: {
-        onChainJobSpecID: '0eec7e1dd0d2476ca1a872dfb6633f46',
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
@@ -443,7 +451,7 @@ observationSource = """
     const expectedOutput = `type = "webhook"
 schemaVersion = 1
 name = "Webhook Job Spec"
-onChainJobSpecID = "0eec7e1dd0d2476ca1a872dfb6633f46"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 observationSource = """
     ds    [type=http method=GET url="http://localhost:8001"];
     ds_parse    [type=jsonparse path="data,result"];

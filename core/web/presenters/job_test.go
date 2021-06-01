@@ -15,7 +15,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -80,13 +79,13 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "directrequest",
 						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
 						},
 						"directRequestSpec": {
 							"contractAddress": "%s",
-							"onChainJobSpecID": "0eec7e1dd0d2476ca1a872dfb6633f46",
 							"initiator": "runlog",
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"
@@ -118,6 +117,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:         timestamp,
 					UpdatedAt:         timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
@@ -137,6 +137,7 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "fluxmonitor",
 						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
@@ -184,6 +185,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
@@ -203,6 +205,7 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "offchainreporting",
 						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
@@ -243,6 +246,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:       timestamp,
 					UpdatedAt:       timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -262,6 +266,7 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "keeper",
 						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": ""
@@ -293,6 +298,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:    timestamp,
 					UpdatedAt:    timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -312,6 +318,7 @@ func TestJob(t *testing.T) {
                         "schemaVersion": 1,
                         "type": "cron",
                         "maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
                         "pipelineSpec": {
                             "id": 1,
                             "dotDagSource": ""
@@ -337,10 +344,10 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID: 1,
 				WebhookSpec: &job.WebhookSpec{
-					OnChainJobSpecID: cltest.MustJobIDFromString(t, "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 					CreatedAt:        timestamp,
 					UpdatedAt:        timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -360,12 +367,12 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "webhook",
 						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": ""
 						},
 						"webhookSpec": {
-                            "onChainJobSpecID": "0eec7e1dd0d2476ca1a872dfb6633f46",
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
@@ -390,6 +397,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:       timestamp,
 					UpdatedAt:       timestamp,
 				},
+				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
@@ -419,6 +427,7 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "keeper",
 						"maxTaskDuration": "1m0s",
+					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": ""

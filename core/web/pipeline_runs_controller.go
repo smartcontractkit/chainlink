@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"strconv"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -82,8 +83,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	idStr := c.Param("ID")
 
 	// Is it a UUID? Then process it as a webhook job
-	var jobUUID models.JobID
-	err = jobUUID.UnmarshalText([]byte(idStr))
+	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
 		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, pipelineInputs, pipeline.JSONSerializable{Null: true})
 		if err2 != nil {

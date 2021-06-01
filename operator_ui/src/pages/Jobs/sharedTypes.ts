@@ -95,5 +95,5 @@ export type JobData = {
   jobSpec?: JobSpecResponse['data']
   recentRuns?: PipelineJobRun[] | DirectRequestJobRun[]
   recentRunsCount: number
-  onChainJobSpecID?: string
+  externalJobID?: string
 }
