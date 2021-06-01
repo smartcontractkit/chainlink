@@ -12,7 +12,7 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/ethereum/go-ethereum v1.10.2
-	github.com/fatih/color v1.10.0
+	github.com/fatih/color v1.12.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
