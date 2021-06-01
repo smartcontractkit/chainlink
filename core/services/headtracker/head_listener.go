@@ -122,6 +122,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 		case <-hl.chStop:
 			return nil
 		case blockHeader, open := <-hl.headers:
+
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
