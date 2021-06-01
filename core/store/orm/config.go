@@ -206,12 +206,29 @@ func init() {
 
 	// Fantom
 	fantomTestnet := ChainSpecificDefaultSet{
+		// Fantom specific
 		EthGasLimitDefault:               500000,
 		EthGasPriceDefault:               *big.NewInt(15000000000),
 		EthMaxGasPriceWei:                *big.NewInt(100000000000),
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 2,
 		MinimumContractPayment:           assets.NewLink(3500000000000000),
+
+		// Same as mainnet
+		EnableLegacyJobPipeline:        true,
+		EthGasBumpThreshold:            3,
+		EthGasBumpWei:                  *big.NewInt(5000000000), // 5 Gwei
+		EthMinGasPriceWei:              *big.NewInt(1000000000), // 1 Gwei
+		EthFinalityDepth:               50,
+		EthHeadTrackerHistoryDepth:     100,
+		EthHeadTrackerSamplingInterval: 1 * time.Second,
+		EthBalanceMonitorBlockDelay:    1,
+		EthTxResendAfterThreshold:      1 * time.Minute,
+		GasUpdaterBlockDelay:           1,
+		GasUpdaterBlockHistorySize:     24,
+		GasUpdaterBatchSize:            &defaultGasUpdaterBatchSize,
+		GasUpdaterEnabled:              true,
+		HeadTimeBudget:                 13 * time.Second,
 	}
 	fantomMainnet := fantomTestnet
 
