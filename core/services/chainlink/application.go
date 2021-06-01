@@ -259,7 +259,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB, // For transactions.
 				vorm,
 				store.KeyStore,
-				vrf.NewVRFKeyStore(vorm, utils.GetScryptParams(store.Config)),
+				store.VRFKeyStore,
 				pipelineRunner,
 				pipelineORM,
 				logBroadcaster,

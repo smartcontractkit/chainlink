@@ -296,7 +296,7 @@ function generateVRFDefinition(
 ) {
   const { vrfSpec, name, schemaVersion, type, externalJobID } = attrs
   const { coordinatorAddress, confirmations, publicKey } = vrfSpec
-    
+
   return stringifyJobSpec({
     value: {
       type,

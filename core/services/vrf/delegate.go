@@ -161,6 +161,7 @@ func (l *listener) Start() error {
 }
 
 func (l *listener) run(unsubscribeLogs func(), submitter ContractSubmitter) {
+	logger.Infow("VRFListener: listening for run requests", "jobTopic", l.job.ExternalIDToTopicHash())
 	for {
 		select {
 		case <-l.chStop:

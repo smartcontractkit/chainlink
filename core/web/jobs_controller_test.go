@@ -86,6 +86,9 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
+	pks, err := app.Store.VRFKeyStore.ListKeys()
+	require.NoError(t, err)
+	require.Len(t, pks, 1)
 	var tt = []struct {
 		name      string
 		toml      string
@@ -198,7 +201,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "vrf",
-			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{}).Toml(),
+			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].String()}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
@@ -362,6 +365,9 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
+	vrfKeyStore := app.GetStore().VRFKeyStore
+	_, err := vrfKeyStore.CreateKey(string(cltest.Password))
+	require.NoError(t, err)
 	return app, client
 }
 
