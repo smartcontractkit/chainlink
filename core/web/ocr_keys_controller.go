@@ -22,7 +22,7 @@ type OCRKeysController struct {
 // Example:
 // "GET <application>/keys/ocr"
 func (ocrkc *OCRKeysController) Index(c *gin.Context) {
-	ekbs, err := ocrkc.App.GetOCRKeyStore().FindEncryptedOCRKeyBundles()
+	ekbs, err := ocrkc.App.GetKeyStore().OCR.FindEncryptedOCRKeyBundles()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -34,7 +34,7 @@ func (ocrkc *OCRKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/ocr"
 func (ocrkc *OCRKeysController) Create(c *gin.Context) {
-	_, ekb, err := ocrkc.App.GetOCRKeyStore().GenerateEncryptedOCRKeyBundle()
+	_, ekb, err := ocrkc.App.GetKeyStore().OCR.GenerateEncryptedOCRKeyBundle()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -62,15 +62,15 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	ekb, err := ocrkc.App.GetOCRKeyStore().FindEncryptedOCRKeyBundleByID(id)
+	ekb, err := ocrkc.App.GetKeyStore().OCR.FindEncryptedOCRKeyBundleByID(id)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
 	if hardDelete {
-		err = ocrkc.App.GetOCRKeyStore().DeleteEncryptedOCRKeyBundle(&ekb)
+		err = ocrkc.App.GetKeyStore().OCR.DeleteEncryptedOCRKeyBundle(&ekb)
 	} else {
-		err = ocrkc.App.GetOCRKeyStore().ArchiveEncryptedOCRKeyBundle(&ekb)
+		err = ocrkc.App.GetKeyStore().OCR.ArchiveEncryptedOCRKeyBundle(&ekb)
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -91,7 +91,7 @@ func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	encryptedOCRKeyBundle, err := ocrkc.App.GetOCRKeyStore().ImportOCRKeyBundle(bytes, oldPassword)
+	encryptedOCRKeyBundle, err := ocrkc.App.GetKeyStore().OCR.ImportOCRKeyBundle(bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -113,7 +113,7 @@ func (ocrkc *OCRKeysController) Export(c *gin.Context) {
 		return
 	}
 	newPassword := c.Query("newpassword")
-	bytes, err := ocrkc.App.GetOCRKeyStore().ExportOCRKeyBundle(id, newPassword)
+	bytes, err := ocrkc.App.GetKeyStore().OCR.ExportOCRKeyBundle(id, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

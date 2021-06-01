@@ -118,6 +118,6 @@ func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offch
 
 	client := app.NewHTTPClient()
 
-	OCRKeyStore := app.GetOCRKeyStore()
+	OCRKeyStore := app.GetKeyStore().OCR
 	return client, OCRKeyStore
 }

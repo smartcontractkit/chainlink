@@ -185,7 +185,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 
 // AuthenticateOCRKey authenticates OCR keypairs
 func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(app chainlink.Application, password string) error {
-	ocrKeyStore := app.GetOCRKeyStore()
+	ocrKeyStore := app.GetKeyStore().OCR
 	err := ocrKeyStore.Unlock(password)
 	if err != nil {
 		return errors.Wrapf(err,

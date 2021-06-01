@@ -1653,9 +1653,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true)
 	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, _, err := app.OCRKeyStore.GenerateEncryptedP2PKey()
+	_, _, err := app.GetKeyStore().OCR.GenerateEncryptedP2PKey()
 	require.NoError(t, err)
-	p2pIDs := app.OCRKeyStore.DecryptedP2PKeys()
+	p2pIDs := app.GetKeyStore().OCR.DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].MustGetPeerID().Raw()
@@ -1681,7 +1681,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.NoError(t, err)
 	b.Commit()
 
-	_, kb, err := app.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	_, kb, err := app.GetKeyStore().OCR.GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
 	return app, peerID, transmitter, kb, func() {
 		ormCleanup()
