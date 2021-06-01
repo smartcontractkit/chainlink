@@ -126,6 +126,15 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
+func (p *Pipeline) TopoSort() []Task {
+	result := make([]Task, len(p.Tasks))
+
+	for id, task := range p.Tasks {
+		result[id] = task
+	}
+	return result
+}
+
 func Parse(bs []byte) (*Pipeline, error) {
 	g := NewTree()
 	err := g.UnmarshalText(bs)
@@ -140,12 +149,18 @@ func Parse(bs []byte) (*Pipeline, error) {
 		Source: string(bs),
 	}
 
-	if len(topo.DirectedCyclesIn(g)) > 0 {
-		return nil, errors.New("Cycle detected")
+	// toposort all the nodes: dependencies ordered before outputs. This also does cycle checking for us.
+	nodes, err := topo.SortStabilized(g, nil)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to topologically sort the graph, cycle detected")
 	}
 
-	for nodes := g.Nodes(); nodes.Next(); {
-		node, is := nodes.Node().(*TreeNode)
+	for id, node := range nodes {
+		// use the new ordering as the id so that we can easily reproduce the original toposort
+		id := int64(id)
+
+		node, is := node.(*TreeNode)
 		if !is {
 			panic("unreachable")
 		}
@@ -154,12 +169,12 @@ func Parse(bs []byte) (*Pipeline, error) {
 			return nil, errors.Errorf("'%v' is a reserved keyword that cannot be used as a task's name", InputTaskKey)
 		}
 
-		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.ID(), node.dotID, nil, nil, nil, 0)
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, id, node.dotID)
 		if err != nil {
 			return nil, err
 		}
 
-		p.Tasks[node.ID()] = task
+		p.Tasks[id] = task
 	}
 
 	// re-link the edges
