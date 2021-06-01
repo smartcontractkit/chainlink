@@ -228,7 +228,6 @@ func init() {
 		GasUpdaterBlockHistorySize:     24,
 		GasUpdaterBatchSize:            &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:              true,
-		HeadTimeBudget:                 13 * time.Second,
 	}
 	fantomMainnet := fantomTestnet
 
@@ -737,7 +736,7 @@ func (c Config) EthNonceAutoSync() bool {
 func (c Config) EthGasLimitDefault() uint64 {
 	ethGasLimitDefault := chainSpecificConfig(c).EthGasLimitDefault
 	if c.viper.IsSet(EnvVarName("EthGasLimitDefault")) || ethGasLimitDefault == 0 {
-		return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
+		return c.viper.GetUint64(EnvVarName("EthGasLimitDefault"))
 	}
 	return ethGasLimitDefault
 }
