@@ -14926,10 +14926,10 @@ loader-utils@^2.0.0:
     emojis-list "^3.0.0"
     json5 "^2.1.2"
 
-local-storage-fallback@^4.1.1:
-  version "4.1.1"
-  resolved "https://registry.npmjs.org/local-storage-fallback/-/local-storage-fallback-4.1.1.tgz#6dc964635c8e9ab6d522d7d88538f465b62bd161"
-  integrity sha512-Ka4rem1FOgvIaPMokxXTP8DgW8gjfAQSdJC8TGrplDug7vh3b0PZnY/9euG3O3cIGAvJLp33mMU6MJ13x6S+Pw==
+local-storage-fallback@^4.1.2:
+  version "4.1.2"
+  resolved "https://registry.npmjs.org/local-storage-fallback/-/local-storage-fallback-4.1.2.tgz#bd882e6dc12d78e8bf66190043624572b3811308"
+  integrity sha512-oMTj4q8vnZ5FUB/tclzrTgMppSJgGs3ng4fm7qXEK/NjdzNKkVVncMRlsML+l6FwV0WBoOk8rVD5GqNQIhcz8Q==
   dependencies:
     cookie "^0.3.1"
 
