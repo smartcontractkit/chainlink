@@ -89,7 +89,7 @@ func TestDelegate(t *testing.T) {
 		vuni.ec,
 		vrf.NewConfig(0, utils.FastScryptParams, 1000, 10))
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
-	t.Log(vs.PublicKey)
+	t.Log(vs)
 	jb, err := vrf.ValidateVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, *pipeline.NewTaskDAG()))

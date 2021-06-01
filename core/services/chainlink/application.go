@@ -663,7 +663,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Keeper jobs are special in that they do not have a task graph.
-	if jb.Type == job.Keeper {
+	if jb.Type == job.Keeper || jb.Type == job.VRF {
 		t := time.Now()
 		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
 			PipelineSpecID: jb.PipelineSpecID,

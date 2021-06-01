@@ -87,7 +87,7 @@ func (d *Delegate) JobType() job.Type {
 
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if jb.VRFSpec == nil {
-		return nil, errors.Errorf("vrf.Delegate expects a *job.VRFSpec to be present, got %v", jb)
+		return nil, errors.Errorf("vrf.Delegate expects a *job.VRFSpec to be present, got %+v", jb)
 	}
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), d.ec)
 	if err != nil {
@@ -209,6 +209,9 @@ func (l *listener) run(unsubscribeLogs func(), submitter ContractSubmitter) {
 						if err != nil {
 							return err
 						}
+						// TODO: Once we have eth tasks supported, we can use the pipeline directly
+						// and be able to save errored proof generations. Until then only save
+						// successful runs and log errors.
 						_, err = l.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
 							PipelineSpecID: l.job.PipelineSpecID,
 							Errors:         []null.String{{}},
@@ -228,6 +231,7 @@ func (l *listener) run(unsubscribeLogs func(), submitter ContractSubmitter) {
 							return errors.Wrap(err, "VRFListener: failed to insert finished run")
 						}
 					}
+					// Always mark consumed regardless of whether the proof failed or not.
 					err = l.logBroadcaster.MarkConsumed(tx, lb)
 					if err != nil {
 						return err

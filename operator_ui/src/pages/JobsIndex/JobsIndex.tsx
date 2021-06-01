@@ -99,6 +99,9 @@ function getCreatedAt(job: CombinedJobs) {
 
       case 'webhook':
         return job.attributes.webhookSpec.createdAt
+
+      case 'vrf':
+        return job.attributes.vrfSpec.createdAt
     }
   } else {
     return new Date().toString()

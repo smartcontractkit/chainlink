@@ -34,6 +34,7 @@ export type JobSpecType =
   | 'keeper'
   | 'cron'
   | 'webhook'
+  | 'vrf'
 
 export type JobV2 = BaseJob & {
   dotDagSource: string

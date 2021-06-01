@@ -489,6 +489,7 @@ declare module 'core/store/models' {
     keeperSpec: null
     cronSpec: null
     webhookSpec: null
+    vrfSpec: null
   }
 
   export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
@@ -510,6 +511,7 @@ declare module 'core/store/models' {
     directRequestSpec: null
     offChainReportingOracleSpec: null
     keeperSpec: null
+    vrfSpec: null
   }
 
   export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
@@ -532,6 +534,7 @@ declare module 'core/store/models' {
     }
     cronSpec: null
     webhookSpec: null
+    vrfSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     keeperSpec: null
@@ -547,6 +550,7 @@ declare module 'core/store/models' {
     }
     cronSpec: null
     webhookSpec: null
+    vrfSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -562,6 +566,7 @@ declare module 'core/store/models' {
     }
     webhookSpec: null
     directRequestSpec: null
+    vrfSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
   }
@@ -574,8 +579,27 @@ declare module 'core/store/models' {
       updatedAt: time.Time
     }
     cronSpec: null
+    vrfSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type VRFV2Spec = BaseJobSpecV2 & {
+    type: 'vrf'
+    keeperSpec: null
+    vrfSpec: {
+      initiator: 'randomnesslog'
+      confirmations: number
+      publicKey: string
+      coordinatorAddress: common.Address,
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    cronSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    webhookSpec: null
     offChainReportingOracleSpec: null
   }
 
@@ -586,6 +610,7 @@ declare module 'core/store/models' {
     | KeeperV2Spec
     | CronV2Spec
     | WebhookV2Spec
+    | VRFV2Spec
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]

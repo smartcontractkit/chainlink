@@ -77,6 +77,17 @@ func NewORM(db *gorm.DB, config *storm.Config, pipelineORM pipeline.ORM, eventBr
 	}
 }
 
+func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
+	return 	db.Preload("FluxMonitorSpec").
+		Preload("DirectRequestSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("KeeperSpec").
+		Preload("PipelineSpec").
+		Preload("CronSpec").
+		Preload("WebhookSpec").
+		Preload("VRFSpec")
+}
+
 func (o *orm) Close() error {
 	return nil
 }
@@ -120,15 +131,8 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 	}
 
 	var newlyClaimedJobs []Job
-	err := o.db.
-		Joins(join, args...).
-		Preload("FluxMonitorSpec").
-		Preload("DirectRequestSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("KeeperSpec").
-		Preload("PipelineSpec").
-		Preload("CronSpec").
-		Preload("WebhookSpec").
+	err := PreloadAllJobTypes(o.db.
+		Joins(join, args...)).
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
@@ -340,15 +344,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 // OffChainReportingJobs returns job specs
 func (o *orm) JobsV2() ([]Job, error) {
 	var jobs []Job
-	err := o.db.
-		Preload("PipelineSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("DirectRequestSpec").
-		Preload("CronSpec").
-		Preload("FluxMonitorSpec").
-		Preload("JobSpecErrors").
-		Preload("KeeperSpec").
-		Preload("WebhookSpec").
+	err := PreloadAllJobTypes(o.db).
 		Find(&jobs).
 		Error
 	for i := range jobs {
@@ -382,16 +378,7 @@ func loadDynamicConfigVars(cfg *storm.Config, os OffchainReportingOracleSpec) *O
 // FindJob returns job by ID
 func (o *orm) FindJob(id int32) (Job, error) {
 	var job Job
-	err := o.db.
-		Preload("PipelineSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("FluxMonitorSpec").
-		Preload("DirectRequestSpec").
-		Preload("JobSpecErrors").
-		Preload("KeeperSpec").
-		Preload("CronSpec").
-		Preload("VRFSpec").
-		Preload("WebhookSpec").
+	err := PreloadAllJobTypes(o.db).
 		First(&job, "jobs.id = ?", id).
 		Error
 	if job.OffchainreportingOracleSpec != nil {

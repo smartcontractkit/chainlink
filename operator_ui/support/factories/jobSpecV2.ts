@@ -7,6 +7,7 @@ import {
   OffChainReportingOracleJobV2Spec,
   CronV2Spec,
   WebhookV2Spec,
+  VRFV2Spec,
 } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
@@ -49,6 +50,7 @@ export function ocrJobSpecV2(
     fluxMonitorSpec: null,
     directRequestSpec: null,
     keeperSpec: null,
+    vrfSpec: null,
     cronSpec: null,
     webhookSpec: null,
     errors: [],
@@ -89,6 +91,7 @@ export function fluxMonitorJobV2(
     keeperSpec: null,
     cronSpec: null,
     webhookSpec: null,
+    vrfSpec: null,
     fluxMonitorSpec,
     errors: [],
     maxTaskDuration: '',
@@ -129,6 +132,7 @@ export function directRequestJobV2(
     cronSpec: null,
     webhookSpec: null,
     fluxMonitorSpec: null,
+    vrfSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -159,6 +163,7 @@ export function keeperJobV2(
     keeperSpec,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
+    vrfSpec: null,
     cronSpec: null,
     webhookSpec: null,
     errors: [],
@@ -186,6 +191,7 @@ export function cronJobV2(
     schemaVersion: 1,
     directRequestSpec: null,
     keeperSpec: null,
+    vrfSpec: null,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec,
@@ -214,11 +220,42 @@ export function webhookJobV2(
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F52',
     schemaVersion: 1,
     directRequestSpec: null,
+    vrfSpec: null,
     keeperSpec: null,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec: null,
     webhookSpec,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
+    },
+  }
+}
+
+export function vrfJobV2(
+  spec: Partial<VRFV2Spec['vrfSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const vrfSpec = partialAsFull<VRFV2Spec['vrfSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'VRF V2 job',
+    type: 'vrf',
+    externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F52',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec: null,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec: null,
+    webhookSpec: null,
+    vrfSpec,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {

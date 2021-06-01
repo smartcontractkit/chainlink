@@ -8,6 +8,7 @@ import {
   KeeperV2Spec,
   CronV2Spec,
   WebhookV2Spec,
+  VRFV2Spec,
 } from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
@@ -123,6 +124,10 @@ export const generateTOMLDefinition = (
 
   if (jobSpecAttributes.type === 'webhook') {
     return generateWebhookDefinition(jobSpecAttributes)
+  }
+
+  if (jobSpecAttributes.type === 'vrf') {
+    return generateVRFDefinition(jobSpecAttributes)
   }
 
   return ''
@@ -281,6 +286,22 @@ function generateWebhookDefinition(
       name,
       externalJobID,
       observationSource: pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateVRFDefinition(
+  attrs: ApiResponse<VRFV2Spec>['data']['attributes'],
+) {
+  const { name, schemaVersion, type, externalJobID } = attrs
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
