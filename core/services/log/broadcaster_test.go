@@ -343,7 +343,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		StartBlock:     0,
 		EndBlock:       10,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 	})
 	defer cleanup()
@@ -402,7 +402,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 		StartBlock:     0,
 		EndBlock:       10,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -489,7 +489,7 @@ func TestBroadcaster_DeletesOldLogs(t *testing.T) {
 		StartBlock:     0,
 		EndBlock:       5,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -509,7 +509,7 @@ func TestBroadcaster_DeletesOldLogs(t *testing.T) {
 		StartBlock:     7,
 		EndBlock:       8,
 		BackfillDepth:  1,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -526,7 +526,7 @@ func TestBroadcaster_DeletesOldLogs(t *testing.T) {
 		StartBlock:     10,
 		EndBlock:       11,
 		BackfillDepth:  1,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -570,7 +570,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 		StartBlock:     0,
 		EndBlock:       5,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -590,7 +590,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 		StartBlock:     7,
 		EndBlock:       8,
 		BackfillDepth:  1,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -607,7 +607,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 		StartBlock:     10,
 		EndBlock:       11,
 		BackfillDepth:  1,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -688,7 +688,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 		StartBlock:     0,
 		EndBlock:       5,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -741,7 +741,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 		StartBlock:     0,
 		EndBlock:       10,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         blocks.hashesMap(),
 		Interval:       250 * time.Millisecond,
 	})
@@ -1000,7 +1000,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:      test.blockHeight2 + 1,
 				BackfillDepth: backfillDepth,
 				Hashes:        blockHashes,
-				HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
 					logger.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						logger.Warnf("  ** not exists")
@@ -1050,7 +1050,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock:    test.blockHeight2,
 				BackfillDepth: backfillDepth,
 				Hashes:        blockHashes,
-				HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						select {
 						case chRawLogs2 <- logsA[uint(head.Number)]:
@@ -1164,7 +1164,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     3,
 		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		HeadTrackables: []models.HeadTrackable{(helper.lb).(models.HeadTrackable)},
 		Hashes:         map[int64]common.Hash{0: hash0, 1: hash1},
 	})
 	defer cleanup()
@@ -1239,7 +1239,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		for _, event := range events {
 			switch x := event.(type) {
 			case models.Head:
-				(helper.lb).(strpkg.HeadTrackable).OnNewLongestChain(context.Background(), x)
+				(helper.lb).(models.HeadTrackable).OnNewLongestChain(context.Background(), x)
 			case types.Log:
 				chRawLogs <- x
 			}

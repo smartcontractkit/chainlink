@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -56,7 +55,7 @@ type HeadBroadcaster struct {
 	utils.StartStopOnce
 }
 
-var _ store.HeadTrackable = (*HeadBroadcaster)(nil)
+var _ models.HeadTrackable = (*HeadBroadcaster)(nil)
 
 func (hr *HeadBroadcaster) Start() error {
 	return hr.StartOnce("HeadBroadcaster", func() error {
