@@ -97,6 +97,8 @@ tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as
 
 ### Fixed
 
+- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+
 ### Changed
 
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
