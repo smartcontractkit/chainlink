@@ -99,7 +99,7 @@ type Application interface {
 	GetJobORM() job.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
@@ -626,8 +626,8 @@ func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) e
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
-	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInputs, meta)
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
+	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInput, meta)
 }
 
 // Only used for testing, not supported by the UI.
