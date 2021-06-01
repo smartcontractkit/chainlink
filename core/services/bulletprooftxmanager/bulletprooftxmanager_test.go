@@ -218,34 +218,23 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 		cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
 	}
 
-	t.Run("with fewer unconfirmed eth_txes than limit returns nil", func(t *testing.T) {
-		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
-		require.NoError(t, err)
-	})
-
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
-	n++
-
-	t.Run("with equal unconfirmed eth_txes to limit returns nil", func(t *testing.T) {
+	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
 		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.NoError(t, err)
 	})
 
 	cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
 
-	t.Run("with more unconfirmed eth_txes than limit returns error", func(t *testing.T) {
+	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
 		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.Error(t, err)
-		require.EqualError(t, err, "cannot create transaction; too many unstarted transactions in the queue (2/2). WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.")
-	})
+		require.EqualError(t, err, fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse.", maxUnconfirmedTransactions))
 
-	cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
-
-	t.Run("unstarted and in_progress transactions count as unconfirmed", func(t *testing.T) {
-		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, 1)
+		cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
+		err = bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 		require.Error(t, err)
 
-		require.EqualError(t, err, "cannot create transaction; too many unstarted transactions in the queue (3/1). WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.")
+		require.EqualError(t, err, fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse.", maxUnconfirmedTransactions))
 	})
 
 	t.Run("disables check with 0 limit", func(t *testing.T) {
@@ -313,7 +302,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, cltest.NewAddress(), []byte{1, 2, 3}, 21000, 1)
-		assert.EqualError(t, err, "transmitter#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.")
+		assert.EqualError(t, err, "transmitter#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse.")
 	})
 }
 

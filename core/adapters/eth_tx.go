@@ -169,7 +169,7 @@ func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *st
 	}
 
 	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(store.DB, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
-		err = errors.Wrap(err, "number of unconfirmed transactions exceeds ETH_MAX_UNCONFIRMED_TRANSACTIONS")
+		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", bulletprooftxmanager.EthMaxQueuedTransactionsLabel)
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}
