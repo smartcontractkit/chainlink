@@ -160,6 +160,7 @@ function generateFluxMonitorDefinition(
     schemaVersion,
     type,
     maxTaskDuration,
+    externalJobID,
   } = attrs
   const {
     contractAddress,
@@ -189,6 +190,7 @@ function generateFluxMonitorDefinition(
       maxTaskDuration,
       minPayment,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -213,10 +215,10 @@ function generateDirectRequestDefinition(
       type,
       schemaVersion,
       name,
-      externalJobID,
       contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -244,7 +246,14 @@ function generateKeeperDefinition(
 function generateCronDefinition(
   attrs: ApiResponse<CronV2Spec>['data']['attributes'],
 ) {
-  const { cronSpec, pipelineSpec, name, schemaVersion, type, externalJobID } = attrs
+  const {
+    cronSpec,
+    pipelineSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+  } = attrs
   const { schedule } = cronSpec
 
   return stringifyJobSpec({

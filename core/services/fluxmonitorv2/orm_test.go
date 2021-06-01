@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -143,6 +145,7 @@ func makeJob(t *testing.T) *job.Job {
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
 		Pipeline:      *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),

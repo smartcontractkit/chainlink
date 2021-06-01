@@ -259,6 +259,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
+	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 	contractAddress    = "%s"
 	p2pPeerID          = "%s"
 	p2pBootstrapPeers  = [
