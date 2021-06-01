@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -1383,13 +1384,13 @@ func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
+func (c Config) P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error) {
 	if override != nil {
 		return *override, nil
 	}
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
-		var pid models.PeerID
+		var pid p2pkey.PeerID
 		err := pid.UnmarshalText([]byte(pidStr))
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)

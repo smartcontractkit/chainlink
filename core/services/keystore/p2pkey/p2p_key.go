@@ -12,8 +12,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -80,25 +78,25 @@ func (PublicKeyBytes) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	return ""
 }
 
-func (k Key) GetPeerID() (models.PeerID, error) {
+func (k Key) GetPeerID() (PeerID, error) {
 	peerID, err := peer.IDFromPrivateKey(k)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
-	return models.PeerID(peerID), err
+	return PeerID(peerID), err
 }
 
-func (k Key) MustGetPeerID() models.PeerID {
+func (k Key) MustGetPeerID() PeerID {
 	peerID, err := peer.IDFromPrivateKey(k)
 	if err != nil {
 		panic(err)
 	}
-	return models.PeerID(peerID)
+	return PeerID(peerID)
 }
 
 type EncryptedP2PKey struct {
 	ID               int32 `gorm:"primary_key"`
-	PeerID           models.PeerID
+	PeerID           PeerID
 	PubKey           PublicKeyBytes `gorm:"type:bytea"`
 	EncryptedPrivKey []byte
 	CreatedAt        time.Time

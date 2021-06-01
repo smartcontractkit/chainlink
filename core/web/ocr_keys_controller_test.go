@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -98,7 +98,7 @@ func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore) {
+func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCRKeyStore) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)

@@ -11,8 +11,7 @@ import (
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -29,7 +28,7 @@ func TestP2PKeyResource(t *testing.T) {
 	peerIDStr := "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
 	p2pPeerID, err := peer.Decode(peerIDStr)
 	require.NoError(t, err)
-	peerID := models.PeerID(p2pPeerID)
+	peerID := p2pkey.PeerID(p2pPeerID)
 
 	key := p2pkey.EncryptedP2PKey{
 		ID:        1,

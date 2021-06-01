@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -24,12 +24,12 @@ type (
 
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
-		keyStore *KeyStore
+		keyStore *keystore.OCRKeyStore
 		config   *orm.Config
 		db       *gorm.DB
 
 		pstoreWrapper *Pstorewrapper
-		PeerID        models.PeerID
+		PeerID        p2pkey.PeerID
 		Peer          peer
 
 		utils.StartStopOnce
@@ -39,7 +39,7 @@ type (
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore *KeyStore, config *orm.Config, db *gorm.DB) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore *keystore.OCRKeyStore, config *orm.Config, db *gorm.DB) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
 		config:   config,
@@ -71,7 +71,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			return errors.Wrap(err, "failed to start peer wrapper")
 		}
 		for _, k := range p2pkeys {
-			var peerID models.PeerID
+			var peerID p2pkey.PeerID
 			peerID, err = k.GetPeerID()
 			if err != nil {
 				return errors.Wrap(err, "unexpectedly failed to get peer ID from key")

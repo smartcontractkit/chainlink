@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -332,7 +333,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config.Config))
 		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
@@ -377,7 +378,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = job.Job{
@@ -424,7 +425,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -486,7 +487,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -531,7 +532,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = job.Job{
@@ -570,7 +571,7 @@ ds1 -> ds1_parse;
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := keystore.NewOCRKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()

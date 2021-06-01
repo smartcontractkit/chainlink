@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -133,7 +134,7 @@ type ConfigSchema struct {
 	P2PDHTAnnouncementCounterUserPrefix       uint32          `env:"P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX" default:"0"`
 	P2PListenIP                               net.IP          `env:"P2P_LISTEN_IP" default:"0.0.0.0"`
 	P2PListenPort                             uint16          `env:"P2P_LISTEN_PORT"`
-	P2PPeerID                                 models.PeerID   `env:"P2P_PEER_ID"`
+	P2PPeerID                                 p2pkey.PeerID   `env:"P2P_PEER_ID"`
 	P2PPeerstoreWriteInterval                 time.Duration   `env:"P2P_PEERSTORE_WRITE_INTERVAL" default:"5m"`
 	Port                                      uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`

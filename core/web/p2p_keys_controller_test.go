@@ -8,8 +8,8 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -62,7 +62,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[lastKeyIndex].PubKey.String(), resource.PubKey)
 	assert.Equal(t, keys[lastKeyIndex].PeerID.String(), resource.PeerID)
 
-	var peerID models.PeerID
+	var peerID p2pkey.PeerID
 	peerID.UnmarshalText([]byte(resource.PeerID))
 	_, exists := OCRKeyStore.DecryptedP2PKey(peer.ID(peerID))
 	assert.Equal(t, exists, true)
@@ -109,7 +109,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore) {
+func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCRKeyStore) {
 	t.Helper()
 
 	app, cleanup := cltest.NewApplication(t)

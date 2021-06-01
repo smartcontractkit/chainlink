@@ -1,4 +1,4 @@
-package models
+package p2pkey
 
 import (
 	"database/sql/driver"

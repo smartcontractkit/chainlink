@@ -3,8 +3,6 @@ package p2pkey
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/pkg/errors"
@@ -15,7 +13,7 @@ import (
 // to/from the disk
 type EncryptedP2PKeyExport struct {
 	PublicKey PublicKeyBytes      `json:"publicKey"`
-	PeerID    models.PeerID       `json:"peerID"`
+	PeerID    PeerID              `json:"peerID"`
 	Crypto    keystore.CryptoJSON `json:"crypto"`
 }
 

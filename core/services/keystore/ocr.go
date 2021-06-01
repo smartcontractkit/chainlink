@@ -1,4 +1,4 @@
-package offchainreporting
+package keystore
 
 import (
 	"encoding/json"
@@ -14,32 +14,32 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type KeyStore struct {
+type OCRKeyStore struct {
 	*gorm.DB
 	password     string
-	p2pkeys      map[models.PeerID]p2pkey.Key
+	p2pkeys      map[p2pkey.PeerID]p2pkey.Key
 	ocrkeys      map[models.Sha256Hash]ocrkey.KeyBundle
 	scryptParams utils.ScryptParams
 	mu           *sync.RWMutex
 }
 
-func NewKeyStore(db *gorm.DB, scryptParams utils.ScryptParams) *KeyStore {
-	return &KeyStore{
+func NewOCRKeyStore(db *gorm.DB, scryptParams utils.ScryptParams) *OCRKeyStore {
+	return &OCRKeyStore{
 		DB:           db,
-		p2pkeys:      make(map[models.PeerID]p2pkey.Key),
+		p2pkeys:      make(map[p2pkey.PeerID]p2pkey.Key),
 		ocrkeys:      make(map[models.Sha256Hash]ocrkey.KeyBundle),
 		scryptParams: scryptParams,
 		mu:           new(sync.RWMutex),
 	}
 }
 
-func (ks *KeyStore) Unlock(password string) error {
+func (ks *OCRKeyStore) Unlock(password string) error {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 
@@ -61,7 +61,7 @@ func (ks *KeyStore) Unlock(password string) error {
 			continue
 		}
 		errs = multierr.Append(errs, err)
-		ks.p2pkeys[models.PeerID(peerID)] = k
+		ks.p2pkeys[p2pkey.PeerID(peerID)] = k
 		logger.Debugw("Unlocked P2P key", "peerID", peerID)
 	}
 	for _, ek := range ocrkeys {
@@ -76,14 +76,14 @@ func (ks *KeyStore) Unlock(password string) error {
 	return errs
 }
 
-func (ks KeyStore) DecryptedP2PKey(peerID p2ppeer.ID) (p2pkey.Key, bool) {
+func (ks OCRKeyStore) DecryptedP2PKey(peerID p2ppeer.ID) (p2pkey.Key, bool) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
-	k, exists := ks.p2pkeys[models.PeerID(peerID)]
+	k, exists := ks.p2pkeys[p2pkey.PeerID(peerID)]
 	return k, exists
 }
 
-func (ks KeyStore) DecryptedP2PKeys() (keys []p2pkey.Key) {
+func (ks OCRKeyStore) DecryptedP2PKeys() (keys []p2pkey.Key) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 
@@ -94,14 +94,14 @@ func (ks KeyStore) DecryptedP2PKeys() (keys []p2pkey.Key) {
 	return keys
 }
 
-func (ks KeyStore) DecryptedOCRKey(hash models.Sha256Hash) (ocrkey.KeyBundle, bool) {
+func (ks OCRKeyStore) DecryptedOCRKey(hash models.Sha256Hash) (ocrkey.KeyBundle, bool) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 	k, exists := ks.ocrkeys[hash]
 	return k, exists
 }
 
-func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey, error) {
+func (ks OCRKeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey, error) {
 	key, err := p2pkey.CreateKey()
 	if err != nil {
 		return p2pkey.Key{}, p2pkey.EncryptedP2PKey{}, errors.Wrapf(err, "while generating new p2p key")
@@ -120,7 +120,7 @@ func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey
 	return key, enc, nil
 }
 
-func (ks KeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
+func (ks OCRKeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 	err := ks.
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "pub_key"}},
@@ -138,17 +138,17 @@ func (ks KeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 	return nil
 }
 
-func (ks KeyStore) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error) {
+func (ks OCRKeyStore) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error) {
 	return keys, ks.Order("created_at asc, id asc").Find(&keys).Error
 }
 
-func (ks KeyStore) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
+func (ks OCRKeyStore) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
 	var key p2pkey.EncryptedP2PKey
 	err := ks.Where("id = ?", id).First(&key).Error
 	return &key, err
 }
 
-func (ks KeyStore) ArchiveEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
+func (ks OCRKeyStore) ArchiveEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 	err := ks.Delete(key).Error
@@ -159,7 +159,7 @@ func (ks KeyStore) ArchiveEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
 	return nil
 }
 
-func (ks KeyStore) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
+func (ks OCRKeyStore) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 	err := ks.Unscoped().Delete(key).Error
@@ -170,7 +170,7 @@ func (ks KeyStore) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
 	return nil
 }
 
-func (ks KeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.EncryptedKeyBundle, error) {
+func (ks OCRKeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.EncryptedKeyBundle, error) {
 	key, err := ocrkey.NewKeyBundle()
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while generating the new OCR key bundle")
@@ -190,12 +190,12 @@ func (ks KeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.Enc
 }
 
 // CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
-func (ks KeyStore) CreateEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
+func (ks OCRKeyStore) CreateEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
 	err := ks.Create(encryptedKey).Error
 	return errors.Wrapf(err, "while persisting the new encrypted OCR key bundle")
 }
 
-func (ks KeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
+func (ks OCRKeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
 	fmt.Println("encryptedKey.ID", encryptedKey.ID)
 	err := ks.
 		Clauses(clause.OnConflict{
@@ -215,20 +215,20 @@ func (ks KeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKey
 }
 
 // FindEncryptedOCRKeyBundles finds all the encrypted OCR key records
-func (ks KeyStore) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
+func (ks OCRKeyStore) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
 	err = ks.Order("created_at asc, id asc").Find(&keys).Error
 	return keys, err
 }
 
 // FindEncryptedOCRKeyBundleByID finds an EncryptedKeyBundle bundle by its ID
-func (ks KeyStore) FindEncryptedOCRKeyBundleByID(id models.Sha256Hash) (ocrkey.EncryptedKeyBundle, error) {
+func (ks OCRKeyStore) FindEncryptedOCRKeyBundleByID(id models.Sha256Hash) (ocrkey.EncryptedKeyBundle, error) {
 	var key ocrkey.EncryptedKeyBundle
 	err := ks.Where("id = ?", id).First(&key).Error
 	return key, err
 }
 
 // ArchiveEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
-func (ks KeyStore) ArchiveEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) error {
+func (ks OCRKeyStore) ArchiveEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) error {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 	err := ks.Delete(key).Error
@@ -240,7 +240,7 @@ func (ks KeyStore) ArchiveEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) 
 }
 
 // DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
-func (ks KeyStore) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) error {
+func (ks OCRKeyStore) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) error {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 	err := ks.Unscoped().Delete(key).Error
@@ -252,7 +252,7 @@ func (ks KeyStore) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) e
 }
 
 // ImportP2PKey imports a p2p key to the database
-func (ks KeyStore) ImportP2PKey(keyJSON []byte, oldPassword string) (*p2pkey.EncryptedP2PKey, error) {
+func (ks OCRKeyStore) ImportP2PKey(keyJSON []byte, oldPassword string) (*p2pkey.EncryptedP2PKey, error) {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 
@@ -279,7 +279,7 @@ func (ks KeyStore) ImportP2PKey(keyJSON []byte, oldPassword string) (*p2pkey.Enc
 }
 
 // ExportP2PKey exports a p2p key from the database
-func (ks KeyStore) ExportP2PKey(ID int32, newPassword string) ([]byte, error) {
+func (ks OCRKeyStore) ExportP2PKey(ID int32, newPassword string) ([]byte, error) {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 
@@ -301,7 +301,7 @@ func (ks KeyStore) ExportP2PKey(ID int32, newPassword string) ([]byte, error) {
 }
 
 // ImportOCRKeyBundle imports an OCR key bundle to the database
-func (ks KeyStore) ImportOCRKeyBundle(keyJSON []byte, oldPassword string) (*ocrkey.EncryptedKeyBundle, error) {
+func (ks OCRKeyStore) ImportOCRKeyBundle(keyJSON []byte, oldPassword string) (*ocrkey.EncryptedKeyBundle, error) {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 
@@ -328,7 +328,7 @@ func (ks KeyStore) ImportOCRKeyBundle(keyJSON []byte, oldPassword string) (*ocrk
 }
 
 // ExportOCRKeyBundle exports an OCR key bundle from the database
-func (ks KeyStore) ExportOCRKeyBundle(id models.Sha256Hash, newPassword string) ([]byte, error) {
+func (ks OCRKeyStore) ExportOCRKeyBundle(id models.Sha256Hash, newPassword string) ([]byte, error) {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
 

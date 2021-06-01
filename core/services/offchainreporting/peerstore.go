@@ -8,14 +8,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
@@ -48,7 +47,7 @@ func (P2PPeer) TableName() string {
 
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
-func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID models.PeerID) (*Pstorewrapper, error) {
+func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID p2pkey.PeerID) (*Pstorewrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Pstorewrapper{

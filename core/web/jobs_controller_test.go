@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -31,28 +32,28 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 	var tt = []struct {
 		name        string
-		pid         models.PeerID
+		pid         p2pkey.PeerID
 		kb          models.Sha256Hash
 		taExists    bool
 		expectedErr error
 	}{
 		{
 			name:        "invalid keybundle",
-			pid:         models.PeerID(cltest.DefaultP2PPeerID),
+			pid:         p2pkey.PeerID(cltest.DefaultP2PPeerID),
 			kb:          models.Sha256Hash(cltest.Random32Byte()),
 			taExists:    true,
 			expectedErr: job.ErrNoSuchKeyBundle,
 		},
 		{
 			name:        "invalid peerID",
-			pid:         models.PeerID(cltest.NonExistentP2PPeerID),
+			pid:         p2pkey.PeerID(cltest.NonExistentP2PPeerID),
 			kb:          cltest.DefaultOCRKeyBundleIDSha256,
 			taExists:    true,
 			expectedErr: job.ErrNoSuchPeerID,
 		},
 		{
 			name:        "invalid transmitter address",
-			pid:         models.PeerID(cltest.DefaultP2PPeerID),
+			pid:         p2pkey.PeerID(cltest.DefaultP2PPeerID),
 			kb:          cltest.DefaultOCRKeyBundleIDSha256,
 			taExists:    false,
 			expectedErr: job.ErrNoSuchTransmitterAddress,
