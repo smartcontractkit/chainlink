@@ -60,15 +60,7 @@ func (p JobPresenter) GetTasks() ([]string, error) {
 		return nil, err
 	}
 
-	// TODO: toposort
-	// tasks, err := pipeline.TasksInDependencyOrder()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// Reverse the order as dependency tasks start from output and end at the
-	// inputs.
-	for _, t := range pipeline.Tasks {
+	for _, t := range pipeline.TopoSort() {
 		types = append(types, fmt.Sprintf("%s %s", t.DotID(), t.Type()))
 	}
 

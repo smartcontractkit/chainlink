@@ -54,37 +54,37 @@ func TestPipelineORM_Integration(t *testing.T) {
 	var specID int32
 
 	answer1 := &pipeline.MedianTask{
-		BaseTask: pipeline.NewBaseTask("answer1", nil, 0, 0),
+		BaseTask: pipeline.NewBaseTask(0, "answer1", nil, 0),
 	}
 	answer2 := &pipeline.BridgeTask{
 		Name:     "election_winner",
-		BaseTask: pipeline.NewBaseTask("answer2", nil, 1, 0),
+		BaseTask: pipeline.NewBaseTask(0, "answer2", nil, 1),
 	}
 	ds1_multiply := &pipeline.MultiplyTask{
 		Times:    "1.23",
-		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0, 0),
+		BaseTask: pipeline.NewBaseTask(0, "ds1_multiply", answer1, 0),
 	}
 	ds1_parse := &pipeline.JSONParseTask{
 		Path:     "one,two",
-		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0, 0),
+		BaseTask: pipeline.NewBaseTask(0, "ds1_parse", ds1_multiply, 0),
 	}
 	ds1 := &pipeline.BridgeTask{
 		Name:     "voter_turnout",
-		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0, 0),
+		BaseTask: pipeline.NewBaseTask(0, "ds1", ds1_parse, 0),
 	}
 	ds2_multiply := &pipeline.MultiplyTask{
 		Times:    "4.56",
-		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0, 0),
+		BaseTask: pipeline.NewBaseTask(0, "ds2_multiply", answer1, 0),
 	}
 	ds2_parse := &pipeline.JSONParseTask{
 		Path:     "three,four",
-		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0, 0),
+		BaseTask: pipeline.NewBaseTask(0, "ds2_parse", ds2_multiply, 0),
 	}
 	ds2 := &pipeline.HTTPTask{
 		URL:         "https://chain.link/voter_turnout/USA-2020",
 		Method:      "GET",
 		RequestData: `{"hi": "hello"}`,
-		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0, 0),
+		BaseTask:    pipeline.NewBaseTask(0, "ds2", ds2_parse, 0),
 	}
 	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -97,11 +97,10 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
 
-		g := pipeline.NewTaskDAG()
-		err := g.UnmarshalText([]byte(DotStr))
+		p, err := pipeline.Parse([]byte(DotStr))
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(context.Background(), db, *g, models.Interval(0))
+		specID, err = orm.CreateSpec(context.Background(), db, *p, models.Interval(0))
 		require.NoError(t, err)
 
 		var specs []pipeline.Spec

@@ -6,24 +6,19 @@ type BaseTask struct {
 	outputs []Task
 	inputs  []Task
 
-	id              int64
-	outputTask      Task
-	dotID           string
-	numPredecessors int
-	Index           int32         `mapstructure:"index" json:"-" `
-	Timeout         time.Duration `mapstructure:"timeout"`
+	id         int64
+	outputTask Task
+	dotID      string
+	Index      int32         `mapstructure:"index" json:"-" `
+	Timeout    time.Duration `mapstructure:"timeout"`
 }
 
-func NewBaseTask(dotID string, t Task, index int32, numPredecessors int) BaseTask {
-	return BaseTask{dotID: dotID, outputTask: t, Index: index, numPredecessors: numPredecessors}
+func NewBaseTask(id int64, dotID string, t Task, index int32) BaseTask {
+	return BaseTask{dotID: dotID, outputTask: t, Index: index}
 }
 
 func (t *BaseTask) Base() *BaseTask {
 	return t
-}
-
-func (t BaseTask) NumPredecessors() int {
-	return t.numPredecessors
 }
 
 func (t BaseTask) ID() int64 {

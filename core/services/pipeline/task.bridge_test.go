@@ -123,7 +123,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
-		BaseTask:    pipeline.NewBaseTask("bridge", nil, 0, 0),
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, 0),
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
@@ -314,7 +314,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			feedWebURL := (*models.WebURL)(feedURL)
 
 			task := pipeline.BridgeTask{
-				BaseTask:          pipeline.NewBaseTask("bridge", nil, 0, 0),
+				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, 0),
 				Name:              "foo",
 				RequestData:       test.requestData,
 				IncludeInputAtKey: test.includeInputAtKey,
@@ -378,7 +378,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
-		BaseTask:    pipeline.NewBaseTask("bridge", nil, 0, 0),
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, 0),
 		RequestData: ethUSDPairing,
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
@@ -420,7 +420,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			defer s1.Close()
 
 			task := pipeline.BridgeTask{
-				BaseTask:          pipeline.NewBaseTask("bridge", nil, 0, 0),
+				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, 0),
 				Name:              "foo",
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
