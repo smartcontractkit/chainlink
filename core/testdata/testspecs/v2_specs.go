@@ -49,7 +49,7 @@ fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
 	CronSpec = `
 type            = "cron"
 schemaVersion   = 1
-schedule        = "0 0 1 1 *"
+schedule        = "CRON_TZ=UTC 0 0 1 1 *"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
