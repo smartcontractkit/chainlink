@@ -77,8 +77,8 @@ describe('ConfirmedOwner', () => {
     })
 
     describe('when called by anyone but the owner', () => {
-      it('reverts', () =>
-        matchers.evmRevert(
+      it('reverts', async () =>
+        await matchers.evmRevert(
           confirmedOwner.connect(nonOwner).modifierOnlyOwner(),
         ))
     })
@@ -110,8 +110,8 @@ describe('ConfirmedOwner', () => {
   })
 
   describe('when called by anyone but the owner', () => {
-    it('successfully calls the method', () =>
-      matchers.evmRevert(
+    it('successfully calls the method', async () =>
+      await matchers.evmRevert(
         confirmedOwner.connect(nonOwner).transferOwnership(newOwner.address),
       ))
   })
@@ -134,8 +134,10 @@ describe('ConfirmedOwner', () => {
         expect(h.eventArgs(event).from).toEqual(owner.address)
       })
 
-      it('does not allow a non-recipient to call it', () =>
-        matchers.evmRevert(confirmedOwner.connect(nonOwner).acceptOwnership()))
+      it('does not allow a non-recipient to call it', async () =>
+        await matchers.evmRevert(
+          confirmedOwner.connect(nonOwner).acceptOwnership(),
+        ))
     })
   })
 })
