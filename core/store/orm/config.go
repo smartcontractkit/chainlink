@@ -111,6 +111,7 @@ func init() {
 		EthGasPriceDefault:               *big.NewInt(20000000000),   // 20 Gwei
 		EthMaxGasPriceWei:                *big.NewInt(5000000000000), // 5000 Gwei
 		EthMinGasPriceWei:                *big.NewInt(1000000000),    // 1 Gwei
+		EthGasLimitDefault:               500000,
 		EthFinalityDepth:                 50,
 		EthHeadTrackerHistoryDepth:       100,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
@@ -206,7 +207,6 @@ func init() {
 
 	// Fantom
 	fantomTestnet := mainnet
-	fantomTestnet.EthGasLimitDefault = 500000
 	fantomTestnet.EthGasPriceDefault = *big.NewInt(15000000000)
 	fantomTestnet.EthMaxGasPriceWei = *big.NewInt(100000000000)
 	fantomTestnet.MinIncomingConfirmations = 3
