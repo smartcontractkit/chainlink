@@ -204,11 +204,11 @@ func init() {
 
 	arbitrum := ChainSpecificDefaultSet{
 		// FeatureFluxMonitorV2:             true, // parameter not in ChainSpecificDefaultSet
-		EthGasBumpThreshold: 10,
-		EthGasBumpWei:       big.NewInt(5000000000),
-		EthGasPriceDefault:  big.NewInt(5000000000),
-		EthMaxGasPriceWei:   big.NewInt(500000000000),
 		// EthGasLimitDefault:               3000000, // parameter not in ChainSpecificDefaultSet
+		EthGasBumpThreshold:              10,
+		EthGasBumpWei:                    *big.NewInt(5000000000),
+		EthGasPriceDefault:               *big.NewInt(5000000000),
+		EthMaxGasPriceWei:                *big.NewInt(500000000000),
 		EthFinalityDepth:                 1,
 		EthHeadTrackerHistoryDepth:       10,
 		EthBalanceMonitorBlockDelay:      0,
@@ -235,7 +235,7 @@ func init() {
 	ChainSpecificDefaults[100] = xDai
 
 	ChainSpecificDefaults[144545313136048] = arbitrum // Kovan testnet 5
-	ChainSpecificDefaults[42161] = arbitrum // Arbitrum One (Eth mainnet)
+	ChainSpecificDefaults[42161] = arbitrum           // Arbitrum One (Eth mainnet)
 }
 
 func chainSpecificConfig(c Config) ChainSpecificDefaultSet {
