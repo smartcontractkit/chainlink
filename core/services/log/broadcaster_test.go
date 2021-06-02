@@ -63,6 +63,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	t.Parallel()
 
 	const (
+		numConfirmations            = 1
 		numContracts                = 3
 		blockHeight           int64 = 123
 		lastStoredBlockHeight       = blockHeight - 25
@@ -85,14 +86,14 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	// the first backfill should use the last known height from db minus 1 (num confirmations of subscriber)
+	// the first backfill should use the last known height from db minus num confirmations of the subscriber
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		atomic.StoreInt64(backfillCountPtr, 1)
-		require.Equal(t, lastStoredBlockHeight-1, fromBlock)
+		require.Equal(t, lastStoredBlockHeight-numConfirmations-int64(blockBackfillDepth), fromBlock)
 	}
 
 	listener := helper.newLogListener("initial")
-	helper.register(listener, newMockContract(), 1)
+	helper.register(listener, newMockContract(), numConfirmations)
 	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
 
 	for i := 0; i < numContracts; i++ {
@@ -157,10 +158,12 @@ func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
 	listener2 := helper.newLogListener("two")
 	helper.register(listener2, newMockContract(), uint64(2))
 
+	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
+
 	// the first backfill should use the last known height from db minus max num confirmations
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		atomic.StoreInt64(backfillCountPtr, 1)
-		require.Equal(t, lastStoredBlockHeight-maxNumConfirmations, fromBlock)
+		require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
 	}
 
 	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
@@ -178,12 +181,12 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	t.Parallel()
 
 	const (
-		blockHeight           int64  = 120
-		lastStoredBlockHeight        = blockHeight - 29
-		backfillTimes                = 1
-		batchSize             uint32 = 5
-		// expecting 7 batch calls, not 6, because last call is inclusive (will be from 120 to 120)
-		expectedBatches = 7
+		numConfirmations            = 1
+		blockHeight           int64 = 120
+		lastStoredBlockHeight       = blockHeight - 29
+		backfillTimes               = 1
+		batchSize             int64 = 5
+		expectedBatches             = 9
 	)
 
 	expectedCalls := mockEthClientExpectedCalls{
@@ -197,34 +200,23 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
 	helper.mockEth = mockEth
 
+	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
 	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	// the first backfill should use the last known height from db
+	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
+	// the first backfill should start from before the last stored head
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := atomic.LoadInt64(backfillCountPtr)
 		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
-		if times == 0 {
-			require.Equal(t, int64(90), fromBlock)
-			require.Equal(t, int64(94), toBlock)
-		} else if times == 1 {
-			require.Equal(t, int64(95), fromBlock)
-			require.Equal(t, int64(99), toBlock)
-		} else if times == 2 {
-			require.Equal(t, int64(100), fromBlock)
-			require.Equal(t, int64(104), toBlock)
-		} else if times == 3 {
-			require.Equal(t, int64(105), fromBlock)
-			require.Equal(t, int64(109), toBlock)
-		} else if times == 4 {
-			require.Equal(t, int64(110), fromBlock)
-			require.Equal(t, int64(114), toBlock)
-		} else if times == 5 {
-			require.Equal(t, int64(115), fromBlock)
-			require.Equal(t, int64(119), toBlock)
-		} else if times == 6 {
+
+		if times <= 7 {
+			require.Equal(t, backfillStart+batchSize*times, fromBlock)
+			require.Equal(t, backfillStart+batchSize*(times+1)-1, toBlock)
+		} else {
+			// last batch is for a range of 1
 			require.Equal(t, int64(120), fromBlock)
 			require.Equal(t, int64(120), toBlock)
 		}
@@ -232,7 +224,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	}
 
 	listener := helper.newLogListener("initial")
-	helper.register(listener, newMockContract(), 1)
+	helper.register(listener, newMockContract(), numConfirmations)
 	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
 
 	defer helper.stop()

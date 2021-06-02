@@ -240,10 +240,20 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		var backfillFrom null.Int64
 		if b.latestHeadFromDb != nil {
-			// the backfill needs to start at an earlier block than the one last saved in DB,
-			// because any log is sent after a delay since the highest seen head -
-			// so at node re-start we need to account for those not-sent-yet logs that were in the buffer
-			backfillFrom = null.Int64From(b.latestHeadFromDb.Number - int64(b.registrations.highestNumConfirmations))
+			// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
+			// - keeping logs in the in-memory buffers in registration.go
+			//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
+			// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
+			//   (or more heads on fast chains) may be saved but not yet processed by LB
+			//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
+			from := b.latestHeadFromDb.Number -
+				int64(b.registrations.highestNumConfirmations) -
+				int64(b.config.BlockBackfillDepth())
+
+			if from < 0 {
+				from = 0
+			}
+			backfillFrom = null.Int64From(from)
 		}
 
 		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(backfillFrom, addresses, topics)
