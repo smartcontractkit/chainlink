@@ -36,6 +36,9 @@ contract OperatorFactory {
    */
   function deployNewOperator()
     external
+    returns (
+      address
+    )
   {
     Operator operator = new Operator(
       getChainlinkToken,
@@ -47,6 +50,8 @@ contract OperatorFactory {
       address(operator),
       msg.sender
     );
+
+    return address(operator);
   }
 
   /**
@@ -55,6 +60,10 @@ contract OperatorFactory {
    */
   function deployNewOperatorAndForwarder()
     external
+    returns (
+      address,
+      address
+    )
   {
     Operator operator = new Operator(
       getChainlinkToken,
@@ -78,6 +87,8 @@ contract OperatorFactory {
       address(forwarder),
       msg.sender
     );
+
+    return (address(operator), address(forwarder));
   }
 
   /**
@@ -85,6 +96,9 @@ contract OperatorFactory {
    */
   function deployNewForwarder()
     external
+    returns (
+      address
+    )
   {
     bytes memory tmp = new bytes(0);
     AuthorizedForwarder forwarder = new AuthorizedForwarder(
@@ -99,6 +113,8 @@ contract OperatorFactory {
       address(forwarder),
       msg.sender
     );
+
+    return address(forwarder);
   }
 
   /**
@@ -109,6 +125,9 @@ contract OperatorFactory {
     bytes calldata message
   )
     external
+    returns (
+      address
+    )
   {
     AuthorizedForwarder forwarder = new AuthorizedForwarder(
       getChainlinkToken,
@@ -122,6 +141,8 @@ contract OperatorFactory {
       address(forwarder),
       msg.sender
     );
+
+    return address(forwarder);
   }
 
   /**
