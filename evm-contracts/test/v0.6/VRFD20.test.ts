@@ -23,10 +23,9 @@ describe('VRFD20', () => {
   const deposit = helpers.toWei('1')
   const fee = helpers.toWei('0.1')
   const keyHash = helpers.toBytes32String('keyHash')
-  const seed = 12345
 
   const requestId =
-    '0x66f86cab16b057baa86d6171b59e4c356197fcebc0e2cd2a744fc2d2f4dacbfe'
+    '0xc0fc1dde59181d7b91a6d63bf69a335110fb510173a8d5596edcbed6ce1a13ec'
 
   let link: contract.Instance<contract.LinkToken__factory>
   let vrfCoordinator: contract.Instance<VRFCoordinatorMock__factory>
@@ -154,7 +153,7 @@ describe('VRFD20', () => {
       })
 
       it('reverts when dice roll is in progress', async () => {
-        await vrfD20.rollDice(seed, personas.Nancy.address)
+        await vrfD20.rollDice(personas.Nancy.address)
         await matchers.evmRevert(async () => {
           await vrfD20.house(personas.Nancy.address), 'Roll in progress'
         })
@@ -165,7 +164,7 @@ describe('VRFD20', () => {
       it('returns the correct house', async () => {
         const randomness = 98765
         const expectedHouse = 'Martell'
-        const tx = await vrfD20.rollDice(seed, personas.Nancy.address)
+        const tx = await vrfD20.rollDice(personas.Nancy.address)
         const log = await helpers.getLog(tx, 3)
         const eventRequestId = log?.topics?.[1]
         await vrfCoordinator.callBackWithRandomness(
@@ -183,7 +182,7 @@ describe('VRFD20', () => {
     describe('success', () => {
       let tx: ContractTransaction
       beforeEach(async () => {
-        tx = await vrfD20.rollDice(seed, personas.Nancy.address)
+        tx = await vrfD20.rollDice(personas.Nancy.address)
       })
 
       it('emits a RandomnessRequest event from the VRFCoordinator', async () => {
@@ -191,7 +190,7 @@ describe('VRFD20', () => {
         const topics = log?.topics
         assert.equal(helpers.evmWordToAddress(topics?.[1]), vrfD20.address)
         assert.equal(topics?.[2], keyHash)
-        assert.equal(topics?.[3], helpers.numToBytes32(seed))
+        assert.equal(topics?.[3], helpers.numToBytes32(0))
       })
     })
 
@@ -201,24 +200,22 @@ describe('VRFD20', () => {
           .connect(roles.defaultAccount)
           .deploy(vrfCoordinator.address, link.address, keyHash, fee)
         await matchers.evmRevert(async () => {
-          await vrfD202.rollDice(seed, personas.Nancy.address),
+          await vrfD202.rollDice(personas.Nancy.address),
             'Not enough LINK to pay fee'
         })
       })
 
       it('reverts when called by a non-owner', async () => {
         await matchers.evmRevert(async () => {
-          await vrfD20
-            .connect(roles.stranger)
-            .rollDice(seed, personas.Nancy.address),
+          await vrfD20.connect(roles.stranger).rollDice(personas.Nancy.address),
             'Only callable by owner'
         })
       })
 
       it('reverts when the roller rolls more than once', async () => {
-        await vrfD20.rollDice(seed, personas.Nancy.address)
+        await vrfD20.rollDice(personas.Nancy.address)
         await matchers.evmRevert(async () => {
-          await vrfD20.rollDice(seed, personas.Nancy.address), 'Already rolled'
+          await vrfD20.rollDice(personas.Nancy.address), 'Already rolled'
         })
       })
     })
@@ -230,7 +227,7 @@ describe('VRFD20', () => {
     const expectedHouse = 'Martell'
     let eventRequestId: string
     beforeEach(async () => {
-      const tx = await vrfD20.rollDice(seed, personas.Nancy.address)
+      const tx = await vrfD20.rollDice(personas.Nancy.address)
       const log = await helpers.getLog(tx, 3)
       eventRequestId = log?.topics?.[1]
     })
@@ -258,8 +255,7 @@ describe('VRFD20', () => {
 
       it('allows someone else to roll', async () => {
         const secondRandomness = 55555
-        const secondSeed = 54321
-        tx = await vrfD20.rollDice(secondSeed, personas.Ned.address)
+        tx = await vrfD20.rollDice(personas.Ned.address)
         const log = await helpers.getLog(tx, 3)
         eventRequestId = log?.topics?.[1]
         tx = await vrfCoordinator.callBackWithRandomness(

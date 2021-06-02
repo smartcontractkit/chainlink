@@ -22,7 +22,7 @@ func TestValidateCronJobSpec(t *testing.T) {
 			toml: `
 type            = "cron"
 schemaVersion   = 1
-schedule        = "0 0 1 1 *"
+schedule        = "CRON_TZ=UTC 0 0 1 1 *"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
@@ -41,11 +41,29 @@ ds -> ds_parse -> ds_multiply;
 			},
 		},
 		{
+			name: "no timezone",
+			toml: `
+type            = "cron"
+schemaVersion   = 1
+schedule        = "0 0 1 1 *"
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+				assert.Equal(t, "cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@hourly'", err.Error())
+			},
+		},
+		{
 			name: "invalid cron schedule",
 			toml: `
 type            = "cron"
 schemaVersion   = 1
-schedule        = "x x"
+schedule        = "CRON_TZ=UTC x x"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];

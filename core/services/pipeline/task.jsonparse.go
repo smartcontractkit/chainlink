@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -45,7 +44,6 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, _ JSONSerializable, in
 	if err != nil {
 		return Result{Error: err}
 	}
-	fmt.Println("DATA", string(data))
 
 	var decoded interface{}
 	err = json.Unmarshal([]byte(data), &decoded)
