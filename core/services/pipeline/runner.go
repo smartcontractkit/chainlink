@@ -263,7 +263,10 @@ func newScheduler(p *Pipeline, i interface{}) *scheduler {
 }
 
 func (s *scheduler) run() {
-	for result := range s.resultCh {
+	for s.waiting > 0 {
+		// we don't "for result in resultCh" because it would stall if the
+		// pipeline is completely empty
+		result := <-s.resultCh
 		s.waiting--
 
 		// mark job as complete
@@ -288,12 +291,8 @@ func (s *scheduler) run() {
 			}
 		}
 
-		// if we are done, stop execution
-		if s.waiting == 0 {
-			close(s.taskCh)
-			break
-		}
 	}
+	close(s.taskCh)
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
