@@ -885,7 +885,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
 		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, true)
 		if err2 != nil {
-			return err
+			return err2
 		}
 		err2 = fm.queueTransactionForBPTXM(fm.db, runID, answer, roundState.RoundId)
 		if err2 != nil {
