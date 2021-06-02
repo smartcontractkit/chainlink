@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -127,13 +127,28 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	headInLongestChain := cltest.Head(inLongestChain)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Maybe().Return(headInLongestChain, nil)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(100), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
+	block := cltest.Block(int(headInLongestChain.Number), common.Hash{})
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) != 1
+	})).
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			block := fromEthBlock(*block)
+			elems[0].Result = &block
+		})
+
+	ethClient.On("FastBlockByHash", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
@@ -167,6 +182,15 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	newHeads <- cltest.Head(safe + 1)
 
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+}
+
+func fromEthBlock(ethBlock types.Block) headtracker.Block {
+	var block headtracker.Block
+	block.Number = ethBlock.Number().Int64()
+	block.Hash = ethBlock.Hash()
+	block.ParentHash = ethBlock.ParentHash()
+
+	return block
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -210,6 +234,7 @@ func TestIntegration_EthLog(t *testing.T) {
 		Number: big.NewInt(100),
 	})
 	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 	ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
@@ -276,6 +301,9 @@ func TestIntegration_RunLog(t *testing.T) {
 					newHeads = args.Get(1).(chan<- *models.Head)
 				}).
 				Return(sub, nil)
+
+			ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil)
+			ethClient.On("FastBlockByHash", mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
@@ -435,6 +463,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		Number: big.NewInt(100),
 	})
 	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
@@ -614,6 +643,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		Number: big.NewInt(100),
 	})
 	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
@@ -1034,6 +1064,9 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
 
 	// Initial tx attempt sent
 	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -1048,7 +1081,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			})
 		}).
 		Return(nil).Once()
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Maybe().Return(cltest.Head(inLongestChain), nil)
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
 	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
@@ -1112,6 +1145,9 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// Log backfill
 	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
 
 	newHeadsCh := make(chan chan<- *models.Head, 1)
 	ethClientDone := cltest.NewAwaiter()
@@ -1256,6 +1292,9 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
 
 	headsCh := make(chan chan<- *models.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
@@ -1275,6 +1314,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				tx.Data()[4:])
 			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+
 			ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
@@ -1839,17 +1879,17 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	)
 	defer cleanup()
 
-	b41 := gasupdater.Block{
+	b41 := headtracker.Block{
 		Number:       41,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
-	b42 := gasupdater.Block{
+	b42 := headtracker.Block{
 		Number:       42,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
-	b43 := gasupdater.Block{
+	b43 := headtracker.Block{
 		Number:       43,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
@@ -1870,6 +1910,10 @@ func TestIntegration_GasUpdater(t *testing.T) {
 
 	// GasUpdater boot calls
 	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
+
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
 			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
@@ -1893,6 +1937,10 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	}
 
 	assert.Equal(t, "41500000000", app.Config.EthGasPriceDefault().String())
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
 
 	// GasUpdater new blocks
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {

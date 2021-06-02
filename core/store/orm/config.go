@@ -91,6 +91,7 @@ type (
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
 		GasUpdaterEnabled                bool
+		BlockFetcherBatchSize            *uint32
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		OptimismGasFees                  bool
@@ -118,6 +119,7 @@ func init() {
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
+		BlockFetcherBatchSize:            &defaultGasUpdaterBatchSize,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 	}
@@ -159,6 +161,7 @@ func init() {
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
+		BlockFetcherBatchSize:            &defaultGasUpdaterBatchSize,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 	}
@@ -183,6 +186,7 @@ func init() {
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
+		BlockFetcherBatchSize:            &defaultGasUpdaterBatchSize,
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
 	}
 
@@ -197,6 +201,7 @@ func init() {
 		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
 		GasUpdaterEnabled:                false,
+		BlockFetcherBatchSize:            &defaultGasUpdaterBatchSize,
 		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
@@ -940,6 +945,18 @@ func (c Config) GasUpdaterBatchSize() uint32 {
 	defaultGasUpdaterBatchSize := chainSpecificConfig(c).GasUpdaterBatchSize
 	if defaultGasUpdaterBatchSize != nil {
 		return *defaultGasUpdaterBatchSize
+	}
+	return c.EthRPCDefaultBatchSize()
+}
+
+//TODO: description
+func (c Config) BlockFetcherBatchSize() uint32 {
+	if c.viper.IsSet(EnvVarName("BlockFetcherBatchSize")) {
+		return c.viper.GetUint32(EnvVarName("BlockFetcherBatchSize"))
+	}
+	defaultBlockFetcherBatchSize := chainSpecificConfig(c).BlockFetcherBatchSize
+	if defaultBlockFetcherBatchSize != nil {
+		return *defaultBlockFetcherBatchSize
 	}
 	return c.EthRPCDefaultBatchSize()
 }

@@ -77,6 +77,7 @@ type ConfigSchema struct {
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	FeatureWebhookV2                          bool            `env:"FEATURE_WEBHOOK_V2" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
+	BlockFetcherBatchSize                     uint32          `env:"BLOCK_FETCHER_BATCH_SIZE" default:"10"`
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`
 	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY"`
 	GasUpdaterBlockHistorySize                uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`

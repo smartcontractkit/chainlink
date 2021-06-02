@@ -29,7 +29,6 @@ import (
 
 func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
 	const blockHeight int64 = 123
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.lb.AddDependents(2)

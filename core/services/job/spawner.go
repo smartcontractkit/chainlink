@@ -91,7 +91,6 @@ func (js *spawner) Close() error {
 		close(js.chStop)
 		<-js.chDone
 		return nil
-
 	})
 }
 
@@ -158,6 +157,7 @@ func (js *spawner) runLoop() {
 			js.handlePGDeleteEvent(ctx, deleteJobEvent)
 
 		case <-js.chStop:
+			logger.Warn("Recived chStop")
 			return
 		}
 	}
@@ -208,6 +208,7 @@ func (js *spawner) startUnclaimedServices() {
 }
 
 func (js *spawner) stopAllServices() {
+	logger.Infow("Stopping all job services...", "len", len(js.services))
 	for jobID := range js.services {
 		js.stopService(jobID)
 	}

@@ -22,8 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -1429,11 +1430,53 @@ func Head(val interface{}) *models.Head {
 	return &h
 }
 
+func Block(number int, parentHash common.Hash) *types.Block {
+	header := &types.Header{
+		Root:       NewHash(),
+		ParentHash: parentHash,
+		Number:     big.NewInt(int64(number)),
+	}
+	block := types.NewBlock(header, make([]*types.Transaction, 0), make([]*types.Header, 0), make([]*types.Receipt, 0), nil)
+	return block
+}
+
+func HtBlock(number int, parentHash common.Hash) headtracker.Block {
+	var block headtracker.Block
+	block.Number = int64(number)
+	block.Hash = NewHash()
+	block.ParentHash = parentHash
+	return block
+}
+
+func NewBlock(number int64) headtracker.Block {
+	return headtracker.Block{
+		Number: number,
+		Hash:   NewHash(),
+	}
+}
+func NewBlockWithTransactions(number int64, transactions []headtracker.Transaction) headtracker.Block {
+	return headtracker.Block{
+		Number:       number,
+		Hash:         NewHash(),
+		Transactions: transactions,
+	}
+}
+
+func HeadFromBlock(block *types.Block) *models.Head {
+	h := &models.Head{Hash: block.Hash(), Number: block.Number().Int64(), ParentHash: block.ParentHash()}
+	return h
+}
+
+func HeadFromHtBlock(block *headtracker.Block) *models.Head {
+	h := &models.Head{Hash: block.Hash, Number: block.Number, ParentHash: block.ParentHash}
+	return h
+}
+
 // TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []gasupdater.Transaction {
-	txs := make([]gasupdater.Transaction, len(gasPrices))
+func TransactionsFromGasPrices(gasPrices ...int64) []headtracker.Transaction {
+	txs := make([]headtracker.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gasupdater.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+		txs[i] = headtracker.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
 	}
 	return txs
 }

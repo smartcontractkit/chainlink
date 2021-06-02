@@ -160,9 +160,20 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
 
+	blockEthClient := headtracker.NewBlockEthClientImpl(store.EthClient, logger.Default, store.Config.BlockFetcherBatchSize())
+	blockFetcher := headtracker.NewBlockFetcher(store.Config, logger.Default, blockEthClient)
+
+	if config.BlockBackfillDepth() > uint64(config.EthHeadTrackerHistoryDepth()) {
+		logger.Fatal("Configuration value of EthHeadTrackerHistoryDepth must be larger than BlockBackfillDepth")
+	}
+
 	if store.Config.GasUpdaterEnabled() {
+		if uint(config.GasUpdaterBlockHistorySize()+config.GasUpdaterBlockDelay()) > config.EthHeadTrackerHistoryDepth() {
+			logger.Fatal("Configuration value of EthHeadTrackerHistoryDepth must be larger than GasUpdaterBlockHistorySize plus GasUpdaterBlockDelay")
+		}
+
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
+		gasUpdater := gasupdater.NewGasUpdater(blockFetcher, store.Config)
 		headBroadcaster.Subscribe(gasUpdater)
 		subservices = append(subservices, gasUpdater)
 	} else {
@@ -190,7 +201,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker", err)
 	}
 
-	headTracker := services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+	headTracker := services.NewHeadTracker(headTrackerLogger, store, headBroadcaster, blockFetcher)
 
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue

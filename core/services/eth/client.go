@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -42,6 +43,7 @@ type Client interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
+	FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	// These methods are reimplemented due to a difference in how block header hashes are
 	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
 	// type to capture the correct hash from the RPC response.
@@ -91,6 +93,11 @@ type client struct {
 	mocked      bool
 
 	roundRobinCount uint32
+}
+
+func (client client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+
+	panic("implement me")
 }
 
 var _ Client = (*client)(nil)
@@ -251,6 +258,66 @@ func (client *client) CodeAt(ctx context.Context, account common.Address, blockN
 
 func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return client.primary.BlockByNumber(ctx, number)
+}
+
+// FastBlockByHash - Similar to the BlockByHash implementation but does not download uncle blocks
+func (client *client) FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	logger.Debugw("eth.Client#FastBlockByHash(...)",
+		"hash", hash,
+	)
+	var raw json.RawMessage
+
+	err := client.CallContext(ctx, &raw, "eth_getBlockByHash", hash, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching BlockByHash")
+	} else if len(raw) == 0 {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead block not found")
+	}
+
+	var head *types.Header
+	var body RpcBlock
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return nil, err
+	}
+
+	txs := make([]*types.Transaction, len(body.Transactions))
+	for i, tx := range body.Transactions {
+		if tx.tx != nil {
+			txs[i] = tx.tx
+		} else {
+			logger.Warnf("tx is null! From: %v", tx.txExtraInfo.From)
+		}
+		//TODO: check if pending
+	}
+
+	return types.NewBlockWithHeader(head).WithBody(txs, make([]*types.Header, 0)), nil
+}
+
+type RpcBlock struct {
+	Hash         common.Hash      `json:"hash"`
+	Transactions []RpcTransaction `json:"transactions"`
+	UncleHashes  []common.Hash    `json:"uncles"`
+}
+
+type RpcTransaction struct {
+	tx          *types.Transaction
+	txExtraInfo TxExtraInfo
+}
+
+func (tx *RpcTransaction) UnmarshalJSON(msg []byte) error {
+	if err := json.Unmarshal(msg, &tx.tx); err != nil {
+		return err
+	}
+	return json.Unmarshal(msg, &tx.txExtraInfo)
+}
+
+type TxExtraInfo struct {
+	BlockNumber *string         `json:"blockNumber,omitempty"`
+	BlockHash   *common.Hash    `json:"blockHash,omitempty"`
+	From        *common.Address `json:"from,omitempty"`
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {

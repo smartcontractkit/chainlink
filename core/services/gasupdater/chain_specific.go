@@ -1,11 +1,15 @@
 package gasupdater
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+)
 
 // chainSpecificIsUsableTx allows for additional logic specific to a
 // particular chain that determines whether a transction should be used for gas
 // estimation
-func chainSpecificIsUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
+func chainSpecificIsUsableTx(tx headtracker.Transaction, minGasPriceWei, chainID *big.Int) bool {
 	if isXDai(chainID) {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transctions.
 		// However, xDai reserves a special type of "bridge" transaction with 0 gas

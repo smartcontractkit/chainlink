@@ -10,13 +10,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -72,9 +70,9 @@ type (
 
 	gasUpdater struct {
 		utils.StartStopOnce
-		ethClient           eth.Client
+		blockFetcher        headtracker.BlockFetcherInterface
 		config              Config
-		rollingBlockHistory []Block
+		rollingBlockHistory []headtracker.Block
 		mb                  *utils.Mailbox
 		wg                  *sync.WaitGroup
 		ctx                 context.Context
@@ -85,13 +83,13 @@ type (
 )
 
 // NewGasUpdater returns a new gas updater.
-func NewGasUpdater(ethClient eth.Client, config Config) GasUpdater {
+func NewGasUpdater(blockFetcher headtracker.BlockFetcherInterface, config Config) GasUpdater {
 	ctx, cancel := context.WithCancel(context.Background())
 	gu := &gasUpdater{
 		utils.StartStopOnce{},
-		ethClient,
+		blockFetcher,
 		config,
-		make([]Block, 0),
+		make([]headtracker.Block, 0),
 		utils.NewMailbox(1),
 		new(sync.WaitGroup),
 		ctx,
@@ -121,7 +119,7 @@ func (gu *gasUpdater) Start() error {
 
 		ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
 		defer cancel()
-		latestHead, err := gu.ethClient.HeaderByNumber(ctx, nil)
+		latestHead, err := gu.blockFetcher.FetchLatestHead(ctx)
 		if err != nil {
 			logger.Warnw("GasUpdater: initial check for latest head failed", "err", err)
 		} else {
@@ -239,62 +237,12 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 		lowestBlockToFetch = 0
 	}
 
-	blocks := make(map[int64]Block)
-	for _, block := range gu.rollingBlockHistory {
-		// Make a best-effort to be re-org resistant using the head
-		// chain, refetch blocks that got re-org'd out.
-		// NOTE: Any blocks older than the oldest block in the provided chain
-		// will be also be refetched.
-		if head.IsInChain(block.Hash) {
-			blocks[block.Number] = block
-		}
-	}
+	logger.Warnf("=============== lowestBlockToFetch: %v", lowestBlockToFetch)
+	logger.Warnf("=============== highestBlockToFetch: %v", highestBlockToFetch)
 
-	var reqs []rpc.BatchElem
-	for i := lowestBlockToFetch; i <= highestBlockToFetch; i++ {
-		// NOTE: To save rpc calls, don't fetch blocks we already have in the history
-		if _, exists := blocks[i]; exists {
-			continue
-		}
-
-		req := rpc.BatchElem{
-			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{Int64ToHex(i), true},
-			Result: &Block{},
-		}
-		reqs = append(reqs, req)
-	}
-
-	gu.logger.Debugw(fmt.Sprintf("GasUpdater: fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
-	if err := gu.batchFetch(ctx, reqs); err != nil {
-		return err
-	}
-
-	for i, req := range reqs {
-		result, err := req.Result, req.Error
-		if err != nil {
-			gu.logger.Warnw("GasUpdater#fetchBlocks error while fetching block", "err", err, "blockNum", int(lowestBlockToFetch)+i, "headNum", head.Number)
-			continue
-		}
-
-		b, is := result.(*Block)
-		if !is {
-			return errors.Errorf("expected result to be a %T, got %T", &Block{}, result)
-		}
-		if b == nil {
-			return errors.New("invariant violation: got nil block")
-		}
-		if b.Hash == (common.Hash{}) {
-			gu.logger.Warnw("GasUpdater#fetchBlocks block was missing hash", "block", b, "blockNum", head.Number, "erroredBlockNum", b.Number)
-			continue
-		}
-
-		blocks[b.Number] = *b
-	}
-
-	newBlockHistory := make([]Block, 0)
-	for _, block := range blocks {
-		newBlockHistory = append(newBlockHistory, block)
+	newBlockHistory, err := gu.blockFetcher.BlockRange(ctx, lowestBlockToFetch, highestBlockToFetch)
+	if err != nil {
+		return errors.Wrap(err, "GasUpdater: BlockRange call failed")
 	}
 	sort.Slice(newBlockHistory, func(i, j int) bool {
 		return newBlockHistory[i].Number < newBlockHistory[j].Number
@@ -308,28 +256,6 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 
 	gu.rollingBlockHistory = newBlockHistory[start:]
 
-	return nil
-}
-
-func (gu *gasUpdater) batchFetch(ctx context.Context, reqs []rpc.BatchElem) error {
-	batchSize := int(gu.config.GasUpdaterBatchSize())
-
-	if batchSize == 0 {
-		batchSize = len(reqs)
-	}
-
-	for i := 0; i < len(reqs); i += batchSize {
-		j := i + batchSize
-		if j > len(reqs) {
-			j = len(reqs)
-		}
-
-		logger.Debugw(fmt.Sprintf("GasUpdater: batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
-
-		if err := gu.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
-			return errors.Wrap(err, "GasUpdater#fetchBlocks error fetching blocks with BatchCallContext")
-		}
-	}
 	return nil
 }
 
@@ -372,11 +298,11 @@ func (gu *gasUpdater) setPercentileGasPrice(gasPrice *big.Int) error {
 	return gu.config.SetEthGasPriceDefault(gasPrice)
 }
 
-func (gu *gasUpdater) RollingBlockHistory() []Block {
+func (gu *gasUpdater) RollingBlockHistory() []headtracker.Block {
 	return gu.rollingBlockHistory
 }
 
-func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
+func isUsableTx(tx headtracker.Transaction, minGasPriceWei, chainID *big.Int) bool {
 	// GasLimit 0 is impossible on Ethereum official, but IS possible
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.

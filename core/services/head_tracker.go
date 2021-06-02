@@ -39,8 +39,10 @@ type HeadTracker struct {
 	muLogger     sync.RWMutex
 	headListener *headtracker.HeadListener
 	headSaver    *headtracker.HeadSaver
-	chStop       chan struct{}
-	wgDone       *sync.WaitGroup
+	blockFetcher headtracker.BlockFetcherInterface
+
+	chStop chan struct{}
+	wgDone *sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -51,6 +53,7 @@ func NewHeadTracker(
 	l *logger.Logger,
 	store *strpkg.Store,
 	headBroadcaster *headtracker.HeadBroadcaster,
+	blockFetcher headtracker.BlockFetcherInterface,
 	sleepers ...utils.Sleeper,
 ) *HeadTracker {
 
@@ -65,6 +68,7 @@ func NewHeadTracker(
 		samplingMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
 		wgDone:          &wgDone,
+		blockFetcher:    blockFetcher,
 		headListener:    headtracker.NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
 		headSaver:       headtracker.NewHeadSaver(store),
 	}
@@ -117,6 +121,7 @@ func (ht *HeadTracker) Stop() error {
 		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.store.Config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
+		ht.logger().Info("HeadTracker finished waiting for subprocesses")
 		return nil
 	})
 }
@@ -198,10 +203,10 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
+					err := ht.blockFetcher.SyncLatestHead(ctx, h)
 					defer cancel()
 					if err != nil {
-						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
+						ht.logger().Warnw("HeadTracker: unexpected error while syncing the latest head", "err", err)
 					} else if ctx.Err() != nil {
 						break
 					}

@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -803,6 +803,61 @@ func createHeadTrackerWithChecker(logger *logger.Logger, store *strpkg.Store, ch
 	hb.Start()
 	return &headTrackerUniverse{
 		headTracker:     services.NewHeadTracker(logger, store, hb, cltest.NeverSleeper{}),
+		headBroadcaster: hb,
+	}
+}
+
+type headTrackerUniverse struct {
+	headTracker     *services.HeadTracker
+	headBroadcaster *headtracker.HeadBroadcaster
+}
+
+func (u headTrackerUniverse) Backfill(ctx context.Context, head models.Head, depth uint) error {
+	return u.headTracker.Backfill(ctx, head, depth)
+}
+
+func (u headTrackerUniverse) Start() error {
+	u.headBroadcaster.Start()
+	return u.headTracker.Start()
+}
+
+func (u headTrackerUniverse) Stop() error {
+	u.headBroadcaster.Close()
+	return u.headTracker.Stop()
+}
+
+func createHeadTracker(logger *logger.Logger, store *strpkg.Store) *headTrackerUniverse {
+	hb := headtracker.NewHeadBroadcaster()
+	//bf := headtracker.NewBlockFetcher(store.EthClient, store.Config, logger)
+	bf := new(htmocks.BlockFetcherInterface)
+	bf.On("SyncLatestHead", mock.Anything, mock.Anything).Return(nil)
+
+	return &headTrackerUniverse{
+		headTracker:     services.NewHeadTracker(logger, store, hb, bf),
+		headBroadcaster: hb,
+	}
+}
+
+func createHeadTrackerWithNeverSleeper(logger *logger.Logger, store *strpkg.Store) *headTrackerUniverse {
+	hb := headtracker.NewHeadBroadcaster()
+	bf := new(htmocks.BlockFetcherInterface)
+	bf.On("SyncLatestHead", mock.Anything, mock.Anything).Return(nil)
+
+	return &headTrackerUniverse{
+		headTracker:     services.NewHeadTracker(logger, store, hb, bf, cltest.NeverSleeper{}),
+		headBroadcaster: hb,
+	}
+}
+
+func createHeadTrackerWithChecker(logger *logger.Logger, store *strpkg.Store, checker httypes.HeadTrackable) *headTrackerUniverse {
+	hb := headtracker.NewHeadBroadcaster()
+	bf := new(htmocks.BlockFetcherInterface)
+	bf.On("SyncLatestHead", mock.Anything, mock.Anything).Return(nil)
+
+	hb.Subscribe(checker)
+	hb.Start()
+	return &headTrackerUniverse{
+		headTracker:     services.NewHeadTracker(logger, store, hb, bf, cltest.NeverSleeper{}),
 		headBroadcaster: hb,
 	}
 }

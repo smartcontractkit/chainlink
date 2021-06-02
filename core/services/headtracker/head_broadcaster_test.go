@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -41,6 +42,9 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hr := headtracker.NewHeadBroadcaster()
+	bf := new(htmocks.BlockFetcherInterface)
+	bf.On("SyncLatestHead", mock.Anything, mock.Anything).Return(nil)
+
 	ht := services.NewHeadTracker(logger, store, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()

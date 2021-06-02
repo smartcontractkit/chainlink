@@ -78,6 +78,14 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+func (c *SimulatedBackendClient) FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return c.b.BlockByHash(ctx, hash)
+}
+
+func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return c.b.BlockByHash(ctx, hash)
+}
+
 var _ eth.Client = (*SimulatedBackendClient)(nil)
 
 func (c *SimulatedBackendClient) Dial(context.Context) error {
@@ -393,20 +401,24 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	for i, elem := range b {
-		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
-			return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
-		}
-		switch v := elem.Result.(type) {
-		case *bulletprooftxmanager.Receipt:
-			hash, is := elem.Args[0].(common.Hash)
-			if !is {
-				return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
+		if elem.Method == "eth_getBlockByNumber" {
+			b[i].Error = errors.New("not supported yet")
+		} else {
+			if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
+				return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
 			}
-			receipt, err := c.b.TransactionReceipt(ctx, hash)
-			b[i].Result = bulletprooftxmanager.FromGethReceipt(receipt)
-			b[i].Error = err
-		default:
-			return errors.Errorf("SimulatedBackendClient unsupported elem.Result type %T", v)
+			switch v := elem.Result.(type) {
+			case *bulletprooftxmanager.Receipt:
+				hash, is := elem.Args[0].(common.Hash)
+				if !is {
+					return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
+				}
+				receipt, err := c.b.TransactionReceipt(ctx, hash)
+				b[i].Result = bulletprooftxmanager.FromGethReceipt(receipt)
+				b[i].Error = err
+			default:
+				return errors.Errorf("SimulatedBackendClient unsupported elem.Result type %T", v)
+			}
 		}
 	}
 	return nil
@@ -426,6 +438,7 @@ func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMini
 		for {
 			select {
 			case <-timer.C:
+				logger.Warn("COMMIT=======")
 				backend.Commit()
 			case <-chStop:
 				wg.Done()
