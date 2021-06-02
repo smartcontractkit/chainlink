@@ -130,11 +130,6 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHe
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
-		if b.latestHeadFromDb != nil {
-			logger.Debugw("LogBroadcaster: Starting at latest saved head", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
-		} else {
-			logger.Debug("LogBroadcaster: Received no last saved head")
-		}
 		go b.awaitInitialSubscribers()
 		return nil
 	})
@@ -244,6 +239,11 @@ func (b *broadcaster) startResubscribeLoop() {
 			from := b.latestHeadFromDb.Number -
 				int64(b.registrations.highestNumConfirmations) -
 				int64(b.config.BlockBackfillDepth())
+
+			logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
+				"blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash,
+				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
+			)
 
 			if from < 0 {
 				from = 0
