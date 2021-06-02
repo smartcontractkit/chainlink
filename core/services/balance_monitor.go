@@ -18,7 +18,7 @@ import (
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
-		store.HeadTrackable
+		models.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
 		Stop() error
 	}

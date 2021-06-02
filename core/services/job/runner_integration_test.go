@@ -256,7 +256,7 @@ func TestRunner(t *testing.T) {
 
 		assert.Len(t, results.Values, 1)
 		assert.Len(t, results.Errors, 1)
-		assert.Equal(t, results.Errors[0].Error(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
+		assert.Contains(t, results.Errors[0].Error(), pipeline.ErrTooManyErrors.Error())
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -272,10 +272,10 @@ func TestRunner(t *testing.T) {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.GetDotID() == "ds1_parse" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), pipeline.ErrTooManyErrors.Error())
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())

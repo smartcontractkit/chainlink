@@ -184,18 +184,18 @@ func (b *eventBroadcaster) removeSubscription(sub Subscription) {
 	if b.subscriptions == nil {
 		return
 	}
-	subs, exists := b.subscriptions[sub.channelName()]
+	subs, exists := b.subscriptions[sub.ChannelName()]
 	if !exists || subs == nil {
 		return
 	}
 
-	delete(b.subscriptions[sub.channelName()], sub)
-	if len(b.subscriptions[sub.channelName()]) == 0 {
-		err := b.listener.Unlisten(sub.channelName())
+	delete(b.subscriptions[sub.ChannelName()], sub)
+	if len(b.subscriptions[sub.ChannelName()]) == 0 {
+		err := b.listener.Unlisten(sub.ChannelName())
 		if err != nil {
 			logger.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
 		}
-		delete(b.subscriptions, sub.channelName())
+		delete(b.subscriptions, sub.ChannelName())
 	}
 }
 
@@ -210,11 +210,11 @@ func (b *eventBroadcaster) broadcast(notification *pq.Notification) {
 
 	var wg sync.WaitGroup
 	for sub := range b.subscriptions[event.Channel] {
-		if sub.interestedIn(event) {
+		if sub.InterestedIn(event) {
 			wg.Add(1)
 			go func(sub Subscription) {
 				defer wg.Done()
-				sub.send(event)
+				sub.Send(event)
 			}(sub)
 		}
 	}
@@ -226,9 +226,9 @@ type Subscription interface {
 	Events() <-chan Event
 	Close()
 
-	channelName() string
-	interestedIn(event Event) bool
-	send(event Event)
+	ChannelName() string
+	InterestedIn(event Event) bool
+	Send(event Event)
 }
 
 type subscription struct {
@@ -243,11 +243,11 @@ type subscription struct {
 
 var _ Subscription = (*subscription)(nil)
 
-func (sub *subscription) interestedIn(event Event) bool {
+func (sub *subscription) InterestedIn(event Event) bool {
 	return sub.payloadFilter == event.Payload || sub.payloadFilter == ""
 }
 
-func (sub *subscription) send(event Event) {
+func (sub *subscription) Send(event Event) {
 	sub.queue.Add(event)
 	sub.processQueueWorker.WakeUpIfStarted()
 }
@@ -276,7 +276,7 @@ func (sub *subscription) Events() <-chan Event {
 	return sub.chEvents
 }
 
-func (sub *subscription) channelName() string {
+func (sub *subscription) ChannelName() string {
 	return sub.channel
 }
 
@@ -288,4 +288,17 @@ func (sub *subscription) Close() {
 	if err != nil {
 		logger.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
 	}
+}
+
+// NullEventBroadcaster implements null pattern for event broadcaster
+type NullEventBroadcaster struct{}
+
+func (*NullEventBroadcaster) Start() error { return nil }
+func (*NullEventBroadcaster) Stop() error  { return nil }
+func (*NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
+	return nil, nil
+}
+func (*NullEventBroadcaster) Notify(channel string, payload string) error { return nil }
+func (*NullEventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error {
+	return nil
 }

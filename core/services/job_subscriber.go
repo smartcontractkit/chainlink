@@ -29,7 +29,7 @@ var (
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
-	store.HeadTrackable
+	models.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
 	RemoveJob(ID models.JobID) error
 	Jobs() []models.JobSpec

@@ -19,7 +19,7 @@ type (
 	}
 
 	JobRunner interface {
-		RunJob(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error)
+		RunJob(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
 	}
 )
 
@@ -105,7 +105,7 @@ func (r *webhookJobRunner) spec(jobID models.JobID) (registeredJob, bool) {
 
 var ErrJobNotExists = errors.New("job does not exist")
 
-func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID models.JobID, pipelineInputs []pipeline.Result, meta pipeline.JSONSerializable) (int64, error) {
+func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
 	var uuidHash models.JobID
 	copy(uuidHash[:], jobUUID[:])
 
@@ -124,7 +124,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID models.JobID, pip
 	ctx, cancel := utils.CombinedContext(ctx, spec.chRemove)
 	defer cancel()
 
-	runID, _, err := r.runner.ExecuteAndInsertFinishedRun(ctx, *spec.PipelineSpec, pipelineInputs, meta, *logger, true)
+	runID, _, err := r.runner.ExecuteAndInsertFinishedRun(ctx, *spec.PipelineSpec, pipelineInput, meta, *logger, true)
 	if err != nil {
 		logger.Errorw("Error running pipeline for webhook job", "error", err)
 		return 0, err

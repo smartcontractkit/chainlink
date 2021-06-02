@@ -12,6 +12,20 @@ type Subscription struct {
 	mock.Mock
 }
 
+// ChannelName provides a mock function with given fields:
+func (_m *Subscription) ChannelName() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *Subscription) Close() {
 	_m.Called()
@@ -33,22 +47,8 @@ func (_m *Subscription) Events() <-chan postgres.Event {
 	return r0
 }
 
-// channelName provides a mock function with given fields:
-func (_m *Subscription) channelName() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// interestedIn provides a mock function with given fields: event
-func (_m *Subscription) interestedIn(event postgres.Event) bool {
+// InterestedIn provides a mock function with given fields: event
+func (_m *Subscription) InterestedIn(event postgres.Event) bool {
 	ret := _m.Called(event)
 
 	var r0 bool
@@ -61,7 +61,7 @@ func (_m *Subscription) interestedIn(event postgres.Event) bool {
 	return r0
 }
 
-// send provides a mock function with given fields: event
-func (_m *Subscription) send(event postgres.Event) {
+// Send provides a mock function with given fields: event
+func (_m *Subscription) Send(event postgres.Event) {
 	_m.Called(event)
 }
