@@ -122,9 +122,6 @@ func JSONWithVarExprs(s string, vars Vars, allowErrors bool) GetterFunc {
 }
 
 func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (x interface{}, err error) {
-	defer func() {
-		fmt.Println("MAP", x, err)
-	}()
 	type item struct {
 		val         interface{}
 		parentMap   map[string]interface{}
@@ -344,8 +341,6 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 type DecimalParam decimal.Decimal
 
 func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
-	fmt.Printf("DECIMAL PARAM: (%T) %v\n", val, val)
-
 	x, err := utils.ToDecimal(val)
 	if err != nil {
 		return errors.Wrap(ErrBadInput, err.Error())
