@@ -325,7 +325,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
-	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta)
+	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta, "gasLimit", e.GasLimit)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
@@ -427,11 +427,18 @@ func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (coun
 }
 
 // CreateEthTransaction inserts a new transaction
-func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit, maxUnconfirmedTransactions uint64) (etx models.EthTx, err error) {
+func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit, maxUnconfirmedTransactions uint64, meta *models.EthTxMetaV2) (etx models.EthTx, err error) {
 	err = CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}
+	//var metaBytes []byte
+	//if meta != nil {
+	//	metaBytes, err = json.Marshal(meta)
+	//	if err != nil {
+	//		logger.Errorw("failed to marshal ethtx metadata", "err", err)
+	//	}
+	//}
 
 	value := 0
 	// NOTE: It is important to remember that eth_tx_attempts with state

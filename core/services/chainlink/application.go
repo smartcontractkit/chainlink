@@ -266,7 +266,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.EthClient,
 				vrf.NewConfig(
 					store.Config.MinIncomingConfirmations(),
-					utils.GetScryptParams(store.Config),
 					store.Config.EthGasLimitDefault(),
 					store.Config.EthMaxQueuedTransactions(),
 				)),
