@@ -8,15 +8,15 @@ import "../AggregatorV2V3Interface.sol";
  */
 contract AggregatorInterfaceConsumerTest7 {
 
-  AggregatorV2V3Interface public priceFeed;
+  AggregatorV2V3Interface public s_priceFeed;
 
   /**
-   * @param feed AggregatorV2V3Interface
+   * @param priceFeed AggregatorV2V3Interface
    */
   constructor(
-    AggregatorV2V3Interface feed
+    AggregatorV2V3Interface priceFeed
   ) {
-    priceFeed = feed;
+    s_priceFeed = priceFeed;
   }
 
   /**
@@ -30,6 +30,6 @@ contract AggregatorInterfaceConsumerTest7 {
       int256
     )
   {
-    return priceFeed.latestAnswer();
+    return s_priceFeed.latestAnswer();
   }
 }
