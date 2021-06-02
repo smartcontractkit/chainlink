@@ -847,7 +847,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
-		ExecuteGas: int32(10_000),
+		ExecuteGas: uint64(10_000),
 		Registry:   registry,
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),

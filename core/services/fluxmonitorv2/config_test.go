@@ -14,11 +14,11 @@ func TestConfig(t *testing.T) {
 	flagsContractAddress := cltest.NewAddress()
 
 	cfg := &fluxmonitorv2.Config{
-		DefaultHTTPTimeout:         time.Minute,
-		FlagsContractAddress:       flagsContractAddress.Hex(),
-		MinContractPayment:         assets.NewLink(1),
-		EthGasLimit:                21000,
-		MaxUnconfirmedTransactions: 0,
+		DefaultHTTPTimeout:       time.Minute,
+		FlagsContractAddress:     flagsContractAddress.Hex(),
+		MinContractPayment:       assets.NewLink(1),
+		EthGasLimit:              21000,
+		EthMaxQueuedTransactions: 0,
 	}
 
 	t.Run("MinimumPollingInterval", func(t *testing.T) {

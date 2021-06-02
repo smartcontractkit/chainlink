@@ -14,7 +14,6 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -28,12 +27,11 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
+		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error
 		NumPredecessors() int
 	}
 
@@ -55,6 +53,12 @@ type (
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
+	ErrParameterEmpty        = errors.New("parameter is empty")
+	ErrTooManyErrors         = errors.New("too many errors")
+)
+
+const (
+	InputTaskKey = "input"
 )
 
 // Bundled tx and txmutex for multiple goroutines inside the same transaction.
@@ -237,6 +241,11 @@ const (
 	TaskTypePanic TaskType = "panic"
 )
 
+var (
+	stringType = reflect.TypeOf("")
+	int32Type  = reflect.TypeOf(int32(0))
+)
+
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, numPredecessors int) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
@@ -273,44 +282,14 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result: task,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToSliceHookFunc(","),
 			mapstructure.StringToTimeDurationHookFunc(),
-			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-				switch f {
-				case reflect.TypeOf(""):
-					switch t {
-					case reflect.TypeOf(models.WebURL{}):
-						u, err2 := url.Parse(data.(string))
-						if err2 != nil {
-							return nil, err2
-						}
-						return models.WebURL(*u), nil
-
-					case reflect.TypeOf(HttpRequestData{}):
-						var m map[string]interface{}
-						err2 := json.Unmarshal([]byte(data.(string)), &m)
-						return HttpRequestData(m), err2
-
-					case reflect.TypeOf(decimal.Decimal{}):
-						return decimal.NewFromString(data.(string))
-
-					case reflect.TypeOf(int32(0)):
+			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+				switch from {
+				case stringType:
+					switch to {
+					case int32Type:
 						i, err2 := strconv.ParseInt(data.(string), 10, 32)
 						return int32(i), err2
-					case reflect.TypeOf(uint32(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						return uint32(i), err2
-					case reflect.TypeOf(int64(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return int64(i), err2
-					case reflect.TypeOf(uint64(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return uint64(i), err2
-					case reflect.TypeOf(true):
-						b, err2 := strconv.ParseBool(data.(string))
-						return b, err2
-					case reflect.TypeOf(MaybeBool("")):
-						return MaybeBoolFromString(data.(string))
 					}
 				}
 				return data, nil
@@ -328,8 +307,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	return task, nil
 }
 
-type HttpRequestData map[string]interface{}
-
-func (h *HttpRequestData) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), h) }
-func (h HttpRequestData) Value() (driver.Value, error)  { return json.Marshal(h) }
-func (h HttpRequestData) AsMap() map[string]interface{} { return h }
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+	if minLen >= 0 && len(inputs) < minLen {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+	} else if maxLen >= 0 && len(inputs) > maxLen {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+	}
+	var vals []interface{}
+	var errs int
+	for _, input := range inputs {
+		if input.Error != nil {
+			errs++
+			continue
+		}
+		vals = append(vals, input.Value)
+	}
+	if maxErrors >= 0 && errs > maxErrors {
+		return nil, ErrTooManyErrors
+	}
+	return vals, nil
+}

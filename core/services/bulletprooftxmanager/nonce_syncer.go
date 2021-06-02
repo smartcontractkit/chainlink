@@ -11,10 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 )
 
 type (
@@ -51,8 +50,7 @@ type (
 	// This gives us re-org protection up to ETH_FINALITY_DEPTH deep in the
 	// worst case, which is in line with our other guarantees.
 	NonceSyncer struct {
-		store     *store.Store
-		config    orm.ConfigReader
+		db        *gorm.DB
 		ethClient eth.Client
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
@@ -63,10 +61,9 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(store *store.Store, config orm.ConfigReader, ethClient eth.Client) *NonceSyncer {
+func NewNonceSyncer(db *gorm.DB, ethClient eth.Client) *NonceSyncer {
 	return &NonceSyncer{
-		store,
-		config,
+		db,
 		ethClient,
 	}
 }
@@ -75,12 +72,7 @@ func NewNonceSyncer(store *store.Store, config orm.ConfigReader, ethClient eth.C
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) SyncAll(ctx context.Context) (merr error) {
-	keys, err := s.store.KeyStore.AllKeys()
-	if err != nil {
-		return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed to get keys")
-	}
-
+func (s NonceSyncer) SyncAll(ctx context.Context, keys []models.Key) (merr error) {
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 
@@ -112,7 +104,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 
 	selectCtx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	keyNextNonce, err := GetNextNonce(s.store.DB.WithContext(selectCtx), address)
+	keyNextNonce, err := GetNextNonce(s.db.WithContext(selectCtx), address)
 	if err != nil {
 		return err
 	}
@@ -138,9 +130,6 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		address.Hex(), localNonce, chainNonce),
 		"address", address.Hex(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
-	updateCtx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
 	// Need to remember to decrement the chain nonce by one to account for in_progress transaction
 	newNextNonce := chainNonce
 	if hasInProgressTransaction {
@@ -148,14 +137,16 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	}
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-	res := s.store.DB.WithContext(updateCtx).Exec(`UPDATE keys SET next_nonce = ?, updated_at = ? WHERE address = ? AND next_nonce = ?`, newNextNonce, time.Now(), address, keyNextNonce)
-	if res.Error != nil {
-		return errors.Wrap(res.Error, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
-	}
-	if res.RowsAffected == 0 {
-		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())
-	}
-	return nil
+	return postgres.DBWithDefaultContext(s.db, func(db *gorm.DB) error {
+		res := db.Exec(`UPDATE keys SET next_nonce = ?, updated_at = ? WHERE address = ? AND next_nonce = ?`, newNextNonce, time.Now(), address, keyNextNonce)
+		if res.Error != nil {
+			return errors.Wrap(res.Error, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
+		}
+		if res.RowsAffected == 0 {
+			return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.Hex())
+		}
+		return nil
+	})
 }
 
 func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
@@ -166,6 +157,8 @@ func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account comm
 }
 
 func (s NonceSyncer) hasInProgressTransaction(account common.Address) (exists bool, err error) {
-	err = s.store.DB.Raw(`SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = ?)`, account).Scan(&exists).Error
+	err = postgres.DBWithDefaultContext(s.db, func(db *gorm.DB) error {
+		return db.Raw(`SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = ?)`, account).Scan(&exists).Error
+	})
 	return
 }

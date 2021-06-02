@@ -114,7 +114,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       100,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      1,
-		EthTxResendAfterThreshold:        30 * time.Second,
+		EthTxResendAfterThreshold:        1 * time.Minute,
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
@@ -158,7 +158,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       100,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      2,
-		EthTxResendAfterThreshold:        15 * time.Second,
+		EthTxResendAfterThreshold:        1 * time.Minute,
 		GasUpdaterBlockDelay:             2,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
@@ -200,7 +200,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       10,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      0,
-		EthTxResendAfterThreshold:        5 * time.Second,
+		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
 		GasUpdaterEnabled:                false,
 		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
@@ -283,6 +283,9 @@ func (c *Config) Validate() error {
 		)
 	}
 
+	if uint32(c.EthGasBumpTxDepth()) > c.EthMaxInFlightTransactions() {
+		return errors.New("ETH_GAS_BUMP_TX_DEPTH must be less than or equal to ETH_MAX_IN_FLIGHT_TRANSACTIONS")
+	}
 	if c.EthMinGasPriceWei().Cmp(c.EthGasPriceDefault()) > 0 {
 		return errors.New("ETH_MIN_GAS_PRICE_WEI must be less than or equal to ETH_GAS_PRICE_DEFAULT")
 	}
@@ -647,6 +650,13 @@ func (c Config) EthGasBumpWei() *big.Int {
 	return &n
 }
 
+// EthMaxInFlightTransactions controls how many transactions are allowed to be
+// "in-flight" i.e. broadcast but unconfirmed at any one time
+// 0 value disables the limit
+func (c Config) EthMaxInFlightTransactions() uint32 {
+	return c.getWithFallback("EthMaxInFlightTransactions", parseUint32).(uint32)
+}
+
 // EthMaxGasPriceWei is the maximum amount in Wei that a transaction will be
 // bumped to before abandoning it and marking it as errored.
 func (c Config) EthMaxGasPriceWei() *big.Int {
@@ -666,12 +676,12 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 	return &n
 }
 
-// EthMaxUnconfirmedTransactions is the maximum number of unconfirmed
-// transactions per key that are allowed to be in flight before jobs will start
+// EthMaxQueuedTransactions is the maximum number of unbroadcast
+// transactions per key that are allowed to be enqueued before jobs will start
 // failing and rejecting send of any further transactions.
 // 0 value disables
-func (c Config) EthMaxUnconfirmedTransactions() uint64 {
-	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+func (c Config) EthMaxQueuedTransactions() uint64 {
+	return c.getWithFallback("EthMaxQueuedTransactions", parseUint64).(uint64)
 }
 
 // EthMinGasPriceWei is the minimum amount in Wei that a transaction may be priced.
@@ -701,6 +711,11 @@ func (c Config) EthNonceAutoSync() bool {
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
+}
+
+// EthBaseTransactionGasLimit represents how much gas is required to send a eth->eth transfer
+func (c Config) EthBaseTransactionGasLimit() uint64 {
+	return uint64(21000)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
