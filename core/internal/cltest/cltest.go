@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -195,6 +195,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("ETH_FINALITY_DEPTH", 1)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
+	// Set low sampling interval to remain within test head waiting timeouts
+	config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 	return config, cleanup
 }
 
@@ -1846,7 +1848,7 @@ type SimulateIncomingHeadsArgs struct {
 	BackfillDepth        int64
 	Interval             time.Duration
 	Timeout              time.Duration
-	HeadTrackables       []models.HeadTrackable
+	HeadTrackables       []httypes.HeadTrackable
 	Hashes               map[int64]common.Hash
 }
 

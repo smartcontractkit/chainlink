@@ -1,4 +1,4 @@
-package services
+package headtracker
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -17,12 +18,7 @@ const callbackTimeout = 2 * time.Second
 
 type callbackID [256]byte
 
-// HeadBroadcastable defines the interface for listeners
-type HeadBroadcastable interface {
-	OnNewLongestChain(ctx context.Context, head models.Head)
-}
-
-type callbackSet map[callbackID]HeadBroadcastable
+type callbackSet map[callbackID]httypes.HeadTrackable
 
 func (set callbackSet) clone() callbackSet {
 	cp := make(callbackSet)
@@ -55,7 +51,7 @@ type HeadBroadcaster struct {
 	utils.StartStopOnce
 }
 
-var _ models.HeadTrackable = (*HeadBroadcaster)(nil)
+var _ httypes.HeadTrackable = (*HeadBroadcaster)(nil)
 
 func (hr *HeadBroadcaster) Start() error {
 	return hr.StartOnce("HeadBroadcaster", func() error {
@@ -67,6 +63,12 @@ func (hr *HeadBroadcaster) Start() error {
 
 func (hr *HeadBroadcaster) Close() error {
 	return hr.StopOnce("HeadBroadcaster", func() error {
+
+		hr.mutex.Lock()
+		// clear all callbacks
+		hr.callbacks = make(callbackSet)
+		hr.mutex.Unlock()
+
 		close(hr.chClose)
 		hr.wgDone.Wait()
 		return nil
@@ -74,16 +76,27 @@ func (hr *HeadBroadcaster) Close() error {
 }
 
 func (hr *HeadBroadcaster) Connect(head *models.Head) error {
+	hr.mutex.RLock()
+	callbacks := hr.callbacks.clone()
+	hr.mutex.RUnlock()
+
+	for i, callback := range callbacks {
+		err := callback.Connect(head)
+		if err != nil {
+			logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
+		}
+	}
+
 	return nil
 }
-
-func (hr *HeadBroadcaster) Disconnect() {}
 
 func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	hr.mailbox.Deliver(head)
 }
 
-func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe func()) {
+// Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
+// or unsubscribe callback is called explicitly
+func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
 	id, err := newID()
@@ -92,11 +105,12 @@ func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe fu
 		return
 	}
 	hr.callbacks[id] = callback
-	return func() {
+	unsubscribe = func() {
 		hr.mutex.Lock()
 		defer hr.mutex.Unlock()
 		delete(hr.callbacks, id)
 	}
+	return
 }
 
 func (hr *HeadBroadcaster) run() {
@@ -130,11 +144,17 @@ func (hr *HeadBroadcaster) executeCallbacks() {
 		return
 	}
 
+	logger.Debugw("HeadBroadcaster initiating callbacks",
+		"headNum", head.Number,
+		"chainLength", head.ChainLength(),
+		"numCallbacks", len(hr.callbacks),
+	)
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(hr.callbacks))
 
 	for _, callback := range callbacks {
-		go func(hr HeadBroadcastable) {
+		go func(hr httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
