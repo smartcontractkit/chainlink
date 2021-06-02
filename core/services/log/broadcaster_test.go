@@ -249,7 +249,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 		backfillTimes          = 1
 		batchSize       uint32 = 50
-		expectedBatches        = 60
+		expectedBatches        = 61
 	)
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
