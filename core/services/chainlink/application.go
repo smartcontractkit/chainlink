@@ -190,6 +190,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker", err)
 	}
 
+	headTracker := services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue
 	var runManager services.RunManager
@@ -205,13 +207,20 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		runManager = &services.NullRunManager{}
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
-	promReporter := services.NewPromReporter(store.MustSQLDB())
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
+
+	// Log Broadcaster uses the last stored head as a start of the initial log backfill
+	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
+	if err != nil {
+		return nil, err
+	}
+
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
 
+	promReporter := services.NewPromReporter(store.MustSQLDB())
 	subservices = append(subservices, promReporter)
 
 	var balanceMonitor services.BalanceMonitor
@@ -342,15 +351,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			return nil
 		}})
 	}
-	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
-
-	// Log Broadcaster uses the last stored head as a limit of log backfill
-	// which needs to be set before it's started
-	head, err := app.HeadTracker.HighestSeenHeadFromDB()
-	if err != nil {
-		return nil, err
-	}
-	logBroadcaster.SetLatestHeadFromStorage(head)
+	app.HeadTracker = headTracker
 
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)

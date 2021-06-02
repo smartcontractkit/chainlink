@@ -43,7 +43,6 @@ type (
 		Stop() error
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
 		TrackedAddressesCount() uint32
 		// DB interactions
@@ -110,7 +109,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
 	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
@@ -124,20 +123,17 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		newHeads:         utils.NewMailbox(1),
 		DependentAwaiter: utils.NewDependentAwaiter(),
 		chStop:           chStop,
+		latestHeadFromDb: highestSavedHead,
 	}
-}
-
-func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	b.latestHeadFromDb = head
 }
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
 		if b.latestHeadFromDb != nil {
-			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
+			logger.Debugw("LogBroadcaster: Starting at latest saved head", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
 		} else {
-			logger.Info("LogBroadcaster: Latest head from DB was not set or does not exist.")
+			logger.Debug("LogBroadcaster: Received no last saved head")
 		}
 		go b.awaitInitialSubscribers()
 		return nil

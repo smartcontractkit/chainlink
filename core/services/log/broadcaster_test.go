@@ -79,7 +79,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
@@ -87,7 +87,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	// the first backfill should use the last known height from db minus num confirmations of the subscriber
+	// the first backfill should use the height of last head saved to the db,
+	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		atomic.StoreInt64(backfillCountPtr, 1)
 		require.Equal(t, lastStoredBlockHeight-numConfirmations-int64(blockBackfillDepth), fromBlock)
@@ -95,7 +96,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	listener := helper.newLogListener("initial")
 	helper.register(listener, newMockContract(), numConfirmations)
-	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+	helper.start()
 
 	for i := 0; i < numContracts; i++ {
 		listener := helper.newLogListener("")
@@ -145,7 +146,7 @@ func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	maxNumConfirmations := int64(10)
@@ -161,13 +162,14 @@ func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
 
 	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
 
-	// the first backfill should use the last known height from db minus max num confirmations
+	// the first backfill should use the height of last head saved to the db,
+	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		atomic.StoreInt64(backfillCountPtr, 1)
 		require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
 	}
 
-	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
@@ -198,7 +200,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
@@ -226,7 +228,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	listener := helper.newLogListener("initial")
 	helper.register(listener, newMockContract(), numConfirmations)
-	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+	helper.start()
 
 	defer helper.stop()
 
@@ -273,7 +275,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
@@ -281,7 +283,6 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	// the first backfill should use the last known height from db
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := atomic.LoadInt64(backfillCountPtr)
 		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
@@ -290,7 +291,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	listener := helper.newLogListener("initial")
 	helper.register(listener, newMockContract(), 1)
-	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+	helper.start()
 
 	defer helper.stop()
 
@@ -825,7 +826,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	helper := newBroadcasterHelperWithEthClient(t, ethClient)
+	helper := newBroadcasterHelperWithEthClient(t, ethClient, nil)
 	helper.lb.AddDependents(1)
 	helper.start()
 	defer helper.stop()
@@ -1104,7 +1105,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewBroadcaster(nil, nil, nil)
+	lb := log.NewBroadcaster(nil, nil, nil, nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 
