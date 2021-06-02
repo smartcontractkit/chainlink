@@ -701,6 +701,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				decodedLog := flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				tm.logBroadcast.On("DecodedLog").Return(&decodedLog)
 				tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+				tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 				fm.HandleLog(tm.logBroadcast)
 
 				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
@@ -1074,6 +1075,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	fm.Start()
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 		RoundId:   big.NewInt(0),
 		StartedAt: big.NewInt(time.Now().UTC().Unix()),
@@ -1358,6 +1360,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil).Once()
 		tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{}, nil)
 
+		tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),

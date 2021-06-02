@@ -554,6 +554,14 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
 	)
+	var markConsumed = true
+	defer func() {
+		if markConsumed {
+			if err := fm.logBroadcaster.MarkConsumed(fm.db, lb); err != nil {
+				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err, "log", lb.String())
+			}
+		}
+	}()
 
 	newRoundLogger.Debug("NewRound log")
 	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.spec.JobID)), log.RoundId)
@@ -709,6 +717,8 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		}
 		return fm.logBroadcaster.MarkConsumed(tx, lb)
 	})
+	// Either the tx failed and we want to reprocess the log, or it succeeded and already marked it consumed
+	markConsumed = false
 	if err != nil {
 		newRoundLogger.Errorf("unable to create job run: %v", err)
 		return
