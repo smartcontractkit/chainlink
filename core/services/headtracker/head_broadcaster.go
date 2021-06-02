@@ -63,6 +63,12 @@ func (hr *HeadBroadcaster) Start() error {
 
 func (hr *HeadBroadcaster) Close() error {
 	return hr.StopOnce("HeadBroadcaster", func() error {
+
+		hr.mutex.Lock()
+		// clear all callbacks
+		hr.callbacks = make(callbackSet)
+		hr.mutex.Unlock()
+
 		close(hr.chClose)
 		hr.wgDone.Wait()
 		return nil
