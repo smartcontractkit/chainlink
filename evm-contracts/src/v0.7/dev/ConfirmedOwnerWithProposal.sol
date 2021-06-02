@@ -25,6 +25,8 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
     address newOwner,
     address to
   ) {
+    require(newOwner != address(0), "Cannot set owner to zero");
+
     s_owner = newOwner;
     if (to != address(0)) {
       _transferOwnership(to);

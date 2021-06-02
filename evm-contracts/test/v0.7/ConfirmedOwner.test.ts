@@ -6,9 +6,11 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { ConfirmedOwner__factory } from '../../ethers/v0.7/factories/ConfirmedOwner__factory'
 import { ConfirmedOwnerTestHelper__factory } from '../../ethers/v0.7/factories/ConfirmedOwnerTestHelper__factory'
 
 const confirmedOwnerTestHelperFactory = new ConfirmedOwnerTestHelper__factory()
+const confirmedOwnerFactory = new ConfirmedOwner__factory()
 const provider = setup.provider()
 
 let personas: setup.Personas
@@ -52,6 +54,15 @@ describe('ConfirmedOwner', () => {
       ])
 
       assert.equal(actual, expected)
+    })
+
+    it('reverts if assigned to the zero address', async () => {
+      await matchers.evmRevert(
+        confirmedOwnerFactory
+          .connect(owner)
+          .deploy(ethers.constants.AddressZero),
+        'Cannot set owner to zero',
+      )
     })
   })
 
