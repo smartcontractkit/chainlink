@@ -50,14 +50,13 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
 		FilterLogs:          1,
-		Unsubscribe:         1,
 	}
 
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	store.EthClient = mockEth.ethClient
 
 	dborm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config)
+	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config, nil)
 	store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
@@ -70,13 +69,13 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	}
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client) *broadcasterHelper {
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
 	store, cleanup := cltest.NewStore(t)
 
 	store.EthClient = ethClient
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config, highestSeenHead)
 
 	return &broadcasterHelper{
 		t:             t,
@@ -91,13 +90,8 @@ func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener 
 	return newLogListener(helper.t, helper.store, name)
 }
 func (helper *broadcasterHelper) start() {
-	helper.startWithLatestHeadInDb(nil)
-}
-
-func (helper *broadcasterHelper) startWithLatestHeadInDb(head *models.Head) {
 	err := helper.lb.Start()
 	require.NoError(helper.t, err)
-	helper.lb.SetLatestHeadFromStorage(head)
 }
 
 func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint64) {
@@ -321,7 +315,6 @@ type mockEthClientExpectedCalls struct {
 	SubscribeFilterLogs int
 	HeaderByNumber      int
 	FilterLogs          int
-	Unsubscribe         int
 
 	FilterLogsResult []types.Log
 }

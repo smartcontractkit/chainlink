@@ -91,7 +91,6 @@ type (
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
 		GasUpdaterEnabled                bool
-		HeadTimeBudget                   time.Duration
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		OptimismGasFees                  bool
@@ -119,7 +118,6 @@ func init() {
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
-		HeadTimeBudget:                   13 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 	}
@@ -128,7 +126,6 @@ func init() {
 	// test chains, but requires more in-depth research on their consensus
 	// mechanisms. For now, mainnet defaults ought to be safe enough for testnet.
 	kovan := mainnet
-	kovan.HeadTimeBudget = 4 * time.Second
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -142,7 +139,6 @@ func init() {
 	xDai.EthGasPriceDefault = *big.NewInt(1000000000)  // 1 Gwei
 	xDai.EthMinGasPriceWei = *big.NewInt(1000000000)   // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
 	xDai.EthMaxGasPriceWei = *big.NewInt(500000000000) // 500 Gwei
-	xDai.HeadTimeBudget = 5 * time.Second
 
 	// BSC uses Clique consensus with ~3s block times
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
@@ -163,7 +159,6 @@ func init() {
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
-		HeadTimeBudget:                   3 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 	}
@@ -187,7 +182,6 @@ func init() {
 		GasUpdaterBlockHistorySize:       128,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
-		HeadTimeBudget:                   1 * time.Second,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
 	}
@@ -203,7 +197,6 @@ func init() {
 		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
 		GasUpdaterEnabled:                false,
-		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
 		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
@@ -1495,23 +1488,6 @@ func (c Config) CertFile() string {
 		return filepath.Join(c.tlsDir(), "server.crt")
 	}
 	return c.TLSCertPath()
-}
-
-// HeadTimeBudget returns the time allowed for context timeout in head tracker
-func (c Config) HeadTimeBudget() time.Duration {
-	str := c.viper.GetString(EnvVarName("HeadTimeBudget"))
-	if str != "" {
-		n, err := parseDuration(str)
-		if err != nil {
-			logger.Errorw(
-				"Invalid value provided for HeadTimeBudget, falling back to default.",
-				"value", str,
-				"error", err)
-		} else {
-			return n.(time.Duration)
-		}
-	}
-	return chainSpecificConfig(c).HeadTimeBudget
 }
 
 // CreateProductionLogger returns a custom logger for the config's root
