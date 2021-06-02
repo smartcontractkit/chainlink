@@ -234,7 +234,8 @@ func init() {
 
 	ChainSpecificDefaults[100] = xDai
 
-	ChainSpecificDefaults[144545313136048] = arbitrum
+	ChainSpecificDefaults[144545313136048] = arbitrum // Kovan testnet 5
+	ChainSpecificDefaults[42161] = arbitrum // Arbitrum One (Eth mainnet)
 }
 
 func chainSpecificConfig(c Config) ChainSpecificDefaultSet {
