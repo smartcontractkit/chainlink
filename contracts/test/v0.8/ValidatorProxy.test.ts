@@ -1,21 +1,30 @@
-const { ethers } = require("hardhat");
-const { publicAbi } = require("./helpers");
-const { assert, expect } = require("chai");
-const { constants } = require("@openzeppelin/test-helpers");
+import { ethers } from "hardhat";
+import { publicAbi, constants } from "../helpers";
+import { assert, expect } from "chai";
+import { Signer, Contract } from "ethers";
 
 describe("ValidatorProxy", () => {
-  // let accounts
-  let owner, aggregator, validator;
-  let validatorProxy;
-  let accounts;
+  let accounts: Signer[];
+
+  let owner: Signer;
+  let ownerAddress: string;
+  let aggregator: Signer;
+  let aggregatorAddress: string;
+  let validator: Signer;
+  let validatorAddress: string;
+  let validatorProxy: Contract;
 
   beforeEach(async () => {
     accounts = await ethers.getSigners();
     owner = accounts[0];
     aggregator = accounts[1];
     validator = accounts[2];
-    const vpf = await ethers.getContractFactory("ValidatorProxy", owner.address);
-    validatorProxy = await vpf.deploy(aggregator.address, validator.address);
+    ownerAddress = await owner.getAddress();
+    aggregatorAddress = await aggregator.getAddress();
+    validatorAddress = await validator.getAddress();
+
+    const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
+    validatorProxy = await vpf.deploy(aggregatorAddress, validatorAddress);
     validatorProxy = await validatorProxy.deployed();
   });
 
@@ -40,68 +49,70 @@ describe("ValidatorProxy", () => {
   describe("#constructor", () => {
     it("should set the aggregator addresses correctly", async () => {
       const response = await validatorProxy.getAggregators();
-      assert.equal(response.current, aggregator.address);
+      assert.equal(response.current, aggregatorAddress);
       assert.equal(response.hasProposal, false);
       assert.equal(response.proposed, constants.ZERO_ADDRESS);
     });
 
     it("should set the validator addresses conrrectly", async () => {
       const response = await validatorProxy.getValidators();
-      assert.equal(response.current, validator.address);
+      assert.equal(response.current, validatorAddress);
       assert.equal(response.hasProposal, false);
       assert.equal(response.proposed, constants.ZERO_ADDRESS);
     });
 
     it("should set the owner correctly", async () => {
       const response = await validatorProxy.owner();
-      assert.equal(response, owner.address);
+      assert.equal(response, ownerAddress);
     });
   });
 
   describe("#proposeNewAggregator", () => {
-    let newAggregator;
+    let newAggregator: Signer;
+    let newAggregatorAddress: string;
     beforeEach(async () => {
-      newAggregator = accounts[3].address;
+      newAggregator = accounts[3];
+      newAggregatorAddress = await newAggregator.getAddress();
     });
 
     describe("failure", () => {
       it("should only be called by the owner", async () => {
         const stranger = accounts[4];
-        await expect(validatorProxy.connect(stranger).proposeNewAggregator(newAggregator)).to.be.revertedWith(
+        await expect(validatorProxy.connect(stranger).proposeNewAggregator(newAggregatorAddress)).to.be.revertedWith(
           "Only callable by owner",
         );
       });
 
       it("should revert if no change in proposal", async () => {
-        await validatorProxy.proposeNewAggregator(newAggregator);
-        await expect(validatorProxy.proposeNewAggregator(newAggregator)).to.be.revertedWith("Invalid proposal");
+        await validatorProxy.proposeNewAggregator(newAggregatorAddress);
+        await expect(validatorProxy.proposeNewAggregator(newAggregatorAddress)).to.be.revertedWith("Invalid proposal");
       });
 
       it("should revert if the proposal is the same as the current", async () => {
-        await expect(validatorProxy.proposeNewAggregator(aggregator.address)).to.be.revertedWith("Invalid proposal");
+        await expect(validatorProxy.proposeNewAggregator(aggregatorAddress)).to.be.revertedWith("Invalid proposal");
       });
     });
 
     describe("success", () => {
       it("should emit an event", async () => {
-        await expect(validatorProxy.proposeNewAggregator(newAggregator))
+        await expect(validatorProxy.proposeNewAggregator(newAggregatorAddress))
           .to.emit(validatorProxy, "AggregatorProposed")
-          .withArgs(newAggregator);
+          .withArgs(newAggregatorAddress);
       });
 
       it("should set the correct address and hasProposal is true", async () => {
-        await validatorProxy.proposeNewAggregator(newAggregator);
+        await validatorProxy.proposeNewAggregator(newAggregatorAddress);
         const response = await validatorProxy.getAggregators();
-        assert.equal(response.current, aggregator.address);
+        assert.equal(response.current, aggregatorAddress);
         assert.equal(response.hasProposal, true);
-        assert.equal(response.proposed, newAggregator);
+        assert.equal(response.proposed, newAggregatorAddress);
       });
 
       it("should set a zero address and hasProposal is false", async () => {
-        await validatorProxy.proposeNewAggregator(newAggregator);
+        await validatorProxy.proposeNewAggregator(newAggregatorAddress);
         await validatorProxy.proposeNewAggregator(constants.ZERO_ADDRESS);
         const response = await validatorProxy.getAggregators();
-        assert.equal(response.current, aggregator.address);
+        assert.equal(response.current, aggregatorAddress);
         assert.equal(response.hasProposal, false);
         assert.equal(response.proposed, constants.ZERO_ADDRESS);
       });
@@ -121,22 +132,24 @@ describe("ValidatorProxy", () => {
     });
 
     describe("success", () => {
-      let newAggregator;
+      let newAggregator: Signer;
+      let newAggregatorAddress: string;
       beforeEach(async () => {
-        newAggregator = accounts[3].address;
-        await validatorProxy.proposeNewAggregator(newAggregator);
+        newAggregator = accounts[3];
+        newAggregatorAddress = await newAggregator.getAddress();
+        await validatorProxy.proposeNewAggregator(newAggregatorAddress);
       });
 
       it("should emit an event", async () => {
         await expect(validatorProxy.upgradeAggregator())
           .to.emit(validatorProxy, "AggregatorUpgraded")
-          .withArgs(aggregator.address, newAggregator);
+          .withArgs(aggregatorAddress, newAggregatorAddress);
       });
 
       it("should upgrade the addresses", async () => {
         await validatorProxy.upgradeAggregator();
         const response = await validatorProxy.getAggregators();
-        assert.equal(response.current, newAggregator);
+        assert.equal(response.current, newAggregatorAddress);
         assert.equal(response.hasProposal, false);
         assert.equal(response.proposed, constants.ZERO_ADDRESS);
       });
@@ -144,50 +157,52 @@ describe("ValidatorProxy", () => {
   });
 
   describe("#proposeNewValidator", () => {
-    let newValidator;
+    let newValidator: Signer;
+    let newValidatorAddress: string;
 
-    beforeEach(() => {
-      newValidator = accounts[3].address;
+    beforeEach(async () => {
+      newValidator = accounts[3];
+      newValidatorAddress = await newValidator.getAddress();
     });
 
     describe("failure", () => {
       it("should only be called by the owner", async () => {
         const stranger = accounts[4];
-        await expect(validatorProxy.connect(stranger).proposeNewAggregator(newValidator)).to.be.revertedWith(
+        await expect(validatorProxy.connect(stranger).proposeNewAggregator(newValidatorAddress)).to.be.revertedWith(
           "Only callable by owner",
         );
       });
 
       it("should revert if no change in proposal", async () => {
-        await validatorProxy.proposeNewValidator(newValidator);
-        await expect(validatorProxy.proposeNewValidator(newValidator)).to.be.revertedWith("Invalid proposal");
+        await validatorProxy.proposeNewValidator(newValidatorAddress);
+        await expect(validatorProxy.proposeNewValidator(newValidatorAddress)).to.be.revertedWith("Invalid proposal");
       });
 
       it("should revert if the proposal is the same as the current", async () => {
-        await expect(validatorProxy.proposeNewValidator(validator.address)).to.be.revertedWith("Invalid proposal");
+        await expect(validatorProxy.proposeNewValidator(validatorAddress)).to.be.revertedWith("Invalid proposal");
       });
     });
 
     describe("success", () => {
       it("should emit an event", async () => {
-        await expect(validatorProxy.proposeNewValidator(newValidator))
+        await expect(validatorProxy.proposeNewValidator(newValidatorAddress))
           .to.emit(validatorProxy, "ValidatorProposed")
-          .withArgs(newValidator);
+          .withArgs(newValidatorAddress);
       });
 
       it("should set the correct address and hasProposal is true", async () => {
-        await validatorProxy.proposeNewValidator(newValidator);
+        await validatorProxy.proposeNewValidator(newValidatorAddress);
         const response = await validatorProxy.getValidators();
-        assert.equal(response.current, validator.address);
+        assert.equal(response.current, validatorAddress);
         assert.equal(response.hasProposal, true);
-        assert.equal(response.proposed, newValidator);
+        assert.equal(response.proposed, newValidatorAddress);
       });
 
       it("should set a zero address and hasProposal is false", async () => {
-        await validatorProxy.proposeNewValidator(newValidator);
+        await validatorProxy.proposeNewValidator(newValidatorAddress);
         await validatorProxy.proposeNewValidator(constants.ZERO_ADDRESS);
         const response = await validatorProxy.getValidators();
-        assert.equal(response.current, validator.address);
+        assert.equal(response.current, validatorAddress);
         assert.equal(response.hasProposal, false);
         assert.equal(response.proposed, constants.ZERO_ADDRESS);
       });
@@ -207,22 +222,24 @@ describe("ValidatorProxy", () => {
     });
 
     describe("success", () => {
-      let newValidator;
+      let newValidator: Signer;
+      let newValidatorAddress: string;
       beforeEach(async () => {
-        newValidator = accounts[3].address;
-        await validatorProxy.proposeNewValidator(newValidator);
+        newValidator = accounts[3];
+        newValidatorAddress = await newValidator.getAddress();
+        await validatorProxy.proposeNewValidator(newValidatorAddress);
       });
 
       it("should emit an event", async () => {
         await expect(validatorProxy.upgradeValidator())
           .to.emit(validatorProxy, "ValidatorUpgraded")
-          .withArgs(validator.address, newValidator);
+          .withArgs(validatorAddress, newValidatorAddress);
       });
 
       it("should upgrade the addresses", async () => {
         await validatorProxy.upgradeValidator();
         const response = await validatorProxy.getValidators();
-        assert.equal(response.current, newValidator);
+        assert.equal(response.current, newValidatorAddress);
         assert.equal(response.hasProposal, false);
         assert.equal(response.proposed, constants.ZERO_ADDRESS);
       });
@@ -239,8 +256,8 @@ describe("ValidatorProxy", () => {
       });
 
       it("reverts when there is no validator set", async () => {
-        const vpf = await ethers.getContractFactory("ValidatorProxy", owner.address);
-        validatorProxy = await vpf.deploy(aggregator.address, constants.ZERO_ADDRESS);
+        const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
+        validatorProxy = await vpf.deploy(aggregatorAddress, constants.ZERO_ADDRESS);
         await validatorProxy.deployed();
         await expect(validatorProxy.connect(aggregator).validate(99, 88, 77, 66)).to.be.revertedWith(
           "No validator set",
@@ -250,13 +267,13 @@ describe("ValidatorProxy", () => {
 
     describe("success", () => {
       describe("from the aggregator", () => {
-        let mockValidator1;
+        let mockValidator1: Contract;
         beforeEach(async () => {
-          const mvf = await ethers.getContractFactory("MockAggregatorValidator", owner.address);
+          const mvf = await ethers.getContractFactory("MockAggregatorValidator", owner);
           mockValidator1 = await mvf.deploy(1);
           mockValidator1 = await mockValidator1.deployed();
-          const vpf = await ethers.getContractFactory("ValidatorProxy", owner.address);
-          validatorProxy = await vpf.deploy(aggregator.address, mockValidator1.address);
+          const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
+          validatorProxy = await vpf.deploy(aggregatorAddress, mockValidator1.address);
           validatorProxy = await validatorProxy.deployed();
         });
 
@@ -275,10 +292,10 @@ describe("ValidatorProxy", () => {
         });
 
         describe("for a validator and a proposed validator", () => {
-          let mockValidator2;
+          let mockValidator2: Contract;
 
           beforeEach(async () => {
-            const mvf = await ethers.getContractFactory("MockAggregatorValidator", owner.address);
+            const mvf = await ethers.getContractFactory("MockAggregatorValidator", owner);
             mockValidator2 = await mvf.deploy(2);
             mockValidator2 = await mockValidator2.deployed();
             await validatorProxy.proposeNewValidator(mockValidator2.address);
@@ -305,16 +322,18 @@ describe("ValidatorProxy", () => {
       });
 
       describe("from the proposed aggregator", () => {
-        let newAggregator;
+        let newAggregator: Signer;
+        let newAggregatorAddress: string;
         beforeEach(async () => {
           newAggregator = accounts[3];
-          await validatorProxy.connect(owner).proposeNewAggregator(newAggregator.address);
+          newAggregatorAddress = await newAggregator.getAddress();
+          await validatorProxy.connect(owner).proposeNewAggregator(newAggregatorAddress);
         });
 
         it("emits an event", async () => {
           await expect(validatorProxy.connect(newAggregator).validate(555, 666, 777, 888))
             .to.emit(validatorProxy, "ProposedAggregatorValidateCall")
-            .withArgs(newAggregator.address, 555, 666, 777, 888);
+            .withArgs(newAggregatorAddress, 555, 666, 777, 888);
         });
       });
     });
