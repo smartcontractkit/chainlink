@@ -66,7 +66,7 @@ func TestGasUpdater_Start(t *testing.T) {
 		blockClient := new(htmocks.BlockEthClient)
 
 		h := &models.Head{Hash: cltest.NewHash(), Number: 42}
-		blockMap := make(map[int64]headtracker.Block, 0)
+		blockMap := make(map[int64]headtracker.Block)
 		blockClient.On("FetchLatestHead", mock.Anything).Return(h, nil)
 		blockClient.On("FetchBlocksByNumbers", mock.Anything, mock.Anything).Return(blockMap, nil)
 
@@ -166,7 +166,7 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 
 		blockClient := new(htmocks.BlockEthClient)
 
-		blockMap := make(map[int64]headtracker.Block, 0)
+		blockMap := make(map[int64]headtracker.Block)
 		blockMap[41] = cltest.NewBlockWithTransactions(41, cltest.TransactionsFromGasPrices(1, 2))
 		// block 42 is missing / errored
 		blockMap[43] = cltest.NewBlockWithTransactions(43, cltest.TransactionsFromGasPrices())
@@ -185,7 +185,7 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		assert.Len(t, gu.RollingBlockHistory()[1].Transactions, 0)
 
 		// On new fetch, rolls over the history and drops the old heads
-		blockMap2 := make(map[int64]headtracker.Block, 0)
+		blockMap2 := make(map[int64]headtracker.Block)
 		blockMap[42] = cltest.NewBlockWithTransactions(42, cltest.TransactionsFromGasPrices(3))
 		blockMap[44] = cltest.NewBlockWithTransactions(44, cltest.TransactionsFromGasPrices(4))
 		blockClient.On("FetchBlocksByNumbers", mock.Anything, mock.Anything).Return(blockMap2, nil)

@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -25,9 +24,8 @@ type (
 	}
 
 	BlockFetcher struct {
-		ethClient eth.Client
-		logger    *logger.Logger
-		config    BlockFetcherConfig
+		logger *logger.Logger
+		config BlockFetcherConfig
 
 		blockEthClient BlockEthClient
 		recent         map[common.Hash]*Block
@@ -47,18 +45,6 @@ type BlockFetcherConfig interface {
 	EthHeadTrackerHistoryDepth() uint
 	BlockBackfillDepth() uint64
 }
-
-//type BlockDownload struct {
-//	StartedAt time.Time
-//
-//	Number int64
-//
-//	// may be nil
-//	Hash *common.Hash
-//
-//	// may be nil
-//	Head *models.Head
-//}
 
 func (bf *BlockFetcher) BlockCache() []*Block {
 	return bf.RecentSorted()
@@ -353,23 +339,23 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 		}
 
 		return bf.sequentialConstructChain(ctx, block, from)
-	} else {
-		// we don't have the previous block or there was a re-org
-		bf.logger.Debugf("Getting a range of blocks: %v to %v", from, head.Number)
-		blocks, err := bf.GetBlockRange(ctx, from, head.Number)
-
-		if len(blocks) == 0 {
-			logger.Warnf("No blocks returned by range %v to %v", from, head.Number)
-			return head, nil
-		}
-		sort.Slice(blocks, func(i, j int) bool {
-			return blocks[i].Number < blocks[j].Number
-		})
-		if err != nil {
-			return models.Head{}, errors.Wrap(err, "BlockByNumber failed")
-		}
-		return bf.sequentialConstructChain(ctx, *blocks[len(blocks)-1], from)
 	}
+	// we don't have the previous block or there was a re-org
+	bf.logger.Debugf("Getting a range of blocks: %v to %v", from, head.Number)
+	blocks, err := bf.GetBlockRange(ctx, from, head.Number)
+
+	if len(blocks) == 0 {
+		logger.Warnf("No blocks returned by range %v to %v", from, head.Number)
+		return head, nil
+	}
+	sort.Slice(blocks, func(i, j int) bool {
+		return blocks[i].Number < blocks[j].Number
+	})
+	if err != nil {
+		return models.Head{}, errors.Wrap(err, "BlockByNumber failed")
+	}
+	return bf.sequentialConstructChain(ctx, *blocks[len(blocks)-1], from)
+
 }
 
 func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash) (Block, error) {

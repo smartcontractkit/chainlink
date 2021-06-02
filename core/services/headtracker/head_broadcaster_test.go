@@ -45,7 +45,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	bf := new(htmocks.BlockFetcherInterface)
 	bf.On("SyncLatestHead", mock.Anything, mock.Anything).Return(nil)
 
-	ht := services.NewHeadTracker(logger, store, hr, cltest.NeverSleeper{})
+	ht := services.NewHeadTracker(logger, store, hr, bf, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()
 	require.NoError(t, ht.Start())

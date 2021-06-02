@@ -158,7 +158,7 @@ func (bc *FakeBlockEthClient) FastBlockByHash(ctx context.Context, hash common.H
 
 func (bc *FakeBlockEthClient) FetchBlocksByNumbers(ctx context.Context, numbers []int64) (map[int64]Block, error) {
 
-	mapp := make(map[int64]Block, 0)
+	mapp := make(map[int64]Block)
 	for _, block := range bc.blocks {
 		for _, number := range numbers {
 			if block.Number == number {
