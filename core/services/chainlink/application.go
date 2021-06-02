@@ -11,15 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"gorm.io/gorm"
 
@@ -50,25 +51,12 @@ import (
 
 //go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
 type (
-	// headTrackableCallback is a simple wrapper around an On Connect callback
-	headTrackableCallback struct {
-		onConnect func()
-	}
-
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
 		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
-
-func (c *headTrackableCallback) Connect(*models.Head) error {
-	c.onConnect()
-	return nil
-}
-
-func (c *headTrackableCallback) Disconnect()                                    {}
-func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
@@ -80,6 +68,7 @@ type Application interface {
 	GetStore() *strpkg.Store
 	GetOCRKeyStore() *offchainreporting.KeyStore // TODO: this should be replaced with a generic GetKeystore()
 	GetStatsPusher() synchronization.StatsPusher
+	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
@@ -106,7 +95,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter          func(int)
 	HeadTracker     *services.HeadTracker
-	HeadBroadcaster *services.HeadBroadcaster
+	HeadBroadcaster *headtracker.HeadBroadcaster
 	BPTXM           *bulletprooftxmanager.BulletproofTxManager
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
@@ -133,7 +122,6 @@ type ChainlinkApplication struct {
 	OCRKeyStore              *offchainreporting.KeyStore
 	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
-	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
@@ -151,7 +139,6 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []utils.StartCloser
-	var headTrackables []models.HeadTrackable
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -160,6 +147,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	setupConfig(config, store)
+
+	headBroadcaster := headtracker.NewHeadBroadcaster()
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -174,8 +163,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
 		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
+		headBroadcaster.Subscribe(gasUpdater)
 		subservices = append(subservices, gasUpdater)
-		headTrackables = append(headTrackables, gasUpdater)
 	} else {
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
 	}
@@ -222,7 +211,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
-	headBroadcaster := services.NewHeadBroadcaster()
 
 	subservices = append(subservices, promReporter)
 
@@ -309,8 +297,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner, bptxm, headBroadcaster)
 
-	pendingConnectionResumer := newPendingConnectionResumer(runManager)
-
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
 		BPTXM:                    bptxm,
@@ -331,7 +317,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
-		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
@@ -341,24 +326,23 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		subservices: subservices,
 	}
 
-	headTrackables = append(
-		headTrackables,
-		logBroadcaster,
-		bptxm,
-		jobSubscriber,
-		pendingConnectionResumer,
-		balanceMonitor,
-		promReporter,
-		headBroadcaster,
-	)
+	headBroadcaster.Subscribe(logBroadcaster)
+	headBroadcaster.Subscribe(bptxm)
+	headBroadcaster.Subscribe(promReporter)
+	headBroadcaster.Subscribe(jobSubscriber)
+	headBroadcaster.Subscribe(balanceMonitor)
+
+	headBroadcaster.Subscribe(&httypes.HeadTrackableCallback{OnConnect: func() error {
+		return runManager.ResumeAllPendingConnection()
+	}})
 
 	for _, onConnectCallback := range onConnectCallbacks {
-		headTrackable := &headTrackableCallback{func() {
+		headBroadcaster.Subscribe(&httypes.HeadTrackableCallback{OnConnect: func() error {
 			onConnectCallback(app)
-		}}
-		headTrackables = append(headTrackables, headTrackable)
+			return nil
+		}})
 	}
-	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headTrackables)
+	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
 
 	// Log Broadcaster uses the last stored head as a limit of log backfill
 	// which needs to be set before it's started
@@ -587,6 +571,10 @@ func (app *ChainlinkApplication) GetExternalInitiatorManager() ExternalInitiator
 	return app.ExternalInitiatorManager
 }
 
+func (app *ChainlinkApplication) GetHeadBroadcaster() httypes.HeadBroadcasterRegistry {
+	return app.HeadBroadcaster
+}
+
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
 }
@@ -696,18 +684,3 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
 }
-
-type pendingConnectionResumer struct {
-	runManager services.RunManager
-}
-
-func newPendingConnectionResumer(runManager services.RunManager) *pendingConnectionResumer {
-	return &pendingConnectionResumer{runManager: runManager}
-}
-
-func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	return p.runManager.ResumeAllPendingConnection()
-}
-
-func (p *pendingConnectionResumer) Disconnect()                                    {}
-func (p *pendingConnectionResumer) OnNewLongestChain(context.Context, models.Head) {}
