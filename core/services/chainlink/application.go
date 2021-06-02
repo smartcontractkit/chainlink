@@ -208,7 +208,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
 
-	// Log Broadcaster uses the last stored head as a start of the initial log backfill
+	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
 	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
 	if err != nil {
 		return nil, err
