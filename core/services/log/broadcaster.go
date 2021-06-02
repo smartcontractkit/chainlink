@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,7 +43,6 @@ type (
 		Stop() error
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
 		TrackedAddressesCount() uint32
 		// DB interactions
@@ -109,7 +109,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
 	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
@@ -123,21 +123,13 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		newHeads:         utils.NewMailbox(1),
 		DependentAwaiter: utils.NewDependentAwaiter(),
 		chStop:           chStop,
+		latestHeadFromDb: highestSavedHead,
 	}
-}
-
-func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	b.latestHeadFromDb = head
 }
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
-		if b.latestHeadFromDb != nil {
-			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
-		} else {
-			logger.Info("LogBroadcaster: Latest head from DB was not set or does not exist.")
-		}
 		go b.awaitInitialSubscribers()
 		return nil
 	})
@@ -201,7 +193,6 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 }
 
 func (b *broadcaster) Connect(head *models.Head) error { return nil }
-func (b *broadcaster) Disconnect()                     {}
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
@@ -237,7 +228,30 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
+		var backfillFrom null.Int64
+		if b.latestHeadFromDb != nil {
+			// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
+			// - keeping logs in the in-memory buffers in registration.go
+			//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
+			// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
+			//   (or more heads on fast chains) may be saved but not yet processed by LB
+			//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
+			from := b.latestHeadFromDb.Number -
+				int64(b.registrations.highestNumConfirmations) -
+				int64(b.config.BlockBackfillDepth())
+
+			logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
+				"blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash,
+				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
+			)
+
+			if from < 0 {
+				from = 0
+			}
+			backfillFrom = null.Int64From(from)
+		}
+
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(backfillFrom, addresses, topics)
 		if abort {
 			return
 		}
