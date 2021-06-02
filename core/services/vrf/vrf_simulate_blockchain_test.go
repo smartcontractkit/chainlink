@@ -77,7 +77,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
 	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
-	r := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
+	r := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100))
 
 	cltest.WaitForRuns(t, j, app.Store, 1)
 	runs, err := app.Store.JobRunsFor(j.ID)
@@ -167,7 +167,7 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
 
 	// trigger job run by requesting randomness
-	log := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
+	log := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100))
 	seed := common.BigToHash(log.Seed).String()
 	cltest.WaitForRuns(t, j, app.Store, 1)
 	var jobRun models.JobRun
