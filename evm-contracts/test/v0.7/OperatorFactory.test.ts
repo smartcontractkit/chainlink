@@ -93,11 +93,15 @@ describe('OperatorFactory', () => {
     it('emits an event recording that the operator was deployed', async () => {
       assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1])
       assert.equal(receipt?.events?.[0]?.event, 'OperatorCreated')
+      assert.equal(receipt?.events?.[0]?.args?.[0], emittedOperator)
+      assert.equal(receipt?.events?.[0]?.args?.[1], roles.oracleNode.address)
     })
 
     it('emits an event recording that the forwarder was deployed', async () => {
       assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1])
       assert.equal(receipt?.events?.[1]?.event, 'AuthorizedForwarderCreated')
+      assert.equal(receipt?.events?.[1]?.args?.[0], emittedForwarder)
+      assert.equal(receipt?.events?.[1]?.args?.[1], emittedOperator)
     })
 
     it('sets the correct owner on the operator', async () => {

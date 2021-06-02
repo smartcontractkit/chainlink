@@ -18,7 +18,7 @@ contract OperatorFactory {
     address indexed owner
   );
   event AuthorizedForwarderCreated(
-    address indexed operator,
+    address indexed forwarder,
     address indexed owner
   );
 
@@ -85,7 +85,7 @@ contract OperatorFactory {
     s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
-      msg.sender
+      address(operator)
     );
 
     return (address(operator), address(forwarder));
