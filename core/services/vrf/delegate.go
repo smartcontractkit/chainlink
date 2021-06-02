@@ -2,12 +2,12 @@ package vrf
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
 	"gopkg.in/guregu/null.v4"
@@ -95,7 +95,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	// Take the larger of the global vs specific
 	if jb.VRFSpec.Confirmations > d.cfg.minIncomingConfs {
 		d.cfg.minIncomingConfs = jb.VRFSpec.Confirmations
@@ -111,7 +111,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		l:              *l,
 		logBroadcaster: d.lb,
 		db:             d.db,
-		ec:             d.ec,
+		abi:            abi,
 		coordinator:    coordinator,
 		pipelineRunner: d.pr,
 		vorm:           d.vorm,
@@ -131,21 +131,20 @@ var (
 )
 
 type listener struct {
-	cfg              Config
-	l                logger.Logger
-	ec               eth.Client
-	logBroadcaster   log.Broadcaster
-	coordinator      *solidity_vrf_coordinator_interface.VRFCoordinator
-	pipelineRunner   pipeline.Runner
-	pipelineORM      pipeline.ORM
-	vorm             ORM
-	job              job.Job
-	db               *gorm.DB
-	vrfks            *VRFKeyStore
-	gethks           GethKeyStore
-	mbLogs           *utils.Mailbox
-	minConfirmations uint32
-	chStop           chan struct{}
+	cfg            Config
+	l              logger.Logger
+	abi            abi.ABI
+	logBroadcaster log.Broadcaster
+	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
+	pipelineRunner pipeline.Runner
+	pipelineORM    pipeline.ORM
+	vorm           ORM
+	job            job.Job
+	db             *gorm.DB
+	vrfks          *VRFKeyStore
+	gethks         GethKeyStore
+	mbLogs         *utils.Mailbox
+	chStop         chan struct{}
 	utils.StartStopOnce
 }
 
@@ -161,7 +160,7 @@ func (lsn *listener) Start() error {
 					},
 				},
 			},
-			NumConfirmations: uint64(lsn.minConfirmations),
+			NumConfirmations: uint64(lsn.cfg.minIncomingConfs),
 		})
 		go gracefulpanic.WrapRecover(func() {
 			lsn.run(unsubscribeLogs)
@@ -174,7 +173,7 @@ func (lsn *listener) run(unsubscribeLogs func()) {
 	lsn.l.Infow("VRFListener: listening for run requests",
 		"maxUnconfirmed", lsn.cfg.maxUnconfirmedTxes,
 		"gasLimit", lsn.cfg.gasLimit,
-		"minConfs", lsn.minConfirmations)
+		"minConfs", lsn.cfg.minIncomingConfs)
 	for {
 		select {
 		case <-lsn.chStop:
@@ -193,26 +192,27 @@ func (lsn *listener) run(unsubscribeLogs func()) {
 				}
 				alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
 				if err != nil {
-					lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err)
+					lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 					continue
 				} else if alreadyConsumed {
 					continue
 				}
 				req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 				if err != nil {
-					lsn.l.Errorw("VRFListener: failed to parse log", "err", err)
-					// TODO: should consume?
+					lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
 					continue
 				}
+
 				// Check if the vrf req has already been fulfilled
 				callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
 				if err != nil {
-					lsn.l.Errorw("VRFListener: unable to check if already fulfilled")
+					lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 				} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 					// If seedAndBlockNumber is zero then the response has been fulfilled
 					// and we should skip it
-					// TODO: should consume?
-					lsn.l.Infow("VRFListener: request already fulfilled")
+					lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
+					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
 					continue
 				}
 
@@ -221,26 +221,13 @@ func (lsn *listener) run(unsubscribeLogs func()) {
 				f := time.Now()
 				err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 					if err == nil {
-						// No errors processing the l, submit a transaction
+						// No errors processing the log, submit a transaction
 						var etx models.EthTx
 						var from common.Address
-						from, err = lsn.gethks.GetRoundRobinAddress() // TODO TX
+						from, err = lsn.gethks.GetRoundRobinAddress()
 						if err != nil {
 							return err
 						}
-						to := lsn.coordinator.Address()
-						msg := ethereum.CallMsg{
-							From: utils.ZeroAddress,
-							To:   &to,
-							Gas:  0,
-							Data: vrfCoordinatorPayload,
-						}
-						_, err := lsn.ec.CallContract(context.Background(), msg, nil)
-						if err != nil {
-							//s, err := eth.ExtractRevertReasonFromRPCError(err)
-							lsn.l.Infow("Will revert", "err", err)
-						}
-						lsn.l.Infow("Sending from", "from", from)
 						etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
 							from,
 							lsn.coordinator.Address(),
@@ -323,12 +310,7 @@ func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoord
 		return nil, req, err
 	}
 
-	fn, err := hex.DecodeString("5e1c1059")
-	if err != nil {
-		lsn.l.Errorw("VRFListener: error building fn args", "err", err)
-		return nil, req, err
-	}
-	return append(fn, vrfCoordinatorArgs...), req, nil
+	return append(lsn.abi.Methods["fulfillRandomnessRequest"].ID, vrfCoordinatorArgs...), req, nil
 }
 
 type VRFInputs struct {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"sync"
 	"time"
@@ -432,13 +433,14 @@ func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, pa
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}
-	//var metaBytes []byte
-	//if meta != nil {
-	//	metaBytes, err = json.Marshal(meta)
-	//	if err != nil {
-	//		logger.Errorw("failed to marshal ethtx metadata", "err", err)
-	//	}
-	//}
+	var metaBytes []byte
+	if meta != nil {
+		metaBytes, err = json.Marshal(meta)
+		if err != nil {
+			logger.Errorw("failed to marshal ethtx metadata", "err", err)
+		}
+		//metaJson = gormpostgrestypes.Jsonb{RawMessage: metaBytes}
+	}
 
 	value := 0
 	// NOTE: It is important to remember that eth_tx_attempts with state
@@ -447,9 +449,9 @@ func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, pa
 	// This is because they are not ever deleted if attached to an eth_tx that
 	// is moved into confirmed/fatal_error state
 	res := db.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta)
 (
-SELECT ?,?,?,?,?,'unstarted',NOW()
+SELECT ?,?,?,?,?,'unstarted',NOW(),?
 WHERE NOT EXISTS (
     SELECT 1 FROM eth_tx_attempts
 	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
@@ -459,7 +461,7 @@ WHERE NOT EXISTS (
 )
 )
 RETURNING "eth_txes".*
-`, fromAddress, toAddress, payload, value, gasLimit, fromAddress).Scan(&etx)
+`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, fromAddress).Scan(&etx)
 	err = res.Error
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter failed to insert eth_tx")

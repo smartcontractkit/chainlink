@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -72,6 +75,21 @@ func (v vrfUniverse) Assert(t *testing.T) {
 	v.ec.AssertExpectations(t)
 }
 
+func generateCallbackReturnValues(t *testing.T) []byte {
+	callback, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "callback_contract", Type: "address"},
+		{Name: "randomness_fee", Type: "int256"},
+		{Name: "seed_and_block_num", Type: "bytes32"}})
+	require.NoError(t, err)
+	var args abi.Arguments = []abi.Argument{{Type: callback}}
+	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
+		RandomnessFee:   big.NewInt(10),
+		SeedAndBlockNum: cltest.NewHash(),
+	})
+	require.NoError(t, err)
+	return b
+}
+
 func TestDelegate(t *testing.T) {
 	cfg, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "vrf_delegate", true)
 	defer cleanupDB()
@@ -87,7 +105,7 @@ func TestDelegate(t *testing.T) {
 		vuni.jpv2.Prm,
 		vuni.lb,
 		vuni.ec,
-		vrf.NewConfig(0,  1000, 10))
+		vrf.NewConfig(0, 1000, 10))
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
 	t.Log(vs)
 	jb, err := vrf.ValidateVRFSpec(vs.Toml())
@@ -98,8 +116,8 @@ func TestDelegate(t *testing.T) {
 	require.Len(t, vl, 1)
 
 	listener := vl[0]
-	done := make(chan struct{})
-	unsubscribe := func() { done <- struct{}{} }
+	unsubscribeAwaiter := cltest.NewAwaiter()
+	unsubscribe := func() { unsubscribeAwaiter.ItHappened() }
 
 	var logListener log.Listener
 	vuni.lb.On("Register", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -109,9 +127,12 @@ func TestDelegate(t *testing.T) {
 
 	t.Run("valid log", func(t *testing.T) {
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		a := cltest.NewAwaiter()
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			done <- struct{}{}
-		}).Return(nil)
+			a.ItHappened()
+		}).Return(nil).Once()
+		// Expect a call to check if the req is already fulfilled.
+		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
 
 		// Send a valid log
 		pk, err := secp256k1.NewPublicKeyFromHex(vs.PublicKey)
@@ -135,16 +156,12 @@ func TestDelegate(t *testing.T) {
 			Index:       0,
 			Removed:     false,
 		}))
-		select {
-		case <-time.After(1 * time.Second):
-			t.Errorf("failed to consume log")
-		case <-done:
-		}
+		a.AwaitOrFail(t)
 
 		// Ensure we created a successful run.
 		runs, err := vuni.jpv2.Prm.GetAllRuns()
 		require.NoError(t, err)
-		require.Len(t, runs, 1)
+		require.Equal(t, 1, len(runs))
 		assert.False(t, runs[0].Errors.HasError())
 		m, ok := runs[0].Meta.Val.(map[string]interface{})
 		require.True(t, ok)
@@ -157,7 +174,7 @@ func TestDelegate(t *testing.T) {
 		var ethTxes []models.EthTx
 		err = orm.DB.Find(&ethTxes).Error
 		require.NoError(t, err)
-		require.Len(t, ethTxes, 1)
+		require.Equal(t, 1, len(ethTxes))
 		assert.Equal(t, vs.CoordinatorAddress, ethTxes[0].ToAddress.String())
 		var em models.EthTxMetaV2
 		err = json.Unmarshal(ethTxes[0].Meta.RawMessage, &em)
@@ -168,9 +185,13 @@ func TestDelegate(t *testing.T) {
 
 	t.Run("invalid log", func(t *testing.T) {
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		a := cltest.NewAwaiter()
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			done <- struct{}{}
-		}).Return(nil)
+			a.ItHappened()
+		}).Return(nil).Once()
+		// Expect a call to check if the req is already fulfilled.
+		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
+
 		// Send a invalid log (keyhash doesnt match)
 		logListener.HandleLog(log.NewLogBroadcast(types.Log{
 			// Data has all the NON-indexed parameters
@@ -190,11 +211,7 @@ func TestDelegate(t *testing.T) {
 			Index:       0,
 			Removed:     false,
 		}))
-		select {
-		case <-time.After(1 * time.Second):
-			t.Errorf("failed to consume log")
-		case <-done:
-		}
+		a.AwaitOrFail(t)
 
 		// Ensure we have not created a run.
 		runs, err := vuni.jpv2.Prm.GetAllRuns()
@@ -209,11 +226,6 @@ func TestDelegate(t *testing.T) {
 	})
 
 	require.NoError(t, listener.Close())
-	select {
-	case <-time.After(1 * time.Second):
-		t.Errorf("failed to unsubscribe")
-	case <-done:
-	}
-
+	unsubscribeAwaiter.AwaitOrFail(t, 1*time.Second)
 	vuni.Assert(t)
 }

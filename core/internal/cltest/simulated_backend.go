@@ -318,7 +318,6 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
-
 		var lastHead *models.Head
 
 		for {
@@ -330,7 +329,13 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				default:
 					head := &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
 					lastHead = head
-					channel <- head
+					select {
+					// In head tracker shutdown the heads reader is closed, so the channel <- head write
+					// may hang.
+					case channel <- head:
+					case <-subscription.close:
+						return
+					}
 				}
 			case <-subscription.close:
 				return
