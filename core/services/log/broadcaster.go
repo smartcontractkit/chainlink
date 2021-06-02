@@ -202,7 +202,6 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 }
 
 func (b *broadcaster) Connect(head *models.Head) error { return nil }
-func (b *broadcaster) Disconnect()                     {}
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
