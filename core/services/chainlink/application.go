@@ -39,7 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -64,7 +64,7 @@ type Application interface {
 	GetLogger() *logger.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
-	GetKeyStore() *keystore.KeyStore
+	GetKeyStore() *keystore.Master
 	GetStatsPusher() synchronization.StatsPusher
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
@@ -117,7 +117,7 @@ type ChainlinkApplication struct {
 	webhookJobRunner         webhook.JobRunner
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
-	KeyStore                 *keystore.KeyStore
+	KeyStore                 *keystore.Master
 	CSAKeyService            csa.Service
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -137,11 +137,11 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) (Application, error) {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
+	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +149,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	setupConfig(config, store)
 
 	headBroadcaster := headtracker.NewHeadBroadcaster()
-
 	healthChecker := health.NewChecker()
+
+	scryptParams := utils.GetScryptParams(config)
+	keyStore := keystore.New(store.DB, scryptParams)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -200,7 +202,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	var runManager services.RunManager
 	var jobSubscriber services.JobSubscriber
 	if config.EnableLegacyJobPipeline() {
-		runExecutor = services.NewRunExecutor(store, statsPusher)
+		runExecutor = services.NewRunExecutor(store, keyStore, statsPusher)
 		runQueue = services.NewRunQueue(runExecutor)
 		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 		jobSubscriber = services.NewJobSubscriber(store, runManager)
@@ -219,12 +221,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
-	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
+	fluxMonitor := fluxmonitor.New(store, keyStore.Eth, runManager, logBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
 	feedsService := feeds.NewService(feedsORM)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth, advisoryLocker, eventBroadcaster)
 
 	promReporter := services.NewPromReporter(store.MustSQLDB())
 
@@ -237,7 +239,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(store)
+		balanceMonitor = services.NewBalanceMonitor(store, keyStore.Eth)
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
@@ -267,7 +269,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			job.VRF: vrf.NewDelegate(
 				store.DB, // For transactions.
 				vorm,
-				store.KeyStore,
+				keyStore.Eth,
 				store.VRFKeyStore,
 				pipelineRunner,
 				pipelineORM,
@@ -280,6 +282,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	if config.Dev() || config.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			store,
+			keyStore.Eth,
 			jobORM,
 			pipelineORM,
 			pipelineRunner,
@@ -295,9 +298,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			},
 		)
 	}
-
-	scryptParams := utils.GetScryptParams(config)
-	keyStore := keystore.NewKeyStore(store.DB, scryptParams)
 
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
@@ -582,11 +582,7 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
-// func (app *ChainlinkApplication) GetOCRKeyStore() *offchainreporting.KeyStore {
-// 	return app.GetKeyStore().OCR
-// }
-
-func (app *ChainlinkApplication) GetKeyStore() *keystore.KeyStore {
+func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {
 	return app.KeyStore
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"gorm.io/gorm"
@@ -78,7 +79,7 @@ func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkee
 
 func (korm ORM) EligibleUpkeepsForRegistry(
 	ctx context.Context,
-	registryAddress models.EIP55Address,
+	registryAddress ethkey.EIP55Address,
 	blockNumber int64,
 	gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, _ error) {

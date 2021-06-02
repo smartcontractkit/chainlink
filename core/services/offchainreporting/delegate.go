@@ -27,7 +27,7 @@ type Delegate struct {
 	db                 *gorm.DB
 	jobORM             job.ORM
 	config             *orm.Config
-	keyStore           *keystore.OCRKeyStore
+	keyStore           *keystore.OCR
 	pipelineRunner     pipeline.Runner
 	ethClient          eth.Client
 	logBroadcaster     log.Broadcaster
@@ -41,7 +41,7 @@ func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
 	config *orm.Config,
-	keyStore *keystore.OCRKeyStore,
+	keyStore *keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,

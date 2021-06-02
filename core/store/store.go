@@ -35,44 +35,36 @@ const (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config         *orm.Config
-	Clock          utils.AfterNower
-	KeyStore       KeyStoreInterface
+	Config *orm.Config
+	Clock  utils.AfterNower
+	// KeyStore       KeyStoreInterface
 	VRFKeyStore    *vrf.VRFKeyStore
 	EthClient      eth.Client
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
-type KeyStoreGenerator func(*gorm.DB, *orm.Config) KeyStoreInterface
-
-func StandardKeyStoreGen(db *gorm.DB, config *orm.Config) KeyStoreInterface {
-	scryptParams := utils.GetScryptParams(config)
-	return NewKeyStore(db, scryptParams)
-}
-
-func InsecureKeyStoreGen(db *gorm.DB, _ *orm.Config) KeyStoreInterface {
-	return NewInsecureKeyStore(db)
-}
-
 // NewStore will create a new store
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+// func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	// return newStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+	return newStore(config, ethClient, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
 func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+	// return newStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+	return newStore(config, ethClient, advisoryLocker, shutdownSignal)
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
 // See: https://www.pivotaltracker.com/story/show/175493792
-func newStoreWithKeyStore(
+func newStore(
 	config *orm.Config,
 	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
-	keyStoreGenerator KeyStoreGenerator,
+	// keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -84,17 +76,17 @@ func newStoreWithKeyStore(
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
 
-	keyStore := keyStoreGenerator(orm.DB, config)
+	// keyStore := keyStoreGenerator(orm.DB, config)
 	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
 		Clock:          utils.Clock{},
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
-		KeyStore:       keyStore,
-		ORM:            orm,
-		EthClient:      ethClient,
-		closeOnce:      &sync.Once{},
+		// KeyStore:       keyStore,
+		ORM:       orm,
+		EthClient: ethClient,
+		closeOnce: &sync.Once{},
 	}
 	store.VRFKeyStore = vrf.NewVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil

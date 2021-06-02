@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -20,7 +21,7 @@ func (adapter *Sleep) TaskType() models.TaskType {
 }
 
 // Perform returns the input RunResult after waiting for the specified Until parameter.
-func (adapter *Sleep) Perform(input models.RunInput, str *store.Store) models.RunOutput {
+func (adapter *Sleep) Perform(input models.RunInput, str *store.Store, _ *keystore.Master) models.RunOutput {
 	duration := adapter.Duration()
 	if duration > 0 {
 		logger.Debugw("Task sleeping...", "duration", duration)

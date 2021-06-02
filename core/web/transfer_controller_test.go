@@ -23,8 +23,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	store := app.Store
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth, 0)
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),

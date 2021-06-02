@@ -1,16 +1,15 @@
-package models
+package ethkey
 
 import (
 	"errors"
 	"io/ioutil"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock

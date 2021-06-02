@@ -28,6 +28,7 @@ func TestRandom_Perform(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 	publicKey := cltest.StoredVRFKey(t, store)
 	adapter := adapters.Random{PublicKey: publicKey.String()}
 	hash := utils.MustHash("a random string")
@@ -42,7 +43,7 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, err) // Can't fail
 	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
 	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
-	result := adapter.Perform(*input, store)
+	result := adapter.Perform(*input, store, keyStore)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
 	var wireProof []byte
@@ -64,7 +65,7 @@ func TestRandom_Perform(t *testing.T) {
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
 	input = models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
-	result = adapter.Perform(*input, store)
+	result = adapter.Perform(*input, store, keyStore)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }
 
@@ -72,6 +73,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	ethMock := new(mocks.Client)
 	store.EthClient = ethMock
@@ -122,7 +124,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 				registryMock.MockResponse("callbacks", response).Once()
 			}
 
-			result := adapter.Perform(*input, store)
+			result := adapter.Perform(*input, store, keyStore)
 			require.Equal(tt, test.shouldFulfill, result.Error() == nil)
 			ethMock.AssertExpectations(t)
 		})

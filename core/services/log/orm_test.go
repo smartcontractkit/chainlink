@@ -15,10 +15,11 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	orm := log.NewORM(store.DB)
 
-	_, addr := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	specV1 := cltest.MustInsertJobSpec(t, store)
 	specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
 
@@ -78,11 +79,12 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	orm := log.NewORM(store.DB)
 
 	t.Run("returns the correct value", func(t *testing.T) {
-		_, addr := cltest.MustAddRandomKeyToKeystore(t, store)
+		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 		specV1 := cltest.MustInsertJobSpec(t, store)
 		specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
 
@@ -115,7 +117,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 	})
 
 	t.Run("does not error if the record doesn't exist", func(t *testing.T) {
-		_, addr := cltest.MustAddRandomKeyToKeystore(t, store)
+		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 		specV1 := cltest.MustInsertJobSpec(t, store)
 		specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
 

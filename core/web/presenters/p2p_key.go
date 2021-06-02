@@ -3,7 +3,7 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 )
 
 // P2PKeyResource represents a P2P key JSONAPI resource.

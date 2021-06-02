@@ -9,7 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -109,7 +109,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCRKeyStore) {
+func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCR) {
 	t.Helper()
 
 	app, cleanup := cltest.NewApplication(t)

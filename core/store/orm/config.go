@@ -18,7 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -1159,13 +1160,13 @@ func (c Config) OCRMonitoringEndpoint(override string) string {
 	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
 }
 
-func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP55Address, error) {
+func (c Config) OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error) {
 	if override != nil {
 		return *override, nil
 	}
 	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
 	if taStr != "" {
-		ta, err := models.NewEIP55Address(taStr)
+		ta, err := ethkey.NewEIP55Address(taStr)
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
 		}

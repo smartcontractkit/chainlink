@@ -16,7 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -63,7 +64,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			ta, client := setupJobsControllerTests(t)
 
-			var address models.EIP55Address
+			var address ethkey.EIP55Address
 			if tc.taExists {
 				key := cltest.MustInsertRandomKey(t, ta.Store.DB)
 				address = key.Address
@@ -123,7 +124,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
 			},
 		},
 		{
@@ -147,8 +148,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
 
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, models.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, models.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
+				require.Equal(t, ethkey.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 			},
 		},
 		{
@@ -178,7 +179,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
 				require.NotZero(t, jb.ExternalJobID[:])
 			},
 		},
@@ -194,7 +195,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-				assert.Equal(t, models.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
+				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
 				assert.Equal(t, int32(2), jb.FluxMonitorSpec.Precision)

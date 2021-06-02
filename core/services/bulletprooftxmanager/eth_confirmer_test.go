@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -77,15 +79,16 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	ethClient := store.EthClient
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
 
@@ -128,13 +131,14 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethClient := new(mocks.Client)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	nonce := int64(0)
 	ctx := context.Background()
@@ -496,8 +500,9 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	ethClient := new(mocks.Client)
 
@@ -505,7 +510,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	defer cleanup()
 	config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", 2)
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	ctx := context.Background()
 
@@ -556,8 +561,9 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	ethClient := new(mocks.Client)
 
@@ -565,7 +571,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 	defer cleanup()
 	config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", 6)
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	ctx := context.Background()
 
@@ -614,15 +620,16 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	ethClient := new(mocks.Client)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	ctx := context.Background()
 
@@ -646,8 +653,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	ethClient := new(mocks.Client)
 
@@ -655,7 +663,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	defer cleanup()
 
 	config.Set("ETH_FINALITY_DEPTH", 50)
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	ctx := context.Background()
 
@@ -905,9 +913,10 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	// Insert order is mixed up to test sorting
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 1, fromAddress)
@@ -956,8 +965,9 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	currentHead := int64(30)
 	gasBumpThreshold := int64(10)
@@ -969,7 +979,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	mustInsertConfirmedEthTx(t, store, nonce, fromAddress)
 	nonce++
 
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
 		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(store.DB, fromAddress, currentHead, gasBumpThreshold, 10, 0)
@@ -1232,9 +1242,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	otherKey := cltest.MustInsertRandomKey(t, store.DB)
 	key := cltest.MustInsertRandomKey(t, store.DB)
 	fromAddress := key.Address.Address()
-	keys := []models.Key{key, otherKey}
+	keys := []ethkey.Key{key, otherKey}
 
-	kst := new(mocks.KeyStoreInterface)
+	kst := new(ksmocks.EthKeyStoreInterface)
 	// Use a mock keystore for this test
 	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, kst, &postgres.NullAdvisoryLocker{}, keys)
 	currentHead := int64(30)
@@ -1805,11 +1815,12 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethClient := new(mocks.Client)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	store.KeyStore.Unlock(cltest.Password)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	ethKeyStore.Unlock(cltest.Password)
 
-	keys, err := store.KeyStore.SendingKeys()
+	keys, err := ethKeyStore.SendingKeys()
 	require.NoError(t, err)
 
 	config, cleanup := cltest.NewConfig(t)
@@ -1829,7 +1840,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 
 	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, keys)
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, keys)
 
 		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -1857,7 +1868,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, keys)
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, keys)
 
 		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -1884,7 +1895,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, keys)
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, keys)
 
 		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
@@ -1915,7 +1926,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		etxCount := 4
 
 		config.Set("ETH_GAS_BUMP_TX_DEPTH", depth)
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, keys)
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, keys)
 
 		for i := 0; i < etxCount; i++ {
 			n := nonce
@@ -1942,15 +1953,16 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	ethClient := new(mocks.Client)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 	head := models.Head{
 		Hash:   cltest.NewHash(),
@@ -2104,8 +2116,9 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	store.KeyStore.Unlock(cltest.Password)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	ethKeyStore.Unlock(cltest.Password)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
@@ -2120,7 +2133,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
 		ethClient := new(mocks.Client)
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) &&
@@ -2137,7 +2150,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
 		ethClient := new(mocks.Client)
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) &&
@@ -2154,7 +2167,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
 		ethClient := new(mocks.Client)
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == overrideGasLimit
@@ -2170,7 +2183,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
 		ethClient := new(mocks.Client)
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(1)
@@ -2197,7 +2210,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
 		ethClient := new(mocks.Client)
-		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, []models.Key{key})
+		ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, config, ethKeyStore, &postgres.NullAdvisoryLocker{}, []ethkey.Key{key})
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EthGasLimitDefault()

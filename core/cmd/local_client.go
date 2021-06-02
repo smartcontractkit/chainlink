@@ -27,7 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/health"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -73,16 +76,18 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
 	store := app.GetStore()
+	keyStore := app.GetKeyStore()
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
 		logger.Warn(e)
 	}
-
-	keyStorePwd, err := cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	// TODO - RYAN - authenticating the keystore should be done in one step here! with ONE password file
+	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
+	keyStorePwd, err := cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(app, keyStorePwd); authErr != nil {
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR, store.Config, keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
 	}
 
@@ -120,7 +125,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	if !store.Config.EthereumDisabled() {
-		key, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
+		key, currentBalance, err := setupFundingKey(context.TODO(), store.EthClient, keyStore.Eth, keyStorePwd)
 		if err != nil {
 			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
 		}
@@ -224,14 +229,18 @@ func logConfigVariables(store *strpkg.Store) error {
 	return nil
 }
 
-func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (key models.Key, balance *big.Int, err error) {
-	key, existed, err := str.KeyStore.EnsureFundingKey()
+func setupFundingKey(ctx context.Context,
+	etClient eth.Client,
+	ethKeyStore *keystore.Eth,
+	pwd string,
+) (key ethkey.Key, balance *big.Int, err error) {
+	key, existed, err := ethKeyStore.EnsureFundingKey()
 	if err != nil {
 		return key, nil, err
 	}
 	if existed {
 		// TODO How to make sure the EthClient is connected?
-		balance, ethErr := str.EthClient.BalanceAt(ctx, key.Address.Address(), nil)
+		balance, ethErr := etClient.BalanceAt(ctx, key.Address.Address(), nil)
 		return key, balance, ethErr
 	}
 	logger.Infow("New funding address created", "address", key.Address.Hex(), "balance", 0)
@@ -265,6 +274,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}()
 	store := app.GetStore()
+	keyStore := app.GetKeyStore()
 
 	err = store.EthClient.Dial(context.TODO())
 	if err != nil {
@@ -275,7 +285,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	_, err = cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
@@ -287,11 +297,11 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	allKeys, err := store.KeyStore.AllKeys()
+	allKeys, err := keyStore.Eth.AllKeys()
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, store.KeyStore, store.AdvisoryLocker, allKeys)
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth, store.AdvisoryLocker, allKeys)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -616,6 +626,6 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 
 	srcKeyPath := c.Args().First() // e.g. ./keys/mykey
 
-	_, err = app.GetStore().KeyStore.ImportKeyFileToDB(srcKeyPath)
+	_, err = app.GetKeyStore().Eth.ImportKeyFileToDB(srcKeyPath)
 	return cli.errorOut(err)
 }

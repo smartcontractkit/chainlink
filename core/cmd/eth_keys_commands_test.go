@@ -17,8 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -137,7 +138,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	store := app.GetStore()
+	ethKeyStore := app.GetKeyStore().Eth
 	client, _ := app.NewClientAndRenderer()
 
 	ethClient.On("Dial", mock.Anything)
@@ -145,7 +146,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	// Create the key
-	key, err := store.KeyStore.CreateNewKey()
+	key, err := ethKeyStore.CreateNewKey()
 	require.NoError(t, err)
 
 	// Delete the key
@@ -156,7 +157,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
 
-	_, err = store.KeyStore.KeyByAddress(key.Address.Address())
+	_, err = ethKeyStore.KeyByAddress(key.Address.Address())
 	assert.Error(t, err)
 }
 
@@ -181,7 +182,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	err := client.RemoteLogin(c)
 	assert.NoError(t, err)
 
-	err = app.Store.KeyStore.Unlock(cltest.Password)
+	err = app.GetKeyStore().Eth.Unlock(cltest.Password)
 	assert.NoError(t, err)
 
 	err = client.ListETHKeys(c)
@@ -237,7 +238,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	assert.NoError(t, err)
 
 	scryptParams := utils.GetScryptParams(app.Store.Config)
-	keystore := store.NewKeyStore(app.Store.DB, scryptParams)
+	keystore := keystore.New(app.Store.DB, scryptParams).Eth
 	err = keystore.Unlock(string(oldpassword))
 	assert.NoError(t, err)
 	key, err := keystore.ImportKey(keyJSON, strings.TrimSpace(string(newpassword)))
@@ -256,8 +257,8 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
 
-func requireEthKeysCount(t *testing.T, store *store.Store, length int) []models.Key {
-	var keys []models.Key
+func requireEthKeysCount(t *testing.T, store *store.Store, length int) []ethkey.Key {
+	var keys []ethkey.Key
 	err := store.DB.Find(&keys).Error
 	require.NoError(t, err)
 	require.Len(t, keys, length)

@@ -50,7 +50,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		backend := new(mocks.PrometheusBackend)
 		d, _ := store.DB.DB()

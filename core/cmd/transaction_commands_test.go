@@ -20,7 +20,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	store := app.GetStore()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth)
 
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
@@ -54,7 +54,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	store := app.GetStore()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth)
 
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
@@ -75,7 +75,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	store := app.GetStore()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth)
 
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 
@@ -118,7 +118,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 
 	set := flag.NewFlagSet("sendether", 0)
 	amount := "100.5"
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, s, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth, 0)
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
 	set.Parse([]string{amount, fromAddress.Hex(), to})
 

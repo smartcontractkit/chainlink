@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -161,9 +163,10 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	db := store.DB
 	var maxUnconfirmedTransactions uint64 = 2
@@ -248,9 +251,10 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
@@ -356,7 +360,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	db := store.DB
 	ethClient := new(mocks.Client)
 	config := new(bptxmmocks.Config)
-	kst := new(mocks.KeyStoreInterface)
+	kst := new(ksmocks.EthKeyStoreInterface)
 	advisoryLocker := &postgres.NullAdvisoryLocker{}
 	eventBroadcaster := new(pgmocks.EventBroadcaster)
 
@@ -365,7 +369,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EthTxReaperInterval").Return(1 * time.Hour)
 	config.On("EthMaxInFlightTransactions").Return(uint32(42))
 	config.On("EthFinalityDepth").Return(uint(42))
-	kst.On("AllKeys").Return([]models.Key{}, nil).Once()
+	kst.On("AllKeys").Return([]ethkey.Key{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -392,7 +396,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	kst.On("AllKeys").Return([]models.Key{key}, nil).Once()
+	kst.On("AllKeys").Return([]ethkey.Key{key}, nil).Once()
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.timerCtx"), key.Address.Address()).Return(uint64(0), nil)
 	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)

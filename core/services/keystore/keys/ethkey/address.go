@@ -1,4 +1,4 @@
-package models
+package ethkey
 
 import (
 	"database/sql/driver"

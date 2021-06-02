@@ -274,15 +274,15 @@ func (_m *Application) GetHealthChecker() health.Checker {
 }
 
 // GetKeyStore provides a mock function with given fields:
-func (_m *Application) GetKeyStore() *keystore.KeyStore {
+func (_m *Application) GetKeyStore() *keystore.Master {
 	ret := _m.Called()
 
-	var r0 *keystore.KeyStore
-	if rf, ok := ret.Get(0).(func() *keystore.KeyStore); ok {
+	var r0 *keystore.Master
+	if rf, ok := ret.Get(0).(func() *keystore.Master); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*keystore.KeyStore)
+			r0 = ret.Get(0).(*keystore.Master)
 		}
 	}
 

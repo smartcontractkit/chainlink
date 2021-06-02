@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,6 @@ import (
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
@@ -40,7 +40,7 @@ type vrfUniverse struct {
 	submitter common.Address
 }
 
-func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s store.KeyStoreInterface) vrfUniverse {
+func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s keystore.EthInterface) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
@@ -95,11 +95,12 @@ func TestDelegate(t *testing.T) {
 	t.Cleanup(cfgcleanup)
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	t.Cleanup(cleanup)
-	vuni := setup(t, store.DB, cfg, store.KeyStore)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	vuni := setup(t, store.DB, cfg, ethKeyStore)
 
 	vd := vrf.NewDelegate(store.DB,
 		vuni.vorm,
-		store.KeyStore,
+		ethKeyStore,
 		vuni.ks,
 		vuni.jpv2.Pr,
 		vuni.jpv2.Prm,

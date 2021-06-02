@@ -53,6 +53,7 @@ var (
 func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -68,7 +69,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
 		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
 		require.NoError(t, lb.Start())
-		fm := fluxmonitor.New(store, runManager, lb)
+		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
 
@@ -102,7 +103,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
 		require.NoError(t, lb.Start())
-		fm := fluxmonitor.New(store, runManager, lb)
+		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
 		err := fm.Start()
@@ -174,9 +175,10 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	}
 
 	store, cleanup := cltest.NewStore(t)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 	defer cleanup()
 
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	const reportableRoundID = 2
 	thresholds := struct{ abs, rel float64 }{0.1, 200}
@@ -259,6 +261,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				nil,
 				logBroadcaster,
@@ -290,7 +293,8 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	rm := new(mocks.RunManager)
@@ -309,6 +313,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, mock.Anything).Return(roundState, errors.New("err")).Once()
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
+		ethKeyStore,
 		fluxAggregator,
 		nil,
 		logBroadcaster,
@@ -339,8 +344,8 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	const (
@@ -418,6 +423,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
+		ethKeyStore,
 		fluxAggregator,
 		nil,
 		logBroadcaster,
@@ -473,8 +479,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-
-			_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+			_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 			oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 			var (
@@ -516,6 +522,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				nil,
 				logBroadcaster,
@@ -574,8 +581,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fetcher := new(mocks.Fetcher)
@@ -611,6 +618,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
+		ethKeyStore,
 		fluxAggregator,
 		nil,
 		logBroadcaster,
@@ -642,8 +650,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fetcher := new(mocks.Fetcher)
@@ -695,6 +703,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				nil,
 				logBroadcaster,
@@ -725,8 +734,8 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fetcher := new(mocks.Fetcher)
@@ -784,6 +793,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				nil,
 				logBroadcaster,
@@ -813,8 +823,8 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fetcher := new(mocks.Fetcher)
@@ -871,6 +881,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
+		ethKeyStore,
 		fluxAggregator,
 		nil,
 		logBroadcaster,
@@ -986,8 +997,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-
-			_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+			_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 			oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 			previousSubmissionReorged := test.duplicateLog &&
@@ -1058,6 +1069,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				nil,
 				logBroadcaster,
@@ -1224,6 +1236,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -1274,6 +1287,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				nil,
 				logBroadcaster,
@@ -1294,7 +1308,8 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	checker := cltest.NewPollingDeviationChecker(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	checker := cltest.NewPollingDeviationChecker(t, store, ethKeyStore)
 
 	payment := 100
 	rounds := 3
@@ -1438,9 +1453,10 @@ func TestFluxMonitor_MakeIdleTimer_RoundStartedAtIsInFuture(t *testing.T) {
 func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	var (
-		p                = cltest.NewPollingDeviationChecker(t, store)
+		p                = cltest.NewPollingDeviationChecker(t, store, ethKeyStore)
 		logBroadcast     = new(logmocks.Broadcast)
 		logNewRound      *flux_aggregator_wrapper.FluxAggregatorNewRound
 		logAnswerUpdated *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated
@@ -1466,6 +1482,8 @@ func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 func TestFluxMonitor_IdleTimer(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+
 	fluxAggregator := new(mocks.FluxAggregator)
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
@@ -1500,7 +1518,7 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 	}).Return(
 		flux_aggregator_wrapper.OracleRoundState{EligibleToSubmit: false, RoundId: 10, StartedAt: startedAtTs.Uint64()}, nil)
 
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, ethKeyStore, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	checker.Start()
 	defer checker.Stop()
@@ -1514,8 +1532,9 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	p := cltest.NewPollingDeviationChecker(t, store)
+	p := cltest.NewPollingDeviationChecker(t, store, ethKeyStore)
 	p.ExportedFluxAggregator().(*mocks.FluxAggregator).
 		On("OracleRoundState", nilOpts, mock.Anything, mock.Anything).
 		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 123}, nil)
@@ -1551,8 +1570,9 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-			p := cltest.NewPollingDeviationChecker(t, store)
+			p := cltest.NewPollingDeviationChecker(t, store, ethKeyStore)
 
 			logBroadcast := new(logmocks.Broadcast)
 			p.ExportedLogBroadcaster().On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(test.consumed, test.err).Once()
@@ -1569,8 +1589,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-
-		_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -1598,6 +1618,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 
 		checker, err := fluxmonitor.NewPollingDeviationChecker(
 			store,
+			ethKeyStore,
 			fluxAggregator,
 			nil,
 			logBroadcaster,
@@ -1668,8 +1689,9 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-		_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+		_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -1695,6 +1717,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 
 		checker, err := fluxmonitor.NewPollingDeviationChecker(
 			store,
+			ethKeyStore,
 			fluxAggregator,
 			nil,
 			logBroadcaster,
@@ -1767,6 +1790,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 			defer configCleanup()
 			store, storeCleanup := cltest.NewStoreWithConfig(t, config)
 			defer storeCleanup()
+			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 			var (
 				fluxAggregator = new(mocks.FluxAggregator)
@@ -1788,6 +1812,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				ethKeyStore,
 				fluxAggregator,
 				flagsContract,
 				logBroadcaster,

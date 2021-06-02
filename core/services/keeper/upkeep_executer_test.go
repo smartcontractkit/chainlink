@@ -36,8 +36,9 @@ func setup(t *testing.T) (
 	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)
 	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 	ethMock := new(mocks.Client)
-	registry, job := cltest.MustInsertKeeperRegistry(t, store)
+	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB)

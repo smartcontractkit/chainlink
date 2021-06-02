@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -165,19 +166,19 @@ func (a noopStopApplication) Stop() error {
 
 // CallbackAuthenticator contains a call back authenticator method
 type CallbackAuthenticator struct {
-	Callback func(*store.Store, string) (string, error)
+	Callback func(*keystore.Eth, string) (string, error)
 }
 
 // Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (string, error) {
-	return a.Callback(store, pwd)
+func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd string) (string, error) {
+	return a.Callback(ethKeyStore, pwd)
 }
 
 func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(chainlink.Application, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error {
 	return nil
 }
 

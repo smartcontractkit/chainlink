@@ -3,7 +3,7 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
 // OCRKeysBundleResource represents a bundle of OCRs keys as JSONAPI resource
