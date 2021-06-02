@@ -327,6 +327,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	headBroadcaster.Subscribe(logBroadcaster)
+	headBroadcaster.Subscribe(bptxm)
 	headBroadcaster.Subscribe(promReporter)
 	headBroadcaster.Subscribe(jobSubscriber)
 	headBroadcaster.Subscribe(balanceMonitor)
