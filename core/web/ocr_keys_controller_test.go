@@ -98,7 +98,7 @@ func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCRKeyStore) {
+func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCR) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)

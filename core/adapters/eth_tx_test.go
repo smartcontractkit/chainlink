@@ -20,7 +20,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth, 0)
 
 	toAddress := cltest.NewAddress()
 	gasLimit := uint64(42)
@@ -39,7 +40,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 		d, err := input.Data().Add(models.ResultCollectionKey, []interface{}{12, false, "0x1234"})
 		require.NoError(t, err)
-		runOutput := adapter.Perform(input.CloneWithData(d), store)
+		runOutput := adapter.Perform(input.CloneWithData(d), store, keyStore)
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
 		etrt, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
@@ -73,7 +74,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
 
@@ -99,7 +100,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 		require.EqualError(t, runOutput.Error(), "insertEthTx failed to pickFromAddress: no keys available")
 		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
 	})
@@ -114,7 +115,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "cönfirmed", models.RunStatusUnstarted)
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
 
@@ -141,7 +142,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		taskRunID, jobRun := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 		assert.Contains(t, runOutput.Error().Error(), "while constructing EthTx data: unsupported format: some old bollocks")
 		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
 
@@ -164,7 +165,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
@@ -184,7 +185,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
@@ -213,7 +214,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
@@ -243,7 +244,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInput(jobRun, taskRunID, data, models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusCompleted, runOutput.Status())
@@ -277,7 +278,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusCompleted, runOutput.Status())
@@ -307,7 +308,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusCompleted, runOutput.Status())
@@ -329,7 +330,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		input := models.NewRunInputWithResult(jobRun, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
-		runOutput := adapter.Perform(*input, store)
+		runOutput := adapter.Perform(*input, store, keyStore)
 
 		require.EqualError(t, runOutput.Error(), "something exploded")
 		assert.Equal(t, models.RunStatusErrored, runOutput.Status())

@@ -284,6 +284,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
@@ -321,7 +322,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store)
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 		cltest.AssertCount(t, store, job.KeeperSpec{}, 1)

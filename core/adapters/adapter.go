@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -55,7 +56,7 @@ var (
 // adapters have this minimum requirement.
 type BaseAdapter interface {
 	TaskType() models.TaskType
-	Perform(models.RunInput, *store.Store) models.RunOutput
+	Perform(models.RunInput, *store.Store, *keystore.Master) models.RunOutput
 }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.

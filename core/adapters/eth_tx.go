@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -57,7 +58,7 @@ func (e *EthTx) TaskType() models.TaskType {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store, keyStore *keystore.Master) models.RunOutput {
 	jr := input.JobRun()
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
@@ -83,7 +84,7 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOu
 		RunRequestID:     jr.RunRequest.RequestID,
 		RunRequestTxHash: jr.RunRequest.TxHash,
 	}
-	return e.insertEthTx(m, input, store)
+	return e.insertEthTx(m, input, store, keyStore)
 }
 
 func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
@@ -98,17 +99,17 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
 	}
 }
 
-func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
+func (e *EthTx) pickFromAddress(input models.RunInput, keyStore *keystore.Master) (common.Address, error) {
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		return store.KeyStore.GetRoundRobinAddress(e.FromAddresses...)
+		return keyStore.Eth.GetRoundRobinAddress(e.FromAddresses...)
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		return store.KeyStore.GetRoundRobinAddress(e.FromAddresses...)
+		return keyStore.Eth.GetRoundRobinAddress(e.FromAddresses...)
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
@@ -119,7 +120,12 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 	return e.FromAddress, nil
 }
 
-func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *strpkg.Store) models.RunOutput {
+func (e *EthTx) insertEthTx(
+	m models.EthTxMeta,
+	input models.RunInput,
+	store *strpkg.Store,
+	keyStore *keystore.Master,
+) models.RunOutput {
 	var (
 		txData, encodedPayload []byte
 		err                    error
@@ -142,7 +148,7 @@ func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *st
 	}
 
 	toAddress := e.ToAddress
-	fromAddress, err := e.pickFromAddress(input, store)
+	fromAddress, err := e.pickFromAddress(input, keyStore)
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed to pickFromAddress")
 		logger.Error(err)

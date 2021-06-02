@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -69,7 +70,7 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 }
 
-func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key models.Key) coordinatorUniverse {
+func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.Key) coordinatorUniverse {
 	cu := newVRFCoordinatorUniverse(t, key)
 	consumerContractAddress, _, consumerContract, err :=
 		solidity_vrf_consumer_interface_v08.DeployVRFConsumer(
@@ -89,7 +90,7 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key models.Key) coor
 
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
-func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse {
+func newVRFCoordinatorUniverse(t *testing.T, key ethkey.Key) coordinatorUniverse {
 	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)

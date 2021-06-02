@@ -188,7 +188,7 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
 	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	adapter := adapters.Random{PublicKey: pk.String()}
-	result := adapter.Perform(*input, app.Store)
+	result := adapter.Perform(*input, app.Store, app.KeyStore)
 	require.NoError(t, result.Error(), "while running random adapter")
 	encodedProofHex := result.Result().String()
 	encodedProof, err := hexutil.Decode(encodedProofHex)

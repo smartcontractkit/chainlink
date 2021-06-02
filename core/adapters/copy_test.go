@@ -83,7 +83,7 @@ func TestCopy_Perform(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, tt.input)
 			adapter := adapters.Copy{CopyPath: tt.copyPath}
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 			assert.Equal(t, tt.wantData, result.Data().String())
 			assert.Equal(t, tt.wantStatus, result.Status())
 

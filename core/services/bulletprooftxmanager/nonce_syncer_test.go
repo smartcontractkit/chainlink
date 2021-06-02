@@ -23,8 +23,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-		_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return from == addr
@@ -32,7 +33,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, store.KeyStore)
+		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		err := ns.SyncAll(context.Background(), sendingKeys)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -49,8 +50,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-		_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return from == addr
@@ -58,7 +60,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, store.KeyStore)
+		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		cltest.AssertCount(t, store, models.EthTx{}, 0)
@@ -73,9 +75,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 		k1 := cltest.MustInsertRandomKey(t, store.DB, int64(32))
-		store.KeyStore.Unlock(cltest.Password)
+		ethKeyStore.Unlock(cltest.Password)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return k1.Address.Address() == addr
@@ -83,7 +86,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, store.KeyStore)
+		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		cltest.AssertCount(t, store, models.EthTx{}, 0)
@@ -98,10 +101,11 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-		_, key1 := cltest.MustAddRandomKeyToKeystore(t, store, int64(0))
-		_, key2 := cltest.MustAddRandomKeyToKeystore(t, store, int64(32))
-		store.KeyStore.Unlock(cltest.Password)
+		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
+		_, key2 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(32))
+		ethKeyStore.Unlock(cltest.Password)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// Nothing to do for key2
@@ -114,7 +118,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, store.KeyStore)
+		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		assertDatabaseNonce(t, store, key1, 5)
@@ -125,9 +129,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-		_, key1 := cltest.MustAddRandomKeyToKeystore(t, store, int64(0))
-		store.KeyStore.Unlock(cltest.Password)
+		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
+		ethKeyStore.Unlock(cltest.Password)
 
 		cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1, key1)
 
@@ -139,7 +144,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		})).Return(uint64(1), nil)
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, store.KeyStore)
+		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 		assertDatabaseNonce(t, store, key1, 0)
 

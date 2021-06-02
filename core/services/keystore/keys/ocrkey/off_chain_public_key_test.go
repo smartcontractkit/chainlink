@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/ocrkey"
 )
 
 func TestOCR_OffchainPublicKey_MarshalJSON(t *testing.T) {

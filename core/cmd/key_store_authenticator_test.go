@@ -5,8 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,11 +15,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("HasDBSendingKeys").Return(false, nil)
-	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("CreateNewKey").Return(models.Key{}, nil)
-	store.KeyStore = kst
+	kst := cltest.NewKeyStore(t, store.DB).Eth
 
 	prompt := &cltest.MockCountingPrompter{
 		T: t,
@@ -34,37 +28,32 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesKey(t *testing.T) {
 	}
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
-	has, err := store.KeyStore.HasDBSendingKeys()
+	has, err := kst.HasDBSendingKeys()
 	require.NoError(t, err)
 	assert.False(t, has)
-	_, err = auth.Authenticate(store, "")
+	_, err = auth.AuthenticateEthKey(kst, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 4, prompt.Count)
-
-	kst.AssertExpectations(t)
 }
 
 func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("HasDBSendingKeys").Return(false, nil)
-	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("CreateNewKey").Return(models.Key{}, nil)
-	kst.On("SendingKeys").Return([]models.Key{}, nil)
-	store.KeyStore = kst
 	defer cleanup()
+	kst := cltest.NewKeyStore(t, store.DB).Eth
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
 
-	sendingKeys, err := store.KeyStore.SendingKeys()
+	kst.Unlock(cltest.Password)
+	sendingKeys, err := kst.SendingKeys()
 	require.NoError(t, err)
 	assert.Len(t, sendingKeys, 0)
-	_, err = auth.Authenticate(store, cltest.Password)
+	_, err = auth.AuthenticateEthKey(kst, cltest.Password)
 	assert.NoError(t, err)
-
-	kst.AssertExpectations(t)
+	sendingKeys, err = kst.SendingKeys()
+	require.NoError(t, err)
+	assert.Len(t, sendingKeys, 1)
 }
 
 func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing.T) {
@@ -72,8 +61,9 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	cltest.MustAddRandomKeyToKeystore(t, store)
+	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	// prompt loop tries all in array
 	prompt := &cltest.MockCountingPrompter{
@@ -82,7 +72,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 	}
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
-	_, err := auth.Authenticate(store, "")
+	_, err := auth.AuthenticateEthKey(ethKeyStore, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 3, prompt.Count)
 }
@@ -92,8 +82,9 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
-	cltest.MustAddRandomKeyToKeystore(t, store)
+	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	tests := []struct {
 		password  string
@@ -105,7 +96,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.password, func(t *testing.T) {
 			auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
-			_, err := auth.Authenticate(store, test.password)
+			_, err := auth.AuthenticateEthKey(ethKeyStore, test.password)
 			assert.Equal(t, test.wantError, err != nil)
 		})
 	}
@@ -163,12 +154,13 @@ func TestTerminalKeyStoreAuthenticator_ValidatePasswordStrength(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
 
 			auth := cmd.TerminalKeyStoreAuthenticator{}
-			err := auth.ExportedValidatePasswordStrength(store, test.failingPassword)
+			err := auth.ExportedValidatePasswordStrength(ethKeyStore, test.failingPassword)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.errorString)
-			err = auth.ExportedValidatePasswordStrength(store, test.succeedingPassword)
+			err = auth.ExportedValidatePasswordStrength(ethKeyStore, test.succeedingPassword)
 			if err != nil {
 				require.NotContains(t, err.Error(), test.errorString)
 			}
