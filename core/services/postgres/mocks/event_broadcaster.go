@@ -13,6 +13,34 @@ type EventBroadcaster struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *EventBroadcaster) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Healthy provides a mock function with given fields:
+func (_m *EventBroadcaster) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Notify provides a mock function with given fields: channel, payload
 func (_m *EventBroadcaster) Notify(channel string, payload string) error {
 	ret := _m.Called(channel, payload)
@@ -41,8 +69,8 @@ func (_m *EventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, payl
 	return r0
 }
 
-// Start provides a mock function with given fields:
-func (_m *EventBroadcaster) Start() error {
+// Ready provides a mock function with given fields:
+func (_m *EventBroadcaster) Ready() error {
 	ret := _m.Called()
 
 	var r0 error
@@ -55,8 +83,8 @@ func (_m *EventBroadcaster) Start() error {
 	return r0
 }
 
-// Stop provides a mock function with given fields:
-func (_m *EventBroadcaster) Stop() error {
+// Start provides a mock function with given fields:
+func (_m *EventBroadcaster) Start() error {
 	ret := _m.Called()
 
 	var r0 error

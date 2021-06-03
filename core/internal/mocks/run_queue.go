@@ -13,6 +13,48 @@ type RunQueue struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *RunQueue) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Healthy provides a mock function with given fields:
+func (_m *RunQueue) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Ready provides a mock function with given fields:
+func (_m *RunQueue) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Run provides a mock function with given fields: _a0
 func (_m *RunQueue) Run(_a0 uuid.UUID) {
 	_m.Called(_a0)
@@ -30,11 +72,6 @@ func (_m *RunQueue) Start() error {
 	}
 
 	return r0
-}
-
-// Stop provides a mock function with given fields:
-func (_m *RunQueue) Stop() {
-	_m.Called()
 }
 
 // WorkerCount provides a mock function with given fields:

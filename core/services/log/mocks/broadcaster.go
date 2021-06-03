@@ -36,9 +36,37 @@ func (_m *Broadcaster) AwaitDependents() <-chan struct{} {
 	return r0
 }
 
+// Close provides a mock function with given fields:
+func (_m *Broadcaster) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DependentReady provides a mock function with given fields:
 func (_m *Broadcaster) DependentReady() {
 	_m.Called()
+}
+
+// Healthy provides a mock function with given fields:
+func (_m *Broadcaster) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // IsConnected provides a mock function with given fields:
@@ -85,6 +113,20 @@ func (_m *Broadcaster) MarkConsumed(db *gorm.DB, lb log.Broadcast) error {
 	return r0
 }
 
+// Ready provides a mock function with given fields:
+func (_m *Broadcaster) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Register provides a mock function with given fields: listener, opts
 func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) func() {
 	ret := _m.Called(listener, opts)
@@ -101,27 +143,8 @@ func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) fu
 	return r0
 }
 
-// SetLatestHeadFromStorage provides a mock function with given fields: head
-func (_m *Broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	_m.Called(head)
-}
-
 // Start provides a mock function with given fields:
 func (_m *Broadcaster) Start() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// Stop provides a mock function with given fields:
-func (_m *Broadcaster) Stop() error {
 	ret := _m.Called()
 
 	var r0 error

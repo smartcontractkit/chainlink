@@ -897,7 +897,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		if err2 != nil {
 			return err2
 		}
-		err2 = fm.queueTransactionForBPTXM(fm.db, runID, answer, roundState.RoundId)
+		err2 = fm.queueTransactionForBPTXM(tx, runID, answer, roundState.RoundId)
 		if err2 != nil {
 			return err2
 		}

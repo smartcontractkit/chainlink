@@ -397,8 +397,8 @@ func BumpGas(config Config, originalGasPrice *big.Int) (*big.Int, error) {
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
 		promGasBumpExceedsLimit.Inc()
-		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s)",
-			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String())
+		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
+			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String(), EthNodeConnectivityProblemLabel)
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
@@ -474,6 +474,8 @@ RETURNING "eth_txes".*
 const EthMaxInFlightTransactionsWarningLabel = `WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.`
 
 const EthMaxQueuedTransactionsLabel = `WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse.`
+
+const EthNodeConnectivityProblemLabel = `WARNING: If this keeps happening it may be a sign that your eth node has a connectivity problem, and your transactions are not making it to any miners.`
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.

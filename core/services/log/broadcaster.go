@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -39,8 +40,7 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		Start() error
-		Stop() error
+		service.Service
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 		LatestHead() *models.Head
@@ -143,7 +143,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return atomic.LoadUint32(&b.trackedAddressesCount)
 }
 
-func (b *broadcaster) Stop() error {
+func (b *broadcaster) Close() error {
 	return b.StopOnce("LogBroadcaster", func() error {
 		close(b.chStop)
 		b.wgDone.Wait()

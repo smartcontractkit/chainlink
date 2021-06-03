@@ -28,6 +28,20 @@ func (_m *JobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	return r0
 }
 
+// Close provides a mock function with given fields:
+func (_m *JobSubscriber) Close() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Connect provides a mock function with given fields: head
 func (_m *JobSubscriber) Connect(head *models.Head) error {
 	ret := _m.Called(head)
@@ -42,9 +56,18 @@ func (_m *JobSubscriber) Connect(head *models.Head) error {
 	return r0
 }
 
-// Disconnect provides a mock function with given fields:
-func (_m *JobSubscriber) Disconnect() {
-	_m.Called()
+// Healthy provides a mock function with given fields:
+func (_m *JobSubscriber) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Jobs provides a mock function with given fields:
@@ -68,6 +91,20 @@ func (_m *JobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head
 	_m.Called(ctx, head)
 }
 
+// Ready provides a mock function with given fields:
+func (_m *JobSubscriber) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // RemoveJob provides a mock function with given fields: ID
 func (_m *JobSubscriber) RemoveJob(ID models.JobID) error {
 	ret := _m.Called(ID)
@@ -82,8 +119,8 @@ func (_m *JobSubscriber) RemoveJob(ID models.JobID) error {
 	return r0
 }
 
-// Stop provides a mock function with given fields:
-func (_m *JobSubscriber) Stop() error {
+// Start provides a mock function with given fields:
+func (_m *JobSubscriber) Start() error {
 	ret := _m.Called()
 
 	var r0 error
