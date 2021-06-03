@@ -167,7 +167,7 @@ const RegionalNavComponent = ({
   const navOverviewActive =
     !navDefinitionActive && !navErrorsActive && !navRunsActive
   const [modalOpen, setModalOpen] = useState(false)
-  const [archived, setArchived] = useState(false)
+  const [deleted, setDeleted] = useState(false)
   const [runJobModalOpen, setRunJobModalOpen] = useState(false)
 
   const handleRun = async (pipelineInput: string) => {
@@ -197,7 +197,7 @@ const RegionalNavComponent = ({
       ErrorMessage,
       job?.type,
     )
-    setArchived(true)
+    setDeleted(true)
   }
 
   const typeDetail = useMemo(() => {
@@ -286,8 +286,8 @@ const RegionalNavComponent = ({
                     variant="danger"
                     onClick={() => handleDelete(jobSpecId)}
                   >
-                    Archive {jobSpecId}
-                    {archived && <Redirect to="/" />}
+                    Delete {jobSpecId}
+                    {deleted && <Redirect to="/" />}
                   </Button>
                 </Grid>
               </Grid>
@@ -330,7 +330,7 @@ const RegionalNavComponent = ({
                       className={classes.regionalNavButton}
                       onClick={() => setModalOpen(true)}
                     >
-                      Archive
+                      Delete
                     </Button>
                     {((job.type === 'Direct request' &&
                       job.initiators &&

@@ -141,7 +141,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
 }
 
-// Delete soft deletes a job spec.
+// Delete hard deletes a job spec.
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
@@ -162,5 +162,5 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, nil, "offChainReportingJobSpec", http.StatusNoContent)
+	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }
