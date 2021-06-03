@@ -22,14 +22,14 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
   );
 
   constructor(
-    address newOwner,
-    address to
+    address owner,
+    address pendingOwner
   ) {
-    require(newOwner != address(0), "Cannot set owner to zero");
+    require(owner != address(0), "Cannot set owner to zero");
 
-    s_owner = newOwner;
-    if (to != address(0)) {
-      _transferOwnership(to);
+    s_owner = owner;
+    if (pendingOwner != address(0)) {
+      _transferOwnership(pendingOwner);
     }
   }
 
