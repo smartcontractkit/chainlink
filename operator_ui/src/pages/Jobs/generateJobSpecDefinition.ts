@@ -213,13 +213,14 @@ function generateDirectRequestDefinition(
     maxTaskDuration,
     externalJobID,
   } = attrs
-  const { contractAddress } = directRequestSpec
+  const { contractAddress, minIncomingConfirmations } = directRequestSpec
 
   return stringifyJobSpec({
     value: {
       type,
       schemaVersion,
       name,
+      minIncomingConfirmations,
       contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,

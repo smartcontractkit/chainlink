@@ -321,6 +321,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       directRequestSpec: {
         initiator: 'runlog',
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
+        minIncomingConfirmations: 3,
         createdAt: '2021-02-19T16:00:01.115227+08:00',
       },
       offChainReportingOracleSpec: null,
@@ -335,6 +336,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
     const expectedOutput = `type = "directrequest"
 schemaVersion = 1
 name = "DR Job Spec"
+minIncomingConfirmations = 3
 contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 maxTaskDuration = "10s"
 observationSource = """

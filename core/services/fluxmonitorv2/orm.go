@@ -67,7 +67,7 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
 func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error {
-	return db.Exec(`
+	err := db.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
         ) VALUES (
@@ -77,6 +77,7 @@ func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address
 					num_submissions = flux_monitor_round_stats_v2.num_submissions + 1,
 					pipeline_run_id = EXCLUDED.pipeline_run_id
     `, aggregator, roundID, runID).Error
+	return errors.Wrapf(err, "Failed to insert round stats for roundID=%v, runID=%v", roundID, runID)
 }
 
 // CountFluxMonitorRoundStats counts the total number of records

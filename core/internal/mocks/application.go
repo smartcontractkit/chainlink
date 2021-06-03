@@ -8,6 +8,8 @@ import (
 
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
 
+	health "github.com/smartcontractkit/chainlink/core/services/health"
+
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
@@ -27,6 +29,8 @@ import (
 	store "github.com/smartcontractkit/chainlink/core/store"
 
 	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
+
+	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -194,6 +198,38 @@ func (_m *Application) GetExternalInitiatorManager() chainlink.ExternalInitiator
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.ExternalInitiatorManager)
+		}
+	}
+
+	return r0
+}
+
+// GetHeadBroadcaster provides a mock function with given fields:
+func (_m *Application) GetHeadBroadcaster() types.HeadBroadcasterRegistry {
+	ret := _m.Called()
+
+	var r0 types.HeadBroadcasterRegistry
+	if rf, ok := ret.Get(0).(func() types.HeadBroadcasterRegistry); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.HeadBroadcasterRegistry)
+		}
+	}
+
+	return r0
+}
+
+// GetHealthChecker provides a mock function with given fields:
+func (_m *Application) GetHealthChecker() health.Checker {
+	ret := _m.Called()
+
+	var r0 health.Checker
+	if rf, ok := ret.Get(0).(func() health.Checker); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(health.Checker)
 		}
 	}
 

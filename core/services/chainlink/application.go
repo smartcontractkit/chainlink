@@ -13,15 +13,17 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"gorm.io/gorm"
 
@@ -33,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -52,25 +55,12 @@ import (
 
 //go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
 type (
-	// headTrackableCallback is a simple wrapper around an On Connect callback
-	headTrackableCallback struct {
-		onConnect func()
-	}
-
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
 		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
-
-func (c *headTrackableCallback) Connect(*models.Head) error {
-	c.onConnect()
-	return nil
-}
-
-func (c *headTrackableCallback) Disconnect()                                    {}
-func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
@@ -79,9 +69,11 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetLogger() *logger.Logger
+	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetOCRKeyStore() *offchainreporting.KeyStore // TODO: this should be replaced with a generic GetKeystore()
 	GetStatsPusher() synchronization.StatsPusher
+	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
@@ -109,7 +101,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter          func(int)
 	HeadTracker     *services.HeadTracker
-	HeadBroadcaster *services.HeadBroadcaster
+	HeadBroadcaster *headtracker.HeadBroadcaster
 	BPTXM           *bulletprooftxmanager.BulletproofTxManager
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
@@ -137,12 +129,12 @@ type ChainlinkApplication struct {
 	OCRKeyStore              *offchainreporting.KeyStore
 	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
-	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
-	subservices              []utils.StartCloser
+	subservices              []service.Service
+	HealthChecker            health.Checker
 	logger                   *logger.Logger
 
 	started     bool
@@ -154,8 +146,7 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
-	var subservices []utils.StartCloser
-	var headTrackables []models.HeadTrackable
+	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -164,6 +155,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	setupConfig(config, store)
+
+	headBroadcaster := headtracker.NewHeadBroadcaster()
+
+	healthChecker := health.NewChecker()
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -174,12 +169,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
+	subservices = append(subservices, explorerClient, statsPusher)
 
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
 		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
+		headBroadcaster.Subscribe(gasUpdater)
 		subservices = append(subservices, gasUpdater)
-		headTrackables = append(headTrackables, gasUpdater)
 	} else {
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
 	}
@@ -205,6 +201,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker", err)
 	}
 
+	headTracker := services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue
 	var runManager services.RunManager
@@ -220,15 +218,27 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		runManager = &services.NullRunManager{}
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
-	promReporter := services.NewPromReporter(store.MustSQLDB())
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
+
+	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
+	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
+	if err != nil {
+		return nil, err
+	}
+
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
-	headBroadcaster := services.NewHeadBroadcaster()
 
-	subservices = append(subservices, promReporter)
+	promReporter := services.NewPromReporter(store.MustSQLDB())
+
+	subservices = append(subservices,
+		logBroadcaster,
+		eventBroadcaster,
+		fluxMonitor,
+		jobSubscriber,
+	)
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
@@ -236,6 +246,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
+
+	subservices = append(subservices, balanceMonitor)
+
+	subservices = append(subservices, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
@@ -327,8 +341,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner, bptxm, headBroadcaster)
 
-	pendingConnectionResumer := newPendingConnectionResumer(runManager)
-
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
 		BPTXM:                    bptxm,
@@ -350,46 +362,43 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
-		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
+		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
 	}
 
-	headTrackables = append(
-		headTrackables,
-		logBroadcaster,
-		bptxm,
-		jobSubscriber,
-		pendingConnectionResumer,
-		balanceMonitor,
-		promReporter,
-		headBroadcaster,
-	)
+	headBroadcaster.Subscribe(logBroadcaster)
+	headBroadcaster.Subscribe(bptxm)
+	headBroadcaster.Subscribe(promReporter)
+	headBroadcaster.Subscribe(jobSubscriber)
+	headBroadcaster.Subscribe(balanceMonitor)
+
+	headBroadcaster.Subscribe(&httypes.HeadTrackableCallback{OnConnect: func() error {
+		return runManager.ResumeAllPendingConnection()
+	}})
 
 	for _, onConnectCallback := range onConnectCallbacks {
-		headTrackable := &headTrackableCallback{func() {
+		headBroadcaster.Subscribe(&httypes.HeadTrackableCallback{OnConnect: func() error {
 			onConnectCallback(app)
-		}}
-		headTrackables = append(headTrackables, headTrackable)
+			return nil
+		}})
 	}
-	app.HeadTracker = services.NewHeadTracker(headTrackerLogger, store, headTrackables)
-
-	// Log Broadcaster uses the last stored head as a limit of log backfill
-	// which needs to be set before it's started
-	head, err := app.HeadTracker.HighestSeenHeadFromDB()
-	if err != nil {
-		return nil, err
-	}
-	logBroadcaster.SetLatestHeadFromStorage(head)
+	app.HeadTracker = headTracker
 
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
 	logBroadcaster.AddDependents(1)
+
+	for _, service := range app.subservices {
+		if err = app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
+			return nil, err
+		}
+	}
 
 	return app, nil
 }
@@ -461,24 +470,20 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
-	subtasks := []func() error{
-		app.Store.Start,
-		app.explorerClient.Start,
-		app.StatsPusher.Start,
-		app.RunQueue.Start,
-		app.RunManager.ResumeAllInProgress,
-		app.LogBroadcaster.Start,
-		app.EventBroadcaster.Start,
-		app.FluxMonitor.Start,
+	if err := app.Store.Start(); err != nil {
+		return err
 	}
 
-	for _, task := range subtasks {
-		if err := task(); err != nil {
-			return err
-		}
+	if err := app.RunQueue.Start(); err != nil {
+		return err
+	}
+
+	if err := app.RunManager.ResumeAllInProgress(); err != nil {
+		return err
 	}
 
 	for _, subservice := range app.subservices {
+		logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
 			return err
 		}
@@ -500,6 +505,12 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	if err := app.Scheduler.Start(); err != nil {
+		return err
+	}
+
+	// Start HealthChecker last, so that the other services had the chance to
+	// start enough to immediately pass the readiness check.
+	if err := app.HealthChecker.Start(); err != nil {
 		return err
 	}
 
@@ -544,39 +555,25 @@ func (app *ChainlinkApplication) stop() error {
 		// Stop services in the reverse order from which they were started
 
 		logger.Debug("Stopping Scheduler...")
-		app.Scheduler.Stop()
+		merr = multierr.Append(merr, app.Scheduler.Stop())
 
 		logger.Debug("Stopping HeadTracker...")
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
-			logger.Debugw(fmt.Sprintf("Closing service %v...", i), "serviceType", reflect.TypeOf(service))
+			logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		logger.Debug("Stopping Scheduler...")
-		app.Scheduler.Stop()
-		logger.Debug("Stopping balanceMonitor...")
-		merr = multierr.Append(merr, app.balanceMonitor.Stop())
-		logger.Debug("Stopping JobSubscriber...")
-		merr = multierr.Append(merr, app.JobSubscriber.Stop())
-		logger.Debug("Stopping FluxMonitor...")
-		app.FluxMonitor.Stop()
-		logger.Debug("Stopping EventBroadcaster...")
-		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
-		logger.Debug("Stopping LogBroadcaster...")
-		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
-		logger.Debug("Stopping RunQueue...")
-		app.RunQueue.Stop()
-		logger.Debug("Stopping StatsPusher...")
-		merr = multierr.Append(merr, app.StatsPusher.Close())
-		logger.Debug("Stopping explorerClient...")
-		merr = multierr.Append(merr, app.explorerClient.Close())
+		logger.Debug("Closing RunQueue...")
+		merr = multierr.Append(merr, app.RunQueue.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
+		logger.Debug("Closing HealthChecker...")
+		merr = multierr.Append(merr, app.HealthChecker.Close())
 
 		logger.Info("Exited all services")
 
@@ -598,6 +595,10 @@ func (app *ChainlinkApplication) GetLogger() *logger.Logger {
 	return app.logger
 }
 
+func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
+	return app.HealthChecker
+}
+
 func (app *ChainlinkApplication) GetJobORM() job.ORM {
 	return app.JobORM
 }
@@ -608,6 +609,10 @@ func (app *ChainlinkApplication) GetPipelineORM() pipeline.ORM {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) GetHeadBroadcaster() httypes.HeadBroadcasterRegistry {
+	return app.HeadBroadcaster
 }
 
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
@@ -719,18 +724,3 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
 }
-
-type pendingConnectionResumer struct {
-	runManager services.RunManager
-}
-
-func newPendingConnectionResumer(runManager services.RunManager) *pendingConnectionResumer {
-	return &pendingConnectionResumer{runManager: runManager}
-}
-
-func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	return p.runManager.ResumeAllPendingConnection()
-}
-
-func (p *pendingConnectionResumer) Disconnect()                                    {}
-func (p *pendingConnectionResumer) OnNewLongestChain(context.Context, models.Head) {}

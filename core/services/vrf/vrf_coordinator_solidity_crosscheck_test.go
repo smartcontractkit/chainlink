@@ -165,8 +165,8 @@ var (
 	rawSecretKey = big.NewInt(1) // never do this in production!
 	publicKey    = (&secp256k1.Secp256k1{}).Point().Mul(secp256k1.IntToScalar(
 		rawSecretKey), nil)
-	rawSeed = big.NewInt(2)
-	vrfFee  = big.NewInt(7)
+	hardcodedSeed = big.NewInt(0)
+	vrfFee        = big.NewInt(7)
 )
 
 // registerProvingKey registers keyHash to neil in the VRFCoordinator universe
@@ -223,9 +223,9 @@ func TestFailToRegisterProvingKeyFromANonOwnerAddress(t *testing.T) {
 // given keyHash and seed, and paying the given fee. It returns the log emitted
 // from the VRFCoordinator in response to the request
 func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
-	keyHash common.Hash, fee, seed *big.Int) *models.RandomnessRequestLog {
+	keyHash common.Hash, fee *big.Int) *models.RandomnessRequestLog {
 	_, err := coordinator.consumerContract.TestRequestRandomness(coordinator.carol,
-		keyHash, fee, seed)
+		keyHash, fee)
 	require.NoError(t, err, "problem during initial VRF randomness request")
 	coordinator.backend.Commit()
 	log, err := coordinator.rootContract.FilterRandomnessRequest(nil, nil)
@@ -240,9 +240,9 @@ func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 }
 
 func requestRandomnessV08(t *testing.T, coordinator coordinatorUniverse,
-	keyHash common.Hash, fee, seed *big.Int) *models.RandomnessRequestLog {
+	keyHash common.Hash, fee *big.Int) *models.RandomnessRequestLog {
 	_, err := coordinator.consumerContractV08.TestRequestRandomness(coordinator.carol,
-		keyHash, fee, seed)
+		keyHash, fee)
 	require.NoError(t, err, "problem during initial VRF randomness request")
 	coordinator.backend.Commit()
 	log, err := coordinator.rootContract.FilterRandomnessRequest(nil, nil)
@@ -266,27 +266,27 @@ func TestRandomnessRequestLog(t *testing.T) {
 	jobID := common.BytesToHash(jobID_[:])
 	var tt = []struct {
 		rr func(t *testing.T, coordinator coordinatorUniverse,
-			keyHash common.Hash, fee, seed *big.Int) *models.RandomnessRequestLog
+			keyHash common.Hash, fee *big.Int) *models.RandomnessRequestLog
 		ms              func() (*big.Int, error)
 		consumerAddress common.Address
 	}{
 		{
 			rr: requestRandomness,
 			ms: func() (*big.Int, error) {
-				return coord.requestIDBase.MakeVRFInputSeed(nil, keyHash, rawSeed, coord.consumerContractAddress, big.NewInt(0))
+				return coord.requestIDBase.MakeVRFInputSeed(nil, keyHash, hardcodedSeed, coord.consumerContractAddress, big.NewInt(0))
 			},
 			consumerAddress: coord.consumerContractAddress,
 		},
 		{
 			rr: requestRandomnessV08,
 			ms: func() (*big.Int, error) {
-				return coord.requestIDBaseV08.MakeVRFInputSeed(nil, keyHash, rawSeed, coord.consumerContractAddressV08, big.NewInt(0))
+				return coord.requestIDBaseV08.MakeVRFInputSeed(nil, keyHash, hardcodedSeed, coord.consumerContractAddressV08, big.NewInt(0))
 			},
 			consumerAddress: coord.consumerContractAddressV08,
 		},
 	}
 	for _, tc := range tt {
-		log := tc.rr(t, coord, keyHash, fee, rawSeed)
+		log := tc.rr(t, coord, keyHash, fee)
 		assert.Equal(t, keyHash, log.KeyHash, "VRFCoordinator logged wrong KeyHash for randomness request")
 		nonce := big.NewInt(0)
 		actualSeed, err := tc.ms()
@@ -295,7 +295,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 			"VRFCoordinator logged wrong actual input seed from randomness request")
 		golangSeed := utils.MustHash(string(append(append(append(
 			keyHash[:],
-			common.BigToHash(rawSeed).Bytes()...),
+			common.BigToHash(hardcodedSeed).Bytes()...),
 			tc.consumerAddress.Hash().Bytes()...),
 			common.BigToHash(nonce).Bytes()...)))
 		assert.Equal(t, golangSeed, common.BigToHash((log.Seed)), "VRFCoordinator logged different actual input seed than expected by golang code!")
@@ -342,7 +342,7 @@ func TestFulfillRandomness(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
-	randomnessRequestLog := requestRandomness(t, coordinator, keyHash, fee, seed)
+	randomnessRequestLog := requestRandomness(t, coordinator, keyHash, fee)
 	proof := fulfillRandomnessRequest(t, coordinator, *randomnessRequestLog)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
 	require.NoError(t, err, "failed to get VRF output from consuming contract, "+
@@ -367,7 +367,7 @@ func TestWithdraw(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
-	log := requestRandomness(t, coordinator, keyHash, fee, rawSeed)
+	log := requestRandomness(t, coordinator, keyHash, fee)
 	fulfillRandomnessRequest(t, coordinator, *log)
 	payment := big.NewInt(4)
 	peteThePunter := common.HexToAddress("0xdeadfa11deadfa11deadfa11deadfa11deadfa11")

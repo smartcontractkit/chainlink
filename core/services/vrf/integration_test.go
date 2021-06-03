@@ -54,7 +54,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 	require.NoError(t, err)
 	cu.backend.Commit()
 	_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
-		vrfkey.MustHash(), big.NewInt(100), big.NewInt(1))
+		vrfkey.MustHash(), big.NewInt(100))
 	require.NoError(t, err)
 	cu.backend.Commit()
 	// Mine the required number of blocks

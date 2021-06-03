@@ -190,11 +190,11 @@ func (WebhookSpec) TableName() string {
 }
 
 type DirectRequestSpec struct {
-	ID               int32               `toml:"-" gorm:"primary_key"`
-	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	NumConfirmations clnull.Uint32       `toml:"numConfirmations"`
-	CreatedAt        time.Time           `toml:"-"`
-	UpdatedAt        time.Time           `toml:"-"`
+	ID                       int32               `toml:"-" gorm:"primary_key"`
+	ContractAddress          models.EIP55Address `toml:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
+	CreatedAt                time.Time           `toml:"-"`
+	UpdatedAt                time.Time           `toml:"-"`
 }
 
 func (DirectRequestSpec) TableName() string {

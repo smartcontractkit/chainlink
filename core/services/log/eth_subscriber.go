@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -30,7 +30,7 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 	}
 }
 
-func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	if len(addresses) == 0 {
 		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
 		ch := make(chan types.Log)
@@ -62,9 +62,9 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			fromBlock = 0 // Overflow protection
 		}
 
-		if fromBlockOverride != nil {
-			logger.Infow("LogBroadcaster: Using the override a limit of backfill", "blockNumber", fromBlockOverride.Number, "blockHash", fromBlockOverride.Hash)
-			fromBlock = uint64(fromBlockOverride.Number)
+		if fromBlockOverride.Valid {
+			logger.Infow("LogBroadcaster: Using the override a limit of backfill", "blockNumber", fromBlockOverride.Int64)
+			fromBlock = uint64(fromBlockOverride.Int64)
 		}
 
 		logger.Infow("LogBroadcaster: Backfilling logs from", "blockNumber", fromBlock)

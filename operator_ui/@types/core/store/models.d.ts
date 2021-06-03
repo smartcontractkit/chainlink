@@ -482,6 +482,7 @@ declare module 'core/store/models' {
     directRequestSpec: {
       initiator: 'runlog'
       contractAddress: common.Address
+      minIncomingConfirmations: number | null
       createdAt: time.Time
     }
     fluxMonitorSpec: null

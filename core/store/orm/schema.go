@@ -84,7 +84,6 @@ type ConfigSchema struct {
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	HTTPServerWriteTimeout                    time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
-	HeadTimeBudget                            time.Duration   `env:"HEAD_TIME_BUDGET"`
 	InsecureFastScrypt                        bool            `env:"INSECURE_FAST_SCRYPT" default:"false"`
 	JSONConsole                               bool            `env:"JSON_CONSOLE" default:"false"`
 	JobPipelineMaxRunDuration                 time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`

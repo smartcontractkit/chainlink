@@ -45,7 +45,7 @@ func TestRunner(t *testing.T) {
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
 	pipelineORM := pipeline.NewORM(db, config)
 	runner := pipeline.NewRunner(pipelineORM, config)
@@ -598,7 +598,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
 			pw,
 			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)
