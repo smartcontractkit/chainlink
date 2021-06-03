@@ -352,19 +352,12 @@ func (r *runner) executeRun(
 	// TODO: Test with multiple and single null successor IDs
 	// https://www.pivotaltracker.com/story/show/176557536
 
-	var (
-		retry bool
-	)
-
 	for taskRun := range scheduler.taskCh {
 		// execute
 		go func(taskRun *memoryTaskRun) {
 			defer func() {
 				if err := recover(); err != nil {
 					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
-
-					// No mutex needed: if any goroutine panics, we retry the run.
-					retry = true
 
 					scheduler.resultCh <- TaskRunResult{
 						Task:       taskRun.task,
@@ -392,24 +385,15 @@ func (r *runner) executeRun(
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	var errors bool
-	if retry {
-		errors = true
-	} else {
-		finalResult := taskRunResults.FinalResult()
-		if finalResult.HasErrors() {
-			errors = true
-		}
-		run.Errors = finalResult.ErrorsDB()
-		run.Outputs = finalResult.OutputsDB()
-		run.FinishedAt = &finishRun
-	}
-
-	if errors {
+	finalResult := taskRunResults.FinalResult()
+	if finalResult.HasErrors() {
 		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
 	}
+	run.Errors = finalResult.ErrorsDB()
+	run.Outputs = finalResult.OutputsDB()
+	run.FinishedAt = &finishRun
 
-	return run, taskRunResults, retry, err
+	return run, taskRunResults, false, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
