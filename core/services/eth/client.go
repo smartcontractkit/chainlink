@@ -95,11 +95,6 @@ type client struct {
 	roundRobinCount uint32
 }
 
-func (client client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-
-	panic("implement me")
-}
-
 var _ Client = (*client)(nil)
 
 func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {

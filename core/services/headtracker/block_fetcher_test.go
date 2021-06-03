@@ -27,27 +27,9 @@ func TestBlockFetcher_GetBlockRange(t *testing.T) {
 		block40 := cltest.HtBlock(40, common.Hash{})
 		block41 := cltest.HtBlock(41, block40.Hash)
 		block42 := cltest.HtBlock(42, block41.Hash)
-		//h := cltest.HeadFromHtBlock(&block42)
 
 		blockClient := headtracker.NewFakeBlockEthClient([]headtracker.Block{block40, block41, block42})
-
 		blockFetcher := headtracker.NewBlockFetcher(config, logger, blockClient)
-
-		//ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		//	return len(b) == 2 &&
-		//		b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" && b[0].Args[1] == true &&
-		//		b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a" && b[1].Args[1] == true
-		//})).Return(nil).Run(func(args mock.Arguments) {
-		//	elems := args.Get(1).([]rpc.BatchElem)
-		//	elems[0].Result = &headtracker.Block{
-		//		Number: 42,
-		//		Hash:   utils.NewHash(),
-		//	}
-		//	elems[1].Result = &headtracker.Block{
-		//		Number: 41,
-		//		Hash:   utils.NewHash(),
-		//	}
-		//})
 
 		blockRange, err := blockFetcher.BlockRange(context.Background(), 41, 42)
 		require.NoError(t, err)

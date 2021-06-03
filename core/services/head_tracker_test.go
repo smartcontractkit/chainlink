@@ -784,7 +784,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 func createHeadTracker(logger *logger.Logger, store *strpkg.Store) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
-	//bf := headtracker.NewBlockFetcher(store.EthClient, store.Config, logger)
 	bf := new(htmocks.BlockFetcherInterface)
 	bf.On("SyncLatestHead", mock.Anything, mock.Anything).Return(nil)
 

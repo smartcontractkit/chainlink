@@ -403,7 +403,7 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	for i, elem := range b {
 		if elem.Method == "eth_getBlockByNumber" {
-			number := HexToInt64(elem.Args[0])
+			number := headtracker.HexToInt64(elem.Args[0])
 			ethBlock, err := c.b.BlockByNumber(ctx, big.NewInt(number))
 			if err != nil && ethBlock != nil {
 				block := headtracker.FromEthBlock(*ethBlock)
@@ -447,7 +447,6 @@ func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMini
 		for {
 			select {
 			case <-timer.C:
-				logger.Warn("COMMIT=======")
 				backend.Commit()
 			case <-chStop:
 				wg.Done()
