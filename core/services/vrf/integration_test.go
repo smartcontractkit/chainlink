@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
@@ -51,12 +52,14 @@ func TestIntegration_VRFV2(t *testing.T) {
 	_, err = cu.rootContract.RegisterProvingKey(
 		cu.neil, big.NewInt(7), cu.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDToTopicHash())
 	require.NoError(t, err)
+	cu.backend.Commit()
 	_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
 		vrfkey.MustHash(), big.NewInt(100), big.NewInt(1))
 	require.NoError(t, err)
+	cu.backend.Commit()
 	// Mine the required number of blocks
 	// So our request gets confirmed.
-	for i := 0; i < incomingConfs+1; i++ {
+	for i := 0; i < incomingConfs; i++ {
 		cu.backend.Commit()
 	}
 	var runs []pipeline.Run
@@ -77,11 +80,13 @@ func TestIntegration_VRFV2(t *testing.T) {
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Assert the request was fulfilled on-chain.
-	rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
-	require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
-	var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
-	for rfIterator.Next() {
-		rf = append(rf, rfIterator.Event)
-	}
-	require.Len(t, rf, 1)
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
+		require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
+		var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
+		for rfIterator.Next() {
+			rf = append(rf, rfIterator.Event)
+		}
+		return len(rf) == 1
+	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 }
