@@ -32,8 +32,6 @@ type (
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task
-		OutputTask() Task
-		SetOutputTask(task Task)
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
 	}

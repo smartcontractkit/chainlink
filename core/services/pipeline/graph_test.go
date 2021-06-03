@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -130,30 +129,32 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	}
 	ds1_multiply := &pipeline.MultiplyTask{
 		Times:    "1.23",
-		BaseTask: pipeline.NewBaseTask(2, "ds1_multiply", answer1, 0),
+		BaseTask: pipeline.NewBaseTask(2, "ds1_multiply", []pipeline.Task{answer1}, 0),
 	}
 	ds1_parse := &pipeline.JSONParseTask{
 		Path:     "one,two",
-		BaseTask: pipeline.NewBaseTask(1, "ds1_parse", ds1_multiply, 0),
+		BaseTask: pipeline.NewBaseTask(1, "ds1_parse", []pipeline.Task{ds1_multiply}, 0),
 	}
 	ds1 := &pipeline.BridgeTask{
 		Name:     "voter_turnout",
-		BaseTask: pipeline.NewBaseTask(0, "ds1", ds1_parse, 0),
+		BaseTask: pipeline.NewBaseTask(0, "ds1", []pipeline.Task{ds1_parse}, 0),
 	}
 	ds2_multiply := &pipeline.MultiplyTask{
 		Times:    "4.56",
-		BaseTask: pipeline.NewBaseTask(5, "ds2_multiply", answer1, 0),
+		BaseTask: pipeline.NewBaseTask(5, "ds2_multiply", []pipeline.Task{answer1}, 0),
 	}
 	ds2_parse := &pipeline.JSONParseTask{
 		Path:     "three,four",
-		BaseTask: pipeline.NewBaseTask(4, "ds2_parse", ds2_multiply, 0),
+		BaseTask: pipeline.NewBaseTask(4, "ds2_parse", []pipeline.Task{ds2_multiply}, 0),
 	}
 	ds2 := &pipeline.HTTPTask{
 		URL:         "https://chain.link/voter_turnout/USA-2020",
 		Method:      "GET",
 		RequestData: `{"hi": "hello"}`,
-		BaseTask:    pipeline.NewBaseTask(3, "ds2", ds2_parse, 0),
+		BaseTask:    pipeline.NewBaseTask(3, "ds2", []pipeline.Task{ds2_parse}, 0),
 	}
+
+	// answer1.Base().inputs = []pipeline.Task{ds1_multiply}
 
 	tasks := p.TopoSort()
 
@@ -167,14 +168,12 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		}
 	}
 
-	for _, t := range tasks {
-		fmt.Printf("%v %v", t.ID(), t.DotID())
-	}
-
 	expected := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	require.Len(t, tasks, len(expected))
 
-	require.Equal(t, tasks, expected)
+	for _, task := range expected {
+		require.Contains(t, tasks, task)
+	}
 }
 
 func TestGraph_HasCycles(t *testing.T) {
