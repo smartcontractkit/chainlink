@@ -101,9 +101,6 @@ type Pipeline struct {
 	Tasks  map[int64]Task
 	tree   *Tree
 	Source string
-
-	// roots
-	// terminals / returns / outputs
 }
 
 func (p *Pipeline) UnmarshalText(bs []byte) (err error) {

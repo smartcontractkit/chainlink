@@ -257,12 +257,10 @@ func newScheduler(p *Pipeline, i interface{}) *scheduler {
 		s.waiting++
 	}
 
-	go s.run()
-
 	return s
 }
 
-func (s *scheduler) run() {
+func (s *scheduler) Run() {
 	for s.waiting > 0 {
 		// we don't "for result in resultCh" because it would stall if the
 		// pipeline is completely empty
@@ -339,6 +337,7 @@ func (r *runner) executeRun(
 	}
 
 	scheduler := newScheduler(pipeline, pipelineInput)
+	go scheduler.Run()
 
 	// TODO: Test with multiple and single null successor IDs
 	// https://www.pivotaltracker.com/story/show/176557536
