@@ -22,13 +22,13 @@ import (
 )
 
 func TestIntegration_VRFV2(t *testing.T) {
-	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "vrfv2", true)
-	defer cleanup()
+	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "vrf_v2", true)
+	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	defer cleanup()
-	app.StartAndConnect()
+	require.NoError(t, app.StartAndConnect())
 
 	vrfkey, err := app.Store.VRFKeyStore.CreateKey(cltest.Password)
 	require.NoError(t, err)
@@ -42,8 +42,9 @@ func TestIntegration_VRFV2(t *testing.T) {
 		CoordinatorAddress: cu.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
 		PublicKey:          unlocked[0].String()}).Toml()
-	jb, _ := vrf.ValidateVRFSpec(s)
-	require.NoError(t, app.JobORM.CreateJob(context.Background(), &jb, jb.Pipeline))
+	jb, err := vrf.ValidateVRFSpec(s)
+	require.NoError(t, err)
+	require.NoError(t, app.GetJobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
 
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
@@ -52,7 +53,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 	require.NoError(t, err)
 	_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
 		vrfkey.MustHash(), big.NewInt(100), big.NewInt(1))
-	require.NoError(t, err, "problem during initial VRF randomness request")
+	require.NoError(t, err)
 	// Mine the required number of blocks
 	// So our request gets confirmed.
 	for i := 0; i < incomingConfs+1; i++ {

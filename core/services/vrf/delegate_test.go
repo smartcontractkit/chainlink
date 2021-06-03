@@ -91,13 +91,13 @@ func generateCallbackReturnValues(t *testing.T) []byte {
 }
 
 func TestDelegate(t *testing.T) {
-	cfg, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "vrf_delegate", true)
-	defer cleanupDB()
+	cfg, cfgcleanup := cltest.NewConfig(t)
+	defer cfgcleanup()
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
-	vuni := setup(t, orm.DB, cfg, store.KeyStore)
+	vuni := setup(t, store.DB, cfg, store.KeyStore)
 
-	vd := vrf.NewDelegate(orm.DB,
+	vd := vrf.NewDelegate(store.DB,
 		vuni.vorm,
 		store.KeyStore,
 		vuni.ks,
@@ -172,7 +172,7 @@ func TestDelegate(t *testing.T) {
 		// Ensure we have queued up a valid eth transaction
 		// Linked to  requestID
 		var ethTxes []models.EthTx
-		err = orm.DB.Find(&ethTxes).Error
+		err = store.DB.Find(&ethTxes).Error
 		require.NoError(t, err)
 		require.Equal(t, 1, len(ethTxes))
 		assert.Equal(t, vs.CoordinatorAddress, ethTxes[0].ToAddress.String())
@@ -180,7 +180,7 @@ func TestDelegate(t *testing.T) {
 		err = json.Unmarshal(ethTxes[0].Meta.RawMessage, &em)
 		require.NoError(t, err)
 		assert.Equal(t, reqID, em.RequestID)
-		require.NoError(t, orm.DB.Exec(`TRUNCATE eth_txes,pipeline_runs CASCADE`).Error)
+		require.NoError(t, store.DB.Exec(`TRUNCATE eth_txes,pipeline_runs CASCADE`).Error)
 	})
 
 	t.Run("invalid log", func(t *testing.T) {
@@ -220,7 +220,7 @@ func TestDelegate(t *testing.T) {
 
 		// Ensure we have NOT queued up an eth transaction
 		var ethTxes []models.EthTx
-		err = orm.DB.Find(&ethTxes).Error
+		err = store.DB.Find(&ethTxes).Error
 		require.NoError(t, err)
 		require.Len(t, ethTxes, 0)
 	})
