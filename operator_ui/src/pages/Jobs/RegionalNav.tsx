@@ -110,7 +110,7 @@ const styles = (theme: Theme) =>
     modalContent: {
       width: 'inherit',
     },
-    archiveButton: {
+    deleteButton: {
       marginTop: theme.spacing.unit * 4,
     },
     runJobButton: {
@@ -135,7 +135,7 @@ const CreateRunSuccessNotification = ({ data }: any) => (
 )
 
 const DeleteSuccessNotification = ({ id }: any) => (
-  <React.Fragment>Successfully archived job {id}</React.Fragment>
+  <React.Fragment>Successfully deleted job {id}</React.Fragment>
 )
 
 interface Props extends WithStyles<typeof styles> {
@@ -281,7 +281,7 @@ const RegionalNavComponent = ({
                 </Grid>
               </Grid>
               <Grid container spacing={0} alignItems="center" justify="center">
-                <Grid item className={classes.archiveButton}>
+                <Grid item className={classes.deleteButton}>
                   <Button
                     variant="danger"
                     onClick={() => handleDelete(jobSpecId)}
