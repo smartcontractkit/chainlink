@@ -311,6 +311,8 @@ func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
+// Note the sim's API only accepts types.Head so we have this goroutine
+// to convert those into models.Head.
 func (c *SimulatedBackendClient) SubscribeNewHead(
 	ctx context.Context,
 	channel chan<- *models.Head,

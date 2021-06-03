@@ -244,7 +244,7 @@ func (lsn *listener) run(unsubscribeLogs func()) {
 						}
 						// TODO: Once we have eth tasks supported, we can use the pipeline directly
 						// and be able to save errored proof generations. Until then only save
-						// successful runs and l errors.
+						// successful runs and log errors.
 						_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
 							PipelineSpecID: lsn.job.PipelineSpecID,
 							Errors:         []null.String{{}},
@@ -281,7 +281,7 @@ func (lsn *listener) run(unsubscribeLogs func()) {
 
 func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {
 	lsn.l.Infow("VRFListener: received log request",
-		"l", lb.String(),
+		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,

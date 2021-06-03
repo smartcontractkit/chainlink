@@ -439,7 +439,6 @@ func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, pa
 		if err != nil {
 			logger.Errorw("failed to marshal ethtx metadata", "err", err)
 		}
-		//metaJson = gormpostgrestypes.Jsonb{RawMessage: metaBytes}
 	}
 
 	value := 0

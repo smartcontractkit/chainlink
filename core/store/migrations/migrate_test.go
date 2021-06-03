@@ -373,3 +373,50 @@ func TestMigrate_CreateWebhookTables(t *testing.T) {
 	require.NoError(t, orm.DB.Find(&cs).Error)
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0029_add_webhook_spec_tables"))
 }
+
+func TestMigrate_ExternalJobID(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_external_jobid", false)
+	defer cleanup()
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0032_rename_direct_request_specs_num_confirmations"))
+	cs := WebhookSpec{
+		ID:               int32(1),
+		OnChainJobSpecID: uuid.FromStringOrNil("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"),
+	}
+	require.NoError(t, orm.DB.Create(&cs).Error)
+	type Job struct {
+		ID int32 `toml:"-" gorm:"primary_key"`
+		//ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+		OffchainreportingOracleSpecID *int32
+		CronSpecID                    *int32
+		DirectRequestSpecID           *int32
+		FluxMonitorSpecID             *int32
+		KeeperSpecID                  *int32
+		VRFSpecID                     *int32
+		WebhookSpecId                 *int32
+		PipelineSpecID                int32
+		PipelineSpec                  *pipeline.Spec
+		JobSpecErrors                 []job.SpecError `gorm:"foreignKey:JobID"`
+		Type                          job.Type
+		SchemaVersion                 uint32
+		Name                          null.String
+		MaxTaskDuration               models.Interval
+		Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+	}
+	ps := pipeline.Spec{
+		DotDagSource: "",
+	}
+	require.NoError(t, orm.DB.Create(&ps).Error)
+	jb := Job{
+		SchemaVersion:  1,
+		WebhookSpecId:  &cs.ID,
+		PipelineSpecID: ps.ID,
+		Type:           job.Webhook,
+	}
+	require.NoError(t, orm.DB.Create(&jb).Error)
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0033_external_job_id"))
+	var jb2 job.Job
+	require.NoError(t, orm.DB.Find(&jb2, "id = ?", jb.ID).Error)
+	assert.NotEqual(t, uuid.UUID{}.String(), jb2.ExternalJobID.String())
+	t.Log(jb2.ExternalJobID.String())
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0033_external_job_id"))
+}

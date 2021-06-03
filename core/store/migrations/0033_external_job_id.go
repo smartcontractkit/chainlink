@@ -14,10 +14,10 @@ const (
 	`
 	down33 = `
                ALTER TABLE direct_request_specs ADD COLUMN on_chain_job_spec_id bytea;
-               ALTER TABLE webhook_specs ADD COLUMN on_chain_job_spec_id;
+               ALTER TABLE webhook_specs ADD COLUMN on_chain_job_spec_id bytea;
                ALTER TABLE jobs DROP CONSTRAINT external_job_id_uniq;
                ALTER TABLE vrf_specs DROP CONSTRAINT vrf_specs_public_key_fkey;
-       `
+    `
 )
 
 func init() {
