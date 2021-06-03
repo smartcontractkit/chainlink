@@ -137,6 +137,7 @@ func (r *runner) runReaperLoop() {
 type memoryTaskRun struct {
 	task   Task
 	inputs []input
+	vars   Vars
 }
 
 // Returns the results sorted by index. It is not thread-safe.
@@ -219,6 +220,7 @@ type scheduler struct {
 	input        interface{}
 	waiting      uint
 	results      map[int64]TaskRunResult
+	vars         Vars
 
 	taskCh   chan *memoryTaskRun
 	resultCh chan TaskRunResult
@@ -242,6 +244,7 @@ func newScheduler(p *Pipeline, i interface{}) *scheduler {
 		dependencies: dependencies,
 		input:        i,
 		results:      make(map[int64]TaskRunResult, len(p.Tasks)),
+		vars:         NewVarsFrom(map[string]interface{}{"input": i}),
 
 		// taskCh should never block
 		taskCh:   make(chan *memoryTaskRun, len(dependencies)),
@@ -249,7 +252,7 @@ func newScheduler(p *Pipeline, i interface{}) *scheduler {
 	}
 
 	for _, task := range roots {
-		run := &memoryTaskRun{task: task}
+		run := &memoryTaskRun{task: task, vars: s.vars.Copy()}
 		// fill in the inputs
 		run.inputs = append(run.inputs, input{index: 0, result: Result{Value: s.input}})
 
@@ -270,6 +273,13 @@ func (s *scheduler) Run() {
 		// mark job as complete
 		s.results[result.Task.ID()] = result
 
+		// store the result in vars
+		if result.Result.Error != nil {
+			s.vars.Set(result.Task.DotID(), result.Result.Error)
+		} else {
+			s.vars.Set(result.Task.DotID(), result.Result.Value)
+		}
+
 		for _, output := range result.Task.Outputs() {
 			id := output.ID()
 			s.dependencies[id]--
@@ -277,7 +287,7 @@ func (s *scheduler) Run() {
 			// if all dependencies are done, schedule task run
 			if s.dependencies[id] == 0 {
 				task := s.pipeline.Tasks[id]
-				run := &memoryTaskRun{task: task}
+				run := &memoryTaskRun{task: task, vars: s.vars.Copy()}
 
 				// fill in the inputs
 				for _, i := range task.Inputs() {
@@ -343,7 +353,6 @@ func (r *runner) executeRun(
 	// https://www.pivotaltracker.com/story/show/176557536
 
 	var (
-		vars  = NewVarsFrom(map[string]interface{}{"input": pipelineInput})
 		retry bool
 	)
 
@@ -365,18 +374,10 @@ func (r *runner) executeRun(
 					}
 				}
 			}()
-			result := r.executeTaskRun(ctx, spec, vars, taskRun, meta, l)
-
-			// TODO: remove vars locks by constructing Vars instances per task?
-			if result.Result.Error != nil {
-				vars.Set(result.Task.DotID(), result.Result.Error)
-			} else {
-				vars.Set(result.Task.DotID(), result.Result.Value)
-			}
+			result := r.executeTaskRun(ctx, spec, taskRun, meta, l)
 
 			logTaskRunToPrometheus(result, spec)
 
-			// report the result back to the scheduler
 			scheduler.resultCh <- result
 		}(taskRun)
 	}
@@ -411,7 +412,7 @@ func (r *runner) executeRun(
 	return run, taskRunResults, retry, err
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
 	start := time.Now()
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
@@ -432,7 +433,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskR
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, vars, meta, taskRun.inputsSorted())
+	result := taskRun.task.Run(ctx, taskRun.vars, meta, taskRun.inputsSorted())
 	loggerFields = append(loggerFields, "result value", result.Value)
 	loggerFields = append(loggerFields, "result error", result.Error)
 	switch v := result.Value.(type) {
