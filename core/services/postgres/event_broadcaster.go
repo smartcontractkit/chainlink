@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -23,8 +24,7 @@ import (
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).
 type EventBroadcaster interface {
-	Start() error
-	Stop() error
+	service.Service
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
 	NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error
@@ -102,7 +102,7 @@ func (b *eventBroadcaster) Start() error {
 // Stop permanently destroys the EventBroadcaster.  Calling this does not clean
 // up any outstanding subscriptions.  Subscribers must explicitly call `.Close()`
 // or they will leak goroutines.
-func (b *eventBroadcaster) Stop() error {
+func (b *eventBroadcaster) Close() error {
 	return b.StopOnce("Postgres event broadcaster", func() (err error) {
 		b.subscriptionsMu.RLock()
 		defer b.subscriptionsMu.RUnlock()
@@ -293,8 +293,11 @@ func (sub *subscription) Close() {
 // NullEventBroadcaster implements null pattern for event broadcaster
 type NullEventBroadcaster struct{}
 
-func (*NullEventBroadcaster) Start() error { return nil }
-func (*NullEventBroadcaster) Stop() error  { return nil }
+func (*NullEventBroadcaster) Start() error   { return nil }
+func (*NullEventBroadcaster) Close() error   { return nil }
+func (*NullEventBroadcaster) Ready() error   { return nil }
+func (*NullEventBroadcaster) Healthy() error { return nil }
+
 func (*NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
 	return nil, nil
 }

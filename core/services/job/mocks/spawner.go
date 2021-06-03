@@ -65,6 +65,34 @@ func (_m *Spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	return r0
 }
 
+// Healthy provides a mock function with given fields:
+func (_m *Spawner) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Ready provides a mock function with given fields:
+func (_m *Spawner) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Start provides a mock function with given fields:
 func (_m *Spawner) Start() error {
 	ret := _m.Called()

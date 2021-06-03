@@ -55,7 +55,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
 	key := cltest.MustInsertRandomKey(t, db)
 	address := key.Address.Address()
