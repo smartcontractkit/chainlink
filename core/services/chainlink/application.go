@@ -323,7 +323,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		OCRKeyStore:              ocrKeyStore,
-		SessionReaper:            services.NewStoreReaper(store),
+		SessionReaper:            services.NewSessionReaper(store),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
