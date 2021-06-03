@@ -109,7 +109,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, 0), Times: test.times}
+			task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
 			result := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
 			require.NoError(t, result.Error)
 			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
@@ -124,7 +124,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 				"chain": map[string]interface{}{"link": test.times},
 			})
 			task := pipeline.MultiplyTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, 0),
+				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    "$(foo.bar)",
 				Times:    "$(chain.link)",
 			}
@@ -161,7 +161,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 			t.Parallel()
 
 			task := pipeline.MultiplyTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, 0),
+				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,
 				Times:    test.times,
 			}

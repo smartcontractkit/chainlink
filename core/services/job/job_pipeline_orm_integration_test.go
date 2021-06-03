@@ -54,39 +54,41 @@ func TestPipelineORM_Integration(t *testing.T) {
 	var specID int32
 
 	answer1 := &pipeline.MedianTask{
-		BaseTask: pipeline.NewBaseTask(0, "answer1", nil, 0),
+		AllowedFaults: "",
 	}
 	answer2 := &pipeline.BridgeTask{
-		Name:     "election_winner",
-		BaseTask: pipeline.NewBaseTask(0, "answer2", nil, 1),
+		Name: "election_winner",
 	}
 	ds1_multiply := &pipeline.MultiplyTask{
-		Times:    "1.23",
-		BaseTask: pipeline.NewBaseTask(0, "ds1_multiply", answer1, 0),
+		Times: "1.23",
 	}
 	ds1_parse := &pipeline.JSONParseTask{
-		Path:     "one,two",
-		BaseTask: pipeline.NewBaseTask(0, "ds1_parse", ds1_multiply, 0),
+		Path: "one,two",
 	}
 	ds1 := &pipeline.BridgeTask{
-		Name:     "voter_turnout",
-		BaseTask: pipeline.NewBaseTask(0, "ds1", ds1_parse, 0),
+		Name: "voter_turnout",
 	}
 	ds2_multiply := &pipeline.MultiplyTask{
-		Times:    "4.56",
-		BaseTask: pipeline.NewBaseTask(0, "ds2_multiply", answer1, 0),
+		Times: "4.56",
 	}
 	ds2_parse := &pipeline.JSONParseTask{
-		Path:     "three,four",
-		BaseTask: pipeline.NewBaseTask(0, "ds2_parse", ds2_multiply, 0),
+		Path: "three,four",
 	}
 	ds2 := &pipeline.HTTPTask{
 		URL:         "https://chain.link/voter_turnout/USA-2020",
 		Method:      "GET",
 		RequestData: `{"hi": "hello"}`,
-		BaseTask:    pipeline.NewBaseTask(0, "ds2", ds2_parse, 0),
 	}
-	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
+
+	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1", []pipeline.Task{ds1_multiply, ds2_multiply}, nil, 0)
+	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
+	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply", []pipeline.Task{ds1_parse}, []pipeline.Task{answer1}, 0)
+	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply", []pipeline.Task{ds2_parse}, []pipeline.Task{answer1}, 0)
+	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse", []pipeline.Task{ds1}, []pipeline.Task{ds1_multiply}, 0)
+	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse", []pipeline.Task{ds2}, []pipeline.Task{ds2_multiply}, 0)
+	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
+	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
+	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
