@@ -143,11 +143,6 @@ func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) fu
 	return r0
 }
 
-// SetLatestHeadFromStorage provides a mock function with given fields: head
-func (_m *Broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	_m.Called(head)
-}
-
 // Start provides a mock function with given fields:
 func (_m *Broadcaster) Start() error {
 	ret := _m.Called()

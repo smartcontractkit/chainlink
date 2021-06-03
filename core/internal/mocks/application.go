@@ -7,7 +7,6 @@ import (
 	big "math/big"
 
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
@@ -30,6 +29,8 @@ import (
 	store "github.com/smartcontractkit/chainlink/core/store"
 
 	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
+
+	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -203,7 +204,7 @@ func (_m *Application) GetExternalInitiatorManager() chainlink.ExternalInitiator
 	return r0
 }
 
-// GetExternalInitiatorManager provides a mock function with given fields:
+// GetHeadBroadcaster provides a mock function with given fields:
 func (_m *Application) GetHeadBroadcaster() types.HeadBroadcasterRegistry {
 	ret := _m.Called()
 
