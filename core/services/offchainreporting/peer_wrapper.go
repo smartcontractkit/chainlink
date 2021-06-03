@@ -19,7 +19,6 @@ type (
 	peer interface {
 		ocrtypes.BootstrapperFactory
 		ocrtypes.BinaryNetworkEndpointFactory
-
 		Close() error
 	}
 

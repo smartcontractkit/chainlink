@@ -293,8 +293,11 @@ func (sub *subscription) Close() {
 // NullEventBroadcaster implements null pattern for event broadcaster
 type NullEventBroadcaster struct{}
 
-func (*NullEventBroadcaster) Start() error { return nil }
-func (*NullEventBroadcaster) Stop() error  { return nil }
+func (*NullEventBroadcaster) Start() error   { return nil }
+func (*NullEventBroadcaster) Close() error   { return nil }
+func (*NullEventBroadcaster) Ready() error   { return nil }
+func (*NullEventBroadcaster) Healthy() error { return nil }
+
 func (*NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
 	return nil, nil
 }
