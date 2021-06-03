@@ -71,9 +71,37 @@ func (_m *StatsPusher) GetURL() url.URL {
 	return r0
 }
 
+// Healthy provides a mock function with given fields:
+func (_m *StatsPusher) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // PushNow provides a mock function with given fields:
 func (_m *StatsPusher) PushNow() {
 	_m.Called()
+}
+
+// Ready provides a mock function with given fields:
+func (_m *StatsPusher) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Start provides a mock function with given fields:

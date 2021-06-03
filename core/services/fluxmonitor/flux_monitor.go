@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"go.uber.org/zap"
@@ -56,8 +57,7 @@ type RunManager interface {
 type Service interface {
 	AddJob(models.JobSpec) error
 	RemoveJob(models.JobID)
-	Start() error
-	Stop()
+	service.Service
 	SetLogger(logger *logger.Logger)
 }
 
@@ -149,13 +149,28 @@ func (fm *concreteFluxMonitor) Start() error {
 	return err
 }
 
+func (fm *concreteFluxMonitor) Ready() error {
+	if fm.started {
+		return nil
+	}
+	return utils.ErrNotStarted
+}
+
+func (fm *concreteFluxMonitor) Healthy() error {
+	if fm.started {
+		return nil
+	}
+	return utils.ErrNotStarted
+}
+
 // Disconnect cleans up running deviation checkers.
-func (fm *concreteFluxMonitor) Stop() {
+func (fm *concreteFluxMonitor) Close() error {
 	close(fm.chStop)
 	if fm.started {
 		fm.started = false
 		<-fm.chDone
 	}
+	return nil
 }
 
 // serveInternalRequests handles internal requests for state change via

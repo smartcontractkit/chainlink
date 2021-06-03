@@ -34,8 +34,3 @@ func (Clock) Now() time.Time {
 func (Clock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
-
-type StartCloser interface {
-	Start() error
-	Close() error
-}

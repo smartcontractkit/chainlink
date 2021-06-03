@@ -107,6 +107,7 @@ func Router(app chainlink.Application) *gin.Engine {
 	)
 
 	metricRoutes(app, api)
+	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
@@ -197,6 +198,12 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	unauth.POST("/sessions", sc.Create)
 	auth := r.Group("/", RequireAuth(app.GetStore(), AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
+}
+
+func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
+	hc := HealthController{app}
+	r.GET("/readyz", hc.Readyz)
+	r.GET("/health", hc.Health)
 }
 
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {

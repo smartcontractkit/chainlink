@@ -603,6 +603,12 @@ func NewApp(client *Client) *cli.App {
 					Flags:  []cli.Flag{},
 				},
 				{
+					Name:   "status",
+					Usage:  "Displays the health of various services running inside the node.",
+					Action: client.Status,
+					Flags:  []cli.Flag{},
+				},
+				{
 					Name:        "db",
 					Usage:       "Commands for managing the database.",
 					Description: "Potentially destructive commands for managing the database.",

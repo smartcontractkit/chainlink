@@ -22,7 +22,7 @@ func TestRunQueue(t *testing.T) {
 	executeJobChannel := make(chan struct{})
 
 	runQueue.Start()
-	defer runQueue.Stop()
+	defer runQueue.Close()
 
 	runExecutor.On("Execute", mock.Anything).
 		Return(nil, nil).
@@ -57,7 +57,7 @@ func TestRunQueue_OneWorkerPerRun(t *testing.T) {
 	executeJobChannel := make(chan struct{})
 
 	runQueue.Start()
-	defer runQueue.Stop()
+	defer runQueue.Close()
 
 	runExecutor.On("Execute", mock.Anything).
 		Return(nil, nil).
@@ -94,7 +94,7 @@ func TestRunQueue_OneWorkerForSameRunTriggeredMultipleTimes(t *testing.T) {
 	executeJobChannel := make(chan struct{})
 
 	runQueue.Start()
-	defer runQueue.Stop()
+	defer runQueue.Close()
 
 	runExecutor.On("Execute", mock.Anything).
 		Return(nil, nil).

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -32,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -65,6 +67,7 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetLogger() *logger.Logger
+	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetOCRKeyStore() *offchainreporting.KeyStore // TODO: this should be replaced with a generic GetKeystore()
 	GetStatsPusher() synchronization.StatsPusher
@@ -126,7 +129,8 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
-	subservices              []utils.StartCloser
+	subservices              []service.Service
+	HealthChecker            health.Checker
 	logger                   *logger.Logger
 
 	started     bool
@@ -138,7 +142,7 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
-	var subservices []utils.StartCloser
+	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
@@ -150,6 +154,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 
+	healthChecker := health.NewChecker()
+
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
@@ -159,6 +165,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
+	subservices = append(subservices, explorerClient, statsPusher)
 
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
@@ -221,7 +228,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
 
 	promReporter := services.NewPromReporter(store.MustSQLDB())
-	subservices = append(subservices, promReporter)
+
+	subservices = append(subservices,
+		logBroadcaster,
+		eventBroadcaster,
+		fluxMonitor,
+		jobSubscriber,
+	)
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
@@ -229,6 +242,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
+
+	subservices = append(subservices, balanceMonitor)
+
+	subservices = append(subservices, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
@@ -329,6 +346,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
+		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -356,6 +374,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
 	logBroadcaster.AddDependents(1)
+
+	for _, service := range app.subservices {
+		if err = app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
+			return nil, err
+		}
+	}
 
 	return app, nil
 }
@@ -427,24 +451,20 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
-	subtasks := []func() error{
-		app.Store.Start,
-		app.explorerClient.Start,
-		app.StatsPusher.Start,
-		app.RunQueue.Start,
-		app.RunManager.ResumeAllInProgress,
-		app.LogBroadcaster.Start,
-		app.EventBroadcaster.Start,
-		app.FluxMonitor.Start,
+	if err := app.Store.Start(); err != nil {
+		return err
 	}
 
-	for _, task := range subtasks {
-		if err := task(); err != nil {
-			return err
-		}
+	if err := app.RunQueue.Start(); err != nil {
+		return err
+	}
+
+	if err := app.RunManager.ResumeAllInProgress(); err != nil {
+		return err
 	}
 
 	for _, subservice := range app.subservices {
+		logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
 			return err
 		}
@@ -466,6 +486,12 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	if err := app.Scheduler.Start(); err != nil {
+		return err
+	}
+
+	// Start HealthChecker last, so that the other services had the chance to
+	// start enough to immediately pass the readiness check.
+	if err := app.HealthChecker.Start(); err != nil {
 		return err
 	}
 
@@ -510,39 +536,25 @@ func (app *ChainlinkApplication) stop() error {
 		// Stop services in the reverse order from which they were started
 
 		logger.Debug("Stopping Scheduler...")
-		app.Scheduler.Stop()
+		merr = multierr.Append(merr, app.Scheduler.Stop())
 
 		logger.Debug("Stopping HeadTracker...")
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
-			logger.Debugw(fmt.Sprintf("Closing service %v...", i), "serviceType", reflect.TypeOf(service))
+			logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		logger.Debug("Stopping Scheduler...")
-		app.Scheduler.Stop()
-		logger.Debug("Stopping balanceMonitor...")
-		merr = multierr.Append(merr, app.balanceMonitor.Stop())
-		logger.Debug("Stopping JobSubscriber...")
-		merr = multierr.Append(merr, app.JobSubscriber.Stop())
-		logger.Debug("Stopping FluxMonitor...")
-		app.FluxMonitor.Stop()
-		logger.Debug("Stopping EventBroadcaster...")
-		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
-		logger.Debug("Stopping LogBroadcaster...")
-		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
-		logger.Debug("Stopping RunQueue...")
-		app.RunQueue.Stop()
-		logger.Debug("Stopping StatsPusher...")
-		merr = multierr.Append(merr, app.StatsPusher.Close())
-		logger.Debug("Stopping explorerClient...")
-		merr = multierr.Append(merr, app.explorerClient.Close())
+		logger.Debug("Closing RunQueue...")
+		merr = multierr.Append(merr, app.RunQueue.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
+		logger.Debug("Closing HealthChecker...")
+		merr = multierr.Append(merr, app.HealthChecker.Close())
 
 		logger.Info("Exited all services")
 
@@ -562,6 +574,10 @@ func (app *ChainlinkApplication) GetOCRKeyStore() *offchainreporting.KeyStore {
 
 func (app *ChainlinkApplication) GetLogger() *logger.Logger {
 	return app.logger
+}
+
+func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
+	return app.HealthChecker
 }
 
 func (app *ChainlinkApplication) GetJobORM() job.ORM {

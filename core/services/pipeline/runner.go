@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jpillora/backoff"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -22,9 +23,7 @@ import (
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	// Start spawns a background routine to delete old pipeline runs.
-	Start() error
-	Close() error
+	service.Service
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
