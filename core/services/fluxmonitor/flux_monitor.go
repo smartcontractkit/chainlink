@@ -153,14 +153,14 @@ func (fm *concreteFluxMonitor) Ready() error {
 	if fm.started {
 		return nil
 	}
-	return errors.New("not started")
+	return utils.ErrNotStarted
 }
 
 func (fm *concreteFluxMonitor) Healthy() error {
 	if fm.started {
 		return nil
 	}
-	return errors.New("not started")
+	return utils.ErrNotStarted
 }
 
 // Disconnect cleans up running deviation checkers.

@@ -43,9 +43,6 @@ func TestHealthController_Readyz(t *testing.T) {
 			resp, cleanup := client.Get("/readyz")
 			t.Cleanup(cleanup)
 			assert.Equal(t, tc.status, resp.StatusCode)
-			// b, err := ioutil.ReadAll(resp.Body)
-			// require.NoError(t, err)
-			// assert.Contains(t, string(b), tc.expectedErr.Error())
 		})
 	}
 }

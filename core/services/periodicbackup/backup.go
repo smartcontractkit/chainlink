@@ -93,10 +93,6 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 	}
 }
 
-func (backup *databaseBackup) Name() string {
-	return "DatabaseBackup"
-}
-
 func (backup *databaseBackup) Start() error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		if backup.frequencyIsTooSmall() {

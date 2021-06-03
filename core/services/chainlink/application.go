@@ -230,7 +230,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	promReporter := services.NewPromReporter(store.MustSQLDB())
 
 	subservices = append(subservices,
-		runQueue,
 		logBroadcaster,
 		eventBroadcaster,
 		fluxMonitor,
@@ -456,6 +455,10 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
+	if err := app.RunQueue.Start(); err != nil {
+		return err
+	}
+
 	if err := app.RunManager.ResumeAllInProgress(); err != nil {
 		return err
 	}
@@ -544,6 +547,8 @@ func (app *ChainlinkApplication) stop() error {
 			merr = multierr.Append(merr, service.Close())
 		}
 
+		logger.Debug("Closing RunQueue...")
+		merr = multierr.Append(merr, app.RunQueue.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		logger.Debug("Closing Store...")

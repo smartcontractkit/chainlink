@@ -850,6 +850,10 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
+var (
+	ErrNotStarted = errors.New("Not started")
+)
+
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state        atomic.Int32
@@ -944,7 +948,7 @@ func (once *StartStopOnce) Ready() error {
 	if once.State() == StartStopOnce_Started {
 		return nil
 	}
-	return errors.New("not started")
+	return ErrNotStarted
 }
 
 // Override this per-service with more specific implementations
@@ -952,7 +956,7 @@ func (once *StartStopOnce) Healthy() error {
 	if once.State() == StartStopOnce_Started {
 		return nil
 	}
-	return errors.New("not started")
+	return ErrNotStarted
 }
 
 // WithJitter adds +/- 10% to a duration
