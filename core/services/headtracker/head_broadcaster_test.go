@@ -1,4 +1,4 @@
-package services_test
+package headtracker_test
 
 import (
 	"testing"
@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -39,8 +40,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hr := services.NewHeadBroadcaster()
-	ht := services.NewHeadTracker(logger, store, []models.HeadTrackable{hr}, cltest.NeverSleeper{})
+	hr := headtracker.NewHeadBroadcaster()
+	ht := services.NewHeadTracker(logger, store, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()
 	require.NoError(t, ht.Start())

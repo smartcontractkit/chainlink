@@ -7,6 +7,7 @@ import (
 	big "math/big"
 
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
@@ -194,6 +195,22 @@ func (_m *Application) GetExternalInitiatorManager() chainlink.ExternalInitiator
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.ExternalInitiatorManager)
+		}
+	}
+
+	return r0
+}
+
+// GetExternalInitiatorManager provides a mock function with given fields:
+func (_m *Application) GetHeadBroadcaster() types.HeadBroadcasterRegistry {
+	ret := _m.Called()
+
+	var r0 types.HeadBroadcasterRegistry
+	if rf, ok := ret.Get(0).(func() types.HeadBroadcasterRegistry); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.HeadBroadcasterRegistry)
 		}
 	}
 
