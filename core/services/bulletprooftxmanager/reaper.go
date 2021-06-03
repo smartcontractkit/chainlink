@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
@@ -82,6 +83,10 @@ func (r *Reaper) work() {
 	if err != nil {
 		r.log.Error("Reaper: unable to reap old eth_txes: ", err)
 	}
+	err = r.ReapJobRuns()
+	if err != nil {
+		r.log.Error("Reaper: unable to reap old runs: ", err)
+	}
 }
 
 // SetLatestBlockNum should be called on every new highest block number
@@ -100,7 +105,7 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 func (r *Reaper) ReapEthTxes(headNum int64) error {
 	threshold := r.config.EthTxReaperThreshold()
 	if threshold == 0 {
-		r.log.Debug("Reaper: ETH_TX_REAPER_THRESHOLD set to 0; skipping reapEthTxes")
+		r.log.Debug("Reaper: ETH_TX_REAPER_THRESHOLD set to 0; skipping ReapEthTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.config.EthFinalityDepth())
@@ -152,4 +157,22 @@ AND state = 'fatal_error'`, timeThreshold)
 	r.log.Debugf("Reaper: completed in %v", time.Since(mark))
 
 	return nil
+}
+
+// ReapJobRuns removes old job runs
+// HACK: This isn't quite the right place for it, but since we are killing the
+// old pipeline this code is temporary anyway
+func (r *Reaper) ReapJobRuns() error {
+	threshold := r.config.EthTxReaperThreshold() // Just re-use the EthTxReaperThreshold, it's probably close enough
+	if threshold == 0 {
+		r.log.Debug("Reaper: ETH_TX_REAPER_THRESHOLD set to 0; skipping ReapJobRuns")
+		return nil
+	}
+	mark := time.Now()
+	timeThreshold := mark.Add(-threshold)
+	request := &models.BulkDeleteRunRequest{
+		Status:        []models.RunStatus{models.RunStatusCompleted, models.RunStatusErrored},
+		UpdatedBefore: timeThreshold,
+	}
+	return errors.Wrap(orm.BulkDeleteRuns(r.db, request), "Reaper#ReapJobRuns failed")
 }

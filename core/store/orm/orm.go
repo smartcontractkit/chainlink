@@ -1365,31 +1365,39 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 //
 // TaskRuns are removed by ON DELETE CASCADE when the JobRuns and RunResults
 // are deleted.
-func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		err := dbtx.Exec(`
-			WITH deleted_job_runs AS (
-				DELETE FROM job_runs as jr
-				USING task_runs as tr
-				WHERE
-					jr.status IN (?) AND
-					jr.updated_at < ? AND
-					jr.id = tr.job_run_id
-				RETURNING jr.result_id as job_run_result_id, jr.run_request_id, tr.result_id as task_run_result_id
-			),
-			deleted_job_run_results AS (
-				DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
-			),
-			deleted_task_run_results AS (
-				DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
-			)
-			DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)`,
-			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-		if err != nil {
-			return errors.Wrap(err, "error deleting JobRuns")
-		}
+func BulkDeleteRuns(db *gorm.DB, bulkQuery *models.BulkDeleteRunRequest) error {
+	return Batch(func(_, limit uint) (count uint, err error) {
+		res := db.Exec(`
+WITH job_runs_to_delete AS (
+	SELECT id FROM job_runs jr
+	WHERE jr.status IN (?) AND jr.updated_at < ?
+	ORDER BY jr.id ASC
+	LIMIT ?
+),
+deleted_task_runs AS (
+	DELETE FROM task_runs as tr
+	WHERE tr.job_run_id IN (SELECT id FROM job_runs_to_delete)
+	RETURNING tr.result_id
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_task_runs)
+),
+deleted_job_runs AS (
+	DELETE FROM job_runs as jr
+	WHERE jr.id IN (SELECT id FROM job_runs_to_delete)
+	RETURNING jr.result_id, jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
+)
+DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)
+;
+		`, bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore, limit)
 
-		return nil
+		if res.Error != nil {
+			return count, res.Error
+		}
+		return uint(res.RowsAffected), res.Error
 	})
 }
 
