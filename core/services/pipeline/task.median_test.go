@@ -88,7 +88,7 @@ func TestMedian(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask(0, "task", nil, 0),
+				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				AllowedFaults: test.allowedFaults,
 			}
 			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, test.inputs)
@@ -119,7 +119,7 @@ func TestMedian(t *testing.T) {
 				"foo": map[string]interface{}{"bar": inputs},
 			})
 			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask(0, "task", nil, 0),
+				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Values:        "$(foo.bar)",
 				AllowedFaults: test.allowedFaults,
 			}
@@ -165,7 +165,7 @@ func TestMedian(t *testing.T) {
 			}
 
 			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask(0, "task", nil, 0),
+				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Values:        valuesParam,
 				AllowedFaults: test.allowedFaults,
 			}

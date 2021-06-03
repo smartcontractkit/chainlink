@@ -316,7 +316,7 @@ func TestJSONParseTask(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(0, "json", nil, 0),
+				BaseTask: pipeline.NewBaseTask(0, "json", nil, nil, 0),
 				Path:     test.path,
 				Data:     test.data,
 				Lax:      test.lax,

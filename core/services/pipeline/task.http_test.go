@@ -33,7 +33,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	defer s1.Close()
 
 	task := pipeline.HTTPTask{
-		BaseTask:    pipeline.NewBaseTask(0, "http", nil, 0),
+		BaseTask:    pipeline.NewBaseTask(0, "http", nil, nil, 0),
 		Method:      "POST",
 		URL:         s1.URL,
 		RequestData: btcUSDPairing,
@@ -156,7 +156,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			feedWebURL := (*models.WebURL)(feedURL)
 
 			task := pipeline.BridgeTask{
-				BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, 0),
+				BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 				Name:        "foo",
 				RequestData: test.requestData,
 			}

@@ -12,8 +12,8 @@ type BaseTask struct {
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
-func NewBaseTask(id int64, dotID string, outputs []Task, index int32) BaseTask {
-	return BaseTask{dotID: dotID, outputs: outputs, Index: index}
+func NewBaseTask(id int64, dotID string, inputs, outputs []Task, index int32) BaseTask {
+	return BaseTask{id: id, dotID: dotID, inputs: inputs, outputs: outputs, Index: index}
 }
 
 func (t *BaseTask) Base() *BaseTask {
