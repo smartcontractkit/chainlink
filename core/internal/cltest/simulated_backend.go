@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -402,10 +403,16 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	for i, elem := range b {
 		if elem.Method == "eth_getBlockByNumber" {
-			b[i].Error = errors.New("not supported yet")
-		} else {
-			if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
-				return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
+			number := HexToInt64(elem.Args[0])
+			ethBlock, err := c.b.BlockByNumber(ctx, big.NewInt(number))
+			if err != nil && ethBlock != nil {
+				block := headtracker.FromEthBlock(*ethBlock)
+				b[i].Result = &block
+			}
+			b[i].Error = err
+		} else if elem.Method == "eth_getTransactionReceipt" {
+			if len(elem.Args) != 1 {
+				return errors.New("SimulatedBackendClient BatchCallContext eth_getTransactionReceipt - invalid number of arguments")
 			}
 			switch v := elem.Result.(type) {
 			case *bulletprooftxmanager.Receipt:
@@ -419,6 +426,8 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			default:
 				return errors.Errorf("SimulatedBackendClient unsupported elem.Result type %T", v)
 			}
+		} else {
+			return errors.Errorf("SimulatedBackendClient BatchCallContext does not support: %v", elem.Method)
 		}
 	}
 	return nil

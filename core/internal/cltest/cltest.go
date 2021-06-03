@@ -485,6 +485,11 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	c := new(mocks.Client)
 	s := new(mocks.Subscription)
+
+	c.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
+
 	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
@@ -507,6 +512,10 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+	c.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
+
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
 	return c, s, assertMocksCalled
@@ -2064,4 +2073,25 @@ func MustSendingKeys(t *testing.T, ks strpkg.KeyStoreInterface) (keys []models.K
 	keys, err = ks.SendingKeys()
 	require.NoError(t, err)
 	return keys
+}
+
+// HexToInt64 performs the inverse of Int64ToHex
+// Returns 0 on invalid input
+func HexToInt64(input interface{}) int64 {
+	switch v := input.(type) {
+	case string:
+		big, err := hexutil.DecodeBig(v)
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	case []byte:
+		big, err := hexutil.DecodeBig(string(v))
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	default:
+		return 0
+	}
 }

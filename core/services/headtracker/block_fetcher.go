@@ -284,7 +284,7 @@ func (bf *BlockFetcher) findBlockByHash(hash common.Hash) *Block {
 	return nil
 }
 
-func fromEthBlock(ethBlock types.Block) Block {
+func FromEthBlock(ethBlock types.Block) Block {
 	var block Block
 	block.Number = ethBlock.Number().Int64()
 	block.Hash = ethBlock.Hash()

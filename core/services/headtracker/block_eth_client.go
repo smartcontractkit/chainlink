@@ -40,7 +40,7 @@ func (bc *BlockEthClientImpl) BlockByNumber(ctx context.Context, number int64) (
 	if err != nil {
 		return nil, err
 	}
-	b := fromEthBlock(*block)
+	b := FromEthBlock(*block)
 	return &b, nil
 }
 
@@ -49,7 +49,7 @@ func (bc *BlockEthClientImpl) FastBlockByHash(ctx context.Context, hash common.H
 	if err != nil {
 		return nil, err
 	}
-	b := fromEthBlock(*block)
+	b := FromEthBlock(*block)
 	return &b, nil
 }
 

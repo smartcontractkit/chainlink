@@ -1011,6 +1011,9 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return b[0].Method == "eth_getBlockByNumber"
+	})).Maybe().Return(nil)
 
 	newHeads := make(chan<- *models.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
