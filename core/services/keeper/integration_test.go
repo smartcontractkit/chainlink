@@ -38,8 +38,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	// setup node key
 	nodeKey := cltest.MustGenerateRandomKey(t)
 	nodeAddress := nodeKey.Address.Address()
-	nodeAddressEIP55, err := models.EIP55AddressFromAddress(nodeAddress)
-	require.NoError(t, err)
+	nodeAddressEIP55 := models.EIP55AddressFromAddress(nodeAddress)
 
 	// setup blockchain
 	sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
@@ -56,6 +55,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	defer backend.Close()
 
 	stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 	defer stopMining()
@@ -100,8 +100,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	// create job
-	regAddrEIP55, err := models.EIP55AddressFromAddress(regAddr)
-	require.NoError(t, err)
+	regAddrEIP55 := models.EIP55AddressFromAddress(regAddr)
 	cltest.MustInsertKeeperJob(t, app.Store, nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received

@@ -1,37 +1,25 @@
 package fluxmonitorv2
 
 import (
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	corestore "github.com/smartcontractkit/chainlink/core/store"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //go:generate mockery --name KeyStoreInterface --output ./mocks/ --case=underscore
 
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {
-	Accounts() []accounts.Account
-	GetRoundRobinAddress(db *gorm.DB) (common.Address, error)
+	SendingKeys() ([]models.Key, error)
+	GetRoundRobinAddress(...common.Address) (common.Address, error)
 }
 
 // KeyStore implements KeyStoreInterface
 type KeyStore struct {
-	store *corestore.Store
+	corestore.KeyStoreInterface
 }
 
 // NewKeyStore initializes a new keystore
-func NewKeyStore(store *corestore.Store) *KeyStore {
-	return &KeyStore{store: store}
-}
-
-// Accounts gets the node's accounts from the keystore
-func (ks *KeyStore) Accounts() []accounts.Account {
-	return ks.store.KeyStore.Accounts()
-}
-
-// GetRoundRobinAddress queries the database for the address of a random
-// ethereum key derived from the id.
-func (ks *KeyStore) GetRoundRobinAddress(db *gorm.DB) (common.Address, error) {
-	return ks.store.GetRoundRobinAddress(db)
+func NewKeyStore(ks corestore.KeyStoreInterface) *KeyStore {
+	return &KeyStore{ks}
 }

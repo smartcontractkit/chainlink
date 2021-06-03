@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -34,20 +35,20 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
 var _ job.Service = (*UpkeepExecuter)(nil)
-var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
+var _ types.HeadTrackable = (*UpkeepExecuter)(nil)
 
 type UpkeepExecuter struct {
-	chStop            chan struct{}
-	ethClient         eth.Client
-	executionQueue    chan struct{}
-	headBroadcaster   *services.HeadBroadcaster
-	job               job.Job
-	mailbox           *utils.Mailbox
-	maxGracePeriod    int64
-	maxUnconfirmedTXs uint64
-	orm               ORM
-	pr                pipeline.Runner
-	wgDone            sync.WaitGroup
+	chStop                   chan struct{}
+	ethClient                eth.Client
+	executionQueue           chan struct{}
+	headBroadcaster          types.HeadBroadcasterRegistry
+	job                      job.Job
+	mailbox                  *utils.Mailbox
+	maxGracePeriod           int64
+	ethMaxQueuedTransactions uint64
+	orm                      ORM
+	pr                       pipeline.Runner
+	wgDone                   sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -56,22 +57,22 @@ func NewUpkeepExecuter(
 	db *gorm.DB,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
+	headBroadcaster *headtracker.HeadBroadcaster,
 	config *orm.Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:            make(chan struct{}),
-		ethClient:         ethClient,
-		executionQueue:    make(chan struct{}, executionQueueSize),
-		headBroadcaster:   headBroadcaster,
-		job:               job,
-		mailbox:           utils.NewMailbox(1),
-		maxUnconfirmedTXs: config.EthMaxUnconfirmedTransactions(),
-		maxGracePeriod:    config.KeeperMaximumGracePeriod(),
-		orm:               NewORM(db),
-		pr:                pr,
-		wgDone:            sync.WaitGroup{},
-		StartStopOnce:     utils.StartStopOnce{},
+		chStop:                   make(chan struct{}),
+		ethClient:                ethClient,
+		executionQueue:           make(chan struct{}, executionQueueSize),
+		headBroadcaster:          headBroadcaster,
+		job:                      job,
+		mailbox:                  utils.NewMailbox(1),
+		ethMaxQueuedTransactions: config.EthMaxQueuedTransactions(),
+		maxGracePeriod:           config.KeeperMaximumGracePeriod(),
+		orm:                      NewORM(db),
+		pr:                       pr,
+		wgDone:                   sync.WaitGroup{},
+		StartStopOnce:            utils.StartStopOnce{},
 	}
 }
 
@@ -79,9 +80,9 @@ func (executer *UpkeepExecuter) Start() error {
 	return executer.StartOnce("UpkeepExecuter", func() error {
 		executer.wgDone.Add(2)
 		go executer.run()
-		unsubscribe := executer.headBroadcaster.Subscribe(executer)
+		unsubscribeHeads := executer.headBroadcaster.Subscribe(executer)
 		go func() {
-			defer unsubscribe()
+			defer unsubscribeHeads()
 			defer executer.wgDone.Done()
 			<-executer.chStop
 		}()
@@ -90,13 +91,14 @@ func (executer *UpkeepExecuter) Start() error {
 }
 
 func (executer *UpkeepExecuter) Close() error {
-	if !executer.OkayToStop() {
-		return errors.New("UpkeepExecuter is already stopped")
-	}
-	close(executer.chStop)
-	executer.wgDone.Wait()
-	return nil
+	return executer.StopOnce("UpkeepExecuter", func() error {
+		close(executer.chStop)
+		executer.wgDone.Wait()
+		return nil
+	})
 }
+
+func (executer *UpkeepExecuter) Connect(head *models.Head) error { return nil }
 
 func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	executer.mailbox.Deliver(head)
@@ -206,7 +208,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
-		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.maxUnconfirmedTXs)
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.ethMaxQueuedTransactions)
 		if err != nil {
 			return errors.Wrap(err, "failed to create eth_tx for upkeep")
 		}

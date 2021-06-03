@@ -23,8 +23,8 @@ export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
         return job.attributes.keeperSpec.createdAt
       case 'cron':
         return job.attributes.cronSpec.createdAt
-      case 'web':
-        return job.attributes.webSpec.createdAt
+      case 'webhook':
+        return job.attributes.webhookSpec.createdAt
     }
   }, [job])
 
@@ -39,8 +39,8 @@ export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
         return 'Keeper'
       case 'cron':
         return 'Cron'
-      case 'web':
-        return 'Web'
+      case 'webhook':
+        return 'Webhook'
       default:
         return ''
     }
@@ -54,7 +54,7 @@ export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
         return job.attributes.directRequestSpec.initiator
       case 'keeper':
       case 'cron':
-      case 'web':
+      case 'webhook':
       case 'offchainreporting':
         return 'N/A'
       default:

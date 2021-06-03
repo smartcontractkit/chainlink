@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,23 +27,26 @@ const (
 	KeeperJobSpec            JobSpecType = "keeper"
 	CronJobSpec              JobSpecType = "cron"
 	VRFJobSpec               JobSpecType = "vrf"
+	WebhookJobSpec           JobSpecType = "webhook"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress  models.EIP55Address `json:"contractAddress"`
-	OnChainJobSpecID string              `json:"onChainJobSpecId"`
-	Initiator        string              `json:"initiator"`
-	CreatedAt        time.Time           `json:"createdAt"`
-	UpdatedAt        time.Time           `json:"updatedAt"`
+	ContractAddress          models.EIP55Address `json:"contractAddress"`
+	OnChainJobSpecID         string              `json:"onChainJobSpecID"`
+	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
+	Initiator                string              `json:"initiator"`
+	CreatedAt                time.Time           `json:"createdAt"`
+	UpdatedAt                time.Time           `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:  spec.ContractAddress,
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
+		ContractAddress:          spec.ContractAddress,
+		OnChainJobSpecID:         spec.OnChainJobSpecID.String(),
+		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",
@@ -153,6 +157,22 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 	}
 }
 
+// WebhookSpec defines the spec details of a Webhook Job
+type WebhookSpec struct {
+	OnChainJobSpecID string    `json:"onChainJobSpecID"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+// NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
+func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
+	return &WebhookSpec{
+		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
+		CreatedAt:        spec.CreatedAt,
+		UpdatedAt:        spec.UpdatedAt,
+	}
+}
+
 // CronSpec defines the spec details of a Cron Job
 type CronSpec struct {
 	CronSchedule string    `json:"schedule" tom:"schedule"`
@@ -215,10 +235,11 @@ type JobResource struct {
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
+	CronSpec              *CronSpec              `json:"cronSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
-	CronSpec              *CronSpec              `json:"cronSpec"`
 	VRFSpec               *VRFSpec               `json:"vrfSpec"`
+	WebhookSpec           *WebhookSpec           `json:"webhookSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -239,14 +260,16 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.DirectRequestSpec = NewDirectRequestSpec(j.DirectRequestSpec)
 	case job.FluxMonitor:
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
-	case job.OffchainReporting:
-		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
+	case job.OffchainReporting:
+		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:
 		resource.VRFSpec = NewVRFSpec(j.VRFSpec)
+	case job.Webhook:
+		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
 	}
 
 	jes := []JobError{}

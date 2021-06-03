@@ -66,7 +66,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config)
+		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
@@ -91,7 +91,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 			<-removed
 		})
 
-		fm.Stop()
+		fm.Close()
 
 		dc.AssertExpectations(t)
 	})
@@ -100,14 +100,14 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config)
+		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
 		err := fm.Start()
 		require.NoError(t, err)
-		defer fm.Stop()
+		defer fm.Close()
 
 		err = fm.AddJob(job)
 		require.NoError(t, err)
@@ -237,7 +237,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Maybe()
 
 			if test.expectedToPoll {
-				fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(answers.polledAnswer), nil)
+				fetcher.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(decimal.NewFromInt(answers.polledAnswer), nil)
 			}
 
 			if test.expectedToSubmit {
@@ -400,7 +400,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fluxAggregator.On("Address").Return(initr.Address, nil)
 
 	fetcher := new(mocks.Fetcher)
-	fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
+	fetcher.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	logBroadcaster := new(logmocks.Broadcaster)
 	logBroadcaster.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
@@ -1037,7 +1037,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToPoll {
-				fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
+				fetcher.On("Fetch", mock.Anything, mock.Anything, mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
 			}
 
 			if expectedToSubmit {
@@ -1626,7 +1626,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:      1,
 			}, nil).
 			Once()
-		fetcher.On("Fetch", mock.Anything, mock.Anything).
+		fetcher.On("Fetch", mock.Anything, mock.Anything, mock.Anything).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
@@ -1720,7 +1720,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil).
 			Once()
 		md, _ := models.MarshalBridgeMetaData(big.NewInt(100), big.NewInt(1616447984))
-		fetcher.On("Fetch", mock.Anything, md).
+		fetcher.On("Fetch", mock.Anything, md, mock.Anything).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).

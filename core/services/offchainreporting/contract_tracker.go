@@ -120,40 +120,38 @@ func NewOCRContractTracker(
 
 // Start must be called before logs can be delivered
 // It ought to be called before starting OCR
-func (t *OCRContractTracker) Start() (err error) {
-	if !t.OkayToStart() {
-		return errors.New("OCRContractTracker: already started")
-	}
-	unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
-		Contract: t.contract,
-		Logs: []generated.AbigenLog{
-			offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
-			offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
-		},
-		NumConfirmations: 1,
-	})
-	t.unsubscribeLogs = unsubscribe
+func (t *OCRContractTracker) Start() error {
+	return t.StartOnce("OCRContractTracker", func() (err error) {
+		unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
+			Contract: t.contract,
+			Logs: []generated.AbigenLog{
+				offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
+				offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
+			},
+			NumConfirmations: 1,
+		})
+		t.unsubscribeLogs = unsubscribe
 
-	t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
-	if err != nil {
-		unsubscribe()
-		return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
-	}
-	t.wg.Add(1)
-	go t.processLogs()
-	return nil
+		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
+		if err != nil {
+			unsubscribe()
+			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
+		}
+		t.wg.Add(1)
+		go t.processLogs()
+		return nil
+	})
 }
 
 // Close should be called after teardown of the OCR job relying on this tracker
 func (t *OCRContractTracker) Close() error {
-	if !t.OkayToStop() {
-		return errors.New("OCRContractTracker already stopped")
-	}
-	t.ctxCancel()
-	t.wg.Wait()
-	t.unsubscribeLogs()
-	close(t.chConfigs)
-	return nil
+	return t.StopOnce("OCRContractTracker", func() error {
+		t.ctxCancel()
+		t.wg.Wait()
+		t.unsubscribeLogs()
+		close(t.chConfigs)
+		return nil
+	})
 }
 
 func (t *OCRContractTracker) processLogs() {

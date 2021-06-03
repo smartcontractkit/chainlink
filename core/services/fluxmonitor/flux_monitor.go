@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"go.uber.org/zap"
@@ -56,8 +57,7 @@ type RunManager interface {
 type Service interface {
 	AddJob(models.JobSpec) error
 	RemoveJob(models.JobID)
-	Start() error
-	Stop()
+	service.Service
 	SetLogger(logger *logger.Logger)
 }
 
@@ -149,13 +149,28 @@ func (fm *concreteFluxMonitor) Start() error {
 	return err
 }
 
+func (fm *concreteFluxMonitor) Ready() error {
+	if fm.started {
+		return nil
+	}
+	return utils.ErrNotStarted
+}
+
+func (fm *concreteFluxMonitor) Healthy() error {
+	if fm.started {
+		return nil
+	}
+	return utils.ErrNotStarted
+}
+
 // Disconnect cleans up running deviation checkers.
-func (fm *concreteFluxMonitor) Stop() {
+func (fm *concreteFluxMonitor) Close() error {
 	close(fm.chStop)
 	if fm.started {
 		fm.started = false
 		<-fm.chDone
 	}
+	return nil
 }
 
 // serveInternalRequests handles internal requests for state change via
@@ -664,10 +679,13 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	accounts := p.store.KeyStore.Accounts()
-	for _, acct := range accounts {
+	keys, err := p.store.KeyStore.SendingKeys()
+	if err != nil {
+		return errors.Wrap(err, "failed to load send keys")
+	}
+	for _, k := range keys {
 		for _, oracleAddr := range oracleAddrs {
-			if acct.Address.Hex() == oracleAddr.Hex() {
+			if k.Address.Hex() == oracleAddr.Hex() {
 				p.oracleAddress = oracleAddr
 				return nil
 			}
@@ -675,12 +693,12 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	}
 
 	log = log.With(
-		"accounts", accounts,
+		"keys", keys,
 		"oracleAddresses", oracleAddrs,
 	)
 
-	if len(accounts) > 0 {
-		addr := accounts[0].Address
+	if len(keys) > 0 {
+		addr := keys[0].Address.Address()
 
 		log.Warnw(
 			"None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
@@ -775,7 +793,10 @@ func (p *PollingDeviationChecker) processLogs() {
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
-			p.reactivate()
+			if p.isHibernating {
+				p.reactivate()
+			}
+
 			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			logger.ErrorIf(err, "Error marking log as consumed")
 
@@ -928,7 +949,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge)
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
 	if err != nil {
 		l.Errorw("unable to fetch median price", "err", err)
 		return
@@ -1065,7 +1086,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge)
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")

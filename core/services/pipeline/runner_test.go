@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -57,15 +58,15 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	d := pipeline.TaskDAG{}
 	s := fmt.Sprintf(`
-ds1 [type=bridge name="example-bridge" timeout=0 requestData="{\"data\": {\"coin\": \"BTC\", \"market\": \"USD\"}}"]
+ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
-ds2 [type=http method="GET" url="%s" requestData="{\"data\": {\"coin\": \"BTC\", \"market\": \"USD\"}}"]
+ds2 [type=http method="GET" url="%s" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds2_parse [type=jsonparse lax=false  path="data,result"]
 ds2_multiply [type=multiply times=1000000000000000000]
 
-ds3 [type=http method="GET" url="blah://test.invalid" requestData="{\"data\": {\"coin\": \"BTC\", \"market\": \"USD\"}}"]
+ds3 [type=http method="GET" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds3_parse [type=jsonparse lax=false  path="data,result"]
 ds3_multiply [type=multiply times=1000000000000000000]
 
@@ -85,7 +86,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(ts))
 
@@ -107,6 +108,185 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// There are three tasks in the erroring pipeline
 	require.Len(t, errorResults, 3)
+}
+
+func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
+	t.Parallel()
+
+	specTemplate := `
+        ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": $(input.foo)}>]
+        ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
+        ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
+
+        ds2 [type=http method="POST" url="%s" requestData=<{"data": [ $(input.bar), $(input.baz) ]}>]
+        ds2_parse [type=jsonparse lax=false  path="data" data="$(ds2)"]
+        ds2_multiply [type=multiply input="$(ds2_parse.result)" times="$(ds2_parse.times)"]
+
+        ds3 [type=http method="POST" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+        ds3_parse [type=jsonparse lax=false  path="data,result" data="$(ds3)"]
+        ds3_multiply [type=multiply input="$(ds3_parse.value)" times="$(ds3_parse.times)"]
+
+        ds1->ds1_parse->ds1_multiply->median;
+        ds2->ds2_parse->ds2_multiply->median;
+        ds3->ds3_parse->ds3_multiply->median;
+
+        median [type=median values=<[ $(ds1_multiply), $(ds2_multiply), $(ds3_multiply) ]> index=0]
+        ds4 [type=http method="GET" url="%s" index=1]
+
+        submit [type=bridge name="submit"
+                includeInputAtKey="%s"
+                requestData=<{
+                    "median": $(median),
+                    "fetchedValues": [ $(ds1_parse.result), $(ds2_parse.result) ],
+                    "someString": $(ds4)
+                }>]
+
+        median -> submit;
+        ds4 -> submit;
+    `
+
+	tests := []struct {
+		name              string
+		pipelineInput     map[string]interface{}
+		meta              map[string]interface{}
+		includeInputAtKey string
+	}{
+		{
+			name: "meta + includeInputAtKey",
+			pipelineInput: map[string]interface{}{
+				"foo": []interface{}{float64(123), "chainlink"},
+				"bar": float64(123.45),
+				"baz": "such oracle",
+			},
+			meta:              map[string]interface{}{"roundID": float64(456), "latestAnswer": float64(654)},
+			includeInputAtKey: "sergey",
+		},
+		{
+			name: "includeInputAtKey",
+			pipelineInput: map[string]interface{}{
+				"foo": *mustDecimal(t, "42.1337"),
+				"bar": map[string]interface{}{"steve": "chainlink"},
+				"baz": true,
+			},
+			includeInputAtKey: "best oracles",
+		},
+		{
+			name: "meta",
+			pipelineInput: map[string]interface{}{
+				"foo": []interface{}{"asdf", float64(123)},
+				"bar": false,
+				"baz": *mustDecimal(t, "42.1337"),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			expectedRequestDS1 := map[string]interface{}{"data": test.pipelineInput["foo"]}
+			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.pipelineInput["bar"], test.pipelineInput["baz"]}}
+			expectedRequestSubmit := map[string]interface{}{
+				"median":        "9650000000000000000000",
+				"fetchedValues": []interface{}{"9700", "9600"},
+				"someString":    "some random string",
+			}
+			if test.meta != nil {
+				expectedRequestDS1["meta"] = test.meta
+				expectedRequestSubmit["meta"] = test.meta
+			} else {
+				expectedRequestDS1["meta"] = nil
+				expectedRequestSubmit["meta"] = nil
+			}
+			if test.includeInputAtKey != "" {
+				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
+			}
+
+			// 1. Setup bridge
+			ds1 := makeBridge(t, store, "example-bridge", expectedRequestDS1, map[string]interface{}{
+				"data": map[string]interface{}{
+					"result": map[string]interface{}{
+						"result": decimal.NewFromInt(9700),
+						"times":  "1000000000000000000",
+					},
+				},
+			})
+			defer ds1.Close()
+
+			// 2. Setup success HTTP
+			ds2 := httptest.NewServer(fakeExternalAdapter(t, expectedRequestDS2, map[string]interface{}{
+				"data": map[string]interface{}{
+					"result": decimal.NewFromInt(9600),
+					"times":  "1000000000000000000",
+				},
+			}))
+			defer ds2.Close()
+
+			ds4 := httptest.NewServer(fakeStringResponder(t, "some random string"))
+			defer ds4.Close()
+
+			// 3. Setup final bridge task
+			submit := makeBridge(t, store, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
+			defer submit.Close()
+
+			orm := new(mocks.ORM)
+			orm.On("DB").Return(store.DB)
+
+			runner := pipeline.NewRunner(orm, store.Config)
+			taskDAG := pipeline.TaskDAG{}
+			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
+			err := taskDAG.UnmarshalText([]byte(specStr))
+			require.NoError(t, err)
+			tasks, err := taskDAG.TasksInDependencyOrder()
+			require.NoError(t, err)
+
+			spec := pipeline.Spec{
+				DotDagSource: specStr,
+			}
+			var meta pipeline.JSONSerializable
+			if test.meta != nil {
+				meta.Val = test.meta
+			} else {
+				meta.Null = true
+			}
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, test.pipelineInput, meta, *logger.Default)
+			require.NoError(t, err)
+			require.Len(t, taskRunResults, len(tasks))
+
+			type M = map[string]interface{}
+			expectedResults := map[string]pipeline.Result{
+				"ds1":          pipeline.Result{Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
+				"ds1_parse":    pipeline.Result{Value: M{"result": "9700", "times": "1000000000000000000"}},
+				"ds1_multiply": pipeline.Result{Value: *mustDecimal(t, "9700000000000000000000")},
+				"ds2":          pipeline.Result{Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
+				"ds2_parse":    pipeline.Result{Value: M{"result": "9600", "times": "1000000000000000000"}},
+				"ds2_multiply": pipeline.Result{Value: *mustDecimal(t, "9600000000000000000000")},
+				"ds3":          pipeline.Result{Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
+				"ds3_parse":    pipeline.Result{Error: pipeline.ErrTooManyErrors},
+				"ds3_multiply": pipeline.Result{Error: pipeline.ErrTooManyErrors},
+				"ds4":          pipeline.Result{Value: "some random string"},
+				"median":       pipeline.Result{Value: *mustDecimal(t, "9650000000000000000000")},
+				"submit":       pipeline.Result{Value: `{"ok":true}` + "\n"},
+			}
+
+			for _, r := range taskRunResults {
+				expected := expectedResults[r.Task.DotID()]
+				if r.Result.Error != nil {
+					require.Equal(t, expected.Error.Error(), r.Result.Error.Error())
+				} else {
+					if d, is := expected.Value.(decimal.Decimal); is {
+						require.Equal(t, d.String(), r.Result.Value.(decimal.Decimal).String())
+					} else {
+						require.Equal(t, expected.Value, r.Result.Value)
+					}
+				}
+			}
+		})
+	}
 }
 
 func Test_PipelineRunner_HandleFaults(t *testing.T) {
@@ -149,7 +329,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	_, trrs, err := r.ExecuteRun(ctx, spec, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(ctx, spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal {
@@ -175,7 +355,7 @@ ds_parse [type=jsonparse path="result"]
 ds_multiply [type=multiply times=10]
 ds_panic [type=panic msg="oh no"]
 ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
-	}, pipeline.JSONSerializable{}, *logger.Default)
+	}, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)

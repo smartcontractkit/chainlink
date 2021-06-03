@@ -8,21 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKeyStore_Accounts(t *testing.T) {
+func TestKeyStore_SendingKeys(t *testing.T) {
 	t.Parallel()
 
 	s, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	ks := fluxmonitorv2.NewKeyStore(s)
+	ks := fluxmonitorv2.NewKeyStore(s.KeyStore)
 
 	s.KeyStore.Unlock(cltest.Password)
-	account, err := s.KeyStore.NewAccount()
+	key, err := s.KeyStore.CreateNewKey()
 	require.NoError(t, err)
 
-	accounts := ks.Accounts()
-	require.Len(t, accounts, 1)
-	require.Equal(t, account, accounts[0])
+	keys, err := ks.SendingKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	require.Equal(t, key, keys[0])
 }
 
 func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
@@ -34,10 +35,10 @@ func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	cltest.MustAddRandomKeyToKeystore(t, s, 0, true)
 	_, k0Address := cltest.MustAddRandomKeyToKeystore(t, s, 0)
 
-	ks := fluxmonitorv2.NewKeyStore(s)
+	ks := fluxmonitorv2.NewKeyStore(s.KeyStore)
 
 	// Gets the only address in the keystore
-	addr, err := ks.GetRoundRobinAddress(s.DB)
+	addr, err := ks.GetRoundRobinAddress()
 	require.NoError(t, err)
 	require.Equal(t, k0Address, addr)
 }

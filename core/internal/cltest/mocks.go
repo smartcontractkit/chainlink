@@ -177,7 +177,7 @@ func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(*store.Store, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(chainlink.Application, string) error {
 	return nil
 }
 
@@ -358,7 +358,6 @@ type MockCronEntry struct {
 type MockHeadTrackable struct {
 	connectedCount    int32
 	ConnectedCallback func(bn *models.Head)
-	disconnectedCount int32
 	onNewHeadCount    int32
 }
 
@@ -374,14 +373,6 @@ func (m *MockHeadTrackable) Connect(bn *models.Head) error {
 // ConnectedCount returns the count of connections made, safely.
 func (m *MockHeadTrackable) ConnectedCount() int32 {
 	return atomic.LoadInt32(&m.connectedCount)
-}
-
-// Disconnect increases the disconnected count by one
-func (m *MockHeadTrackable) Disconnect() { atomic.AddInt32(&m.disconnectedCount, 1) }
-
-// DisconnectedCount returns the count of disconnections made, safely.
-func (m *MockHeadTrackable) DisconnectedCount() int32 {
-	return atomic.LoadInt32(&m.disconnectedCount)
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
