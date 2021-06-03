@@ -481,6 +481,7 @@ declare module 'core/store/models' {
     directRequestSpec: {
       initiator: 'runlog'
       contractAddress: common.Address
+      minIncomingConfirmations: number | null
       onChainJobSpecID: string
       createdAt: time.Time
     }
