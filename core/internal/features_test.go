@@ -1983,7 +1983,7 @@ func matchesBlockNumbers(b []rpc.BatchElem, numbers []int64) bool {
 		return false
 	}
 	for i, elem := range b {
-		if elem.Method != "eth_getBlockByNumber" || elem.Args[0] != cltest.Int64ToHex(numbers[i]) {
+		if elem.Method != "eth_getBlockByNumber" || elem.Args[0] != headtracker.Int64ToHex(numbers[i]) {
 			return false
 		}
 	}
