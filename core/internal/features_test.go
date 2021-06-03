@@ -1873,7 +1873,7 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	// Limit the headtracker backfill depth just so we aren't here all week
 	c.Set("ETH_FINALITY_DEPTH", 3)
 
-	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithoutBatchSetup(t)
 	defer assertMocksCalled()
 	chchNewHeads := make(chan chan<- *models.Head, 1)
 
@@ -1881,22 +1881,18 @@ func TestIntegration_GasUpdater(t *testing.T) {
 		ethClient,
 	)
 	defer cleanup()
+	chain := cltest.Chain(0, 41, []headtracker.Block{})
 
-	b41 := headtracker.Block{
-		Number:       41,
-		Hash:         cltest.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
-	}
-	b42 := headtracker.Block{
-		Number:       42,
-		Hash:         cltest.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
-	}
-	b43 := headtracker.Block{
-		Number:       43,
-		Hash:         cltest.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
-	}
+	b41 := cltest.NewBlockWithTransactionsAndParent(41, chain[40].Hash,
+		cltest.TransactionsFromGasPrices(41000000000, 41500000000))
+	b42 := cltest.NewBlockWithTransactionsAndParent(42, b41.Hash,
+		cltest.TransactionsFromGasPrices(44000000000, 45000000000))
+	b43 := cltest.NewBlockWithTransactionsAndParent(43, b42.Hash,
+		cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000))
+
+	chain[41] = &b41
+	chain[42] = &b42
+	chain[43] = &b43
 
 	h40 := models.Head{Hash: cltest.NewHash(), Number: 40}
 	h41 := models.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
@@ -1913,14 +1909,9 @@ func TestIntegration_GasUpdater(t *testing.T) {
 
 	// GasUpdater boot calls
 	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
-	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return b[0].Method == "eth_getBlockByNumber"
-	})).Maybe().Return(nil)
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 2 &&
-			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
-			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a"
+		return matchesBlockNumbers(b, []int64{41, 42})
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &b41
@@ -1941,24 +1932,35 @@ func TestIntegration_GasUpdater(t *testing.T) {
 
 	assert.Equal(t, "41500000000", app.Config.EthGasPriceDefault().String())
 
+	for i := 0; i < 40; i += 10 {
+		ii := i
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			numbers := blockNumbers(int64(ii), int64(ii+10))
+			return matchesBlockNumbers(b, numbers)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			blocksFromChain(args, chain, int64(ii), int64(ii+10))
+		})
+	}
+
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return b[0].Method == "eth_getBlockByNumber"
-	})).Maybe().Return(nil)
+		numbers := blockNumbers(40, 44)
+		return matchesBlockNumbers(b, numbers)
+	})).Maybe().Return(nil).Run(func(args mock.Arguments) {
+		blocksFromChain(args, chain, 40, 44)
+	})
 
 	// GasUpdater new blocks
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 2 &&
-			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
-			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2b"
-	})).Return(nil).Run(func(args mock.Arguments) {
+		return matchesBlockNumbers(b, []int64{40, 43})
+	})).Maybe().Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &b43
-		elems[1].Result = &b42
+		elems[0].Result = chain[40]
+		elems[1].Result = chain[43]
 	})
 
 	// HeadTracker backfill
-	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(42)).Return(&h42, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(42)).Maybe().Return(&h42, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(41)).Maybe().Return(&h41, nil)
 
 	// Simulate one new head and check the gas price got updated
 	newHeads <- cltest.Head(43)
@@ -1974,4 +1976,34 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 	for _, k := range keys {
 		app.BPTXM.Trigger(k.Address.Address())
 	}
+}
+
+func matchesBlockNumbers(b []rpc.BatchElem, numbers []int64) bool {
+	if len(b) != len(numbers) {
+		return false
+	}
+	for i, elem := range b {
+		if elem.Method != "eth_getBlockByNumber" || elem.Args[0] != cltest.Int64ToHex(numbers[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func blockNumbers(from int64, until int64) []int64 {
+	var numbers []int64
+	for i := from; i < until; i++ {
+		numbers = append(numbers, i)
+	}
+	return numbers
+}
+
+func blocksFromChain(args mock.Arguments, chain map[int64]*headtracker.Block, from, until int64) {
+
+	numbers := blockNumbers(from, until)
+	elems := args.Get(1).([]rpc.BatchElem)
+	for i, num := range numbers {
+		elems[i].Result = chain[num]
+	}
+
 }

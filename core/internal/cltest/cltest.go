@@ -503,6 +503,23 @@ func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	return c, s, assertMocksCalled
 }
 
+func NewEthMocksWithoutBatchSetup(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+	c := new(mocks.Client)
+	s := new(mocks.Subscription)
+
+	var assertMocksCalled func()
+	switch tt := t.(type) {
+	case *testing.T:
+		assertMocksCalled = func() {
+			c.AssertExpectations(tt)
+			s.AssertExpectations(tt)
+		}
+	case *testing.B:
+		assertMocksCalled = func() {}
+	}
+	return c, s, assertMocksCalled
+}
+
 func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
@@ -1457,18 +1474,63 @@ func HtBlock(number int, parentHash common.Hash) headtracker.Block {
 	return block
 }
 
+func HtBlockPtr(number int, parentHash common.Hash) *headtracker.Block {
+	var block headtracker.Block
+	block.Number = int64(number)
+	block.Hash = NewHash()
+	block.ParentHash = parentHash
+	return &block
+}
+
 func NewBlock(number int64) headtracker.Block {
 	return headtracker.Block{
 		Number: number,
 		Hash:   NewHash(),
 	}
 }
+
 func NewBlockWithTransactions(number int64, transactions []headtracker.Transaction) headtracker.Block {
 	return headtracker.Block{
 		Number:       number,
 		Hash:         NewHash(),
 		Transactions: transactions,
 	}
+}
+
+func NewBlockWithTransactionsAndParent(number int64, parentHash common.Hash, transactions []headtracker.Transaction) headtracker.Block {
+	return headtracker.Block{
+		Number:       number,
+		Hash:         NewHash(),
+		ParentHash:   parentHash,
+		Transactions: transactions,
+	}
+}
+
+func Chain(from int64, until int64, predefined []headtracker.Block) map[int64]*headtracker.Block {
+	blocks := make(map[int64]*headtracker.Block)
+	for _, block := range predefined {
+		b := block
+		blocks[block.Number] = &b
+	}
+
+	var current *headtracker.Block
+	for i := from; i < until; i++ {
+
+		block, ok := blocks[i]
+		if !ok {
+
+			parentHash := common.Hash{}
+			if current != nil {
+				parentHash = current.Hash
+			}
+
+			block = HtBlockPtr(int(i), parentHash)
+			blocks[i] = block
+		}
+
+		current = block
+	}
+	return blocks
 }
 
 func HeadFromBlock(block *types.Block) *models.Head {
@@ -2094,4 +2156,9 @@ func HexToInt64(input interface{}) int64 {
 	default:
 		return 0
 	}
+}
+
+// Int64ToHex converts an int64 into go-ethereum's hex representation
+func Int64ToHex(n int64) string {
+	return hexutil.EncodeBig(big.NewInt(n))
 }
