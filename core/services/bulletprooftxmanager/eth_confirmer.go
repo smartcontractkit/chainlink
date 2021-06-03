@@ -599,18 +599,15 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
-	if len(etxs) > 0 {
-		logger.Debugf("EthConfirmer: Rebroadcasting %v transactions", len(etxs))
-	}
 	for _, etx := range etxs {
-		// NOTE: This races with OCR transaction insertion that checks for
+		// NOTE: This races with transaction insertion that checks for
 		// out-of-eth.  If we check at the wrong moment (while an
 		// insufficient_eth attempt has been temporarily moved to in_progress)
 		// we will send an extra transaction because it will appear as if no
 		// transactions are in insufficient_eth state.
 		//
-		// This still limits the worst case to a maximum of two transactions
-		// pending though which is probably acceptable.
+		// The maximum number of transactions that could be falsely inserted is
+		// 1 per job (if you get very unlucky) which is still "good enough".
 		attempt, err := ec.attemptForRebroadcast(ctx, etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")
@@ -675,9 +672,29 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 		return nil, err
 	}
 
+	if len(etxInsufficientEths) > 0 {
+		logger.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", len(etxInsufficientEths)), "blockNum", blockNum, "address", address)
+	}
+
 	etxBumps, err := FindEthTxsRequiringGasBump(db, address, blockNum, gasBumpThreshold, bumpDepth)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(etxBumps) > 0 {
+		// txes are ordered by nonce asc so the first will always be the oldest
+		etx := etxBumps[0]
+		// attempts are ordered by time sent asc so first will always be the oldest
+		var oldestBlocksBehind int64 = -1 // It should never happen that the oldest attempt has no BroadcastBeforeBlockNum set, but in case it does, we shouldn't crash - log this sentinel value instead
+		if len(etx.EthTxAttempts) > 0 {
+			oldestBlockNum := etx.EthTxAttempts[0].BroadcastBeforeBlockNum
+			if oldestBlockNum != nil {
+				oldestBlocksBehind = blockNum - *oldestBlockNum
+			}
+		} else {
+			logger.Warnw("EthConfirmer: expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
+		}
+		logger.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, EthNodeConnectivityProblemLabel), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
 
 	seen := make(map[int64]struct{})
