@@ -64,17 +64,16 @@ func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID models
 }
 
 func (p *Pstorewrapper) Start() error {
-	if !p.OkayToStart() {
-		return errors.New("cannot start")
-	}
-	err := p.readFromDB()
-	if err != nil {
-		return errors.Wrap(err, "could not start peerstore wrapper")
-	}
-	go gracefulpanic.WrapRecover(func() {
-		p.dbLoop()
+	return p.StartOnce("PeerStore", func() error {
+		err := p.readFromDB()
+		if err != nil {
+			return errors.Wrap(err, "could not start peerstore wrapper")
+		}
+		go gracefulpanic.WrapRecover(func() {
+			p.dbLoop()
+		})
+		return nil
 	})
-	return nil
 }
 
 func (p *Pstorewrapper) dbLoop() {
@@ -94,12 +93,11 @@ func (p *Pstorewrapper) dbLoop() {
 }
 
 func (p *Pstorewrapper) Close() error {
-	if !p.OkayToStop() {
-		return errors.New("cannot stop")
-	}
-	p.ctxCancel()
-	<-p.chDone
-	return p.Peerstore.Close()
+	return p.StopOnce("PeerStore", func() error {
+		p.ctxCancel()
+		<-p.chDone
+		return p.Peerstore.Close()
+	})
 }
 
 func (p *Pstorewrapper) readFromDB() error {

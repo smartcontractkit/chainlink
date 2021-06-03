@@ -114,6 +114,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.VRFSpec != nil {
 			return p.VRFSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.WebhookJobSpec:
+		if p.WebhookSpec != nil {
+			return p.WebhookSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

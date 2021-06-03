@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"net/url"
 
@@ -88,9 +89,9 @@ func (n node) CallContext(ctx context.Context, result interface{}, method string
 		"mode", switching(n),
 	)
 	if n.http != nil {
-		return wrapHTTP(n.http.rpc.CallContext(ctx, result, method, args...))
+		return n.wrapHTTP(n.http.rpc.CallContext(ctx, result, method, args...))
 	}
-	return wrapWS(n.ws.rpc.CallContext(ctx, result, method, args...))
+	return n.wrapWS(n.ws.rpc.CallContext(ctx, result, method, args...))
 }
 
 func (n node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
@@ -99,9 +100,9 @@ func (n node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 		"mode", switching(n),
 	)
 	if n.http != nil {
-		return wrapHTTP(n.http.rpc.BatchCallContext(ctx, b))
+		return n.wrapHTTP(n.http.rpc.BatchCallContext(ctx, b))
 	}
-	return wrapWS(n.ws.rpc.BatchCallContext(ctx, b))
+	return n.wrapWS(n.ws.rpc.BatchCallContext(ctx, b))
 }
 
 func (n node) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
@@ -123,10 +124,10 @@ func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (recei
 
 	if n.http != nil {
 		receipt, err = n.http.geth.TransactionReceipt(ctx, txHash)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		receipt, err = n.ws.geth.TransactionReceipt(ctx, txHash)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 
 	return
@@ -136,7 +137,7 @@ func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (recei
 func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 	n.log.Debugw("eth.Client#ChainID(...)", "mode", "websocket")
 	chainID, err = n.ws.geth.ChainID(ctx)
-	err = wrapWS(err)
+	err = n.wrapWS(err)
 	return
 }
 
@@ -146,9 +147,9 @@ func (n node) SendTransaction(ctx context.Context, tx *types.Transaction) error 
 		"mode", switching(n),
 	)
 	if n.http != nil {
-		return wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
+		return n.wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
 	}
-	return wrapWS(n.ws.geth.SendTransaction(ctx, tx))
+	return n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
 }
 
 func (n node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
@@ -158,10 +159,10 @@ func (n node) PendingNonceAt(ctx context.Context, account common.Address) (nonce
 	)
 	if n.http != nil {
 		nonce, err = n.http.geth.PendingNonceAt(ctx, account)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		nonce, err = n.ws.geth.PendingNonceAt(ctx, account)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -174,10 +175,10 @@ func (n node) NonceAt(ctx context.Context, account common.Address, blockNumber *
 	)
 	if n.http != nil {
 		nonce, err = n.http.geth.NonceAt(ctx, account, blockNumber)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		nonce, err = n.ws.geth.NonceAt(ctx, account, blockNumber)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -189,10 +190,10 @@ func (n node) PendingCodeAt(ctx context.Context, account common.Address) (code [
 	)
 	if n.http != nil {
 		code, err = n.http.geth.PendingCodeAt(ctx, account)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		code, err = n.ws.geth.PendingCodeAt(ctx, account)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -205,10 +206,10 @@ func (n node) CodeAt(ctx context.Context, account common.Address, blockNumber *b
 	)
 	if n.http != nil {
 		code, err = n.http.geth.CodeAt(ctx, account, blockNumber)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		code, err = n.ws.geth.CodeAt(ctx, account, blockNumber)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -220,10 +221,10 @@ func (n node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint6
 	)
 	if n.http != nil {
 		gas, err = n.http.geth.EstimateGas(ctx, call)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		gas, err = n.ws.geth.EstimateGas(ctx, call)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -231,7 +232,7 @@ func (n node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint6
 func (n node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
 	n.log.Debugw("eth.Client#SuggestGasPrice()", "mode", "websocket")
 	price, err = n.ws.geth.SuggestGasPrice(ctx)
-	err = wrapWS(err)
+	err = n.wrapWS(err)
 	return
 }
 
@@ -241,10 +242,10 @@ func (n node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumbe
 	)
 	if n.http != nil {
 		val, err = n.http.geth.CallContract(ctx, msg, blockNumber)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		val, err = n.ws.geth.CallContract(ctx, msg, blockNumber)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 
@@ -257,10 +258,10 @@ func (n node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Bloc
 	)
 	if n.http != nil {
 		b, err = n.http.geth.BlockByNumber(ctx, number)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		b, err = n.ws.geth.BlockByNumber(ctx, number)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -273,10 +274,10 @@ func (n node) BalanceAt(ctx context.Context, account common.Address, blockNumber
 	)
 	if n.http != nil {
 		balance, err = n.http.geth.BalanceAt(ctx, account, blockNumber)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		balance, err = n.ws.geth.BalanceAt(ctx, account, blockNumber)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -288,10 +289,10 @@ func (n node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types
 	)
 	if n.http != nil {
 		l, err = n.http.geth.FilterLogs(ctx, q)
-		err = wrapHTTP(err)
+		err = n.wrapHTTP(err)
 	} else {
 		l, err = n.ws.geth.FilterLogs(ctx, q)
-		err = wrapWS(err)
+		err = n.wrapWS(err)
 	}
 	return
 }
@@ -299,16 +300,26 @@ func (n node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types
 func (n node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
 	n.log.Debugw("eth.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
-	err = wrapWS(err)
+	err = n.wrapWS(err)
 	return
 }
 
-func wrapWS(err error) error {
-	return errors.Wrap(err, "websocket call failed")
+func (n node) wrapWS(err error) error {
+	return wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
 }
 
-func wrapHTTP(err error) error {
-	return errors.Wrap(err, "http call failed")
+func (n node) wrapHTTP(err error) error {
+	return wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.String()))
+}
+
+func wrap(err error, tp string) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Cause(err).Error() == "context deadline exceeded" {
+		err = errors.Wrap(err, "remote eth node timed out")
+	}
+	return errors.Wrapf(err, "%s call failed", tp)
 }
 
 func switching(n node) string {

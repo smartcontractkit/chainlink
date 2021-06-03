@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
 
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
@@ -294,7 +294,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			fm, tm := setup(t, store.DB)
 
-			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+			tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 			tm.logBroadcaster.On("IsConnected").Return(tc.connected).Once()
 
 			// Setup Answers
@@ -376,7 +376,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					UpdatedAt: big.NewInt(100),
 				}, nil)
 				tm.pipelineRunner.
-					On("ExecuteRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{
+					On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{
 						Val: map[string]interface{}{
 							"latestAnswer": float64(10),
 							"updatedAt":    float64(100),
@@ -433,7 +433,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 
 	fm, tm := setup(t, store.DB)
 
-	tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+	tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 	tm.logBroadcaster.On("IsConnected").Return(true).Once()
 
 	tm.jobORM.
@@ -486,7 +486,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	chSafeToAssert := make(chan struct{})
 	chSafeToFillQueue := make(chan struct{})
 
-	tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+	tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Maybe()
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).
@@ -516,7 +516,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    1,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -551,7 +551,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -586,7 +586,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -662,7 +662,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 
 			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
 
-			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+			tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
@@ -701,6 +701,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				decodedLog := flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				tm.logBroadcast.On("DecodedLog").Return(&decodedLog)
 				tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+				tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 				fm.HandleLog(tm.logBroadcast)
 
 				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
@@ -734,7 +735,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		setIdleTimerPeriod(2*time.Second),
 	)
 
-	tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+	tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
@@ -744,7 +745,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 
-	idleDurationOccured := make(chan struct{}, 3)
+	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
 	fm.Start()
@@ -802,8 +803,8 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
 
 	// idleDuration 3 triggers from the previous new round
-	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
+	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() - 1000000}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Twice().Run(func(args mock.Arguments) {
 		idleDurationOccured <- struct{}{}
 	})
 	tm.orm.
@@ -814,7 +815,14 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	require.Eventually(t, func() bool { return len(idleDurationOccured) == 3 }, 3*time.Second, 10*time.Millisecond)
+	// AnswerUpdated comes in, which attempts to reset the timers
+	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
+	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
+	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
+	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
+	fm.ExportedProcessLogs()
+
+	require.Eventually(t, func() bool { return len(idleDurationOccured) == 4 }, 3*time.Second, 10*time.Millisecond)
 }
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
@@ -830,8 +838,8 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
 	tm.keyStore.
-		On("Accounts").
-		Return([]accounts.Account{{Address: nodeAddr}}).
+		On("SendingKeys").
+		Return([]models.Key{{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).
 		Twice() // Once called from the test, once during start
 
 	ch := make(chan struct{})
@@ -890,7 +898,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
-			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+			tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
@@ -962,7 +970,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			)
 			initialPollOccurred := make(chan struct{}, 1)
 
-			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+			tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
@@ -1018,7 +1026,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
-	tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+	tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
@@ -1067,6 +1075,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	fm.Start()
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 		RoundId:   big.NewInt(0),
 		StartedAt: big.NewInt(time.Now().UTC().Unix()),
@@ -1180,7 +1189,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			answer  = 100
 		)
 
-		tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+		tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
 		// Mocks initiated by the New Round log
@@ -1192,7 +1201,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything, defaultLogger).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
@@ -1286,7 +1295,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			roundID = 3
 			answer  = 100
 		)
-		tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+		tm.keyStore.On("SendingKeys").Return([]models.Key{models.Key{Address: models.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
 		// First, force the node to try to poll, which should result in a submission
@@ -1311,7 +1320,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything, defaultLogger).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
@@ -1351,6 +1360,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil).Once()
 		tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{}, nil)
 
+		tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),

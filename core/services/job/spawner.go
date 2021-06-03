@@ -11,6 +11,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,8 +29,7 @@ type (
 	// "direct request" model allows for multiple initiators, which imply multiple
 	// services.
 	Spawner interface {
-		Start() error
-		Close() error
+		service.Service
 		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 	}
@@ -79,22 +79,20 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spa
 }
 
 func (js *spawner) Start() error {
-	if !js.OkayToStart() {
-		return errors.New("Job spawner has already been started")
-	}
-	go js.runLoop()
-	return nil
+	return js.StartOnce("JobSpawner", func() error {
+		go js.runLoop()
+		return nil
+
+	})
 }
 
 func (js *spawner) Close() error {
-	if !js.OkayToStop() {
-		return errors.New("Job spawner has already been closed")
-	}
+	return js.StopOnce("JobSpawner", func() error {
+		close(js.chStop)
+		<-js.chDone
+		return nil
 
-	close(js.chStop)
-	<-js.chDone
-
-	return nil
+	})
 }
 
 func (js *spawner) destroy() {

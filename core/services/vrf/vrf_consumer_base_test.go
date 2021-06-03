@@ -12,7 +12,7 @@ func TestConsumerBaseRejectsBadVRFCoordinator(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _ /* jobID */, fee := registerProvingKey(t, coordinator)
-	log := requestRandomness(t, coordinator, keyHash, fee, big.NewInt(1) /* seed */)
+	log := requestRandomness(t, coordinator, keyHash, fee)
 	// Ensure that VRFConsumerBase.rawFulfillRandomness's check,
 	// require(msg.sender==vrfCoordinator), by using the wrong sender address.
 	_, err := coordinator.consumerContract.RawFulfillRandomness(coordinator.neil,

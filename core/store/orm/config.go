@@ -36,7 +36,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethCore "github.com/ethereum/go-ethereum/core"
 	"github.com/gin-gonic/contrib/sessions"
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -79,10 +78,10 @@ type (
 	ChainSpecificDefaultSet struct {
 		EnableLegacyJobPipeline          bool
 		EthGasBumpThreshold              uint64
-		EthGasBumpWei                    *big.Int
-		EthGasPriceDefault               *big.Int
-		EthMaxGasPriceWei                *big.Int
-		EthMinGasPriceWei                *big.Int
+		EthGasBumpWei                    big.Int
+		EthGasPriceDefault               big.Int
+		EthMaxGasPriceWei                big.Int
+		EthMinGasPriceWei                big.Int
 		EthFinalityDepth                 uint
 		EthHeadTrackerHistoryDepth       uint
 		EthHeadTrackerSamplingInterval   time.Duration
@@ -92,7 +91,6 @@ type (
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
 		GasUpdaterEnabled                bool
-		HeadTimeBudget                   time.Duration
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		OptimismGasFees                  bool
@@ -107,20 +105,19 @@ func init() {
 	mainnet := ChainSpecificDefaultSet{
 		EnableLegacyJobPipeline:          true,
 		EthGasBumpThreshold:              3,
-		EthGasBumpWei:                    big.NewInt(5000000000),    // 5 Gwei
-		EthGasPriceDefault:               big.NewInt(20000000000),   // 20 Gwei
-		EthMaxGasPriceWei:                big.NewInt(1500000000000), // 1.5 Twei
-		EthMinGasPriceWei:                big.NewInt(1000000000),    // 1 Gwei
+		EthGasBumpWei:                    *big.NewInt(5000000000),    // 5 Gwei
+		EthGasPriceDefault:               *big.NewInt(20000000000),   // 20 Gwei
+		EthMaxGasPriceWei:                *big.NewInt(5000000000000), // 5000 Gwei
+		EthMinGasPriceWei:                *big.NewInt(1000000000),    // 1 Gwei
 		EthFinalityDepth:                 50,
 		EthHeadTrackerHistoryDepth:       100,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      1,
-		EthTxResendAfterThreshold:        30 * time.Second,
+		EthTxResendAfterThreshold:        1 * time.Minute,
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
-		HeadTimeBudget:                   13 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 	}
@@ -129,7 +126,6 @@ func init() {
 	// test chains, but requires more in-depth research on their consensus
 	// mechanisms. For now, mainnet defaults ought to be safe enough for testnet.
 	kovan := mainnet
-	kovan.HeadTimeBudget = 4 * time.Second
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -139,31 +135,30 @@ func init() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDai := mainnet
-	xDai.EthGasBumpThreshold = 8                      // mainnet * 2.8 ish (5s vs 13s block time)
-	xDai.EthGasPriceDefault = big.NewInt(1000000000)  // 1 Gwei
-	xDai.EthMinGasPriceWei = big.NewInt(1000000000)   // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
-	xDai.EthMaxGasPriceWei = big.NewInt(500000000000) // 500 Gwei
-	xDai.HeadTimeBudget = 5 * time.Second
+	xDai.EthGasBumpThreshold = 8                       // mainnet * 2.8 ish (5s vs 13s block time)
+	xDai.EthGasPriceDefault = *big.NewInt(1000000000)  // 1 Gwei
+	xDai.EthMinGasPriceWei = *big.NewInt(1000000000)   // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
+	xDai.EthMaxGasPriceWei = *big.NewInt(500000000000) // 500 Gwei
 
 	// BSC uses Clique consensus with ~3s block times
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := ChainSpecificDefaultSet{
 		EnableLegacyJobPipeline:          true,
-		EthGasBumpThreshold:              12,                       // mainnet * 4 (3s vs 13s block time)
-		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
-		EthGasPriceDefault:               big.NewInt(5000000000),   // 5 Gwei
-		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
-		EthFinalityDepth:                 50,                       // Keeping this >> 11 because it's not expensive and gives us a safety margin
+		EthGasBumpThreshold:              12,                        // mainnet * 4 (3s vs 13s block time)
+		EthGasBumpWei:                    *big.NewInt(5000000000),   // 5 Gwei
+		EthGasPriceDefault:               *big.NewInt(5000000000),   // 5 Gwei
+		EthMaxGasPriceWei:                *big.NewInt(500000000000), // 500 Gwei
+		EthMinGasPriceWei:                *big.NewInt(1000000000),   // 1 Gwei
+		EthFinalityDepth:                 50,                        // Keeping this >> 11 because it's not expensive and gives us a safety margin
 		EthHeadTrackerHistoryDepth:       100,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      2,
-		EthTxResendAfterThreshold:        15 * time.Second,
+		EthTxResendAfterThreshold:        1 * time.Minute,
 		GasUpdaterBlockDelay:             2,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
-		HeadTimeBudget:                   3 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 	}
@@ -173,12 +168,13 @@ func init() {
 	// Matic has a 1s block time and looser finality guarantees than Ethereum.
 	polygonMatic := ChainSpecificDefaultSet{
 		EnableLegacyJobPipeline:          true,
-		EthGasBumpThreshold:              39,                       // mainnet * 13
-		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
-		EthGasPriceDefault:               big.NewInt(1000000000),   // 1 Gwei
-		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
-		EthFinalityDepth:                 200,                      // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
-		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
+		EthGasBumpThreshold:              39,                        // mainnet * 13
+		EthGasBumpWei:                    *big.NewInt(5000000000),   // 5 Gwei
+		EthGasPriceDefault:               *big.NewInt(1000000000),   // 1 Gwei
+		EthMaxGasPriceWei:                *big.NewInt(500000000000), // 500 Gwei
+		EthMinGasPriceWei:                *big.NewInt(1000000000),   // 1 Gwei
+		EthFinalityDepth:                 200,                       // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
+		EthHeadTrackerHistoryDepth:       250,                       // EthFinalityDepth + safety margin
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      13,              // equivalent of 1 eth block seems reasonable
 		EthTxResendAfterThreshold:        5 * time.Minute, // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
@@ -186,7 +182,6 @@ func init() {
 		GasUpdaterBlockHistorySize:       128,
 		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		GasUpdaterEnabled:                true,
-		HeadTimeBudget:                   1 * time.Second,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
 	}
@@ -199,10 +194,9 @@ func init() {
 		EthHeadTrackerHistoryDepth:       10,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      0,
-		EthTxResendAfterThreshold:        5 * time.Second,
+		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockHistorySize:       0, // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
 		GasUpdaterEnabled:                false,
-		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
 		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
@@ -282,6 +276,9 @@ func (c *Config) Validate() error {
 		)
 	}
 
+	if uint32(c.EthGasBumpTxDepth()) > c.EthMaxInFlightTransactions() {
+		return errors.New("ETH_GAS_BUMP_TX_DEPTH must be less than or equal to ETH_MAX_IN_FLIGHT_TRANSACTIONS")
+	}
 	if c.EthMinGasPriceWei().Cmp(c.EthGasPriceDefault()) > 0 {
 		return errors.New("ETH_MIN_GAS_PRICE_WEI must be less than or equal to ETH_GAS_PRICE_DEFAULT")
 	}
@@ -477,6 +474,11 @@ func (c Config) DatabaseBackupURL() *url.URL {
 	return uri
 }
 
+// DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
+func (c Config) DatabaseBackupDir() string {
+	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
@@ -553,19 +555,24 @@ func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
 }
 
-// FeatureFluxMonitor enables the Flux Monitor feature.
+// FeatureFluxMonitor enables the Flux Monitor job type.
 func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
 }
 
-// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 job type.
 func (c Config) FeatureFluxMonitorV2() bool {
 	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
 }
 
-// FeatureOffchainReporting enables the Flux Monitor feature.
+// FeatureOffchainReporting enables the Flux Monitor job type.
 func (c Config) FeatureOffchainReporting() bool {
 	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
+}
+
+// FeatureWebhookV2 enables the Webhook v2 job type
+func (c Config) FeatureWebhookV2() bool {
+	return c.getWithFallback("FeatureWebhookV2", parseBool).(bool)
 }
 
 // MaximumServiceDuration is the maximum time that a service agreement can run
@@ -632,7 +639,15 @@ func (c Config) EthGasBumpWei() *big.Int {
 			return n.(*big.Int)
 		}
 	}
-	return chainSpecificConfig(c).EthGasBumpWei
+	n := chainSpecificConfig(c).EthGasBumpWei
+	return &n
+}
+
+// EthMaxInFlightTransactions controls how many transactions are allowed to be
+// "in-flight" i.e. broadcast but unconfirmed at any one time
+// 0 value disables the limit
+func (c Config) EthMaxInFlightTransactions() uint32 {
+	return c.getWithFallback("EthMaxInFlightTransactions", parseUint32).(uint32)
 }
 
 // EthMaxGasPriceWei is the maximum amount in Wei that a transaction will be
@@ -650,15 +665,16 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 			return n.(*big.Int)
 		}
 	}
-	return chainSpecificConfig(c).EthMaxGasPriceWei
+	n := chainSpecificConfig(c).EthMaxGasPriceWei
+	return &n
 }
 
-// EthMaxUnconfirmedTransactions is the maximum number of unconfirmed
-// transactions per key that are allowed to be in flight before jobs will start
+// EthMaxQueuedTransactions is the maximum number of unbroadcast
+// transactions per key that are allowed to be enqueued before jobs will start
 // failing and rejecting send of any further transactions.
 // 0 value disables
-func (c Config) EthMaxUnconfirmedTransactions() uint64 {
-	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+func (c Config) EthMaxQueuedTransactions() uint64 {
+	return c.getWithFallback("EthMaxQueuedTransactions", parseUint64).(uint64)
 }
 
 // EthMinGasPriceWei is the minimum amount in Wei that a transaction may be priced.
@@ -676,7 +692,8 @@ func (c Config) EthMinGasPriceWei() *big.Int {
 			return n.(*big.Int)
 		}
 	}
-	return chainSpecificConfig(c).EthMinGasPriceWei
+	n := chainSpecificConfig(c).EthMinGasPriceWei
+	return &n
 }
 
 // EthNonceAutoSync enables/disables running the NonceSyncer on application start
@@ -687,6 +704,11 @@ func (c Config) EthNonceAutoSync() bool {
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
+}
+
+// EthBaseTransactionGasLimit represents how much gas is required to send a eth->eth transfer
+func (c Config) EthBaseTransactionGasLimit() uint64 {
+	return uint64(21000)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
@@ -711,7 +733,8 @@ func (c Config) EthGasPriceDefault() *big.Int {
 			return n.(*big.Int)
 		}
 	}
-	return chainSpecificConfig(c).EthGasPriceDefault
+	n := chainSpecificConfig(c).EthGasPriceDefault
+	return &n
 }
 
 // EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
@@ -1447,11 +1470,6 @@ func (c Config) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
 }
 
-// KeysDir returns the path of the keys directory (used for keystore files).
-func (c Config) KeysDir() string {
-	return filepath.Join(c.RootDir(), "tempkeys")
-}
-
 func (c Config) tlsDir() string {
 	return filepath.Join(c.RootDir(), "tls")
 }
@@ -1470,23 +1488,6 @@ func (c Config) CertFile() string {
 		return filepath.Join(c.tlsDir(), "server.crt")
 	}
 	return c.TLSCertPath()
-}
-
-// HeadTimeBudget returns the time allowed for context timeout in head tracker
-func (c Config) HeadTimeBudget() time.Duration {
-	str := c.viper.GetString(EnvVarName("HeadTimeBudget"))
-	if str != "" {
-		n, err := parseDuration(str)
-		if err != nil {
-			logger.Errorw(
-				"Invalid value provided for HeadTimeBudget, falling back to default.",
-				"value", str,
-				"error", err)
-		} else {
-			return n.(time.Duration)
-		}
-	}
-	return chainSpecificConfig(c).HeadTimeBudget
 }
 
 // CreateProductionLogger returns a custom logger for the config's root
@@ -1643,16 +1644,6 @@ func parseHomeDir(str string) (interface{}, error) {
 // LogLevel determines the verbosity of the events to be logged.
 type LogLevel struct {
 	zapcore.Level
-}
-
-// ForGin keeps Gin's mode at the appropriate level with the LogLevel.
-func (ll LogLevel) ForGin() string {
-	switch {
-	case ll.Level < zapcore.InfoLevel:
-		return gin.DebugMode
-	default:
-		return gin.ReleaseMode
-	}
 }
 
 type DatabaseBackupMode string

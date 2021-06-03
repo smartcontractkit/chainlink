@@ -31,8 +31,12 @@ evm-contracts/dist/**/*
 evm-contracts/abi/**/*
 evm-contracts/ethers/**/*
 evm-contracts/truffle/**/*
+evm-contracts/cache/**/*
 
 # solc_bin
 solc_bin
 
 docs/
+venv/
+
+*.md

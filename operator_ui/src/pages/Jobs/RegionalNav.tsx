@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useCallback, useState, useRef } from 'react'
 import { connect } from 'react-redux'
 import { Redirect, useLocation } from 'react-router-dom'
 
@@ -9,6 +9,7 @@ import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import Badge from '@material-ui/core/Badge'
+import TextField from '@material-ui/core/TextField'
 import {
   createStyles,
   Theme,
@@ -103,11 +104,20 @@ const styles = (theme: Theme) =>
       fontWeight: 450,
       marginLeft: theme.spacing.unit * 6,
     },
+    modalTextarea: {
+      marginLeft: theme.spacing.unit * 2,
+    },
     modalContent: {
       width: 'inherit',
     },
     archiveButton: {
       marginTop: theme.spacing.unit * 4,
+    },
+    runJobButton: {
+      marginBottom: theme.spacing.unit * 3,
+    },
+    runJobModalContent: {
+      overflow: 'hidden',
     },
   })
 
@@ -133,6 +143,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRunV2: Function
   deleteJobSpec: Function
   jobSpecId: string
+  onChainJobSpecID?: string
   job: JobData['job']
   runsCount: JobData['recentRunsCount']
   getJobSpecRuns: (props: { page?: number; size?: number }) => Promise<void>
@@ -147,6 +158,7 @@ const RegionalNavComponent = ({
   deleteJobSpec,
   getJobSpecRuns,
   runsCount,
+  onChainJobSpecID,
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
@@ -154,17 +166,19 @@ const RegionalNavComponent = ({
   const navRunsActive = location.pathname.endsWith('/runs')
   const navOverviewActive =
     !navDefinitionActive && !navErrorsActive && !navRunsActive
-  const [modalOpen, setModalOpen] = React.useState(false)
-  const [archived, setArchived] = React.useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [archived, setArchived] = useState(false)
+  const [runJobModalOpen, setRunJobModalOpen] = useState(false)
 
-  const handleRun = async () => {
+  const handleRun = async (pipelineInput: string) => {
     const params = new URLSearchParams(location.search)
     const page = params.get('page')
     const size = params.get('size')
 
     if (job?.id && isJobV2(job.id)) {
       await createJobRunV2(
-        jobSpecId,
+        onChainJobSpecID || jobSpecId,
+        pipelineInput,
         CreateRunSuccessNotification,
         ErrorMessage,
       )
@@ -204,8 +218,8 @@ const RegionalNavComponent = ({
         case 'cron':
           type = 'Cron'
           break
-        case 'web':
-          type = 'Web'
+        case 'webhook':
+          type = 'Webhook'
           break
         default:
           type = 'Direct request'
@@ -216,6 +230,10 @@ const RegionalNavComponent = ({
 
     return `${type} job spec detail`
   }, [job])
+
+  const toggleRunJobModal = useCallback(() => {
+    setRunJobModalOpen(!runJobModalOpen)
+  }, [runJobModalOpen, setRunJobModalOpen])
 
   return (
     <>
@@ -317,13 +335,21 @@ const RegionalNavComponent = ({
                     {((job.type === 'Direct request' &&
                       job.initiators &&
                       isWebInitiator(job.initiators)) ||
-                      (job.type == 'v2' && job.specType == 'web')) && (
-                      <Button
-                        onClick={handleRun}
-                        className={classes.regionalNavButton}
-                      >
-                        Run
-                      </Button>
+                      (job.type == 'v2' && job.specType == 'webhook')) && (
+                      <React.Fragment>
+                        <Button
+                          onClick={toggleRunJobModal}
+                          className={classes.regionalNavButton}
+                        >
+                          Run
+                        </Button>
+                        <RunJobModal
+                          open={runJobModalOpen}
+                          onClose={toggleRunJobModal}
+                          run={handleRun}
+                          classes={classes}
+                        />
+                      </React.Fragment>
                     )}
                     {job.definition && (
                       <>
@@ -428,6 +454,69 @@ const RegionalNavComponent = ({
         </Grid>
       </Card>
     </>
+  )
+}
+
+const RunJobModal = (props: {
+  open: boolean
+  onClose: () => void
+  run: (pipelineInput: string) => void
+  classes: any
+}) => {
+  const { open, onClose, run, classes } = props
+
+  const textarea = useRef<HTMLTextAreaElement>(null)
+
+  const onClickRun = useCallback(() => {
+    if (!textarea.current) {
+      return
+    }
+    run(textarea.current.value)
+    textarea.current.value = ''
+    onClose()
+  }, [run, onClose, textarea])
+
+  return (
+    <Dialog onClose={onClose} open={open}>
+      <Grid container spacing={0} className={classes.runJobModalContent}>
+        <Grid item className={classes.modalContent}>
+          <Grid container alignItems="baseline" justify="space-between">
+            <Grid item>
+              <Typography
+                variant="h5"
+                color="secondary"
+                className={classes.warningText}
+              >
+                Pipeline input
+              </Typography>
+            </Grid>
+            <Grid item>
+              <Close className={classes.closeButton} onClick={onClose} />
+            </Grid>
+          </Grid>
+          <Grid container direction="column">
+            <Grid item>
+              <Grid item className={classes.modalTextarea}>
+                <TextField
+                  label="Multiline"
+                  multiline
+                  rows={4}
+                  variant="outlined"
+                  inputRef={textarea}
+                />
+              </Grid>
+            </Grid>
+            <Grid container spacing={0} alignItems="center" justify="center">
+              <Grid item className={classes.runJobButton}>
+                <Button variant="danger" onClick={onClickRun}>
+                  Run job
+                </Button>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Dialog>
   )
 }
 

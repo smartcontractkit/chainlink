@@ -1,6 +1,7 @@
 type            = "cron"
 schemaVersion   = 1
 schedule        = "0 0 1 1 *"
+jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];

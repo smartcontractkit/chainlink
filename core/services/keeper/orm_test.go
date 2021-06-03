@@ -17,7 +17,7 @@ import (
 )
 
 var checkData = common.Hex2Bytes("ABC123")
-var executeGas = int32(10_000)
+var executeGas = uint64(10_000)
 
 func setupKeeperDB(t *testing.T) (*store.Store, keeper.ORM, func()) {
 	store, cleanup := cltest.NewStore(t)
@@ -85,7 +85,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	var upkeepFromDB keeper.UpkeepRegistration
 	err = store.DB.First(&upkeepFromDB).Error
 	require.NoError(t, err)
-	require.Equal(t, int32(20_000), upkeepFromDB.ExecuteGas)
+	require.Equal(t, uint64(20_000), upkeepFromDB.ExecuteGas)
 	require.Equal(t, "8888", common.Bytes2Hex(upkeepFromDB.CheckData))
 	require.Equal(t, int32(2), upkeepFromDB.PositioningConstant)
 	require.Equal(t, int64(1), upkeepFromDB.LastRunBlockHeight) // shouldn't change on upsert
@@ -332,7 +332,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 	payload := common.Hex2Bytes("1234")
-	gasBuffer := int32(200_000)
+	gasBuffer := uint64(200_000)
 
 	var ethTX models.EthTx
 	var err error
@@ -347,5 +347,5 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
 	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
 	require.Equal(t, payload, ethTX.EncodedPayload)
-	require.Equal(t, upkeep.ExecuteGas+gasBuffer, int32(ethTX.GasLimit))
+	require.Equal(t, upkeep.ExecuteGas+gasBuffer, ethTX.GasLimit)
 }

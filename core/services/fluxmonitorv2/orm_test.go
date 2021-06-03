@@ -220,7 +220,7 @@ func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, from)
 
 		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
-		require.EqualError(t, err, fmt.Sprintf("Skipped Flux Monitor submission because wallet is out of eth: %s", from))
+		require.EqualError(t, err, fmt.Sprintf("Skipped Flux Monitor submission: wallet is out of eth: %s", from))
 	})
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {

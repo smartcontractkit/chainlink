@@ -74,6 +74,7 @@ type FluxMonitor struct {
 	backlog       *utils.BoundedPriorityQueue
 	chProcessLogs chan struct{}
 
+	utils.StartStopOnce
 	chStop     chan struct{}
 	waitOnStop chan struct{}
 }
@@ -125,6 +126,7 @@ func NewFluxMonitor(
 			PriorityAnswerUpdatedLog: 1,
 			PriorityFlagChangedLog:   2,
 		}),
+		StartStopOnce: utils.StartStopOnce{},
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
@@ -171,7 +173,7 @@ func NewFromJobSpec(
 		orm,
 		keyStore,
 		cfg.EthGasLimit,
-		cfg.MaxUnconfirmedTransactions,
+		cfg.EthMaxQueuedTransactions,
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress, ethClient)
@@ -255,13 +257,15 @@ const (
 // Start implements the job.Service interface. It begins the CSP consumer in a
 // single goroutine to poll the price adapters and listen to NewRound events.
 func (fm *FluxMonitor) Start() error {
-	fm.logger.Debug("Starting Flux Monitor for job")
+	return fm.StartOnce("FluxMonitor", func() error {
+		fm.logger.Debug("Starting Flux Monitor for job")
 
-	go gracefulpanic.WrapRecover(func() {
-		fm.consume()
+		go gracefulpanic.WrapRecover(func() {
+			fm.consume()
+		})
+
+		return nil
 	})
-
-	return nil
 }
 
 func (fm *FluxMonitor) IsHibernating() bool {
@@ -282,11 +286,13 @@ func (fm *FluxMonitor) IsHibernating() bool {
 // Close implements the job.Service interface. It stops this instance from
 // polling, cleaning up resources.
 func (fm *FluxMonitor) Close() error {
-	fm.pollManager.Stop()
-	close(fm.chStop)
-	<-fm.waitOnStop
+	return fm.StopOnce("FluxMonitor", func() error {
+		fm.pollManager.Stop()
+		close(fm.chStop)
+		<-fm.waitOnStop
 
-	return nil
+		return nil
+	})
 }
 
 // JobID implements the listener.Listener interface.
@@ -430,10 +436,13 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	accounts := fm.keyStore.Accounts()
-	for _, acct := range accounts {
+	keys, err := fm.keyStore.SendingKeys()
+	if err != nil {
+		return errors.Wrap(err, "failed to load keys")
+	}
+	for _, k := range keys {
 		for _, oracleAddr := range oracleAddrs {
-			if acct.Address == oracleAddr {
+			if k.Address.Address() == oracleAddr {
 				fm.oracleAddress = oracleAddr
 				return nil
 			}
@@ -441,12 +450,12 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 	}
 
 	log := fm.logger.With(
-		"accounts", accounts,
+		"keys", keys,
 		"oracleAddresses", oracleAddrs,
 	)
 
-	if len(accounts) > 0 {
-		addr := accounts[0].Address
+	if len(keys) > 0 {
+		addr := keys[0].Address.Address()
 		log.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
 			"address", addr.Hex(),
 		)
@@ -504,8 +513,11 @@ func (fm *FluxMonitor) processLogs() {
 				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
 			}
 		case *flags_wrapper.FlagsFlagLowered:
-			fm.pollManager.Awaken(fm.initialRoundState())
-			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
+			// Only reactivate if it is hibernating
+			if fm.pollManager.cfg.IsHibernating {
+				fm.pollManager.Awaken(fm.initialRoundState())
+				fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
+			}
 		default:
 			fm.logger.Errorf("unknown log %v of type %T", log, log)
 		}
@@ -542,6 +554,14 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
 	)
+	var markConsumed = true
+	defer func() {
+		if markConsumed {
+			if err := fm.logBroadcaster.MarkConsumed(fm.db, lb); err != nil {
+				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err, "log", lb.String())
+			}
+		}
+	}()
 
 	newRoundLogger.Debug("NewRound log")
 	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.spec.JobID)), log.RoundId)
@@ -661,7 +681,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	// Call the v2 pipeline to execute a new job run
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
@@ -697,6 +717,8 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		}
 		return fm.logBroadcaster.MarkConsumed(tx, lb)
 	})
+	// Either the tx failed and we want to reprocess the log, or it succeeded and already marked it consumed
+	markConsumed = false
 	if err != nil {
 		newRoundLogger.Errorf("unable to create job run: %v", err)
 		return
@@ -775,7 +797,10 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	defer func() {
 		if pollReq == PollRequestTypeIdle {
 			if err != nil {
-				fm.pollManager.StartRetryTicker()
+				if fm.pollManager.StartRetryTicker() {
+					min, max := fm.pollManager.retryTicker.Bounds()
+					l.Debugw(fmt.Sprintf("started retry ticker (frequency between: %v - %v)", min, max))
+				}
 				return
 			}
 			fm.pollManager.StopRetryTicker()
@@ -821,7 +846,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
-	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
+	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
@@ -870,9 +895,9 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
 		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, true)
 		if err2 != nil {
-			return err
+			return err2
 		}
-		err2 = fm.queueTransactionForBPTXM(fm.db, runID, answer, roundState.RoundId)
+		err2 = fm.queueTransactionForBPTXM(tx, runID, answer, roundState.RoundId)
 		if err2 != nil {
 			return err2
 		}

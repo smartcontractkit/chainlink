@@ -35,7 +35,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	if err != nil {
 		logger.Warnw("unable to attach metadata for run", "err", err)
 	}
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, pipeline.JSONSerializable{
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, nil, pipeline.JSONSerializable{
 		Val: md,
 	}, ds.ocrLogger)
 	if err != nil {

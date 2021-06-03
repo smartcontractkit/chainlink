@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -53,7 +53,6 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -196,6 +195,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("ETH_FINALITY_DEPTH", 1)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
+	// Set low sampling interval to remain within test head waiting timeouts
+	config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 	return config, cleanup
 }
 
@@ -214,6 +215,13 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func MustJobIDFromString(t *testing.T, s string) models.JobID {
+	t.Helper()
+	id, err := models.NewJobIDFromString(s)
+	require.NoError(t, err)
+	return id
 }
 
 // NewTestConfig returns a test configuration
@@ -297,16 +305,16 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
 	return pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, func() {
-		eventBroadcaster.Stop()
+		eventBroadcaster.Close()
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, store *strpkg.Store, config *TestConfig) (bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, store *strpkg.Store, config *TestConfig, keys ...models.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	return bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster), func() {
-		eventBroadcaster.Stop()
+	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, store.KeyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys), func() {
+		eventBroadcaster.Close()
 	}
 }
 
@@ -373,9 +381,6 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication
 	c, cfgCleanup := NewConfig(t)
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
-	app.Store.KeyStore = kst
 
 	return app, func() {
 		cleanup()
@@ -424,6 +429,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
+	var ks strpkg.KeyStoreInterface
+
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -432,12 +439,23 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 			advisoryLocker = dep
 		case chainlink.ExternalInitiatorManager:
 			externalInitiatorManager = dep
+		case strpkg.KeyStoreInterface:
+			ks = dep
 		}
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
+	var keyStoreGenerator strpkg.KeyStoreGenerator
+	if ks == nil {
+		keyStoreGenerator = strpkg.InsecureKeyStoreGen
+	} else {
+		keyStoreGenerator = func(*gorm.DB, *orm.Config) strpkg.KeyStoreInterface {
+			return ks
+		}
+	}
+
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, externalInitiatorManager, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	})
 	require.NoError(t, err)
@@ -487,6 +505,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
+	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
 	return c, s, assertMocksCalled
@@ -506,6 +525,7 @@ func (ta *TestApplication) NewBox() packr.Box {
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
+	ta.ChainlinkApplication.Store.KeyStore.Unlock(Password)
 
 	err := ta.ChainlinkApplication.Start()
 	return err
@@ -565,7 +585,7 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
+	_, err := ta.Store.KeyStore.ImportKey([]byte(content), Password)
 	require.NoError(ta.t, err)
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
@@ -1828,7 +1848,7 @@ type SimulateIncomingHeadsArgs struct {
 	BackfillDepth        int64
 	Interval             time.Duration
 	Timeout              time.Duration
-	HeadTrackables       []strpkg.HeadTrackable
+	HeadTrackables       []httypes.HeadTrackable
 	Hashes               map[int64]common.Hash
 }
 
@@ -1957,7 +1977,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
 	t.Helper()
 	var count int64
-	err := store.DB.Model(model).Count(&count).Error
+	err := store.DB.Unscoped().Model(model).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }
@@ -1994,4 +2014,11 @@ func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
+}
+
+func MustSendingKeys(t *testing.T, ks strpkg.KeyStoreInterface) (keys []models.Key) {
+	var err error
+	keys, err = ks.SendingKeys()
+	require.NoError(t, err)
+	return keys
 }

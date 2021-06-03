@@ -62,7 +62,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		NewORM(d.store.DB),
 		d.jobORM,
 		d.pipelineORM,
-		NewKeyStore(d.store),
+		NewKeyStore(d.store.KeyStore),
 		d.ethClient,
 		d.logBroadcaster,
 		d.pipelineRunner,
