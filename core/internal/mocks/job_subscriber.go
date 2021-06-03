@@ -56,11 +56,6 @@ func (_m *JobSubscriber) Connect(head *models.Head) error {
 	return r0
 }
 
-// Disconnect provides a mock function with given fields:
-func (_m *JobSubscriber) Disconnect() {
-	_m.Called()
-}
-
 // Healthy provides a mock function with given fields:
 func (_m *JobSubscriber) Healthy() error {
 	ret := _m.Called()
