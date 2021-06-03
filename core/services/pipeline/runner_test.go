@@ -355,7 +355,7 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
 	assert.Equal(t, pipeline.ErrRunPanicked.Error(), trrs.FinalResult().Errors[0].Error())
 	for _, trr := range trrs {
-		assert.Equal(t, null.NewString("pipeline run panicked", true), trr.Result.ErrorDB())
+		assert.Equal(t, null.NewString("goroutine panicked when executing run: oh no", true), trr.Result.ErrorDB())
 		assert.Equal(t, true, trr.Result.OutputDB().Null)
 	}
 }
