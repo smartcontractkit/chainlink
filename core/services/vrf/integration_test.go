@@ -57,6 +57,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 		vrfkey.MustHash(), big.NewInt(100))
 	require.NoError(t, err)
 	cu.backend.Commit()
+	t.Log("Sent test request")
 	// Mine the required number of blocks
 	// So our request gets confirmed.
 	for i := 0; i < incomingConfs; i++ {
@@ -66,8 +67,13 @@ func TestIntegration_VRFV2(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM.GetAllRuns()
 		require.NoError(t, err)
+		// It possible that we send the test request
+		// before the job spawner has started the vrf services, which is fine
+		// the lb will backfill the logs. However we need to
+		// keep blocks coming in for the lb to send the backfilled logs.
+		cu.backend.Commit()
 		return len(runs) == 1
-	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].Errors)
 	assert.Equal(t, 0, len(runs[0].PipelineTaskRuns))
 	assert.NotNil(t, 0, runs[0].Outputs.Val)
