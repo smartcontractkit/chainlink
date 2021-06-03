@@ -88,10 +88,6 @@ func (bf *BlockFetcher) BlockRange(ctx context.Context, fromBlock int64, toBlock
 		blocksSlice = append(blocksSlice, *block)
 	}
 
-	sort.Slice(blocksSlice, func(i, j int) bool {
-		return blocksSlice[i].Number < blocksSlice[j].Number
-	})
-
 	return blocksSlice, nil
 }
 
@@ -114,17 +110,7 @@ func (bf *BlockFetcher) Chain(ctx context.Context, latestHead models.Head) (mode
 }
 
 func (bf *BlockFetcher) SyncLatestHead(ctx context.Context, head models.Head) error {
-	bf.mut.Lock()
-	cacheSize := len(bf.recent)
-	bf.mut.Unlock()
-
-	if cacheSize == 0 {
-		bf.logger.Debug("SyncLatestHead: cache is empty, will backfill using batch calls")
-		bf.Backfill(ctx, head)
-	}
-
 	_, err := bf.syncLatestHead(ctx, head)
-	bf.logger.Debug("Returned from SyncLatestHead")
 	return err
 }
 
@@ -138,13 +124,13 @@ func (bf *BlockFetcher) StartDownloadAsync(ctx context.Context, fromBlock int64,
 
 			err := bf.downloadRange(ctxTimeout, fromBlock, toBlock)
 			if err != nil {
-				bf.logger.Errorw("BlockFetcher#StartDownload error while downloading blocks. Will retry",
+				bf.logger.Errorw("BlockFetcher: error while downloading blocks. Will retry",
 					"err", err, "fromBlock", fromBlock, "toBlock", toBlock)
 				return true
 			}
 			return false
 		})
-		bf.logger.Debug("Returned from StartDownloadAsync")
+		bf.logger.Debug("BlockFetcher: Finished async download of blocks")
 	}()
 }
 
@@ -164,7 +150,6 @@ func (bf *BlockFetcher) RecentSorted() []*Block {
 }
 
 func (bf *BlockFetcher) GetBlockRange(ctx context.Context, fromBlock int64, toBlock int64) ([]*Block, error) {
-	bf.logger.Debugw("BlockFetcher#BlockRange requested range", "fromBlock", fromBlock, "toBlock", toBlock)
 
 	if fromBlock < 0 || toBlock < fromBlock {
 		return make([]*Block, 0), errors.Errorf("Invalid range: %d -> %d", fromBlock, toBlock)
@@ -193,17 +178,11 @@ func (bf *BlockFetcher) GetBlockRange(ctx context.Context, fromBlock int64, toBl
 		blockRange = append(blockRange, block)
 	}
 
+	sort.Slice(blockRange, func(i, j int) bool {
+		return blockRange[i].Number < blockRange[j].Number
+	})
+
 	return blockRange, nil
-	// check if currently being downloaded
-	// trigger download of missing ones
-	//for {
-	//	select {
-	//	case _ = <-bd.notifications:
-	//		// case after?
-	//	default:
-	//
-	//	}
-	//}
 }
 
 func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBlock int64) error {
@@ -232,12 +211,12 @@ func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBl
 	if len(blockNumsToFetch) > 0 {
 		blocksFetched, err := bf.blockEthClient.FetchBlocksByNumbers(ctx, blockNumsToFetch)
 		if err != nil {
-			bf.logger.Errorw("BlockFetcher#BlockRange error while fetching missing blocks", "err", err, "fromBlock", fromBlock, "toBlock", toBlock)
+			bf.logger.Errorw("BlockFetcher: error while fetching missing blocks", "err", err, "fromBlock", fromBlock, "toBlock", toBlock)
 			return err
 		}
 
 		if len(blocksFetched) < len(blockNumsToFetch) {
-			bf.logger.Warnw("BlockFetcher#BlockRange did not fetch all requested blocks",
+			bf.logger.Warnw("BlockFetcher: did not fetch all requested blocks",
 				"fromBlock", fromBlock, "toBlock", toBlock, "requestedLen", len(blockNumsToFetch), "blocksFetched", len(blocksFetched))
 		}
 
@@ -317,7 +296,7 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 	mark := time.Now()
 	fetched := 0
 
-	bf.logger.Debugw("BlockFetcher: starting sync head",
+	bf.logger.Debugw("BlockFetcher: Starting sync head",
 		"blockNumber", head.Number,
 		"fromBlockHeight", from,
 		"toBlockHeight", head.Number)
@@ -325,7 +304,7 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 		if ctx.Err() != nil {
 			return
 		}
-		bf.logger.Debugw("BlockFetcher: finished sync head",
+		bf.logger.Debugw("BlockFetcher: Finished sync head",
 			"fetched", fetched,
 			"blockNumber", head.Number,
 			"time", time.Since(mark),
@@ -344,26 +323,33 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 
 		return bf.sequentialConstructChain(ctx, block, from)
 	}
-	// we don't have the previous block or there was a re-org
-	bf.logger.Debugf("Getting a range of blocks: %v to %v", from, head.Number)
-	blocks, err := bf.GetBlockRange(ctx, from, head.Number)
 
-	if len(blocks) == 0 {
-		logger.Warnf("No blocks returned by range %v to %v", from, head.Number)
-		return head, nil
+	// We don't have the previous block at all, or there was a re-org
+	// For efficiency, fetch a range of previous blocks at once, before starting sequential fetching
+	// (alternatively, we could do multiple batches, until 'from' or common ancestor we have locally)
+	batchRangeFrom := head.Number - int64(bf.config.BlockBackfillDepth())
+	if batchRangeFrom < 0 {
+		batchRangeFrom = 0
 	}
-	sort.Slice(blocks, func(i, j int) bool {
-		return blocks[i].Number < blocks[j].Number
-	})
+	bf.logger.Debugw("BlockFetcher: Previous block does not exist locally. Getting a range of past blocks",
+		"batchRangeFrom", batchRangeFrom, "to", head.Number, "nonexistingParentHash", head.ParentHash)
+
+	blocks, err := bf.GetBlockRange(ctx, batchRangeFrom, head.Number)
+
 	if err != nil {
 		return models.Head{}, errors.Wrap(err, "BlockByNumber failed")
 	}
-	return bf.sequentialConstructChain(ctx, *blocks[len(blocks)-1], from)
 
+	if len(blocks) == 0 {
+		logger.Warnf("BlockFetcher: No blocks returned by range %v to %v. ", from, head.Number)
+		return head, nil
+	}
+
+	return bf.sequentialConstructChain(ctx, *blocks[len(blocks)-1], from)
 }
 
 func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash) (Block, error) {
-	bf.logger.Debugf("Fetching block by hash: %v", hash)
+	bf.logger.Debugf("BlockFetcher: Fetching block by hash: %v", hash)
 	blockPtr, err := bf.blockEthClient.FastBlockByHash(ctx, hash)
 	if ctx.Err() != nil {
 		return Block{}, nil
@@ -384,23 +370,22 @@ func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Bloc
 	var chainTip = headFromBlock(block)
 	var currentHead = &chainTip
 
-	bf.logger.Debugf("Latest block: %v, %v", block.Number, block.Hash)
+	bf.logger.Debugf("BlockFetcher: Constructing the chain until the latest block: %v, %v", block.Number, block.Hash)
 
+	currentBlock := &block
 	for i := block.Number - 1; i >= from; i-- {
 
 		zeroHash := common.Hash{}
 		if currentHead.ParentHash == zeroHash {
-			bf.logger.Debugf("currentHead.ParentHash is zero - returning")
+			bf.logger.Debugf("BlockFetcher: currentHead.ParentHash is zero - returning")
 			break
 		}
 		var existingBlock = bf.findBlockByHash(currentHead.ParentHash)
 		if existingBlock != nil {
-			block = *existingBlock
-			bf.logger.Debugf("Found block in cache: %v - %v", block.Number, block.Hash)
+			currentBlock = existingBlock
 		} else {
-			bf.logger.Debugf("Fetching BlockByNumber: %v, as existing block was not found by %v", i, currentHead.ParentHash)
+			bf.logger.Debugf("BlockFetcher: Fetching block by number: %v, as existing block was not found by %v", i, currentHead.ParentHash)
 
-			//TODO: perhaps implement FastBlockByNumber
 			blockPtr, err := bf.blockEthClient.BlockByNumber(ctx, i)
 			fetched++
 			if ctx.Err() != nil {
@@ -409,15 +394,16 @@ func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Bloc
 				return models.Head{}, errors.Wrap(err, "BlockByNumber failed")
 			}
 
+			currentBlock = blockPtr
 			bf.mut.Lock()
-			bf.recent[block.Hash] = blockPtr
+			bf.recent[currentBlock.Hash] = currentBlock
 			bf.mut.Unlock()
 		}
 
-		head := headFromBlock(block)
+		head := headFromBlock(*currentBlock)
 		currentHead.Parent = &head
 		currentHead = &head
 	}
-	bf.logger.Debugf("Returning chain of length %v", chainTip.ChainLength())
+	bf.logger.Debugf("BlockFetcher: Returning chain of length %v", chainTip.ChainLength())
 	return chainTip, nil
 }

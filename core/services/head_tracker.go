@@ -180,7 +180,18 @@ func (ht *HeadTracker) headSampler() {
 				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
 			}
 
-			ht.headBroadcaster.OnNewLongestChain(ctx, head)
+			//headWithChain, err := ht.blockFetcher.Chain(ctx, head)
+			headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
+
+			if ctx.Err() != nil {
+				continue
+			}
+			if err != nil {
+				ht.logger().Errorw("HeadTracker: failed to construct a chain from the latest head. Will skip the OnNewLongestChain call",
+					"err", err, "number", head.Number, "hash", head.Hash)
+				continue
+			}
+			ht.headBroadcaster.OnNewLongestChain(ctx, headWithChain)
 		}
 	}
 }
@@ -320,15 +331,8 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
-		if ctx.Err() != nil {
-			return nil
-		} else if err != nil {
-			return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
-		}
-
-		ht.backfillMB.Deliver(headWithChain)
-		ht.samplingMB.Deliver(headWithChain)
+		ht.backfillMB.Deliver(head)
+		ht.samplingMB.Deliver(head)
 		return nil
 	}
 	if head.Number == prevHead.Number {

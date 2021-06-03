@@ -108,13 +108,13 @@ func (bc *BlockEthClientImpl) batchFetch(ctx context.Context, reqs []rpc.BatchEl
 			j = len(reqs)
 		}
 
-		logger.Debugw(fmt.Sprintf("BlockFetcher: batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
+		logger.Debugw(fmt.Sprintf("BlockFetcher: Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
 		err := bc.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			return errors.Wrap(err, "BlockFetcher#fetchBlocks error fetching blocks with BatchCallContext")
+			return errors.Wrap(err, "BlockFetcher: Error fetching blocks with BatchCallContext")
 		}
 	}
 	return nil
@@ -157,7 +157,6 @@ func (bc *FakeBlockEthClient) FastBlockByHash(ctx context.Context, hash common.H
 }
 
 func (bc *FakeBlockEthClient) FetchBlocksByNumbers(ctx context.Context, numbers []int64) (map[int64]Block, error) {
-
 	mapp := make(map[int64]Block)
 	for _, block := range bc.blocks {
 		for _, number := range numbers {
