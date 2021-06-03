@@ -88,6 +88,10 @@ func (bf *BlockFetcher) BlockRange(ctx context.Context, fromBlock int64, toBlock
 		blocksSlice = append(blocksSlice, *block)
 	}
 
+	sort.Slice(blocksSlice, func(i, j int) bool {
+		return blocksSlice[i].Number < blocksSlice[j].Number
+	})
+
 	return blocksSlice, nil
 }
 
