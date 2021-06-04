@@ -90,8 +90,8 @@ describe('AuthorizedForwarder', () => {
           const responseEvent = receipt.events?.[0]
           assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
           const encodedSenders = utils.defaultAbiCoder.encode(
-            ['address[]'],
-            [newSenders],
+            ['address[]', 'address'],
+            [newSenders, roles.defaultAccount.address],
           )
           assert.equal(responseEvent?.data, encodedSenders)
         })

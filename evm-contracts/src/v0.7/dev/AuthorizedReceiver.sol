@@ -11,7 +11,8 @@ abstract contract AuthorizedReceiver is
   address[] private s_authorizedSenderList;
 
   event AuthorizedSendersChanged(
-    address[] senders
+    address[] senders,
+    address changedBy
   );
 
   /**
@@ -37,7 +38,7 @@ abstract contract AuthorizedReceiver is
     }
     // Replace list
     s_authorizedSenderList = senders;
-    emit AuthorizedSendersChanged(senders);
+    emit AuthorizedSendersChanged(senders, msg.sender);
   }
 
   /**
