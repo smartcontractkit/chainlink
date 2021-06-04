@@ -71,6 +71,12 @@ contract Operator is
     address indexed accpetedContract
   );
 
+  event TargetsUpdatedAuthorizedSenders(
+    address[] targets,
+    address[] senders,
+    address changedBy
+  );
+
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -298,6 +304,8 @@ contract Operator is
     public
     validateAuthorizedSenderSetter()
   {
+    TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
+
     for (uint256 i = 0; i < targets.length; i++) {
       AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
     }
