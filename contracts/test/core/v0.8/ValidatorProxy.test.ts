@@ -2,9 +2,10 @@ import { ethers } from "hardhat";
 import { publicAbi, constants } from "../../helpers";
 import { assert, expect } from "chai";
 import { Signer, Contract } from "ethers";
+import { Personas, Users, getUsers } from "../../setup";
 
 describe("ValidatorProxy", () => {
-  let accounts: Signer[];
+  let users: Users;
 
   let owner: Signer;
   let ownerAddress: string;
@@ -15,10 +16,10 @@ describe("ValidatorProxy", () => {
   let validatorProxy: Contract;
 
   beforeEach(async () => {
-    accounts = await ethers.getSigners();
-    owner = accounts[0];
-    aggregator = accounts[1];
-    validator = accounts[2];
+    users = await getUsers();
+    owner = users.personas.Default;
+    aggregator = users.contracts.contract1;
+    validator = users.contracts.contract2;
     ownerAddress = await owner.getAddress();
     aggregatorAddress = await aggregator.getAddress();
     validatorAddress = await validator.getAddress();
@@ -71,13 +72,13 @@ describe("ValidatorProxy", () => {
     let newAggregator: Signer;
     let newAggregatorAddress: string;
     beforeEach(async () => {
-      newAggregator = accounts[3];
+      newAggregator = users.contracts.contract3;
       newAggregatorAddress = await newAggregator.getAddress();
     });
 
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).proposeNewAggregator(newAggregatorAddress)).to.be.revertedWith(
           "Only callable by owner",
         );
@@ -122,7 +123,7 @@ describe("ValidatorProxy", () => {
   describe("#upgradeAggregator", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).upgradeAggregator()).to.be.revertedWith("Only callable by owner");
       });
 
@@ -135,7 +136,7 @@ describe("ValidatorProxy", () => {
       let newAggregator: Signer;
       let newAggregatorAddress: string;
       beforeEach(async () => {
-        newAggregator = accounts[3];
+        newAggregator = users.contracts.contract3;
         newAggregatorAddress = await newAggregator.getAddress();
         await validatorProxy.proposeNewAggregator(newAggregatorAddress);
       });
@@ -161,13 +162,13 @@ describe("ValidatorProxy", () => {
     let newValidatorAddress: string;
 
     beforeEach(async () => {
-      newValidator = accounts[3];
+      newValidator = users.contracts.contract3;
       newValidatorAddress = await newValidator.getAddress();
     });
 
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).proposeNewAggregator(newValidatorAddress)).to.be.revertedWith(
           "Only callable by owner",
         );
@@ -212,7 +213,7 @@ describe("ValidatorProxy", () => {
   describe("#upgradeValidator", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).upgradeValidator()).to.be.revertedWith("Only callable by owner");
       });
 
@@ -225,7 +226,7 @@ describe("ValidatorProxy", () => {
       let newValidator: Signer;
       let newValidatorAddress: string;
       beforeEach(async () => {
-        newValidator = accounts[3];
+        newValidator = users.contracts.contract3;
         newValidatorAddress = await newValidator.getAddress();
         await validatorProxy.proposeNewValidator(newValidatorAddress);
       });
@@ -249,7 +250,7 @@ describe("ValidatorProxy", () => {
   describe("#validate", () => {
     describe("failure", () => {
       it("reverts when not called by aggregator or proposed aggregator", async () => {
-        const stranger = accounts[9];
+        const stranger = users.contracts.contract5;
         await expect(validatorProxy.connect(stranger).validate(99, 88, 77, 66)).to.be.revertedWith(
           "Not a configured aggregator",
         );
@@ -325,7 +326,7 @@ describe("ValidatorProxy", () => {
         let newAggregator: Signer;
         let newAggregatorAddress: string;
         beforeEach(async () => {
-          newAggregator = accounts[3];
+          newAggregator = users.contracts.contract3;
           newAggregatorAddress = await newAggregator.getAddress();
           await validatorProxy.connect(owner).proposeNewAggregator(newAggregatorAddress);
         });
