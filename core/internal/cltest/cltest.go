@@ -1466,27 +1466,12 @@ func Block(number int, parentHash common.Hash) *types.Block {
 	return block
 }
 
-func HtBlock(number int, parentHash common.Hash) headtracker.Block {
-	var block headtracker.Block
-	block.Number = int64(number)
-	block.Hash = NewHash()
-	block.ParentHash = parentHash
-	return block
-}
-
-func HtBlockPtr(number int, parentHash common.Hash) *headtracker.Block {
+func NewBlock(number int, parentHash common.Hash) *headtracker.Block {
 	var block headtracker.Block
 	block.Number = int64(number)
 	block.Hash = NewHash()
 	block.ParentHash = parentHash
 	return &block
-}
-
-func NewBlock(number int64) headtracker.Block {
-	return headtracker.Block{
-		Number: number,
-		Hash:   NewHash(),
-	}
 }
 
 func NewBlockWithTransactions(number int64, transactions []headtracker.Transaction) headtracker.Block {
@@ -1524,23 +1509,13 @@ func Chain(from int64, until int64, predefined []headtracker.Block) map[int64]*h
 				parentHash = current.Hash
 			}
 
-			block = HtBlockPtr(int(i), parentHash)
+			block = NewBlock(int(i), parentHash)
 			blocks[i] = block
 		}
 
 		current = block
 	}
 	return blocks
-}
-
-func HeadFromBlock(block *types.Block) *models.Head {
-	h := &models.Head{Hash: block.Hash(), Number: block.Number().Int64(), ParentHash: block.ParentHash()}
-	return h
-}
-
-func HeadFromHtBlock(block *headtracker.Block) *models.Head {
-	h := &models.Head{Hash: block.Hash, Number: block.Number, ParentHash: block.ParentHash}
-	return h
 }
 
 // TransactionsFromGasPrices returns transactions matching the given gas prices

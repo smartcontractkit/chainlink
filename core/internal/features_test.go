@@ -142,8 +142,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Return(nil).
 		Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			block := fromEthBlock(*block)
-			elems[0].Result = &block
+			elems[0].Result = headtracker.FromEthBlock(block)
 		})
 
 	ethClient.On("FastBlockByHash", mock.Anything, mock.Anything).Maybe().Return(block, nil)
@@ -181,15 +180,6 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	newHeads <- cltest.Head(safe + 1)
 
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
-}
-
-func fromEthBlock(ethBlock types.Block) headtracker.Block {
-	var block headtracker.Block
-	block.Number = ethBlock.Number().Int64()
-	block.Hash = ethBlock.Hash()
-	block.ParentHash = ethBlock.ParentHash()
-
-	return block
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -1963,12 +1953,10 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 }
 
 func matchesBlockNumbers(b []rpc.BatchElem, numbers []int64) bool {
-	//logger.Warnf("len(b) %v len(numbers) %v", len(b), len(numbers))
 	if len(b) != len(numbers) {
 		return false
 	}
 	for i, elem := range b {
-		//logger.Warnf("headtracker.Int64ToHex(numbers[i]) : %v, elem.Args[0]: %v", headtracker.Int64ToHex(numbers[i]), elem.Args[0])
 		if elem.Method != "eth_getBlockByNumber" || elem.Args[0] != headtracker.Int64ToHex(numbers[i]) {
 			return false
 		}

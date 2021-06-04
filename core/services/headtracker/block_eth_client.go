@@ -40,8 +40,7 @@ func (bc *BlockEthClientImpl) BlockByNumber(ctx context.Context, number int64) (
 	if err != nil {
 		return nil, err
 	}
-	b := FromEthBlock(*block)
-	return &b, nil
+	return FromEthBlock(block), nil
 }
 
 func (bc *BlockEthClientImpl) FastBlockByHash(ctx context.Context, hash common.Hash) (*Block, error) {
@@ -49,8 +48,7 @@ func (bc *BlockEthClientImpl) FastBlockByHash(ctx context.Context, hash common.H
 	if err != nil {
 		return nil, err
 	}
-	b := FromEthBlock(*block)
-	return &b, nil
+	return FromEthBlock(block), nil
 }
 
 func (bc *BlockEthClientImpl) FetchBlocksByNumbers(ctx context.Context, numbers []int64) (map[int64]Block, error) {
@@ -176,6 +174,6 @@ func (bc *FakeBlockEthClient) FetchLatestHead(ctx context.Context) (*models.Head
 	if len(bc.blocks) == 0 {
 		return nil, errors.Errorf("no head found")
 	}
-	head := headFromBlock(bc.blocks[len(bc.blocks)-1])
+	head := HeadFromBlock(bc.blocks[len(bc.blocks)-1])
 	return &head, nil
 }

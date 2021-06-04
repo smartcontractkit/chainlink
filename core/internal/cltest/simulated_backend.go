@@ -406,8 +406,7 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			number := headtracker.HexToInt64(elem.Args[0])
 			ethBlock, err := c.b.BlockByNumber(ctx, big.NewInt(number))
 			if err != nil && ethBlock != nil {
-				block := headtracker.FromEthBlock(*ethBlock)
-				b[i].Result = &block
+				b[i].Result = headtracker.FromEthBlock(ethBlock)
 			}
 			b[i].Error = err
 		} else if elem.Method == "eth_getTransactionReceipt" {

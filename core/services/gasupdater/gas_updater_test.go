@@ -46,7 +46,7 @@ func TestGasUpdater_Start(t *testing.T) {
 	t.Run("loads initial state", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 
-		blocks := []headtracker.Block{cltest.NewBlock(41), cltest.NewBlock(42)}
+		blocks := []headtracker.Block{*cltest.NewBlock(41, common.Hash{}), *cltest.NewBlock(42, common.Hash{})}
 
 		guIface := createGasUpdaterWithBlocks(config, blocks)
 		gu := gasupdater.GasUpdaterToStruct(guIface)

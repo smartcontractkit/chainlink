@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -266,23 +265,6 @@ func (bf *BlockFetcher) findBlockByHash(hash common.Hash) *Block {
 	return nil
 }
 
-func FromEthBlock(ethBlock types.Block) Block {
-	var block Block
-	block.Number = ethBlock.Number().Int64()
-	block.Hash = ethBlock.Hash()
-	block.ParentHash = ethBlock.ParentHash()
-
-	return block
-}
-
-func headFromBlock(ethBlock Block) models.Head {
-	var head models.Head
-	head.Number = ethBlock.Number
-	head.Hash = ethBlock.Hash
-	head.ParentHash = ethBlock.ParentHash
-	return head
-}
-
 func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (models.Head, error) {
 	bf.syncingMut.Lock()
 	defer bf.syncingMut.Unlock()
@@ -386,9 +368,6 @@ func (bf *BlockFetcher) fetchInBatchesUntilKnownAncestor(ctx context.Context, he
 		}
 		latestToFetch = currentFrom - 1
 	}
-	//if latestBlock == nil {
-	//	return nil, errors.Errorf("BlockFetcher: Cannot happen - latest block is nil even though there was no error")
-	//}
 	return latestBlock, nil
 }
 
@@ -411,7 +390,7 @@ func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash)
 func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Block, from int64) (models.Head, error) {
 	fetched := 0
 
-	var chainTip = headFromBlock(block)
+	var chainTip = HeadFromBlock(block)
 	var currentHead = &chainTip
 
 	bf.logger.Debugf("BlockFetcher: Constructing the chain until the latest block: %v, %v", block.Number, block.Hash)
@@ -444,7 +423,7 @@ func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Bloc
 			bf.mut.Unlock()
 		}
 
-		head := headFromBlock(*currentBlock)
+		head := HeadFromBlock(*currentBlock)
 		currentHead.Parent = &head
 		currentHead = &head
 	}

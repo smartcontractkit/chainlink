@@ -58,10 +58,10 @@ func TestBlockEthClient_BatchGetBlocks(t *testing.T) {
 	defer cleanup()
 	logger := store.Config.CreateProductionLogger()
 
-	block40 := cltest.HtBlock(40, common.Hash{})
-	block41 := cltest.HtBlock(41, block40.Hash)
-	block42 := cltest.HtBlock(42, block41.Hash)
-	block43 := cltest.HtBlock(43, block41.Hash)
+	block40 := cltest.NewBlock(40, common.Hash{})
+	block41 := cltest.NewBlock(41, block40.Hash)
+	block42 := cltest.NewBlock(42, block41.Hash)
+	block43 := cltest.NewBlock(43, block41.Hash)
 
 	ethClient := new(mocks.Client)
 
@@ -71,8 +71,8 @@ func TestBlockEthClient_BatchGetBlocks(t *testing.T) {
 			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a" && b[1].Args[1] == true
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &block42
-		elems[1].Result = &block41
+		elems[0].Result = block42
+		elems[1].Result = block41
 	})
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -80,7 +80,7 @@ func TestBlockEthClient_BatchGetBlocks(t *testing.T) {
 			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2b" && b[0].Args[1] == true
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &block43
+		elems[0].Result = block43
 	})
 
 	blockClient := headtracker.NewBlockEthClientImpl(ethClient, logger, 2)
@@ -99,9 +99,9 @@ func TestBlockEthClient_BatchReturnsFewerBlocksOnError(t *testing.T) {
 	defer cleanup()
 	logger := store.Config.CreateProductionLogger()
 
-	block40 := cltest.HtBlock(40, common.Hash{})
-	block41 := cltest.HtBlock(41, block40.Hash)
-	block42 := cltest.HtBlock(42, block41.Hash)
+	block40 := cltest.NewBlock(40, common.Hash{})
+	block41 := cltest.NewBlock(41, block40.Hash)
+	block42 := cltest.NewBlock(42, block41.Hash)
 
 	ethClient := new(mocks.Client)
 
@@ -111,7 +111,7 @@ func TestBlockEthClient_BatchReturnsFewerBlocksOnError(t *testing.T) {
 			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a" && b[1].Args[1] == true
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &block42
+		elems[0].Result = block42
 		elems[1].Error = errors.New("something exploded")
 	})
 

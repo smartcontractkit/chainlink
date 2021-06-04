@@ -6,7 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Block represents an ethereum block
@@ -110,85 +112,18 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type BlockFetcherFakeConfig struct {
-	GasUpdaterTransactionPercentileField uint16
-	EthMaxGasPriceWeiField               *big.Int
-	EthMinGasPriceWeiField               *big.Int
-	EthFinalityDepthField                uint
-	BlockBackfillDepthField              uint64
-	BlockFetcherBatchSizeField           uint32
-	EthHeadTrackerHistoryDepthField      uint
-	GasUpdaterBatchSizeField             uint32
-	GasUpdaterBlockDelayField            uint16
-	GasUpdaterBlockHistorySizeField      uint16
-	ChainIDField                         *big.Int
+func FromEthBlock(ethBlock *types.Block) *Block {
+	var block Block
+	block.Number = ethBlock.Number().Int64()
+	block.Hash = ethBlock.Hash()
+	block.ParentHash = ethBlock.ParentHash()
+	return &block
 }
 
-func NewBlockFetcherConfigWithDefaults() *BlockFetcherFakeConfig {
-	return &BlockFetcherFakeConfig{
-		EthFinalityDepthField:           42,
-		BlockBackfillDepthField:         50,
-		BlockFetcherBatchSizeField:      2,
-		EthHeadTrackerHistoryDepthField: 100,
-		GasUpdaterBatchSizeField:        0,
-		GasUpdaterBlockDelayField:       0,
-		GasUpdaterBlockHistorySizeField: 2,
-		ChainIDField:                    big.NewInt(0),
-	}
-}
-
-func (config BlockFetcherFakeConfig) GasUpdaterTransactionPercentile() uint16 {
-	return config.GasUpdaterTransactionPercentileField
-}
-
-func (config BlockFetcherFakeConfig) EthMaxGasPriceWei() *big.Int {
-	return config.EthMaxGasPriceWeiField
-}
-
-func (config BlockFetcherFakeConfig) EthMinGasPriceWei() *big.Int {
-	return config.EthMinGasPriceWeiField
-}
-
-func (config BlockFetcherFakeConfig) ChainID() *big.Int {
-	return config.ChainIDField
-}
-
-func (config BlockFetcherFakeConfig) SetEthGasPriceDefault(value *big.Int) error {
-	*config.EthMaxGasPriceWeiField = *value
-	return nil
-}
-
-// EthFinalityDepth provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) EthFinalityDepth() uint {
-	return config.EthFinalityDepthField
-}
-
-// BlockBackfillDepth provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) BlockBackfillDepth() uint64 {
-	return config.BlockBackfillDepthField
-}
-
-// BlockFetcherBatchSize provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) BlockFetcherBatchSize() uint32 {
-	return config.BlockFetcherBatchSizeField
-}
-
-// EthHeadTrackerHistoryDepth provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) EthHeadTrackerHistoryDepth() uint {
-	return config.EthHeadTrackerHistoryDepthField
-}
-
-// GasUpdaterBatchSize provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) GasUpdaterBatchSize() uint32 {
-	return config.GasUpdaterBatchSizeField
-}
-
-// GasUpdaterBlockDelay provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) GasUpdaterBlockDelay() uint16 {
-	return config.GasUpdaterBlockDelayField
-}
-
-// GasUpdaterBlockHistorySize provides a mock function with given fields:
-func (config BlockFetcherFakeConfig) GasUpdaterBlockHistorySize() uint16 {
-	return config.GasUpdaterBlockHistorySizeField
+func HeadFromBlock(ethBlock Block) models.Head {
+	var head models.Head
+	head.Number = ethBlock.Number
+	head.Hash = ethBlock.Hash
+	head.ParentHash = ethBlock.ParentHash
+	return head
 }
