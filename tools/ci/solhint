@@ -3,3 +3,4 @@
 set -e
 
 yarn workspace @chainlink/contracts lint:sol
+yarn workspace contracts lint:sol

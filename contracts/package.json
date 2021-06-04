@@ -6,7 +6,8 @@
     "clean": "hardhat clean",
     "prettier": "prettier --config .prettierrc --write \"**/*.{js,json,md,sol,ts}\"",
     "compile:native": "./scripts/native_solc_compile_all",
-    "compile": "hardhat compile"
+    "compile": "hardhat compile",
+    "lint:sol": "solhint -f table ./src/**/**/*.sol"
   },
   "license": "MIT",
   "devDependencies": {
