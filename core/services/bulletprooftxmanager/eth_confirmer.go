@@ -747,7 +747,6 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 // It also returns eth_txes that are unconfirmed with no eth_tx_attempts
 func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64) (etxs []models.EthTx, err error) {
 	if gasBumpThreshold == 0 {
-		logger.Debug("EthConfirmer: Gas bumping disabled (gasBumpThreshold set to 0)")
 		return
 	}
 	q := db.
