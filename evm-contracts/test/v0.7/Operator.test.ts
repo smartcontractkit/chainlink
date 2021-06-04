@@ -335,9 +335,9 @@ describe('Operator', () => {
         it('emits an event on the Operator', async () => {
           assert.equal(receipt.events?.length, 1)
 
-          const encodedSenders1 = ethers.utils.defaultAbiCoder.encode(
-            ['address[]'],
-            [newSenders],
+          const encodedSenders1 = utils.defaultAbiCoder.encode(
+            ['address[]', 'address'],
+            [newSenders, roles.defaultAccount.address],
           )
 
           const responseEvent1 = receipt.events?.[0]
@@ -471,8 +471,8 @@ describe('Operator', () => {
         const receipt = await tx.wait()
         assert.equal(receipt.events?.length, 2, receipt.toString())
         const encodedSenders = utils.defaultAbiCoder.encode(
-          ['address[]'],
-          [newSenders],
+          ['address[]', 'address'],
+          [newSenders, operator.address],
         )
 
         const event1 = receipt.events?.[0]
@@ -543,9 +543,9 @@ describe('Operator', () => {
         assert.equal(receipt?.events?.[3]?.event, 'OwnableContractAccepted')
         assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address)
 
-        const encodedSenders = ethers.utils.defaultAbiCoder.encode(
-          ['address[]'],
-          [newSenders],
+        const encodedSenders = utils.defaultAbiCoder.encode(
+          ['address[]', 'address'],
+          [newSenders, operator2.address],
         )
         assert.equal(receipt?.events?.[4]?.event, 'AuthorizedSendersChanged')
         assert.equal(receipt?.events?.[4]?.address, forwarder1.address)
