@@ -377,7 +377,7 @@ func TestMigrate_CreateWebhookTables(t *testing.T) {
 func TestMigrate_ExternalJobID(t *testing.T) {
 	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_external_jobid", false)
 	defer cleanup()
-	require.NoError(t, migrations.MigrateUp(orm.DB, "0032_rename_direct_request_specs_num_confirmations"))
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0033_flux_monitor_round_stats_fk_index"))
 	cs := WebhookSpec{
 		ID:               int32(1),
 		OnChainJobSpecID: uuid.FromStringOrNil("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"),
@@ -413,10 +413,10 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 		Type:           job.Webhook,
 	}
 	require.NoError(t, orm.DB.Create(&jb).Error)
-	require.NoError(t, migrations.MigrateUp(orm.DB, "0033_external_job_id"))
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0034_external_job_id"))
 	var jb2 job.Job
 	require.NoError(t, orm.DB.Find(&jb2, "id = ?", jb.ID).Error)
 	assert.NotEqual(t, uuid.UUID{}.String(), jb2.ExternalJobID.String())
 	t.Log(jb2.ExternalJobID.String())
-	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0033_external_job_id"))
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0034_external_job_id"))
 }
