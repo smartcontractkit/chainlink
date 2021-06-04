@@ -115,7 +115,7 @@ func TestGraph_Decode(t *testing.T) {
 }
 
 func TestGraph_TasksInDependencyOrder(t *testing.T) {
-	p, err := pipeline.Parse([]byte(pipeline.DotStr))
+	p, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
 
 	answer1 := &pipeline.MedianTask{
@@ -171,14 +171,14 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 }
 
 func TestGraph_HasCycles(t *testing.T) {
-	_, err := pipeline.Parse([]byte(pipeline.DotStr))
+	_, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
 
-	_, err = pipeline.Parse([]byte(`
+	_, err = pipeline.Parse(`
         a [type=bridge];
         b [type=multiply times=1.23];
         a -> b -> a;
-    `))
+    `)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cycle detected")
 }

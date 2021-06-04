@@ -29,7 +29,7 @@ func (Spec) TableName() string {
 }
 
 func (s Spec) Pipeline() (*Pipeline, error) {
-	return Parse([]byte(s.DotDagSource))
+	return Parse(s.DotDagSource)
 }
 
 type Run struct {

@@ -99,7 +99,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
 
-		p, err := pipeline.Parse([]byte(DotStr))
+		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
 		specID, err = orm.CreateSpec(context.Background(), db, *p, models.Interval(0))

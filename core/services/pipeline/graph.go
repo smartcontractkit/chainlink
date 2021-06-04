@@ -102,7 +102,7 @@ type Pipeline struct {
 }
 
 func (p *Pipeline) UnmarshalText(bs []byte) (err error) {
-	parsed, err := Parse(bs)
+	parsed, err := Parse(string(bs))
 	if err != nil {
 		return err
 	}
@@ -121,9 +121,9 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
-func Parse(bs []byte) (*Pipeline, error) {
+func Parse(text string) (*Pipeline, error) {
 	g := NewTree()
-	err := g.UnmarshalText(bs)
+	err := g.UnmarshalText([]byte(text))
 
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func Parse(bs []byte) (*Pipeline, error) {
 	p := &Pipeline{
 		tree:   g,
 		Tasks:  make([]Task, 0, g.Nodes().Len()),
-		Source: string(bs),
+		Source: text,
 	}
 
 	// toposort all the nodes: dependencies ordered before outputs. This also does cycle checking for us.

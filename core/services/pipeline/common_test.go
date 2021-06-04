@@ -15,14 +15,14 @@ func TestTimeoutAttribute(t *testing.T) {
 	t.Parallel()
 
 	a := `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
-	p, err := pipeline.Parse([]byte(a))
+	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
 	timeout, set := p.Tasks[0].TaskTimeout()
 	assert.Equal(t, cltest.MustParseDuration(t, "10s"), timeout)
 	assert.Equal(t, true, set)
 
 	a = `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];`
-	p, err = pipeline.Parse([]byte(a))
+	p, err = pipeline.Parse(a)
 	require.NoError(t, err)
 	timeout, set = p.Tasks[0].TaskTimeout()
 	assert.Equal(t, cltest.MustParseDuration(t, "0s"), timeout)
@@ -33,7 +33,7 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	a := `ds1 [type=http allowunrestrictednetworkaccess=true method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
-	p, err := pipeline.Parse([]byte(a))
+	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
 	require.Len(t, p.Tasks, 1)
 
@@ -45,7 +45,7 @@ func Test_TaskAnyUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	a := `ds1 [type=any];`
-	p, err := pipeline.Parse([]byte(a))
+	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
 	require.Len(t, p.Tasks, 1)
 	_, ok := p.Tasks[0].(*pipeline.AnyTask)

@@ -55,7 +55,7 @@ func (p JobPresenter) toRow(task string) []string {
 // GetTasks extracts the tasks from the dependency graph
 func (p JobPresenter) GetTasks() ([]string, error) {
 	types := []string{}
-	pipeline, err := pipeline.Parse([]byte(p.PipelineSpec.DotDAGSource))
+	pipeline, err := pipeline.Parse(p.PipelineSpec.DotDAGSource)
 	if err != nil {
 		return nil, err
 	}

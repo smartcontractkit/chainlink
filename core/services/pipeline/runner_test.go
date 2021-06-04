@@ -77,7 +77,7 @@ median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
 `, s2.URL, s4.URL, s5.URL)
-	d, err := pipeline.Parse([]byte(s))
+	d, err := pipeline.Parse(s)
 	require.NoError(t, err)
 
 	spec := pipeline.Spec{
@@ -235,7 +235,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 			runner := pipeline.NewRunner(orm, store.Config)
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
-			p, err := pipeline.Parse([]byte(specStr))
+			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
 			spec := pipeline.Spec{

@@ -184,7 +184,7 @@ func TestMedian(t *testing.T) {
 func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 	t.Parallel()
 
-	p, err := pipeline.Parse([]byte(`
+	p, err := pipeline.Parse(`
 	// data source 1
 	ds1          [type=bridge name=voter_turnout];
 	ds1_parse    [type=jsonparse path="one,two"];
@@ -200,7 +200,7 @@ func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 
 	answer1 [type=median                      index=0 allowedFaults=10];
 	answer2 [type=bridge name=election_winner index=1];
-`))
+`)
 	require.NoError(t, err)
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeMedian {
