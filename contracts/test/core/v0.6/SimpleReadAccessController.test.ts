@@ -11,10 +11,10 @@ let controller: Contract;
 
 before(async () => {
   personas = (await getUsers()).personas;
-  controllerFactory = await ethers.getContractFactory("SimpleWriteAccessController", personas.Carol);
+  controllerFactory = await ethers.getContractFactory("SimpleReadAccessController", personas.Carol);
 });
 
-describe("SimpleWriteAccessController", () => {
+describe("SimpleReadAccessController", () => {
   beforeEach(async () => {
     controller = await controllerFactory.connect(personas.Carol).deploy();
   });
@@ -42,7 +42,7 @@ describe("SimpleWriteAccessController", () => {
 
   describe("#hasAccess", () => {
     it("allows unauthorized calls originating from the same account", async () => {
-      assert.isFalse(await controller.connect(personas.Eddy).hasAccess(await personas.Eddy.getAddress(), "0x00"));
+      assert.isTrue(await controller.connect(personas.Eddy).hasAccess(await personas.Eddy.getAddress(), "0x00"));
     });
 
     it("blocks unauthorized calls originating from different accounts", async () => {
@@ -72,9 +72,17 @@ describe("SimpleWriteAccessController", () => {
       });
 
       it("announces the change via a log", async () => {
-        expect(tx)
+        await expect(tx)
           .to.emit(controller, "AddedAccess")
           .withArgs(await personas.Eddy.getAddress());
+      });
+
+      describe("when called twice", () => {
+        it("does not emit a log", async () => {
+          const tx2 = await controller.addAccess(await personas.Eddy.getAddress());
+          const receipt = await tx2.wait();
+          assert.equal(receipt.events?.length, 0);
+        });
       });
     });
   });
@@ -104,9 +112,17 @@ describe("SimpleWriteAccessController", () => {
       });
 
       it("announces the change via a log", async () => {
-        expect(tx)
+        await expect(tx)
           .to.emit(controller, "RemovedAccess")
           .withArgs(await personas.Eddy.getAddress());
+      });
+
+      describe("when called twice", () => {
+        it("does not emit a log", async () => {
+          const tx2 = await controller.removeAccess(await personas.Eddy.getAddress());
+          const receipt = await tx2.wait();
+          assert.equal(receipt.events?.length, 0);
+        });
       });
     });
   });
@@ -143,6 +159,14 @@ describe("SimpleWriteAccessController", () => {
       it("announces the change via a log", async () => {
         await expect(tx).to.emit(controller, "CheckAccessDisabled");
       });
+
+      describe("when called twice", () => {
+        it("does not emit a log", async () => {
+          const tx2 = await controller.disableAccessCheck();
+          const receipt = await tx2.wait();
+          assert.equal(receipt.events?.length, 0);
+        });
+      });
     });
   });
 
@@ -172,7 +196,15 @@ describe("SimpleWriteAccessController", () => {
       });
 
       it("announces the change via a log", async () => {
-        await expect(tx).to.emit(controller, "CheckAccessEnabled");
+        expect(tx).to.emit(controller, "CheckAccessEnabled");
+      });
+
+      describe("when called twice", () => {
+        it("does not emit a log", async () => {
+          const tx2 = await controller.enableAccessCheck();
+          const receipt = await tx2.wait();
+          assert.equal(receipt.events?.length, 0);
+        });
       });
     });
   });
