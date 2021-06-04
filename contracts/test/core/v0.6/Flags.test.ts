@@ -4,23 +4,25 @@ import { assert, expect } from "chai";
 import { Signer, Contract, ContractFactory } from "ethers";
 import { Personas, getUsers } from "../../setup";
 
+let personas: Personas;
+
+let controllerFactory: ContractFactory;
+let flagsFactory: ContractFactory;
+let consumerFactory: ContractFactory;
+
+let controller: Contract;
+let flags: Contract;
+let consumer: Contract;
+
+before(async () => {
+  personas = (await getUsers()).personas;
+  controllerFactory = await ethers.getContractFactory("SimpleWriteAccessController", personas.Nelly);
+  consumerFactory = await ethers.getContractFactory("FlagsTestHelper", personas.Nelly);
+  flagsFactory = await ethers.getContractFactory("Flags", personas.Nelly);
+});
+
 describe("Flags", () => {
-  let personas: Personas;
-
-  let controllerFactory: ContractFactory;
-  let flagsFactory: ContractFactory;
-  let consumerFactory: ContractFactory;
-
-  let controller: Contract;
-  let flags: Contract;
-  let consumer: Contract;
-
   beforeEach(async () => {
-    personas = (await getUsers()).personas;
-    controllerFactory = await ethers.getContractFactory("SimpleWriteAccessController", personas.Nelly);
-    consumerFactory = await ethers.getContractFactory("FlagsTestHelper", personas.Nelly);
-    flagsFactory = await ethers.getContractFactory("Flags", personas.Nelly);
-
     controller = await controllerFactory.deploy();
     flags = await flagsFactory.deploy(controller.address);
     await flags.disableAccessCheck();

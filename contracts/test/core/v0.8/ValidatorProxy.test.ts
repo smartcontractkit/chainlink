@@ -4,26 +4,28 @@ import { assert, expect } from "chai";
 import { Signer, Contract } from "ethers";
 import { Personas, Users, getUsers } from "../../setup";
 
+let users: Users;
+
+let owner: Signer;
+let ownerAddress: string;
+let aggregator: Signer;
+let aggregatorAddress: string;
+let validator: Signer;
+let validatorAddress: string;
+let validatorProxy: Contract;
+
+before(async () => {
+  users = await getUsers();
+  owner = users.personas.Default;
+  aggregator = users.contracts.contract1;
+  validator = users.contracts.contract2;
+  ownerAddress = await owner.getAddress();
+  aggregatorAddress = await aggregator.getAddress();
+  validatorAddress = await validator.getAddress();
+});
+
 describe("ValidatorProxy", () => {
-  let users: Users;
-
-  let owner: Signer;
-  let ownerAddress: string;
-  let aggregator: Signer;
-  let aggregatorAddress: string;
-  let validator: Signer;
-  let validatorAddress: string;
-  let validatorProxy: Contract;
-
   beforeEach(async () => {
-    users = await getUsers();
-    owner = users.personas.Default;
-    aggregator = users.contracts.contract1;
-    validator = users.contracts.contract2;
-    ownerAddress = await owner.getAddress();
-    aggregatorAddress = await aggregator.getAddress();
-    validatorAddress = await validator.getAddress();
-
     const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
     validatorProxy = await vpf.deploy(aggregatorAddress, validatorAddress);
     validatorProxy = await validatorProxy.deployed();
