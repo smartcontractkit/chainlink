@@ -150,8 +150,8 @@ jobs:
       - name: Run solhint
         run: ./tools/ci/solhint
 
-  solidity-v8:
-    name: Solidity v0.8 tests
+  solidity-hardhat:
+    name: Solidity Hardhat tests
     runs-on: [self-hosted, sdlc-ghr-prod]
     container:
       image: smartcontract/builder:1.0.37
