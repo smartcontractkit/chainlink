@@ -206,7 +206,7 @@ func BuildFMTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
 	generatedDotDagSource := string(s)
 	generatedDotDagSource = strings.Replace(generatedDotDagSource, "strict digraph {", "", 1)
 	generatedDotDagSource = generatedDotDagSource[:len(generatedDotDagSource)-1] // Remove final }
-	p, err := pipeline.Parse([]byte(generatedDotDagSource))
+	p, err := pipeline.Parse(generatedDotDagSource)
 	if err != nil {
 		return "", nil, err
 	}

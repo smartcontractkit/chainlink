@@ -462,7 +462,7 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 	}
 	var jids []int32
 	for _, job := range jobs {
-		p, err := pipeline.Parse([]byte(job.PipelineSpec.DotDagSource))
+		p, err := pipeline.Parse(job.PipelineSpec.DotDagSource)
 		if err != nil {
 			return nil, err
 		}
