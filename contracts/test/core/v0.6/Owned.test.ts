@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { publicAbi, constants } from "../../helpers";
+import { publicAbi } from "../../helpers";
 import { assert, expect } from "chai";
 import { Signer, Contract, ContractFactory } from "ethers";
 import { Personas, getUsers } from "../../setup";

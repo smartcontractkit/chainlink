@@ -1,5 +1,4 @@
-import { ethers } from "hardhat";
-import { BigNumber, Contract, ContractFactory, Signer } from "ethers";
+import { BigNumber, Contract } from "ethers";
 import { assert } from "chai";
 
 export const constants = {

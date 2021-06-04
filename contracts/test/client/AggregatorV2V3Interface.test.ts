@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { assert, expect } from "chai";
+import { assert } from "chai";
 import { Signer, Contract } from "ethers";
 
 describe("AggregatorV2V3Interface Solidity version tests", () => {
