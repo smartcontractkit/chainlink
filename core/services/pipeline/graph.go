@@ -15,19 +15,19 @@ import (
 
 // tree fulfills the graph.DirectedGraph interface, which makes it possible
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.
-type Tree struct {
+type Graph struct {
 	*simple.DirectedGraph
 }
 
-func NewTree() *Tree {
-	return &Tree{DirectedGraph: simple.NewDirectedGraph()}
+func NewGraph() *Graph {
+	return &Graph{DirectedGraph: simple.NewDirectedGraph()}
 }
 
-func (g *Tree) NewNode() graph.Node {
-	return &TreeNode{Node: g.DirectedGraph.NewNode()}
+func (g *Graph) NewNode() graph.Node {
+	return &GraphNode{Node: g.DirectedGraph.NewNode()}
 }
 
-func (g *Tree) UnmarshalText(bs []byte) (err error) {
+func (g *Graph) UnmarshalText(bs []byte) (err error) {
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
 	}
@@ -35,42 +35,40 @@ func (g *Tree) UnmarshalText(bs []byte) (err error) {
 	bs = append(bs, []byte("\n}")...)
 	err = dot.Unmarshal(bs, g)
 	if err != nil {
-		return errors.Wrap(err, "could not unmarshal DOT into a pipeline.Tree")
+		return errors.Wrap(err, "could not unmarshal DOT into a pipeline.Graph")
 	}
 	return nil
 }
 
-//
-
-type TreeNode struct {
+type GraphNode struct {
 	graph.Node
 	dotID string
 	attrs map[string]string
 }
 
-func NewTreeNode(n graph.Node, dotID string, attrs map[string]string) *TreeNode {
-	return &TreeNode{
+func NewGraphNode(n graph.Node, dotID string, attrs map[string]string) *GraphNode {
+	return &GraphNode{
 		Node:  n,
 		attrs: attrs,
 		dotID: dotID,
 	}
 }
 
-func (n *TreeNode) DOTID() string {
+func (n *GraphNode) DOTID() string {
 	return n.dotID
 }
 
-func (n *TreeNode) SetDOTID(id string) {
+func (n *GraphNode) SetDOTID(id string) {
 	n.dotID = id
 }
 
-func (n *TreeNode) String() string {
+func (n *GraphNode) String() string {
 	return n.dotID
 }
 
 var bracketQuotedAttrRegexp = regexp.MustCompile(`^\s*<([^<>]+)>\s*$`)
 
-func (n *TreeNode) SetAttribute(attr encoding.Attribute) error {
+func (n *GraphNode) SetAttribute(attr encoding.Attribute) error {
 	if n.attrs == nil {
 		n.attrs = make(map[string]string)
 	}
@@ -83,7 +81,7 @@ func (n *TreeNode) SetAttribute(attr encoding.Attribute) error {
 	return nil
 }
 
-func (n *TreeNode) Attributes() []encoding.Attribute {
+func (n *GraphNode) Attributes() []encoding.Attribute {
 	var r []encoding.Attribute
 	for k, v := range n.attrs {
 		r = append(r, encoding.Attribute{Key: k, Value: v})
@@ -97,7 +95,7 @@ func (n *TreeNode) Attributes() []encoding.Attribute {
 
 type Pipeline struct {
 	Tasks  []Task
-	tree   *Tree
+	tree   *Graph
 	Source string
 }
 
@@ -122,7 +120,7 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 }
 
 func Parse(text string) (*Pipeline, error) {
-	g := NewTree()
+	g := NewGraph()
 	err := g.UnmarshalText([]byte(text))
 
 	if err != nil {
@@ -147,7 +145,7 @@ func Parse(text string) (*Pipeline, error) {
 
 	// use the new ordering as the id so that we can easily reproduce the original toposort
 	for id, node := range nodes {
-		node, is := node.(*TreeNode)
+		node, is := node.(*GraphNode)
 		if !is {
 			panic("unreachable")
 		}
