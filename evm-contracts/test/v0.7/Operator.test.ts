@@ -460,6 +460,24 @@ describe('Operator', () => {
           )
       })
 
+      it('emits a log announcing the change and who made it', async () => {
+        const targets = [forwarder1.address, forwarder2.address]
+        const tx = await operator
+          .connect(roles.oracleNode1)
+          .setAuthorizedSendersOn(targets, newSenders)
+
+        const receipt = await tx.wait()
+        const encodedArgs = utils.defaultAbiCoder.encode(
+          ['address[]', 'address[]', 'address'],
+          [targets, newSenders, roles.oracleNode1.address],
+        )
+
+        const event1 = receipt.events?.[0]
+        assert.equal(event1?.event, 'TargetsUpdatedAuthorizedSenders')
+        assert.equal(event1?.address, operator.address)
+        assert.equal(event1?.data, encodedArgs)
+      })
+
       it('updates the sender list on each of the targets', async () => {
         const tx = await operator
           .connect(roles.oracleNode1)
@@ -469,18 +487,18 @@ describe('Operator', () => {
           )
 
         const receipt = await tx.wait()
-        assert.equal(receipt.events?.length, 2, receipt.toString())
+        assert.equal(receipt.events?.length, 3, receipt.toString())
         const encodedSenders = utils.defaultAbiCoder.encode(
           ['address[]', 'address'],
           [newSenders, operator.address],
         )
 
-        const event1 = receipt.events?.[0]
+        const event1 = receipt.events?.[1]
         assert.equal(event1?.event, 'AuthorizedSendersChanged')
         assert.equal(event1?.address, forwarder1.address)
         assert.equal(event1?.data, encodedSenders)
 
-        const event2 = receipt.events?.[1]
+        const event2 = receipt.events?.[2]
         assert.equal(event2?.event, 'AuthorizedSendersChanged')
         assert.equal(event2?.address, forwarder2.address)
         assert.equal(event2?.data, encodedSenders)
@@ -543,17 +561,22 @@ describe('Operator', () => {
         assert.equal(receipt?.events?.[3]?.event, 'OwnableContractAccepted')
         assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address)
 
+        assert.equal(
+          receipt?.events?.[4]?.event,
+          'TargetsUpdatedAuthorizedSenders',
+        )
+
         const encodedSenders = utils.defaultAbiCoder.encode(
           ['address[]', 'address'],
           [newSenders, operator2.address],
         )
-        assert.equal(receipt?.events?.[4]?.event, 'AuthorizedSendersChanged')
-        assert.equal(receipt?.events?.[4]?.address, forwarder1.address)
-        assert.equal(receipt?.events?.[4]?.data, encodedSenders)
-
         assert.equal(receipt?.events?.[5]?.event, 'AuthorizedSendersChanged')
-        assert.equal(receipt?.events?.[5]?.address, forwarder2.address)
+        assert.equal(receipt?.events?.[5]?.address, forwarder1.address)
         assert.equal(receipt?.events?.[5]?.data, encodedSenders)
+
+        assert.equal(receipt?.events?.[6]?.event, 'AuthorizedSendersChanged')
+        assert.equal(receipt?.events?.[6]?.address, forwarder2.address)
+        assert.equal(receipt?.events?.[6]?.data, encodedSenders)
       })
     })
 
