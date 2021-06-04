@@ -26,7 +26,7 @@ import (
 type (
 	Task interface {
 		Type() TaskType
-		ID() int64
+		ID() int
 		DotID() string
 		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
 		Base() *BaseTask
@@ -250,7 +250,7 @@ var (
 	int32Type  = reflect.TypeOf(int32(0))
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int64, dotID string) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {

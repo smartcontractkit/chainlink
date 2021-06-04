@@ -95,10 +95,8 @@ func (n *TreeNode) Attributes() []encoding.Attribute {
 	return r
 }
 
-//
-
 type Pipeline struct {
-	Tasks  map[int64]Task
+	Tasks  []Task
 	tree   *Tree
 	Source string
 }
@@ -123,15 +121,6 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
-func (p *Pipeline) TopoSort() []Task {
-	result := make([]Task, len(p.Tasks))
-
-	for id, task := range p.Tasks {
-		result[id] = task
-	}
-	return result
-}
-
 func Parse(bs []byte) (*Pipeline, error) {
 	g := NewTree()
 	err := g.UnmarshalText(bs)
@@ -142,21 +131,22 @@ func Parse(bs []byte) (*Pipeline, error) {
 
 	p := &Pipeline{
 		tree:   g,
-		Tasks:  make(map[int64]Task, g.Nodes().Len()),
+		Tasks:  make([]Task, 0, g.Nodes().Len()),
 		Source: string(bs),
 	}
 
 	// toposort all the nodes: dependencies ordered before outputs. This also does cycle checking for us.
 	nodes, err := topo.SortStabilized(g, nil)
 
+	// we need a temporary mapping of graph.IDs to positional ids after toposort
+	ids := make(map[int64]int)
+
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to topologically sort the graph, cycle detected")
 	}
 
+	// use the new ordering as the id so that we can easily reproduce the original toposort
 	for id, node := range nodes {
-		// use the new ordering as the id so that we can easily reproduce the original toposort
-		id := int64(id)
-
 		node, is := node.(*TreeNode)
 		if !is {
 			panic("unreachable")
@@ -171,15 +161,16 @@ func Parse(bs []byte) (*Pipeline, error) {
 			return nil, err
 		}
 
-		p.Tasks[id] = task
+		p.Tasks = append(p.Tasks, task)
+		ids[node.ID()] = id
 	}
 
 	// re-link the edges
 	for edges := g.Edges(); edges.Next(); {
 		edge := edges.Edge()
 
-		from := p.Tasks[edge.From().ID()]
-		to := p.Tasks[edge.To().ID()]
+		from := p.Tasks[ids[edge.From().ID()]]
+		to := p.Tasks[ids[edge.To().ID()]]
 
 		from.Base().outputs = append(from.Base().outputs, to)
 		to.Base().inputs = append(to.Base().inputs, from)

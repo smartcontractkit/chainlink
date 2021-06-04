@@ -6,13 +6,13 @@ type BaseTask struct {
 	outputs []Task
 	inputs  []Task
 
-	id      int64
+	id      int
 	dotID   string
 	Index   int32         `mapstructure:"index" json:"-" `
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
-func NewBaseTask(id int64, dotID string, inputs, outputs []Task, index int32) BaseTask {
+func NewBaseTask(id int, dotID string, inputs, outputs []Task, index int32) BaseTask {
 	return BaseTask{id: id, dotID: dotID, inputs: inputs, outputs: outputs, Index: index}
 }
 
@@ -20,7 +20,7 @@ func (t *BaseTask) Base() *BaseTask {
 	return t
 }
 
-func (t BaseTask) ID() int64 {
+func (t BaseTask) ID() int {
 	return t.id
 }
 
