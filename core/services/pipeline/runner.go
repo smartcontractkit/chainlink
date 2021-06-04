@@ -216,18 +216,18 @@ func (r *runner) panickedRunResults(spec Spec) (Run, []TaskRunResult, error) {
 
 type scheduler struct {
 	pipeline     *Pipeline
-	dependencies map[int64]uint
+	dependencies map[int]uint
 	input        interface{}
 	waiting      uint
-	results      map[int64]TaskRunResult
+	results      map[int]TaskRunResult
 	vars         Vars
 
 	taskCh   chan *memoryTaskRun
 	resultCh chan TaskRunResult
 }
 
-func newScheduler(p *Pipeline, i interface{}) *scheduler {
-	dependencies := make(map[int64]uint, len(p.Tasks))
+func newScheduler(p *Pipeline, pipelineInput interface{}) *scheduler {
+	dependencies := make(map[int]uint, len(p.Tasks))
 	var roots []Task
 
 	for id, task := range p.Tasks {
@@ -242,9 +242,9 @@ func newScheduler(p *Pipeline, i interface{}) *scheduler {
 	s := &scheduler{
 		pipeline:     p,
 		dependencies: dependencies,
-		input:        i,
-		results:      make(map[int64]TaskRunResult, len(p.Tasks)),
-		vars:         NewVarsFrom(map[string]interface{}{"input": i}),
+		input:        pipelineInput,
+		results:      make(map[int]TaskRunResult, len(p.Tasks)),
+		vars:         NewVarsFrom(map[string]interface{}{"input": pipelineInput}),
 
 		// taskCh should never block
 		taskCh:   make(chan *memoryTaskRun, len(dependencies)),

@@ -60,7 +60,7 @@ func (p JobPresenter) GetTasks() ([]string, error) {
 		return nil, err
 	}
 
-	for _, t := range pipeline.TopoSort() {
+	for _, t := range pipeline.Tasks {
 		types = append(types, fmt.Sprintf("%s %s", t.DotID(), t.Type()))
 	}
 

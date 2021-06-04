@@ -154,22 +154,20 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 
-	tasks := p.TopoSort()
-
-	for i, task := range tasks {
+	for i, task := range p.Tasks {
 		// Make sure inputs appear before the task, and outputs don't
 		for _, input := range task.Inputs() {
-			require.Contains(t, tasks[:i], input)
+			require.Contains(t, p.Tasks[:i], input)
 		}
 		for _, output := range task.Outputs() {
-			require.NotContains(t, tasks[:i], output)
+			require.NotContains(t, p.Tasks[:i], output)
 		}
 	}
 
 	expected := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
-	require.Len(t, tasks, len(expected))
+	require.Len(t, p.Tasks, len(expected))
 
-	require.Equal(t, expected, tasks)
+	require.Equal(t, expected, p.Tasks)
 }
 
 func TestGraph_HasCycles(t *testing.T) {
