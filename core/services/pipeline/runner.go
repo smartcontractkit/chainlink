@@ -10,7 +10,6 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -80,7 +79,6 @@ var (
 	},
 		[]string{"job_id", "job_name", "task_type", "status"},
 	)
-	ErrRunPanicked = errors.New("pipeline run panicked")
 )
 
 func NewRunner(orm ORM, config Config) *runner {
@@ -160,77 +158,22 @@ type input struct {
 	index  int32
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger) (Run, TaskRunResults, error) {
-	var (
-		trrs            TaskRunResults
-		err             error
-		retry           bool
-		i               int
-		numPanicRetries = 5
-		run             Run
-	)
-	b := &backoff.Backoff{
-		Min:    100 * time.Second,
-		Max:    1 * time.Second,
-		Factor: 2,
-		Jitter: false,
-	}
-	for i = 0; i < numPanicRetries; i++ {
-		run, trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, pipelineInput, meta, l)
-		if retry {
-			time.Sleep(b.Duration())
-			continue
-		}
-		break
-	}
-	if i == numPanicRetries {
-		return r.panickedRunResults(spec)
-	}
-	return run, trrs, err
-}
-
-// Generate a errored run from the spec.
-func (r *runner) panickedRunResults(spec Spec) (Run, []TaskRunResult, error) {
-	var panickedTrrs []TaskRunResult
-	var run Run
-	run.PipelineSpecID = spec.ID
-	run.CreatedAt = time.Now()
-	run.FinishedAt = &run.CreatedAt
-	p, err := spec.Pipeline()
-	if err != nil {
-		return run, nil, err
-	}
-	f := time.Now()
-	for _, task := range p.Tasks {
-		panickedTrrs = append(panickedTrrs, TaskRunResult{
-			Task:       task,
-			CreatedAt:  f,
-			Result:     Result{Value: nil, Error: ErrRunPanicked},
-			FinishedAt: time.Now(),
-		})
-	}
-	run.Outputs = TaskRunResults(panickedTrrs).FinalResult().OutputsDB()
-	run.Errors = TaskRunResults(panickedTrrs).FinalResult().ErrorsDB()
-	return run, panickedTrrs, nil
-}
-
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
-type panicError struct {
+type ErrRunPanicked struct {
 	v interface{}
 }
 
-func (err panicError) Error() string {
+func (err ErrRunPanicked) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
-func (r *runner) executeRun(
+func (r *runner) ExecuteRun(
 	ctx context.Context,
-	txdb *gorm.DB,
 	spec Spec,
 	pipelineInput interface{},
 	meta JSONSerializable,
 	l logger.Logger,
-) (Run, TaskRunResults, bool, error) {
+) (Run, TaskRunResults, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
 
 	var (
@@ -243,7 +186,7 @@ func (r *runner) executeRun(
 
 	pipeline, err := Parse(spec.DotDagSource)
 	if err != nil {
-		return run, nil, false, err
+		return run, nil, err
 	}
 
 	// initialize certain task params
@@ -253,15 +196,12 @@ func (r *runner) executeRun(
 			task.(*HTTPTask).config = r.config
 		} else if task.Type() == TaskTypeBridge {
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).safeTx = SafeTx{txdb, txMu}
+			task.(*BridgeTask).safeTx = SafeTx{r.orm.DB(), txMu}
 		}
 	}
 
 	scheduler := newScheduler(pipeline, pipelineInput)
 	go scheduler.Run()
-
-	// TODO: Test with multiple and single null successor IDs
-	// https://www.pivotaltracker.com/story/show/176557536
 
 	for taskRun := range scheduler.taskCh {
 		// execute
@@ -270,11 +210,12 @@ func (r *runner) executeRun(
 				if err := recover(); err != nil {
 					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
 
+					t := time.Now()
 					scheduler.resultCh <- TaskRunResult{
 						Task:       taskRun.task,
-						Result:     Result{Error: panicError{err}},
-						FinishedAt: time.Now(),
-						// TODO: CreatedAt
+						Result:     Result{Error: ErrRunPanicked{err}},
+						FinishedAt: t,
+						CreatedAt:  t, // TODO: more accurate start time
 					}
 				}
 			}()
@@ -304,7 +245,7 @@ func (r *runner) executeRun(
 	run.Outputs = finalResult.OutputsDB()
 	run.FinishedAt = &finishRun
 
-	return run, taskRunResults, false, err
+	return run, taskRunResults, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, meta JSONSerializable, l logger.Logger) TaskRunResult {
