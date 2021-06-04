@@ -1,4 +1,4 @@
-package cltest
+package heavyweight
 
 import (
 	"database/sql"
@@ -11,10 +11,10 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
-
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,8 +54,8 @@ func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error
 // BootstrapThrowawayORM creates an ORM which runs in a separate database
 // than the normal unit tests, so it you can do things like use other
 // Postgres connection types with it.
-func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) (*TestConfig, *orm.ORM, func()) {
-	tc, cleanup := NewConfig(t)
+func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) (*cltest.TestConfig, *orm.ORM, func()) {
+	tc, cleanup := cltest.NewConfig(t)
 	config := tc.Config
 	config.Dialect = dialects.PostgresWithoutLock
 
