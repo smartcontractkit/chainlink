@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 
@@ -353,9 +351,6 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
-	assert.Equal(t, pipeline.ErrRunPanicked.Error(), trrs.FinalResult().Errors[0].Error())
-	for _, trr := range trrs {
-		assert.Equal(t, null.NewString("goroutine panicked when executing run: oh no", true), trr.Result.ErrorDB())
-		assert.Equal(t, true, trr.Result.OutputDB().Null)
-	}
+	assert.Equal(t, true, trrs.FinalResult().HasErrors())
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().Errors[0])
 }
