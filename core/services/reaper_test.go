@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStoreReaper_ReapSessions(t *testing.T) {
+func TestSessionReaper_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	r := services.NewStoreReaper(store)
+	r := services.NewSessionReaper(store)
 	defer r.Stop()
 
 	tests := []struct {
