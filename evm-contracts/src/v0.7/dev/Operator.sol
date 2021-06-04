@@ -613,6 +613,7 @@ contract Operator is
    */
   function _canSetAuthorizedSenders()
     internal
+    view
     override
     returns (bool)
   {
