@@ -331,7 +331,7 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 	}
 
 	if block == nil {
-		logger.Warnf("BlockFetcher: No latest block returned from fetchInBatchesUntilKnownAncestor", "latestHead", head.Number, "from", from)
+		logger.Warnw("BlockFetcher: No latest block returned from fetchInBatchesUntilKnownAncestor", "latestHead", head.Number, "from", from)
 		return head, nil
 	}
 	return bf.sequentialConstructChain(ctx, *block, from)
