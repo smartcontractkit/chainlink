@@ -97,6 +97,7 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
    */
   function _validateOwnership()
     internal
+    view
   {
     require(msg.sender == s_owner, "Only callable by owner");
   }

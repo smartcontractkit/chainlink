@@ -88,6 +88,7 @@ contract AuthorizedForwarder is
    */
   function _canSetAuthorizedSenders()
     internal
+    view
     override
     returns (bool)
   {
