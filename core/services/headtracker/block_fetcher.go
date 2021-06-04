@@ -31,8 +31,6 @@ type (
 		recent         map[common.Hash]*Block
 		latestBlockNum int64
 
-		notifications chan struct{}
-
 		mut        sync.Mutex
 		syncingMut sync.Mutex
 	}
@@ -122,7 +120,7 @@ func (bf *BlockFetcher) StartDownloadAsync(ctx context.Context, fromBlock int64,
 			ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 
-			err := bf.downloadRange(ctxTimeout, fromBlock, toBlock)
+			err := bf.downloadRange(ctxTimeout, fromBlock, toBlock, true)
 			if err != nil {
 				bf.logger.Errorw("BlockFetcher: error while downloading blocks. Will retry",
 					"err", err, "fromBlock", fromBlock, "toBlock", toBlock)
@@ -150,6 +148,9 @@ func (bf *BlockFetcher) RecentSorted() []*Block {
 }
 
 func (bf *BlockFetcher) GetBlockRange(ctx context.Context, fromBlock int64, toBlock int64) ([]*Block, error) {
+	return bf.getBlockRange(ctx, fromBlock, toBlock, true)
+}
+func (bf *BlockFetcher) getBlockRange(ctx context.Context, fromBlock int64, toBlock int64, useCache bool) ([]*Block, error) {
 
 	if fromBlock < 0 || toBlock < fromBlock {
 		return make([]*Block, 0), errors.Errorf("Invalid range: %d -> %d", fromBlock, toBlock)
@@ -157,7 +158,7 @@ func (bf *BlockFetcher) GetBlockRange(ctx context.Context, fromBlock int64, toBl
 
 	blocks := make(map[int64]*Block)
 
-	err := bf.downloadRange(ctx, fromBlock, toBlock)
+	err := bf.downloadRange(ctx, fromBlock, toBlock, useCache)
 	if err != nil {
 		return make([]*Block, 0), errors.Wrapf(err, "BlockFetcher#GetBlockRange error while downloading blocks %v -> %v",
 			fromBlock, toBlock)
@@ -185,25 +186,28 @@ func (bf *BlockFetcher) GetBlockRange(ctx context.Context, fromBlock int64, toBl
 	return blockRange, nil
 }
 
-func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBlock int64) error {
-
-	bf.mut.Lock()
+func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBlock int64, useCache bool) error {
 
 	existingBlocks := make(map[int64]*Block)
 
-	for _, b := range bf.recent {
-		block := b
-		if block.Number >= fromBlock && block.Number <= toBlock {
-			existingBlocks[block.Number] = block
+	if useCache {
+		bf.mut.Lock()
+		for _, b := range bf.recent {
+			block := b
+			if block.Number >= fromBlock && block.Number <= toBlock {
+				existingBlocks[block.Number] = block
+			}
 		}
+		bf.mut.Unlock()
 	}
-	bf.mut.Unlock()
 
 	var blockNumsToFetch []int64
-	// schedule fetch of missing blocks
 	for i := fromBlock; i <= toBlock; i++ {
-		if _, exists := existingBlocks[i]; exists {
-			continue
+		if useCache {
+			if _, exists := existingBlocks[i]; exists {
+				bf.logger.Debugf("BlockFetcher: %v already exists", i)
+				continue
+			}
 		}
 		blockNumsToFetch = append(blockNumsToFetch, i)
 	}
@@ -225,7 +229,7 @@ func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBl
 		for _, blockItem := range blocksFetched {
 			block := blockItem
 
-			existingBlocks[block.Number] = &block
+			//existingBlocks[block.Number] = &block
 			bf.recent[block.Hash] = &block
 
 			if bf.latestBlockNum < block.Number {
@@ -235,11 +239,6 @@ func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBl
 
 		bf.cleanRecent()
 		bf.mut.Unlock()
-
-		select {
-		case bf.notifications <- struct{}{}:
-		default:
-		}
 	}
 	return nil
 }
@@ -325,27 +324,72 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 	}
 
 	// We don't have the previous block at all, or there was a re-org
-	// For efficiency, fetch a range of previous blocks at once, before starting sequential fetching
-	// (alternatively, we could do multiple batches, until 'from' or common ancestor we have locally)
-	batchRangeFrom := head.Number - int64(bf.config.BlockBackfillDepth())
-	if batchRangeFrom < 0 {
-		batchRangeFrom = 0
-	}
-	bf.logger.Debugw("BlockFetcher: Previous block does not exist locally. Getting a range of past blocks",
-		"batchRangeFrom", batchRangeFrom, "to", head.Number, "nonexistingParentHash", head.ParentHash)
-
-	blocks, err := bf.GetBlockRange(ctx, batchRangeFrom, head.Number)
-
+	// For efficiency, fetch ranges of previous blocks until an ancestor already known
+	block, err := bf.fetchInBatchesUntilKnownAncestor(ctx, head, from)
 	if err != nil {
-		return models.Head{}, errors.Wrap(err, "BlockByNumber failed")
+		return models.Head{}, errors.Wrap(err, "Failed fetching blocks until known ancestor")
 	}
 
-	if len(blocks) == 0 {
-		logger.Warnf("BlockFetcher: No blocks returned by range %v to %v. ", from, head.Number)
+	if block == nil {
+		logger.Warnf("BlockFetcher: No latest block returned from fetchInBatchesUntilKnownAncestor", "latestHead", head.Number, "from", from)
 		return head, nil
 	}
+	return bf.sequentialConstructChain(ctx, *block, from)
+}
 
-	return bf.sequentialConstructChain(ctx, *blocks[len(blocks)-1], from)
+// Fetch ranges of previous blocks, until reaching an ancestor already existing in cache
+func (bf *BlockFetcher) fetchInBatchesUntilKnownAncestor(ctx context.Context, head models.Head, untilFrom int64) (*Block, error) {
+	var latestBlock *Block
+	latestToFetch := head.Number
+	for {
+		currentFrom := latestToFetch - int64(bf.config.BlockFetcherBatchSize()) + 1
+		currentTo := latestToFetch
+
+		logger.Debugw("BlockFetcher: Getting Range",
+			"currentFrom", currentFrom, "currentTo", currentTo, "untilFrom", untilFrom)
+
+		if currentFrom < untilFrom {
+			currentFrom = untilFrom
+		}
+		if currentFrom < 0 {
+			currentFrom = 0
+		}
+		if currentFrom > currentTo {
+			break
+		}
+
+		blocks, err := bf.getBlockRange(ctx, currentFrom, currentTo, false)
+		if err != nil {
+			return nil, errors.Wrap(err, "BlockByNumber failed")
+		}
+
+		if len(blocks) == 0 {
+			logger.Warnf("BlockFetcher: No blocks returned by range %v to %v. ", currentFrom, currentTo)
+			break
+		}
+
+		if latestBlock == nil {
+			latestBlock = blocks[len(blocks)-1]
+		}
+
+		earliestFetched := blocks[0]
+		existingParent := bf.findBlockByHash(earliestFetched.ParentHash)
+		if existingParent != nil {
+			logger.Debugw("BlockFetcher: Found already known ancestor block",
+				"existingParentNumber", existingParent.Number, "existingParentHash", existingParent.Hash)
+			break
+		}
+
+		if currentFrom == 0 || currentFrom <= untilFrom {
+			// done
+			break
+		}
+		latestToFetch = currentFrom - 1
+	}
+	//if latestBlock == nil {
+	//	return nil, errors.Errorf("BlockFetcher: Cannot happen - latest block is nil even though there was no error")
+	//}
+	return latestBlock, nil
 }
 
 func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash) (Block, error) {

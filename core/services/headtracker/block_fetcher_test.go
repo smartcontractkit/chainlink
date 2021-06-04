@@ -83,8 +83,9 @@ func TestBlockFetcher_CreatesChainWhereSomeBlocksAreInitiallyMissing(t *testing.
 	blockFetcher := headtracker.NewBlockFetcher(config, logger, blockClient)
 
 	_, err := blockFetcher.BlockRange(context.Background(), 39, 39)
+	require.NoError(t, err)
 	_, err = blockFetcher.BlockRange(context.Background(), 41, 42)
-
+	require.NoError(t, err)
 	head, err := blockFetcher.Chain(context.Background(), *h)
 	require.NoError(t, err)
 	assert.Equal(t, 5, int(head.ChainLength()))

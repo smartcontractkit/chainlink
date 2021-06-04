@@ -64,7 +64,6 @@ func (bc *BlockEthClientImpl) FetchBlocksByNumbers(ctx context.Context, numbers 
 		reqs = append(reqs, req)
 	}
 
-	bc.logger.Debugw(fmt.Sprintf("BlockFetcher: fetching %v blocks", len(reqs)), "n", len(reqs))
 	if err := bc.batchFetch(ctx, reqs); err != nil {
 		return nil, err
 	}
@@ -108,7 +107,12 @@ func (bc *BlockEthClientImpl) batchFetch(ctx context.Context, reqs []rpc.BatchEl
 			j = len(reqs)
 		}
 
-		logger.Debugw(fmt.Sprintf("BlockFetcher: Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
+		var numbers []int64
+		for ii := i; ii < j; ii++ {
+			numbers = append(numbers, HexToInt64(reqs[ii].Args[0]))
+		}
+
+		logger.Debugw(fmt.Sprintf("BlockFetcher: Batch fetching %v blocks with numbers: %v", len(numbers), numbers))
 
 		err := bc.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if ctx.Err() != nil {

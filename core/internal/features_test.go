@@ -45,16 +45,15 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/static"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -1922,6 +1921,21 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	ethClient.On("ChainID", mock.Anything).Return(c.ChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
+	for i := int64(34); i > 0; i -= 10 {
+		numbers := blockNumbers(i, i+10)
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return matchesBlockNumbers(b, numbers)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			blocksFromChain(args, chain, numbers)
+		})
+	}
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return matchesBlockNumbers(b, blockNumbers(0, 4))
+	})).Maybe().Return(nil).Run(func(args mock.Arguments) {
+		blocksFromChain(args, chain, blockNumbers(0, 4))
+	})
+
 	require.NoError(t, app.Start())
 	var newHeads chan<- *models.Head
 	select {
@@ -1931,36 +1945,6 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	}
 
 	assert.Equal(t, "41500000000", app.Config.EthGasPriceDefault().String())
-
-	for i := 0; i < 40; i += 10 {
-		ii := i
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			numbers := blockNumbers(int64(ii), int64(ii+10))
-			return matchesBlockNumbers(b, numbers)
-		})).Return(nil).Run(func(args mock.Arguments) {
-			blocksFromChain(args, chain, int64(ii), int64(ii+10))
-		})
-	}
-
-	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		numbers := blockNumbers(40, 44)
-		return matchesBlockNumbers(b, numbers)
-	})).Maybe().Return(nil).Run(func(args mock.Arguments) {
-		blocksFromChain(args, chain, 40, 44)
-	})
-
-	// GasUpdater new blocks
-	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return matchesBlockNumbers(b, []int64{40, 43})
-	})).Maybe().Return(nil).Run(func(args mock.Arguments) {
-		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = chain[40]
-		elems[1].Result = chain[43]
-	})
-
-	// HeadTracker backfill
-	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(42)).Maybe().Return(&h42, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(41)).Maybe().Return(&h41, nil)
 
 	// Simulate one new head and check the gas price got updated
 	newHeads <- cltest.Head(43)
@@ -1979,10 +1963,12 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 }
 
 func matchesBlockNumbers(b []rpc.BatchElem, numbers []int64) bool {
+	//logger.Warnf("len(b) %v len(numbers) %v", len(b), len(numbers))
 	if len(b) != len(numbers) {
 		return false
 	}
 	for i, elem := range b {
+		//logger.Warnf("headtracker.Int64ToHex(numbers[i]) : %v, elem.Args[0]: %v", headtracker.Int64ToHex(numbers[i]), elem.Args[0])
 		if elem.Method != "eth_getBlockByNumber" || elem.Args[0] != headtracker.Int64ToHex(numbers[i]) {
 			return false
 		}
@@ -1998,9 +1984,7 @@ func blockNumbers(from int64, until int64) []int64 {
 	return numbers
 }
 
-func blocksFromChain(args mock.Arguments, chain map[int64]*headtracker.Block, from, until int64) {
-
-	numbers := blockNumbers(from, until)
+func blocksFromChain(args mock.Arguments, chain map[int64]*headtracker.Block, numbers []int64) {
 	elems := args.Get(1).([]rpc.BatchElem)
 	for i, num := range numbers {
 		elems[i].Result = chain[num]
