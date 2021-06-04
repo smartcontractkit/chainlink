@@ -1,5 +1,5 @@
 context('End to end', function () {
-  it('Archives a job', () => {
+  it('Deletes a job', () => {
     cy.login()
 
     // Create Job
@@ -14,14 +14,14 @@ context('End to end', function () {
       .invoke('text')
       .as('jobId')
 
-    // Archive Job
+    // Delete Job
     cy.get('#created-job').click()
     cy.contains('h6', 'job spec detail').should('exist')
-    cy.clickButton('Archive')
+    cy.clickButton('Delete')
     cy.contains('h5', 'Warning').should('exist')
     cy.get('@jobId').then((jobId) => {
-      cy.contains('button', `Archive ${jobId}`).click()
+      cy.contains('button', `Delete ${jobId}`).click()
     })
-    cy.contains('p', 'Successfully archived job').should('exist')
+    cy.contains('p', 'Successfully deleted job').should('exist')
   })
 })
