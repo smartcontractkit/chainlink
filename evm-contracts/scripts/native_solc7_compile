@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script generates .abi and .bin files for a selected .sol contract.
 # Example call:

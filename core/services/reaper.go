@@ -9,20 +9,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type storeReaper struct {
+type sessionReaper struct {
 	store  *store.Store
 	config orm.ConfigReader
 }
 
-// NewStoreReaper creates a reaper that cleans stale objects from the store.
-func NewStoreReaper(store *store.Store) utils.SleeperTask {
-	return utils.NewSleeperTask(&storeReaper{
+// NewSessionReaper creates a reaper that cleans stale sessions from the store.
+func NewSessionReaper(store *store.Store) utils.SleeperTask {
+	return utils.NewSleeperTask(&sessionReaper{
 		store:  store,
 		config: store.Config,
 	})
 }
 
-func (sr *storeReaper) Work() {
+func (sr *sessionReaper) Work() {
 	recordCreationStaleThreshold := sr.config.ReaperExpiration().Before(
 		sr.config.SessionTimeout().Before(time.Now()))
 	err := sr.store.DeleteStaleSessions(recordCreationStaleThreshold)
