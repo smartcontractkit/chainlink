@@ -134,7 +134,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(100), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	block := cltest.Block(int(headInLongestChain.Number), common.Hash{})
+	block := cltest.NewGethBlock(int(headInLongestChain.Number), common.Hash{})
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) != 1

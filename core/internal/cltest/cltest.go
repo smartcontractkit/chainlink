@@ -1456,7 +1456,7 @@ func Head(val interface{}) *models.Head {
 	return &h
 }
 
-func Block(number int, parentHash common.Hash) *types.Block {
+func NewGethBlock(number int, parentHash common.Hash) *types.Block {
 	header := &types.Header{
 		Root:       NewHash(),
 		ParentHash: parentHash,

@@ -20,7 +20,7 @@ func TestBlockEthClient_FastBlockByHash(t *testing.T) {
 	defer cleanup()
 	logger := store.Config.CreateProductionLogger()
 
-	block40 := cltest.Block(40, common.Hash{})
+	block40 := cltest.NewGethBlock(40, common.Hash{})
 
 	ethClient := new(mocks.Client)
 	ethClient.On("FastBlockByHash", mock.Anything, mock.Anything).Return(block40, nil)
@@ -39,7 +39,7 @@ func TestBlockEthClient_BlockByNumber(t *testing.T) {
 	defer cleanup()
 	logger := store.Config.CreateProductionLogger()
 
-	block40 := cltest.Block(40, common.Hash{})
+	block40 := cltest.NewGethBlock(40, common.Hash{})
 
 	ethClient := new(mocks.Client)
 	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(block40, nil)
