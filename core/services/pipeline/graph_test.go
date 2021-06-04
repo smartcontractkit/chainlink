@@ -93,7 +93,7 @@ func TestGraph_Decode(t *testing.T) {
 		},
 	}
 
-	g := pipeline.NewTree()
+	g := pipeline.NewGraph()
 	err := g.UnmarshalText([]byte(pipeline.DotStr))
 	require.NoError(t, err)
 
