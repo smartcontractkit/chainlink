@@ -175,11 +175,10 @@ func TestGraph_HasCycles(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = pipeline.Parse([]byte(`
-        digraph {
-            a [type=bridge];
-            b [type=multiply times=1.23];
-            a -> b -> a;
-        }
+        a [type=bridge];
+        b [type=multiply times=1.23];
+        a -> b -> a;
     `))
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "cycle detected")
 }
