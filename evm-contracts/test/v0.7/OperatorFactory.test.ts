@@ -62,8 +62,10 @@ describe('OperatorFactory', () => {
     })
 
     it('emits an event', async () => {
-      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1])
       assert.equal(receipt?.events?.[0]?.event, 'OperatorCreated')
+      assert.equal(emittedOperator, receipt.events?.[0].args?.[0])
+      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1])
+      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[2])
     })
 
     it('sets the correct owner', async () => {
@@ -95,6 +97,7 @@ describe('OperatorFactory', () => {
       assert.equal(receipt?.events?.[0]?.event, 'OperatorCreated')
       assert.equal(receipt?.events?.[0]?.args?.[0], emittedOperator)
       assert.equal(receipt?.events?.[0]?.args?.[1], roles.oracleNode.address)
+      assert.equal(receipt?.events?.[0]?.args?.[2], roles.oracleNode.address)
     })
 
     it('emits an event recording that the forwarder was deployed', async () => {
@@ -102,6 +105,7 @@ describe('OperatorFactory', () => {
       assert.equal(receipt?.events?.[1]?.event, 'AuthorizedForwarderCreated')
       assert.equal(receipt?.events?.[1]?.args?.[0], emittedForwarder)
       assert.equal(receipt?.events?.[1]?.args?.[1], emittedOperator)
+      assert.equal(receipt?.events?.[1]?.args?.[2], roles.oracleNode.address)
     })
 
     it('sets the correct owner on the operator', async () => {
@@ -132,15 +136,13 @@ describe('OperatorFactory', () => {
         .deployNewForwarder()
 
       receipt = await tx.wait()
-      emittedForwarder = helpers.evmWordToAddress(receipt.logs?.[0].topics?.[1])
+      emittedForwarder = receipt.events?.[0].args?.[0]
     })
 
     it('emits an event', async () => {
-      const emittedOwner = helpers.evmWordToAddress(
-        receipt.logs?.[0].topics?.[2],
-      )
-      assert.equal(emittedOwner, roles.oracleNode.address)
       assert.equal(receipt?.events?.[0]?.event, 'AuthorizedForwarderCreated')
+      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[1]) // owner
+      assert.equal(roles.oracleNode.address, receipt.events?.[0].args?.[2]) // sender
     })
 
     it('sets the caller as the owner', async () => {
@@ -169,8 +171,9 @@ describe('OperatorFactory', () => {
     })
 
     it('emits an event', async () => {
-      assert.equal(roles.oracleNode.address, receipt.events?.[2].args?.[1])
       assert.equal(receipt?.events?.[2]?.event, 'AuthorizedForwarderCreated')
+      assert.equal(roles.oracleNode.address, receipt.events?.[2].args?.[1]) // owner
+      assert.equal(roles.oracleNode.address, receipt.events?.[2].args?.[2]) // sender
     })
 
     it('sets the caller as the owner', async () => {

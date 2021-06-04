@@ -15,11 +15,13 @@ contract OperatorFactory {
 
   event OperatorCreated(
     address indexed operator,
-    address indexed owner
+    address indexed owner,
+    address indexed sender
   );
   event AuthorizedForwarderCreated(
     address indexed forwarder,
-    address indexed owner
+    address indexed owner,
+    address indexed sender
   );
 
   /**
@@ -48,6 +50,7 @@ contract OperatorFactory {
     s_created[address(operator)] = true;
     emit OperatorCreated(
       address(operator),
+      msg.sender,
       msg.sender
     );
 
@@ -72,6 +75,7 @@ contract OperatorFactory {
     s_created[address(operator)] = true;
     emit OperatorCreated(
       address(operator),
+      msg.sender,
       msg.sender
     );
 
@@ -85,7 +89,8 @@ contract OperatorFactory {
     s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
-      address(operator)
+      address(operator),
+      msg.sender
     );
 
     return (address(operator), address(forwarder));
@@ -111,6 +116,7 @@ contract OperatorFactory {
     s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
+      msg.sender,
       msg.sender
     );
 
@@ -139,6 +145,7 @@ contract OperatorFactory {
     s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
+      msg.sender,
       msg.sender
     );
 
