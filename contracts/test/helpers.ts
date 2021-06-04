@@ -1,4 +1,5 @@
-import { BigNumber, ethers } from "ethers";
+import { ethers } from "hardhat";
+import { BigNumber, Contract, ContractFactory, Signer } from "ethers";
 import { assert } from "chai";
 
 export const constants = {
@@ -15,7 +16,7 @@ export const constants = {
  * @param contract The contract with the actual abi to check the expected exposed methods and getters against.
  * @param expectedPublic The expected public exposed methods and getters to match against the actual abi.
  */
-export function publicAbi(contract: ethers.Contract, expectedPublic: string[]) {
+export function publicAbi(contract: Contract, expectedPublic: string[]) {
   const actualPublic = [];
   for (const m in contract.functions) {
     if (!m.includes("(")) {
