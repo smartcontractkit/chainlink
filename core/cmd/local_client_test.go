@@ -333,7 +333,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, _, cleanup := heavyweight.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
+	config, _, cleanup := heavyweight.FullTestORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
@@ -419,7 +419,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, cleanup := heavyweight.BootstrapThrowawayORM(t, "rebroadcasttransactions_outsiderange", true, true)
+			config, _, cleanup := heavyweight.FullTestORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			defer cleanup()
 			config.Config.Dialect = dialects.Postgres
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
@@ -488,7 +488,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, _, cleanup := heavyweight.BootstrapThrowawayORM(t, "setnextnonce", true, true)
+	config, _, cleanup := heavyweight.FullTestORM(t, "setnextnonce", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.Postgres
 	store, cleanup := cltest.NewStoreWithConfig(t, config)

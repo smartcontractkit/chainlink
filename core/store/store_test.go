@@ -15,7 +15,7 @@ import (
 )
 
 func TestStore_SquashMigrationUpgrade(t *testing.T) {
-	_, orm, cleanup := heavyweight.BootstrapThrowawayORM(t, "migrationssquash", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrationssquash", false)
 	defer cleanup()
 	db := orm.DB
 

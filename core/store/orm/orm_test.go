@@ -1519,7 +1519,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 	// NOTE: Must sidestep transactional tests since we rely on transaction
 	// rollback due to constraint violation for this function
-	tc, orm, cleanup := heavyweight.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
+	tc, orm, cleanup := heavyweight.FullTestORM(t, "eth_task_run_transactions", true, true)
 	defer cleanup()
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
