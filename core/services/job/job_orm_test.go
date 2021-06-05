@@ -27,7 +27,7 @@ import (
 
 func TestORM(t *testing.T) {
 	t.Parallel()
-	config, oldORM, cleanupDB := heavyweight.BootstrapThrowawayORM(t, "services_job_orm", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_orm", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
 

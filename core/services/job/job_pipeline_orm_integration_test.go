@@ -42,7 +42,7 @@ func TestPipelineORM_Integration(t *testing.T) {
         answer2 [type=bridge name=election_winner index=1];
     `
 
-	config, oldORM, cleanupDB := heavyweight.BootstrapThrowawayORM(t, "pipeline_orm", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_orm", true, true)
 	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
 	config.Set("MAX_HTTP_ATTEMPTS", "1")
 	defer cleanupDB()

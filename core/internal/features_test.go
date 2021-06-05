@@ -1489,7 +1489,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, func()) {
-	config, _, ormCleanup := heavyweight.BootstrapThrowawayORM(t, fmt.Sprintf("%s%d", dbName, port), true)
+	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true)
 	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, _, err := app.OCRKeyStore.GenerateEncryptedP2PKey()

@@ -50,7 +50,7 @@ func clearDB(t *testing.T, db *gorm.DB) {
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
-	config, oldORM, cleanupDB := heavyweight.BootstrapThrowawayORM(t, "services_job_spawner", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
 

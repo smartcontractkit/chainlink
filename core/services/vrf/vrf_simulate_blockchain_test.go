@@ -125,7 +125,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 // TestIntegration_SharedProvingKey tests the scenario where multiple nodes share
 // a single proving key
 func TestIntegration_SharedProvingKey(t *testing.T) {
-	config, _, cfgCleanup := heavyweight.BootstrapThrowawayORM(t, "vrf_shared_proving_key", true, true)
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "vrf_shared_proving_key", true, true)
 	defer cfgCleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
 

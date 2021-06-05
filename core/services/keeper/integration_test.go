@@ -88,7 +88,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	backend.Commit()
 
 	// setup app
-	config, _, cfgCleanup := heavyweight.BootstrapThrowawayORM(t, "keeper_eth_integration", true, true)
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	defer cfgCleanup()
 	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test

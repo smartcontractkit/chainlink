@@ -31,7 +31,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	_, orm, cleanupDB := heavyweight.BootstrapThrowawayORM(t, "event_broadcaster", true)
+	_, orm, cleanupDB := heavyweight.FullTestORM(t, "event_broadcaster", true)
 	defer cleanupDB()
 
 	config := testConfig{
@@ -68,7 +68,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	config, oldORM, cleanupDB := heavyweight.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "delegate_services_listener_handlelog", true, true)
 	db := oldORM.DB
 
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
