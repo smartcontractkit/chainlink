@@ -96,7 +96,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	}{
 		{
 			name: "offchain reporting",
-			toml: testspecs.OCRSpecWithTransmitterAddress(app.Key.Address.Hex()),
+			toml: testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+				TransmitterAddress: app.Key.Address.Hex(),
+			}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 

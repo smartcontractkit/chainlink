@@ -2,47 +2,9 @@ package testspecs
 
 import (
 	"fmt"
-	"strings"
 )
 
 var (
-	OCRSpec = `
-type               = "offchainreporting"
-schemaVersion      = 1
-name               = "web oracle spec"
-contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID          = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
-externalJobID     =  "123e4567-e89b-12d3-a456-426655440001"
-p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-isBootstrapPeer    = false
-keyBundleID        = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
-monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
-observationTimeout = "10s"
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
-observationSource = """
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
-
-    // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
-    ds2_parse    [type=jsonparse path="three,four"];
-    ds2_multiply [type=multiply times=4.56];
-
-    ds1 -> ds1_parse -> ds1_multiply -> answer1;
-    ds2 -> ds2_parse -> ds2_multiply -> answer1;
-
-    answer1 [type=median                      index=0];
-    answer2 [type=bridge name=election_winner index=1];
-"""
-`
 	KeeperSpec = `
 type            = "keeper"
 schemaVersion   = 1
@@ -165,6 +127,74 @@ publicKey = "%s"
 	}, toml: fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey)}
 }
 
-func OCRSpecWithTransmitterAddress(ta string) string {
-	return strings.Replace(OCRSpec, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", ta, 1)
+type OCRSpecParams struct {
+	JobID              string
+	Name               string
+	TransmitterAddress string
+}
+
+type OCRSpec struct {
+	OCRSpecParams
+	toml string
+}
+
+func (os OCRSpec) Toml() string {
+	return os.toml
+}
+
+func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
+	jobID := "123e4567-e89b-12d3-a456-426655440001"
+	if params.JobID != "" {
+		jobID = params.JobID
+	}
+	transmitterAddress := "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
+	if params.TransmitterAddress != "" {
+		transmitterAddress = params.TransmitterAddress
+	}
+	name := "web oracle spec"
+	if params.Name != "" {
+		name = params.Name
+	}
+	template := `
+type               = "offchainreporting"
+schemaVersion      = 1
+name               = "%s"
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
+externalJobID     =  "%s"
+p2pBootstrapPeers  = [
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "%s"
+observationTimeout = "10s"
+blockchainTimeout  = "20s"
+contractConfigTrackerSubscribeInterval = "2m"
+contractConfigTrackerPollInterval = "1m"
+contractConfigConfirmations = 3
+observationSource = """
+    // data source 1
+    ds1          [type=bridge name=voter_turnout];
+    ds1_parse    [type=jsonparse path="one,two"];
+    ds1_multiply [type=multiply times=1.23];
+
+    // data source 2
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
+    ds2_parse    [type=jsonparse path="three,four"];
+    ds2_multiply [type=multiply times=4.56];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+    answer1 [type=median                      index=0];
+    answer2 [type=bridge name=election_winner index=1];
+"""
+`
+	return OCRSpec{OCRSpecParams: OCRSpecParams{
+		JobID:              jobID,
+		Name:               name,
+		TransmitterAddress: transmitterAddress,
+	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress)}
 }

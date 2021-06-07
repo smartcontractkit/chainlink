@@ -2,6 +2,9 @@ package job_test
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"testing"
 	"time"
 
@@ -294,9 +297,10 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		key := cltest.MustInsertRandomKey(t, store.DB)
 		address := key.Address.Address()
-		dbSpec := makeOCRJobSpec(t, address)
+		jb, err := offchainreporting.ValidatedOracleSpecToml(config.Config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
+		require.NoError(t, err)
 
-		err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 
 		var ocrJob job.Job
@@ -330,6 +334,22 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, store, job.KeeperSpec{}, 0)
 		cltest.AssertCount(t, store, keeper.Registry{}, 0)
 		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 0)
+		cltest.AssertCount(t, store, job.Job{}, 0)
+	})
+
+	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
+		pk, err := store.VRFKeyStore.CreateKey(cltest.Password)
+		require.NoError(t, err)
+		jb, err := vrf.ValidateVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
+		require.NoError(t, err)
+
+		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		require.NoError(t, err)
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		err = orm.DeleteJob(ctx, jb.ID)
+		require.NoError(t, err)
+		cltest.AssertCount(t, store, job.VRFSpec{}, 0)
 		cltest.AssertCount(t, store, job.Job{}, 0)
 	})
 }

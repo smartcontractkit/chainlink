@@ -432,3 +432,10 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 	}
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0034_external_job_id"))
 }
+
+func TestMigrate_CascadeDeletes(t *testing.T) {
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_cascade_deletes", false)
+	t.Cleanup(cleanup)
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0035_cascade_deletes"))
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0035_cascade_deletes"))
+}
