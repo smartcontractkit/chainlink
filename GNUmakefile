@@ -2,13 +2,12 @@
 
 ENVIRONMENT ?= release
 
-GOPATH ?= $(shell go env GOPATH)
-GOBIN ?= $(shell go env GOBIN)
-
+GOPATH ?= $(HOME)/go
 BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
+GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
@@ -55,7 +54,8 @@ chainlink: operator-ui ## Build the chainlink binary.
 chainlink-build:
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
-	go install $(GOFLAGS) ./core/
+	go build $(GOFLAGS) -o chainlink ./core/
+	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
