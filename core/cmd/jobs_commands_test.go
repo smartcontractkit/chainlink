@@ -292,14 +292,14 @@ func TestClient_CreateJobV2(t *testing.T) {
 	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	requireJobsCount(t, app.JobORM, 0)
+	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
-	requireJobsCount(t, app.JobORM, 1)
+	requireJobsCount(t, app.JobORM(), 1)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 	assert.Equal(t, presenters.JobSpecType("offchainreporting"), output.Type)
@@ -321,7 +321,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
-	requireJobsCount(t, app.JobORM, 1)
+	requireJobsCount(t, app.JobORM(), 1)
 
 	time.Sleep(3 * time.Second)
 
@@ -335,7 +335,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteJobV2(c))
 
-	requireJobsCount(t, app.JobORM, 0)
+	requireJobsCount(t, app.JobORM(), 0)
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {

@@ -962,18 +962,30 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	// Setup EI
 	var eiURL string
-	var eiNotified bool
+	var eiNotifiedOfCreate bool
+	var eiNotifiedOfDelete bool
 	{
 		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			eiNotified = true
-			defer r.Body.Close()
+			if !eiNotifiedOfCreate {
+				require.Equal(t, http.MethodPost, r.Method)
 
-			var gotCreateJobRequest map[string]interface{}
-			err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
-			require.NoError(t, err)
+				eiNotifiedOfCreate = true
+				defer r.Body.Close()
 
-			require.Equal(t, expectedCreateJobRequest, gotCreateJobRequest)
-			w.WriteHeader(http.StatusOK)
+				var gotCreateJobRequest map[string]interface{}
+				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
+				require.NoError(t, err)
+
+				require.Equal(t, expectedCreateJobRequest, gotCreateJobRequest)
+				w.WriteHeader(http.StatusOK)
+			} else {
+				require.Equal(t, http.MethodDelete, r.Method)
+
+				eiNotifiedOfDelete = true
+				defer r.Body.Close()
+
+				require.Equal(t, fmt.Sprintf("/%v", jobUUID.String()), r.URL.Path)
+			}
 		}))
 		defer mockEI.Close()
 		eiURL = mockEI.URL
@@ -1047,12 +1059,12 @@ observationSource   = """
 		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
 
-		require.Eventually(t, func() bool { return eiNotified }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
+		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
 
 	// Simulate request from EI -> Core node
 	{
-		time.Sleep(3 * time.Second)
+		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
@@ -1067,6 +1079,12 @@ observationSource   = """
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 
 		assert.True(t, bridgeCalled, "expected bridge server to be called")
+	}
+
+	// Delete the job
+	{
+		cltest.DeleteJobViaWeb(t, app, jobID)
+		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
 	}
 }
 
@@ -1841,7 +1859,7 @@ observationSource = """
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
@@ -1858,7 +1876,7 @@ observationSource = """
 	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
-		jobs, err := app.JobORM.JobsV2()
+		jobs, err := app.JobORM().JobsV2()
 		require.NoError(t, err)
 		// No spec errors
 		for _, j := range jobs {

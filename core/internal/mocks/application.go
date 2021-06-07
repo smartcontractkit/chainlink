@@ -237,22 +237,6 @@ func (_m *Application) GetHealthChecker() health.Checker {
 	return r0
 }
 
-// GetJobORM provides a mock function with given fields:
-func (_m *Application) GetJobORM() job.ORM {
-	ret := _m.Called()
-
-	var r0 job.ORM
-	if rf, ok := ret.Get(0).(func() job.ORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(job.ORM)
-		}
-	}
-
-	return r0
-}
-
 // GetLogger provides a mock function with given fields:
 func (_m *Application) GetLogger() *logger.Logger {
 	ret := _m.Called()
@@ -311,6 +295,38 @@ func (_m *Application) GetStore() *store.Store {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*store.Store)
+		}
+	}
+
+	return r0
+}
+
+// JobORM provides a mock function with given fields:
+func (_m *Application) JobORM() job.ORM {
+	ret := _m.Called()
+
+	var r0 job.ORM
+	if rf, ok := ret.Get(0).(func() job.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(job.ORM)
+		}
+	}
+
+	return r0
+}
+
+// JobSpawner provides a mock function with given fields:
+func (_m *Application) JobSpawner() job.Spawner {
+	ret := _m.Called()
+
+	var r0 job.Spawner
+	if rf, ok := ret.Get(0).(func() job.Spawner); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(job.Spawner)
 		}
 	}
 

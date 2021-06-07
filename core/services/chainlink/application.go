@@ -73,7 +73,8 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 
 	// V2 Jobs (TOML specified)
-	GetJobORM() job.ORM
+	JobSpawner() job.Spawner
+	JobORM() job.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
@@ -96,7 +97,7 @@ type ChainlinkApplication struct {
 	JobSubscriber    services.JobSubscriber
 	LogBroadcaster   log.Broadcaster
 	EventBroadcaster postgres.EventBroadcaster
-	JobORM           job.ORM
+	jobORM           job.ORM
 	jobSpawner       job.Spawner
 	pipelineRunner   pipeline.Runner
 	FluxMonitor      fluxmonitor.Service
@@ -320,7 +321,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		JobSubscriber:            jobSubscriber,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
-		JobORM:                   jobORM,
+		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		FluxMonitor:              fluxMonitor,
@@ -571,8 +572,12 @@ func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
 	return app.HealthChecker
 }
 
-func (app *ChainlinkApplication) GetJobORM() job.ORM {
-	return app.JobORM
+func (app *ChainlinkApplication) JobSpawner() job.Spawner {
+	return app.jobSpawner
+}
+
+func (app *ChainlinkApplication) JobORM() job.ORM {
+	return app.jobORM
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
@@ -628,7 +633,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use.")
 	}
-	jb, err := app.JobORM.FindJob(jobID)
+	jb, err := app.jobORM.FindJob(jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}

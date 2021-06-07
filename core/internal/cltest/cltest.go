@@ -898,6 +898,23 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 	return jobResponse
 }
 
+func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusNoContent)
+}
+
+func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor time.Duration) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		_, exists := jobSpawner.ActiveJobs()[jobID]
+		return exists
+	}, waitFor, 10*time.Millisecond)
+}
+
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()

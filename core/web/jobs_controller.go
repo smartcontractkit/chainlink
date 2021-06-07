@@ -32,7 +32,7 @@ type JobsController struct {
 // Example:
 // "GET <application>/jobs"
 func (jc *JobsController) Index(c *gin.Context) {
-	jobs, err := jc.App.GetJobORM().JobsV2()
+	jobs, err := jc.App.JobORM().JobsV2()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -52,7 +52,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 
-	jobSpec, err = jc.App.GetJobORM().FindJob(jobSpec.ID)
+	jobSpec, err = jc.App.JobORM().FindJob(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
@@ -132,7 +132,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	job, err := jc.App.GetJobORM().FindJob(jobID)
+	job, err := jc.App.JobORM().FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

@@ -59,7 +59,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jb, err := mc.App.GetJobORM().FindJob(jid)
+	jb, err := mc.App.JobORM().FindJob(jid)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

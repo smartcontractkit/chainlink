@@ -32,6 +32,7 @@ type (
 		service.Service
 		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
+		ActiveJobs() map[int32]Job
 	}
 
 	spawner struct {
@@ -348,4 +349,15 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	logger.Infow("Deleted job", "jobID", jobID)
 
 	return nil
+}
+
+func (js *spawner) ActiveJobs() map[int32]Job {
+	js.activeJobsMu.RLock()
+	defer js.activeJobsMu.RUnlock()
+
+	m := make(map[int32]Job, len(js.activeJobs))
+	for jobID := range js.activeJobs {
+		m[jobID] = js.activeJobs[jobID].spec
+	}
+	return m
 }
