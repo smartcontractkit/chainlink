@@ -164,7 +164,15 @@ export const New = ({
 
   // Extract the tasks from the job spec to display in the preview
   useEffect(() => {
-    const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
+    const timeout = setTimeout(() => {
+      const taskList = getTaskList({ value })
+      if (taskList.error) {
+        setValid(false)
+        setValueErrorMsg(taskList.error)
+      } else {
+        setTasks(taskList)
+      }
+    }, 500)
 
     return () => clearTimeout(timeout)
   }, [value, setTasks])
@@ -185,6 +193,7 @@ export const New = ({
     setValue(event.target.value)
     storage.set(`${PERSIST_SPEC}${format}`, event.target.value)
     setValid(true)
+    setValueErrorMsg('')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
