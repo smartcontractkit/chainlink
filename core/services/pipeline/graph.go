@@ -167,6 +167,13 @@ func Parse(text string) (*Pipeline, error) {
 			task.Base().inputs = append(task.Base().inputs, from)
 		}
 
+		// This is subtle: g.To doesn't return nodes in deterministic order, which would occasionally swap the order
+		// of inputs, therefore we manually sort. We don't need to sort outputs the same way because these appends happen
+		// in p.Task order, which is deterministic via topo.SortStable.
+		sort.Slice(task.Base().inputs, func(i, j int) bool {
+			return task.Base().inputs[i].ID() < task.Base().inputs[j].ID()
+		})
+
 		p.Tasks = append(p.Tasks, task)
 		ids[node.ID()] = id
 	}
