@@ -2,11 +2,12 @@ package job_test
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 
