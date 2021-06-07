@@ -136,12 +136,12 @@ func Parse(text string) (*Pipeline, error) {
 	// toposort all the nodes: dependencies ordered before outputs. This also does cycle checking for us.
 	nodes, err := topo.SortStabilized(g, nil)
 
-	// we need a temporary mapping of graph.IDs to positional ids after toposort
-	ids := make(map[int64]int)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to topologically sort the graph, cycle detected")
 	}
+
+	// we need a temporary mapping of graph.IDs to positional ids after toposort
+	ids := make(map[int64]int)
 
 	// use the new ordering as the id so that we can easily reproduce the original toposort
 	for id, node := range nodes {
@@ -159,19 +159,16 @@ func Parse(text string) (*Pipeline, error) {
 			return nil, err
 		}
 
+		// re-link the edges
+		for inputs := g.To(node.ID()); inputs.Next(); {
+			from := p.Tasks[ids[inputs.Node().ID()]]
+
+			from.Base().outputs = append(from.Base().outputs, task)
+			task.Base().inputs = append(task.Base().inputs, from)
+		}
+
 		p.Tasks = append(p.Tasks, task)
 		ids[node.ID()] = id
-	}
-
-	// re-link the edges
-	for edges := g.Edges(); edges.Next(); {
-		edge := edges.Edge()
-
-		from := p.Tasks[ids[edge.From().ID()]]
-		to := p.Tasks[ids[edge.To().ID()]]
-
-		from.Base().outputs = append(from.Base().outputs, to)
-		to.Base().inputs = append(to.Base().inputs, from)
 	}
 
 	return p, nil
