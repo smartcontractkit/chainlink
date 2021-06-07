@@ -40,7 +40,7 @@ type Job struct {
 	KeeperSpec                    *KeeperSpec
 	VRFSpecID                     *int32
 	VRFSpec                       *VRFSpec
-	WebhookSpecId                 *int32
+	WebhookSpecID                 *int32
 	WebhookSpec                   *WebhookSpec
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
@@ -145,10 +145,12 @@ func (OffchainReportingOracleSpec) TableName() string {
 }
 
 type WebhookSpec struct {
-	ID               int32        `toml:"-" gorm:"primary_key"`
-	OnChainJobSpecID models.JobID `toml:"jobID"`
-	CreatedAt        time.Time    `json:"createdAt" toml:"-"`
-	UpdatedAt        time.Time    `json:"updatedAt" toml:"-"`
+	ID                    int32        `toml:"-" gorm:"primary_key"`
+	OnChainJobSpecID      models.JobID `toml:"jobID"`
+	ExternalInitiatorName string       `toml:"externalInitiatorName"`
+	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
+	CreatedAt             time.Time    `json:"createdAt" toml:"-"`
+	UpdatedAt             time.Time    `json:"updatedAt" toml:"-"`
 }
 
 func (w WebhookSpec) GetID() string {

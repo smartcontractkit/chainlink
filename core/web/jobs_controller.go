@@ -109,11 +109,11 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.Keeper:
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
-		js, err = cron.ValidateCronSpec(request.TOML)
+		js, err = cron.ValidatedCronSpec(request.TOML)
 	case job.VRF:
-		js, err = vrf.ValidateVRFSpec(request.TOML)
+		js, err = vrf.ValidatedVRFSpec(request.TOML)
 	case job.Webhook:
-		js, err = webhook.ValidateWebhookSpec(request.TOML)
+		js, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}

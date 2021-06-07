@@ -10,12 +10,13 @@ import (
 )
 
 type WebhookToml struct {
-	OnChainJobSpecID uuid.UUID `toml:"jobID"`
+	OnChainJobSpecID      uuid.UUID `toml:"jobID"`
+	ExternalInitiatorName string    `toml:"externalInitiatorName"`
 }
 
 var ErrMissingJobID = errors.New("missing job ID")
 
-func ValidateWebhookSpec(tomlString string) (job.Job, error) {
+func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (job.Job, error) {
 	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
@@ -43,6 +44,9 @@ func ValidateWebhookSpec(tomlString string) (job.Job, error) {
 	}
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
+	}
+	if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName); err != nil {
+		return jb, err
 	}
 	return jb, nil
 }

@@ -15,7 +15,8 @@ import (
 
 type (
 	Delegate struct {
-		webhookJobRunner *webhookJobRunner
+		webhookJobRunner         *webhookJobRunner
+		externalInitiatorManager ExternalInitiatorManager
 	}
 
 	JobRunner interface {
@@ -23,8 +24,11 @@ type (
 	}
 )
 
-func NewDelegate(runner pipeline.Runner) *Delegate {
+var _ job.Delegate = (*Delegate)(nil)
+
+func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitiatorManager) *Delegate {
 	return &Delegate{
+		externalInitiatorManager: externalInitiatorManager,
 		webhookJobRunner: &webhookJobRunner{
 			specsByUUID: make(map[models.JobID]registeredJob),
 			runner:      runner,
@@ -32,8 +36,40 @@ func NewDelegate(runner pipeline.Runner) *Delegate {
 	}
 }
 
+func (d *Delegate) WebhookJobRunner() JobRunner {
+	return d.webhookJobRunner
+}
+
 func (d *Delegate) JobType() job.Type {
 	return job.Webhook
+}
+
+func (d *Delegate) OnJobCreated(spec job.Job) {
+	if spec.WebhookSpec.ExternalInitiatorName != "" {
+		err := d.externalInitiatorManager.NotifyV2(
+			spec.WebhookSpec.OnChainJobSpecID,
+			spec.WebhookSpec.ExternalInitiatorName,
+			spec.WebhookSpec.ExternalInitiatorSpec,
+		)
+		if err != nil {
+			logger.Errorw("Webhook delegate OnJobCreated errored",
+				"error", err,
+				"jobID", spec.ID,
+			)
+		}
+	}
+}
+
+func (d *Delegate) OnJobDeleted(spec job.Job) {
+	if spec.WebhookSpec.ExternalInitiatorName != "" {
+		err := d.externalInitiatorManager.DeleteJobV2(spec.WebhookSpec.OnChainJobSpecID)
+		if err != nil {
+			logger.Errorw("Webhook delegate OnJobDeleted errored",
+				"error", err,
+				"jobID", spec.ID,
+			)
+		}
+	}
 }
 
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
@@ -42,10 +78,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 		webhookJobRunner: d.webhookJobRunner,
 	}
 	return []job.Service{service}, nil
-}
-
-func (d *Delegate) WebhookJobRunner() JobRunner {
-	return d.webhookJobRunner
 }
 
 type pseudoService struct {
@@ -106,10 +138,7 @@ func (r *webhookJobRunner) spec(jobID models.JobID) (registeredJob, bool) {
 var ErrJobNotExists = errors.New("job does not exist")
 
 func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
-	var uuidHash models.JobID
-	copy(uuidHash[:], jobUUID[:])
-
-	spec, exists := r.spec(uuidHash)
+	spec, exists := r.spec(jobUUID)
 	if !exists {
 		return 0, ErrJobNotExists
 	}

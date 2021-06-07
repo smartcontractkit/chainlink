@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
 
-	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
+	context "context"
 
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
@@ -33,6 +32,8 @@ import (
 	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	uuid "github.com/satori/go.uuid"
+
+	webhook "github.com/smartcontractkit/chainlink/core/services/webhook"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -189,15 +190,15 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 }
 
 // GetExternalInitiatorManager provides a mock function with given fields:
-func (_m *Application) GetExternalInitiatorManager() chainlink.ExternalInitiatorManager {
+func (_m *Application) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	ret := _m.Called()
 
-	var r0 chainlink.ExternalInitiatorManager
-	if rf, ok := ret.Get(0).(func() chainlink.ExternalInitiatorManager); ok {
+	var r0 webhook.ExternalInitiatorManager
+	if rf, ok := ret.Get(0).(func() webhook.ExternalInitiatorManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chainlink.ExternalInitiatorManager)
+			r0 = ret.Get(0).(webhook.ExternalInitiatorManager)
 		}
 	}
 

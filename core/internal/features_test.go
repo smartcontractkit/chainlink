@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 
 	"github.com/onsi/gomega"
 
@@ -49,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -747,14 +747,14 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
-		services.NewExternalInitiatorManager(),
+		cltest.UseRealExternalInitiatorManager,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	exInitr := struct {
 		Header http.Header
-		Body   services.JobSpecNotice
+		Body   webhook.JobSpecNotice
 	}{}
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
@@ -794,7 +794,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 		eip.OutgoingSecret,
 		exInitr.Header.Get(static.ExternalInitiatorSecretHeader),
 	)
-	expected := services.JobSpecNotice{
+	expected := webhook.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),

@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -42,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -422,14 +422,19 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	return app, cleanup
 }
 
+const (
+	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
+)
+
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
-	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
+	var externalInitiatorManager webhook.ExternalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var ks strpkg.KeyStoreInterface
+	var useRealExternalInitiatorManager bool
 
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
@@ -437,10 +442,17 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 			ethClient = dep
 		case postgres.AdvisoryLocker:
 			advisoryLocker = dep
-		case chainlink.ExternalInitiatorManager:
+		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
 		case strpkg.KeyStoreInterface:
 			ks = dep
+		default:
+
+			switch flag {
+			case UseRealExternalInitiatorManager:
+				useRealExternalInitiatorManager = true
+			}
+
 		}
 	}
 
@@ -455,7 +467,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 		}
 	}
 
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, externalInitiatorManager, func(app chainlink.Application) {
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	})
 	require.NoError(t, err)
@@ -466,6 +478,10 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 
 	app.Store.Config = tc.Config
+
+	if !useRealExternalInitiatorManager {
+		app.ExternalInitiatorManager = externalInitiatorManager
+	}
 
 	for _, flag := range flagsAndDeps {
 		if flag == AllowUnstarted {

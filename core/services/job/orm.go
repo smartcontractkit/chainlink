@@ -231,7 +231,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			if err != nil {
 				return errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
 			}
-			jobSpec.WebhookSpecId = &jobSpec.WebhookSpec.ID
+			jobSpec.WebhookSpecID = &jobSpec.WebhookSpec.ID
 		default:
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
