@@ -55,8 +55,7 @@ chainlink: operator-ui ## Build the chainlink binary.
 chainlink-build:
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
-	go build $(GOFLAGS) -o chainlink ./core/
-	cp chainlink $(GOBIN)/chainlink
+	go install $(GOFLAGS) ./core/
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
