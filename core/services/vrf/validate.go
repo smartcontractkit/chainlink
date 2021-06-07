@@ -18,7 +18,7 @@ var (
 
 func ValidateVRFSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(), // Default to a random uuid
+		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 		Pipeline:      *pipeline.NewTaskDAG(),
 	}
 

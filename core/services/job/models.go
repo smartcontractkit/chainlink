@@ -30,6 +30,28 @@ const (
 	Webhook           Type = "webhook"
 )
 
+type Type string
+
+func (t Type) String() string {
+	return string(t)
+}
+
+func (t Type) HasPipelineSpec() bool {
+	return hasPipelineSpec[t]
+}
+
+var (
+	hasPipelineSpec = map[Type]bool{
+		Cron:              true,
+		DirectRequest:     true,
+		FluxMonitor:       true,
+		OffchainReporting: true,
+		Keeper:            false,
+		VRF:               false,
+		Webhook:           true,
+	}
+)
+
 type Job struct {
 	ID                            int32     `toml:"-" gorm:"primary_key"`
 	ExternalJobID                 uuid.UUID `toml:"externalJobID"`

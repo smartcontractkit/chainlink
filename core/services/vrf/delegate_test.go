@@ -92,9 +92,9 @@ func generateCallbackReturnValues(t *testing.T) []byte {
 
 func TestDelegate(t *testing.T) {
 	cfg, cfgcleanup := cltest.NewConfig(t)
-	defer cfgcleanup()
+	t.Cleanup(cfgcleanup)
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	vuni := setup(t, store.DB, cfg, store.KeyStore)
 
 	vd := vrf.NewDelegate(store.DB,

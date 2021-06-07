@@ -384,8 +384,7 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 	}
 	require.NoError(t, orm.DB.Create(&cs).Error)
 	type Job struct {
-		ID int32 `toml:"-" gorm:"primary_key"`
-		//ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+		ID                            int32 `toml:"-" gorm:"primary_key"`
 		OffchainreportingOracleSpecID *int32
 		CronSpecID                    *int32
 		DirectRequestSpecID           *int32
@@ -402,21 +401,33 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 		MaxTaskDuration               models.Interval
 		Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
 	}
-	ps := pipeline.Spec{
-		DotDagSource: "",
+	var ps []pipeline.Spec
+	for i := 0; i < 10; i++ {
+		ps = append(ps, pipeline.Spec{
+			DotDagSource: "",
+		})
 	}
 	require.NoError(t, orm.DB.Create(&ps).Error)
-	jb := Job{
-		SchemaVersion:  1,
-		WebhookSpecId:  &cs.ID,
-		PipelineSpecID: ps.ID,
-		Type:           job.Webhook,
+	var jbs []Job
+	for i := 0; i < 10; i++ {
+		jbs = append(jbs, Job{
+			SchemaVersion:  1,
+			WebhookSpecId:  &cs.ID,
+			PipelineSpecID: ps[i].ID,
+			Type:           job.Webhook,
+		})
 	}
-	require.NoError(t, orm.DB.Create(&jb).Error)
+	require.NoError(t, orm.DB.Create(&jbs).Error)
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0034_external_job_id"))
-	var jb2 job.Job
-	require.NoError(t, orm.DB.Find(&jb2, "id = ?", jb.ID).Error)
-	assert.NotEqual(t, uuid.UUID{}.String(), jb2.ExternalJobID.String())
-	t.Log(jb2.ExternalJobID.String())
+	var jb2 []job.Job
+	require.NoError(t, orm.DB.Find(&jb2).Error)
+	var seen = make(map[uuid.UUID]struct{})
+	for i := range jb2 {
+		if _, ok := seen[jb2[i].ExternalJobID]; ok {
+			t.Error("all uuid's should be unique")
+		}
+		assert.NotEqual(t, uuid.UUID{}.String(), jb2[i].ExternalJobID.String())
+		t.Log(jb2[i].ExternalJobID.String())
+	}
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0034_external_job_id"))
 }
