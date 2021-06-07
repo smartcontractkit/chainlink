@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -1518,7 +1519,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 	// NOTE: Must sidestep transactional tests since we rely on transaction
 	// rollback due to constraint violation for this function
-	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
+	tc, orm, cleanup := heavyweight.FullTestORM(t, "eth_task_run_transactions", true, true)
 	defer cleanup()
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm

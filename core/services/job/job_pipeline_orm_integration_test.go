@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func TestPipelineORM_Integration(t *testing.T) {
         answer2 [type=bridge name=election_winner index=1];
     `
 
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_orm", true, true)
 	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
 	config.Set("MAX_HTTP_ATTEMPTS", "1")
 	defer cleanupDB()
