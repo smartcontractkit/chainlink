@@ -46,18 +46,10 @@ type GethKeyStore interface {
 	GetRoundRobinAddress(addresses ...common.Address) (common.Address, error)
 }
 
-type Config struct {
-	minIncomingConfs   uint32
-	gasLimit           uint64
-	maxUnconfirmedTxes uint64
-}
-
-func NewConfig(minIncomingConfs uint32, gasLimit uint64, maxUnconfirmedTxes uint64) Config {
-	return Config{
-		minIncomingConfs:   minIncomingConfs,
-		gasLimit:           gasLimit,
-		maxUnconfirmedTxes: maxUnconfirmedTxes,
-	}
+type Config interface {
+	MinIncomingConfirmations() uint32
+	EthGasLimitDefault() uint64
+	EthMaxQueuedTransactions() uint64
 }
 
 func NewDelegate(
@@ -96,10 +88,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		return nil, err
 	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
-	// Take the larger of the global vs specific
-	if jb.VRFSpec.Confirmations > d.cfg.minIncomingConfs {
-		d.cfg.minIncomingConfs = jb.VRFSpec.Confirmations
-	}
 	l := logger.CreateLogger(logger.Default.SugaredLogger.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -121,6 +109,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		job:            jb,
 		mbLogs:         utils.NewMailbox(1000),
 		chStop:         make(chan struct{}),
+		waitOnStop:     make(chan struct{}),
 	}
 	return []job.Service{logListener}, nil
 }
@@ -145,12 +134,20 @@ type listener struct {
 	gethks         GethKeyStore
 	mbLogs         *utils.Mailbox
 	chStop         chan struct{}
+	waitOnStop     chan struct{}
 	utils.StartStopOnce
 }
 
 // Start complies with job.Service
 func (lsn *listener) Start() error {
 	return lsn.StartOnce("VRFListener", func() error {
+		// Take the larger of the global vs specific
+		// Note that runtime changes to incoming confirmations require a job delete/add
+		// because we need to resubscribe to the lb with the new min.
+		minConfs := lsn.cfg.MinIncomingConfirmations()
+		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
+			minConfs = lsn.job.VRFSpec.Confirmations
+		}
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
@@ -160,24 +157,25 @@ func (lsn *listener) Start() error {
 					},
 				},
 			},
-			NumConfirmations: uint64(lsn.cfg.minIncomingConfs),
+			NumConfirmations: uint64(minConfs),
 		})
 		go gracefulpanic.WrapRecover(func() {
-			lsn.run(unsubscribeLogs)
+			lsn.run(unsubscribeLogs, minConfs)
 		})
 		return nil
 	})
 }
 
-func (lsn *listener) run(unsubscribeLogs func()) {
+func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 	lsn.l.Infow("VRFListener: listening for run requests",
-		"maxUnconfirmed", lsn.cfg.maxUnconfirmedTxes,
-		"gasLimit", lsn.cfg.gasLimit,
-		"minConfs", lsn.cfg.minIncomingConfs)
+		"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
+		"gasLimit", lsn.cfg.EthGasLimitDefault(),
+		"minConfs", minConfs)
 	for {
 		select {
 		case <-lsn.chStop:
 			unsubscribeLogs()
+			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.mbLogs.Notify():
 			// Process all the logs in the queue if one is added
@@ -232,8 +230,8 @@ func (lsn *listener) run(unsubscribeLogs func()) {
 							from,
 							lsn.coordinator.Address(),
 							vrfCoordinatorPayload,
-							lsn.cfg.gasLimit,
-							lsn.cfg.maxUnconfirmedTxes,
+							lsn.cfg.EthGasLimitDefault(),
+							lsn.cfg.EthMaxQueuedTransactions(),
 							&models.EthTxMetaV2{
 								JobID:         lsn.job.ID,
 								RequestID:     req.RequestID,
@@ -350,6 +348,7 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 func (lsn *listener) Close() error {
 	return lsn.StopOnce("VRFListener", func() error {
 		close(lsn.chStop)
+		<-lsn.waitOnStop
 		return nil
 	})
 }

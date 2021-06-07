@@ -262,17 +262,39 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	defer o.claimedJobsMu.Unlock()
 
 	err := o.db.Exec(`
-			WITH deleted_jobs AS (
-				DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id, keeper_spec_id
-			),
-			deleted_oracle_specs AS (
-				DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
-			),
-			deleted_keeper_specs AS (
-				DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
-			)
-			DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
-    	`, id).Error
+		WITH deleted_jobs AS (
+			DELETE FROM jobs WHERE id = ? RETURNING 
+				pipeline_spec_id, 
+				offchainreporting_oracle_spec_id, 
+				keeper_spec_id,
+				cron_spec_id,
+				flux_monitor_spec_id,
+				vrf_spec_id,
+				webhook_spec_id,
+				direct_request_spec_id,
+		),
+		DELETE FROM offchainreporting_oracle_specs WHERE id 
+			IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+		DELETE FROM keeper_specs WHERE id 
+			IN (SELECT keeper_spec_id FROM deleted_jobs)
+		)
+		DELETE FROM cron_specs WHERE id 
+			IN (SELECT cron_specs FROM deleted_jobs)
+		)
+		DELETE FROM flux_monitor_specs WHERE id 
+			IN (SELECT flux_monitor_spec_id FROM deleted_jobs)
+		)
+		DELETE FROM vrf_specs WHERE id 
+			IN (SELECT vrf_spec_id FROM deleted_jobs)
+		)
+		DELETE FROM webhook_specs WHERE id 
+			IN (SELECT webhook_spec_id FROM deleted_jobs)
+		)
+		DELETE FROM direct_request_specs WHERE id 
+			IN (SELECT direct_request_spec_id FROM deleted_jobs)
+		)
+		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
+	`, id).Error
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")
 	}

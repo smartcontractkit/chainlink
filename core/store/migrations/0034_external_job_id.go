@@ -12,7 +12,7 @@ const (
 	up34_1 = `
                ALTER TABLE direct_request_specs DROP COLUMN on_chain_job_spec_id;
                ALTER TABLE webhook_specs DROP COLUMN on_chain_job_spec_id;
-               ALTER TABLE vrf_specs ADD CONSTRAINT vrf_specs_public_key_fkey FOREIGN KEY (public_key) REFERENCES encrypted_vrf_keys(public_key);
+               ALTER TABLE vrf_specs ADD CONSTRAINT vrf_specs_public_key_fkey FOREIGN KEY (public_key) REFERENCES encrypted_vrf_keys(public_key) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
                ALTER TABLE jobs ADD COLUMN external_job_id uuid; 
 	`
 	up34_2 = `

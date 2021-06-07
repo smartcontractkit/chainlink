@@ -278,11 +278,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineORM,
 				logBroadcaster,
 				store.EthClient,
-				vrf.NewConfig(
-					store.Config.MinIncomingConfirmations(),
-					store.Config.EthGasLimitDefault(),
-					store.Config.EthMaxQueuedTransactions(),
-				)),
+				store.Config),
 		}
 	)
 

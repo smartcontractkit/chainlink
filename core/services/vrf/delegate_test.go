@@ -105,7 +105,7 @@ func TestDelegate(t *testing.T) {
 		vuni.jpv2.Prm,
 		vuni.lb,
 		vuni.ec,
-		vrf.NewConfig(0, 1000, 10))
+		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
 	t.Log(vs)
 	jb, err := vrf.ValidateVRFSpec(vs.Toml())
