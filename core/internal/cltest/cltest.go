@@ -944,6 +944,32 @@ func CreateJobRunViaExternalInitiator(
 	return jr
 }
 
+func CreateJobRunViaExternalInitiatorV2(
+	t testing.TB,
+	app *TestApplication,
+	jobID models.JobID,
+	eia auth.Token,
+	body string,
+) pipeline.Run {
+	t.Helper()
+
+	headers := make(map[string]string)
+	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
+	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
+
+	url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobID.String() + "/runs"
+	bodyBuf := bytes.NewBufferString(body)
+	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var pr pipeline.Run
+	err := ParseJSONAPIResponse(t, resp, &pr)
+	require.NoError(t, err)
+
+	// assert.Equal(t, j.ID, pr.JobSpecID)
+	return pr
+}
+
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()

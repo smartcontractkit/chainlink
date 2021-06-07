@@ -234,7 +234,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	subservices = append(subservices, balanceMonitor)
-
 	subservices = append(subservices, promReporter)
 
 	var (

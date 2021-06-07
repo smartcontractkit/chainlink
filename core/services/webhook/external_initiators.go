@@ -189,8 +189,6 @@ func (m externalInitiatorManager) findExternalInitiatorForJobV2(id models.JobID)
             LIMIT 1
     `, id).Scan(&exi).Error
 	return exi, err
-	// INNER JOIN jobs ON jobs.webhook_spec_id = webhook_specs.id
-	// WHERE jobs.id = ?
 }
 
 // JobSpecNotice is sent to the External Initiator when JobSpecs are created.

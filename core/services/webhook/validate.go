@@ -4,14 +4,17 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type WebhookToml struct {
-	OnChainJobSpecID      uuid.UUID `toml:"jobID"`
-	ExternalInitiatorName string    `toml:"externalInitiatorName"`
+	OnChainJobSpecID      uuid.UUID    `toml:"jobID"`
+	ExternalInitiatorName null.String  `toml:"externalInitiatorName"`
+	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
 }
 
 var ErrMissingJobID = errors.New("missing job ID")
@@ -36,7 +39,10 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 	if spec.OnChainJobSpecID == (uuid.UUID{}) {
 		return jb, ErrMissingJobID
 	}
-	jb.WebhookSpec = &job.WebhookSpec{}
+	jb.WebhookSpec = &job.WebhookSpec{
+		ExternalInitiatorName: spec.ExternalInitiatorName,
+		ExternalInitiatorSpec: spec.ExternalInitiatorSpec,
+	}
 	copy(jb.WebhookSpec.OnChainJobSpecID[:], spec.OnChainJobSpecID.Bytes())
 
 	if jb.Type != job.Webhook {
@@ -45,8 +51,10 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
-	if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName); err != nil {
-		return jb, err
+	if !spec.ExternalInitiatorName.IsZero() {
+		if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName.String); err != nil {
+			return jb, err
+		}
 	}
 	return jb, nil
 }

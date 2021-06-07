@@ -323,7 +323,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 
 	requireJobsCount(t, app.JobORM, 1)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)

@@ -930,6 +930,146 @@ func TestIntegration_ExternalInitiator_WithMultiplyAndBridge(t *testing.T) {
 	assert.Equal(t, `{"result": "4200000000"}`, finalResult.Data.Raw)
 }
 
+func TestIntegration_ExternalInitiatorV2(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMockCalls()
+
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+		cltest.UseRealExternalInitiatorManager,
+	)
+	defer cleanup()
+
+	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
+
+	require.NoError(t, app.Start())
+
+	var (
+		eiName    = "substrate-ei"
+		eiSpec    = map[string]interface{}{"foo": "bar"}
+		eiRequest = map[string]interface{}{"result": 42}
+
+		jobUUID = cltest.MustJobIDFromString(t, "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+
+		expectedCreateJobRequest = map[string]interface{}{
+			"jobId":  jobUUID.String(),
+			"type":   eiName,
+			"params": eiSpec,
+		}
+	)
+
+	// Setup EI
+	var eiURL string
+	var eiNotified bool
+	{
+		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			eiNotified = true
+			defer r.Body.Close()
+
+			var gotCreateJobRequest map[string]interface{}
+			err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
+			require.NoError(t, err)
+
+			require.Equal(t, expectedCreateJobRequest, gotCreateJobRequest)
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer mockEI.Close()
+		eiURL = mockEI.URL
+	}
+
+	// Create the EI record on the Core node
+	var eia *auth.Token
+	{
+		eiCreate := map[string]string{
+			"name": eiName,
+			"url":  eiURL,
+		}
+		eiCreateJSON, err := json.Marshal(eiCreate)
+		require.NoError(t, err)
+		eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+		eia = &auth.Token{
+			AccessKey: eip.AccessKey,
+			Secret:    eip.Secret,
+		}
+	}
+
+	// Create the bridge on the Core node
+	var bridgeCalled bool
+	{
+		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			bridgeCalled = true
+			defer r.Body.Close()
+
+			var gotBridgeRequest map[string]interface{}
+			err := json.NewDecoder(r.Body).Decode(&gotBridgeRequest)
+			require.NoError(t, err)
+
+			expectedBridgeRequest := map[string]interface{}{
+				"value": float64(42),
+				"meta":  nil,
+			}
+			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
+
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, err)
+			io.WriteString(w, `{}`)
+		}))
+		u, _ := url.Parse(bridgeServer.URL)
+		app.Store.CreateBridgeType(&models.BridgeType{
+			Name: models.TaskType("substrate-adapter1"),
+			URL:  models.WebURL(*u),
+		})
+		defer bridgeServer.Close()
+	}
+
+	// Create the job spec on the Core node
+	var jobID int32
+	{
+		tomlSpec := fmt.Sprintf(`
+type            = "webhook"
+schemaVersion   = 1
+jobID           = "%v"
+externalInitiatorName = "%v"
+externalInitiatorSpec = """
+    %v
+"""
+observationSource   = """
+    parse  [type=jsonparse path="result" data="$(input)"]
+    submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
+    parse -> submit
+"""
+    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
+
+		_, err := webhook.ValidatedWebhookSpec(tomlSpec, app.GetExternalInitiatorManager())
+		require.NoError(t, err)
+		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		jobID = job.ID
+
+		require.Eventually(t, func() bool { return eiNotified }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
+	}
+
+	// Simulate request from EI -> Core node
+	{
+		time.Sleep(3 * time.Second)
+
+		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+
+		pipelineORM := pipeline.NewORM(app.Store.ORM.DB, app.Store.Config, &postgres.NullEventBroadcaster{})
+		jobORM := job.NewORM(app.Store.ORM.DB, app.Store.Config, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
+
+		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
+		require.Len(t, runs, 1)
+		run := runs[0]
+		require.Len(t, run.PipelineTaskRuns, 2)
+		require.Empty(t, run.PipelineTaskRuns[0].Error)
+		require.Empty(t, run.PipelineTaskRuns[1].Error)
+
+		assert.True(t, bridgeCalled, "expected bridge server to be called")
+	}
+}
+
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 

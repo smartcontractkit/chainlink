@@ -337,7 +337,6 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
 }
 
-// OffChainReportingJobs returns job specs
 func (o *orm) JobsV2() ([]Job, error) {
 	var jobs []Job
 	err := o.db.
