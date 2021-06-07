@@ -34,7 +34,7 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 
 	fsvc := app.GetFeedsService()
 
-	count, err := fsvc.CountManagerServices()
+	count, err := fsvc.CountManagers()
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
@@ -42,7 +42,7 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	mss, err := fsvc.ListManagerServices()
+	mss, err := fsvc.ListManagers()
 	require.NoError(t, err)
 	require.Len(t, mss, 1)
 	ms := mss[0]
@@ -69,14 +69,14 @@ func Test_FeedsManagersController_List(t *testing.T) {
 
 	// Seed feed managers
 	fsvc := app.GetFeedsService()
-	ms1 := feeds.ManagerService{
+	ms1 := feeds.FeedsManager{
 		Name:      "Chainlink FM",
 		URI:       "wss://127.0.0.1:2000",
 		JobTypes:  []string{"fluxmonitor"},
 		PublicKey: *pubKey,
 		Network:   "mainnet",
 	}
-	ms1ID, err := fsvc.RegisterManagerService(&ms1)
+	ms1ID, err := fsvc.RegisterManager(&ms1)
 	require.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/feeds_managers")
@@ -96,10 +96,12 @@ func Test_FeedsManagersController_List(t *testing.T) {
 }
 
 func Test_FeedsManagersController_Show(t *testing.T) {
+	t.Parallel()
+
 	pubKey, err := feeds.PublicKeyFromHex("3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808")
 	require.NoError(t, err)
 	var (
-		ms1 = feeds.ManagerService{
+		ms1 = feeds.FeedsManager{
 			Name:      "Chainlink FM",
 			URI:       "wss://127.0.0.1:2000",
 			JobTypes:  []string{"fluxmonitor"},
@@ -111,7 +113,7 @@ func Test_FeedsManagersController_Show(t *testing.T) {
 	testCases := []struct {
 		name           string
 		before         func(t *testing.T, app *cltest.TestApplication, id *string)
-		want           *feeds.ManagerService
+		want           *feeds.FeedsManager
 		wantStatusCode int
 	}{
 		{
@@ -120,7 +122,7 @@ func Test_FeedsManagersController_Show(t *testing.T) {
 				// Seed feed managers
 				fsvc := app.GetFeedsService()
 
-				ms1ID, err := fsvc.RegisterManagerService(&ms1)
+				ms1ID, err := fsvc.RegisterManager(&ms1)
 				require.NoError(t, err)
 
 				*id = strconv.Itoa(int(ms1ID))

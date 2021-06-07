@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -37,7 +38,7 @@ func (fmc *FeedsManagerController) Create(c *gin.Context) {
 		return
 	}
 
-	ms := &feeds.ManagerService{
+	ms := &feeds.FeedsManager{
 		URI:       request.URI,
 		Name:      request.Name,
 		PublicKey: request.PublicKey,
@@ -47,13 +48,13 @@ func (fmc *FeedsManagerController) Create(c *gin.Context) {
 
 	feedsService := fmc.App.GetFeedsService()
 
-	id, err := feedsService.RegisterManagerService(ms)
+	id, err := feedsService.RegisterManager(ms)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	ms, err = feedsService.GetManagerService(id)
+	ms, err = feedsService.GetManager(id)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -70,7 +71,7 @@ func (fmc *FeedsManagerController) Create(c *gin.Context) {
 // Example:
 // "GET <application>/feeds_managers"
 func (fmc *FeedsManagerController) List(c *gin.Context) {
-	mss, err := fmc.App.GetFeedsService().ListManagerServices()
+	mss, err := fmc.App.GetFeedsService().ListManagers()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -89,8 +90,9 @@ func (fmc *FeedsManagerController) Show(c *gin.Context) {
 		return
 	}
 
-	ms, err := fmc.App.GetFeedsService().GetManagerService(int32(id))
+	ms, err := fmc.App.GetFeedsService().GetManager(int32(id))
 	if err != nil {
+		fmt.Println("---->", err)
 		if errors.Is(err, sql.ErrNoRows) {
 			jsonAPIError(c, http.StatusNotFound, errors.New("feeds Manager not found"))
 			return

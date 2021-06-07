@@ -10,18 +10,18 @@ import (
 	"github.com/lib/pq"
 )
 
-type ManagerService struct {
+type FeedsManager struct {
 	ID        int32
 	Name      string
 	URI       string
 	PublicKey PublicKey
-	JobTypes  pq.StringArray
+	JobTypes  pq.StringArray `gorm:"type:text[]"`
 	Network   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-func (ManagerService) TableName() string {
+func (FeedsManager) TableName() string {
 	return "feeds_managers"
 }
 

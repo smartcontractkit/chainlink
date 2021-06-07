@@ -2,6 +2,7 @@ package feeds
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"gorm.io/gorm"
@@ -10,10 +11,10 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	Count() (int64, error)
-	CreateManagerService(ctx context.Context, ms *ManagerService) (int32, error)
-	GetManagerService(ctx context.Context, id int32) (*ManagerService, error)
-	ListManagerServices(ctx context.Context) ([]ManagerService, error)
+	CountManagers() (int64, error)
+	CreateManager(ctx context.Context, ms *FeedsManager) (int32, error)
+	GetManager(ctx context.Context, id int32) (*FeedsManager, error)
+	ListManagers(ctx context.Context) ([]FeedsManager, error)
 }
 
 type orm struct {
@@ -26,8 +27,8 @@ func NewORM(db *gorm.DB) *orm {
 	}
 }
 
-// CreateFeedsManager creates a feeds manager record.
-func (o *orm) CreateManagerService(ctx context.Context, ms *ManagerService) (int32, error) {
+// CreateManager creates a feeds manager.
+func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int32, error) {
 	var id int32
 	now := time.Now()
 
@@ -51,70 +52,53 @@ func (o *orm) CreateManagerService(ctx context.Context, ms *ManagerService) (int
 	return id, err
 }
 
-func (o *orm) ListManagerServices(ctx context.Context) ([]ManagerService, error) {
-	mss := []ManagerService{}
+// ListManager lists all feeds managers
+func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
+	mgrs := []FeedsManager{}
 	stmt := `
 		SELECT id, name, uri, public_key, job_types, network, created_at, updated_at
 		FROM feeds_managers;
 	`
 
-	rows, err := o.db.Raw(stmt).Rows()
+	err := o.db.Raw(stmt).Scan(&mgrs).Error
 	if err != nil {
-		return mss, err
-	}
-	defer func() {
-		_ = rows.Close()
-	}()
-
-	for rows.Next() {
-		ms := ManagerService{}
-		err := rows.Scan(&ms.ID, &ms.Name, &ms.URI, &ms.PublicKey, &ms.JobTypes, &ms.Network, &ms.CreatedAt, &ms.UpdatedAt)
-		if err != nil {
-			return mss, err
-		}
-		mss = append(mss, ms)
+		return mgrs, err
 	}
 
-	return mss, nil
+	return mgrs, nil
 }
 
-func (o *orm) GetManagerService(ctx context.Context, id int32) (*ManagerService, error) {
+// GetManager gets a feeds manager by id
+func (o *orm) GetManager(ctx context.Context, id int32) (*FeedsManager, error) {
 	stmt := `
 		SELECT id, name, uri, public_key, job_types, network, created_at, updated_at
 		FROM feeds_managers
 		WHERE id = ?;
 	`
 
-	row := o.db.Raw(stmt, id).Row()
-	if row.Err() != nil {
-		return nil, row.Err()
+	mgr := FeedsManager{}
+	result := o.db.Raw(stmt, id).Scan(&mgr)
+	if result.RowsAffected == 0 {
+		return nil, sql.ErrNoRows
+	}
+	if result.Error != nil {
+		return nil, result.Error
 	}
 
-	ms := ManagerService{}
-	err := row.Scan(&ms.ID, &ms.Name, &ms.URI, &ms.PublicKey, &ms.JobTypes, &ms.Network, &ms.CreatedAt, &ms.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ms, nil
+	return &mgr, nil
 }
 
-// Count counts the number of manager service records.
-func (o *orm) Count() (int64, error) {
+// Count counts the number of feeds manager records.
+func (o *orm) CountManagers() (int64, error) {
 	var count int64
 	stmt := `
 		SELECT COUNT(*)
 		FROM feeds_managers
 	`
 
-	row := o.db.Raw(stmt).Row()
-	if row.Err() != nil {
-		return count, row.Err()
-	}
-
-	err := row.Scan(&count)
+	err := o.db.Raw(stmt).Scan(&count).Error
 	if err != nil {
-		return 0, err
+		return count, err
 	}
 
 	return count, nil

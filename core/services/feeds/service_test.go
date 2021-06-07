@@ -11,51 +11,57 @@ import (
 )
 
 func Test_Service_RegisterManagerService(t *testing.T) {
+	t.Parallel()
+
 	var (
 		orm = &mocks.ORM{}
 		svc = feeds.NewService(orm)
 		id  = int32(1)
-		ms  = feeds.ManagerService{}
+		ms  = feeds.FeedsManager{}
 	)
 
-	orm.On("CreateManagerService", context.Background(), &ms).
+	orm.On("CreateManager", context.Background(), &ms).
 		Return(id, nil)
 
-	actual, err := svc.RegisterManagerService(&ms)
+	actual, err := svc.RegisterManager(&ms)
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
 }
 
 func Test_Service_ListManagerServices(t *testing.T) {
+	t.Parallel()
+
 	var (
 		orm = &mocks.ORM{}
 		svc = feeds.NewService(orm)
-		ms  = feeds.ManagerService{}
-		mss = []feeds.ManagerService{ms}
+		ms  = feeds.FeedsManager{}
+		mss = []feeds.FeedsManager{ms}
 	)
 
-	orm.On("ListManagerServices", context.Background()).
+	orm.On("ListManagers", context.Background()).
 		Return(mss, nil)
 
-	actual, err := svc.ListManagerServices()
+	actual, err := svc.ListManagers()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, mss)
 }
 
 func Test_Service_GetManagerServices(t *testing.T) {
+	t.Parallel()
+
 	var (
 		orm = &mocks.ORM{}
 		svc = feeds.NewService(orm)
 		id  = int32(1)
-		ms  = feeds.ManagerService{ID: id}
+		ms  = feeds.FeedsManager{ID: id}
 	)
 
-	orm.On("GetManagerService", context.Background(), id).
+	orm.On("GetManager", context.Background(), id).
 		Return(&ms, nil)
 
-	actual, err := svc.GetManagerService(id)
+	actual, err := svc.GetManager(id)
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, &ms)
