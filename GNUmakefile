@@ -2,12 +2,13 @@
 
 ENVIRONMENT ?= release
 
-GOPATH ?= $(HOME)/go
+GOPATH ?= $(shell go env GOPATH)
+GOBIN ?= $(shell go env GOBIN)
+
 BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
-GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
