@@ -153,7 +153,8 @@ func init() {
 		EthGasPriceDefault:               *big.NewInt(5000000000),   // 5 Gwei
 		EthMaxGasPriceWei:                *big.NewInt(500000000000), // 500 Gwei
 		EthMinGasPriceWei:                *big.NewInt(1000000000),   // 1 Gwei
-		EthFinalityDepth:                 50,                        // Keeping this >> 11 because it's not expensive and gives us a safety margin
+		EthGasLimitDefault:               500000,
+		EthFinalityDepth:                 50, // Keeping this >> 11 because it's not expensive and gives us a safety margin
 		EthHeadTrackerHistoryDepth:       100,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      2,
@@ -176,8 +177,9 @@ func init() {
 		EthGasPriceDefault:               *big.NewInt(1000000000),   // 1 Gwei
 		EthMaxGasPriceWei:                *big.NewInt(500000000000), // 500 Gwei
 		EthMinGasPriceWei:                *big.NewInt(1000000000),   // 1 Gwei
-		EthFinalityDepth:                 200,                       // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
-		EthHeadTrackerHistoryDepth:       250,                       // EthFinalityDepth + safety margin
+		EthGasLimitDefault:               500000,
+		EthFinalityDepth:                 200, // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
+		EthHeadTrackerHistoryDepth:       250, // EthFinalityDepth + safety margin
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
 		EthBalanceMonitorBlockDelay:      13,              // equivalent of 1 eth block seems reasonable
 		EthTxResendAfterThreshold:        5 * time.Minute, // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
@@ -193,6 +195,7 @@ func init() {
 	optimism := ChainSpecificDefaultSet{
 		EnableLegacyJobPipeline:          false,
 		EthGasBumpThreshold:              0, // Never bump gas on optimism
+		EthGasLimitDefault:               500000,
 		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
 		EthHeadTrackerHistoryDepth:       10,
 		EthHeadTrackerSamplingInterval:   1 * time.Second,
