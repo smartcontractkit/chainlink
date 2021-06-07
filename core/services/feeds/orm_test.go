@@ -20,12 +20,14 @@ var (
 )
 
 func Test_ORM_CreateManagerService(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
 	orm := feeds.NewORM(store.DB)
 
-	ms := &feeds.ManagerService{
+	mgr := &feeds.FeedsManager{
 		URI:       uri,
 		Name:      name,
 		PublicKey: publicKey,
@@ -33,14 +35,14 @@ func Test_ORM_CreateManagerService(t *testing.T) {
 		Network:   network,
 	}
 
-	count, err := orm.Count()
+	count, err := orm.CountManagers()
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
-	id, err := orm.CreateManagerService(context.Background(), ms)
+	id, err := orm.CreateManager(context.Background(), mgr)
 	require.NoError(t, err)
 
-	count, err = orm.Count()
+	count, err = orm.CountManagers()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 
@@ -48,12 +50,14 @@ func Test_ORM_CreateManagerService(t *testing.T) {
 }
 
 func Test_ORM_ListManagerServices(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
 	orm := feeds.NewORM(store.DB)
 
-	ms := &feeds.ManagerService{
+	mgr := &feeds.FeedsManager{
 		URI:       uri,
 		Name:      name,
 		PublicKey: publicKey,
@@ -61,14 +65,14 @@ func Test_ORM_ListManagerServices(t *testing.T) {
 		Network:   network,
 	}
 
-	id, err := orm.CreateManagerService(context.Background(), ms)
+	id, err := orm.CreateManager(context.Background(), mgr)
 	require.NoError(t, err)
 
-	mss, err := orm.ListManagerServices(context.Background())
+	mgrs, err := orm.ListManagers(context.Background())
 	require.NoError(t, err)
-	require.Len(t, mss, 1)
+	require.Len(t, mgrs, 1)
 
-	actual := mss[0]
+	actual := mgrs[0]
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
@@ -78,12 +82,14 @@ func Test_ORM_ListManagerServices(t *testing.T) {
 }
 
 func Test_ORM_GetManagerService(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
 	orm := feeds.NewORM(store.DB)
 
-	ms := &feeds.ManagerService{
+	mgr := &feeds.FeedsManager{
 		URI:       uri,
 		Name:      name,
 		PublicKey: publicKey,
@@ -91,10 +97,10 @@ func Test_ORM_GetManagerService(t *testing.T) {
 		Network:   network,
 	}
 
-	id, err := orm.CreateManagerService(context.Background(), ms)
+	id, err := orm.CreateManager(context.Background(), mgr)
 	require.NoError(t, err)
 
-	actual, err := orm.GetManagerService(context.Background(), id)
+	actual, err := orm.GetManager(context.Background(), id)
 	require.NoError(t, err)
 
 	assert.Equal(t, id, actual.ID)
@@ -103,4 +109,8 @@ func Test_ORM_GetManagerService(t *testing.T) {
 	assert.Equal(t, publicKey, actual.PublicKey)
 	assert.Equal(t, jobTypes, actual.JobTypes)
 	assert.Equal(t, network, actual.Network)
+
+	actual, err = orm.GetManager(context.Background(), -1)
+	require.Nil(t, actual)
+	require.Error(t, err)
 }

@@ -23,7 +23,7 @@ func (r FeedsManagerResource) GetName() string {
 }
 
 // NewFeedsManagerResource constructs a new FeedsManagerResource.
-func NewFeedsManagerResource(ms feeds.ManagerService) *FeedsManagerResource {
+func NewFeedsManagerResource(ms feeds.FeedsManager) *FeedsManagerResource {
 	return &FeedsManagerResource{
 		JAID:      NewJAIDInt32(ms.ID),
 		Name:      ms.Name,
@@ -36,7 +36,7 @@ func NewFeedsManagerResource(ms feeds.ManagerService) *FeedsManagerResource {
 }
 
 // NewJobResources initializes a slice of JSONAPI feed manager resources
-func NewFeedsManagerResources(mss []feeds.ManagerService) []FeedsManagerResource {
+func NewFeedsManagerResources(mss []feeds.FeedsManager) []FeedsManagerResource {
 	rs := []FeedsManagerResource{}
 
 	for _, ms := range mss {
