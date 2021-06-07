@@ -3,11 +3,14 @@ package cmd_test
 import (
 	"bytes"
 	"flag"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -310,7 +313,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 func TestClient_DeleteJobV2(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfig(map[string]interface{}{"TRIGGER_FALLBACK_DB_POLL_INTERVAL": "10ms"}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
@@ -322,6 +325,11 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
 	requireJobsCount(t, app.JobORM, 1)
+
+	require.Eventually(t, func() bool {
+		fmt.Println(logger.MemoryLogTestingOnly().String())
+		return strings.Contains(logger.MemoryLogTestingOnly().String(), "Starting services for job")
+	}, 3*time.Second, 100*time.Millisecond)
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)

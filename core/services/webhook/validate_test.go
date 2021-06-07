@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestValidatedWebJobSpec(t *testing.T) {
@@ -89,6 +90,8 @@ func TestValidatedWebJobSpec(t *testing.T) {
             type            = "webhook"
             schemaVersion   = 1
             jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+            externalInitiatorName = "foo"
+            externalInitiatorSpec = "foo"
             observationSource   = """
                 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
                 ds_parse    [type=jsonparse path="data,price"];
@@ -96,6 +99,23 @@ func TestValidatedWebJobSpec(t *testing.T) {
             """
             `,
 			findError: errors.New("foo"),
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "EI does exist",
+			toml: `
+            type            = "webhook"
+            schemaVersion   = 1
+            jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+            observationSource   = """
+                ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+                ds_parse    [type=jsonparse path="data,price"];
+                ds -> ds_parse;
+            """
+            `,
+			findError: nil,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, s.WebhookSpec)
@@ -113,7 +133,7 @@ func TestValidatedWebJobSpec(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			eim := new(webhookmocks.ExternalInitiatorManager)
-			eim.On("FindExternalInitiatorByName", mock.Anything).Return(tc.findError)
+			eim.On("FindExternalInitiatorByName", mock.Anything).Return(models.ExternalInitiator{}, tc.findError)
 			s, err := webhook.ValidatedWebhookSpec(tc.toml, eim)
 			tc.assertion(t, s, err)
 		})

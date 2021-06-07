@@ -209,16 +209,16 @@ func (js *spawner) startUnclaimedServices() {
 
 		logger.Infow("Starting services for job", "jobID", spec.ID, "count", len(services))
 
-		activeJob := activeJob{delegate: delegate, spec: spec}
+		aj := activeJob{delegate: delegate, spec: spec}
 		for _, service := range services {
 			err := service.Start()
 			if err != nil {
 				logger.Errorw("Error creating service for job", "jobID", spec.ID, "error", err)
 				continue
 			}
-			activeJob.services = append(activeJob.services, service)
+			aj.services = append(aj.services, service)
 		}
-		js.activeJobs[spec.ID] = activeJob
+		js.activeJobs[spec.ID] = aj
 	}
 }
 
@@ -242,10 +242,10 @@ func (js *spawner) stopService(jobID int32) {
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
-	activeJob := js.activeJobs[jobID]
+	aj := js.activeJobs[jobID]
 
-	for i := len(activeJob.services) - 1; i >= 0; i-- {
-		service := activeJob.services[i]
+	for i := len(aj.services) - 1; i >= 0; i-- {
+		service := aj.services[i]
 		err := service.Close()
 		if err != nil {
 			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
@@ -321,12 +321,12 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 		return errors.New("will not delete job with 0 ID")
 	}
 
-	var activeJob activeJob
+	var aj activeJob
 	var exists bool
 	func() {
 		js.activeJobsMu.RLock()
 		defer js.activeJobsMu.RUnlock()
-		activeJob, exists = js.activeJobs[jobID]
+		aj, exists = js.activeJobs[jobID]
 	}()
 	if !exists {
 		return errors.Errorf("job not found (id: %v)", jobID)
@@ -343,7 +343,7 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 		return err
 	}
 
-	activeJob.delegate.OnJobDeleted(activeJob.spec)
+	aj.delegate.OnJobDeleted(aj.spec)
 
 	logger.Infow("Deleted job", "jobID", jobID)
 

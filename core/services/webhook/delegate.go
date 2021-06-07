@@ -45,10 +45,10 @@ func (d *Delegate) JobType() job.Type {
 }
 
 func (d *Delegate) OnJobCreated(spec job.Job) {
-	if spec.WebhookSpec.ExternalInitiatorName != "" {
+	if !spec.WebhookSpec.ExternalInitiatorName.IsZero() {
 		err := d.externalInitiatorManager.NotifyV2(
 			spec.WebhookSpec.OnChainJobSpecID,
-			spec.WebhookSpec.ExternalInitiatorName,
+			spec.WebhookSpec.ExternalInitiatorName.String,
 			spec.WebhookSpec.ExternalInitiatorSpec,
 		)
 		if err != nil {
@@ -61,7 +61,7 @@ func (d *Delegate) OnJobCreated(spec job.Job) {
 }
 
 func (d *Delegate) OnJobDeleted(spec job.Job) {
-	if spec.WebhookSpec.ExternalInitiatorName != "" {
+	if !spec.WebhookSpec.ExternalInitiatorName.IsZero() {
 		err := d.externalInitiatorManager.DeleteJobV2(spec.WebhookSpec.OnChainJobSpecID)
 		if err != nil {
 			logger.Errorw("Webhook delegate OnJobDeleted errored",
