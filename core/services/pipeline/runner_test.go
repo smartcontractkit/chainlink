@@ -330,6 +330,35 @@ answer1 [type=median                      index=0];
 	}
 }
 
+func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(input.val)" times=2]
+b1 [type=multiply input="$(a)" times=2]
+b2 [type=multiply input="$(a)" times=3]
+c [type=median values=<[ $(b1), $(b2) ]> index=0]
+a->b1->c;
+a->b2->c;`,
+	}, input, pipeline.JSONSerializable{}, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult().HasErrors())
+
+	// a = 4
+	// (b1 = 8) + (b2 = 12)
+	// c = 20 / 2
+
+	result, err := trrs.FinalResult().SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
+}
+
 func TestPanicTask_Run(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
