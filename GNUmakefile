@@ -106,11 +106,9 @@ dockerpush: ## Push the docker image to ecr
 	docker push $(ECR_REPO)
 	docker push $(ECR_REPO)-nonroot
 
-$(GOBIN)/mockery:
-	go install github.com/vektra/mockery/v2@v2.8.0
-
 .PHONY: mockery
 mockery: $(mockery)
+	go install github.com/vektra/mockery/v2@v2.8.0
 
 help:
 	@echo ""
