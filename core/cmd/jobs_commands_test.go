@@ -3,14 +3,11 @@ package cmd_test
 import (
 	"bytes"
 	"flag"
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -326,10 +323,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 
 	requireJobsCount(t, app.JobORM, 1)
 
-	require.Eventually(t, func() bool {
-		fmt.Println(logger.MemoryLogTestingOnly().String())
-		return strings.Contains(logger.MemoryLogTestingOnly().String(), "Starting services for job")
-	}, 3*time.Second, 100*time.Millisecond)
+	time.Sleep(5 * time.Second)
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
