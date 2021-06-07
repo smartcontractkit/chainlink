@@ -30,7 +30,7 @@ const (
 
 func (t *BridgeTask) HelperSetConfigAndTxDB(config Config, txdb *gorm.DB) {
 	t.config = config
-	t.safeTx = SafeTx{tx: txdb}
+	t.tx = txdb
 }
 
 func (t *HTTPTask) HelperSetConfig(config Config) {

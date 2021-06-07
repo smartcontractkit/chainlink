@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sort"
-	"sync"
 	"time"
 
 	"gopkg.in/guregu/null.v4"
@@ -190,13 +189,12 @@ func (r *runner) ExecuteRun(
 	}
 
 	// initialize certain task params
-	txMu := &sync.Mutex{}
 	for _, task := range pipeline.Tasks {
 		if task.Type() == TaskTypeHTTP {
 			task.(*HTTPTask).config = r.config
 		} else if task.Type() == TaskTypeBridge {
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).safeTx = SafeTx{r.orm.DB(), txMu}
+			task.(*BridgeTask).tx = r.orm.DB()
 		}
 	}
 
