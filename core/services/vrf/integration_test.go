@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 
 	"github.com/onsi/gomega"
@@ -23,7 +25,7 @@ import (
 )
 
 func TestIntegration_VRFV2(t *testing.T) {
-	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "vrf_v2", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2", true)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)

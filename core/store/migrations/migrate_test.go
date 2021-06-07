@@ -376,7 +376,7 @@ func TestMigrate_CreateWebhookTables(t *testing.T) {
 }
 
 func TestMigrate_ExternalJobID(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_external_jobid", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_external_jobid", false)
 	defer cleanup()
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0033_flux_monitor_round_stats_fk_index"))
 	cs := WebhookSpec{
