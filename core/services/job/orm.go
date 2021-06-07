@@ -271,27 +271,28 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 				flux_monitor_spec_id,
 				vrf_spec_id,
 				webhook_spec_id,
-				direct_request_spec_id,
+				direct_request_spec_id
 		),
-		DELETE FROM offchainreporting_oracle_specs WHERE id 
-			IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
-		DELETE FROM keeper_specs WHERE id 
-			IN (SELECT keeper_spec_id FROM deleted_jobs)
-		)
-		DELETE FROM cron_specs WHERE id 
-			IN (SELECT cron_specs FROM deleted_jobs)
-		)
-		DELETE FROM flux_monitor_specs WHERE id 
-			IN (SELECT flux_monitor_spec_id FROM deleted_jobs)
-		)
-		DELETE FROM vrf_specs WHERE id 
-			IN (SELECT vrf_spec_id FROM deleted_jobs)
-		)
-		DELETE FROM webhook_specs WHERE id 
-			IN (SELECT webhook_spec_id FROM deleted_jobs)
-		)
-		DELETE FROM direct_request_specs WHERE id 
-			IN (SELECT direct_request_spec_id FROM deleted_jobs)
+		deleted_oracle_specs AS (
+			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+		),
+		deleted_keeper_specs AS (
+			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
+		),
+		deleted_cron_specs AS (
+			DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)
+		),
+		deleted_fm_specs AS (
+			DELETE FROM flux_monitor_specs WHERE id IN (SELECT flux_monitor_spec_id FROM deleted_jobs)
+		),
+		deleted_vrf_specs AS (
+			DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)
+		),
+		deleted_webhook_specs AS (
+			DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)
+		),
+		deleted_dr_specs AS (
+			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
 	`, id).Error
