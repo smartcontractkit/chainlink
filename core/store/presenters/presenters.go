@@ -38,6 +38,7 @@ type ConfigPrinter struct {
 type EnvPrinter struct {
 	AllowOrigins                          string          `json:"ALLOW_ORIGINS"`
 	BalanceMonitorEnabled                 bool            `json:"BALANCE_MONITOR_ENABLED"`
+	BlockFetcherEnabled                   bool            `json:"BLOCK_FETCHER_ENABLED"`
 	BlockBackfillDepth                    uint64          `json:"BLOCK_BACKFILL_DEPTH"`
 	BridgeResponseURL                     string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
 	ChainID                               *big.Int        `json:"ETH_CHAIN_ID"`
@@ -132,6 +133,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
 			BalanceMonitorEnabled:                 config.BalanceMonitorEnabled(),
+			BlockFetcherEnabled:                   config.BlockFetcherEnabled(),
 			BlockBackfillDepth:                    config.BlockBackfillDepth(),
 			BridgeResponseURL:                     config.BridgeResponseURL().String(),
 			ChainID:                               config.ChainID(),

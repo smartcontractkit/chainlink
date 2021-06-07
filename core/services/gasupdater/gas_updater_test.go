@@ -35,6 +35,7 @@ func TestGasUpdater_Start(t *testing.T) {
 	var percentile uint16 = 35
 	minGasPrice := big.NewInt(1)
 
+	config.On("BlockFetcherEnabled").Return(false).Maybe()
 	config.On("GasUpdaterBatchSize").Return(batchSize)
 	config.On("GasUpdaterBlockDelay").Return(blockDelay)
 	config.On("GasUpdaterBlockHistorySize").Return(historySize)
@@ -99,6 +100,7 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 0
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("ChainID").Return(big.NewInt(0))
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
@@ -113,6 +115,7 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		config := new(gumocks.Config)
 		var blockDelay uint16 = 3
 		var historySize uint16 = 1
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
 
@@ -137,6 +140,7 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		var blockDelay uint16 = 3
 		var historySize uint16 = 3
 		var batchSize uint32 = 0
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
 		config.On("GasUpdaterBatchSize").Return(batchSize)
@@ -159,6 +163,7 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		var blockDelay uint16 = 1
 		var historySize uint16 = 3
 		var batchSize uint32 = 2
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
 		// Test batching
@@ -208,6 +213,7 @@ func TestGasUpdater_FetchBlocksAndRecalculate(t *testing.T) {
 
 	config := new(gumocks.Config)
 
+	config.On("BlockFetcherEnabled").Return(false).Maybe()
 	config.On("GasUpdaterBlockDelay").Return(uint16(0))
 	config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
 	config.On("GasUpdaterBlockHistorySize").Return(uint16(3))
@@ -242,6 +248,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
 		config := new(gumocks.Config)
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
 		config.On("EthMinGasPriceWei").Return(big.NewInt(1))
 		config.On("ChainID").Return(big.NewInt(0))
@@ -267,6 +274,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	t.Run("sets gas price to ETH_MAX_GAS_PRICE_WEI if the calculation would otherwise exceed it", func(t *testing.T) {
 		config := new(gumocks.Config)
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EthMinGasPriceWei").Return(minGasPrice)
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
@@ -299,6 +307,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	t.Run("sets gas price to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
 		config := new(gumocks.Config)
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EthMinGasPriceWei").Return(minGasPrice)
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
@@ -331,6 +340,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
 		config := new(gumocks.Config)
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EthMinGasPriceWei").Return(minGasPrice)
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(100))
@@ -376,6 +386,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		// Because everyone loves free gas!
 		config := new(gumocks.Config)
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EthMinGasPriceWei").Return(big.NewInt(0))
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(50))
@@ -406,6 +417,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	t.Run("ignores zero priced transactions on xDai", func(t *testing.T) {
 		config := new(gumocks.Config)
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(50))
@@ -440,6 +452,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 
 		reasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000))
 
+		config.On("BlockFetcherEnabled").Return(false).Maybe()
 		config.On("EthMaxGasPriceWei").Return(reasonablyHugeGasPrice)
 		config.On("EthMinGasPriceWei").Return(big.NewInt(10))
 		config.On("GasUpdaterTransactionPercentile").Return(uint16(50))

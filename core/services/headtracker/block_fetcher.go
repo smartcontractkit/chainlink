@@ -18,6 +18,7 @@ type (
 	BlockFetcherInterface interface {
 		FetchLatestHead(ctx context.Context) (*models.Head, error)
 		BlockRange(ctx context.Context, fromBlock int64, toBlock int64) ([]Block, error)
+		BlocksWithoutCache(ctx context.Context, numbers []int64) (map[int64]Block, error)
 		SyncLatestHead(ctx context.Context, head models.Head) error
 		Chain(ctx context.Context, latestHead models.Head) (models.Head, error)
 	}
@@ -86,6 +87,11 @@ func (bf *BlockFetcher) BlockRange(ctx context.Context, fromBlock int64, toBlock
 	}
 
 	return blocksSlice, nil
+}
+
+func (bf *BlockFetcher) BlocksWithoutCache(ctx context.Context, numbers []int64) (map[int64]Block, error) {
+	bf.logger.Debugw("BlockFetcher#BlocksWithoutCache", "len", numbers)
+	return bf.blockEthClient.FetchBlocksByNumbers(ctx, numbers)
 }
 
 func (bf *BlockFetcher) Chain(ctx context.Context, latestHead models.Head) (models.Head, error) {

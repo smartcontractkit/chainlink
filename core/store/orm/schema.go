@@ -20,6 +20,7 @@ type ConfigSchema struct {
 	AuthenticatedRateLimit                    int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod              time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
 	BalanceMonitorEnabled                     bool            `env:"BALANCE_MONITOR_ENABLED" default:"true"`
+	BlockFetcherEnabled                       bool            `env:"BLOCK_FETCHER_ENABLED" default:"false"`
 	BlockBackfillDepth                        string          `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                                   big.Int         `env:"ETH_CHAIN_ID" default:"1"`

@@ -39,6 +39,29 @@ func (_m *BlockFetcherInterface) BlockRange(ctx context.Context, fromBlock int64
 	return r0, r1
 }
 
+// BlocksWithoutCache provides a mock function with given fields: ctx, numbers
+func (_m *BlockFetcherInterface) BlocksWithoutCache(ctx context.Context, numbers []int64) (map[int64]headtracker.Block, error) {
+	ret := _m.Called(ctx, numbers)
+
+	var r0 map[int64]headtracker.Block
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) map[int64]headtracker.Block); ok {
+		r0 = rf(ctx, numbers)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int64]headtracker.Block)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, []int64) error); ok {
+		r1 = rf(ctx, numbers)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Chain provides a mock function with given fields: ctx, latestHead
 func (_m *BlockFetcherInterface) Chain(ctx context.Context, latestHead models.Head) (models.Head, error) {
 	ret := _m.Called(ctx, latestHead)

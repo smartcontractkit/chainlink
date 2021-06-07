@@ -215,7 +215,14 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.blockFetcher.SyncLatestHead(ctx, h)
+
+					var err error
+					if ht.store.Config.BlockFetcherEnabled() {
+						err = ht.blockFetcher.SyncLatestHead(ctx, h)
+					} else {
+						err = ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
+					}
+
 					defer cancel()
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while syncing the latest head", "err", err)

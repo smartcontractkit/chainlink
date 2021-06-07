@@ -64,6 +64,7 @@ type (
 		EthMaxGasPriceWei() *big.Int
 		EthMinGasPriceWei() *big.Int
 		EthFinalityDepth() uint
+		BlockFetcherEnabled() bool
 		SetEthGasPriceDefault(value *big.Int) error
 		ChainID() *big.Int
 	}
@@ -237,10 +238,21 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 		lowestBlockToFetch = 0
 	}
 
-	newBlockHistory, err := gu.blockFetcher.BlockRange(ctx, lowestBlockToFetch, highestBlockToFetch)
-	if err != nil {
-		return errors.Wrap(err, "GasUpdater: BlockRange call failed")
+	var newBlockHistory []headtracker.Block
+	if gu.config.BlockFetcherEnabled() {
+		blocks, err := gu.blockFetcher.BlockRange(ctx, lowestBlockToFetch, highestBlockToFetch)
+		if err != nil {
+			return errors.Wrap(err, "GasUpdater: BlockRange call failed")
+		}
+		newBlockHistory = blocks
+	} else {
+		blocks, err := gu.blockRangeWithoutCache(ctx, head, lowestBlockToFetch, highestBlockToFetch)
+		if err != nil {
+			return errors.Wrap(err, "GasUpdater: blockRangeWithoutCache call failed")
+		}
+		newBlockHistory = blocks
 	}
+
 	sort.Slice(newBlockHistory, func(i, j int) bool {
 		return newBlockHistory[i].Number < newBlockHistory[j].Number
 	})
@@ -254,6 +266,49 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 	gu.rollingBlockHistory = newBlockHistory[start:]
 
 	return nil
+}
+
+func (gu *gasUpdater) blockRangeWithoutCache(ctx context.Context, head models.Head, lowestBlockToFetch int64, highestBlockToFetch int64) ([]headtracker.Block, error) {
+
+	blocks := make(map[int64]headtracker.Block)
+	for _, block := range gu.rollingBlockHistory {
+		// Make a best-effort to be re-org resistant using the head
+		// chain, refetch blocks that got re-org'd out.
+		// NOTE: Any blocks older than the oldest block in the provided chain
+		// will be also be refetched.
+		if head.IsInChain(block.Hash) {
+			blocks[block.Number] = block
+		}
+	}
+
+	var numbers []int64
+	for i := lowestBlockToFetch; i <= highestBlockToFetch; i++ {
+		// NOTE: To save rpc calls, don't fetch blocks we already have in the history
+		if _, exists := blocks[i]; exists {
+			continue
+		}
+		numbers = append(numbers, i)
+	}
+
+	gu.logger.Debugw(fmt.Sprintf("GasUpdater: fetching %v blocks (%v in local history)", len(numbers), len(blocks)), "n", len(numbers), "inHistory", len(blocks), "blockNum", head.Number)
+
+	fetchedBlocks, err := gu.blockFetcher.BlocksWithoutCache(ctx, numbers)
+	if err != nil {
+		return make([]headtracker.Block, 0), errors.Wrap(err, "GasUpdater: BlocksWithoutCache call failed")
+	}
+
+	for _, b := range fetchedBlocks {
+		blocks[b.Number] = b
+	}
+
+	newBlockHistory := make([]headtracker.Block, 0)
+	for _, block := range blocks {
+		newBlockHistory = append(newBlockHistory, block)
+	}
+	sort.Slice(newBlockHistory, func(i, j int) bool {
+		return newBlockHistory[i].Number < newBlockHistory[j].Number
+	})
+	return newBlockHistory, nil
 }
 
 var (

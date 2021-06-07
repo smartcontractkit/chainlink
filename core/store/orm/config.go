@@ -416,6 +416,11 @@ func (c Config) BalanceMonitorEnabled() bool {
 	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
 }
 
+// BlockFetcherEnabled enables the balance monitor
+func (c Config) BlockFetcherEnabled() bool {
+	return c.viper.GetBool(EnvVarName("BlockFetcherEnabled"))
+}
+
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c Config) BlockBackfillDepth() uint64 {
