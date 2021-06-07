@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -26,7 +27,7 @@ import (
 
 func TestORM(t *testing.T) {
 	t.Parallel()
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "services_job_orm", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_orm", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -302,7 +303,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "last_saved_header", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "last_saved_header", true)
 	defer cleanupDB()
 	config.Config.Dialect = dialects.Postgres
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
@@ -368,7 +369,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "switches_longest_chain", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true)
 	t.Cleanup(cleanupDB)
 	config.Config.Dialect = dialects.Postgres
 	config.Set("ETH_FINALITY_DEPTH", "50")
