@@ -13,6 +13,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -124,7 +125,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 // TestIntegration_SharedProvingKey tests the scenario where multiple nodes share
 // a single proving key
 func TestIntegration_SharedProvingKey(t *testing.T) {
-	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "vrf_shared_proving_key", true, true)
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "vrf_shared_proving_key", true, true)
 	defer cfgCleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
 

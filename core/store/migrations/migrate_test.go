@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -19,7 +20,7 @@ import (
 )
 
 func TestMigrate_Initial(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations", false)
 	defer cleanup()
 
 	err := migrations.MigrateUp(orm.DB, "1611847145")
@@ -104,7 +105,7 @@ func (TaskSpec) TableName() string {
 }
 
 func TestMigrate_BridgeFK(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_bridgefk", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_bridgefk", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0009_add_min_payment_to_flux_monitor_spec"))
@@ -153,7 +154,7 @@ func TestMigrate_BridgeFK(t *testing.T) {
 }
 
 func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_change_jobs_to_numeric", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_change_jobs_to_numeric", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0010_bridge_fk"))
@@ -184,7 +185,7 @@ func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
 }
 
 func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_task_run_dot_id", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_task_run_dot_id", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0015_simplify_log_broadcaster"))
@@ -259,7 +260,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 }
 
 func TestMigrate_RemoveResultTask(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_result_task", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_result_task", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0019_last_run_height_column_to_keeper_table"))
@@ -304,7 +305,7 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 }
 
 func TestMigrate_LogConfigTables(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_log_config_tables", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_create_log_config_tables", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0025_create_log_config_table"))
@@ -336,7 +337,7 @@ func TestMigrate_LogConfigTables(t *testing.T) {
 }
 
 func TestMigrate_CreateCronTables(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_cron_tables", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_create_cron_tables", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_cron_spec_tables"))
@@ -351,7 +352,7 @@ func TestMigrate_CreateCronTables(t *testing.T) {
 }
 
 func TestMigrate_CreateWebhookTables(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_webhook_tables", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_create_webhook_tables", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0029_add_webhook_spec_tables"))
