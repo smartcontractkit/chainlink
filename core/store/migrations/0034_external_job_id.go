@@ -34,30 +34,30 @@ func init() {
 		ID: "0034_external_job_id",
 		Migrate: func(db *gorm.DB) error {
 			// Add the external ID column and remove type specific ones.
-			err := db.Exec(up34_1).Error
-			if err != nil {
+			if err := db.Exec(up34_1).Error; err != nil {
 				return err
 			}
 
 			// Update all jobs to have an external_job_id.
 			// We do this to avoid using the uuid postgres extension.
 			var jobs []job.Job
-			err = db.Find(&jobs).Error
-			if err != nil {
+			if err := db.Find(&jobs).Error; err != nil {
 				return err
 			}
-			stmt := `UPDATE jobs AS j SET external_job_id = vals.external_job_id FROM (values `
-			for i := range jobs {
-				if i == len(jobs)-1 {
-					stmt += fmt.Sprintf("(uuid('%s'), %d))", uuid.NewV4(), jobs[i].ID)
-				} else {
-					stmt += fmt.Sprintf("(uuid('%s'), %d),", uuid.NewV4(), jobs[i].ID)
+			if len(jobs) != 0 {
+				stmt := `UPDATE jobs AS j SET external_job_id = vals.external_job_id FROM (values `
+				for i := range jobs {
+					if i == len(jobs)-1 {
+						stmt += fmt.Sprintf("(uuid('%s'), %d))", uuid.NewV4(), jobs[i].ID)
+					} else {
+						stmt += fmt.Sprintf("(uuid('%s'), %d),", uuid.NewV4(), jobs[i].ID)
+					}
 				}
-			}
-			stmt += ` AS vals(external_job_id, id) WHERE vals.id = j.id`
-			err = db.Exec(stmt).Error
-			if err != nil {
-				return err
+				stmt += ` AS vals(external_job_id, id) WHERE vals.id = j.id`
+				if err := db.Exec(stmt).Error; err != nil {
+					return err
+
+				}
 			}
 
 			// Add constraints on the external_job_id.
