@@ -9,7 +9,10 @@ let medianTestHelperFactory: ContractFactory;
 before(async () => {
   const personas: Personas = (await getUsers()).personas;
   defaultAccount = personas.Default;
-  medianTestHelperFactory = await ethers.getContractFactory("src/core/v0.6/tests/MedianTestHelper.sol:MedianTestHelper", defaultAccount);
+  medianTestHelperFactory = await ethers.getContractFactory(
+    "src/core/v0.6/tests/MedianTestHelper.sol:MedianTestHelper",
+    defaultAccount,
+  );
 });
 
 describe("Median", () => {
