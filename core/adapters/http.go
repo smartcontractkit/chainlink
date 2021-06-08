@@ -121,7 +121,16 @@ func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 }
 
 func appendExtendedPath(request *http.Request, extPath ExtendedPath) {
-	request.URL.Path = path.Join(append([]string{request.URL.Path}, []string(extPath)...)...)
+	if len(extPath) == 0 {
+		return
+	}
+
+	if strings.HasPrefix(extPath[0], "/") || strings.HasSuffix(request.URL.Path, "/") {
+		request.URL.Path = request.URL.Path + path.Join([]string(extPath)...)
+		return
+	}
+
+	request.URL.Path = request.URL.Path + "/" + path.Join([]string(extPath)...)
 }
 
 func appendQueryParams(request *http.Request, queryParams QueryParameters) {
