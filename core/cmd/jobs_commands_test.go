@@ -323,7 +323,10 @@ func TestClient_DeleteJobV2(t *testing.T) {
 
 	requireJobsCount(t, app.JobORM(), 1)
 
-	time.Sleep(3 * time.Second)
+	jobs, err := app.JobORM().JobsV2()
+	require.NoError(t, err)
+	jobID := jobs[0].ID
+	cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
