@@ -140,7 +140,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 subId,
         uint256 amount
     )
-    internal
+    external
     {
         // TODO check subId, amount is valid, only owner
         // subscriptions[subId].balance += amount
@@ -153,7 +153,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         address to,
         uint256 amount
     )
-    internal
+    external
     {
         // TODO check subId, amount is valid, only owner
         // subscriptions[subId].balance -= amount;
@@ -164,7 +164,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     function cancelSubscription(
         uint256 subId
     )
-    internal
+    external
     {
         // TODO check subId, only owner, must be zeroed
         // Delete the subscription
