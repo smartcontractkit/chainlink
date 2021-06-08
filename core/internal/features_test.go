@@ -2048,13 +2048,6 @@ func blockNumbers(from int64, until int64) []int64 {
 	return numbers
 }
 
-func blocksFromChain(args mock.Arguments, chain map[int64]*headtracker.Block, numbers []int64) {
-	elems := args.Get(1).([]rpc.BatchElem)
-	for i, num := range numbers {
-		elems[i].Result = chain[num]
-	}
-}
-
 func blocksFromGethChain(args mock.Arguments, chain map[int64]*types.Block, numbers []int64) {
 	elems := args.Get(1).([]rpc.BatchElem)
 	for i, num := range numbers {
