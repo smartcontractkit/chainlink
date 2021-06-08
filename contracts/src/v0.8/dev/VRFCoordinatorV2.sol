@@ -99,7 +99,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // 3. Get the requestId = hash(abiencode(hash(pk), preseed))
         // 4. Look up the callback = callbacks[requestId] for the callback address
         // 5. Expand the randomness
-        // 6. Ensure we have the required gasLimit, call the callback with the specified number of words.
+        // 6. Calculate gas used up to this point, convert to link, charge the subscription and delete callback.
+        // 7. Ensure we have the required gasLimit, call the callback with the specified number of words.
     }
 
     /*
