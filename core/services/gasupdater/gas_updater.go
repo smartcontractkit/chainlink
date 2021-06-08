@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -53,8 +54,7 @@ type (
 	// based on the configured percentile of gas prices in that block
 	GasUpdater interface {
 		httypes.HeadTrackable
-		Start() error
-		Close() error
+		service.Service
 	}
 
 	// Config defines the interface for the supplied config

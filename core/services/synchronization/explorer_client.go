@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -46,10 +47,9 @@ const (
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
+	service.Service
 	Url() url.URL
 	Status() ConnectionStatus
-	Start() error
-	Close() error
 	Send(context.Context, []byte, ...int)
 	Receive(context.Context, ...time.Duration) ([]byte, error)
 }
@@ -60,6 +60,8 @@ func (NoopExplorerClient) Url() url.URL                                         
 func (NoopExplorerClient) Status() ConnectionStatus                                  { return ConnectionStatusDisconnected }
 func (NoopExplorerClient) Start() error                                              { return nil }
 func (NoopExplorerClient) Close() error                                              { return nil }
+func (NoopExplorerClient) Healthy() error                                            { return nil }
+func (NoopExplorerClient) Ready() error                                              { return nil }
 func (NoopExplorerClient) Send(context.Context, []byte, ...int)                      {}
 func (NoopExplorerClient) Receive(context.Context, ...time.Duration) ([]byte, error) { return nil, nil }
 

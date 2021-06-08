@@ -131,7 +131,7 @@ func (helper *broadcasterHelper) unsubscribeAll() {
 	time.Sleep(100 * time.Millisecond)
 }
 func (helper *broadcasterHelper) stop() {
-	err := helper.lb.Stop()
+	err := helper.lb.Close()
 	require.NoError(helper.t, err)
 	helper.storeCleanup()
 }

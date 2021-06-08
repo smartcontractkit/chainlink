@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -31,19 +32,21 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress  models.EIP55Address `json:"contractAddress"`
-	OnChainJobSpecID string              `json:"onChainJobSpecID"`
-	Initiator        string              `json:"initiator"`
-	CreatedAt        time.Time           `json:"createdAt"`
-	UpdatedAt        time.Time           `json:"updatedAt"`
+	ContractAddress          models.EIP55Address `json:"contractAddress"`
+	OnChainJobSpecID         string              `json:"onChainJobSpecID"`
+	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
+	Initiator                string              `json:"initiator"`
+	CreatedAt                time.Time           `json:"createdAt"`
+	UpdatedAt                time.Time           `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:  spec.ContractAddress,
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
+		ContractAddress:          spec.ContractAddress,
+		OnChainJobSpecID:         spec.OnChainJobSpecID.String(),
+		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",

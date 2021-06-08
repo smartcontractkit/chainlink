@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -41,8 +42,7 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		Start() error
-		Close() error
+		service.Service
 		RunBackupGracefully(version string)
 	}
 

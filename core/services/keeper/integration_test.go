@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -87,7 +88,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	backend.Commit()
 
 	// setup app
-	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "keeper_eth_integration", true, true)
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	defer cfgCleanup()
 	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test

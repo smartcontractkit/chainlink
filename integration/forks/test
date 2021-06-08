@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # save logs if script errors and exits early
 chain_number=1

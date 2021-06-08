@@ -110,7 +110,7 @@ const styles = (theme: Theme) =>
     modalContent: {
       width: 'inherit',
     },
-    archiveButton: {
+    deleteButton: {
       marginTop: theme.spacing.unit * 4,
     },
     runJobButton: {
@@ -135,7 +135,7 @@ const CreateRunSuccessNotification = ({ data }: any) => (
 )
 
 const DeleteSuccessNotification = ({ id }: any) => (
-  <React.Fragment>Successfully archived job {id}</React.Fragment>
+  <React.Fragment>Successfully deleted job {id}</React.Fragment>
 )
 
 interface Props extends WithStyles<typeof styles> {
@@ -167,7 +167,7 @@ const RegionalNavComponent = ({
   const navOverviewActive =
     !navDefinitionActive && !navErrorsActive && !navRunsActive
   const [modalOpen, setModalOpen] = useState(false)
-  const [archived, setArchived] = useState(false)
+  const [deleted, setDeleted] = useState(false)
   const [runJobModalOpen, setRunJobModalOpen] = useState(false)
 
   const handleRun = async (pipelineInput: string) => {
@@ -197,7 +197,7 @@ const RegionalNavComponent = ({
       ErrorMessage,
       job?.type,
     )
-    setArchived(true)
+    setDeleted(true)
   }
 
   const typeDetail = useMemo(() => {
@@ -281,13 +281,13 @@ const RegionalNavComponent = ({
                 </Grid>
               </Grid>
               <Grid container spacing={0} alignItems="center" justify="center">
-                <Grid item className={classes.archiveButton}>
+                <Grid item className={classes.deleteButton}>
                   <Button
                     variant="danger"
                     onClick={() => handleDelete(jobSpecId)}
                   >
-                    Archive {jobSpecId}
-                    {archived && <Redirect to="/" />}
+                    Delete {jobSpecId}
+                    {deleted && <Redirect to="/" />}
                   </Button>
                 </Grid>
               </Grid>
@@ -330,7 +330,7 @@ const RegionalNavComponent = ({
                       className={classes.regionalNavButton}
                       onClick={() => setModalOpen(true)}
                     >
-                      Archive
+                      Delete
                     </Button>
                     {((job.type === 'Direct request' &&
                       job.initiators &&
