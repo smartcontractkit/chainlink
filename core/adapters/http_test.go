@@ -684,7 +684,7 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			baseUrl,
 			`""`,
 			`"firstKey=firstVal"`,
-			"http://example.com/?firstKey=firstVal",
+			"http://example.com?firstKey=firstVal",
 		},
 		{
 			"subdirectory with trailing slash",
