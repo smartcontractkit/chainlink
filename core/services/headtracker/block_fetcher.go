@@ -90,7 +90,7 @@ func (bf *BlockFetcher) BlockRange(ctx context.Context, fromBlock int64, toBlock
 }
 
 func (bf *BlockFetcher) BlocksWithoutCache(ctx context.Context, numbers []int64) (map[int64]Block, error) {
-	bf.logger.Debugw("BlockFetcher#BlocksWithoutCache", "len", numbers)
+	bf.logger.Debugw("BlockFetcher#BlocksWithoutCache", "blockNumbers", numbers)
 	return bf.blockEthClient.FetchBlocksByNumbers(ctx, numbers)
 }
 
@@ -108,7 +108,6 @@ func (bf *BlockFetcher) Chain(ctx context.Context, latestHead models.Head) (mode
 	if err != nil {
 		return models.Head{}, errors.Wrapf(err, "BlockFetcher#Chain error for syncLatestHead: %v", latestHead.Number)
 	}
-	bf.logger.Debug("Returned from Chain")
 	return headWithChain, nil
 }
 
@@ -234,7 +233,6 @@ func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBl
 		for _, blockItem := range blocksFetched {
 			block := blockItem
 
-			//existingBlocks[block.Number] = &block
 			bf.recent[block.Hash] = &block
 
 			if bf.latestBlockNum < block.Number {
@@ -285,6 +283,7 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 
 	bf.logger.Debugw("BlockFetcher: Starting sync head",
 		"blockNumber", head.Number,
+		"blockHash", head.Hash,
 		"fromBlockHeight", from,
 		"toBlockHeight", head.Number)
 	defer func() {
@@ -300,8 +299,10 @@ func (bf *BlockFetcher) syncLatestHead(ctx context.Context, head models.Head) (m
 	}()
 
 	// first, check if the previous block already exists locally
+	logger.Debugf("Block by parent hash %v", head.ParentHash)
 	var existingPrevBlock = bf.findBlockByHash(head.ParentHash)
 	if existingPrevBlock != nil {
+		logger.Debugf("Previous block already exists locally: %v, %v", existingPrevBlock.Number, existingPrevBlock.Hash)
 		// if yes, just fetch the latest block
 		block, err := bf.fetchAndSaveBlock(ctx, head.Hash)
 		if err != nil {

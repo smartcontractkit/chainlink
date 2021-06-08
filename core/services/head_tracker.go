@@ -180,9 +180,13 @@ func (ht *HeadTracker) headSampler() {
 				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
 			}
 
-			//TODO:
-			// headWithChain, err := ht.blockFetcher.Chain(ctx, head)
-			headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
+			var headWithChain models.Head
+			var err error
+			if ht.store.Config.BlockFetcherEnabled() {
+				headWithChain, err = ht.blockFetcher.Chain(ctx, head)
+			} else {
+				headWithChain, err = ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
+			}
 
 			if ctx.Err() != nil {
 				continue

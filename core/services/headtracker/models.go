@@ -117,13 +117,20 @@ func FromEthBlock(ethBlock *types.Block) *Block {
 	block.Number = ethBlock.Number().Int64()
 	block.Hash = ethBlock.Hash()
 	block.ParentHash = ethBlock.ParentHash()
+	block.Transactions = make([]Transaction, 0)
+	for _, tx := range ethBlock.Transactions() {
+		block.Transactions = append(block.Transactions, Transaction{
+			GasLimit: tx.Gas(),
+			GasPrice: tx.GasPrice(),
+		})
+	}
 	return &block
 }
 
-func HeadFromBlock(ethBlock Block) models.Head {
+func HeadFromBlock(block Block) models.Head {
 	var head models.Head
-	head.Number = ethBlock.Number
-	head.Hash = ethBlock.Hash
-	head.ParentHash = ethBlock.ParentHash
+	head.Number = block.Number
+	head.Hash = block.Hash
+	head.ParentHash = block.ParentHash
 	return head
 }

@@ -1838,7 +1838,7 @@ func TestIntegration_GasUpdater(t *testing.T) {
 		ethClient,
 	)
 	defer cleanup()
-	chain := cltest.Chain(0, 41, []headtracker.Block{})
+	chain := cltest.Chain(0, 41)
 
 	b41 := cltest.NewBlockWithTransactionsAndParent(41, chain[40].Hash,
 		cltest.TransactionsFromGasPrices(41000000000, 41500000000))
@@ -1909,6 +1909,116 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }
 
+func TestIntegration_GasUpdater_BlockFetcherEnabled(t *testing.T) {
+	t.Parallel()
+
+	c, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	c.Set("ETH_GAS_PRICE_DEFAULT", 5000000000)
+	c.Set("BLOCK_FETCHER_ENABLED", true)
+	c.Set("GAS_UPDATER_ENABLED", true)
+	c.Set("GAS_UPDATER_BLOCK_DELAY", 0)
+	c.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", 2)
+	// Limit the headtracker backfill depth just so we aren't here all week
+	c.Set("ETH_FINALITY_DEPTH", 3)
+
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithoutBatchSetup(t)
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, c,
+		ethClient,
+	)
+	defer cleanup()
+	chain := cltest.ChainGeth(0, 41)
+
+	b41 := cltest.NewGethBlockWithTransactionsAndParent(41, chain[40].Hash(),
+		cltest.TransactionsFromGasPrices(41000000000, 41500000000))
+	b42 := cltest.NewGethBlockWithTransactionsAndParent(42, b41.Hash(),
+		cltest.TransactionsFromGasPrices(44000000000, 45000000000))
+
+	chain[41] = b41
+	chain[42] = b42
+
+	h42 := headtracker.HeadFromBlock(*headtracker.FromEthBlock(chain[42]))
+
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil).Maybe()
+
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+
+	// Nonce syncer
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+
+	// GasUpdater boot calls
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return matchesBlockNumbers(b, []int64{41, 42})
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &b41
+		elems[1].Result = &b42
+	})
+
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(c.ChainID(), nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+
+	for i := int64(33); i > 0; i -= 10 {
+		numbers := blockNumbers(i, i+10)
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return matchesBlockNumbers(b, numbers)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			blocksFromGethChain(args, chain, numbers)
+		})
+	}
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return matchesBlockNumbers(b, blockNumbers(0, 3))
+	})).Maybe().Return(nil).Run(func(args mock.Arguments) {
+		blocksFromGethChain(args, chain, blockNumbers(0, 3))
+	})
+
+	require.NoError(t, app.Start())
+	var newHeads chan<- *models.Head
+	select {
+	case newHeads = <-chchNewHeads:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for app to subscribe")
+	}
+
+	ethClient.On("FastBlockByHash", mock.Anything, mock.MatchedBy(func(hash common.Hash) bool {
+		return b42.Hash() == hash
+	})).Return(b42, nil)
+
+	newHeads <- &h42
+
+	gomega.NewGomegaWithT(t).Eventually(func() string {
+		return c.EthGasPriceDefault().String()
+	}, 4*time.Second, cltest.DBPollingInterval).Should(gomega.Equal("41500000000"))
+
+	// ----------------------------------------- setup for block 43 ----------------------------------------------------
+
+	b43 := cltest.NewGethBlockWithTransactionsAndParent(43, b42.Hash(),
+		cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000))
+
+	h43 := headtracker.HeadFromBlock(*headtracker.FromEthBlock(b43))
+
+	// GasUpdater new blocks
+	ethClient.On("FastBlockByHash", mock.Anything, mock.MatchedBy(func(hash common.Hash) bool {
+		return b43.Hash() == hash
+	})).Return(b43, nil)
+	newHeads <- &h43
+
+	gomega.NewGomegaWithT(t).Eventually(func() string {
+		return c.EthGasPriceDefault().String()
+	}, 4*time.Second, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+
+	assertMocksCalled()
+}
+
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 	keys, err := app.Store.KeyStore.SendingKeys()
 	require.NoError(t, err)
@@ -1927,4 +2037,27 @@ func matchesBlockNumbers(b []rpc.BatchElem, numbers []int64) bool {
 		}
 	}
 	return true
+}
+
+func blockNumbers(from int64, until int64) []int64 {
+	var numbers []int64
+	for i := from; i < until; i++ {
+		numbers = append(numbers, i)
+	}
+	return numbers
+}
+
+func blocksFromChain(args mock.Arguments, chain map[int64]*headtracker.Block, numbers []int64) {
+	elems := args.Get(1).([]rpc.BatchElem)
+	for i, num := range numbers {
+		elems[i].Result = chain[num]
+	}
+}
+
+func blocksFromGethChain(args mock.Arguments, chain map[int64]*types.Block, numbers []int64) {
+	elems := args.Get(1).([]rpc.BatchElem)
+	for i, num := range numbers {
+		elems[i].Result = headtracker.FromEthBlock(chain[num])
+	}
+
 }

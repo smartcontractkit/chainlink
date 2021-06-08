@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink/core/services"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -1491,13 +1493,53 @@ func NewBlockWithTransactionsAndParent(number int64, parentHash common.Hash, tra
 	}
 }
 
-func Chain(from int64, until int64, predefined []headtracker.Block) map[int64]*headtracker.Block {
-	blocks := make(map[int64]*headtracker.Block)
-	for _, block := range predefined {
-		b := block
-		blocks[block.Number] = &b
+func NewGethBlockWithTransactionsAndParent(number int64, parentHash common.Hash, transactions []headtracker.Transaction) *types.Block {
+
+	header := &types.Header{
+		Root:       NewHash(),
+		ParentHash: parentHash,
+		Number:     big.NewInt(number),
 	}
 
+	transactionsSeq := make([]*types.Transaction, 0)
+
+	for _, transaction := range transactions {
+		tx := types.NewTx(&types.AccessListTx{
+			GasPrice: transaction.GasPrice,
+			Gas:      42,
+		})
+		transactionsSeq = append(transactionsSeq, tx)
+	}
+
+	block := types.NewBlock(header, transactionsSeq, make([]*types.Header, 0), make([]*types.Receipt, 0), newHasher())
+
+	logger.Warnf("BLOCKL %v", len(block.Transactions()))
+	return block
+}
+
+type testHasher struct {
+	hasher hash.Hash
+}
+
+func newHasher() *testHasher {
+	return &testHasher{hasher: sha3.NewLegacyKeccak256()}
+}
+
+func (h *testHasher) Reset() {
+	h.hasher.Reset()
+}
+
+func (h *testHasher) Update(key, val []byte) {
+	h.hasher.Write(key)
+	h.hasher.Write(val)
+}
+
+func (h *testHasher) Hash() common.Hash {
+	return common.BytesToHash(h.hasher.Sum(nil))
+}
+
+func Chain(from int64, until int64) map[int64]*headtracker.Block {
+	blocks := make(map[int64]*headtracker.Block)
 	var current *headtracker.Block
 	for i := from; i < until; i++ {
 
@@ -1510,6 +1552,28 @@ func Chain(from int64, until int64, predefined []headtracker.Block) map[int64]*h
 			}
 
 			block = NewBlock(int(i), parentHash)
+			blocks[i] = block
+		}
+
+		current = block
+	}
+	return blocks
+}
+
+func ChainGeth(from int64, until int64) map[int64]*types.Block {
+	blocks := make(map[int64]*types.Block)
+	var current *types.Block
+	for i := from; i < until; i++ {
+
+		block, ok := blocks[i]
+		if !ok {
+
+			parentHash := common.Hash{}
+			if current != nil {
+				parentHash = current.Hash()
+			}
+
+			block = NewGethBlock(int(i), parentHash)
 			blocks[i] = block
 		}
 
