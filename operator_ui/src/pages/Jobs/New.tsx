@@ -165,6 +165,7 @@ export const New = ({
   // Extract the tasks from the job spec to display in the preview
   useEffect(() => {
     const timeout = setTimeout(() => {
+      setValueErrorMsg('')
       const taskList = getTaskList({ value })
       if (taskList.error) {
         setValid(false)
@@ -193,7 +194,6 @@ export const New = ({
     setValue(event.target.value)
     storage.set(`${PERSIST_SPEC}${format}`, event.target.value)
     setValid(true)
-    setValueErrorMsg('')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -282,7 +282,7 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading}
+                      disabled={loading || Boolean(valueErrorMsg)}
                     >
                       Create Job
                       {loading && (
