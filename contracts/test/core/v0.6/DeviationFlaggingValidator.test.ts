@@ -1,35 +1,33 @@
-import {
-  contract,
-  matchers,
-  helpers as h,
-  setup,
-} from '@chainlink/test-helpers'
-import { assert } from 'chai'
-import { DeviationFlaggingValidator__factory } from '../../ethers/v0.6/factories/DeviationFlaggingValidator__factory'
-import { Flags__factory } from '../../ethers/v0.6/factories/Flags__factory'
-import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
+import { ethers } from "hardhat";
+import { publicAbi } from "../../helpers";
+import { assert, expect } from "chai";
+import { BigNumber, Contract, ContractFactory } from "ethers";
+import { Personas, getUsers } from "../../setup";
+import { bigNumEquals } from "../../matchers";
 
-let personas: setup.Personas
-const provider = setup.provider()
-const validatorFactory = new DeviationFlaggingValidator__factory()
-const flagsFactory = new Flags__factory()
-const acFactory = new SimpleWriteAccessController__factory()
+let personas: Personas
+let validatorFactory: ContractFactory
+let flagsFactory: ContractFactory
+let acFactory: ContractFactory
 
-beforeAll(async () => {
-  personas = await setup.users(provider).then((x) => x.personas)
+before(async () => {
+  personas = (await getUsers()).personas;
+  validatorFactory = await ethers.getContractFactory('DeviationFlaggingValidator', personas.Carol)
+  flagsFactory = await ethers.getContractFactory('Flags', personas.Carol)
+  acFactory = await ethers.getContractFactory('SimpleWriteAccessController', personas.Carol)
 })
 
 describe('DeviationFlaggingValidator', () => {
-  let validator: contract.Instance<DeviationFlaggingValidator__factory>
-  let flags: contract.Instance<Flags__factory>
-  let ac: contract.Instance<SimpleWriteAccessController__factory>
+  let validator: Contract
+  let flags: Contract
+  let ac: Contract
   const flaggingThreshold = 10000 // 10%
   const previousRoundId = 2
   const previousValue = 1000000
   const currentRoundId = 3
   const currentValue = 1000000
 
-  const deployment = setup.snapshot(provider, async () => {
+  beforeEach(async () => {
     ac = await acFactory.connect(personas.Carol).deploy()
     flags = await flagsFactory.connect(personas.Carol).deploy(ac.address)
     validator = await validatorFactory
@@ -38,12 +36,8 @@ describe('DeviationFlaggingValidator', () => {
     await ac.connect(personas.Carol).addAccess(validator.address)
   })
 
-  beforeEach(async () => {
-    await deployment()
-  })
-
   it('has a limited public interface', () => {
-    matchers.publicAbi(validatorFactory, [
+    publicAbi(validator, [
       'THRESHOLD_MULTIPLIER',
       'flaggingThreshold',
       'flags',
@@ -61,7 +55,7 @@ describe('DeviationFlaggingValidator', () => {
   describe('#constructor', () => {
     it('sets the arguments passed in', async () => {
       assert.equal(flags.address, await validator.flags())
-      matchers.bigNum(flaggingThreshold, await validator.flaggingThreshold())
+      bigNumEquals(flaggingThreshold, await validator.flaggingThreshold())
     })
   })
 
@@ -70,25 +64,14 @@ describe('DeviationFlaggingValidator', () => {
       const currentValue = 1100010
 
       it('does raises a flag for the calling address', async () => {
-        const tx = await validator
+        await expect(validator
           .connect(personas.Nelly)
           .validate(
             previousRoundId,
             previousValue,
             currentRoundId,
             currentValue,
-          )
-        const receipt = await tx.wait()
-        const event = matchers.eventExists(
-          receipt,
-          flags.interface.events.FlagRaised,
-        )
-
-        assert.equal(flags.address, event.address)
-        assert.equal(
-          personas.Nelly.address,
-          h.evmWordToAddress(event.topics[1]),
-        )
+          )).to.emit(flags, 'FlagRaised').withArgs(await personas.Nelly.getAddress())
       })
 
       it('uses less than the gas allotted by the aggregator', async () => {
@@ -103,7 +86,7 @@ describe('DeviationFlaggingValidator', () => {
         const receipt = await tx.wait()
         assert(receipt)
         if (receipt && receipt.gasUsed) {
-          assert.isAbove(60000, receipt.gasUsed.toNumber())
+          assert.isAbove(receipt.gasUsed.toNumber(), 60000)
         }
       })
     })
@@ -112,16 +95,14 @@ describe('DeviationFlaggingValidator', () => {
       const currentValue = 1100009
 
       it('does raises a flag for the calling address', async () => {
-        const tx = await validator
+        await expect(validator
           .connect(personas.Nelly)
           .validate(
             previousRoundId,
             previousValue,
             currentRoundId,
             currentValue,
-          )
-        const receipt = await tx.wait()
-        matchers.eventDoesNotExist(receipt, flags.interface.events.FlagRaised)
+          )).to.not.emit(flags, 'FlagRaised')
       })
 
       it('uses less than the gas allotted by the aggregator', async () => {
@@ -136,7 +117,7 @@ describe('DeviationFlaggingValidator', () => {
         const receipt = await tx.wait()
         assert(receipt)
         if (receipt && receipt.gasUsed) {
-          assert.isAbove(24000, receipt.gasUsed.toNumber())
+          assert.isAbove(receipt.gasUsed.toNumber(), 24000)
         }
       })
     })
@@ -201,8 +182,8 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     describe('when the difference overflows', () => {
-      const previousValue = h.bigNum(2).pow(255).sub(1)
-      const currentValue = h.bigNum(-1)
+      const previousValue = BigNumber.from(2).pow(255).sub(1)
+      const currentValue = BigNumber.from(-1)
 
       it('does not revert and returns false', async () => {
         assert.isFalse(
@@ -212,8 +193,8 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     describe('when the rounding overflows', () => {
-      const previousValue = h.bigNum(2).pow(255).div(10000)
-      const currentValue = h.bigNum(1)
+      const previousValue = BigNumber.from(2).pow(255).div(10000)
+      const currentValue = BigNumber.from(1)
 
       it('does not revert and returns false', async () => {
         assert.isFalse(
@@ -223,8 +204,8 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     describe('when the division overflows', () => {
-      const previousValue = h.bigNum(2).pow(255).sub(1)
-      const currentValue = h.bigNum(-1)
+      const previousValue = BigNumber.from(2).pow(255).sub(1)
+      const currentValue = BigNumber.from(-1)
 
       it('does not revert and returns false', async () => {
         assert.isFalse(
@@ -246,35 +227,23 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     it('emits a log event only when actually changed', async () => {
-      const tx = await validator
+      await expect(validator
         .connect(personas.Carol)
-        .setFlaggingThreshold(newThreshold)
-      const receipt = await tx.wait()
-      const eventLog = matchers.eventExists(
-        receipt,
-        validator.interface.events.FlaggingThresholdUpdated,
-      )
+        .setFlaggingThreshold(newThreshold)).to.emit(validator, 'FlaggingThresholdUpdated')
+        .withArgs(flaggingThreshold, newThreshold)
 
-      assert.equal(flaggingThreshold, h.eventArgs(eventLog).previous)
-      assert.equal(newThreshold, h.eventArgs(eventLog).current)
-
-      const sameChangeTx = await validator
+      await expect(validator
         .connect(personas.Carol)
-        .setFlaggingThreshold(newThreshold)
-      const sameChangeReceipt = await sameChangeTx.wait()
-      assert.equal(0, sameChangeReceipt.events?.length)
-      matchers.eventDoesNotExist(
-        sameChangeReceipt,
-        validator.interface.events.FlaggingThresholdUpdated,
-      )
+        .setFlaggingThreshold(newThreshold)).to.not.emit(validator, 'FlaggingThresholdUpdated')
     })
 
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
-        await matchers.evmRevert(
+        await expect(
           validator.connect(personas.Neil).setFlaggingThreshold(newThreshold),
-          'Only callable by owner',
-        )
+          ).to.be.revertedWith(
+            'Only callable by owner',
+          )
       })
     })
   })
@@ -291,35 +260,23 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     it('emits a log event only when actually changed', async () => {
-      const tx = await validator
+      await expect(validator
         .connect(personas.Carol)
-        .setFlagsAddress(newFlagsAddress)
-      const receipt = await tx.wait()
-      const eventLog = matchers.eventExists(
-        receipt,
-        validator.interface.events.FlagsAddressUpdated,
-      )
+        .setFlagsAddress(newFlagsAddress)).to.emit(validator, 'FlagsAddressUpdated')
+        .withArgs(flags.address, newFlagsAddress)
 
-      assert.equal(flags.address, h.eventArgs(eventLog).previous)
-      assert.equal(newFlagsAddress, h.eventArgs(eventLog).current)
-
-      const sameChangeTx = await validator
+      await expect(validator
         .connect(personas.Carol)
-        .setFlagsAddress(newFlagsAddress)
-      const sameChangeReceipt = await sameChangeTx.wait()
-      assert.equal(0, sameChangeReceipt.events?.length)
-      matchers.eventDoesNotExist(
-        sameChangeReceipt,
-        validator.interface.events.FlagsAddressUpdated,
-      )
+        .setFlagsAddress(newFlagsAddress)).to.not.emit(validator, 'FlagsAddressUpdated')
     })
 
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
-        await matchers.evmRevert(
+        await expect(
           validator.connect(personas.Neil).setFlagsAddress(newFlagsAddress),
-          'Only callable by owner',
-        )
+          ).to.be.revertedWith(
+            'Only callable by owner',
+          )
       })
     })
   })
