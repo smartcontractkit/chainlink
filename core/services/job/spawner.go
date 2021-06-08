@@ -39,7 +39,6 @@ type (
 		orm                          ORM
 		config                       Config
 		jobTypeDelegates             map[Type]Delegate
-		jobTypeDelegatesMu           sync.RWMutex
 		startUnclaimedServicesWorker utils.SleeperTask
 		activeJobs                   map[int32]activeJob
 		activeJobsMu                 sync.RWMutex
@@ -184,9 +183,6 @@ func (js *spawner) startUnclaimedServices() {
 		return
 	}
 
-	js.jobTypeDelegatesMu.RLock()
-	defer js.jobTypeDelegatesMu.RUnlock()
-
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
@@ -292,9 +288,6 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 }
 
 func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (int32, error) {
-	js.jobTypeDelegatesMu.Lock()
-	defer js.jobTypeDelegatesMu.Unlock()
-
 	delegate, exists := js.jobTypeDelegates[spec.Type]
 	if !exists {
 		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
