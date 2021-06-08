@@ -6,6 +6,7 @@ pkgs.mkShell {
 
     postgresql
     python3
+    python3Packages.pip
     curl
     nodejs-12_x
     (yarn.override { nodejs = nodejs-12_x; })

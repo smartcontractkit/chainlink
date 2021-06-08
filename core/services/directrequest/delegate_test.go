@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -30,11 +31,11 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
+	_, orm, cleanupDB := heavyweight.FullTestORM(t, "event_broadcaster", true)
 	defer cleanupDB()
 
 	config := testConfig{
-		minRequiredOutgoingConfirmations: 1,
+		minIncomingConfirmations: 1,
 	}
 	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, orm.DB, config)
 
@@ -67,7 +68,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "delegate_services_listener_handlelog", true, true)
 	db := oldORM.DB
 
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
@@ -109,7 +110,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 
 func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	drConfig := testConfig{
-		minRequiredOutgoingConfirmations: 1,
+		minIncomingConfirmations: 1,
 	}
 	return NewDirectRequestUniverseWithConfig(t, drConfig)
 }
@@ -332,8 +333,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has sufficient funds", func(t *testing.T) {
 		drConfig := testConfig{
-			minRequiredOutgoingConfirmations: 1,
-			minimumContractPayment:           assets.NewLink(100),
+			minIncomingConfirmations: 1,
+			minimumContractPayment:   assets.NewLink(100),
 		}
 		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
 		defer uni.Cleanup()
@@ -383,8 +384,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has insufficient funds", func(t *testing.T) {
 		drConfig := testConfig{
-			minRequiredOutgoingConfirmations: 1,
-			minimumContractPayment:           assets.NewLink(100),
+			minIncomingConfirmations: 1,
+			minimumContractPayment:   assets.NewLink(100),
 		}
 		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
 		defer uni.Cleanup()
@@ -423,12 +424,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 }
 
 type testConfig struct {
-	minRequiredOutgoingConfirmations uint64
-	minimumContractPayment           *assets.Link
+	minIncomingConfirmations uint32
+	minimumContractPayment   *assets.Link
 }
 
-func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
-	return c.minRequiredOutgoingConfirmations
+func (c testConfig) MinIncomingConfirmations() uint32 {
+	return c.minIncomingConfirmations
 }
 
 func (c testConfig) MinimumContractPayment() *assets.Link {

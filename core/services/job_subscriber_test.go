@@ -26,7 +26,7 @@ func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer jobSubscriber.Close()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -96,7 +96,7 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer jobSubscriber.Close()
 
 	jobSpec := cltest.NewJobWithLogInitiator()
 	err := jobSubscriber.AddJob(jobSpec, cltest.Head(321))
@@ -129,7 +129,7 @@ func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer jobSubscriber.Close()
 
 	job := models.JobSpec{}
 	err := jobSubscriber.AddJob(job, cltest.Head(1))
@@ -144,7 +144,7 @@ func TestJobSubscriber_RemoveJob_NotFoundError(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer jobSubscriber.Close()
 
 	err := jobSubscriber.RemoveJob(models.NewJobID())
 	require.Error(t, err)
@@ -178,7 +178,7 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 
 	assert.Len(t, jobSubscriber.Jobs(), 2)
 
-	jobSubscriber.Stop()
+	jobSubscriber.Close()
 
 	assert.Len(t, jobSubscriber.Jobs(), 0)
 }
