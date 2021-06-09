@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up34 = `
+const up35 = `
 CREATE TABLE feeds_managers (
     id BIGSERIAL PRIMARY KEY,
 	name VARCHAR (255) NOT NULL,
@@ -17,18 +17,18 @@ CREATE TABLE feeds_managers (
 );
 `
 
-const down34 = `
+const down35 = `
 	DROP TABLE feeds_managers
 `
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0034_create_feeds_managers",
+		ID: "0035_create_feeds_managers",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up34).Error
+			return db.Exec(up35).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down34).Error
+			return db.Exec(down35).Error
 		},
 	})
 }
