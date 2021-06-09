@@ -342,7 +342,14 @@ func TestMigrate_CreateCronTables(t *testing.T) {
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_cron_spec_tables"))
 
-	cs := job.CronSpec{
+	type CronSpec struct {
+		ID           int32     `toml:"-" gorm:"primary_key"`
+		CronSchedule string    `toml:"schedule"`
+		CreatedAt    time.Time `toml:"-"`
+		UpdatedAt    time.Time `toml:"-"`
+	}
+
+	cs := CronSpec{
 		ID:           int32(1),
 		CronSchedule: "0 0 0 1 1 *",
 	}
@@ -357,7 +364,14 @@ func TestMigrate_CreateWebhookTables(t *testing.T) {
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0029_add_webhook_spec_tables"))
 
-	cs := job.WebhookSpec{
+	type WebhookSpec struct {
+		ID               int32        `toml:"-" gorm:"primary_key"`
+		OnChainJobSpecID models.JobID `toml:"jobID"`
+		CreatedAt        time.Time    `json:"createdAt" toml:"-"`
+		UpdatedAt        time.Time    `json:"updatedAt" toml:"-"`
+	}
+
+	cs := WebhookSpec{
 		ID: int32(1),
 	}
 	require.NoError(t, orm.DB.Create(&cs).Error)

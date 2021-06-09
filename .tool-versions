@@ -1,1 +1,2 @@
-golang 1.15
+golang 1.16
+mockery 2.8.0
