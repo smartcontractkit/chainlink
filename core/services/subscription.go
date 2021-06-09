@@ -279,26 +279,9 @@ func (sub *InitiatorSubscription) backfillLogs(ctx context.Context, q ethereum.F
 // Unsubscribe closes channels and cleans up resources.
 func (sub *InitiatorSubscription) Unsubscribe() {
 	if sub.ethSubscription != nil {
-		timedUnsubscribe(sub.ethSubscription)
+		sub.ethSubscription.Unsubscribe()
 	}
 	close(sub.done)
-}
-
-// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
-// unblocking the application. This is an effort to mitigate the occasional
-// indefinite block described here from go-ethereum:
-// https://chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(s ethereum.Subscription) {
-	unsubscribed := make(chan struct{})
-	go func() {
-		s.Unsubscribe()
-		close(unsubscribed)
-	}()
-	select {
-	case <-unsubscribed:
-	case <-time.After(100 * time.Millisecond):
-		logger.Warnf("Subscription %T Unsubscribe timed out.", s)
-	}
 }
 
 // ReceiveLogRequest parses the log and runs the job it indicated by its

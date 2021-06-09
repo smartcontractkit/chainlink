@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"strconv"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gorm.io/gorm"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -52,10 +52,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
-		Where("pipeline_runs.id = ?", pipelineRun.ID).
-		First(&pipelineRun).Error
-
+	pipelineRun, err = prc.App.PipelineORM().FindRun(pipelineRun.ID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -69,10 +66,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
 	respondWithPipelineRun := func(jobRunID int64) {
-		var pipelineRun pipeline.Run
-		err := preloadPipelineRunDependencies(prc.App.GetStore().DB).
-			Where("pipeline_runs.id = ?", jobRunID).
-			First(&pipelineRun).Error
+		pipelineRun, err := prc.App.PipelineORM().FindRun(jobRunID)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -89,8 +83,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	idStr := c.Param("ID")
 
 	// Is it a UUID? Then process it as a webhook job
-	var jobUUID models.JobID
-	err = jobUUID.UnmarshalText([]byte(idStr))
+	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
 		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, pipelineInput, pipeline.JSONSerializable{Null: true})
 		if err2 != nil {
@@ -116,13 +109,4 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	}
 
 	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))
-}
-
-func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
-	return db.
-		Preload("PipelineSpec").
-		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Order("created_at ASC, id ASC")
-		})
 }

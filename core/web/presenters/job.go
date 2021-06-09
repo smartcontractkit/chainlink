@@ -3,6 +3,8 @@ package presenters
 import (
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/lib/pq"
@@ -33,7 +35,6 @@ const (
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
 	ContractAddress          models.EIP55Address `json:"contractAddress"`
-	OnChainJobSpecID         string              `json:"onChainJobSpecID"`
 	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
 	Initiator                string              `json:"initiator"`
 	CreatedAt                time.Time           `json:"createdAt"`
@@ -45,7 +46,6 @@ type DirectRequestSpec struct {
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
 		ContractAddress:          spec.ContractAddress,
-		OnChainJobSpecID:         spec.OnChainJobSpecID.String(),
 		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
@@ -159,17 +159,15 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 
 // WebhookSpec defines the spec details of a Webhook Job
 type WebhookSpec struct {
-	OnChainJobSpecID string    `json:"onChainJobSpecID"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
 func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 	return &WebhookSpec{
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
-		CreatedAt:        spec.CreatedAt,
-		UpdatedAt:        spec.UpdatedAt,
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
 	}
 }
 
@@ -190,9 +188,9 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
-	Confirmations      uint32              `toml:"confirmations"`
+	CoordinatorAddress models.EIP55Address `json:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `json:"publicKey"`
+	Confirmations      uint32              `json:"confirmations"`
 	CreatedAt          time.Time           `json:"createdAt"`
 	UpdatedAt          time.Time           `json:"updatedAt"`
 }
@@ -233,6 +231,7 @@ type JobResource struct {
 	Type                  JobSpecType            `json:"type"`
 	SchemaVersion         uint32                 `json:"schemaVersion"`
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
+	ExternalJobID         uuid.UUID              `json:"externalJobID"`
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	CronSpec              *CronSpec              `json:"cronSpec"`
@@ -253,6 +252,7 @@ func NewJobResource(j job.Job) *JobResource {
 		SchemaVersion:   j.SchemaVersion,
 		MaxTaskDuration: j.MaxTaskDuration,
 		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
+		ExternalJobID:   j.ExternalJobID,
 	}
 
 	switch j.Type {

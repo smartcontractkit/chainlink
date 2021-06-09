@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -34,6 +36,7 @@ func TestCronV2Pipeline(t *testing.T) {
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		Pipeline:      *pipeline.NewTaskDAG(),
 		PipelineSpec:  &pipeline.Spec{},
+		ExternalJobID: uuid.NewV4(),
 	}
 	delegate := cron.NewDelegate(runner)
 

@@ -136,5 +136,5 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepI
 func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
 	from := upkeep.Registry.FromAddress.Address()
 	to := upkeep.Registry.ContractAddress.Address()
-	return bulletprooftxmanager.CreateEthTransaction(tx, from, to, payload, upkeep.ExecuteGas+gasBuffer, maxUnconfirmedTXs)
+	return bulletprooftxmanager.CreateEthTransaction(tx, from, to, payload, upkeep.ExecuteGas+gasBuffer, maxUnconfirmedTXs, nil)
 }
