@@ -8,8 +8,8 @@
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd .. && pwd -P )"
 
-solc-select use 0.8.4
+solc-select use 0.6.6
 solc --overwrite --optimize --optimize-runs 1000000 --metadata-hash none \
-    -o $SCRIPTPATH/solc/v0.8 \
-    --abi --bin --allow-paths $SCRIPTPATH/src/core/v0.8/**/* \
+    -o $SCRIPTPATH/solc/v0.6 \
+    --abi --bin --allow-paths $SCRIPTPATH/src/core/v0.6,$SCRIPTPATH/src/core/v0.6/*,$SCRIPTPATH/src/client \
     $SCRIPTPATH/src/$1

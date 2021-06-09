@@ -5,13 +5,13 @@ package gethwrappers
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/FluxAggregator.abi ../../../evm-contracts/solc/v0.6/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFTestHelper.bin VRFTestHelper solidity_vrf_verifier_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFCoordinator.abi ../../../evm-contracts/solc/v0.6/VRFCoordinator.bin VRFCoordinator solidity_vrf_coordinator_interface
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFConsumer.abi ../../../evm-contracts/solc/v0.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/Flags.abi ../../../evm-contracts/solc/v0.6/Flags.bin Flags flags_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/Oracle.abi ../../../evm-contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFTestHelper.abi ../../../contracts/solc/v0.6/VRFTestHelper.bin VRFTestHelper solidity_vrf_verifier_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFCoordinator.abi ../../../contracts/solc/v0.6/VRFCoordinator.bin VRFCoordinator solidity_vrf_coordinator_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFConsumer.abi ../../../contracts/solc/v0.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin Flags flags_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/MultiWordConsumer.abi ../../../evm-contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
