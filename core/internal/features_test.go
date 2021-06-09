@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -951,7 +953,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = cltest.MustJobIDFromString(t, "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -1058,6 +1060,7 @@ observationSource   = """
 		require.NoError(t, err)
 		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
+		t.Log("JOB created", job.WebhookSpecID)
 
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}

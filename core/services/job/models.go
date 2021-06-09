@@ -69,6 +69,7 @@ type Job struct {
 	VRFSpec                       *VRFSpec
 	WebhookSpecID                 *int32
 	WebhookSpec                   *WebhookSpec
+	ExternalInitiator             *models.ExternalInitiator `toml:"-" gorm:"-"`
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`

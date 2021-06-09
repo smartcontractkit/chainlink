@@ -89,6 +89,24 @@ func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
 		Preload("VRFSpec")
 }
 
+func PopulateExternalInitiator(db *gorm.DB, jb Job) (Job, error) {
+	if jb.WebhookSpecID != nil {
+		// TODO: Once jpv1 is gone make an FK from external_initiators to jobs.
+		// Populate any external initiators
+		var exi models.ExternalInitiator
+		err := db.Raw(`SELECT * from external_initiators 
+				JOIN webhook_specs 
+				ON webhook_specs.external_initiator_name = external_initiators.name
+				WHERE webhook_specs.id = ?
+				`, jb.WebhookSpecID).Scan(&exi).Error
+		if err != nil {
+			return jb, err
+		}
+		jb.ExternalInitiator = &exi
+	}
+	return jb, nil
+}
+
 func (o *orm) Close() error {
 	return nil
 }
@@ -132,17 +150,23 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 	}
 
 	var newlyClaimedJobs []Job
-	err := PreloadAllJobTypes(o.db.
-		Joins(join, args...)).
-		Find(&newlyClaimedJobs).Error
-	if err != nil {
-		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
-	}
+	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
+		err := PreloadAllJobTypes(tx.
+			Joins(join, args...)).
+			Find(&newlyClaimedJobs).Error
+		if err != nil {
+			return errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
+		}
 
-	for _, job := range newlyClaimedJobs {
-		o.claimedJobs[job.ID] = job
-	}
-
+		for i := range newlyClaimedJobs {
+			newlyClaimedJobs[i], err = PopulateExternalInitiator(tx, newlyClaimedJobs[i])
+			if err != nil {
+				return err
+			}
+			o.claimedJobs[newlyClaimedJobs[i].ID] = newlyClaimedJobs[i]
+		}
+		return nil
+	})
 	return newlyClaimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
 }
 
@@ -373,14 +397,21 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 
 func (o *orm) JobsV2() ([]Job, error) {
 	var jobs []Job
-	err := PreloadAllJobTypes(o.db).
-		Find(&jobs).
-		Error
-	for i := range jobs {
-		if jobs[i].OffchainreportingOracleSpec != nil {
-			jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
+		err := PreloadAllJobTypes(tx).
+			Find(&jobs).
+			Error
+		for i := range jobs {
+			jobs[i], err = PopulateExternalInitiator(tx, jobs[i])
+			if err != nil {
+				return err
+			}
+			if jobs[i].OffchainreportingOracleSpec != nil {
+				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+			}
 		}
-	}
+		return nil
+	})
 	return jobs, err
 }
 
@@ -407,12 +438,23 @@ func loadDynamicConfigVars(cfg *storm.Config, os OffchainReportingOracleSpec) *O
 // FindJob returns job by ID
 func (o *orm) FindJob(id int32) (Job, error) {
 	var job Job
-	err := PreloadAllJobTypes(o.db).
-		First(&job, "jobs.id = ?", id).
-		Error
-	if job.OffchainreportingOracleSpec != nil {
-		job.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *job.OffchainreportingOracleSpec)
-	}
+	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
+		err := PreloadAllJobTypes(tx).
+			First(&job, "jobs.id = ?", id).
+			Error
+		if err != nil {
+			return errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
+		}
+
+		job, err = PopulateExternalInitiator(tx, job)
+		if err != nil {
+			return err
+		}
+		if job.OffchainreportingOracleSpec != nil {
+			job.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *job.OffchainreportingOracleSpec)
+		}
+		return nil
+	})
 	return job, err
 }
 

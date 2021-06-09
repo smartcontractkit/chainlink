@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/pkg/errors"
@@ -24,7 +26,7 @@ type (
 		Notify(models.JobSpec) error
 		NotifyV2(jobID uuid.UUID, initrName string, initrSpec *models.JSON) error
 		DeleteJob(jobID models.JobID) error
-		DeleteJobV2(jobID uuid.UUID) error
+		DeleteJobV2(job job.Job) error
 		FindExternalInitiatorByName(name string) (models.ExternalInitiator, error)
 	}
 
@@ -148,15 +150,14 @@ func (m externalInitiatorManager) DeleteJob(jobID models.JobID) error {
 	return nil
 }
 
-func (m externalInitiatorManager) DeleteJobV2(jobID uuid.UUID) error {
-	ei, err := m.findExternalInitiatorForJobV2(jobID)
-	if err != nil {
-		return errors.Wrapf(err, "error looking up external initiator for job with id %s", jobID)
-	} else if ei.URL == nil {
+func (m externalInitiatorManager) DeleteJobV2(jb job.Job) error {
+	if jb.ExternalInitiator == nil {
+		return errors.Errorf("no external initiator found for job %d", jb.ID)
+	} else if jb.ExternalInitiator.URL == nil {
 		return nil
 	}
 
-	req, err := newDeleteJobFromExternalInitiatorHTTPRequest(ei, jobID)
+	req, err := newDeleteJobFromExternalInitiatorHTTPRequest(*jb.ExternalInitiator, jb.ExternalJobID)
 	if err != nil {
 		return errors.Wrap(err, "creating delete HTTP request")
 	}
@@ -166,7 +167,7 @@ func (m externalInitiatorManager) DeleteJobV2(jobID uuid.UUID) error {
 	}
 	defer logger.ErrorIfCalling(resp.Body.Close)
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+		return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", jb.ExternalInitiator.Name, jb.ExternalInitiator.URL, resp.Status)
 	}
 	return nil
 }
@@ -186,18 +187,6 @@ func (m externalInitiatorManager) findExternalInitiatorForJob(id models.JobID) (
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
-	return exi, err
-}
-
-func (m externalInitiatorManager) findExternalInitiatorForJobV2(id uuid.UUID) (models.ExternalInitiator, error) {
-	var exi models.ExternalInitiator
-	err := m.db.Raw(`
-        SELECT * FROM external_initiators
-            INNER JOIN webhook_specs ON external_initiators.name = webhook_specs.external_initiator_name
-            INNER JOIN jobs ON jobs.webhook_spec_id = webhook_specs.id
-            WHERE job.external_job_id = ?
-            LIMIT 1
-    `, id).Scan(&exi).Error
 	return exi, err
 }
 
@@ -269,7 +258,7 @@ func (NullExternalInitiatorManager) DeleteJob(jobID models.JobID) error {
 	return nil
 }
 
-func (NullExternalInitiatorManager) DeleteJobV2(jobUUID uuid.UUID) error {
+func (NullExternalInitiatorManager) DeleteJobV2(jb job.Job) error {
 	return nil
 }
 

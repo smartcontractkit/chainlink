@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -962,7 +964,7 @@ func CreateJobRunViaExternalInitiator(
 func CreateJobRunViaExternalInitiatorV2(
 	t testing.TB,
 	app *TestApplication,
-	jobID models.JobID,
+	jobID uuid.UUID,
 	eia auth.Token,
 	body string,
 ) pipeline.Run {
