@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -76,9 +78,10 @@ type Application interface {
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
+	PipelineORM() pipeline.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
@@ -103,6 +106,7 @@ type ChainlinkApplication struct {
 	EventBroadcaster postgres.EventBroadcaster
 	jobORM           job.ORM
 	jobSpawner       job.Spawner
+	pipelineORM      pipeline.ORM
 	pipelineRunner   pipeline.Runner
 	FluxMonitor      fluxmonitor.Service
 	FeedsService     feeds.Service
@@ -246,11 +250,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
+		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
+	vorm := vrf.NewORM(store.DB)
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -262,7 +267,16 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
-			job.VRF:    vrf.NewDelegate(vrf.NewORM(store.DB), pipelineRunner, pipelineORM),
+			job.VRF: vrf.NewDelegate(
+				store.DB, // For transactions.
+				vorm,
+				store.KeyStore,
+				store.VRFKeyStore,
+				pipelineRunner,
+				pipelineORM,
+				logBroadcaster,
+				store.EthClient,
+				store.Config),
 		}
 	)
 
@@ -332,6 +346,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
+		pipelineORM:              pipelineORM,
 		FluxMonitor:              fluxMonitor,
 		FeedsService:             feedsService,
 		StatsPusher:              statsPusher,
@@ -589,6 +604,10 @@ func (app *ChainlinkApplication) JobORM() job.ORM {
 	return app.jobORM
 }
 
+func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
+	return app.pipelineORM
+}
+
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
 }
@@ -629,7 +648,7 @@ func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) e
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInput, meta)
 }
 
@@ -648,8 +667,8 @@ func (app *ChainlinkApplication) RunJobV2(
 	}
 	var runID int64
 
-	// Keeper jobs are special in that they do not have a task graph.
-	if jb.Type == job.Keeper {
+	// Some jobs are special in that they do not have a task graph.
+	if !jb.Type.HasPipelineSpec() {
 		t := time.Now()
 		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
 			PipelineSpecID: jb.PipelineSpecID,

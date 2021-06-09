@@ -287,6 +287,22 @@ func (_m *Application) GetOCRKeyStore() *offchainreporting.KeyStore {
 	return r0
 }
 
+// GetPipelineORM provides a mock function with given fields:
+func (_m *Application) PipelineORM() pipeline.ORM {
+	ret := _m.Called()
+
+	var r0 pipeline.ORM
+	if rf, ok := ret.Get(0).(func() pipeline.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(pipeline.ORM)
+		}
+	}
+
+	return r0
+}
+
 // GetStatsPusher provides a mock function with given fields:
 func (_m *Application) GetStatsPusher() synchronization.StatsPusher {
 	ret := _m.Called()
@@ -443,18 +459,18 @@ func (_m *Application) RunJobV2(ctx context.Context, jobID int32, meta map[strin
 }
 
 // RunWebhookJobV2 provides a mock function with given fields: ctx, jobUUID, pipelineInput, meta
-func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
+func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
 	ret := _m.Called(ctx, jobUUID, pipelineInput, meta)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, models.JobID, interface{}, pipeline.JSONSerializable) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, interface{}, pipeline.JSONSerializable) int64); ok {
 		r0 = rf(ctx, jobUUID, pipelineInput, meta)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, models.JobID, interface{}, pipeline.JSONSerializable) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, interface{}, pipeline.JSONSerializable) error); ok {
 		r1 = rf(ctx, jobUUID, pipelineInput, meta)
 	} else {
 		r1 = ret.Error(1)
