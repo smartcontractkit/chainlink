@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
@@ -84,6 +85,9 @@ type Application interface {
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
+
+	// Feeds
+	GetFeedsService() feeds.Service
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -105,6 +109,7 @@ type ChainlinkApplication struct {
 	pipelineORM      pipeline.ORM
 	pipelineRunner   pipeline.Runner
 	FluxMonitor      fluxmonitor.Service
+	FeedsService     feeds.Service
 	webhookJobRunner webhook.JobRunner
 	Scheduler        *services.Scheduler
 	Store            *strpkg.Store
@@ -219,6 +224,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
+
+	feedsORM := feeds.NewORM(store.DB)
+	feedsService := feeds.NewService(feedsORM)
 
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
 
@@ -340,6 +348,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
 		FluxMonitor:              fluxMonitor,
+		FeedsService:             feedsService,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
@@ -709,6 +718,10 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	logger.ErrorIf(app.FluxMonitor.AddJob(sa.JobSpec))
 	logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil))
 	return nil
+}
+
+func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
+	return app.FeedsService
 }
 
 // NewBox returns the packr.Box instance that holds the static assets to
