@@ -24,6 +24,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
+func (d *Delegate) OnJobCreated(spec job.Job) {}
+func (d *Delegate) OnJobDeleted(spec job.Job) {}
+
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 	// TODO

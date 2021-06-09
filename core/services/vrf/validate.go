@@ -14,7 +14,7 @@ var (
 	ErrKeyNotSet = errors.New("key not set")
 )
 
-func ValidateVRFSpec(tomlString string) (job.Job, error) {
+func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{Pipeline: *pipeline.NewTaskDAG()}
 
 	tree, err := toml.Load(tomlString)

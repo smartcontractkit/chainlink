@@ -4,18 +4,22 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type WebhookToml struct {
-	OnChainJobSpecID uuid.UUID `toml:"jobID"`
+	OnChainJobSpecID      uuid.UUID    `toml:"jobID"`
+	ExternalInitiatorName null.String  `toml:"externalInitiatorName"`
+	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
 }
 
 var ErrMissingJobID = errors.New("missing job ID")
 
-func ValidateWebhookSpec(tomlString string) (job.Job, error) {
+func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (job.Job, error) {
 	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
@@ -35,7 +39,10 @@ func ValidateWebhookSpec(tomlString string) (job.Job, error) {
 	if spec.OnChainJobSpecID == (uuid.UUID{}) {
 		return jb, ErrMissingJobID
 	}
-	jb.WebhookSpec = &job.WebhookSpec{}
+	jb.WebhookSpec = &job.WebhookSpec{
+		ExternalInitiatorName: spec.ExternalInitiatorName,
+		ExternalInitiatorSpec: spec.ExternalInitiatorSpec,
+	}
 	copy(jb.WebhookSpec.OnChainJobSpecID[:], spec.OnChainJobSpecID.Bytes())
 
 	if jb.Type != job.Webhook {
@@ -43,6 +50,11 @@ func ValidateWebhookSpec(tomlString string) (job.Job, error) {
 	}
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
+	}
+	if !spec.ExternalInitiatorName.IsZero() {
+		if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName.String); err != nil {
+			return jb, err
+		}
 	}
 	return jb, nil
 }

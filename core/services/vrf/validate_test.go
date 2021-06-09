@@ -71,7 +71,7 @@ getrandomvalue [type=vrf];
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := ValidateVRFSpec(tc.toml)
+			s, err := ValidatedVRFSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func ValidateCronSpec(tomlString string) (job.Job, error) {
+func ValidatedCronSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{Pipeline: *pipeline.NewTaskDAG()}
 
 	tree, err := toml.Load(tomlString)
