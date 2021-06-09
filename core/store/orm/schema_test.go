@@ -165,6 +165,7 @@ func TestConfigSchema(t *testing.T) {
 		//
 		// 1. Update the changelog
 		// 2. Update the ConfigPrinter found in core/store/presenters/presenters.go
+		//    if you think this variable needs to be shown in the UI
 		// 3. Update the documentation page
 		// 4. Add your new config variable to this test
 		//
