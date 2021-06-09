@@ -29,7 +29,7 @@ func TestRandom_Perform(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	publicKey := cltest.StoredVRFKey(t, store)
+	publicKey := cltest.StoredVRFKey(t, keyStore.VRF)
 	adapter := adapters.Random{PublicKey: publicKey.String()}
 	hash := utils.MustHash("a random string")
 	seed := big.NewInt(0x10)
@@ -78,7 +78,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	ethMock := new(mocks.Client)
 	store.EthClient = ethMock
 
-	publicKey := cltest.StoredVRFKey(t, store)
+	publicKey := cltest.StoredVRFKey(t, keyStore.VRF)
 	address := cltest.NewEIP55Address()
 	hash := utils.MustHash("a random string")
 	seed := big.NewInt(0x10)

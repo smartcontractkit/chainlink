@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -34,36 +33,33 @@ type vrfUniverse struct {
 	jpv2      cltest.JobPipelineV2TestHelper
 	lb        *log_mocks.Broadcaster
 	ec        *eth_mocks.Client
-	vorm      vrf.ORM
-	ks        *vrf.VRFKeyStore
+	ks        *keystore.Master
 	vrfkey    secp256k1.PublicKey
 	submitter common.Address
 }
 
-func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig, s keystore.EthInterface) vrfUniverse {
+func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
 
 	// Don't mock db interactions
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, db)
-	vorm := vrf.NewORM(db)
-	ks := vrf.NewVRFKeyStore(vorm, utils.FastScryptParams)
-	require.NoError(t, s.Unlock(cltest.Password))
-	_, err := s.CreateNewKey()
+	ks := cltest.NewKeyStore(t, db)
+	require.NoError(t, ks.Eth.Unlock(cltest.Password))
+	_, err := ks.Eth.CreateNewKey()
 	require.NoError(t, err)
-	submitter, err := s.GetRoundRobinAddress()
+	submitter, err := ks.Eth.GetRoundRobinAddress()
 	require.NoError(t, err)
-	vrfkey, err := ks.CreateKey("blah")
+	vrfkey, err := ks.VRF.CreateKey(cltest.Password)
 	require.NoError(t, err)
-	_, err = ks.Unlock("blah")
+	_, err = ks.VRF.Unlock(cltest.Password)
 	require.NoError(t, err)
 
 	return vrfUniverse{
 		jpv2:      jpv2,
 		lb:        lb,
 		ec:        ec,
-		vorm:      vorm,
 		ks:        ks,
 		vrfkey:    vrfkey,
 		submitter: submitter,
@@ -95,12 +91,10 @@ func TestDelegate(t *testing.T) {
 	t.Cleanup(cfgcleanup)
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	t.Cleanup(cleanup)
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
-	vuni := setup(t, store.DB, cfg, ethKeyStore)
+	vuni := setup(t, store.DB, cfg)
 
-	vd := vrf.NewDelegate(store.DB,
-		vuni.vorm,
-		ethKeyStore,
+	vd := vrf.NewDelegate(
+		store.DB,
 		vuni.ks,
 		vuni.jpv2.Pr,
 		vuni.jpv2.Prm,

@@ -71,7 +71,7 @@ func (ra *Random) TaskType() models.TaskType {
 }
 
 // Perform returns the the proof for the VRF output given seed, or an error.
-func (ra *Random) Perform(input models.RunInput, store *store.Store, _ *keystore.Master) models.RunOutput {
+func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *keystore.Master) models.RunOutput {
 	shouldFulfill, err := checkFulfillment(ra, input, store)
 	if err != nil {
 		return models.NewRunOutputError(errors.Wrapf(err, "unable to determine if fulfillment needed"))
@@ -84,7 +84,7 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store, _ *keystore
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	solidityProof, err := store.VRFKeyStore.GenerateProof(key, i)
+	solidityProof, err := vrf.GenerateProofResponse(keyStore.VRF, key, i)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

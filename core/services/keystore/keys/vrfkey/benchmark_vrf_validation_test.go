@@ -1,19 +1,18 @@
-package vrf
+package vrfkey
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 // Run with `go test -bench BenchmarkProofValidation`
 func BenchmarkProofValidation(b *testing.B) {
-	key := common.BigToHash(big.NewInt(int64(1)))
+	key := NewPrivateKeyXXXTestingOnly(big.NewInt(1))
 	var proofs []Proof
 	for i := 0; i < b.N; i++ {
-		p, err := GenerateProof(key, common.BigToHash(big.NewInt(int64(i))))
+		p, err := key.GenerateProof(big.NewInt(int64(i)))
 		require.NoError(b, err, "failed to generate proof number %d", i)
 		proofs = append(proofs, p)
 	}

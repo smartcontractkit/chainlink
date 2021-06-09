@@ -284,7 +284,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
@@ -322,7 +322,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store, keyStore.Eth)
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 		cltest.AssertCount(t, store, job.KeeperSpec{}, 1)
@@ -340,7 +340,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
-		pk, err := store.VRFKeyStore.CreateKey(cltest.Password)
+		pk, err := keyStore.VRF.CreateKey(cltest.Password)
 		require.NoError(t, err)
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
 		require.NoError(t, err)

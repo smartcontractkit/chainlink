@@ -1,42 +1,138 @@
-package vrf
+package keystore
 
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"sync"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// MatchingVRFKeyError is returned when Import attempts to import key with a
+// PublicKey matching one already in the database
+var MatchingVRFKeyError = errors.New(
+	`key with matching public key already stored in DB`)
+
+// AttemptToDeleteNonExistentKeyFromDB is returned when Delete is asked to
+// delete a key it can't find in the DB.
+var AttemptToDeleteNonExistentKeyFromDB = errors.New("key is not present in DB")
+
+// The VRF keystore tracks auxiliary VRF secret keys, and generates their VRF proofs
+//
+// VRF proofs need access to the actual secret key, which geth does not expose.
+// Similar to the way geth's KeyStore exposes signing capability, VRF
+// exposes VRF proof generation without the caller needing explicit knowledge of
+// the secret key.
+type VRF struct {
+	lock         sync.RWMutex
+	keys         InMemoryKeyStore
+	orm          VRFORM
+	scryptParams utils.ScryptParams
+}
+
+type InMemoryKeyStore = map[secp256k1.PublicKey]vrfkey.PrivateKey
+
+// newVRFKeyStore returns an empty VRF KeyStore
+func newVRFKeyStore(db *gorm.DB, sp utils.ScryptParams) *VRF {
+	return &VRF{
+		lock:         sync.RWMutex{},
+		keys:         make(InMemoryKeyStore),
+		orm:          NewVRFORM(db),
+		scryptParams: sp,
+	}
+}
+
+// GenerateProof is marshaled randomness proof given k and VRF input seed
+// computed from the SeedData
+//
+// Key must have already been unlocked in ks, as constructing the VRF proof
+// requires the secret key.
+func (ks *VRF) GenerateProof(k secp256k1.PublicKey, seed *big.Int) (
+	vrfkey.Proof, error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	privateKey, found := ks.keys[k]
+	if !found {
+		return vrfkey.Proof{}, fmt.Errorf(
+			"key %s has not been unlocked", k)
+	}
+	return privateKey.GenerateProof(seed)
+}
+
+// Unlock tries to unlock each vrf key in the db, using the given pass phrase,
+// and returns any keys it manages to unlock, and any errors which result.
+func (ks *VRF) Unlock(phrase string) (keysUnlocked []secp256k1.PublicKey,
+	merr error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	keys, err := ks.get()
+	if err != nil {
+		return nil, errors.Wrap(err, "while retrieving vrf keys from db")
+	}
+	for _, k := range keys {
+		key, err := vrfkey.Decrypt(k, phrase)
+		if err != nil {
+			merr = multierr.Append(merr, err)
+			continue
+		}
+		ks.keys[key.PublicKey] = *key
+		keysUnlocked = append(keysUnlocked, key.PublicKey)
+	}
+	return keysUnlocked, merr
+}
+
+// Forget removes the in-memory copy of the secret key of k, or errors if not
+// present. Caller is responsible for taking ks.lock.
+func (ks *VRF) forget(k secp256k1.PublicKey) error {
+	if _, found := ks.keys[k]; !found {
+		return fmt.Errorf("public key %s is not unlocked; can't forget it", k)
+	}
+
+	delete(ks.keys, k)
+	return nil
+}
+
+func (ks *VRF) Forget(k secp256k1.PublicKey) error {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	return ks.forget(k)
+}
+
 // CreateKey returns a public key which is immediately unlocked in memory, and
 // saved in DB encrypted with phrase. If p is given, its parameters are used for
 // key derivation from the phrase.
-func (ks *VRFKeyStore) CreateKey(phrase string) (secp256k1.PublicKey, error) {
-	key := CreateKey()
+func (ks *VRF) CreateKey(phrase string) (secp256k1.PublicKey, error) {
+	key := vrfkey.CreateKey()
 	if err := ks.Store(key, phrase, ks.scryptParams); err != nil {
 		return secp256k1.PublicKey{}, err
 	}
 	return key.PublicKey, nil
 }
 
-// CreateWeakInMemoryEncryptedKeyXXXTestingOnly is for testing only! It returns
+// CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly is for testing only! It returns
 // an encrypted key which is fast to unlock, but correspondingly easy to brute
 // force. It is not persisted to the DB, because no one should be keeping such
 // keys lying around.
-func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(phrase string) (*EncryptedVRFKey, error) {
-	key := CreateKey()
+func (ks *VRF) CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(phrase string) (*vrfkey.EncryptedVRFKey, error) {
+	key := vrfkey.CreateKey()
 	encrypted, err := key.Encrypt(phrase, utils.FastScryptParams)
 	if err != nil {
 		return nil, errors.Wrap(err, "while creating testing key")
 	}
+	ks.keys[key.PublicKey] = *key
 	return encrypted, nil
 }
 
 // Store saves key to ks (in memory), and to the DB, encrypted with phrase
-func (ks *VRFKeyStore) Store(key *PrivateKey, phrase string, scryptParams utils.ScryptParams) error {
+func (ks *VRF) Store(key *vrfkey.PrivateKey, phrase string, scryptParams utils.ScryptParams) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	encrypted, err := key.Encrypt(phrase, scryptParams)
@@ -51,7 +147,7 @@ func (ks *VRFKeyStore) Store(key *PrivateKey, phrase string, scryptParams utils.
 }
 
 // StoreInMemoryXXXTestingOnly memorizes key, only in in-memory store.
-func (ks *VRFKeyStore) StoreInMemoryXXXTestingOnly(key *PrivateKey) {
+func (ks *VRF) StoreInMemoryXXXTestingOnly(key *vrfkey.PrivateKey) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	ks.keys[key.PublicKey] = *key
@@ -60,7 +156,7 @@ func (ks *VRFKeyStore) StoreInMemoryXXXTestingOnly(key *PrivateKey) {
 var zeroPublicKey = secp256k1.PublicKey{}
 
 // Archive soft-deletes keys with this public key from the keystore and the DB, if present.
-func (ks *VRFKeyStore) Archive(key secp256k1.PublicKey) (err error) {
+func (ks *VRF) Archive(key secp256k1.PublicKey) (err error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if key == zeroPublicKey {
@@ -76,12 +172,12 @@ func (ks *VRFKeyStore) Archive(key secp256k1.PublicKey) (err error) {
 	} else if len(matches) == 0 {
 		return AttemptToDeleteNonExistentKeyFromDB
 	}
-	err2 := ks.orm.ArchiveEncryptedSecretVRFKey(&EncryptedVRFKey{PublicKey: key})
+	err2 := ks.orm.ArchiveEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
 	return multierr.Append(err, err2)
 }
 
 // Delete removes keys with this public key from the keystore and the DB, if present.
-func (ks *VRFKeyStore) Delete(key secp256k1.PublicKey) (err error) {
+func (ks *VRF) Delete(key secp256k1.PublicKey) (err error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if key == zeroPublicKey {
@@ -99,18 +195,18 @@ func (ks *VRFKeyStore) Delete(key secp256k1.PublicKey) (err error) {
 	if len(matches) == 0 {
 		return AttemptToDeleteNonExistentKeyFromDB
 	}
-	err2 := ks.orm.DeleteEncryptedSecretVRFKey(&EncryptedVRFKey{PublicKey: key})
+	err2 := ks.orm.DeleteEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
 	return multierr.Append(err, err2)
 }
 
 // Import adds this encrypted key to the DB and unlocks it in in-memory store
 // with passphrase auth, and returns any resulting errors
-func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
+func (ks *VRF) Import(keyjson []byte, auth string) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	enckey := &EncryptedVRFKey{}
+	enckey := &vrfkey.EncryptedVRFKey{}
 	if err := json.Unmarshal(keyjson, enckey); err != nil {
-		return fmt.Errorf("could not parse %s as EncryptedVRFKey json", keyjson)
+		return fmt.Errorf("could not parse %s as vrfkey.EncryptedVRFKey json", keyjson)
 	}
 	extantMatchingKeys, err := ks.get(enckey.PublicKey)
 	if err != nil {
@@ -119,7 +215,7 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	if len(extantMatchingKeys) != 0 {
 		return MatchingVRFKeyError
 	}
-	key, err := Decrypt(enckey, auth)
+	key, err := vrfkey.Decrypt(enckey, auth)
 	if err != nil {
 		return errors.Wrapf(err,
 			"while attempting to decrypt key with public key %s",
@@ -132,16 +228,16 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	return nil
 }
 
-// get retrieves all EncryptedVRFKey's associated with k, or all encrypted
+// get retrieves all vrfkey.EncryptedVRFKey's associated with k, or all encrypted
 // keys if k is nil, or errors. Caller is responsible for locking the store
-func (ks *VRFKeyStore) get(k ...secp256k1.PublicKey) ([]*EncryptedVRFKey,
+func (ks *VRF) get(k ...secp256k1.PublicKey) ([]*vrfkey.EncryptedVRFKey,
 	error) {
 	if len(k) > 1 {
 		return nil, errors.Errorf("can get at most one secret key at a time")
 	}
-	var where []EncryptedVRFKey
+	var where []vrfkey.EncryptedVRFKey
 	if len(k) == 1 { // Search for this specific public key
-		where = append(where, EncryptedVRFKey{PublicKey: k[0]})
+		where = append(where, vrfkey.EncryptedVRFKey{PublicKey: k[0]})
 	}
 	keys, err := ks.orm.FindEncryptedSecretVRFKeys(where...)
 	if err != nil {
@@ -150,16 +246,16 @@ func (ks *VRFKeyStore) get(k ...secp256k1.PublicKey) ([]*EncryptedVRFKey,
 	return keys, nil
 }
 
-// Get retrieves all EncryptedVRFKey's associated with k, or all encrypted
+// Get retrieves all vrfkey.EncryptedVRFKey's associated with k, or all encrypted
 // keys if k is nil, or errors
-func (ks *VRFKeyStore) Get(k ...secp256k1.PublicKey) ([]*EncryptedVRFKey, error) {
+func (ks *VRF) Get(k ...secp256k1.PublicKey) ([]*vrfkey.EncryptedVRFKey, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	return ks.get(k...)
 }
 
-func (ks *VRFKeyStore) GetSpecificKey(
-	k secp256k1.PublicKey) (*EncryptedVRFKey, error) {
+func (ks *VRF) GetSpecificKey(
+	k secp256k1.PublicKey) (*vrfkey.EncryptedVRFKey, error) {
 	if k == (secp256k1.PublicKey{}) {
 		return nil, fmt.Errorf("can't retrieve zero key")
 	}
@@ -173,14 +269,14 @@ func (ks *VRFKeyStore) GetSpecificKey(
 	}
 	if len(encryptedKey) > 1 {
 		// This is impossible, as long as the public key is the primary key on the
-		// EncryptedVRFKey table.
+		// vrfkey.EncryptedVRFKey table.
 		panic(fmt.Errorf("found more than one key with public key %s", k.String()))
 	}
 	return encryptedKey[0], nil
 }
 
 // ListKeys lists the public keys contained in the db
-func (ks *VRFKeyStore) ListKeys() (publicKeys []*secp256k1.PublicKey, err error) {
+func (ks *VRF) ListKeys() (publicKeys []*secp256k1.PublicKey, err error) {
 	enc, err := ks.Get()
 	if err != nil {
 		return nil, errors.Wrapf(err, "while listing db keys")
@@ -190,12 +286,3 @@ func (ks *VRFKeyStore) ListKeys() (publicKeys []*secp256k1.PublicKey, err error)
 	}
 	return publicKeys, nil
 }
-
-// MatchingVRFKeyError is returned when Import attempts to import key with a
-// PublicKey matching one already in the database
-var MatchingVRFKeyError = errors.New(
-	`key with matching public key already stored in DB`)
-
-// AttemptToDeleteNonExistentKeyFromDB is returned when Delete is asked to
-// delete a key it can't find in the DB.
-var AttemptToDeleteNonExistentKeyFromDB = errors.New("key is not present in DB")

@@ -1,4 +1,4 @@
-package vrf
+package vrfkey
 
 import (
 	"database/sql/driver"

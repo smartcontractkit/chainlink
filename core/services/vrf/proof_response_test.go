@@ -1,54 +1,41 @@
-package vrf
+package vrf_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
-	"regexp"
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
-	"github.com/stretchr/testify/assert"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/stretchr/testify/require"
 )
 
-var sk = 0xdeadbeefdeadbee
-var k = mustNewPrivateKey(big.NewInt(int64(sk)))
-var pkr = regexp.MustCompile(fmt.Sprintf(
-	`PrivateKey\{k: <redacted>, PublicKey: 0x[[:xdigit:]]{%d}\}`,
-	2*secp256k1.CompressedPublicKeyLength))
-
-func TestPrintingDoesNotLeakKey(t *testing.T) {
-	v := fmt.Sprintf("%v", k)
-	assert.Equal(t, v+"\n", fmt.Sprintln(k))
-	assert.Regexp(t, pkr, v)
-	assert.NotContains(t, v, fmt.Sprintf("%x", sk))
-	// Other verbs just give the corresponding encoding of .String()
-	assert.Equal(t, fmt.Sprintf("%x", k), hex.EncodeToString([]byte(v)))
-}
-
 func TestMarshaledProof(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	key, err := keyStore.VRF.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(cltest.Password)
+	fmt.Println("key.PublicKey", key.PublicKey)
+	require.NoError(t, err)
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
-	s := TestXXXSeedData(t, preSeed, blockHash, blockNum)
-	proofResponse, err := k.MarshaledProof(s)
+	s := vrf.TestXXXSeedData(t, preSeed, blockHash, blockNum)
+	proofResponse, err := vrf.GenerateProofResponse(keyStore.VRF, key.PublicKey, s)
 	require.NoError(t, err)
-	goProof, err := UnmarshalProofResponse(proofResponse)
+	goProof, err := vrf.UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)
 	actualProof, err := goProof.CryptoProof(s)
 	require.NoError(t, err)
-	proof, err := actualProof.MarshalForSolidityVerifier()
+	proof, err := vrf.MarshalForSolidityVerifier(&actualProof)
 	require.NoError(t, err)
 	// NB: For changes to the VRF solidity code to be reflected here, "go generate"
 	// must be run in core/services/vrf.
@@ -65,12 +52,4 @@ func TestMarshaledProof(t *testing.T) {
 	backend.Commit()
 	_, err = verifier.RandomValueFromVRFProof(nil, proof[:])
 	require.NoError(t, err)
-}
-
-func mustNewPrivateKey(rawKey *big.Int) *PrivateKey {
-	k, err := newPrivateKey(rawKey)
-	if err != nil {
-		panic(err)
-	}
-	return k
 }

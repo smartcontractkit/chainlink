@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
@@ -38,7 +36,7 @@ type Store struct {
 	Config *orm.Config
 	Clock  utils.AfterNower
 	// KeyStore       KeyStoreInterface
-	VRFKeyStore    *vrf.VRFKeyStore
+	// VRFKeyStore    *vrf.VRFKeyStore
 	EthClient      eth.Client
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
@@ -77,7 +75,7 @@ func newStore(
 	}
 
 	// keyStore := keyStoreGenerator(orm.DB, config)
-	scryptParams := utils.GetScryptParams(config)
+	// scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
 		Clock:          utils.Clock{},
@@ -88,7 +86,7 @@ func newStore(
 		EthClient: ethClient,
 		closeOnce: &sync.Once{},
 	}
-	store.VRFKeyStore = vrf.NewVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
+	// store.VRFKeyStore = vrf.newVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil
 }
 
