@@ -155,7 +155,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 			Joins(join, args...)).
 			Find(&newlyClaimedJobs).Error
 		if err != nil {
-			return errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
+			return err
 		}
 
 		for i := range newlyClaimedJobs {
@@ -446,7 +446,7 @@ func (o *orm) FindJob(id int32) (Job, error) {
 			First(&job, "jobs.id = ?", id).
 			Error
 		if err != nil {
-			return errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
+			return err
 		}
 
 		job, err = PopulateExternalInitiator(tx, job)
