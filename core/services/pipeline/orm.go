@@ -26,13 +26,13 @@ type ORM interface {
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
+	GetAllRuns() ([]Run, error)
 	DB() *gorm.DB
 }
 
 type orm struct {
-	db               *gorm.DB
-	config           Config
-	eventBroadcaster postgres.EventBroadcaster
+	db     *gorm.DB
+	config Config
 }
 
 var _ ORM = (*orm)(nil)
@@ -58,8 +58,8 @@ var (
 	)
 )
 
-func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcaster) *orm {
-	return &orm{db, config, eventBroadcaster}
+func NewORM(db *gorm.DB, config Config) *orm {
+	return &orm{db, config}
 }
 
 // The tx argument must be an already started transaction.
@@ -88,7 +88,7 @@ func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, save
 	if run.Outputs.Val == nil || len(run.Errors) == 0 {
 		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
-	if len(trrs) == 0 && saveSuccessfulTaskRuns {
+	if len(trrs) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return 0, errors.New("must provide task run results")
 	}
 
@@ -134,8 +134,24 @@ func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
 
 func (o *orm) FindRun(id int64) (Run, error) {
 	var run = Run{ID: id}
-	err := o.db.Preload("PipelineTaskRuns").First(&run).Error
+	err := o.db.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Order("created_at ASC, id ASC")
+		}).First(&run).Error
 	return run, err
+}
+
+func (o *orm) GetAllRuns() ([]Run, error) {
+	var runs []Run
+	err := o.db.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Order("created_at ASC, id ASC")
+		}).Find(&runs).Error
+	return runs, err
 }
 
 // FindBridge find a bridge using the given database

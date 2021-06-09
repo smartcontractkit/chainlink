@@ -97,6 +97,6 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint64,
 	maxUnconfirmedTransactions uint64,
 ) (err error) {
-	_, err = bulletprooftxmanager.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions)
+	_, err = bulletprooftxmanager.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions, nil)
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }
