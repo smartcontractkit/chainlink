@@ -22,6 +22,8 @@ type Delegate struct {
 	logBroadcaster  log.Broadcaster
 }
 
+var _ job.Delegate = (*Delegate)(nil)
+
 func NewDelegate(
 	db *gorm.DB,
 	jrm job.ORM,
@@ -45,6 +47,9 @@ func NewDelegate(
 func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
 	if spec.KeeperSpec == nil {
