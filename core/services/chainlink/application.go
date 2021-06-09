@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -51,15 +50,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-//go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
-type (
-	// ExternalInitiatorManager manages HTTP requests to remote external initiators
-	ExternalInitiatorManager interface {
-		Notify(models.JobSpec, *strpkg.Store) error
-		DeleteJob(db *gorm.DB, jobID models.JobID) error
-	}
-)
-
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
@@ -80,10 +70,11 @@ type Application interface {
 	services.RunManager // For managing job runs.
 	AddJob(job models.JobSpec) error
 	ArchiveJob(models.JobID) error
-	GetExternalInitiatorManager() ExternalInitiatorManager
+	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 
 	// V2 Jobs (TOML specified)
-	GetJobORM() job.ORM
+	JobSpawner() job.Spawner
+	JobORM() job.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID models.JobID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
@@ -106,7 +97,7 @@ type ChainlinkApplication struct {
 	JobSubscriber    services.JobSubscriber
 	LogBroadcaster   log.Broadcaster
 	EventBroadcaster postgres.EventBroadcaster
-	JobORM           job.ORM
+	jobORM           job.ORM
 	jobSpawner       job.Spawner
 	pipelineRunner   pipeline.Runner
 	FluxMonitor      fluxmonitor.Service
@@ -123,7 +114,7 @@ type ChainlinkApplication struct {
 	// finally, keystore unification will be completed by:
 	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
 	OCRKeyStore              *offchainreporting.KeyStore
-	ExternalInitiatorManager ExternalInitiatorManager
+	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
@@ -141,7 +132,7 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
@@ -244,7 +235,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	subservices = append(subservices, balanceMonitor)
-
 	subservices = append(subservices, promReporter)
 
 	var (
@@ -309,9 +299,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB)
+
 	var webhookJobRunner webhook.JobRunner
 	if config.Dev() || config.FeatureWebhookV2() {
-		delegate := webhook.NewDelegate(pipelineRunner)
+		delegate := webhook.NewDelegate(pipelineRunner, externalInitiatorManager)
 		delegates[job.Webhook] = delegate
 		webhookJobRunner = delegate.WebhookJobRunner()
 	}
@@ -329,7 +321,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		JobSubscriber:            jobSubscriber,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
-		JobORM:                   jobORM,
+		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		FluxMonitor:              fluxMonitor,
@@ -580,11 +572,15 @@ func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
 	return app.HealthChecker
 }
 
-func (app *ChainlinkApplication) GetJobORM() job.ORM {
-	return app.JobORM
+func (app *ChainlinkApplication) JobSpawner() job.Spawner {
+	return app.jobSpawner
 }
 
-func (app *ChainlinkApplication) GetExternalInitiatorManager() ExternalInitiatorManager {
+func (app *ChainlinkApplication) JobORM() job.ORM {
+	return app.jobORM
+}
+
+func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
 }
 
@@ -616,8 +612,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error) {
-	return app.jobSpawner.CreateJob(ctx, job, name)
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (int32, error) {
+	return app.jobSpawner.CreateJob(ctx, j, name)
 }
 
 func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) error {
@@ -637,7 +633,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use.")
 	}
-	jb, err := app.JobORM.FindJob(jobID)
+	jb, err := app.jobORM.FindJob(jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
@@ -672,7 +668,7 @@ func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 	}
 	app.FluxMonitor.RemoveJob(ID)
 
-	if err = app.ExternalInitiatorManager.DeleteJob(app.Store.DB, ID); err != nil {
+	if err = app.ExternalInitiatorManager.DeleteJob(ID); err != nil {
 		err = errors.Wrapf(err, "failed to delete job with id %s from external initiator", ID)
 	}
 	return multierr.Combine(err, app.Store.ArchiveJob(ID))

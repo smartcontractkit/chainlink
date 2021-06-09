@@ -32,7 +32,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 		return
 	}
 
-	pipelineRuns, count, err := prc.App.GetJobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
+	pipelineRuns, count, err := prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

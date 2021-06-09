@@ -217,6 +217,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 	j := JobSpecsController{app}
 	jsec := JobSpecErrorsController{app}
+	prc := PipelineRunsController{app}
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{
@@ -296,10 +297,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		mc := MigrateController{app}
 		authv2.POST("/migrate/:ID", mc.Migrate)
 
-		prc := PipelineRunsController{app}
+		// PipelineRunsController
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
-		authv2.POST("/jobs/:ID/runs", prc.Create)
 
 		lgc := LogController{app}
 		authv2.GET("/log", lgc.Get)
@@ -314,6 +314,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	))
 	userOrEI.POST("/specs/:SpecID/runs", jr.Create)
 	userOrEI.GET("/ping", ping.Show)
+	userOrEI.POST("/jobs/:ID/runs", prc.Create)
 }
 
 // This is higher because it serves main.js and any static images. There are

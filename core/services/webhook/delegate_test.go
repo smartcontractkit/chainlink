@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,8 @@ func TestWebhookDelegate(t *testing.T) {
 		pipelineInputs = []pipeline.Result{{Value: "foo"}}
 		meta           = pipeline.JSONSerializable{Val: "bar"}
 		runner         = new(pipelinemocks.Runner)
-		delegate       = webhook.NewDelegate(runner)
+		eiManager      = new(webhookmocks.ExternalInitiatorManager)
+		delegate       = webhook.NewDelegate(runner, eiManager)
 	)
 
 	services, err := delegate.ServicesForSpec(*spec)

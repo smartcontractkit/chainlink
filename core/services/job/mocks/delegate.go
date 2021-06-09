@@ -26,6 +26,16 @@ func (_m *Delegate) JobType() job.Type {
 	return r0
 }
 
+// OnJobCreated provides a mock function with given fields: spec
+func (_m *Delegate) OnJobCreated(spec job.Job) {
+	_m.Called(spec)
+}
+
+// OnJobDeleted provides a mock function with given fields: spec
+func (_m *Delegate) OnJobDeleted(spec job.Job) {
+	_m.Called(spec)
+}
+
 // ServicesForSpec provides a mock function with given fields: spec
 func (_m *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 	ret := _m.Called(spec)
