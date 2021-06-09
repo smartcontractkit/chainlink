@@ -15,8 +15,8 @@ $SCRIPTPATH/native_solc6_compile core/v0.6/tests/VRFRequestIDBaseTestHelper.sol
 $SCRIPTPATH/native_solc6_compile core/v0.6/tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc6_compile core/v0.6/Chainlink.sol
 $SCRIPTPATH/native_solc6_compile core/v0.6/VRFRequestIDBase.sol
+$SCRIPTPATH/native_solc6_compile client/tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc6_compile client/v0.6/ChainlinkClient.sol
-$SCRIPTPATH/native_solc6_compile client/v0.6/tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc6_compile client/v0.6/VRFConsumerBase.sol
 
 $SCRIPTPATH/native_solc8_compile core/v0.8/dev/Chainlink.sol
