@@ -76,7 +76,7 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
 	)
 
-	responseBytes, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
 		return Result{Error: err}
 	}
