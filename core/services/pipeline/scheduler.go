@@ -1,6 +1,13 @@
 package pipeline
 
+import (
+	"context"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+)
+
 type scheduler struct {
+	ctx          context.Context
 	pipeline     *Pipeline
 	dependencies map[int]uint
 	input        interface{}
@@ -12,7 +19,7 @@ type scheduler struct {
 	resultCh chan TaskRunResult
 }
 
-func newScheduler(p *Pipeline, pipelineInput interface{}) *scheduler {
+func newScheduler(ctx context.Context, p *Pipeline, pipelineInput interface{}) *scheduler {
 	dependencies := make(map[int]uint, len(p.Tasks))
 	var roots []Task
 
@@ -26,6 +33,7 @@ func newScheduler(p *Pipeline, pipelineInput interface{}) *scheduler {
 		}
 	}
 	s := &scheduler{
+		ctx:          ctx,
 		pipeline:     p,
 		dependencies: dependencies,
 		input:        pipelineInput,
@@ -50,10 +58,19 @@ func newScheduler(p *Pipeline, pipelineInput interface{}) *scheduler {
 }
 
 func (s *scheduler) Run() {
+Loop:
 	for s.waiting > 0 {
 		// we don't "for result in resultCh" because it would stall if the
 		// pipeline is completely empty
-		result := <-s.resultCh
+
+		var result TaskRunResult
+		select {
+		case r := <-s.resultCh:
+			result = r
+		case <-s.ctx.Done():
+			break Loop
+		}
+
 		s.waiting--
 
 		// mark job as complete
@@ -87,4 +104,12 @@ func (s *scheduler) Run() {
 
 	}
 	close(s.taskCh)
+}
+
+func (s *scheduler) report(ctx context.Context, result TaskRunResult) {
+	select {
+	case s.resultCh <- result:
+	case <-ctx.Done():
+		logger.Errorw("pipeline.scheduler: timed out reporting result", "result", result)
+	}
 }
