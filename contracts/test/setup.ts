@@ -55,25 +55,25 @@ export async function getUsers() {
   };
 
   const contracts: Contracts = {
-    contract1: accounts[8],
-    contract2: accounts[9],
-    contract3: accounts[10],
-    contract4: accounts[11],
-    contract5: accounts[12],
-    contract6: accounts[13],
-    contract7: accounts[14],
-    contract8: accounts[15],
+    contract1: accounts[0],
+    contract2: accounts[1],
+    contract3: accounts[2],
+    contract4: accounts[3],
+    contract5: accounts[4],
+    contract6: accounts[5],
+    contract7: accounts[6],
+    contract8: accounts[7],
   };
 
   const roles: Roles = {
-    defaultAccount: accounts[16],
-    oracleNode: accounts[17],
-    oracleNode1: accounts[18],
-    oracleNode2: accounts[19],
-    oracleNode3: accounts[20],
-    oracleNode4: accounts[21],
-    stranger: accounts[22],
-    consumer: accounts[23],
+    defaultAccount: accounts[0],
+    oracleNode: accounts[1],
+    oracleNode1: accounts[2],
+    oracleNode2: accounts[3],
+    oracleNode3: accounts[4],
+    oracleNode4: accounts[5],
+    stranger: accounts[6],
+    consumer: accounts[7],
   };
 
   const users: Users = {

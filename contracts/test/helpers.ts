@@ -2,6 +2,7 @@ import { BigNumber, Contract } from "ethers";
 import type { providers } from "ethers";
 import { assert } from "chai";
 import { ethers } from "hardhat";
+import cbor from "cbor";
 
 export const constants = {
   ZERO_ADDRESS: "0x0000000000000000000000000000000000000000",
@@ -12,12 +13,84 @@ export const constants = {
 };
 
 /**
+ * Strip the leading 0x hex prefix from a hex string
+ *
+ * @param hex The hex string to strip the leading hex prefix out of
+ */
+export function stripHexPrefix(hex: string): string {
+  if (!ethers.utils.isHexString(hex)) {
+    throw Error(`Expected valid hex string, got: "${hex}"`);
+  }
+
+  return hex.replace("0x", "");
+}
+
+/**
+ * Create a buffer from a hex string
+ *
+ * @param hexstr The hex string to convert to a buffer
+ */
+export function hexToBuf(hexstr: string): Buffer {
+  return Buffer.from(stripHexPrefix(hexstr), "hex");
+}
+
+/**
+ * Decodes a CBOR hex string, and adds opening and closing brackets to the CBOR if they are not present.
+ *
+ * @param hexstr The hex string to decode
+ */
+export function decodeDietCBOR(hexstr: string) {
+  const buf = hexToBuf(hexstr);
+
+  return cbor.decodeFirstSync(addCBORMapDelimiters(buf));
+}
+
+/**
+ * Add a starting and closing map characters to a CBOR encoding if they are not already present.
+ */
+export function addCBORMapDelimiters(buffer: Buffer): Buffer {
+  if (buffer[0] >> 5 === 5) {
+    return buffer;
+  }
+
+  /**
+   * This is the opening character of a CBOR map.
+   * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
+   */
+  const startIndefiniteLengthMap = Buffer.from([0xbf]);
+  /**
+   * This is the closing character in a CBOR map.
+   * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
+   */
+  const endIndefiniteLengthMap = Buffer.from([0xff]);
+  return Buffer.concat([startIndefiniteLengthMap, buffer, endIndefiniteLengthMap], buffer.length + 2);
+}
+
+/**
  * Convert an Ether value to a wei amount
  *
  * @param args Ether value to convert to an Ether amount
  */
 export function toWei(...args: Parameters<typeof ethers.utils.parseEther>): ReturnType<typeof ethers.utils.parseEther> {
   return ethers.utils.parseEther(...args);
+}
+
+/**
+ * Converts any number, BigNumber, hex string or Arrayish to a hex string.
+ *
+ * @param args Value to convert to a hex string
+ */
+export function toHex(...args: Parameters<typeof ethers.utils.hexlify>): ReturnType<typeof ethers.utils.hexlify> {
+  return ethers.utils.hexlify(...args);
+}
+
+/**
+ * Increase the current time within the evm to 5 minutes past the current time
+ *
+ * @param provider The ethers provider to send the time increase request to
+ */
+export async function increaseTime5Minutes(provider: providers.JsonRpcProvider): Promise<void> {
+  await increaseTimeBy(5 * 600, provider);
 }
 
 /**

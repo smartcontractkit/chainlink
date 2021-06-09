@@ -10,7 +10,7 @@ import "./vendor/Ownable.sol";
 
 import "./VRF.sol";
 import "./VRFRequestIDBase.sol";
-import "./VRFConsumerBase.sol";
+import "../../client/v0.6/VRFConsumerBase.sol";
 
 /**
  * @title VRFCoordinator coordinates on-chain verifiable-randomness requests
