@@ -30,6 +30,7 @@ require (
 	github.com/jackc/pgtype v1.7.0
 	github.com/jackc/pgx/v4 v4.11.1-0.20210326152507-88ede6efb5b0
 	github.com/jinzhu/gorm v1.9.16
+	github.com/jmoiron/sqlx v1.3.4 // indirect
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.10.2
 	github.com/libp2p/go-libp2p-core v0.8.5

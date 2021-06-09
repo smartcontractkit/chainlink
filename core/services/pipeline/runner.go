@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
@@ -137,28 +139,8 @@ func (r *runner) runReaperLoop() {
 
 type memoryTaskRun struct {
 	task   Task
-	inputs []input
+	inputs []Result // sorted by input index
 	vars   Vars
-}
-
-// Returns the results sorted by index. It is not thread-safe.
-func (m *memoryTaskRun) inputsSorted() (a []Result) {
-	inputs := make([]input, len(m.inputs))
-	copy(inputs, m.inputs)
-	sort.Slice(inputs, func(i, j int) bool {
-		return inputs[i].index < inputs[j].index
-	})
-	a = make([]Result, len(inputs))
-	for i, input := range inputs {
-		a[i] = input.result
-	}
-
-	return
-}
-
-type input struct {
-	result Result
-	index  int32
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
@@ -170,6 +152,15 @@ func (err ErrRunPanicked) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
+func NewRun(spec Spec, vars Vars) Run {
+	return Run{
+		PipelineSpec:   spec,
+		PipelineSpecID: spec.ID,
+		Inputs:         JSONSerializable{Val: vars, Null: false},
+		CreatedAt:      time.Now(),
+	}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
@@ -178,17 +169,32 @@ func (r *runner) ExecuteRun(
 ) (Run, TaskRunResults, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
 
-	var (
-		startRun = time.Now()
-		run      = Run{
-			PipelineSpecID: spec.ID,
-			CreatedAt:      startRun,
-		}
-	)
+	run := NewRun(spec, vars)
 
-	pipeline, err := Parse(spec.DotDagSource)
+	taskRunResults, err := r.run(ctx, &run, vars, l)
 	if err != nil {
 		return run, nil, err
+	}
+
+	finalResult := taskRunResults.FinalResult()
+	if finalResult.HasErrors() {
+		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
+	}
+
+	return run, taskRunResults, nil
+}
+
+func (r *runner) run(
+	ctx context.Context,
+	run *Run,
+	vars Vars,
+	l logger.Logger,
+) (TaskRunResults, error) {
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
+
+	pipeline, err := Parse(run.PipelineSpec.DotDagSource)
+	if err != nil {
+		return nil, err
 	}
 
 	// initialize certain task params
@@ -199,6 +205,7 @@ func (r *runner) ExecuteRun(
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
+			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeETHTx:
@@ -207,8 +214,17 @@ func (r *runner) ExecuteRun(
 		}
 	}
 
+	// avoid an extra db write if there is no async tasks present or if this is a resumed run
+	if pipeline.HasAsync() && run.ID == 0 {
+		if err = r.orm.CreateRun(r.orm.DB(), run); err != nil {
+			return nil, err
+		}
+
+		run.Async = true
+	}
+
 	todo := context.TODO()
-	scheduler := newScheduler(todo, pipeline, vars)
+	scheduler := newScheduler(todo, pipeline, run, vars)
 	go scheduler.Run()
 
 	for taskRun := range scheduler.taskCh {
@@ -220,40 +236,81 @@ func (r *runner) ExecuteRun(
 
 					t := time.Now()
 					scheduler.report(todo, TaskRunResult{
+						ID:         uuid.NewV4(),
 						Task:       taskRun.task,
 						Result:     Result{Error: ErrRunPanicked{err}},
-						FinishedAt: t,
+						FinishedAt: &t,
 						CreatedAt:  t, // TODO: more accurate start time
 					})
 				}
 			}()
-			result := r.executeTaskRun(ctx, spec, taskRun, l)
+			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
 
-			logTaskRunToPrometheus(result, spec)
+			logTaskRunToPrometheus(result, run.PipelineSpec)
 
 			scheduler.report(todo, result)
 		}(taskRun)
 	}
 
-	finishRun := time.Now()
-	runTime := finishRun.Sub(startRun)
-	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
-	PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
+	// if the run is suspended, awaiting resumption
+	run.Pending = scheduler.pending
 
+	if !scheduler.pending {
+		now := time.Now()
+		run.FinishedAt = &now
+
+		// NOTE: runTime can be very long now because it'll include suspend
+		runTime := run.FinishedAt.Sub(run.CreatedAt)
+		l.Debugw("Finished all tasks for pipeline run", "specID", run.PipelineSpecID, "runTime", runTime)
+		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
+
+	}
+
+	// Update run results
+	run.PipelineTaskRuns = nil
+	for _, result := range scheduler.results {
+		output := result.Result.OutputDB()
+		run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
+			PipelineRunID: run.ID,
+			RunID:         result.ID,
+			Type:          result.Task.Type(),
+			Index:         result.Task.OutputIndex(),
+			Output:        &output,
+			Error:         result.Result.ErrorDB(),
+			DotID:         result.Task.DotID(),
+			CreatedAt:     result.CreatedAt,
+			FinishedAt:    result.FinishedAt,
+			task:          result.Task,
+		})
+
+		sort.Slice(run.PipelineTaskRuns, func(i, j int) bool {
+			return run.PipelineTaskRuns[i].task.OutputIndex() < run.PipelineTaskRuns[j].task.OutputIndex()
+		})
+	}
+
+	// Update run errors/outputs
+	if run.FinishedAt != nil {
+		var errors []null.String
+		var outputs []interface{}
+		for _, result := range run.PipelineTaskRuns {
+			// skip non-terminal results
+			if len(result.task.Outputs()) != 0 {
+				continue
+			}
+			errors = append(errors, result.Error)
+			outputs = append(outputs, result.Output.Val)
+		}
+		run.Errors = errors
+		run.Outputs = JSONSerializable{Val: outputs, Null: false}
+	}
+
+	// TODO: drop this once we stop using TaskRunResults
 	var taskRunResults TaskRunResults
 	for _, result := range scheduler.results {
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	finalResult := taskRunResults.FinalResult()
-	if finalResult.HasErrors() {
-		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
-	}
-	run.Errors = finalResult.ErrorsDB()
-	run.Outputs = finalResult.OutputsDB()
-	run.FinishedAt = &finishRun
-
-	return run, taskRunResults, err
+	return taskRunResults, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
@@ -277,7 +334,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputsSorted())
+	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
 	loggerFields = append(loggerFields, "result value", result.Value)
 	loggerFields = append(loggerFields, "result error", result.Error)
 	switch v := result.Value.(type) {
@@ -287,11 +344,21 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 	l.Debugw("Pipeline task completed", loggerFields...)
 
+	now := time.Now()
+
+	var id uuid.UUID
+	if taskRun.task.Type() == TaskTypeBridge {
+		id = taskRun.task.(*BridgeTask).id
+	} else {
+		id = uuid.NewV4()
+	}
+
 	return TaskRunResult{
+		ID:         id,
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
-		FinishedAt: time.Now(),
+		FinishedAt: &now,
 	}
 }
 
@@ -312,14 +379,68 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
-		return run.ID, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
-	finalResult = trrs.FinalResult()
-	runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns)
-	if err != nil {
-		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+
+	if run.Async {
+		if !run.Pending {
+			finalResult = trrs.FinalResult()
+		}
+
+		var db *sql.DB
+		db, err = r.orm.DB().DB()
+		if err != nil {
+			return 0, finalResult, errors.Wrap(err, "unable to retrieve sql.DB")
+		}
+
+		var restart bool
+		restart, err = r.orm.StoreRun(db, &run, saveSuccessfulTaskRuns)
+		if err != nil {
+			return run.ID, finalResult, errors.Wrapf(err, "error inserting suspended run for spec ID %v", spec.ID)
+		}
+		if restart {
+			// TODO: handle instant continue
+			panic("unimplemented")
+		}
+	} else {
+		finalResult = trrs.FinalResult()
+		// else we create a new row
+		if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
+			return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+		}
 	}
 	return runID, finalResult, nil
+
+}
+
+func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error) {
+	// TODO: ensure this has task runs present
+
+	saveSuccessfulTaskRuns := false
+
+	for {
+		if _, err := r.run(ctx, run, run.Inputs.Val.(Vars), l); err != nil {
+			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
+		}
+
+		db, err := r.orm.DB().DB()
+		if err != nil {
+			return false, errors.Wrap(err, "unable to retrieve sql.DB")
+		}
+
+		var restart bool
+		restart, err = r.orm.StoreRun(db, run, saveSuccessfulTaskRuns)
+		if err != nil {
+			return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+		}
+
+		if restart {
+			// instant restart: new data is already available in the database
+			continue
+		}
+
+		return run.Pending, err
+	}
 }
 
 func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {

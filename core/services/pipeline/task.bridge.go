@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
@@ -18,9 +19,11 @@ type BridgeTask struct {
 	Name              string `json:"name"`
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
+	Async             string `json:"async"`
 
 	db     *gorm.DB
 	config Config
+	id     uuid.UUID
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -68,6 +71,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 		)
 	}
 
+	// TODO: pass t.id on the meta key? or where?
 	requestData = withMeta(requestData, metaMap)
 	if t.IncludeInputAtKey != "" {
 		if len(inputValues) > 0 {
@@ -88,9 +92,21 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 		"url", url.String(),
 	)
 
-	responseBytes, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, headers, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
 		return Result{Error: err}
+	}
+
+	// Look for a `pending` flag. This check is case-insensitive because http.Header normalizes header names
+	if _, ok := headers["X-Chainlink-Pending"]; ok && t.Async == "true" {
+		return Result{Error: errors.New("pending")} // TODO: TEMP
+	}
+
+	var response struct {
+		Pending bool `json:"pending"`
+	}
+	if err := json.Unmarshal(responseBytes, &response); err == nil && response.Pending {
+		return Result{Error: errors.New("pending")} // TODO: TEMP
 	}
 
 	// NOTE: We always stringify the response since this is required for all current jobs.

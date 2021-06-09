@@ -109,3 +109,41 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 
 	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))
 }
+
+// Resume finishes a task and resumes the pipeline run.
+// Example:
+// "PATCH <application>/jobs/:ID/runs/:runID"
+func (prc *PipelineRunsController) Resume(c *gin.Context) {
+	// TODO: lookup by UUID
+	// TODO: json payload needs to contain a task run result
+	// TODO: we need to give enough data to the bridge to map to a specific task run, simply run id is not enough
+	pipelineRun := pipeline.Run{}
+	err := pipelineRun.SetID(c.Param("runID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// TODO: turn TaskRun ID into pipelineRun ID
+	// TODO: use SELECT FOR UPDATE in a transaction to lock the pipeline_runs row
+	// update the task run entry for task with new data
+	// re-trigger run if necessary
+	// Q: -> how do we solve for cases where a run is already ongoing?
+	// A: -> I guess some sort of a run registry
+	// could work since we're guaranteed that if the run is running, it'll have to wait for the lock and can't stop
+	// while we're changing things. This is why I also liked having a larger scheduler that's not per-run
+
+	// equivalent on trying to suspend run:
+	// grab select for update row lock
+	// select pending task runs and see if any of them are written as complete in the db
+	// if so, immediately update the result data and re-execute
+	// else, write the updated task runs to the db and stop execution
+
+	pipelineRun, err = prc.App.PipelineORM().FindRun(pipelineRun.ID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
+}
