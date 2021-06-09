@@ -677,6 +677,19 @@ func (app *ChainlinkApplication) RunJobV2(
 			CreatedAt:      t,
 			FinishedAt:     &t,
 		}, nil, false)
+		elapsed := time.Since(t)
+
+		// For testing metrics.
+		pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String, jb.Type.String()).Set(float64(elapsed))
+		var status string
+		if err != nil {
+			status = "error"
+			pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String).Inc()
+		} else {
+			status = "completed"
+		}
+		pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String).Set(float64(elapsed))
+		pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String, jb.Type.String(), status).Inc()
 	} else {
 		meta := pipeline.JSONSerializable{
 			Val:  meta,
