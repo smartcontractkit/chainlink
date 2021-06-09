@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0;
 
-import "../ChainlinkClient.sol";
+import "../v0.6/ChainlinkClient.sol";
 
 contract Consumer is ChainlinkClient {
   bytes32 internal specId;
