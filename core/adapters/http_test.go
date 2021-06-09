@@ -687,6 +687,13 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			"http://example.com?firstKey=firstVal",
 		},
 		{
+			"subdirectory with trailing slash",
+			"http://example.com/subdir/",
+			`""`,
+			`"?firstKey=firstVal"`,
+			"http://example.com/subdir/?firstKey=firstVal",
+		},
+		{
 			"path no query params",
 			baseUrl,
 			`"one"`,
