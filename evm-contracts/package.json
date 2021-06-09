@@ -18,7 +18,6 @@
     "test:new": "hardhat test",
     "sizes": "hardhat size-contracts",
     "test:reset": "yarn setup && yarn test",
-    "test:ci:old": "./scripts/test_ci_old",
     "prepublishOnly": "yarn clean && yarn setup"
   },
   "devDependencies": {
