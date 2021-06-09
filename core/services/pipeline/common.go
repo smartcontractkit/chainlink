@@ -13,6 +13,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -90,6 +91,7 @@ type FinalResult struct {
 	Errors []error
 }
 
+// TODO: ErrorsDB and OutputsDB now unused outside of tests
 // OutputsDB dumps a result output for a pipeline_run
 func (result FinalResult) OutputsDB() JSONSerializable {
 	return JSONSerializable{Val: result.Values, Null: false}
@@ -132,12 +134,16 @@ func (result FinalResult) SingularResult() (Result, error) {
 // ID might be zero if the TaskRun has not been inserted yet
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
-	ID         int64
+	ID         uuid.UUID
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
 	CreatedAt  time.Time
-	FinishedAt time.Time
+	FinishedAt *time.Time
+}
+
+func (result *TaskRunResult) IsPending() bool {
+	return result.FinishedAt == nil && result.Result == Result{}
 }
 
 func (result *TaskRunResult) IsTerminal() bool {

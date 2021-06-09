@@ -32,7 +32,7 @@ func TestRun_Status(t *testing.T) {
 				Value: 10,
 				Error: nil,
 			},
-			FinishedAt: time.Now(),
+			FinishedAt: &now,
 		},
 		{
 			Task: &pipeline.HTTPTask{},
@@ -40,7 +40,7 @@ func TestRun_Status(t *testing.T) {
 				Value: 10,
 				Error: nil,
 			},
-			FinishedAt: time.Now(),
+			FinishedAt: &now,
 		},
 	}
 	var fail = pipeline.TaskRunResults{
@@ -50,7 +50,7 @@ func TestRun_Status(t *testing.T) {
 				Value: nil,
 				Error: errors.New("fail"),
 			},
-			FinishedAt: time.Now(),
+			FinishedAt: &now,
 		},
 		{
 			Task: &pipeline.HTTPTask{},
@@ -58,7 +58,7 @@ func TestRun_Status(t *testing.T) {
 				Value: nil,
 				Error: errors.New("fail"),
 			},
-			FinishedAt: time.Now(),
+			FinishedAt: &now,
 		},
 	}
 

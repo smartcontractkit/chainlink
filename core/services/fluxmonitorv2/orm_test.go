@@ -119,7 +119,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 					Task:       &pipeline.HTTPTask{},
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,
-					FinishedAt: f,
+					FinishedAt: &f,
 				},
 			}, true)
 		require.NoError(t, err)

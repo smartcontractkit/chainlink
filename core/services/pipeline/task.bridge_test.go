@@ -145,6 +145,51 @@ func TestBridgeTask_Happy(t *testing.T) {
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
+func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody adapterRequest
+		payload, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		defer r.Body.Close()
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		// TODO: assert finding the responseURL
+		w.Header().Set("Content-Type", "application/json")
+		// TODO: test that this is rejected if asnyc=true is missing
+		// w.Header().Set("X-Chainlink-Pending", "true")
+		response := map[string]interface{}{"pending": true}
+		require.NoError(t, json.NewEncoder(w).Encode(response))
+
+	})
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	feedURL, err := url.ParseRequestURI(server.URL)
+	require.NoError(t, err)
+	feedWebURL := (*models.WebURL)(feedURL)
+
+	task := pipeline.BridgeTask{
+		Name:        "foo",
+		RequestData: ethUSDPairing,
+		Async:       "true",
+	}
+	task.HelperSetDependencies(store.Config, store.DB)
+
+	_, bridge := cltest.NewBridgeType(t, task.Name)
+	bridge.URL = *feedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+
+	require.Error(t, result.Error)
+	require.Contains(t, result.Error.Error(), "pending")
+}
+
 func TestBridgeTask_Variables(t *testing.T) {
 	t.Parallel()
 

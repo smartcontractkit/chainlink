@@ -219,6 +219,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	j := JobSpecsController{app}
 	jsec := JobSpecErrorsController{app}
 	prc := PipelineRunsController{app}
+	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{
