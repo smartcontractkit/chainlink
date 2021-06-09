@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0;
 
-import "./vendor/SafeMathChainlink.sol";
+import "../../core/v0.6/vendor/SafeMathChainlink.sol";
 
-import "./interfaces/LinkTokenInterface.sol";
+import "../../core/v0.6/interfaces/LinkTokenInterface.sol";
 
-import "./VRFRequestIDBase.sol";
+import "../../core/v0.6/VRFRequestIDBase.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
