@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -26,7 +27,7 @@ import (
 func registerExistingProvingKey(
 	t *testing.T,
 	coordinator coordinatorUniverse,
-	provingKey *vrf.PrivateKey,
+	provingKey *vrfkey.PrivateKey,
 	jobID models.JobID,
 	vrfFee *big.Int,
 ) {
@@ -54,11 +55,12 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	pk, err := secp256k1.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
-	provingKey := vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	app.KeyStore.VRF.StoreInMemoryXXXTestingOnly(provingKey)
+	var seed = big.NewInt(1)
 
 	j := cltest.NewJobWithRandomnessLog()
 	contractAddress := cu.rootContractAddress.String()
@@ -142,11 +144,11 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	pk, err := secp256k1.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
-	provingKey := vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	app.KeyStore.VRF.StoreInMemoryXXXTestingOnly(provingKey)
 
 	j := cltest.NewJobWithRandomnessLog()
 	contractAddress := cu.rootContractAddress.String()

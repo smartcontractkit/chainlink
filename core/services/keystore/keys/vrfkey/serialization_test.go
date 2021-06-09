@@ -1,4 +1,4 @@
-package vrf
+package vrfkey
 
 import (
 	"math/big"
@@ -13,7 +13,7 @@ import (
 
 var phrase = "as3r8phu82u9ru843cdi4298yf"
 
-var serialK = mustNewPrivateKey(big.NewInt(int64(sk)))
+var serialK = MustNewPrivateKey(big.NewInt(int64(sk)))
 
 func TestEncryptDecryptRoundTrip(t *testing.T) {
 	// Encrypt already does a roundtrip to make sure it can decrypt, anyway

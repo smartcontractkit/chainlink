@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -18,7 +17,7 @@ import (
 // a password string.
 type KeyStoreAuthenticator interface {
 	AuthenticateEthKey(*keystore.Eth, string) (string, error)
-	AuthenticateVRFKey(*store.Store, string) error
+	AuthenticateVRFKey(*keystore.VRF, string) error
 	AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error
 }
 
@@ -166,18 +165,18 @@ func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(ethKeyStore
 // store's db if db store has no extant keys. It unlocks at least one VRF key
 // with given password, or returns an error. password must be non-trivial, as an
 // empty password signifies that the VRF oracle functionality is disabled.
-func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store, password string) error {
-	keys, err := store.VRFKeyStore.Get()
+func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, password string) error {
+	keys, err := vrfKeyStore.Get()
 	if err != nil {
 		return errors.Wrapf(err, "while checking for extant VRF keys")
 	}
 	if len(keys) == 0 {
 		fmt.Println("There are no VRF keys; creating a new key encrypted with given password")
-		if _, err := store.VRFKeyStore.CreateKey(password); err != nil {
+		if _, err := vrfKeyStore.CreateKey(password); err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted VRF key")
 		}
 	}
-	return errors.Wrapf(utils.JustError(store.VRFKeyStore.Unlock(password)),
+	return errors.Wrapf(utils.JustError(vrfKeyStore.Unlock(password)),
 		"there are VRF keys in the DB, but that password did not unlock any of "+
 			"them... please check the password in the file specified by vrfpassword"+
 			". You can add and delete VRF keys in the DB using the "+

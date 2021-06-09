@@ -9,10 +9,12 @@ func New(db *gorm.DB, scryptParams utils.ScryptParams) *Master {
 	return &Master{
 		Eth: newEthKeyStore(db, scryptParams),
 		OCR: newOCRKeyStore(db, scryptParams),
+		VRF: newVRFKeyStore(db, scryptParams),
 	}
 }
 
 type Master struct {
 	Eth *Eth
 	OCR *OCR
+	VRF *VRF
 }
