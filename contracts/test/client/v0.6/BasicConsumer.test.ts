@@ -18,7 +18,7 @@ let roles: Roles;
 before(async () => {
   roles = (await getUsers()).roles;
   basicConsumerFactory = await ethers.getContractFactory(
-    "src/client/v0.6/tests/BasicConsumer.sol:BasicConsumer",
+    "src/client/tests/BasicConsumer.sol:BasicConsumer",
     roles.defaultAccount,
   );
   oracleFactory = await ethers.getContractFactory("src/core/v0.6/Oracle.sol:Oracle", roles.oracleNode);
