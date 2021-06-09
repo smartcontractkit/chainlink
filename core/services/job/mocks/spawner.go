@@ -16,6 +16,22 @@ type Spawner struct {
 	mock.Mock
 }
 
+// ActiveJobs provides a mock function with given fields:
+func (_m *Spawner) ActiveJobs() map[int32]job.Job {
+	ret := _m.Called()
+
+	var r0 map[int32]job.Job
+	if rf, ok := ret.Get(0).(func() map[int32]job.Job); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int32]job.Job)
+		}
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *Spawner) Close() error {
 	ret := _m.Called()

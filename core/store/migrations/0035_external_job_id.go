@@ -9,19 +9,19 @@ import (
 )
 
 const (
-	up34_1 = `
+	up35_1 = `
                ALTER TABLE direct_request_specs DROP COLUMN on_chain_job_spec_id;
                ALTER TABLE webhook_specs DROP COLUMN on_chain_job_spec_id;
                ALTER TABLE vrf_specs ADD CONSTRAINT vrf_specs_public_key_fkey FOREIGN KEY (public_key) REFERENCES encrypted_vrf_keys(public_key) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
                ALTER TABLE jobs ADD COLUMN external_job_id uuid; 
 	`
-	up34_2 = `
+	up35_2 = `
                ALTER TABLE jobs 
                     ALTER COLUMN external_job_id SET NOT NULL,
                     ADD CONSTRAINT external_job_id_uniq UNIQUE(external_job_id),
                     ADD CONSTRAINT non_zero_uuid_check CHECK (external_job_id <> '00000000-0000-0000-0000-000000000000');
 	`
-	down34 = `
+	down35 = `
                ALTER TABLE direct_request_specs ADD COLUMN on_chain_job_spec_id bytea;
                ALTER TABLE webhook_specs ADD COLUMN on_chain_job_spec_id bytea;
                ALTER TABLE jobs DROP CONSTRAINT external_job_id_uniq;
@@ -31,10 +31,10 @@ const (
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0034_external_job_id",
+		ID: "0035_external_job_id",
 		Migrate: func(db *gorm.DB) error {
 			// Add the external ID column and remove type specific ones.
-			if err := db.Exec(up34_1).Error; err != nil {
+			if err := db.Exec(up35_1).Error; err != nil {
 				return err
 			}
 
@@ -61,10 +61,10 @@ func init() {
 			}
 
 			// Add constraints on the external_job_id.
-			return db.Exec(up34_2).Error
+			return db.Exec(up35_2).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down34).Error
+			return db.Exec(down35).Error
 		},
 	})
 }

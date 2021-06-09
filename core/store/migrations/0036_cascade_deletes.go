@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up35 = `
+const up36 = `
 	ALTER TABLE jobs DROP CONSTRAINT jobs_cron_spec_id_fkey,
 		DROP CONSTRAINT jobs_direct_request_spec_id_fkey,
 		DROP CONSTRAINT jobs_vrf_spec_id_fkey,
@@ -19,7 +19,7 @@ const up35 = `
 		ADD CONSTRAINT jobs_flux_monitor_spec_id_fkey FOREIGN KEY (flux_monitor_spec_id) REFERENCES flux_monitor_specs(id) ON DELETE CASCADE;
 `
 
-const down35 = `
+const down36 = `
 	ALTER TABLE jobs
 		DROP CONSTRAINT jobs_cron_spec_id_fkey,
 		DROP CONSTRAINT jobs_direct_request_spec_id_fkey,
@@ -38,12 +38,12 @@ const down35 = `
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0035_cascade_deletes",
+		ID: "0036_cascade_deletes",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up35).Error
+			return db.Exec(up36).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down35).Error
+			return db.Exec(down36).Error
 		},
 	})
 }

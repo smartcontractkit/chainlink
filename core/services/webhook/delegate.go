@@ -16,7 +16,8 @@ import (
 
 type (
 	Delegate struct {
-		webhookJobRunner *webhookJobRunner
+		webhookJobRunner         *webhookJobRunner
+		externalInitiatorManager ExternalInitiatorManager
 	}
 
 	JobRunner interface {
@@ -24,8 +25,11 @@ type (
 	}
 )
 
-func NewDelegate(runner pipeline.Runner) *Delegate {
+var _ job.Delegate = (*Delegate)(nil)
+
+func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitiatorManager) *Delegate {
 	return &Delegate{
+		externalInitiatorManager: externalInitiatorManager,
 		webhookJobRunner: &webhookJobRunner{
 			specsByUUID: make(map[uuid.UUID]registeredJob),
 			runner:      runner,
@@ -33,8 +37,40 @@ func NewDelegate(runner pipeline.Runner) *Delegate {
 	}
 }
 
+func (d *Delegate) WebhookJobRunner() JobRunner {
+	return d.webhookJobRunner
+}
+
 func (d *Delegate) JobType() job.Type {
 	return job.Webhook
+}
+
+func (d *Delegate) OnJobCreated(spec job.Job) {
+	if !spec.WebhookSpec.ExternalInitiatorName.IsZero() {
+		err := d.externalInitiatorManager.NotifyV2(
+			spec.ExternalJobID,
+			spec.WebhookSpec.ExternalInitiatorName.String,
+			spec.WebhookSpec.ExternalInitiatorSpec,
+		)
+		if err != nil {
+			logger.Errorw("Webhook delegate OnJobCreated errored",
+				"error", err,
+				"jobID", spec.ID,
+			)
+		}
+	}
+}
+
+func (d *Delegate) OnJobDeleted(spec job.Job) {
+	if !spec.WebhookSpec.ExternalInitiatorName.IsZero() {
+		err := d.externalInitiatorManager.DeleteJobV2(spec.ExternalJobID)
+		if err != nil {
+			logger.Errorw("Webhook delegate OnJobDeleted errored",
+				"error", err,
+				"jobID", spec.ID,
+			)
+		}
+	}
 }
 
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
@@ -43,10 +79,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 		webhookJobRunner: d.webhookJobRunner,
 	}
 	return []job.Service{service}, nil
-}
-
-func (d *Delegate) WebhookJobRunner() JobRunner {
-	return d.webhookJobRunner
 }
 
 type pseudoService struct {

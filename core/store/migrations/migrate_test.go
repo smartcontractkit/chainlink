@@ -344,7 +344,14 @@ func TestMigrate_CreateCronTables(t *testing.T) {
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_cron_spec_tables"))
 
-	cs := job.CronSpec{
+	type CronSpec struct {
+		ID           int32     `toml:"-" gorm:"primary_key"`
+		CronSchedule string    `toml:"schedule"`
+		CreatedAt    time.Time `toml:"-"`
+		UpdatedAt    time.Time `toml:"-"`
+	}
+
+	cs := CronSpec{
 		ID:           int32(1),
 		CronSchedule: "0 0 0 1 1 *",
 	}
@@ -378,7 +385,7 @@ func TestMigrate_CreateWebhookTables(t *testing.T) {
 func TestMigrate_ExternalJobID(t *testing.T) {
 	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_external_jobid", false)
 	defer cleanup()
-	require.NoError(t, migrations.MigrateUp(orm.DB, "0033_flux_monitor_round_stats_fk_index"))
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0034_webhook_external_initiator"))
 	cs := WebhookSpec{
 		ID:               int32(1),
 		OnChainJobSpecID: uuid.FromStringOrNil("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"),
@@ -419,7 +426,7 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 		})
 	}
 	require.NoError(t, orm.DB.Create(&jbs).Error)
-	require.NoError(t, migrations.MigrateUp(orm.DB, "0034_external_job_id"))
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0035_external_job_id"))
 	var jb2 []job.Job
 	require.NoError(t, orm.DB.Find(&jb2).Error)
 	var seen = make(map[uuid.UUID]struct{})
@@ -430,12 +437,12 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 		assert.NotEqual(t, uuid.UUID{}.String(), jb2[i].ExternalJobID.String())
 		t.Log(jb2[i].ExternalJobID.String())
 	}
-	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0034_external_job_id"))
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0035_external_job_id"))
 }
 
 func TestMigrate_CascadeDeletes(t *testing.T) {
 	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_cascade_deletes", false)
 	t.Cleanup(cleanup)
-	require.NoError(t, migrations.MigrateUp(orm.DB, "0035_cascade_deletes"))
-	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0035_cascade_deletes"))
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0036_cascade_deletes"))
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0036_cascade_deletes"))
 }

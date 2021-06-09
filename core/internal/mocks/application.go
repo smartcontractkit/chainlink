@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
 
-	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
+	context "context"
 
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
@@ -33,6 +32,8 @@ import (
 	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	uuid "github.com/satori/go.uuid"
+
+	webhook "github.com/smartcontractkit/chainlink/core/services/webhook"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -189,15 +190,15 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 }
 
 // GetExternalInitiatorManager provides a mock function with given fields:
-func (_m *Application) GetExternalInitiatorManager() chainlink.ExternalInitiatorManager {
+func (_m *Application) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	ret := _m.Called()
 
-	var r0 chainlink.ExternalInitiatorManager
-	if rf, ok := ret.Get(0).(func() chainlink.ExternalInitiatorManager); ok {
+	var r0 webhook.ExternalInitiatorManager
+	if rf, ok := ret.Get(0).(func() webhook.ExternalInitiatorManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chainlink.ExternalInitiatorManager)
+			r0 = ret.Get(0).(webhook.ExternalInitiatorManager)
 		}
 	}
 
@@ -230,22 +231,6 @@ func (_m *Application) GetHealthChecker() health.Checker {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(health.Checker)
-		}
-	}
-
-	return r0
-}
-
-// GetJobORM provides a mock function with given fields:
-func (_m *Application) GetJobORM() job.ORM {
-	ret := _m.Called()
-
-	var r0 job.ORM
-	if rf, ok := ret.Get(0).(func() job.ORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(job.ORM)
 		}
 	}
 
@@ -285,7 +270,7 @@ func (_m *Application) GetOCRKeyStore() *offchainreporting.KeyStore {
 }
 
 // GetPipelineORM provides a mock function with given fields:
-func (_m *Application) GetPipelineORM() pipeline.ORM {
+func (_m *Application) PipelineORM() pipeline.ORM {
 	ret := _m.Called()
 
 	var r0 pipeline.ORM
@@ -326,6 +311,38 @@ func (_m *Application) GetStore() *store.Store {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*store.Store)
+		}
+	}
+
+	return r0
+}
+
+// JobORM provides a mock function with given fields:
+func (_m *Application) JobORM() job.ORM {
+	ret := _m.Called()
+
+	var r0 job.ORM
+	if rf, ok := ret.Get(0).(func() job.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(job.ORM)
+		}
+	}
+
+	return r0
+}
+
+// JobSpawner provides a mock function with given fields:
+func (_m *Application) JobSpawner() job.Spawner {
+	ret := _m.Called()
+
+	var r0 job.Spawner
+	if rf, ok := ret.Get(0).(func() job.Spawner); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(job.Spawner)
 		}
 	}
 

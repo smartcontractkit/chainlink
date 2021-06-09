@@ -56,7 +56,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	{
 		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-with-body.toml")
 		require.NoError(t, err)
-		webhookJobSpecFromFile, err := webhook.ValidateWebhookSpec(tree.String())
+		webhookJobSpecFromFile, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
@@ -128,7 +128,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	{
 		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-no-body.toml")
 		require.NoError(t, err)
-		webhookJobSpecFromFile, err := webhook.ValidateWebhookSpec(tree.String())
+		webhookJobSpecFromFile, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})

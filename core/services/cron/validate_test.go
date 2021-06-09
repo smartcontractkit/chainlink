@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
-func TestValidateCronJobSpec(t *testing.T) {
+func TestValidatedCronJobSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string
@@ -79,7 +79,7 @@ ds -> ds_parse -> ds_multiply;
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := cron.ValidateCronSpec(tc.toml)
+			s, err := cron.ValidatedCronSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

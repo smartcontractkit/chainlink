@@ -77,7 +77,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := ValidateVRFSpec(tc.toml)
+			s, err := ValidatedVRFSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

@@ -11,7 +11,6 @@ import (
 
 	"gorm.io/gorm/schema"
 
-	"github.com/pelletier/go-toml"
 	"gorm.io/gorm"
 
 	"github.com/araddon/dateparse"
@@ -237,15 +236,7 @@ func (j *JSON) UnmarshalTOML(val interface{}) error {
 	case []byte:
 		bs = v
 	}
-	var unmarshaled interface{}
-	err := toml.Unmarshal(bs, &unmarshaled)
-	if err != nil {
-		return err
-	}
-	bs, err = json.Marshal(unmarshaled)
-	if err != nil {
-		return err
-	}
+	var err error
 	*j, err = ParseJSON(bs)
 	return err
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func ValidateCronSpec(tomlString string) (job.Job, error) {
+func ValidatedCronSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 		Pipeline:      *pipeline.NewTaskDAG(),

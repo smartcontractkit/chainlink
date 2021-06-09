@@ -108,7 +108,7 @@ func TestDelegate(t *testing.T) {
 		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
 	t.Log(vs)
-	jb, err := vrf.ValidateVRFSpec(vs.Toml())
+	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, *pipeline.NewTaskDAG()))
 	vl, err := vd.ServicesForSpec(jb)

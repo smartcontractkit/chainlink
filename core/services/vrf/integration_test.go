@@ -45,9 +45,9 @@ func TestIntegration_VRFV2(t *testing.T) {
 		CoordinatorAddress: cu.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
 		PublicKey:          unlocked[0].String()}).Toml()
-	jb, err := vrf.ValidateVRFSpec(s)
+	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	require.NoError(t, app.GetJobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
+	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
 
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 	}
 	var runs []pipeline.Run
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM.GetAllRuns()
+		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine

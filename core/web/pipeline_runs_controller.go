@@ -32,7 +32,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 		return
 	}
 
-	pipelineRuns, count, err := prc.App.GetJobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
+	pipelineRuns, count, err := prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -52,7 +52,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	pipelineRun, err = prc.App.GetPipelineORM().FindRun(pipelineRun.ID)
+	pipelineRun, err = prc.App.PipelineORM().FindRun(pipelineRun.ID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -66,7 +66,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
 	respondWithPipelineRun := func(jobRunID int64) {
-		pipelineRun, err := prc.App.GetPipelineORM().FindRun(jobRunID)
+		pipelineRun, err := prc.App.PipelineORM().FindRun(jobRunID)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return

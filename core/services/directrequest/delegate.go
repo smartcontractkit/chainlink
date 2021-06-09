@@ -39,6 +39,8 @@ type (
 	}
 )
 
+var _ job.Delegate = (*Delegate)(nil)
+
 func NewDelegate(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
@@ -61,6 +63,9 @@ func NewDelegate(
 func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err error) {

@@ -11,7 +11,7 @@ import (
 
 var ErrMissingJobID = errors.New("missing job ID")
 
-func ValidateWebhookSpec(tomlString string) (job.Job, error) {
+func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (job.Job, error) {
 	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
@@ -39,5 +39,10 @@ func ValidateWebhookSpec(tomlString string) (job.Job, error) {
 		return jb, err
 	}
 	jb.WebhookSpec = &spec
+	if !spec.ExternalInitiatorName.IsZero() {
+		if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName.String); err != nil {
+			return jb, err
+		}
+	}
 	return jb, nil
 }
