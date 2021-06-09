@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ var executeGas = uint64(10_000)
 
 func setupKeeperDB(t *testing.T) (*store.Store, keeper.ORM, func()) {
 	store, cleanup := cltest.NewStore(t)
-	orm := keeper.NewORM(store.DB)
+	orm := keeper.NewORM(store.DB, nil)
 	return store, orm, cleanup
 }
 
@@ -335,7 +336,11 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 
 func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	t.Parallel()
-	store, orm, cleanup := setupKeeperDB(t)
+	store, cleanup := cltest.NewStore(t)
+	t.Cleanup(cleanup)
+	txm := new(bptxmmocks.TxManager)
+	orm := keeper.NewORM(store.DB, txm)
+
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
@@ -344,13 +349,21 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := uint64(200_000)
+	fromAddress := registry.FromAddress.Address()
+	toAddress := registry.ContractAddress.Address()
 
 	var ethTX models.EthTx
 	var err error
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
-		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload, 500)
+		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, uint64(210000), nil).Once().Return(models.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       uint64(210000),
+		}, nil)
+		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload)
 		return err
 	})
 	require.NoError(t, err)
@@ -359,4 +372,6 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
 	require.Equal(t, payload, ethTX.EncodedPayload)
 	require.Equal(t, upkeep.ExecuteGas+gasBuffer, ethTX.GasLimit)
+
+	txm.AssertExpectations(t)
 }

@@ -3,35 +3,39 @@ package offchainreporting
 import (
 	"context"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
 )
 
+type txManager interface {
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error)
+}
+
 type transmitter struct {
-	db                         *gorm.DB
-	fromAddress                gethCommon.Address
-	gasLimit                   uint64
-	maxUnconfirmedTransactions uint64
+	txm         txManager
+	db          *gorm.DB
+	fromAddress common.Address
+	gasLimit    uint64
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(db *gorm.DB, fromAddress gethCommon.Address, gasLimit, maxUnconfirmedTransactions uint64) Transmitter {
+func NewTransmitter(txm txManager, db *gorm.DB, fromAddress common.Address, gasLimit uint64) Transmitter {
 	return &transmitter{
-		db:                         db,
-		fromAddress:                fromAddress,
-		gasLimit:                   gasLimit,
-		maxUnconfirmedTransactions: maxUnconfirmedTransactions,
+		txm:         txm,
+		db:          db,
+		fromAddress: fromAddress,
+		gasLimit:    gasLimit,
 	}
 }
 
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error {
+func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
 	db := t.db.WithContext(ctx)
-	_, err := bulletprooftxmanager.CreateEthTransaction(db, t.fromAddress, toAddress, payload, t.gasLimit, t.maxUnconfirmedTransactions, nil)
+	_, err := t.txm.CreateEthTransaction(db, t.fromAddress, toAddress, payload, t.gasLimit, nil)
 	return errors.Wrap(err, "Skipped OCR transmission")
 }
 
-func (t *transmitter) FromAddress() gethCommon.Address {
+func (t *transmitter) FromAddress() common.Address {
 	return t.fromAddress
 }

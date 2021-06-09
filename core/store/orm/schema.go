@@ -25,7 +25,7 @@ type ConfigSchema struct {
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                                   big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                             string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"0m"`
+	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
 	DatabaseBackupMode                        string          `env:"DATABASE_BACKUP_MODE" default:"none"`
 	DatabaseBackupURL                         *url.URL        `env:"DATABASE_BACKUP_URL" default:""`
 	DatabaseBackupDir                         string          `env:"DATABASE_BACKUP_DIR" default:""`

@@ -427,7 +427,7 @@ func (c Config) AuthenticatedRateLimitPeriod() models.Duration {
 
 // BalanceMonitorEnabled enables the balance monitor
 func (c Config) BalanceMonitorEnabled() bool {
-	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
+	return !c.EthereumDisabled() && c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
 }
 
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
@@ -996,6 +996,9 @@ func (c Config) GasUpdaterTransactionPercentile() uint16 {
 // GasUpdaterEnabled turns on the automatic gas updater if set to true
 // It is enabled by default on most chains
 func (c Config) GasUpdaterEnabled() bool {
+	if c.EthereumDisabled() {
+		return false
+	}
 	if c.viper.IsSet(EnvVarName("GasUpdaterEnabled")) {
 		return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
 	}

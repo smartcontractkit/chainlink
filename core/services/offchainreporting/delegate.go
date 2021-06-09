@@ -25,6 +25,7 @@ import (
 
 type Delegate struct {
 	db                 *gorm.DB
+	txm                txManager
 	jobORM             job.ORM
 	config             *orm.Config
 	keyStore           *keystore.OCR
@@ -39,6 +40,7 @@ var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	db *gorm.DB,
+	txm txManager,
 	jobORM job.ORM,
 	config *orm.Config,
 	keyStore *keystore.OCR,
@@ -48,7 +50,9 @@ func NewDelegate(
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
-	return &Delegate{db,
+	return &Delegate{
+		db,
+		txm,
 		jobORM,
 		config,
 		keyStore,
@@ -193,7 +197,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(d.db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxQueuedTransactions()),
+			NewTransmitter(d.txm, d.db, ta.Address(), d.config.EthGasLimitDefault()),
 			d.logBroadcaster,
 			tracker,
 			d.config.ChainID(),

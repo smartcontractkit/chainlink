@@ -204,7 +204,7 @@ func (js *spawner) startUnclaimedServices() {
 			continue
 		}
 
-		logger.Infow("Starting services for job", "jobID", spec.ID, "count", len(services))
+		logger.Debugw("JobSpawner: Starting services for job", "jobID", spec.ID, "count", len(services))
 
 		aj := activeJob{delegate: delegate, spec: spec}
 		for _, service := range services {
@@ -217,6 +217,8 @@ func (js *spawner) startUnclaimedServices() {
 		}
 		js.activeJobs[spec.ID] = aj
 	}
+
+	logger.Infow("JobSpawner: all jobs running", "count", len(specs))
 }
 
 func (js *spawner) stopAllServices() {
@@ -354,3 +356,20 @@ func (js *spawner) ActiveJobs() map[int32]Job {
 	}
 	return m
 }
+
+var _ Delegate = &NullDelegate{}
+
+type NullDelegate struct {
+	Type Type
+}
+
+func (n *NullDelegate) JobType() Type {
+	return n.Type
+}
+
+func (n *NullDelegate) ServicesForSpec(spec Job) (s []Service, err error) {
+	return
+}
+
+func (*NullDelegate) OnJobCreated(spec Job) {}
+func (*NullDelegate) OnJobDeleted(spec Job) {}

@@ -657,7 +657,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB)
+				orm = fluxmonitorv2.NewORM(store.DB, nil)
 			)
 
 			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
@@ -832,7 +832,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	var (
 		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
-		orm     = fluxmonitorv2.NewORM(store.DB)
+		orm     = fluxmonitorv2.NewORM(store.DB, nil)
 	)
 
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -893,7 +893,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB)
+				orm = fluxmonitorv2.NewORM(store.DB, nil)
 			)
 
 			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -960,7 +960,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB)
+				orm = fluxmonitorv2.NewORM(store.DB, nil)
 			)
 
 			fm, tm := setup(t,
@@ -1021,7 +1021,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
-		orm = fluxmonitorv2.NewORM(store.DB)
+		orm = fluxmonitorv2.NewORM(store.DB, nil)
 	)
 
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))

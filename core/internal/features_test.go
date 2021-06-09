@@ -2083,6 +2083,6 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 	keys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	for _, k := range keys {
-		app.BPTXM.Trigger(k.Address.Address())
+		app.TxManager.Trigger(k.Address.Address())
 	}
 }
