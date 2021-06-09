@@ -164,7 +164,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because jobs %v are associated with it", jobsUsingBridge))
 		return
 	}
-	v2jobsUsingBridge, err := btc.App.GetJobORM().FindJobIDsWithBridge(name)
+	v2jobsUsingBridge, err := btc.App.JobORM().FindJobIDsWithBridge(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated v2 jobs: %+v", err))
 		return
