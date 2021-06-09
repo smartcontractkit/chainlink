@@ -231,7 +231,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			if err != nil {
 				return errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
 			}
-			jobSpec.WebhookSpecId = &jobSpec.WebhookSpec.ID
+			jobSpec.WebhookSpecID = &jobSpec.WebhookSpec.ID
 		default:
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
@@ -337,7 +337,6 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
 }
 
-// OffChainReportingJobs returns job specs
 func (o *orm) JobsV2() ([]Job, error) {
 	var jobs []Job
 	err := o.db.

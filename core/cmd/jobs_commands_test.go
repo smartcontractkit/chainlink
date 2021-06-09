@@ -292,14 +292,14 @@ func TestClient_CreateJobV2(t *testing.T) {
 	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	requireJobsCount(t, app.JobORM, 0)
+	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
-	requireJobsCount(t, app.JobORM, 1)
+	requireJobsCount(t, app.JobORM(), 1)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 	assert.Equal(t, presenters.JobSpecType("offchainreporting"), output.Type)
@@ -310,7 +310,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 func TestClient_DeleteJobV2(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfig(map[string]interface{}{"TRIGGER_FALLBACK_DB_POLL_INTERVAL": "10ms"}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
@@ -321,7 +321,12 @@ func TestClient_DeleteJobV2(t *testing.T) {
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
-	requireJobsCount(t, app.JobORM, 1)
+	requireJobsCount(t, app.JobORM(), 1)
+
+	jobs, err := app.JobORM().JobsV2()
+	require.NoError(t, err)
+	jobID := jobs[0].ID
+	cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
@@ -333,7 +338,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteJobV2(c))
 
-	requireJobsCount(t, app.JobORM, 0)
+	requireJobsCount(t, app.JobORM(), 0)
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
