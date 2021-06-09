@@ -401,6 +401,9 @@ func (o *orm) JobsV2() ([]Job, error) {
 		err := PreloadAllJobTypes(tx).
 			Find(&jobs).
 			Error
+		if err != nil {
+			return err
+		}
 		for i := range jobs {
 			jobs[i], err = PopulateExternalInitiator(tx, jobs[i])
 			if err != nil {
