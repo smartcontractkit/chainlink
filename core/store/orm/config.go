@@ -121,6 +121,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// NOTE: There are probably other variables we can tweak for Kovan and other
@@ -162,6 +163,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	hecoMainnet := bscMainnet
@@ -185,6 +187,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
@@ -201,6 +204,7 @@ func init() {
 		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// Fantom

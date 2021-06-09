@@ -4,7 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,36 +43,36 @@ func TestConfig_SetEthGasPriceDefault(t *testing.T) {
 	})
 }
 
-func TestConfig_EthGasLimitDefault_AllNetworks(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-	config := store.Config
+func TestConfig_Profiles(t *testing.T) {
+	config := orm.NewConfig()
 
 	tests := []struct {
-		name          string
-		chainID       string
-		expectedValue uint64
+		name                           string
+		chainID                        string
+		expectedGasLimitDefault        uint64
+		expectedMinimumContractPayment int64
 	}{
-		{"default", "", 500000},
-		{"mainnet", "1", 500000},
-		{"kovan", "42", 500000},
+		{"default", "", 500000, 1000000000000000000},
+		{"mainnet", "1", 500000, 1000000000000000000},
+		{"kovan", "42", 500000, 1000000000000000000},
 
-		{"optimism", "10", 500000},
-		{"optimism", "69", 500000},
-		{"optimism", "420", 500000},
+		{"optimism", "10", 500000, 1000000000000000000},
+		{"optimism", "69", 500000, 1000000000000000000},
+		{"optimism", "420", 500000, 1000000000000000000},
 
-		{"bscMainnet", "56", 500000},
-		{"hecoMainnet", "128", 500000},
-		{"fantomMainnet", "250", 500000},
-		{"fantomTestnet", "4002", 500000},
-		{"polygonMatic", "800001", 500000},
+		{"bscMainnet", "56", 500000, 1000000000000000000},
+		{"hecoMainnet", "128", 500000, 1000000000000000000},
+		{"fantomMainnet", "250", 500000, 3500000000000000},
+		{"fantomTestnet", "4002", 500000, 3500000000000000},
+		{"polygonMatic", "800001", 500000, 1000000000000000000},
 
-		{"xDai", "100", 500000},
+		{"xDai", "100", 500000, 1000000000000000000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config.Set("ETH_CHAIN_ID", tt.chainID)
-			assert.Equal(t, tt.expectedValue, config.EthGasLimitDefault())
+			assert.Equal(t, tt.expectedGasLimitDefault, config.EthGasLimitDefault())
+			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment), config.MinimumContractPayment())
 		})
 	}
 }

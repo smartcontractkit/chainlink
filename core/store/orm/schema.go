@@ -46,7 +46,7 @@ type ConfigSchema struct {
 	EthGasBumpThreshold                       uint64          `env:"ETH_GAS_BUMP_THRESHOLD"`
 	EthGasBumpTxDepth                         uint16          `env:"ETH_GAS_BUMP_TX_DEPTH" default:"10"`
 	EthGasBumpWei                             big.Int         `env:"ETH_GAS_BUMP_WEI"`
-	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
 	EthGasLimitMultiplier                     float32         `env:"ETH_GAS_LIMIT_MULTIPLIER" default:"1.0"`
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
@@ -102,7 +102,7 @@ type ConfigSchema struct {
 	MigrateDatabase                           bool            `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations                  uint32          `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations          uint64          `env:"MIN_OUTGOING_CONFIRMATIONS"`
-	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
+	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT"`
 	MinimumRequestExpiration                  uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	MinimumServiceDuration                    models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	OCRBlockchainTimeout                      time.Duration   `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
