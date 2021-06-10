@@ -257,7 +257,13 @@ func (r *runner) executeRun(
 	//  - it processes the final task
 
 	var (
-		vars             = NewVarsFrom(map[string]interface{}{"input": pipelineInput})
+		vars = NewVarsFrom(map[string]interface{}{
+			"input": pipelineInput,
+			"job": map[string]interface{}{
+				"name":          spec.JobName,
+				"externalJobID": spec.JobExternalID,
+			},
+		})
 		taskRunResults   TaskRunResults
 		taskRunResultsMu sync.Mutex
 		wg               sync.WaitGroup

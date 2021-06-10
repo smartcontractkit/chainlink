@@ -277,9 +277,16 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		if loaded {
 			runCloserChannel, _ = runCloserChannelIf.(chan struct{})
 		}
+
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
-		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, nil, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
+
+		pipelineSpec := *l.job.PipelineSpec
+		pipelineSpec.JobID = l.job.ID
+		pipelineSpec.JobName = l.job.Name.ValueOrZero()
+		pipelineSpec.JobExternalID = l.job.ExternalJobID.String()
+
+		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, pipelineSpec, nil, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {

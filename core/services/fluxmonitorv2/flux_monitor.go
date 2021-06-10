@@ -192,6 +192,7 @@ func NewFromJobSpec(
 
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
+	jobSpec.PipelineSpec.JobExternalID = jobSpec.ExternalJobID.String()
 
 	min, err := fluxAggregator.MinSubmissionValue(nil)
 	if err != nil {

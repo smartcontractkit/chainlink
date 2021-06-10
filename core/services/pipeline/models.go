@@ -20,8 +20,9 @@ type Spec struct {
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
 
-	JobID   int32  `gorm:"-" json:"-"`
-	JobName string `gorm:"-" json:"-"`
+	JobID         int32  `gorm:"-" json:"-"`
+	JobName       string `gorm:"-" json:"-"`
+	JobExternalID string `gorm:"-" json:"-"`
 }
 
 func (Spec) TableName() string {

@@ -12,7 +12,7 @@ import (
 // Cron runs a cron jobSpec from a CronSpec
 type Cron struct {
 	cronRunner     *cron.Cron
-	jobID          int32
+	jobSpec        job.Job
 	logger         *logger.Logger
 	pipelineSpec   pipeline.Spec
 	pipelineRunner pipeline.Runner
@@ -37,7 +37,7 @@ func NewCronFromJobSpec(
 
 	return &Cron{
 		cronRunner:     cron.New(cron.WithSeconds()),
-		jobID:          jobSpec.ID,
+		jobSpec:        jobSpec,
 		logger:         cronLogger,
 		pipelineRunner: pipelineRunner,
 		pipelineSpec:   *spec,
@@ -52,7 +52,7 @@ func (cr *Cron) Start() error {
 
 	_, err := cr.cronRunner.AddFunc(cr.Schedule, cr.runPipeline)
 	if err != nil {
-		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobID, err)
+		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobSpec.ID, err)
 		return err
 	}
 	cr.cronRunner.Start()
@@ -70,8 +70,13 @@ func (cr *Cron) Close() error {
 func (cr *Cron) runPipeline() {
 	ctx, cancel := utils.ContextFromChan(cr.chStop)
 	defer cancel()
+
+	cr.pipelineSpec.JobID = cr.jobSpec.ID
+	cr.pipelineSpec.JobName = cr.jobSpec.Name.ValueOrZero()
+	cr.pipelineSpec.JobExternalID = cr.jobSpec.ExternalJobID.String()
+
 	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, nil, pipeline.JSONSerializable{}, *cr.logger, false)
 	if err != nil {
-		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobID)
+		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}
 }
