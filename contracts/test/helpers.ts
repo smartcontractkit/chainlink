@@ -1,4 +1,4 @@
-import { BigNumber, Contract } from "ethers";
+import { BigNumber, Contract, ContractTransaction } from "ethers";
 import type { providers } from "ethers";
 import { assert } from "chai";
 import { ethers } from "hardhat";
@@ -11,6 +11,69 @@ export const constants = {
   MAX_INT256: BigNumber.from("2").pow(BigNumber.from("255")).sub(BigNumber.from("1")),
   MIN_INT256: BigNumber.from("2").pow(BigNumber.from("255")).mul(BigNumber.from("-1")),
 };
+
+/**
+ * Add a hex prefix to a hex string
+ *
+ * @param hex The hex string to prepend the hex prefix to
+ */
+export function addHexPrefix(hex: string): string {
+  return hex.startsWith("0x") ? hex : `0x${hex}`;
+}
+
+/**
+ * Convert a number value to bytes32 format
+ *
+ * @param num The number value to convert to bytes32 format
+ */
+export function numToBytes32(num: Parameters<typeof ethers.utils.hexlify>[0]): string {
+  const hexNum = ethers.utils.hexlify(num);
+  const strippedNum = stripHexPrefix(hexNum);
+  if (strippedNum.length > 32 * 2) {
+    throw Error("Cannot convert number to bytes32 format, value is greater than maximum bytes32 value");
+  }
+  return addHexPrefix(strippedNum.padStart(32 * 2, "0"));
+}
+
+/**
+ * Retrieve single log from transaction
+ *
+ * @param tx The transaction to wait for, then extract logs from
+ * @param index The index of the log to retrieve
+ */
+export async function getLog(tx: ContractTransaction, index: number): Promise<providers.Log> {
+  const logs = await getLogs(tx);
+  if (!logs[index]) {
+    throw Error("unable to extract log from transaction receipt");
+  }
+  return logs[index];
+}
+
+/**
+ * Extract array of logs from a transaction
+ *
+ * @param tx The transaction to wait for, then extract logs from
+ */
+export async function getLogs(tx: ContractTransaction): Promise<providers.Log[]> {
+  const receipt = await tx.wait();
+  if (!receipt.logs) {
+    throw Error("unable to extract logs from transaction receipt");
+  }
+  return receipt.logs;
+}
+
+/**
+ * Convert a UTF-8 string into a bytes32 hex string representation
+ *
+ * The inverse function of [[parseBytes32String]]
+ *
+ * @param args The UTF-8 string representation to convert to a bytes32 hex string representation
+ */
+export function toBytes32String(
+  ...args: Parameters<typeof ethers.utils.formatBytes32String>
+): ReturnType<typeof ethers.utils.formatBytes32String> {
+  return ethers.utils.formatBytes32String(...args);
+}
 
 /**
  * Strip the leading 0x hex prefix from a hex string
