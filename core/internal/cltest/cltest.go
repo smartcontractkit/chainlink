@@ -26,7 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"golang.org/x/crypto/sha3"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services"
+
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -45,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -288,13 +292,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, db *gorm.DB) JobPipelineV2TestHelper {
-	config, cleanupCfg := NewConfig(t)
-	t.Cleanup(cleanupCfg)
-	prm, eb, cleanup := NewPipelineORM(t, config, db)
-	jrm := job.NewORM(db, config.Config, prm, eb, &postgres.NullAdvisoryLocker{})
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2TestHelper {
+	prm, eb, cleanup := NewPipelineORM(t, tc, db)
+	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, config.Config)
+	pr := pipeline.NewRunner(prm, tc.Config)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -307,7 +309,7 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	return pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, func() {
+	return pipeline.NewORM(db, config), eventBroadcaster, func() {
 		eventBroadcaster.Close()
 	}
 }
@@ -425,14 +427,19 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	return app, cleanup
 }
 
+const (
+	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
+)
+
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
-	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
+	var externalInitiatorManager webhook.ExternalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var ks strpkg.KeyStoreInterface
+	var useRealExternalInitiatorManager bool
 
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
@@ -440,10 +447,17 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 			ethClient = dep
 		case postgres.AdvisoryLocker:
 			advisoryLocker = dep
-		case chainlink.ExternalInitiatorManager:
+		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
 		case strpkg.KeyStoreInterface:
 			ks = dep
+		default:
+
+			switch flag {
+			case UseRealExternalInitiatorManager:
+				useRealExternalInitiatorManager = true
+			}
+
 		}
 	}
 
@@ -458,7 +472,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 		}
 	}
 
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, externalInitiatorManager, func(app chainlink.Application) {
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, keyStoreGenerator, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	})
 	require.NoError(t, err)
@@ -469,6 +483,10 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 
 	app.Store.Config = tc.Config
+
+	if !useRealExternalInitiatorManager {
+		app.ExternalInitiatorManager = externalInitiatorManager
+	}
 
 	for _, flag := range flagsAndDeps {
 		if flag == AllowUnstarted {
@@ -911,6 +929,23 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 	return jobResponse
 }
 
+func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusNoContent)
+}
+
+func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor time.Duration) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		_, exists := jobSpawner.ActiveJobs()[jobID]
+		return exists
+	}, waitFor, 10*time.Millisecond)
+}
+
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
@@ -955,6 +990,32 @@ func CreateJobRunViaExternalInitiator(
 
 	assert.Equal(t, j.ID, jr.JobSpecID)
 	return jr
+}
+
+func CreateJobRunViaExternalInitiatorV2(
+	t testing.TB,
+	app *TestApplication,
+	jobID uuid.UUID,
+	eia auth.Token,
+	body string,
+) pipeline.Run {
+	t.Helper()
+
+	headers := make(map[string]string)
+	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
+	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
+
+	url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobID.String() + "/runs"
+	bodyBuf := bytes.NewBufferString(body)
+	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var pr pipeline.Run
+	err := ParseJSONAPIResponse(t, resp, &pr)
+	require.NoError(t, err)
+
+	// assert.Equal(t, j.ID, pr.JobSpecID)
+	return pr
 }
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url

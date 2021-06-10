@@ -2,6 +2,7 @@ package cron
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -9,6 +10,8 @@ import (
 type Delegate struct {
 	pipelineRunner pipeline.Runner
 }
+
+var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(pipelineRunner pipeline.Runner) *Delegate {
 	return &Delegate{
@@ -19,6 +22,9 @@ func NewDelegate(pipelineRunner pipeline.Runner) *Delegate {
 func (d *Delegate) JobType() job.Type {
 	return job.Cron
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the scheduler to be used for running cron jobs
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {

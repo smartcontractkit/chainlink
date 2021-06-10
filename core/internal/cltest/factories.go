@@ -279,6 +279,13 @@ func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	return j
 }
 
+func MustJSONMarshal(t *testing.T, val interface{}) string {
+	t.Helper()
+	bs, err := json.Marshal(val)
+	require.NoError(t, err)
+	return string(bs)
+}
+
 // MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
 // See https://github.com/tidwall/sjson
 func MustJSONSet(t *testing.T, json, path string, value interface{}) string {
@@ -744,6 +751,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	jb := job.Job{
 		OffchainreportingOracleSpec:   &oracleSpec,
 		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		ExternalJobID:                 uuid.NewV4(),
 		Type:                          job.OffchainReporting,
 		SchemaVersion:                 1,
 		PipelineSpec:                  &pipelineSpec,
@@ -779,11 +787,10 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
 	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID := uuid.NewV4()
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
+		ExternalJobID:     uuid.NewV4(),
 		DirectRequestSpec: drs,
 		Pipeline:          *pipeline.NewTaskDAG(),
 		PipelineSpec:      &pipeline.Spec{},
@@ -811,6 +818,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	specDB := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
+		ExternalJobID:  uuid.NewV4(),
 		Type:           job.Keeper,
 		SchemaVersion:  1,
 		PipelineSpec:   &pipelineSpec,

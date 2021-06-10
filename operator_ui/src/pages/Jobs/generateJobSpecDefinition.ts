@@ -8,6 +8,7 @@ import {
   KeeperV2Spec,
   CronV2Spec,
   WebhookV2Spec,
+  VRFV2Spec,
 } from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
@@ -125,6 +126,10 @@ export const generateTOMLDefinition = (
     return generateWebhookDefinition(jobSpecAttributes)
   }
 
+  if (jobSpecAttributes.type === 'vrf') {
+    return generateVRFDefinition(jobSpecAttributes)
+  }
+
   return ''
 }
 
@@ -144,6 +149,7 @@ function generateOCRDefinition(
       ...ocrSpecWithoutDates,
       observationSource: attrs.pipelineSpec.dotDagSource,
       maxTaskDuration: attrs.maxTaskDuration,
+      externalJobID: attrs.externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -159,6 +165,7 @@ function generateFluxMonitorDefinition(
     schemaVersion,
     type,
     maxTaskDuration,
+    externalJobID,
   } = attrs
   const {
     contractAddress,
@@ -188,6 +195,7 @@ function generateFluxMonitorDefinition(
       maxTaskDuration,
       minPayment,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -203,23 +211,20 @@ function generateDirectRequestDefinition(
     schemaVersion,
     type,
     maxTaskDuration,
+    externalJobID,
   } = attrs
-  const {
-    contractAddress,
-    onChainJobSpecID,
-    minIncomingConfirmations,
-  } = directRequestSpec
+  const { contractAddress, minIncomingConfirmations } = directRequestSpec
 
   return stringifyJobSpec({
     value: {
       type,
       schemaVersion,
       name,
-      onChainJobSpecID,
       minIncomingConfirmations,
       contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -228,7 +233,7 @@ function generateDirectRequestDefinition(
 function generateKeeperDefinition(
   attrs: ApiResponse<KeeperV2Spec>['data']['attributes'],
 ) {
-  const { keeperSpec, name, schemaVersion, type } = attrs
+  const { keeperSpec, name, schemaVersion, type, externalJobID } = attrs
   const { contractAddress, fromAddress } = keeperSpec
 
   return stringifyJobSpec({
@@ -238,6 +243,7 @@ function generateKeeperDefinition(
       name,
       contractAddress,
       fromAddress,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -246,7 +252,14 @@ function generateKeeperDefinition(
 function generateCronDefinition(
   attrs: ApiResponse<CronV2Spec>['data']['attributes'],
 ) {
-  const { cronSpec, pipelineSpec, name, schemaVersion, type } = attrs
+  const {
+    cronSpec,
+    pipelineSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+  } = attrs
   const { schedule } = cronSpec
 
   return stringifyJobSpec({
@@ -256,6 +269,7 @@ function generateCronDefinition(
       name,
       schedule,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
     format: JobSpecFormats.TOML,
   })
@@ -264,16 +278,35 @@ function generateCronDefinition(
 function generateWebhookDefinition(
   attrs: ApiResponse<WebhookV2Spec>['data']['attributes'],
 ) {
-  const { pipelineSpec, name, schemaVersion, type, webhookSpec } = attrs
-  const { onChainJobSpecID } = webhookSpec
+  const { pipelineSpec, name, schemaVersion, type, externalJobID } = attrs
 
   return stringifyJobSpec({
     value: {
       type,
       schemaVersion,
       name,
-      onChainJobSpecID,
+      externalJobID,
       observationSource: pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateVRFDefinition(
+  attrs: ApiResponse<VRFV2Spec>['data']['attributes'],
+) {
+  const { vrfSpec, name, schemaVersion, type, externalJobID } = attrs
+  const { coordinatorAddress, confirmations, publicKey } = vrfSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      externalJobID,
+      coordinatorAddress,
+      confirmations,
+      publicKey,
     },
     format: JobSpecFormats.TOML,
   })

@@ -1,4 +1,4 @@
-package services_test
+package webhook_test
 
 import (
 	"encoding/json"
@@ -8,9 +8,11 @@ import (
 	"net/url"
 	"testing"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -31,7 +33,7 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 		Name          string
 		ExInitr       models.ExternalInitiatorRequest
 		JobSpec       models.JobSpec
-		JobSpecNotice services.JobSpecNotice
+		JobSpecNotice webhook.JobSpecNotice
 	}{
 		{
 			"Job Spec w/ External Initiator",
@@ -50,7 +52,7 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 					},
 				},
 			},
-			services.JobSpecNotice{
+			webhook.JobSpecNotice{
 				Type:   models.InitiatorExternal,
 				Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
 			},
@@ -78,7 +80,7 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 					},
 				},
 			},
-			services.JobSpecNotice{
+			webhook.JobSpecNotice{
 				Type:   models.InitiatorExternal,
 				Params: *JSONFromString(t, `{"foo":"bar"}`),
 			},
@@ -91,7 +93,7 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 
 			exInitr := struct {
 				Header http.Header
-				Body   services.JobSpecNotice
+				Body   webhook.JobSpecNotice
 			}{}
 			eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 				func(header http.Header, body string) {
@@ -113,8 +115,8 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 			err = store.CreateJob(&test.JobSpec)
 			require.NoError(t, err)
 
-			manager := services.NewExternalInitiatorManager()
-			err = manager.Notify(test.JobSpec, store)
+			manager := webhook.NewExternalInitiatorManager(store.DB)
+			err = manager.Notify(test.JobSpec)
 			require.NoError(t, err)
 			assert.Equal(t,
 				ei.OutgoingToken,
@@ -188,8 +190,8 @@ func TestNotifyExternalInitiator_NotNotified(t *testing.T) {
 			err = store.CreateJob(&test.JobSpec)
 			require.NoError(t, err)
 
-			manager := services.NewExternalInitiatorManager()
-			err = manager.Notify(test.JobSpec, store)
+			manager := webhook.NewExternalInitiatorManager(store.DB)
+			err = manager.Notify(test.JobSpec)
 			require.NoError(t, err)
 
 			require.False(t, remoteNotified)
@@ -280,11 +282,11 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 			err = store.CreateJob(&test.JobSpec)
 			require.NoError(t, err)
 
-			manager := services.NewExternalInitiatorManager()
-			err = manager.DeleteJob(store.DB, test.JobSpec.ID)
+			manager := webhook.NewExternalInitiatorManager(store.DB)
+			err = manager.DeleteJob(test.JobSpec.ID)
 			require.NoError(t, err)
 
-			assert.Equal(t, fmt.Sprintf("/%s", test.JobSpec.ID), deleteURL.String())
+			assert.Equal(t, fmt.Sprintf("/%s", uuid.UUID(test.JobSpec.ID).String()), deleteURL.String())
 			assert.Equal(t, ei.OutgoingToken, outgoingToken)
 			assert.Equal(t, ei.OutgoingSecret, outgoingSecret)
 			assert.Equal(t, "DELETE", method)

@@ -490,14 +490,20 @@ func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	case []interface{}:
 		for _, x := range v {
 			if as, is := x.(string); is {
-				ssp = append(ssp, strings.TrimSpace(as))
+				ssp = append(ssp, as)
 			} else {
 				return ErrBadInput
 			}
 		}
 	case string:
+		if len(v) == 0 {
+			return nil
+		}
 		ssp = strings.Split(v, ",")
 	case []byte:
+		if len(v) == 0 {
+			return nil
+		}
 		ssp = strings.Split(string(v), ",")
 	default:
 		return ErrBadInput

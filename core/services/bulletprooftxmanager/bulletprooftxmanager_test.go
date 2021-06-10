@@ -275,7 +275,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	payload := []byte{1, 2, 3}
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
-		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1, nil)
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
@@ -301,7 +301,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
-		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, cltest.NewAddress(), []byte{1, 2, 3}, 21000, 1)
+		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, cltest.NewAddress(), []byte{1, 2, 3}, 21000, 1, nil)
 		assert.EqualError(t, err, "transmitter#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse.")
 	})
 }
@@ -321,7 +321,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, otherKey.Address.Address())
 
-		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1, nil)
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
@@ -333,7 +333,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, thisKey.Address.Address())
 
-		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		_, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1, nil)
 		require.EqualError(t, err, fmt.Sprintf("wallet is out of eth: %s", thisKey.Address.Hex()))
 	})
 
@@ -342,7 +342,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
 		require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
 
-		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1)
+		etx, err := bulletprooftxmanager.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, 1, nil)
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)

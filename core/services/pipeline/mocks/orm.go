@@ -114,6 +114,29 @@ func (_m *ORM) FindRun(id int64) (pipeline.Run, error) {
 	return r0, r1
 }
 
+// GetAllRuns provides a mock function with given fields:
+func (_m *ORM) GetAllRuns() ([]pipeline.Run, error) {
+	ret := _m.Called()
+
+	var r0 []pipeline.Run
+	if rf, ok := ret.Get(0).(func() []pipeline.Run); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]pipeline.Run)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertFinishedRun provides a mock function with given fields: db, run, trrs, saveSuccessfulTaskRuns
 func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
 	ret := _m.Called(db, run, trrs, saveSuccessfulTaskRuns)

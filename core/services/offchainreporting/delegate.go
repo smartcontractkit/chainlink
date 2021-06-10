@@ -34,6 +34,8 @@ type Delegate struct {
 	monitoringEndpoint ocrtypes.MonitoringEndpoint
 }
 
+var _ job.Delegate = (*Delegate)(nil)
+
 func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
@@ -60,6 +62,9 @@ func NewDelegate(
 func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
 	if jobSpec.OffchainreportingOracleSpec == nil {
