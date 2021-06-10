@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -276,6 +277,13 @@ func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	j, err := models.ParseJSON(body)
 	require.NoError(t, err)
 	return j
+}
+
+func MustJSONMarshal(t *testing.T, val interface{}) string {
+	t.Helper()
+	bs, err := json.Marshal(val)
+	require.NoError(t, err)
+	return string(bs)
 }
 
 // MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
@@ -656,9 +664,8 @@ func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...inter
 	t.Helper()
 
 	k := MustGenerateRandomKey(t, opts...)
-	err := store.KeyStore.Unlock(Password)
-	require.NoError(t, err)
 	MustAddKeyToKeystore(t, &k, store)
+
 	return k, k.Address.Address()
 }
 
@@ -667,9 +674,8 @@ func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
 
 	err := store.KeyStore.Unlock(Password)
 	require.NoError(t, err)
-	_, err = store.KeyStore.Import(key.JSON.Bytes(), Password)
+	err = store.KeyStore.AddKey(key)
 	require.NoError(t, err)
-	require.NoError(t, store.DB.Create(key).Error)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
@@ -697,9 +703,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	}
 	keyjsonbytes, err := keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
 	require.NoError(t, err)
-	keyjson, err := models.ParseJSON(keyjsonbytes)
-	require.NoError(t, err)
-	eip, err := models.EIP55AddressFromAddress(k.Address)
+	eip := models.EIP55AddressFromAddress(k.Address)
 	require.NoError(t, err)
 
 	var nextNonce int64
@@ -719,7 +723,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 
 	key := models.Key{
 		Address:   eip,
-		JSON:      keyjson,
+		JSON:      gormpostgrestypes.Jsonb{RawMessage: keyjsonbytes},
 		NextNonce: nextNonce,
 		IsFunding: funding,
 	}
@@ -747,6 +751,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	jb := job.Job{
 		OffchainreportingOracleSpec:   &oracleSpec,
 		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		ExternalJobID:                 uuid.NewV4(),
 		Type:                          job.OffchainReporting,
 		SchemaVersion:                 1,
 		PipelineSpec:                  &pipelineSpec,
@@ -782,11 +787,10 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
 	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID := uuid.NewV4()
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
+		ExternalJobID:     uuid.NewV4(),
 		DirectRequestSpec: drs,
 		Pipeline:          *pipeline.NewTaskDAG(),
 		PipelineSpec:      &pipeline.Spec{},
@@ -814,6 +818,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	specDB := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
+		ExternalJobID:  uuid.NewV4(),
 		Type:           job.Keeper,
 		SchemaVersion:  1,
 		PipelineSpec:   &pipelineSpec,
@@ -850,7 +855,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
-		ExecuteGas: int32(10_000),
+		ExecuteGas: uint64(10_000),
 		Registry:   registry,
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -59,7 +61,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jb, err := mc.App.GetJobORM().FindJob(jid)
+	jb, err := mc.App.JobORM().FindJob(jid)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -94,10 +96,7 @@ func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
 func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
-	ca, err := models.EIP55AddressFromAddress(initr.Address)
-	if err != nil {
-		return jb, err
-	}
+	ca := models.EIP55AddressFromAddress(initr.Address)
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
@@ -115,6 +114,7 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 		},
 		Type:          job.FluxMonitor,
 		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
 	}
 	ps, pd, err := BuildFMTaskDAG(js)
 	if err != nil {

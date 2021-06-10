@@ -4,8 +4,11 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -19,7 +22,7 @@ import (
 )
 
 func TestMigrate_Initial(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations", false)
 	defer cleanup()
 
 	err := migrations.MigrateUp(orm.DB, "1611847145")
@@ -104,7 +107,7 @@ func (TaskSpec) TableName() string {
 }
 
 func TestMigrate_BridgeFK(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_bridgefk", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_bridgefk", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0009_add_min_payment_to_flux_monitor_spec"))
@@ -153,7 +156,7 @@ func TestMigrate_BridgeFK(t *testing.T) {
 }
 
 func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_change_jobs_to_numeric", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_change_jobs_to_numeric", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0010_bridge_fk"))
@@ -184,7 +187,7 @@ func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
 }
 
 func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_task_run_dot_id", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_task_run_dot_id", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0015_simplify_log_broadcaster"))
@@ -259,7 +262,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 }
 
 func TestMigrate_RemoveResultTask(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_result_task", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_result_task", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0019_last_run_height_column_to_keeper_table"))
@@ -304,7 +307,7 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 }
 
 func TestMigrate_LogConfigTables(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_log_config_tables", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_create_log_config_tables", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0025_create_log_config_table"))
@@ -336,16 +339,110 @@ func TestMigrate_LogConfigTables(t *testing.T) {
 }
 
 func TestMigrate_CreateCronTables(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_cron_tables", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_create_cron_tables", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_cron_spec_tables"))
 
-	cs := job.CronSpec{
+	type CronSpec struct {
+		ID           int32     `toml:"-" gorm:"primary_key"`
+		CronSchedule string    `toml:"schedule"`
+		CreatedAt    time.Time `toml:"-"`
+		UpdatedAt    time.Time `toml:"-"`
+	}
+
+	cs := CronSpec{
 		ID:           int32(1),
 		CronSchedule: "0 0 0 1 1 *",
 	}
 	require.NoError(t, orm.DB.Create(&cs).Error)
 	require.NoError(t, orm.DB.Find(&cs).Error)
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0024_add_cron_spec_tables"))
+}
+
+type WebhookSpec struct {
+	ID               int32     `toml:"-" gorm:"primary_key"`
+	CreatedAt        time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
+	OnChainJobSpecID uuid.UUID
+}
+
+func TestMigrate_CreateWebhookTables(t *testing.T) {
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_create_webhook_tables", false)
+	defer cleanup()
+
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0029_add_webhook_spec_tables"))
+
+	cs := WebhookSpec{
+		ID:               int32(1),
+		OnChainJobSpecID: uuid.FromStringOrNil("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"),
+	}
+	require.NoError(t, orm.DB.Create(&cs).Error)
+	require.NoError(t, orm.DB.Find(&cs).Error)
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0029_add_webhook_spec_tables"))
+}
+
+func TestMigrate_ExternalJobID(t *testing.T) {
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_external_jobid", false)
+	defer cleanup()
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0035_create_feeds_managers"))
+	cs := WebhookSpec{
+		ID:               int32(1),
+		OnChainJobSpecID: uuid.FromStringOrNil("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"),
+	}
+	require.NoError(t, orm.DB.Create(&cs).Error)
+	type Job struct {
+		ID                            int32 `toml:"-" gorm:"primary_key"`
+		OffchainreportingOracleSpecID *int32
+		CronSpecID                    *int32
+		DirectRequestSpecID           *int32
+		FluxMonitorSpecID             *int32
+		KeeperSpecID                  *int32
+		VRFSpecID                     *int32
+		WebhookSpecId                 *int32
+		PipelineSpecID                int32
+		PipelineSpec                  *pipeline.Spec
+		JobSpecErrors                 []job.SpecError `gorm:"foreignKey:JobID"`
+		Type                          job.Type
+		SchemaVersion                 uint32
+		Name                          null.String
+		MaxTaskDuration               models.Interval
+		Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+	}
+	var ps []pipeline.Spec
+	for i := 0; i < 10; i++ {
+		ps = append(ps, pipeline.Spec{
+			DotDagSource: "",
+		})
+	}
+	require.NoError(t, orm.DB.Create(&ps).Error)
+	var jbs []Job
+	for i := 0; i < 10; i++ {
+		jbs = append(jbs, Job{
+			SchemaVersion:  1,
+			WebhookSpecId:  &cs.ID,
+			PipelineSpecID: ps[i].ID,
+			Type:           job.Webhook,
+		})
+	}
+	require.NoError(t, orm.DB.Create(&jbs).Error)
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0036_external_job_id"))
+	var jb2 []job.Job
+	require.NoError(t, orm.DB.Find(&jb2).Error)
+	var seen = make(map[uuid.UUID]struct{})
+	for i := range jb2 {
+		if _, ok := seen[jb2[i].ExternalJobID]; ok {
+			t.Error("all uuid's should be unique")
+		}
+		assert.NotEqual(t, uuid.UUID{}.String(), jb2[i].ExternalJobID.String())
+		t.Log(jb2[i].ExternalJobID.String())
+	}
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0036_external_job_id"))
+}
+
+func TestMigrate_CascadeDeletes(t *testing.T) {
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrations_cascade_deletes", false)
+	t.Cleanup(cleanup)
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0037_cascade_deletes"))
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0037_cascade_deletes"))
 }

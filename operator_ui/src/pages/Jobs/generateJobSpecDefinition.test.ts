@@ -185,11 +185,13 @@ describe('generateTOMLDefinition', () => {
       name: 'Job spec v2',
       type: 'offchainreporting',
       fluxMonitorSpec: null,
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       directRequestSpec: null,
       keeperSpec: null,
       cronSpec: null,
-      webSpec: null,
+      webhookSpec: null,
       schemaVersion: 1,
+      vrfSpec: null,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
         p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
@@ -240,6 +242,7 @@ observationSource = """
     fetch -> parse -> multiply;
 """
 maxTaskDuration = "10s"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -251,6 +254,7 @@ maxTaskDuration = "10s"
       name: 'FM Job Spec',
       schemaVersion: 1,
       type: 'fluxmonitor',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: {
         absoluteThreshold: 1,
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
@@ -264,9 +268,10 @@ maxTaskDuration = "10s"
         updatedAt: '2021-02-19T16:00:01.115227+08:00',
         minPayment: null,
       },
+      vrfSpec: null,
       keeperSpec: null,
       cronSpec: null,
-      webSpec: null,
+      webhookSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -295,6 +300,7 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -306,13 +312,16 @@ observationSource = """
       name: 'DR Job Spec',
       schemaVersion: 1,
       type: 'directrequest',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
-      webSpec: null,
+      vrfSpec: null,
+      webhookSpec: null,
       directRequestSpec: {
         initiator: 'runlog',
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
+        minIncomingConfirmations: 3,
         createdAt: '2021-02-19T16:00:01.115227+08:00',
       },
       offChainReportingOracleSpec: null,
@@ -327,6 +336,7 @@ observationSource = """
     const expectedOutput = `type = "directrequest"
 schemaVersion = 1
 name = "DR Job Spec"
+minIncomingConfirmations = 3
 contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 maxTaskDuration = "10s"
 observationSource = """
@@ -335,6 +345,7 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -346,6 +357,7 @@ observationSource = """
       name: 'Keeper Job Spec',
       schemaVersion: 1,
       type: 'keeper',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: {
         contractAddress: '0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba',
@@ -354,7 +366,8 @@ observationSource = """
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
       cronSpec: null,
-      webSpec: null,
+      vrfSpec: null,
+      webhookSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -370,6 +383,7 @@ schemaVersion = 1
 name = "Keeper Job Spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -382,13 +396,15 @@ fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
       schemaVersion: 1,
       type: 'cron',
       fluxMonitorSpec: null,
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       keeperSpec: null,
+      vrfSpec: null,
       cronSpec: {
         schedule: '*/2 * * * *',
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
-      webSpec: null,
+      webhookSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -409,21 +425,24 @@ observationSource = """
     ds_multiply [type=multiply times=100];
     ds -> ds_parse -> ds_multiply;
 """
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)
   })
 
-  it('generates a valid Web definition', () => {
+  it('generates a valid Webhook definition', () => {
     const jobSpecAttributesInput = {
-      name: 'Web Job Spec',
+      name: 'Webhook Job Spec',
       schemaVersion: 1,
-      type: 'web',
+      type: 'webhook',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: null,
+      vrfSpec: null,
       cronSpec: null,
-      webSpec: {
+      webhookSpec: {
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
@@ -437,15 +456,56 @@ observationSource = """
       errors: [],
     } as JobSpecV2
 
-    const expectedOutput = `type = "web"
+    const expectedOutput = `type = "webhook"
 schemaVersion = 1
-name = "Web Job Spec"
+name = "Webhook Job Spec"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 observationSource = """
     ds    [type=http method=GET url="http://localhost:8001"];
     ds_parse    [type=jsonparse path="data,result"];
     ds_multiply [type=multiply times=100];
     ds -> ds_parse -> ds_multiply;
 """
+`
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
+
+  it('generates a valid vrf definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'VRF Job Spec',
+      schemaVersion: 1,
+      type: 'vrf',
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      fluxMonitorSpec: null,
+      keeperSpec: null,
+      cronSpec: null,
+      webhookSpec: null,
+      vrfSpec: {
+        confirmations: 6,
+        coordinatorAddress: '0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7',
+        publicKey:
+          '0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301',
+        createdAt: '2021-04-05T15:21:30.392021+08:00',
+        updatedAt: '2021-04-05T15:21:30.392021+08:00',
+      },
+      directRequestSpec: null,
+      pipelineSpec: {
+        id: '1',
+        dotDagSource: '',
+      },
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      errors: [],
+    } as JobSpecV2
+
+    const expectedOutput = `type = "vrf"
+schemaVersion = 1
+name = "VRF Job Spec"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+confirmations = 6
+publicKey = "0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301"
 `
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)

@@ -28,7 +28,7 @@ func (Registry) TableName() string {
 type UpkeepRegistration struct {
 	ID                  int32 `gorm:"primary_key"`
 	CheckData           []byte
-	ExecuteGas          int32
+	ExecuteGas          uint64
 	LastRunBlockHeight  int64
 	RegistryID          int32
 	Registry            Registry

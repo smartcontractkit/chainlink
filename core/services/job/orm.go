@@ -21,13 +21,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
 	ErrNoSuchPeerID             = errors.New("no such peer id exists")
 	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
+	ErrNoSuchPublicKey          = errors.New("no such public key exists")
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -78,6 +78,35 @@ func NewORM(db *gorm.DB, config *storm.Config, pipelineORM pipeline.ORM, eventBr
 	}
 }
 
+func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
+	return db.Preload("FluxMonitorSpec").
+		Preload("DirectRequestSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("KeeperSpec").
+		Preload("PipelineSpec").
+		Preload("CronSpec").
+		Preload("WebhookSpec").
+		Preload("VRFSpec")
+}
+
+func PopulateExternalInitiator(db *gorm.DB, jb Job) (Job, error) {
+	if jb.WebhookSpecID != nil {
+		// TODO: Once jpv1 is gone make an FK from external_initiators to jobs.
+		// Populate any external initiators
+		var exi models.ExternalInitiator
+		err := db.Raw(`SELECT * from external_initiators 
+				JOIN webhook_specs 
+				ON webhook_specs.external_initiator_name = external_initiators.name
+				WHERE webhook_specs.id = ?
+				`, jb.WebhookSpecID).Scan(&exi).Error
+		if err != nil {
+			return jb, err
+		}
+		jb.ExternalInitiator = &exi
+	}
+	return jb, nil
+}
+
 func (o *orm) Close() error {
 	return nil
 }
@@ -121,23 +150,23 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 	}
 
 	var newlyClaimedJobs []Job
-	err := o.db.
-		Joins(join, args...).
-		Preload("FluxMonitorSpec").
-		Preload("DirectRequestSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("KeeperSpec").
-		Preload("PipelineSpec").
-		Preload("CronSpec").
-		Find(&newlyClaimedJobs).Error
-	if err != nil {
-		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
-	}
+	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
+		err := PreloadAllJobTypes(tx.
+			Joins(join, args...)).
+			Find(&newlyClaimedJobs).Error
+		if err != nil {
+			return err
+		}
 
-	for _, job := range newlyClaimedJobs {
-		o.claimedJobs[job.ID] = job
-	}
-
+		for i := range newlyClaimedJobs {
+			newlyClaimedJobs[i], err = PopulateExternalInitiator(tx, newlyClaimedJobs[i])
+			if err != nil {
+				return err
+			}
+			o.claimedJobs[newlyClaimedJobs[i].ID] = newlyClaimedJobs[i]
+		}
+		return nil
+	})
 	return newlyClaimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
 }
 
@@ -171,9 +200,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 		}
 	}
 
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	// Inherit the parent context so that client side request cancellations are respected.
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		switch jobSpec.Type {
 		case DirectRequest:
@@ -192,9 +221,15 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
 			pqErr, ok := err.(*pgconn.PgError)
 			if err != nil && ok && pqErr.Code == "23503" {
-				if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+					return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+				}
+				if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
 					if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 						return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+					}
+					if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+						return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 					}
 				}
 			}
@@ -214,6 +249,24 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
 			}
 			jobSpec.CronSpecID = &jobSpec.CronSpec.ID
+		case VRF:
+			err := tx.Create(&jobSpec.VRFSpec).Error
+			pqErr, ok := err.(*pgconn.PgError)
+			if err != nil && ok && pqErr.Code == "23503" {
+				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
+					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jobSpec.VRFSpec.PublicKey.String())
+				}
+			}
+			if err != nil {
+				return errors.Wrap(err, "failed to create VRFSpec for jobSpec")
+			}
+			jobSpec.VRFSpecID = &jobSpec.VRFSpec.ID
+		case Webhook:
+			err := tx.Create(&jobSpec.WebhookSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
+			}
+			jobSpec.WebhookSpecID = &jobSpec.WebhookSpec.ID
 		default:
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
@@ -223,28 +276,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
-
-		if jobSpec.DirectRequestSpec != nil {
-			err = tx.FirstOrCreate(&jobSpec.DirectRequestSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "error creating direct request spec")
-			}
-			jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
-		}
-
-		err = tx.Omit("DirectRequestSpec").Create(jobSpec).Error
-		pqErr, ok := err.(*pgconn.PgError)
-		if err != nil && ok && pqErr.Code == "23503" {
-			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
-				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
-			}
-			if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-				}
-			}
-		}
-		return errors.Wrap(err, "failed to create job")
+		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
 	})
 }
 
@@ -254,17 +286,40 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	defer o.claimedJobsMu.Unlock()
 
 	err := o.db.Exec(`
-			WITH deleted_jobs AS (
-				DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id, keeper_spec_id
-			),
-			deleted_oracle_specs AS (
-				DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
-			),
-			deleted_keeper_specs AS (
-				DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
-			)
-			DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
-    	`, id).Error
+		WITH deleted_jobs AS (
+			DELETE FROM jobs WHERE id = ? RETURNING 
+				pipeline_spec_id, 
+				offchainreporting_oracle_spec_id, 
+				keeper_spec_id,
+				cron_spec_id,
+				flux_monitor_spec_id,
+				vrf_spec_id,
+				webhook_spec_id,
+				direct_request_spec_id
+		),
+		deleted_oracle_specs AS (
+			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+		),
+		deleted_keeper_specs AS (
+			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
+		),
+		deleted_cron_specs AS (
+			DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)
+		),
+		deleted_fm_specs AS (
+			DELETE FROM flux_monitor_specs WHERE id IN (SELECT flux_monitor_spec_id FROM deleted_jobs)
+		),
+		deleted_vrf_specs AS (
+			DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)
+		),
+		deleted_webhook_specs AS (
+			DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)
+		),
+		deleted_dr_specs AS (
+			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
+		)
+		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
+	`, id).Error
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")
 	}
@@ -323,7 +378,7 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
 	pse := SpecError{JobID: jobID, Description: description, Occurrences: 1}
-	err := o.db.
+	err := o.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{
@@ -340,24 +395,26 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
 }
 
-// OffChainReportingJobs returns job specs
 func (o *orm) JobsV2() ([]Job, error) {
 	var jobs []Job
-	err := o.db.
-		Preload("PipelineSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("DirectRequestSpec").
-		Preload("CronSpec").
-		Preload("FluxMonitorSpec").
-		Preload("JobSpecErrors").
-		Preload("KeeperSpec").
-		Find(&jobs).
-		Error
-	for i := range jobs {
-		if jobs[i].OffchainreportingOracleSpec != nil {
-			jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
+		err := PreloadAllJobTypes(tx).
+			Find(&jobs).
+			Error
+		if err != nil {
+			return err
 		}
-	}
+		for i := range jobs {
+			jobs[i], err = PopulateExternalInitiator(tx, jobs[i])
+			if err != nil {
+				return err
+			}
+			if jobs[i].OffchainreportingOracleSpec != nil {
+				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+			}
+		}
+		return nil
+	})
 	return jobs, err
 }
 
@@ -384,19 +441,23 @@ func loadDynamicConfigVars(cfg *storm.Config, os OffchainReportingOracleSpec) *O
 // FindJob returns job by ID
 func (o *orm) FindJob(id int32) (Job, error) {
 	var job Job
-	err := o.db.
-		Preload("PipelineSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("FluxMonitorSpec").
-		Preload("DirectRequestSpec").
-		Preload("JobSpecErrors").
-		Preload("KeeperSpec").
-		Preload("CronSpec").
-		First(&job, "jobs.id = ?", id).
-		Error
-	if job.OffchainreportingOracleSpec != nil {
-		job.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *job.OffchainreportingOracleSpec)
-	}
+	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
+		err := PreloadAllJobTypes(tx).
+			First(&job, "jobs.id = ?", id).
+			Error
+		if err != nil {
+			return err
+		}
+
+		job, err = PopulateExternalInitiator(tx, job)
+		if err != nil {
+			return err
+		}
+		if job.OffchainreportingOracleSpec != nil {
+			job.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *job.OffchainreportingOracleSpec)
+		}
+		return nil
+	})
 	return job, err
 }
 

@@ -3,10 +3,7 @@ package orm_test
 import (
 	"context"
 	"fmt"
-	"io"
 	"math/big"
-	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -16,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -1100,9 +1098,8 @@ func TestBulkDeleteRuns(t *testing.T) {
 	var resultCount int64
 	var taskCount int64
 	var runCount int64
-	orm := store.ORM
 
-	err := orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
+	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		job := cltest.NewJobWithWebInitiator()
 		require.NoError(t, store.ORM.CreateJob(&job))
 
@@ -1110,7 +1107,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		// but none of the statuses
 		oldIncompleteRun := cltest.NewJobRun(job)
 		oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
-		err := orm.CreateJobRun(&oldIncompleteRun)
+		err := store.ORM.CreateJobRun(&oldIncompleteRun)
 		require.NoError(t, err)
 		db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
@@ -1120,7 +1117,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		oldCompletedRun.TaskRuns[0].Status = models.RunStatusCompleted
 		oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
 		oldCompletedRun.SetStatus(models.RunStatusCompleted)
-		err = orm.CreateJobRun(&oldCompletedRun)
+		err = store.ORM.CreateJobRun(&oldCompletedRun)
 		require.NoError(t, err)
 		db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
@@ -1129,7 +1126,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		newCompletedRun := cltest.NewJobRun(job)
 		newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
 		newCompletedRun.SetStatus(models.RunStatusCompleted)
-		err = orm.CreateJobRun(&newCompletedRun)
+		err = store.ORM.CreateJobRun(&newCompletedRun)
 		require.NoError(t, err)
 		db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
@@ -1137,11 +1134,11 @@ func TestBulkDeleteRuns(t *testing.T) {
 		newIncompleteRun := cltest.NewJobRun(job)
 		newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
 		newIncompleteRun.SetStatus(models.RunStatusCompleted)
-		err = orm.CreateJobRun(&newIncompleteRun)
+		err = store.ORM.CreateJobRun(&newIncompleteRun)
 		require.NoError(t, err)
 		db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-		err = store.ORM.BulkDeleteRuns(&models.BulkDeleteRunRequest{
+		err = orm.BulkDeleteRuns(store.DB, &models.BulkDeleteRunRequest{
 			Status:        []models.RunStatus{models.RunStatusCompleted},
 			UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
 		})
@@ -1162,76 +1159,6 @@ func TestBulkDeleteRuns(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-}
-
-func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := store.ORM
-
-	earlier := cltest.MustInsertRandomKey(t, store.DB)
-	later := cltest.MustInsertRandomKey(t, store.DB)
-
-	require.NoError(t, orm.CreateKeyIfNotExists(later))
-
-	keys, err := store.SendKeys()
-	require.NoError(t, err)
-
-	require.Len(t, keys, 2)
-
-	assert.Equal(t, keys[0].Address, earlier.Address)
-	assert.Equal(t, keys[1].Address, later.Address)
-}
-
-func TestORM_SendKeys(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	cltest.MustInsertRandomKey(t, store.DB, false)
-	cltest.MustInsertRandomKey(t, store.DB, true)
-
-	keys, err := store.AllKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 2)
-
-	keys, err = store.SendKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 1)
-}
-
-func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-
-	orm := store.ORM
-
-	dbkeys, err := store.SendKeys()
-	require.NoError(t, err)
-	require.Len(t, dbkeys, 0)
-
-	seed, err := models.NewKeyFromFile(fmt.Sprintf("../../internal/fixtures/keys/%s", cltest.DefaultKeyFixtureFileName))
-	require.NoError(t, err)
-	require.NoError(t, orm.CreateKeyIfNotExists(seed))
-
-	keysDir := store.Config.KeysDir()
-
-	require.True(t, isDirEmpty(t, keysDir))
-	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
-	require.NoError(t, err)
-
-	dbkeys, err = store.SendKeys()
-	require.NoError(t, err)
-	require.Len(t, dbkeys, 1)
-
-	diskkeys, err := utils.FilesInDir(keysDir)
-	require.NoError(t, err)
-	require.Len(t, diskkeys, 1)
-
-	key := dbkeys[0]
-	content, err := utils.FileContents(filepath.Join(keysDir, diskkeys[0]))
-	require.NoError(t, err)
-	assert.Equal(t, key.JSON.String(), content)
 }
 
 const linkEthTxWithTaskRunQuery = `
@@ -1395,23 +1322,6 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	foundbridge, err := store.FindBridge("UniqueName")
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
-}
-
-func isDirEmpty(t *testing.T, dir string) bool {
-	f, err := os.Open(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return true
-		}
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	if _, err = f.Readdirnames(1); err == io.EOF {
-		return true
-	}
-
-	return false
 }
 
 func TestJobs_All(t *testing.T) {
@@ -1609,7 +1519,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 	// NOTE: Must sidestep transactional tests since we rely on transaction
 	// rollback due to constraint violation for this function
-	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
+	tc, orm, cleanup := heavyweight.FullTestORM(t, "eth_task_run_transactions", true, true)
 	defer cleanup()
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
@@ -1682,6 +1592,17 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 		// But the second insert did not change the gas limit
 		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
+	})
+
+	t.Run("returns error if fromAddress does not correspond to a key", func(t *testing.T) {
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: taskRunID}, cltest.NewAddress(), toAddress, encodedPayload, gasLimit)
+		assert.Error(t, err)
+		assert.EqualError(t, err, "ERROR: insert or update on table \"eth_txes\" violates foreign key constraint \"eth_txes_from_address_fkey\" (SQLSTATE 23503)")
 	})
 }
 
@@ -1916,61 +1837,6 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		require.True(t, fmrs.JobRunID.Valid)
 		require.Equal(t, jobRun.ID, fmrs.JobRunID.UUID)
 	}
-}
-
-func TestORM_GetRoundRobinAddress(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	cltest.MustAddRandomKeyToKeystore(t, store, 0, true)
-	_, k0Address := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	k1, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	k2, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-
-	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
-		address, err := store.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k0Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k1.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k2.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k0Address.Hex(), address.Hex())
-	})
-
-	t.Run("with address filter, rotates between given addresses", func(t *testing.T) {
-		addresses := []common.Address{k1.Address.Address(), k2.Address.Address()}
-
-		address, err := store.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k1.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k2.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k1.Address.Hex(), address.Hex())
-
-		address, err = store.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k2.Address.Hex(), address.Hex())
-	})
-
-	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := store.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
-		require.Error(t, err)
-		require.Equal(t, "no keys available", err.Error())
-	})
 }
 
 func TestORM_SetConfigStrValue(t *testing.T) {

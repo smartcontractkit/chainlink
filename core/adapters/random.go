@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -102,20 +102,20 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunO
 // getInputs parses the JSON input for the values needed by the random adapter,
 // or returns an error.
 func getInputs(ra *Random, input models.RunInput, store *store.Store) (
-	vrfkey.PublicKey, vrf.PreSeedData, error) {
+	secp256k1.PublicKey, vrf.PreSeedData, error) {
 	key, err := getKey(ra, input)
 	if err != nil {
-		return vrfkey.PublicKey{}, vrf.PreSeedData{}, errors.Wrapf(err,
+		return secp256k1.PublicKey{}, vrf.PreSeedData{}, errors.Wrapf(err,
 			"bad key for vrf task")
 	}
 	preSeed, err := getPreSeed(input)
 	if err != nil {
-		return vrfkey.PublicKey{}, vrf.PreSeedData{}, errors.Wrap(err,
+		return secp256k1.PublicKey{}, vrf.PreSeedData{}, errors.Wrap(err,
 			"bad seed for vrf task")
 	}
 	block, err := getBlockData(input)
 	if err != nil {
-		return vrfkey.PublicKey{}, vrf.PreSeedData{}, err
+		return secp256k1.PublicKey{}, vrf.PreSeedData{}, err
 	}
 	s := vrf.PreSeedData{PreSeed: preSeed, BlockHash: block.hash, BlockNum: block.num}
 	return key, s, nil
@@ -175,7 +175,7 @@ func getPreSeed(input models.RunInput) (vrf.Seed, error) {
 	return *rv, nil
 }
 
-func checkKeyHash(key vrfkey.PublicKey, inputKeyHash []byte) error {
+func checkKeyHash(key secp256k1.PublicKey, inputKeyHash []byte) error {
 	keyHash, err := key.Hash()
 	if err != nil {
 		return errors.Wrapf(err, "could not compute %v' hash", key)
@@ -188,11 +188,11 @@ func checkKeyHash(key vrfkey.PublicKey, inputKeyHash []byte) error {
 	return nil
 }
 
-var failedKey = vrfkey.PublicKey{}
+var failedKey = secp256k1.PublicKey{}
 
 // getKey returns the public key for the VRF, or an error.
-func getKey(ra *Random, input models.RunInput) (vrfkey.PublicKey, error) {
-	key, err := vrfkey.NewPublicKeyFromHex(ra.PublicKey)
+func getKey(ra *Random, input models.RunInput) (secp256k1.PublicKey, error) {
+	key, err := secp256k1.NewPublicKeyFromHex(ra.PublicKey)
 	if err != nil {
 		return failedKey, errors.Wrapf(err, "could not parse %v as public key",
 			ra.PublicKey)

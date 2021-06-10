@@ -62,7 +62,6 @@ type ConfigReader interface {
 	GasUpdaterTransactionPercentile() uint16
 	JSONConsole() bool
 	KeyFile() string
-	KeysDir() string
 	LinkContractAddress() string
 	LogLevel() LogLevel
 	LogSQLStatements() bool

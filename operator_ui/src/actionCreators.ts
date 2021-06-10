@@ -187,6 +187,7 @@ export const createJobRun = (
 
 export const createJobRunV2 = (
   id: string,
+  pipelineInput: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
 ): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
@@ -194,7 +195,7 @@ export const createJobRunV2 = (
     dispatch({ type: ResourceActionType.REQUEST_CREATE })
 
     return api.v2.jobs
-      .createJobRunV2(id)
+      .createJobRunV2(id, pipelineInput)
       .then((doc) => {
         dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))

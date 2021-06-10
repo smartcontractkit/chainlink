@@ -34,6 +34,8 @@ type Delegate struct {
 	monitoringEndpoint ocrtypes.MonitoringEndpoint
 }
 
+var _ job.Delegate = (*Delegate)(nil)
+
 func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
@@ -60,6 +62,9 @@ func NewDelegate(
 func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
 	if jobSpec.OffchainreportingOracleSpec == nil {
@@ -96,6 +101,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.logBroadcaster,
 		jobSpec.ID,
 		*logger.Default,
+		d.db,
 		ocrdb,
 	)
 	if err != nil {
@@ -122,6 +128,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
+		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
@@ -185,7 +192,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(gormdb, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()),
+			NewTransmitter(d.db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxQueuedTransactions()),
 			d.logBroadcaster,
 			tracker,
 		)
@@ -219,10 +226,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
 		services = append([]job.Service{NewResultRunSaver(
+			d.db,
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			jobSpec.ID,
+			*loggerWith,
 		)}, services...)
 	}
 

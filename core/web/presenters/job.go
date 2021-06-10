@@ -3,8 +3,13 @@ package presenters
 import (
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,31 +23,30 @@ func (t JobSpecType) String() string {
 }
 
 const (
-	// DirectRequestJobSpec defines a Direct Request Job
-	DirectRequestJobSpec JobSpecType = "directrequest"
-	// FluxMonitorJobSpec defines a Flux Monitor Job
-	FluxMonitorJobSpec JobSpecType = "fluxmonitor"
-	// OffChainReportingJobSpec defines an OCR Job
+	DirectRequestJobSpec     JobSpecType = "directrequest"
+	FluxMonitorJobSpec       JobSpecType = "fluxmonitor"
 	OffChainReportingJobSpec JobSpecType = "offchainreporting"
-	// Keeper defines a Keeper Job
-	KeeperJobSpec JobSpecType = "keeper"
+	KeeperJobSpec            JobSpecType = "keeper"
+	CronJobSpec              JobSpecType = "cron"
+	VRFJobSpec               JobSpecType = "vrf"
+	WebhookJobSpec           JobSpecType = "webhook"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress  models.EIP55Address `json:"contractAddress"`
-	OnChainJobSpecID string              `json:"onChainJobSpecId"`
-	Initiator        string              `json:"initiator"`
-	CreatedAt        time.Time           `json:"createdAt"`
-	UpdatedAt        time.Time           `json:"updatedAt"`
+	ContractAddress          models.EIP55Address `json:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
+	Initiator                string              `json:"initiator"`
+	CreatedAt                time.Time           `json:"createdAt"`
+	UpdatedAt                time.Time           `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:  spec.ContractAddress,
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
+		ContractAddress:          spec.ContractAddress,
+		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",
@@ -153,6 +157,20 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 	}
 }
 
+// WebhookSpec defines the spec details of a Webhook Job
+type WebhookSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
+func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
+	return &WebhookSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+	}
+}
+
 // CronSpec defines the spec details of a Cron Job
 type CronSpec struct {
 	CronSchedule string    `json:"schedule" tom:"schedule"`
@@ -166,6 +184,24 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 		CronSchedule: spec.CronSchedule,
 		CreatedAt:    spec.CreatedAt,
 		UpdatedAt:    spec.UpdatedAt,
+	}
+}
+
+type VRFSpec struct {
+	CoordinatorAddress models.EIP55Address `json:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `json:"publicKey"`
+	Confirmations      uint32              `json:"confirmations"`
+	CreatedAt          time.Time           `json:"createdAt"`
+	UpdatedAt          time.Time           `json:"updatedAt"`
+}
+
+func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
+	return &VRFSpec{
+		CoordinatorAddress: spec.CoordinatorAddress,
+		PublicKey:          spec.PublicKey,
+		Confirmations:      spec.Confirmations,
+		CreatedAt:          spec.CreatedAt,
+		UpdatedAt:          spec.UpdatedAt,
 	}
 }
 
@@ -195,11 +231,14 @@ type JobResource struct {
 	Type                  JobSpecType            `json:"type"`
 	SchemaVersion         uint32                 `json:"schemaVersion"`
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
+	ExternalJobID         uuid.UUID              `json:"externalJobID"`
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
+	CronSpec              *CronSpec              `json:"cronSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
-	CronSpec              *CronSpec              `json:"cronSpec"`
+	VRFSpec               *VRFSpec               `json:"vrfSpec"`
+	WebhookSpec           *WebhookSpec           `json:"webhookSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -213,6 +252,7 @@ func NewJobResource(j job.Job) *JobResource {
 		SchemaVersion:   j.SchemaVersion,
 		MaxTaskDuration: j.MaxTaskDuration,
 		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
+		ExternalJobID:   j.ExternalJobID,
 	}
 
 	switch j.Type {
@@ -220,12 +260,16 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.DirectRequestSpec = NewDirectRequestSpec(j.DirectRequestSpec)
 	case job.FluxMonitor:
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
-	case job.OffchainReporting:
-		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
+	case job.OffchainReporting:
+		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
+	case job.VRF:
+		resource.VRFSpec = NewVRFSpec(j.VRFSpec)
+	case job.Webhook:
+		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
 	}
 
 	jes := []JobError{}

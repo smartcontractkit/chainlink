@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 LOG_PATH=/var/log/chainlink/integration/logs
 mkdir -p $LOG_PATH

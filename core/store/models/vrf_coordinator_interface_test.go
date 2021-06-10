@@ -4,18 +4,18 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	secretKey = vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(1))
+	secretKey = vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(1))
 	keyHash   = secretKey.PublicKey.MustHash()
 	jobID     = common.BytesToHash([]byte("1234567890abcdef1234567890abcdef"))
 	seed      = big.NewInt(1)

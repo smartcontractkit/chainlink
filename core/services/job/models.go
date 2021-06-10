@@ -6,6 +6,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	uuid "github.com/satori/go.uuid"
+
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
@@ -21,10 +26,35 @@ const (
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
 	Keeper            Type = "keeper"
+	VRF               Type = "vrf"
+	Webhook           Type = "webhook"
+)
+
+type Type string
+
+func (t Type) String() string {
+	return string(t)
+}
+
+func (t Type) HasPipelineSpec() bool {
+	return hasPipelineSpec[t]
+}
+
+var (
+	hasPipelineSpec = map[Type]bool{
+		Cron:              true,
+		DirectRequest:     true,
+		FluxMonitor:       true,
+		OffchainReporting: true,
+		Keeper:            false,
+		VRF:               false,
+		Webhook:           true,
+	}
 )
 
 type Job struct {
-	ID                            int32 `toml:"-" gorm:"primary_key"`
+	ID                            int32     `toml:"-" gorm:"primary_key"`
+	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
 	CronSpecID                    *int32
@@ -35,6 +65,11 @@ type Job struct {
 	FluxMonitorSpec               *FluxMonitorSpec
 	KeeperSpecID                  *int32
 	KeeperSpec                    *KeeperSpec
+	VRFSpecID                     *int32
+	VRFSpec                       *VRFSpec
+	WebhookSpecID                 *int32
+	WebhookSpec                   *WebhookSpec
+	ExternalInitiator             *models.ExternalInitiator `toml:"-" gorm:"-"`
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -45,18 +80,24 @@ type Job struct {
 	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
 }
 
-func (Job) TableName() string {
+func (j Job) ExternalIDToTopicHash() common.Hash {
+	var h common.Hash
+	copy(h[:], j.ExternalJobID.Bytes())
+	return h
+}
+
+func (j Job) TableName() string {
 	return "jobs"
 }
 
 // SetID takes the id as a string and attempts to convert it to an int32. If
 // it succeeds, it will set it as the id on the job
-func (job *Job) SetID(value string) error {
+func (j *Job) SetID(value string) error {
 	id, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		return err
 	}
-	job.ID = int32(id)
+	j.ID = int32(id)
 	return nil
 }
 
@@ -137,13 +178,48 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+type WebhookSpec struct {
+	ID                    int32        `toml:"-" gorm:"primary_key"`
+	ExternalInitiatorName null.String  `toml:"externalInitiatorName"`
+	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
+	CreatedAt             time.Time    `json:"createdAt" toml:"-"`
+	UpdatedAt             time.Time    `json:"updatedAt" toml:"-"`
+}
+
+func (w WebhookSpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *WebhookSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
+	return nil
+}
+
+func (w *WebhookSpec) BeforeCreate(db *gorm.DB) error {
+	w.CreatedAt = time.Now()
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (w *WebhookSpec) BeforeSave(db *gorm.DB) error {
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (WebhookSpec) TableName() string {
+	return "webhook_specs"
+}
+
 type DirectRequestSpec struct {
-	ID               int32               `toml:"-" gorm:"primary_key"`
-	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID common.Hash         `toml:"jobID"`
-	NumConfirmations clnull.Uint32       `toml:"numConfirmations"`
-	CreatedAt        time.Time           `toml:"-"`
-	UpdatedAt        time.Time           `toml:"-"`
+	ID                       int32               `toml:"-" gorm:"primary_key"`
+	ContractAddress          models.EIP55Address `toml:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
+	CreatedAt                time.Time           `toml:"-"`
+	UpdatedAt                time.Time           `toml:"-"`
 }
 
 func (DirectRequestSpec) TableName() string {
@@ -209,4 +285,13 @@ type KeeperSpec struct {
 	FromAddress     models.EIP55Address `toml:"fromAddress"`
 	CreatedAt       time.Time           `toml:"-"`
 	UpdatedAt       time.Time           `toml:"-"`
+}
+
+type VRFSpec struct {
+	ID                 int32
+	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
+	Confirmations      uint32              `toml:"confirmations"`
+	CreatedAt          time.Time           `toml:"-"`
+	UpdatedAt          time.Time           `toml:"-"`
 }

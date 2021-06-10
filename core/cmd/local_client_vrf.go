@@ -7,11 +7,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/urfave/cli"
 )
@@ -193,7 +194,7 @@ func (cli *Client) ImportVRFKey(c *cli.Context) error {
 	}
 	vrfKeyStore := app.GetStore().VRFKeyStore
 	if err := vrfKeyStore.Import(keyjson, string(password)); err != nil {
-		if err == store.MatchingVRFKeyError {
+		if err == vrf.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
 			if e := json.Unmarshal(keyjson, &key); e != nil {
@@ -243,7 +244,7 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 }
 
 // getKeys retrieves the keys for an ExportVRFKey request
-func getKeys(cli *Client, c *cli.Context) (*vrfkey.EncryptedVRFKey, error) {
+func getKeys(cli *Client, c *cli.Context) (*vrf.EncryptedVRFKey, error) {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return nil, err
@@ -284,14 +285,14 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	hardDelete := c.Bool("hard")
 	if hardDelete {
 		if err := vrfKeyStore.Delete(publicKey); err != nil {
-			if err == store.AttemptToDeleteNonExistentKeyFromDB {
+			if err == vrf.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
 		}
 	} else {
 		if err := vrfKeyStore.Archive(publicKey); err != nil {
-			if err == store.AttemptToDeleteNonExistentKeyFromDB {
+			if err == vrf.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
@@ -300,13 +301,13 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	return nil
 }
 
-func getPublicKey(c *cli.Context) (vrfkey.PublicKey, error) {
+func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
 	if c.String("publicKey") == "" {
-		return vrfkey.PublicKey{}, fmt.Errorf("must specify public key")
+		return secp256k1.PublicKey{}, fmt.Errorf("must specify public key")
 	}
-	publicKey, err := vrfkey.NewPublicKeyFromHex(c.String("publicKey"))
+	publicKey, err := secp256k1.NewPublicKeyFromHex(c.String("publicKey"))
 	if err != nil {
-		return vrfkey.PublicKey{}, errors.Wrap(err, "failed to parse public key")
+		return secp256k1.PublicKey{}, errors.Wrap(err, "failed to parse public key")
 	}
 	return publicKey, nil
 }
