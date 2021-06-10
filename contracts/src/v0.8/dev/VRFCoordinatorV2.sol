@@ -12,6 +12,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     LinkTokenInterface internal LINK;
     BlockHashStoreInterface internal blockHashStore;
 
+    event SubscriptionCreated(uint256 subId, address owner);
     uint256 currentSubId;
     struct Subscription {
         uint256 subId;
@@ -19,15 +20,14 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         address[] consumers; // List of addresses which can consume using this subscription.
         uint256 balance; // Common balance used for all consumer requests.
     }
-    mapping(uint256 /* subId */ => Subscription /* subscription */) private subscriptions;
+    mapping(uint256 /* subId */ => Subscription /* subscription */) public subscriptions;
 
     struct Oracle {
         address oracle;
         bytes32 keyHash;
         mapping(address => uint256) nonces;
     }
-
-    mapping(bytes32 /* keyHash */ => Oracle) oracles;
+    mapping(bytes32 /* keyHash */ => Oracle) public oracles;
 
     struct Callback {
         address callbackContract; // Requesting contract, which will receive response
@@ -35,7 +35,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 numWords;
         uint256 subId;
     }
-    mapping(bytes32 /* requestID */ => Callback) callbacks;
+    mapping(bytes32 /* requestID */ => Callback) public callbacks;
 
 
     constructor(address _link, address _blockHashStore) public {
@@ -110,9 +110,9 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         address[] memory consumers // permitted consumers of the subscription
     )
     external
-    returns (uint256 subId) {
+    returns (uint256 subId)
+    {
         // TODO: No addresses can be zero, set max number of callers, etc.
-        /*
         currentSubId++;
         subscriptions[currentSubId] = Subscription({
             owner: msg.sender,
@@ -120,9 +120,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             consumers: consumers,
             balance: 0
         });
-        // TODO: emit some logs
-        return currentSubId;
-        */
+        emit SubscriptionCreated(subId, msg.sender);
+        return subId;
     }
 
     function updateSubscription(
