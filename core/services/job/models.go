@@ -5,6 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/lib/pq"
@@ -26,8 +30,31 @@ const (
 	Webhook           Type = "webhook"
 )
 
+type Type string
+
+func (t Type) String() string {
+	return string(t)
+}
+
+func (t Type) HasPipelineSpec() bool {
+	return hasPipelineSpec[t]
+}
+
+var (
+	hasPipelineSpec = map[Type]bool{
+		Cron:              true,
+		DirectRequest:     true,
+		FluxMonitor:       true,
+		OffchainReporting: true,
+		Keeper:            false,
+		VRF:               false,
+		Webhook:           true,
+	}
+)
+
 type Job struct {
-	ID                            int32 `toml:"-" gorm:"primary_key"`
+	ID                            int32     `toml:"-" gorm:"primary_key"`
+	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
 	CronSpecID                    *int32
@@ -42,6 +69,7 @@ type Job struct {
 	VRFSpec                       *VRFSpec
 	WebhookSpecID                 *int32
 	WebhookSpec                   *WebhookSpec
+	ExternalInitiator             *models.ExternalInitiator `toml:"-" gorm:"-"`
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -52,18 +80,24 @@ type Job struct {
 	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
 }
 
-func (Job) TableName() string {
+func (j Job) ExternalIDToTopicHash() common.Hash {
+	var h common.Hash
+	copy(h[:], j.ExternalJobID.Bytes())
+	return h
+}
+
+func (j Job) TableName() string {
 	return "jobs"
 }
 
 // SetID takes the id as a string and attempts to convert it to an int32. If
 // it succeeds, it will set it as the id on the job
-func (job *Job) SetID(value string) error {
+func (j *Job) SetID(value string) error {
 	id, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		return err
 	}
-	job.ID = int32(id)
+	j.ID = int32(id)
 	return nil
 }
 
@@ -146,7 +180,6 @@ func (OffchainReportingOracleSpec) TableName() string {
 
 type WebhookSpec struct {
 	ID                    int32        `toml:"-" gorm:"primary_key"`
-	OnChainJobSpecID      models.JobID `toml:"jobID"`
 	ExternalInitiatorName null.String  `toml:"externalInitiatorName"`
 	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
 	CreatedAt             time.Time    `json:"createdAt" toml:"-"`
@@ -184,7 +217,6 @@ func (WebhookSpec) TableName() string {
 type DirectRequestSpec struct {
 	ID                       int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress          models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID         models.JobID        `toml:"jobID"`
 	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
 	CreatedAt                time.Time           `toml:"-"`
 	UpdatedAt                time.Time           `toml:"-"`

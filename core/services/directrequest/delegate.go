@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		db:                       d.db,
 		pipelineORM:              d.pipelineORM,
 		job:                      job,
-		onChainJobSpecID:         job.DirectRequestSpec.OnChainJobSpecID.Hash(),
+		onChainJobSpecID:         job.ExternalIDToTopicHash(),
 		mbLogs:                   utils.NewMailbox(50),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
 		chStop:                   make(chan struct{}),

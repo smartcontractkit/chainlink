@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"sync"
 	"time"
@@ -325,7 +326,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
-	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta)
+	logger.Debugw("BulletproofTxManager: Sending transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta, "gasLimit", e.GasLimit)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
@@ -427,10 +428,17 @@ func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (coun
 }
 
 // CreateEthTransaction inserts a new transaction
-func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit, maxUnconfirmedTransactions uint64) (etx models.EthTx, err error) {
+func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit, maxUnconfirmedTransactions uint64, meta *models.EthTxMetaV2) (etx models.EthTx, err error) {
 	err = CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
+	}
+	var metaBytes []byte
+	if meta != nil {
+		metaBytes, err = json.Marshal(meta)
+		if err != nil {
+			logger.Errorw("failed to marshal ethtx metadata", "err", err)
+		}
 	}
 
 	value := 0
@@ -440,9 +448,9 @@ func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, pa
 	// This is because they are not ever deleted if attached to an eth_tx that
 	// is moved into confirmed/fatal_error state
 	res := db.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta)
 (
-SELECT ?,?,?,?,?,'unstarted',NOW()
+SELECT ?,?,?,?,?,'unstarted',NOW(),?
 WHERE NOT EXISTS (
     SELECT 1 FROM eth_tx_attempts
 	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
@@ -452,7 +460,7 @@ WHERE NOT EXISTS (
 )
 )
 RETURNING "eth_txes".*
-`, fromAddress, toAddress, payload, value, gasLimit, fromAddress).Scan(&etx)
+`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, fromAddress).Scan(&etx)
 	err = res.Error
 	if err != nil {
 		return etx, errors.Wrap(err, "transmitter failed to insert eth_tx")

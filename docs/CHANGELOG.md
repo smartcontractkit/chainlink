@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
+
 ### Added
+
+- JSON parse tasks (v2) now permit an empty `path` parameter.
+
+- HTTP and Bridge tasks (v2 pipeline) now log the request parameters (including the body) upon making the request when `LOG_LEVEL=debug`.
 
 - Webhook v2 jobs now support two new parameters, `externalInitiatorName` and `externalInitiatorSpec`. The v2 version of the following v1 spec:
     ```

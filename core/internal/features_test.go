@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -951,7 +953,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = cltest.MustJobIDFromString(t, "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -1042,7 +1044,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		tomlSpec := fmt.Sprintf(`
 type            = "webhook"
 schemaVersion   = 1
-jobID           = "%v"
+externalJobID           = "%v"
 externalInitiatorName = "%v"
 externalInitiatorSpec = """
     %v
@@ -1058,6 +1060,7 @@ observationSource   = """
 		require.NoError(t, err)
 		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
+		t.Log("JOB created", job.WebhookSpecID)
 
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
@@ -1068,7 +1071,7 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.Store.ORM.DB, app.Store.Config, &postgres.NullEventBroadcaster{})
+		pipelineORM := pipeline.NewORM(app.Store.ORM.DB, app.Store.Config)
 		jobORM := job.NewORM(app.Store.ORM.DB, app.Store.Config, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
@@ -1941,7 +1944,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
-	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
+	pipelineORM := pipeline.NewORM(store.ORM.DB, config)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
@@ -1953,7 +1956,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
-	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID.Hash(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	runLog := cltest.NewRunLog(t, job.ExternalIDToTopicHash(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
 	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
