@@ -27,9 +27,7 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services"
 
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"

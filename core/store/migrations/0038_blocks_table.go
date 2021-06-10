@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up34 = `
+const up38 = `
 
 CREATE TABLE public.blocks (
     id bigserial PRIMARY KEY,
@@ -21,18 +21,18 @@ CREATE TABLE public.blocks (
 CREATE UNIQUE INDEX idx_blocks_hash ON public.blocks USING btree (hash);
 
 `
-const down34 = `
+const down38 = `
 DROP TABLE public.blocks;
 `
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0034_blocks_table",
+		ID: "0038_blocks_table",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up34).Error
+			return db.Exec(up38).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down34).Error
+			return db.Exec(down38).Error
 		},
 	})
 }
