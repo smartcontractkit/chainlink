@@ -523,6 +523,7 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 
 			return nil
 		})
+		<-next
 		ch <- 2
 
 	}()
@@ -534,6 +535,7 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 		})
 		next <- true
 		ch <- 3
+		next <- true
 
 	}()
 

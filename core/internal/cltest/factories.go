@@ -751,6 +751,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	jb := job.Job{
 		OffchainreportingOracleSpec:   &oracleSpec,
 		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		ExternalJobID:                 uuid.NewV4(),
 		Type:                          job.OffchainReporting,
 		SchemaVersion:                 1,
 		PipelineSpec:                  &pipelineSpec,
@@ -786,11 +787,10 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
 	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID := uuid.NewV4()
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
+		ExternalJobID:     uuid.NewV4(),
 		DirectRequestSpec: drs,
 		Pipeline:          *pipeline.NewTaskDAG(),
 		PipelineSpec:      &pipeline.Spec{},
@@ -818,6 +818,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	specDB := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
+		ExternalJobID:  uuid.NewV4(),
 		Type:           job.Keeper,
 		SchemaVersion:  1,
 		PipelineSpec:   &pipelineSpec,

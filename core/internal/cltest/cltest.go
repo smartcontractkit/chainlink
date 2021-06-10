@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -285,13 +287,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, db *gorm.DB) JobPipelineV2TestHelper {
-	config, cleanupCfg := NewConfig(t)
-	t.Cleanup(cleanupCfg)
-	prm, eb, cleanup := NewPipelineORM(t, config, db)
-	jrm := job.NewORM(db, config.Config, prm, eb, &postgres.NullAdvisoryLocker{})
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2TestHelper {
+	prm, eb, cleanup := NewPipelineORM(t, tc, db)
+	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, config.Config)
+	pr := pipeline.NewRunner(prm, tc.Config)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -304,7 +304,7 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	return pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, func() {
+	return pipeline.NewORM(db, config), eventBroadcaster, func() {
 		eventBroadcaster.Close()
 	}
 }
@@ -964,7 +964,7 @@ func CreateJobRunViaExternalInitiator(
 func CreateJobRunViaExternalInitiatorV2(
 	t testing.TB,
 	app *TestApplication,
-	jobID models.JobID,
+	jobID uuid.UUID,
 	eia auth.Token,
 	body string,
 ) pipeline.Run {

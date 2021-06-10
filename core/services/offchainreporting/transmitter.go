@@ -28,7 +28,7 @@ func NewTransmitter(db *gorm.DB, fromAddress gethCommon.Address, gasLimit, maxUn
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error {
 	db := t.db.WithContext(ctx)
-	_, err := bulletprooftxmanager.CreateEthTransaction(db, t.fromAddress, toAddress, payload, t.gasLimit, t.maxUnconfirmedTransactions)
+	_, err := bulletprooftxmanager.CreateEthTransaction(db, t.fromAddress, toAddress, payload, t.gasLimit, t.maxUnconfirmedTransactions, nil)
 	return errors.Wrap(err, "Skipped OCR transmission")
 }
 

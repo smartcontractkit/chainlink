@@ -4,6 +4,8 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
 type ORM interface {
 	FirstOrCreateEncryptedSecretVRFKey(k *EncryptedVRFKey) error
 	ArchiveEncryptedSecretVRFKey(k *EncryptedVRFKey) error

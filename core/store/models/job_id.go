@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// ONLY USE FOR JPV1 JOBS
 // JobID is a UUID that has a custom display format
 type JobID uuid.UUID
 

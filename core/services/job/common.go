@@ -7,12 +7,6 @@ import (
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
 
-type Type string
-
-func (t Type) String() string {
-	return string(t)
-}
-
 type Service interface {
 	Start() error
 	Close() error

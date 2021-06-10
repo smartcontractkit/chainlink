@@ -273,8 +273,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
-	case TaskTypeVRF:
-		task = &VRFTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

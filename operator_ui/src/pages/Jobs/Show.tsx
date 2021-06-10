@@ -33,7 +33,7 @@ export const JobsShow = () => {
     recentRuns: [],
     recentRunsCount: 0,
   })
-  const { job, jobSpec, onChainJobSpecID } = state
+  const { job, jobSpec, externalJobID } = state
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
@@ -83,36 +83,29 @@ export const JobsShow = () => {
           const jobSpec = response.data
           setState((s) => {
             let createdAt: string
-            let onChainJobSpecID: string | undefined
+            const externalJobID = jobSpec.attributes.externalJobID
             switch (jobSpec.attributes.type) {
               case 'offchainreporting':
                 createdAt =
                   jobSpec.attributes.offChainReportingOracleSpec.createdAt
-
                 break
               case 'fluxmonitor':
                 createdAt = jobSpec.attributes.fluxMonitorSpec.createdAt
-
                 break
               case 'directrequest':
                 createdAt = jobSpec.attributes.directRequestSpec.createdAt
-                onChainJobSpecID =
-                  jobSpec.attributes.directRequestSpec.onChainJobSpecID
-
                 break
               case 'keeper':
                 createdAt = jobSpec.attributes.keeperSpec.createdAt
-
                 break
               case 'cron':
                 createdAt = jobSpec.attributes.cronSpec.createdAt
-
                 break
               case 'webhook':
                 createdAt = jobSpec.attributes.webhookSpec.createdAt
-                onChainJobSpecID =
-                  jobSpec.attributes.webhookSpec.onChainJobSpecID
-
+                break
+              case 'vrf':
+                createdAt = jobSpec.attributes.vrfSpec.createdAt
                 break
             }
 
@@ -131,7 +124,7 @@ export const JobsShow = () => {
               ...s,
               jobSpec,
               job,
-              onChainJobSpecID,
+              externalJobID,
             }
           })
         })
@@ -164,7 +157,7 @@ export const JobsShow = () => {
     <div>
       <RegionalNav
         jobSpecId={jobSpecId}
-        onChainJobSpecID={onChainJobSpecID}
+        externalJobID={externalJobID}
         job={job}
         getJobSpecRuns={getJobSpecRuns}
         runsCount={state.recentRunsCount}

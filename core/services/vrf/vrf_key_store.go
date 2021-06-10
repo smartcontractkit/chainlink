@@ -19,9 +19,8 @@ import (
 // exposes VRF proof generation without the caller needing explicit knowledge of
 // the secret key.
 type VRFKeyStore struct {
-	lock sync.RWMutex
-	keys InMemoryKeyStore
-	//store        *store2.Store
+	lock         sync.RWMutex
+	keys         InMemoryKeyStore
 	orm          ORM
 	scryptParams utils.ScryptParams
 }
@@ -31,10 +30,9 @@ type InMemoryKeyStore = map[secp256k1.PublicKey]PrivateKey
 // NewVRFKeyStore returns an empty VRFKeyStore
 func NewVRFKeyStore(orm ORM, sp utils.ScryptParams) *VRFKeyStore {
 	return &VRFKeyStore{
-		lock: sync.RWMutex{},
-		keys: make(InMemoryKeyStore),
-		orm:  orm,
-		//store:        store,
+		lock:         sync.RWMutex{},
+		keys:         make(InMemoryKeyStore),
+		orm:          orm,
 		scryptParams: sp,
 	}
 }
