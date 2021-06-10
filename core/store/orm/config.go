@@ -722,9 +722,9 @@ func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
 }
 
-// EthBaseTransactionGasLimit represents how much gas is required to send a eth->eth transfer
-func (c Config) EthBaseTransactionGasLimit() uint64 {
-	return uint64(21000)
+// EthGasLimitTransfer is the gas limit for an ordinary eth->eth transfer
+func (c Config) EthGasLimitTransfer() uint64 {
+	return c.getWithFallback("EthGasLimitTransfer", parseUint64).(uint64)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
