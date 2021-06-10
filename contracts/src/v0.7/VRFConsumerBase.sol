@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import "../vendor/SafeMathChainlink.sol";
+import "./vendor/SafeMathChainlink.sol";
 
-import "../interfaces/LinkTokenInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
 
 import "./VRFRequestIDBase.sol";
 

@@ -5,9 +5,9 @@ import "./ConfirmedOwner.sol";
 import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/UpkeepInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
 
-contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
+contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
