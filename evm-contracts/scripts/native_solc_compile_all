@@ -8,4 +8,3 @@ python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.7.6
 
 $SCRIPTPATH/native_solc7_compile dev/Operator.sol
-$SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
