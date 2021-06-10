@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -77,6 +78,15 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	// URL is "safe" because it comes from the node's own database
 	// Some node operators may run external adapters on their own hardware
 	allowUnrestrictedNetworkAccess := BoolParam(true)
+
+	requestDataJSON, err := json.Marshal(requestData)
+	if err != nil {
+		return Result{Error: err}
+	}
+	logger.Debugw("Bridge task: sending request",
+		"requestData", string(requestDataJSON),
+		"url", url.String(),
+	)
 
 	responseBytes, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {

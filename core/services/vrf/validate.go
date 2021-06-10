@@ -3,6 +3,8 @@ package vrf
 import (
 	"bytes"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -14,8 +16,11 @@ var (
 	ErrKeyNotSet = errors.New("key not set")
 )
 
-func ValidateVRFSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{Pipeline: *pipeline.NewTaskDAG()}
+func ValidatedVRFSpec(tomlString string) (job.Job, error) {
+	var jb = job.Job{
+		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		Pipeline:      *pipeline.NewTaskDAG(),
+	}
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {

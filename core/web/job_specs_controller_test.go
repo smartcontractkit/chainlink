@@ -12,12 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services"
-
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -263,7 +262,7 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
 
-	var eiReceived services.JobSpecNotice
+	var eiReceived webhook.JobSpecNotice
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
 			err := json.Unmarshal([]byte(body), &eiReceived)
@@ -276,7 +275,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
-		services.NewExternalInitiatorManager(),
+		cltest.UseRealExternalInitiatorManager,
 	)
 	defer cleanup()
 	app.Start()
@@ -293,7 +292,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./../testdata/jsonspecs/external_initiator_job.json")
-	expected := services.JobSpecNotice{
+	expected := webhook.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),

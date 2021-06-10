@@ -24,9 +24,6 @@ schemaVersion   = 1
 confirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-observationSource   = """
-getrandomvalue [type=vrf];
-"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -43,9 +40,6 @@ type            = "vrf"
 schemaVersion   = 1
 confirmations = 10
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-observationSource   = """
-getrandomvalue [type=vrf];
-"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -59,19 +53,31 @@ type            = "vrf"
 schemaVersion   = 1
 confirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-observationSource   = """
-getrandomvalue [type=vrf];
-"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
 				require.True(t, ErrKeyNotSet == errors.Cause(err))
 			},
 		},
+		{
+			name: "jobID override default",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+confirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, s.ExternalJobID.String(), "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46")
+			},
+		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := ValidateVRFSpec(tc.toml)
+			s, err := ValidatedVRFSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

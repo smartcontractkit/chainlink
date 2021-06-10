@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 
 	"go.uber.org/multierr"
 
@@ -58,6 +59,17 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, input
 	if err != nil {
 		return Result{Error: err}
 	}
+
+	requestDataJSON, err := json.Marshal(requestData)
+	if err != nil {
+		return Result{Error: err}
+	}
+	logger.Debugw("HTTP task: sending request",
+		"requestData", string(requestDataJSON),
+		"url", url.String(),
+		"method", method,
+		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
+	)
 
 	responseBytes, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {

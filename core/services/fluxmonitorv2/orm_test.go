@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -86,7 +88,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		corestore.Config.DatabaseListenerMinReconnectInterval(),
 		corestore.Config.DatabaseListenerMaxReconnectDuration(),
 	)
-	pipelineORM := pipeline.NewORM(corestore.ORM.DB, corestore.Config, eventBroadcaster)
+	pipelineORM := pipeline.NewORM(corestore.ORM.DB, corestore.Config)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
@@ -143,6 +145,7 @@ func makeJob(t *testing.T) *job.Job {
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
 		Pipeline:      *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),

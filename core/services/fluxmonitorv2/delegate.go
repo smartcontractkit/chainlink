@@ -22,6 +22,8 @@ type Delegate struct {
 	cfg            Config
 }
 
+var _ job.Delegate = (*Delegate)(nil)
+
 // NewDelegate constructs a new delegate
 func NewDelegate(
 	store *corestore.Store,
@@ -49,6 +51,9 @@ func NewDelegate(
 func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {

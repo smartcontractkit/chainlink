@@ -203,7 +203,7 @@ func (hl *HeadListener) unsubscribeFromHead() error {
 		return nil
 	}
 
-	timedUnsubscribe(hl.headSubscription)
+	hl.headSubscription.Unsubscribe()
 	hl.connected = false
 
 	// ht.headers will be nil if subscription failed, channel closed, and
@@ -213,23 +213,6 @@ func (hl *HeadListener) unsubscribeFromHead() error {
 		close(hl.headers)
 	}
 	return nil
-}
-
-// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
-// unblocking the application. This is an effort to mitigate the occasional
-// indefinite block described here from go-ethereum:
-// https://chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(unsubscriber ethereum.Subscription) {
-	unsubscribed := make(chan struct{})
-	go func() {
-		unsubscriber.Unsubscribe()
-		close(unsubscribed)
-	}()
-	select {
-	case <-unsubscribed:
-	case <-time.After(100 * time.Millisecond):
-		logger.Warnf("Subscription %T Unsubscribe timed out.", unsubscriber)
-	}
 }
 
 // Connected returns whether or not this HeadTracker is connected.

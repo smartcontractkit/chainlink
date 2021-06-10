@@ -7,7 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
+
 ### Added
+
+- JSON parse tasks (v2) now permit an empty `path` parameter.
+
+- HTTP and Bridge tasks (v2 pipeline) now log the request parameters (including the body) upon making the request when `LOG_LEVEL=debug`.
+
+- Webhook v2 jobs now support two new parameters, `externalInitiatorName` and `externalInitiatorSpec`. The v2 version of the following v1 spec:
+    ```
+    {
+      "initiators": [
+        {
+          "type": "external",
+          "params": {
+            "name": "substrate",
+            "body": {
+              "endpoint": "substrate",
+              "feed_id": 0,
+              "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+              "fluxmonitor": {
+                "requestData": {
+                  "data": { "from": "DOT", "to": "USD" }
+                },
+                "feeds": [{ "url": "http://adapter1:8080" }],
+                "threshold": 0.5,
+                "absoluteThreshold": 0,
+                "precision": 8,
+                "pollTimer": { "period": "30s" },
+                "idleTimer": { "duration": "1m" }
+              }
+            }
+          }
+        }
+      ],
+      "tasks": [
+        {
+          "type": "substrate-adapter1",
+          "params": { "multiply": 1e8 }
+        }
+      ]
+    }
+    ```
+    is:
+    ```
+    type            = "webhook"
+    schemaVersion   = 1
+    jobID           = "0EEC7E1D-D0D2-475C-A1A8-72DFB6633F46"
+    externalInitiatorName = "substrate"
+    externalInitiatorSpec = """
+        {
+          "endpoint": "substrate",
+          "feed_id": 0,
+          "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+          "fluxmonitor": {
+            "requestData": {
+              "data": { "from": "DOT", "to": "USD" }
+            },
+            "feeds": [{ "url": "http://adapter1:8080" }],
+            "threshold": 0.5,
+            "absoluteThreshold": 0,
+            "precision": 8,
+            "pollTimer": { "period": "30s" },
+            "idleTimer": { "duration": "1m" }
+          }
+        }
+    """
+    observationSource   = """
+        submit [type=bridge name="substrate-adapter1" requestData=<{ "multiply": 1e8 }>]
+    """
+    ```
+    
 
 - Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
 
@@ -104,6 +177,7 @@ tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
 - Chainlink no longers writes/reads eth key files to disk
+- Add sensible default configuration settings for Fantom
 
 - Rename `ETH_MAX_UNCONFIRMED_TRANSACTIONS` to `ETH_MAX_QUEUED_TRANSACTIONS`. It still performs the same function but the name was misleading and would have caused confusion with the new `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
 
