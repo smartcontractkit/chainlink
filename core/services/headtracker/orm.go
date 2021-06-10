@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
 type ORM interface {
 	SaveBlock(ctx context.Context, block *Block) error
 	GetBlock(ctx context.Context, hash common.Hash) (*Block, error)

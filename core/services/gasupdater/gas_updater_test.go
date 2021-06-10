@@ -495,35 +495,47 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 
 func createGasUpdater(config *gumocks.Config) gasupdater.GasUpdater {
 	blockClient := headtracker.NewFakeBlockEthClient([]headtracker.Block{})
+
+	orm := new(htmocks.ORM)
+	orm.On("SaveBlock").Return(nil)
+
 	bfConfig := new(htmocks.BlockFetcherConfig)
 	bfConfig.On("BlockBackfillDepth").Return(uint64(50))
 	bfConfig.On("BlockFetcherBatchSize").Return(uint32(4))
 	bfConfig.On("EthFinalityDepth").Return(uint(50))
 	bfConfig.On("EthHeadTrackerHistoryDepth").Return(uint(10))
-	blockFetcher := headtracker.NewBlockFetcher(bfConfig, logger2.Default, blockClient)
+	blockFetcher := headtracker.NewBlockFetcher(orm, bfConfig, logger2.Default, blockClient)
 	return gasupdater.NewGasUpdater(blockFetcher, config)
 }
 
 func createGasUpdaterWithBlocks(config *gumocks.Config, blocks []headtracker.Block) gasupdater.GasUpdater {
 	blockClient := headtracker.NewFakeBlockEthClient(blocks)
+
+	orm := new(htmocks.ORM)
+	orm.On("SaveBlock").Return(nil)
+
 	bfConfig := new(htmocks.BlockFetcherConfig)
 	bfConfig.On("BlockBackfillDepth").Return(uint64(50))
 	bfConfig.On("BlockFetcherBatchSize").Return(uint32(4))
 	bfConfig.On("EthFinalityDepth").Return(uint(50))
 	bfConfig.On("EthHeadTrackerHistoryDepth").Return(uint(10))
 
-	blockFetcher := headtracker.NewBlockFetcher(bfConfig, logger2.Default, blockClient)
+	blockFetcher := headtracker.NewBlockFetcher(orm, bfConfig, logger2.Default, blockClient)
 	return gasupdater.NewGasUpdater(blockFetcher, config)
 }
 
 func createGasUpdaterWithBlockClient(config *gumocks.Config, blockClient headtracker.BlockEthClient) gasupdater.GasUpdater {
+
+	orm := new(htmocks.ORM)
+	orm.On("SaveBlock").Return(nil)
+
 	bfConfig := new(htmocks.BlockFetcherConfig)
 	bfConfig.On("BlockBackfillDepth").Return(uint64(50))
 	bfConfig.On("BlockFetcherBatchSize").Return(uint32(4))
 	bfConfig.On("EthFinalityDepth").Return(uint(50))
 	bfConfig.On("EthHeadTrackerHistoryDepth").Return(uint(10))
 
-	blockFetcher := headtracker.NewBlockFetcher(bfConfig, logger2.Default, blockClient)
+	blockFetcher := headtracker.NewBlockFetcher(orm, bfConfig, logger2.Default, blockClient)
 	return gasupdater.NewGasUpdater(blockFetcher, config)
 }
 
