@@ -337,8 +337,6 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			kst := new(mocks.KeyStoreInterface)
-			app.Store.KeyStore = kst
 			defer cleanup()
 
 			app.StartAndConnect()
@@ -376,7 +374,6 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.True(t, run.TaskRuns[0].MinRequiredIncomingConfirmations.Valid)
 			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].ObservedIncomingConfirmations.Uint32, "task run should track its current confirmations")
 			assert.True(t, run.TaskRuns[0].ObservedIncomingConfirmations.Valid)
-			kst.AssertExpectations(t)
 		})
 	}
 }
@@ -629,8 +626,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		ethClient,
 	)
-	kst := new(mocks.KeyStoreInterface)
-	app.Store.KeyStore = kst
 	defer cleanup()
 
 	require.NoError(t, app.StartAndConnect())
@@ -661,8 +656,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	updatedJR := cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, *jr)
 	assert.True(t, updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
-
-	kst.AssertExpectations(t)
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {

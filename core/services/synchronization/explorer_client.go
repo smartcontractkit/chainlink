@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -46,10 +47,9 @@ const (
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
+	service.Service
 	Url() url.URL
 	Status() ConnectionStatus
-	Start() error
-	Close() error
 	Send(context.Context, []byte, ...int)
 	Receive(context.Context, ...time.Duration) ([]byte, error)
 }
@@ -60,18 +60,19 @@ func (NoopExplorerClient) Url() url.URL                                         
 func (NoopExplorerClient) Status() ConnectionStatus                                  { return ConnectionStatusDisconnected }
 func (NoopExplorerClient) Start() error                                              { return nil }
 func (NoopExplorerClient) Close() error                                              { return nil }
+func (NoopExplorerClient) Healthy() error                                            { return nil }
+func (NoopExplorerClient) Ready() error                                              { return nil }
 func (NoopExplorerClient) Send(context.Context, []byte, ...int)                      {}
 func (NoopExplorerClient) Receive(context.Context, ...time.Duration) ([]byte, error) { return nil, nil }
 
 type explorerClient struct {
-	boot             *sync.RWMutex
+	utils.StartStopOnce
 	conn             *websocket.Conn
 	sendText         chan []byte
 	sendBinary       chan []byte
 	dropMessageCount uint32
 	receive          chan []byte
 	sleeper          utils.Sleeper
-	started          bool
 	status           ConnectionStatus
 	url              *url.URL
 	accessKey        string
@@ -94,7 +95,6 @@ func NewExplorerClient(url *url.URL, accessKey, secret string, loggingArgs ...bo
 	return &explorerClient{
 		url:       url,
 		receive:   make(chan []byte),
-		boot:      new(sync.RWMutex),
 		sleeper:   utils.NewBackoffSleeper(),
 		status:    ConnectionStatusDisconnected,
 		accessKey: accessKey,
@@ -120,17 +120,11 @@ func (ec *explorerClient) Status() ConnectionStatus {
 
 // Start starts a write pump over a websocket.
 func (ec *explorerClient) Start() error {
-	ec.boot.Lock()
-	defer ec.boot.Unlock()
-
-	if ec.started {
+	return ec.StartOnce("Explorer client", func() error {
+		ec.done = make(chan struct{})
+		go ec.connectAndWritePump()
 		return nil
-	}
-
-	ec.done = make(chan struct{})
-	go ec.connectAndWritePump()
-	ec.started = true
-	return nil
+	})
 }
 
 // Send sends data asynchronously across the websocket if it's open, or
@@ -380,15 +374,8 @@ func (ec *explorerClient) wrapConnErrorIf(err error) {
 }
 
 func (ec *explorerClient) Close() error {
-	ec.boot.Lock()
-	defer ec.boot.Unlock()
-
-	if !ec.started {
+	return ec.StopOnce("Explorer client", func() error {
+		close(ec.done)
 		return nil
-	}
-
-	ec.started = false
-	close(ec.done)
-
-	return nil
+	})
 }

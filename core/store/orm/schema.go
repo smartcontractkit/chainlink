@@ -27,6 +27,7 @@ type ConfigSchema struct {
 	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"0m"`
 	DatabaseBackupMode                        string          `env:"DATABASE_BACKUP_MODE" default:"none"`
 	DatabaseBackupURL                         *url.URL        `env:"DATABASE_BACKUP_URL" default:""`
+	DatabaseBackupDir                         string          `env:"DATABASE_BACKUP_DIR" default:""`
 	DatabaseListenerMaxReconnectDuration      time.Duration   `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
 	DatabaseListenerMinReconnectInterval      time.Duration   `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseMaximumTxDuration                 time.Duration   `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
@@ -53,7 +54,8 @@ type ConfigSchema struct {
 	EthHeadTrackerSamplingInterval            time.Duration   `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL" default:"1s"`
 	EthLogBackfillBatchSize                   uint32          `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
 	EthMaxGasPriceWei                         big.Int         `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
+	EthMaxInFlightTransactions                uint64          `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS" default:"16"`
+	EthMaxQueuedTransactions                  uint64          `env:"ETH_MAX_QUEUED_TRANSACTIONS" default:"250"`
 	EthMinGasPriceWei                         big.Int         `env:"ETH_MIN_GAS_PRICE_WEI"`
 	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
@@ -73,6 +75,7 @@ type ConfigSchema struct {
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
+	FeatureWebhookV2                          bool            `env:"FEATURE_WEBHOOK_V2" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasUpdaterBatchSize                       uint32          `env:"GAS_UPDATER_BATCH_SIZE"`
 	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY"`
@@ -81,7 +84,6 @@ type ConfigSchema struct {
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	HTTPServerWriteTimeout                    time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
-	HeadTimeBudget                            time.Duration   `env:"HEAD_TIME_BUDGET"`
 	InsecureFastScrypt                        bool            `env:"INSECURE_FAST_SCRYPT" default:"false"`
 	JSONConsole                               bool            `env:"JSON_CONSOLE" default:"false"`
 	JobPipelineMaxRunDuration                 time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
@@ -100,7 +102,7 @@ type ConfigSchema struct {
 	MigrateDatabase                           bool            `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations                  uint32          `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations          uint64          `env:"MIN_OUTGOING_CONFIRMATIONS"`
-	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
+	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT"`
 	MinimumRequestExpiration                  uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	MinimumServiceDuration                    models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	OCRBlockchainTimeout                      time.Duration   `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`

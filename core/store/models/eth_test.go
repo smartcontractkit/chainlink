@@ -88,12 +88,9 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store.KeyStore.Unlock(cltest.Password)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	account, err := store.KeyStore.GetAccountByAddress(fromAddress)
-	require.NoError(t, err)
-
 	chainID := big.NewInt(3)
 
-	signedTx, err := store.KeyStore.SignTx(account, tx, chainID)
+	signedTx, err := store.KeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
 	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)

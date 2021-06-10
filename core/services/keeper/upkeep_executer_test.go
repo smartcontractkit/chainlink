@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,8 +38,10 @@ func setup(t *testing.T) (
 	t.Cleanup(strCleanup)
 	ethMock := new(mocks.Client)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store)
-	jpv2 := cltest.NewJobPipelineV2(t, store.DB)
-	headBroadcaster := services.NewHeadBroadcaster()
+	cfg, cleanup := cltest.NewConfig(t)
+	t.Cleanup(cleanup)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB)
+	headBroadcaster := headtracker.NewHeadBroadcaster()
 	executer := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executer.Start()

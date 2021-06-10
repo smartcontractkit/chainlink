@@ -3,24 +3,24 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.T) {
+func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesKey(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	kst := new(mocks.KeyStoreInterface)
-	kst.On("HasAccounts").Return(false)
+	kst.On("HasDBSendingKeys").Return(false, nil)
 	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("NewAccount").Return(accounts.Account{}, nil)
+	kst.On("CreateNewKey").Return(models.Key{}, nil)
 	store.KeyStore = kst
 
 	prompt := &cltest.MockCountingPrompter{
@@ -34,8 +34,10 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 	}
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
-	assert.False(t, store.KeyStore.HasAccounts())
-	_, err := auth.Authenticate(store, "")
+	has, err := store.KeyStore.HasDBSendingKeys()
+	require.NoError(t, err)
+	assert.False(t, has)
+	_, err = auth.Authenticate(store, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 4, prompt.Count)
 
@@ -47,17 +49,19 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 
 	store, cleanup := cltest.NewStore(t)
 	kst := new(mocks.KeyStoreInterface)
-	kst.On("HasAccounts").Return(false)
+	kst.On("HasDBSendingKeys").Return(false, nil)
 	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("NewAccount").Return(accounts.Account{}, nil)
-	kst.On("Accounts").Return([]accounts.Account{})
+	kst.On("CreateNewKey").Return(models.Key{}, nil)
+	kst.On("SendingKeys").Return([]models.Key{}, nil)
 	store.KeyStore = kst
 	defer cleanup()
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
 
-	assert.Len(t, store.KeyStore.Accounts(), 0)
-	_, err := auth.Authenticate(store, cltest.Password)
+	sendingKeys, err := store.KeyStore.SendingKeys()
+	require.NoError(t, err)
+	assert.Len(t, sendingKeys, 0)
+	_, err = auth.Authenticate(store, cltest.Password)
 	assert.NoError(t, err)
 
 	kst.AssertExpectations(t)

@@ -3,8 +3,8 @@ package keeper
 import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -18,16 +18,18 @@ type Delegate struct {
 	jrm             job.ORM
 	pr              pipeline.Runner
 	ethClient       eth.Client
-	headBroadcaster *services.HeadBroadcaster
+	headBroadcaster *headtracker.HeadBroadcaster
 	logBroadcaster  log.Broadcaster
 }
+
+var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	db *gorm.DB,
 	jrm job.ORM,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
+	headBroadcaster *headtracker.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
 	config *orm.Config,
 ) *Delegate {
@@ -45,6 +47,9 @@ func NewDelegate(
 func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
 	if spec.KeeperSpec == nil {

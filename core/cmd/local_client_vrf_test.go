@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -174,11 +176,11 @@ func TestLocalClientVRF_ImportVRFKey(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportVRFKey(c))
 
-	keys := []vrfkey.EncryptedVRFKey{}
+	keys := []vrf.EncryptedVRFKey{}
 	app.GetStore().DB.Find(&keys)
 	assert.Len(t, keys, 1)
 
-	pubKey, err := vrfkey.NewPublicKeyFromHex(vrfPublicKey)
+	pubKey, err := secp256k1.NewPublicKeyFromHex(vrfPublicKey)
 	require.NoError(t, err)
 	assert.Equal(t, pubKey, keys[0].PublicKey)
 
@@ -280,12 +282,12 @@ func TestLocalClientVRF_DeleteVRFKey(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteVRFKey(c))
 
-	keys := []vrfkey.EncryptedVRFKey{}
+	keys := []vrf.EncryptedVRFKey{}
 	app.GetStore().DB.Find(&keys)
 	assert.Len(t, keys, 0)
 }
 
-func requireVRFKeysCount(t *testing.T, store *store.Store, length int) []*vrfkey.PublicKey {
+func requireVRFKeysCount(t *testing.T, store *store.Store, length int) []*secp256k1.PublicKey {
 	keys, err := store.VRFKeyStore.ListKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, length)

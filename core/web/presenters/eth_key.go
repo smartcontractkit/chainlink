@@ -15,7 +15,6 @@ type ETHKeyResource struct {
 	EthBalance  *assets.Eth  `json:"ethBalance"`
 	LinkBalance *assets.Link `json:"linkBalance"`
 	NextNonce   int64        `json:"nextNonce"`
-	LastUsed    *time.Time   `json:"lastUsed"`
 	IsFunding   bool         `json:"isFunding"`
 	CreatedAt   time.Time    `json:"createdAt"`
 	UpdatedAt   time.Time    `json:"updatedAt"`
@@ -44,7 +43,6 @@ func NewETHKeyResource(k models.Key, opts ...NewETHKeyOption) (*ETHKeyResource, 
 		EthBalance:  nil,
 		LinkBalance: nil,
 		NextNonce:   k.NextNonce,
-		LastUsed:    k.LastUsed,
 		IsFunding:   k.IsFunding,
 		CreatedAt:   k.CreatedAt,
 		UpdatedAt:   k.UpdatedAt,

@@ -1,7 +1,6 @@
 package adapters
 
 import (
-	"context"
 	"encoding/json"
 	"math/big"
 	"reflect"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -105,10 +105,10 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		return store.GetRoundRobinAddress(e.FromAddresses...)
+		return store.KeyStore.GetRoundRobinAddress(e.FromAddresses...)
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		return store.GetRoundRobinAddress()
+		return store.KeyStore.GetRoundRobinAddress(e.FromAddresses...)
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
@@ -168,8 +168,8 @@ func (e *EthTx) insertEthTx(m models.EthTxMeta, input models.RunInput, store *st
 		gasLimit = e.GasLimit
 	}
 
-	if err := utils.CheckOKToTransmit(context.Background(), store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
-		err = errors.Wrap(err, "number of unconfirmed transactions exceeds ETH_MAX_UNCONFIRMED_TRANSACTIONS")
+	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(store.DB, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
+		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", bulletprooftxmanager.EthMaxQueuedTransactionsLabel)
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}

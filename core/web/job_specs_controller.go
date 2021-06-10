@@ -92,7 +92,8 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, httpStatus, err)
 		return
 	}
-	if err := jsc.App.GetExternalInitiatorManager().Notify(js, jsc.App.GetStore()); err != nil {
+
+	if err := jsc.App.GetExternalInitiatorManager().Notify(js); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -121,7 +122,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 // Example:
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Show(c *gin.Context) {
-	id, err := models.NewIDFromString(c.Param("SpecID"))
+	id, err := models.NewJobIDFromString(c.Param("SpecID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -144,7 +145,7 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 // Example:
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Destroy(c *gin.Context) {
-	id, err := models.NewIDFromString(c.Param("SpecID"))
+	id, err := models.NewJobIDFromString(c.Param("SpecID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return

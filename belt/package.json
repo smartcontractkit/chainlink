@@ -29,7 +29,7 @@
     "cli-ux": "^5.5.0",
     "debug": "^4.3.1",
     "ethers": "^4.0.45",
-    "inquirer": "^7.3.3",
+    "inquirer": "^8.1.0",
     "patch-package": "^6.4.7",
     "shelljs": "^0.8.3",
     "ts-generator": "^0.1.1",

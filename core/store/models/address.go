@@ -32,8 +32,14 @@ func NewEIP55Address(s string) (EIP55Address, error) {
 	return EIP55Address(s), nil
 }
 
-func EIP55AddressFromAddress(a common.Address) (EIP55Address, error) {
-	return NewEIP55Address(a.Hex())
+// EIP55AddressFromAddress forces an address into EIP55Address format
+// It is safe to panic on error since address.Hex() should ALWAYS generate EIP55Address-compatible hex strings
+func EIP55AddressFromAddress(a common.Address) EIP55Address {
+	addr, err := NewEIP55Address(a.Hex())
+	if err != nil {
+		panic(err)
+	}
+	return addr
 }
 
 // Bytes returns the raw bytes

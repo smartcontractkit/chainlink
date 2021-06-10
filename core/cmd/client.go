@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -28,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -83,7 +83,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, services.NewExternalInitiatorManager(), onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
@@ -97,9 +97,13 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
-	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
-	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	config := app.GetStore().Config
+	mode := gin.ReleaseMode
+	if config.Dev() && config.LogLevel().Level < zapcore.InfoLevel {
+		mode = gin.DebugMode
+	}
+	gin.SetMode(mode)
+	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	var g errgroup.Group
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
