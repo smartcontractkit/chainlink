@@ -198,7 +198,8 @@ func (r *runner) ExecuteRun(
 		}
 	}
 
-	scheduler := newScheduler(ctx, pipeline, pipelineInput)
+	todo := context.TODO()
+	scheduler := newScheduler(todo, pipeline, pipelineInput)
 	go scheduler.Run()
 
 	for taskRun := range scheduler.taskCh {
@@ -209,7 +210,7 @@ func (r *runner) ExecuteRun(
 					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
 
 					t := time.Now()
-					scheduler.report(ctx, TaskRunResult{
+					scheduler.report(todo, TaskRunResult{
 						Task:       taskRun.task,
 						Result:     Result{Error: ErrRunPanicked{err}},
 						FinishedAt: t,
@@ -221,7 +222,7 @@ func (r *runner) ExecuteRun(
 
 			logTaskRunToPrometheus(result, spec)
 
-			scheduler.report(ctx, result)
+			scheduler.report(todo, result)
 		}(taskRun)
 	}
 
