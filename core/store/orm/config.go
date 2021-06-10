@@ -94,6 +94,7 @@ type (
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		OptimismGasFees                  bool
+		MinimumContractPayment           *assets.Link
 	}
 )
 
@@ -120,6 +121,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// NOTE: There are probably other variables we can tweak for Kovan and other
@@ -161,6 +163,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	hecoMainnet := bscMainnet
@@ -184,6 +187,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
@@ -200,7 +204,17 @@ func init() {
 		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
+
+	// Fantom
+	fantomTestnet := mainnet
+	fantomTestnet.EthGasPriceDefault = *big.NewInt(15000000000)
+	fantomTestnet.EthMaxGasPriceWei = *big.NewInt(100000000000)
+	fantomTestnet.MinIncomingConfirmations = 3
+	fantomTestnet.MinRequiredOutgoingConfirmations = 2
+	fantomTestnet.MinimumContractPayment = assets.NewLink(3500000000000000)
+	fantomMainnet := fantomTestnet
 
 	GeneralDefaults = mainnet
 	ChainSpecificDefaults[1] = mainnet
@@ -212,6 +226,8 @@ func init() {
 
 	ChainSpecificDefaults[56] = bscMainnet
 	ChainSpecificDefaults[128] = hecoMainnet
+	ChainSpecificDefaults[250] = fantomMainnet
+	ChainSpecificDefaults[4002] = fantomTestnet
 	ChainSpecificDefaults[80001] = polygonMatic
 
 	ChainSpecificDefaults[100] = xDai
@@ -1278,7 +1294,11 @@ func (c Config) MinRequiredOutgoingConfirmations() uint64 {
 // MinimumContractPayment represents the minimum amount of LINK that must be
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
-	return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
+	minimumContractPayment := chainSpecificConfig(c).MinimumContractPayment
+	if c.viper.IsSet(EnvVarName("MinimumContractPayment")) || minimumContractPayment == nil {
+		return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
+	}
+	return minimumContractPayment
 }
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
