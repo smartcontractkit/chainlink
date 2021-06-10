@@ -293,6 +293,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/p2p/import", p2pkc.Import)
 		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
 
+		csakc := CSAKeysController{app}
+		authv2.GET("/keys/csa", csakc.Index)
+		authv2.POST("/keys/csa", csakc.Create)
+
 		jc := JobsController{app}
 		authv2.GET("/jobs", jc.Index)
 		authv2.GET("/jobs/:ID", jc.Show)
