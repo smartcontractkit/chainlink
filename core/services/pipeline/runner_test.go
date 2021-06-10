@@ -359,6 +359,30 @@ a->b2->c;`,
 	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
 }
 
+func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(input.val)" times=2]
+b1 [type=multiply input="$(a)" times=2 index=0]
+b2 [type=multiply input="$(a)" times=3 index=1]
+a->b1;
+a->b2;`,
+	}, input, pipeline.JSONSerializable{}, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(trrs))
+	result := trrs.FinalResult()
+	assert.Equal(t, false, result.HasErrors())
+
+	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
+	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
+}
+
 func TestPanicTask_Run(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
