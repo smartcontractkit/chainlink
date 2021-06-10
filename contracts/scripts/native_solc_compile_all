@@ -7,21 +7,21 @@ python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.6.6
 solc-select install 0.8.4
 
-$SCRIPTPATH/native_solc6_compile core/v0.6/Flags.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/Oracle.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/FluxAggregator.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/VRFCoordinator.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/tests/VRFRequestIDBaseTestHelper.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/tests/VRFTestHelper.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/Chainlink.sol
-$SCRIPTPATH/native_solc6_compile core/v0.6/VRFRequestIDBase.sol
-$SCRIPTPATH/native_solc6_compile client/tests/VRFConsumer.sol
-$SCRIPTPATH/native_solc6_compile client/v0.6/ChainlinkClient.sol
-$SCRIPTPATH/native_solc6_compile client/v0.6/VRFConsumerBase.sol
+$SCRIPTPATH/native_solc6_compile Flags.sol
+$SCRIPTPATH/native_solc6_compile Oracle.sol
+$SCRIPTPATH/native_solc6_compile FluxAggregator.sol
+$SCRIPTPATH/native_solc6_compile VRFCoordinator.sol
+$SCRIPTPATH/native_solc6_compile tests/VRFRequestIDBaseTestHelper.sol
+$SCRIPTPATH/native_solc6_compile tests/VRFTestHelper.sol
+$SCRIPTPATH/native_solc6_compile Chainlink.sol
+$SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
+$SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
+$SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
+$SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
 
-$SCRIPTPATH/native_solc8_compile core/v0.8/dev/Chainlink.sol
-$SCRIPTPATH/native_solc8_compile core/v0.8/dev/ChainlinkClient.sol
-$SCRIPTPATH/native_solc8_compile core/v0.8/dev/VRFRequestIDBase.sol
-$SCRIPTPATH/native_solc8_compile core/v0.8/dev/VRFConsumerBase.sol
-$SCRIPTPATH/native_solc8_compile core/v0.8/tests/VRFConsumer.sol
-$SCRIPTPATH/native_solc8_compile core/v0.8/tests/VRFRequestIDBaseTestHelper.sol
+$SCRIPTPATH/native_solc8_compile dev/Chainlink.sol
+$SCRIPTPATH/native_solc8_compile dev/ChainlinkClient.sol
+$SCRIPTPATH/native_solc8_compile dev/VRFRequestIDBase.sol
+$SCRIPTPATH/native_solc8_compile dev/VRFConsumerBase.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFConsumer.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFRequestIDBaseTestHelper.sol
