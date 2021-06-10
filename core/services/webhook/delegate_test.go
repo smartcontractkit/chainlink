@@ -19,13 +19,15 @@ import (
 
 func TestWebhookDelegate(t *testing.T) {
 	var (
-		spec = &job.Job{
+		externalJobID = uuid.NewV4()
+		pipelineSpec  = pipeline.Spec{JobExternalID: externalJobID.String()}
+		spec          = &job.Job{
 			Type:          job.Webhook,
 			SchemaVersion: 1,
-			ExternalJobID: uuid.NewV4(),
+			ExternalJobID: externalJobID,
 			WebhookSpec:   &job.WebhookSpec{},
 			Pipeline:      *pipeline.NewTaskDAG(),
-			PipelineSpec:  &pipeline.Spec{},
+			PipelineSpec:  &pipelineSpec,
 		}
 
 		pipelineInputs = []pipeline.Result{{Value: "foo"}}
