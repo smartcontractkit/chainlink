@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A new configuration variable: BLOCK_FETCHER_ENABLED can be used to turn on the experimental block fetching logic (initially used by GasUpdater). 
+  A secondary variable BLOCK_FETCHER_BATCH_SIZE can be used to override the default request size when downloading blocks. 
+
 - JSON parse tasks (v2) now permit an empty `path` parameter.
 
 - HTTP and Bridge tasks (v2 pipeline) now log the request parameters (including the body) upon making the request when `LOG_LEVEL=debug`.
