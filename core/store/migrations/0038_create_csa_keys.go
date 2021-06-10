@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up36 = `
+const up38 = `
 CREATE TABLE csa_keys(
     id BIGSERIAL PRIMARY KEY,
     public_key bytea NOT NULL CHECK (octet_length(public_key) = 32) UNIQUE,
@@ -14,18 +14,18 @@ CREATE TABLE csa_keys(
 );
 
 `
-const down36 = `
+const down38 = `
 DROP TABLE csa_keys;
 `
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0036_create_csa_keys",
+		ID: "0038_create_csa_keys",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up36).Error
+			return db.Exec(up38).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down36).Error
+			return db.Exec(down38).Error
 		},
 	})
 }
