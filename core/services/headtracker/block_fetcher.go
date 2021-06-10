@@ -25,6 +25,7 @@ type (
 
 	BlockFetcher struct {
 		logger *logger.Logger
+		orm    ORM
 		config BlockFetcherConfig
 
 		blockEthClient BlockEthClient
@@ -44,14 +45,10 @@ type BlockFetcherConfig interface {
 	BlockBackfillDepth() uint64
 }
 
-func (bf *BlockFetcher) BlockCache() []*Block {
-	return bf.RecentSorted()
-}
-
-func NewBlockFetcher(config BlockFetcherConfig, logger *logger.Logger, blockEthClient BlockEthClient) *BlockFetcher {
-
+func NewBlockFetcher(orm ORM, config BlockFetcherConfig, logger *logger.Logger, blockEthClient BlockEthClient) *BlockFetcher {
 	return &BlockFetcher{
 		logger:         logger,
+		orm:            orm,
 		config:         config,
 		recent:         make(map[common.Hash]*Block),
 		blockEthClient: blockEthClient,
@@ -388,9 +385,10 @@ func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash)
 		return Block{}, errors.Wrap(err, "FastBlockByHash failed")
 	}
 
-	bf.mut.Lock()
-	bf.recent[blockPtr.Hash] = blockPtr
-	bf.mut.Unlock()
+	err = bf.storeBlock(ctx, blockPtr)
+	if err != nil {
+		return Block{}, errors.Wrap(err, "storeBlock failed")
+	}
 	return *blockPtr, nil
 }
 
@@ -425,9 +423,11 @@ func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Bloc
 			}
 
 			currentBlock = blockPtr
-			bf.mut.Lock()
-			bf.recent[currentBlock.Hash] = currentBlock
-			bf.mut.Unlock()
+
+			err = bf.storeBlock(ctx, blockPtr)
+			if err != nil {
+				return models.Head{}, errors.Wrap(err, "storeBlock failed")
+			}
 		}
 
 		head := HeadFromBlock(*currentBlock)
@@ -436,4 +436,12 @@ func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Bloc
 	}
 	bf.logger.Debugf("BlockFetcher: Returning chain of length %v", chainTip.ChainLength())
 	return chainTip, nil
+}
+
+func (bf *BlockFetcher) storeBlock(ctx context.Context, block *Block) error {
+	bf.mut.Lock()
+	bf.recent[block.Hash] = block
+	bf.mut.Unlock()
+
+	return bf.orm.SaveBlock(ctx, block)
 }

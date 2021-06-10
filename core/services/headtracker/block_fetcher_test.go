@@ -29,13 +29,13 @@ func TestBlockFetcher_GetBlockRange(t *testing.T) {
 	block42 := cltest.NewBlock(42, block41.Hash)
 
 	blockClient := headtracker.NewFakeBlockEthClient([]headtracker.Block{*block40, *block41, *block42})
-	blockFetcher := headtracker.NewBlockFetcher(config, logger, blockClient)
+	blockFetcher := headtracker.NewBlockFetcher(headtracker.NewORM(store.DB), config, logger, blockClient)
 
 	blockRange, err := blockFetcher.BlockRange(context.Background(), 41, 42)
 	require.NoError(t, err)
 
 	assert.Len(t, blockRange, 2)
-	assert.Len(t, blockFetcher.BlockCache(), 2)
+	assert.Len(t, blockFetcher.RecentSorted(), 2)
 
 	assert.Equal(t, int64(41), blockRange[0].Number)
 	assert.Equal(t, int64(42), blockRange[1].Number)
@@ -59,7 +59,7 @@ func TestBlockFetcher_ConstructsChain(t *testing.T) {
 	h := headtracker.HeadFromBlock(*block42)
 
 	blockClient := headtracker.NewFakeBlockEthClient([]headtracker.Block{*block40, *block41, *block42})
-	blockFetcher := headtracker.NewBlockFetcher(config, logger, blockClient)
+	blockFetcher := headtracker.NewBlockFetcher(headtracker.NewORM(store.DB), config, logger, blockClient)
 
 	head, err := blockFetcher.Chain(context.Background(), h)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestBlockFetcher_CreatesChainWhereSomeBlocksAreInitiallyMissing(t *testing.
 	h := headtracker.HeadFromBlock(*block42)
 
 	blockClient := headtracker.NewFakeBlockEthClient([]headtracker.Block{*block38, *block39, *block40, *block41, *block42})
-	blockFetcher := headtracker.NewBlockFetcher(config, logger, blockClient)
+	blockFetcher := headtracker.NewBlockFetcher(headtracker.NewORM(store.DB), config, logger, blockClient)
 
 	_, err := blockFetcher.BlockRange(context.Background(), 39, 39)
 	require.NoError(t, err)

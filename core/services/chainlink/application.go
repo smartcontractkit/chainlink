@@ -168,7 +168,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, explorerClient, statsPusher)
 
 	blockEthClient := headtracker.NewBlockEthClientImpl(store.EthClient, logger.Default, store.Config.BlockFetcherBatchSize())
-	blockFetcher := headtracker.NewBlockFetcher(store.Config, logger.Default, blockEthClient)
+	blockFetcher := headtracker.NewBlockFetcher(headtracker.NewORM(store.DB), store.Config, logger.Default, blockEthClient)
 
 	if config.BlockBackfillDepth() > uint64(config.EthHeadTrackerHistoryDepth()) {
 		logger.Fatal("Configuration value of EthHeadTrackerHistoryDepth must be larger than BlockBackfillDepth")
