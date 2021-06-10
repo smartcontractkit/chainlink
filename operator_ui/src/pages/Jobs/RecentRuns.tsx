@@ -13,14 +13,14 @@ import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import JobRunsList from './JobRunsList'
-import TaskListDag from './TaskListDag'
+// import TaskListDag from './TaskListDag'
 import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequestJob, JobData } from './sharedTypes'
-import { parseDot } from './parseDot'
+// import { parseDot } from './parseDot'
 
 const totalLinkEarned = (job: DirectRequestJob) => {
   const zero = '0.000000'
@@ -118,9 +118,9 @@ export const RecentRuns = withStyles(chartCardStyles)(
                 <Grid item xs>
                   <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>
-                    <TaskListDag
+                    {/* <TaskListDag
                       stratify={parseDot(`digraph {${job.dotDagSource}}`)}
-                    />
+                    /> */}
                   </Card>
                 </Grid>
               )}
