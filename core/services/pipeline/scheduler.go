@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -65,9 +66,21 @@ Loop:
 
 		var result TaskRunResult
 		select {
-		case r := <-s.resultCh:
-			result = r
+		case result = <-s.resultCh:
 		case <-s.ctx.Done():
+			now := time.Now()
+			// mark remaining jobs as timeout
+			for _, task := range s.pipeline.Tasks {
+				if _, ok := s.results[task.ID()]; !ok {
+					s.results[task.ID()] = TaskRunResult{
+						Task:       task,
+						Result:     Result{Error: ErrTimeout},
+						CreatedAt:  now, // TODO: more accurate start time
+						FinishedAt: now,
+					}
+				}
+			}
+
 			break Loop
 		}
 

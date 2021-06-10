@@ -54,6 +54,7 @@ var (
 	ErrBadInput              = errors.New("bad input for task")
 	ErrParameterEmpty        = errors.New("parameter is empty")
 	ErrTooManyErrors         = errors.New("too many errors")
+	ErrTimeout               = errors.New("timeout")
 )
 
 const (
