@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
@@ -72,13 +73,13 @@ func NewNonceSyncer(db *gorm.DB, ethClient eth.Client) *NonceSyncer {
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) SyncAll(ctx context.Context, keys []models.Key) (merr error) {
+func (s NonceSyncer) SyncAll(ctx context.Context, keys []ethkey.Key) (merr error) {
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k models.Key) {
+		go func(k ethkey.Key) {
 			defer wg.Done()
 			if err := s.fastForwardNonceIfNecessary(ctx, k.Address.Address()); err != nil {
 				errMu.Lock()

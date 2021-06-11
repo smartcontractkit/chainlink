@@ -16,6 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -24,7 +26,7 @@ import (
 func TestJob(t *testing.T) {
 	// Used in most tests
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	contractAddress, err := models.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
+	contractAddress, err := ethkey.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
 	require.NoError(t, err)
 	cronSchedule := "0 0 0 1 1 *"
 
@@ -35,14 +37,14 @@ func TestJob(t *testing.T) {
 	)
 	p2pPeerID, err := peer.Decode(peerIDStr)
 	require.NoError(t, err)
-	peerID := models.PeerID(p2pPeerID)
-	transmitterAddress, err := models.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
+	peerID := p2pkey.PeerID(p2pPeerID)
+	transmitterAddress, err := ethkey.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
 	require.NoError(t, err)
 	ocrKeyBundleIDSha256, err := models.Sha256HashFromHex(ocrKeyBundleID)
 	require.NoError(t, err)
 
 	// Used in keeper test
-	fromAddress, err := models.NewEIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e")
+	fromAddress, err := ethkey.NewEIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e")
 	require.NoError(t, err)
 
 	testCases := []struct {
