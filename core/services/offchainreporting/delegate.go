@@ -195,6 +195,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			NewTransmitter(d.db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxQueuedTransactions()),
 			d.logBroadcaster,
 			tracker,
+			d.config.ChainID(),
 		)
 
 		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
