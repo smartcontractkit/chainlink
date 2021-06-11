@@ -88,7 +88,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	pks, err := app.KeyStore.VRF.ListKeys()
+	pks, err := app.KeyStore.VRF().ListKeys()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
 	var tt = []struct {
@@ -369,7 +369,7 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.CreateKey(string(cltest.Password))
 	require.NoError(t, err)
 	return app, client

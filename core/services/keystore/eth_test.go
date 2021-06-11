@@ -24,7 +24,7 @@ func Test_EthKeyStore_CreateNewKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, err := ethKeyStore.CreateNewKey()
 	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
@@ -46,7 +46,7 @@ func Test_EthKeyStore_Unlock(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	k := cltest.MustInsertRandomKey(t, store.DB)
 
@@ -62,7 +62,7 @@ func Test_EthKeyStore_KeyByAddress(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, address := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -79,7 +79,7 @@ func Test_EthKeyStore_EnsureFundingKey(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	cltest.AssertCount(t, store, ethkey.Key{}, 0)
 
@@ -99,7 +99,7 @@ func Test_EthKeyStore_EnsureFundingKey(t *testing.T) {
 func Test_EthKeyStore_ImportKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	keyBytes := []byte(`{"address":"72f4f206d41339921570e47409cfef89ad528605","crypto":{"cipher":"aes-128-ctr","ciphertext":"d55d1cf27b464a7262e947fc6b09161c9c56b2efb1a2e6aef8b1ed0c22e02143","cipherparams":{"iv":"ff9effce7ce8318f54029c30e5e60c3a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":2,"p":2,"r":8,"salt":"bdec27593d039aca0fe87047bf425bd603a6eb134b8f04ee993ef090086300f7"},"mac":"5e06e90baef19112fcc301fb708d20577af9220e8b1f72329f9f06a70aade18e"},"id":"ec04d5fc-49ce-4d98-bdce-13d1dfa89eb9","version":3}`)
 
@@ -128,7 +128,7 @@ func Test_EthKeyStore_ImportKey(t *testing.T) {
 func Test_EthKeyStore_ExportKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	k := cltest.MustInsertRandomKey(t, store.DB)
 
@@ -161,7 +161,7 @@ func Test_EthKeyStore_ExportKey(t *testing.T) {
 func Test_EthKeyStore_AddKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	ks := ethKeyStore
 
@@ -188,7 +188,7 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 	t.Run("hard delete", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, err := ethKeyStore.RemoveKey(cltest.NewAddress(), false)
 		require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
@@ -217,7 +217,7 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 	t.Run("soft delete", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, err := ethKeyStore.RemoveKey(cltest.NewAddress(), false)
 		require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
@@ -243,7 +243,7 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 		cltest.AssertCount(t, store, ethkey.Key{}, 1)
 
 		// Does not load soft deleted keys on a subsequent unlock
-		ks := keystore.New(store.DB, utils.FastScryptParams).Eth
+		ks := keystore.New(store.DB, utils.FastScryptParams).Eth()
 		err = ks.Unlock(cltest.Password)
 		require.NoError(t, err)
 		keys, err = ks.AllKeys()
@@ -255,7 +255,7 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 func Test_EthKeyStore_SignTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	k := cltest.MustInsertRandomKey(t, store.DB)
 
@@ -281,7 +281,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 func Test_EthKeyStore_AllKeys_SendingKeys_FundingKeys_HasSendingKeyWithAddress_GetKeyByAddress(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	sending1 := cltest.MustInsertRandomKey(t, store.DB, false)
 	cltest.MustInsertRandomKey(t, store.DB, false)
@@ -324,7 +324,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	kst := ethKeyStore
 
@@ -392,7 +392,7 @@ func Test_EthKeyStore_HasDBSendingKeys(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	kst := ethKeyStore
 
@@ -418,7 +418,7 @@ func Test_EthKeyStore_ImportKeyFileToDB(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	kst := ethKeyStore
 

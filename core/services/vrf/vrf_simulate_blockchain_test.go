@@ -59,7 +59,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.KeyStore.VRF.StoreInMemoryXXXTestingOnly(provingKey)
+	app.KeyStore.VRF().StoreInMemoryXXXTestingOnly(provingKey)
 	var seed = big.NewInt(1)
 
 	j := cltest.NewJobWithRandomnessLog()
@@ -148,7 +148,7 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.KeyStore.VRF.StoreInMemoryXXXTestingOnly(provingKey)
+	app.KeyStore.VRF().StoreInMemoryXXXTestingOnly(provingKey)
 
 	j := cltest.NewJobWithRandomnessLog()
 	contractAddress := cu.rootContractAddress.String()

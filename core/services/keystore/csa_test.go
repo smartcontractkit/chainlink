@@ -10,7 +10,7 @@ import (
 func Test_CSAKeyStore(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ks := cltest.NewKeyStore(t, store.DB).CSA
+	ks := cltest.NewKeyStore(t, store.DB).CSA()
 	ks.Unlock(cltest.Password)
 
 	t.Run("it can count keys", func(tt *testing.T) {

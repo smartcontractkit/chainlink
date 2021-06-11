@@ -331,7 +331,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
@@ -376,7 +376,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = job.Job{
@@ -423,7 +423,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -485,7 +485,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -530,7 +530,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = job.Job{
@@ -569,7 +569,7 @@ ds1 -> ds1_parse;
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := cltest.NewKeyStore(t, db).OCR
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()

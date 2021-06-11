@@ -23,7 +23,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -50,7 +50,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -75,7 +75,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		k1 := cltest.MustInsertRandomKey(t, store.DB, int64(32))
 		ethKeyStore.Unlock(cltest.Password)
@@ -101,7 +101,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		ethClient := new(mocks.Client)
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
 		_, key2 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(32))
@@ -129,7 +129,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
 		ethKeyStore.Unlock(cltest.Password)

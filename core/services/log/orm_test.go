@@ -15,7 +15,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	orm := log.NewORM(store.DB)
 
@@ -79,7 +79,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	orm := log.NewORM(store.DB)
 

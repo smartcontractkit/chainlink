@@ -46,14 +46,14 @@ func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
 	// Don't mock db interactions
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, db)
 	ks := cltest.NewKeyStore(t, db)
-	require.NoError(t, ks.Eth.Unlock(cltest.Password))
-	_, err := ks.Eth.CreateNewKey()
+	require.NoError(t, ks.Eth().Unlock(cltest.Password))
+	_, err := ks.Eth().CreateNewKey()
 	require.NoError(t, err)
-	submitter, err := ks.Eth.GetRoundRobinAddress()
+	submitter, err := ks.Eth().GetRoundRobinAddress()
 	require.NoError(t, err)
-	vrfkey, err := ks.VRF.CreateKey(cltest.Password)
+	vrfkey, err := ks.VRF().CreateKey(cltest.Password)
 	require.NoError(t, err)
-	_, err = ks.VRF.Unlock(cltest.Password)
+	_, err = ks.VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
 
 	return vrfUniverse{

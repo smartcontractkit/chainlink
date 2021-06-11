@@ -25,7 +25,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
@@ -61,7 +61,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("handles nil head", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
@@ -86,7 +86,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("recovers on error", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
@@ -114,7 +114,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
@@ -168,7 +168,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 

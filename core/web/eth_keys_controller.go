@@ -25,7 +25,7 @@ type ETHKeysController struct {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
-	ethKeyStore := ekc.App.GetKeyStore().Eth
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	keys, err := ethKeyStore.AllKeys()
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
@@ -61,7 +61,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Create(c *gin.Context) {
-	key, err := ekc.App.GetKeyStore().Eth.CreateNewKey()
+	key, err := ekc.App.GetKeyStore().Eth().CreateNewKey()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -100,7 +100,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	}
 	address := common.HexToAddress(c.Param("keyID"))
 
-	key, err := ekc.App.GetKeyStore().Eth.RemoveKey(address, hardDelete)
+	key, err := ekc.App.GetKeyStore().Eth().RemoveKey(address, hardDelete)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -129,7 +129,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	}
 	oldPassword := c.Query("oldpassword")
 
-	key, err := ekc.App.GetKeyStore().Eth.ImportKey(bytes, oldPassword)
+	key, err := ekc.App.GetKeyStore().Eth().ImportKey(bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -154,7 +154,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 	address := common.HexToAddress(addressStr)
 	newPassword := c.Query("newpassword")
 
-	bytes, err := ekc.App.GetKeyStore().Eth.ExportKey(address, newPassword)
+	bytes, err := ekc.App.GetKeyStore().Eth().ExportKey(address, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

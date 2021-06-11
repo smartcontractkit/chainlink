@@ -25,7 +25,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	)
 	t.Cleanup(cleanup)
 
-	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth, true)
+	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
@@ -39,7 +39,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	expectedKeys, err := app.KeyStore.Eth.AllKeys()
+	expectedKeys, err := app.KeyStore.Eth().AllKeys()
 	require.NoError(t, err)
 	var actualBalances []webpresenters.ETHKeyResource
 	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)

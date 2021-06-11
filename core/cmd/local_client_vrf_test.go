@@ -134,11 +134,11 @@ func TestLocalClientVRF_CreateVRFKey(t *testing.T) {
 	set.String("password", vrfPasswordFilePath, "")
 	c = cli.NewContext(nil, set, nil)
 
-	requireVRFKeysCount(t, keyStore.VRF, 0)
+	requireVRFKeysCount(t, keyStore.VRF(), 0)
 
 	require.NoError(t, client.CreateVRFKey(c))
 
-	requireVRFKeysCount(t, keyStore.VRF, 1)
+	requireVRFKeysCount(t, keyStore.VRF(), 1)
 }
 
 func TestLocalClientVRF_ImportVRFKey(t *testing.T) {

@@ -13,7 +13,7 @@ func TestKeyStore_SendingKeys(t *testing.T) {
 
 	s, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethKeyStore := cltest.NewKeyStore(t, s.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, s.DB).Eth()
 
 	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
@@ -32,7 +32,7 @@ func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 
 	s, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethKeyStore := cltest.NewKeyStore(t, s.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, s.DB).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0, true)
 	_, k0Address := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
