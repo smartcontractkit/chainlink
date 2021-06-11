@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -32,7 +33,7 @@ func (ba *Bridge) TaskType() models.TaskType {
 //
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
-func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+func (ba *Bridge) Perform(input models.RunInput, store *store.Store, _ *keystore.Master) models.RunOutput {
 	if input.Status().Completed() {
 		return models.NewRunOutputComplete(input.Data())
 	} else if input.Status().PendingBridge() {

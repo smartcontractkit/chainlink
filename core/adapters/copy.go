@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -17,7 +18,7 @@ func (c *Copy) TaskType() models.TaskType {
 }
 
 // Perform returns the copied values from the desired mapping within the `data` JSON object
-func (c *Copy) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+func (c *Copy) Perform(input models.RunInput, store *store.Store, keyStore *keystore.Master) models.RunOutput {
 	data, err := models.JSON{}.Add("result", input.Data().String())
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -25,5 +26,5 @@ func (c *Copy) Perform(input models.RunInput, store *store.Store) models.RunOutp
 
 	jp := JSONParse{Path: c.CopyPath}
 	input = input.CloneWithData(data)
-	return jp.Perform(input, store)
+	return jp.Perform(input, store, keyStore)
 }
