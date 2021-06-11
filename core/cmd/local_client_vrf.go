@@ -102,7 +102,7 @@ func (cli *Client) CreateVRFKey(c *cli.Context) error {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
 
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 	key, err := vrfKeyStore.CreateKey(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
@@ -148,7 +148,7 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 	key, err := vrfKeyStore.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(
 		string(password))
 	if err != nil {
@@ -193,7 +193,7 @@ func (cli *Client) ImportVRFKey(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 	if err := vrfKeyStore.Import(keyjson, string(password)); err != nil {
 		if err == keystore.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
@@ -254,7 +254,7 @@ func getKeys(cli *Client, c *cli.Context) (*vrfkey.EncryptedVRFKey, error) {
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 	enckey, err := vrfKeyStore.GetSpecificKey(publicKey)
 	if err != nil {
 		return nil, errors.Wrapf(err,
@@ -281,7 +281,7 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 
 	hardDelete := c.Bool("hard")
 	if hardDelete {
@@ -320,7 +320,7 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetKeyStore().VRF
+	vrfKeyStore := app.GetKeyStore().VRF()
 	keys, err := vrfKeyStore.ListKeys()
 	if err != nil {
 		return err

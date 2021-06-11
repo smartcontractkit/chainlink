@@ -79,16 +79,16 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	// TODO - RYAN - authenticating the keystore should be done in one step here! with ONE password file
 	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	keyStorePwd, err := cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth, pwd)
+	keyStorePwd, err := cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth(), pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR, store.Config, keyStorePwd); authErr != nil {
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR(), store.Config, keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateCSAKey(keyStore.CSA, keyStorePwd); authErr != nil {
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateCSAKey(keyStore.CSA(), keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating CSA keystore"))
 	}
 
@@ -99,7 +99,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 				"error reading VRF password from vrfpassword file \"%s\"",
 				c.String("vrfpassword")))
 		}
-		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(keyStore.VRF, vrfpwd); authErr != nil {
+		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(keyStore.VRF(), vrfpwd); authErr != nil {
 			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
 		}
 	}
@@ -126,7 +126,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	if !store.Config.EthereumDisabled() {
-		key, currentBalance, err := setupFundingKey(context.TODO(), store.EthClient, keyStore.Eth, keyStorePwd)
+		key, currentBalance, err := setupFundingKey(context.TODO(), store.EthClient, keyStore.Eth(), keyStorePwd)
 		if err != nil {
 			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
 		}
@@ -286,7 +286,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	_, err = cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth, pwd)
+	_, err = cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth(), pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
@@ -298,11 +298,11 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	allKeys, err := keyStore.Eth.AllKeys()
+	allKeys, err := keyStore.Eth().AllKeys()
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth, store.AdvisoryLocker, allKeys)
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -627,6 +627,6 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 
 	srcKeyPath := c.Args().First() // e.g. ./keys/mykey
 
-	_, err = app.GetKeyStore().Eth.ImportKeyFileToDB(srcKeyPath)
+	_, err = app.GetKeyStore().Eth().ImportKeyFileToDB(srcKeyPath)
 	return cli.errorOut(err)
 }

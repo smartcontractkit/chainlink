@@ -138,7 +138,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	ethKeyStore := app.GetKeyStore().Eth
+	ethKeyStore := app.GetKeyStore().Eth()
 	client, _ := app.NewClientAndRenderer()
 
 	ethClient.On("Dial", mock.Anything)
@@ -182,7 +182,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	err := client.RemoteLogin(c)
 	assert.NoError(t, err)
 
-	err = app.GetKeyStore().Eth.Unlock(cltest.Password)
+	err = app.GetKeyStore().Eth().Unlock(cltest.Password)
 	assert.NoError(t, err)
 
 	err = client.ListETHKeys(c)
@@ -238,7 +238,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	assert.NoError(t, err)
 
 	scryptParams := utils.GetScryptParams(app.Store.Config)
-	keystore := keystore.New(app.Store.DB, scryptParams).Eth
+	keystore := keystore.New(app.Store.DB, scryptParams).Eth()
 	err = keystore.Unlock(string(oldpassword))
 	assert.NoError(t, err)
 	key, err := keystore.ImportKey(keyJSON, strings.TrimSpace(string(newpassword)))

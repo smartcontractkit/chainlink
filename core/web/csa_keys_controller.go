@@ -17,7 +17,7 @@ type CSAKeysController struct {
 // Example:
 // "GET <application>/keys/csa"
 func (ctrl *CSAKeysController) Index(c *gin.Context) {
-	keys, err := ctrl.App.GetKeyStore().CSA.ListCSAKeys()
+	keys, err := ctrl.App.GetKeyStore().CSA().ListCSAKeys()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -29,7 +29,7 @@ func (ctrl *CSAKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/csa"
 func (ctrl *CSAKeysController) Create(c *gin.Context) {
-	key, err := ctrl.App.GetKeyStore().CSA.CreateCSAKey()
+	key, err := ctrl.App.GetKeyStore().CSA().CreateCSAKey()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

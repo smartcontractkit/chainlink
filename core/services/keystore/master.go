@@ -7,16 +7,32 @@ import (
 
 func New(db *gorm.DB, scryptParams utils.ScryptParams) *Master {
 	return &Master{
-		Eth: newEthKeyStore(db, scryptParams),
-		CSA: newCSAKeyStore(db, scryptParams),
-		OCR: newOCRKeyStore(db, scryptParams),
-		VRF: newVRFKeyStore(db, scryptParams),
+		eth: newEthKeyStore(db, scryptParams),
+		csa: newCSAKeyStore(db, scryptParams),
+		ocr: newOCRKeyStore(db, scryptParams),
+		vrf: newVRFKeyStore(db, scryptParams),
 	}
 }
 
 type Master struct {
-	Eth *Eth
-	CSA *CSA
-	OCR *OCR
-	VRF *VRF
+	eth *Eth
+	csa *CSA
+	ocr *OCR
+	vrf *VRF
+}
+
+func (m *Master) Eth() *Eth {
+	return m.eth
+}
+
+func (m *Master) CSA() *CSA {
+	return m.csa
+}
+
+func (m *Master) OCR() *OCR {
+	return m.ocr
+}
+
+func (m *Master) VRF() *VRF {
+	return m.vrf
 }

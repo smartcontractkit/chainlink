@@ -1261,7 +1261,7 @@ func TestORM_RemoveUnstartedTransaction_RemoveByJobRun(t *testing.T) {
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -1526,7 +1526,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	sharedTaskRunID, _ := cltest.MustInsertTaskRun(t, store)

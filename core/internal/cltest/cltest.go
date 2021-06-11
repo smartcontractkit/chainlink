@@ -413,14 +413,14 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.Key:
-			MustAddKeyToKeystore(t, &v, app.KeyStore.Eth)
+			MustAddKeyToKeystore(t, &v, app.KeyStore.Eth())
 			app.Key = v
 		}
 	}
 	if app.Key.Address.Address() == utils.ZeroAddress {
-		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth, 0)
+		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 	}
-	require.NoError(t, app.KeyStore.Eth.Unlock(Password))
+	require.NoError(t, app.KeyStore.Eth().Unlock(Password))
 
 	return app, cleanup
 }
@@ -532,7 +532,7 @@ func (ta *TestApplication) Start() error {
 	ta.Started = true
 	// TODO - RYAN - we should have a global keystore.Unlock() function
 	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	ta.ChainlinkApplication.KeyStore.Eth.Unlock(Password)
+	ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
 
 	err := ta.ChainlinkApplication.Start()
 	return err
@@ -592,9 +592,9 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.KeyStore.Eth.ImportKey([]byte(content), Password)
+	_, err := ta.KeyStore.Eth().ImportKey([]byte(content), Password)
 	require.NoError(ta.t, err)
-	require.NoError(ta.t, ta.KeyStore.Eth.Unlock(Password))
+	require.NoError(ta.t, ta.KeyStore.Eth().Unlock(Password))
 }
 
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {

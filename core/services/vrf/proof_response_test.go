@@ -22,14 +22,14 @@ func TestMarshaledProof(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	key, err := keyStore.VRF.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(cltest.Password)
+	key, err := keyStore.VRF().CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(cltest.Password)
 	fmt.Println("key.PublicKey", key.PublicKey)
 	require.NoError(t, err)
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
 	s := vrf.TestXXXSeedData(t, preSeed, blockHash, blockNum)
-	proofResponse, err := vrf.GenerateProofResponse(keyStore.VRF, key.PublicKey, s)
+	proofResponse, err := vrf.GenerateProofResponse(keyStore.VRF(), key.PublicKey, s)
 	require.NoError(t, err)
 	goProof, err := vrf.UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)

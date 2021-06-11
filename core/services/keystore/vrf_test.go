@@ -44,7 +44,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ks := cltest.NewKeyStore(t, store.DB).VRF
+	ks := cltest.NewKeyStore(t, store.DB).VRF()
 	// ks := vrf.newVRFKeyStore(vrf.NewORM(store.DB), utils.GetScryptParams(store.Config))
 	key, err := ks.CreateKey(phrase) // NB: Varies from run to run. Shouldn't matter, though
 	require.NoError(t, err, "could not create encrypted key")

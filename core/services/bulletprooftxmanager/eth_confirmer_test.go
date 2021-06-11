@@ -79,7 +79,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	ethClient := store.EthClient
 
@@ -131,7 +131,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethClient := new(mocks.Client)
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -500,7 +500,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -561,7 +561,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -620,7 +620,7 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -653,7 +653,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -913,7 +913,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
@@ -965,7 +965,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -1815,7 +1815,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethClient := new(mocks.Client)
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 	ethKeyStore.Unlock(cltest.Password)
@@ -1953,7 +1953,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
@@ -2116,7 +2116,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 	ethKeyStore.Unlock(cltest.Password)
 

@@ -15,7 +15,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	kst := cltest.NewKeyStore(t, store.DB).Eth
+	kst := cltest.NewKeyStore(t, store.DB).Eth()
 
 	prompt := &cltest.MockCountingPrompter{
 		T: t,
@@ -41,7 +41,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	kst := cltest.NewKeyStore(t, store.DB).Eth
+	kst := cltest.NewKeyStore(t, store.DB).Eth()
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
 
@@ -61,7 +61,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -82,7 +82,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -154,7 +154,7 @@ func TestTerminalKeyStoreAuthenticator_ValidatePasswordStrength(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+			ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 			auth := cmd.TerminalKeyStoreAuthenticator{}
 			err := auth.ExportedValidatePasswordStrength(ethKeyStore, test.failingPassword)

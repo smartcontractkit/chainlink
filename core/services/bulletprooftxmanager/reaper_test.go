@@ -16,7 +16,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	var nonce int64 = 0

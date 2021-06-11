@@ -21,7 +21,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth(), 0)
 
 	toAddress := cltest.NewAddress()
 	gasLimit := uint64(42)
