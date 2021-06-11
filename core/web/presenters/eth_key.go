@@ -8,7 +8,7 @@ import (
 )
 
 // ETHKeyResource represents a ETH key JSONAPI resource. It holds the hex
-// representation of the address plus it's ETH & LINK balances
+// representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
 	Address     string       `json:"address"`

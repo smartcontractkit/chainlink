@@ -35,6 +35,10 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 
 	var resources []presenters.ETHKeyResource
 	for _, key := range keys {
+		if !ekc.App.GetStore().Config.Dev() && key.IsFunding {
+			continue
+		}
+
 		k, err := ethKeyStore.KeyByAddress(key.Address.Address())
 		if err != nil {
 			err = errors.Errorf("error getting key: %v", err)
