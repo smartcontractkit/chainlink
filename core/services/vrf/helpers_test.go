@@ -1,23 +1,10 @@
 package vrf
 
-import "math/big"
+import (
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+)
 
-func GenerateProofWithNonce(secretKey, seed, nonce *big.Int) (Proof, error) {
-	return generateProofWithNonce(secretKey, seed, nonce)
-}
-
-func GenerateProofResponseWithNonce(secretKey *big.Int, s PreSeedData,
-	nonce *big.Int) (
+func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (
 	MarshaledOnChainResponse, error) {
-	seed := FinalSeed(s)
-	proof, err := generateProofWithNonce(secretKey, seed, nonce)
-	if err != nil {
-		return MarshaledOnChainResponse{}, err
-	}
-	p := ProofResponse{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum}
-	rv, err := p.MarshalForVRFCoordinator()
-	if err != nil {
-		return MarshaledOnChainResponse{}, err
-	}
-	return rv, nil
+	return generateProofResponseFromProof(proof, s)
 }
