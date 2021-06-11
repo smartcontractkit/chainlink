@@ -17,6 +17,7 @@ import (
 // a password string.
 type KeyStoreAuthenticator interface {
 	AuthenticateEthKey(*keystore.Eth, string) (string, error)
+	AuthenticateCSAKey(*keystore.CSA, string) error
 	AuthenticateVRFKey(*keystore.VRF, string) error
 	AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error
 }
@@ -181,6 +182,12 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(vrfKeyStore *keysto
 			"them... please check the password in the file specified by vrfpassword"+
 			". You can add and delete VRF keys in the DB using the "+
 			"`chainlink local vrf` subcommands")
+}
+
+func (auth TerminalKeyStoreAuthenticator) AuthenticateCSAKey(csaKeyStore *keystore.CSA, password string) error {
+	return errors.Wrapf(csaKeyStore.Unlock(password),
+		"there are CSA keys in the DB, but that password did not unlock any of "+
+			"them... please check the password in the file")
 }
 
 // AuthenticateOCRKey authenticates OCR keypairs

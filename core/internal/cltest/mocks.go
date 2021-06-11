@@ -182,6 +182,10 @@ func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *orm.Config, st
 	return nil
 }
 
+func (a CallbackAuthenticator) AuthenticateCSAKey(*keystore.CSA, string) error {
+	return nil
+}
+
 var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
 
 // BlockedRunner is a Runner that blocks until its channel is posted to

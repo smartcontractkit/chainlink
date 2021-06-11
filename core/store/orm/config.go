@@ -74,7 +74,7 @@ type (
 		randomP2PPortMtx *sync.RWMutex
 		Dialect          dialects.DialectName
 		AdvisoryLockID   int64
-		keystorePassword string
+		// keystorePassword string
 	}
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
@@ -381,14 +381,6 @@ func (c Config) Set(name string, value interface{}) {
 		}
 	}
 	logger.Panicf("No configuration parameter for %s", name)
-}
-
-func (c *Config) SetKeystorePassword(password string) {
-	c.keystorePassword = password
-}
-
-func (c *Config) GetKeystorePassword() string {
-	return c.keystorePassword
 }
 
 const defaultPostgresAdvisoryLockID int64 = 1027321974924625846

@@ -1,11 +1,12 @@
-package csa_test
+package keystore_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/csa"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,12 +18,9 @@ func Test_ORM_CreateCSAKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	var (
-		passphrase = "passphrase"
-		orm        = csa.NewORM(store.DB)
-	)
+	orm := keystore.NewCSAORM(store.DB)
 
-	key, err := csa.NewCSAKey(passphrase, utils.FastScryptParams)
+	key, err := csakey.New(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 
 	count, err := orm.CountCSAKeys()
@@ -45,12 +43,9 @@ func Test_ORM_ListCSAKeys(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	var (
-		passphrase = "passphrase"
-		orm        = csa.NewORM(store.DB)
-	)
+	orm := keystore.NewCSAORM(store.DB)
 
-	key, err := csa.NewCSAKey(passphrase, utils.FastScryptParams)
+	key, err := csakey.New(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 
 	id, err := orm.CreateCSAKey(context.Background(), key)
@@ -63,9 +58,9 @@ func Test_ORM_ListCSAKeys(t *testing.T) {
 	actual := mgrs[0]
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, key.PublicKey, actual.PublicKey)
-	expectedPrivKey, err := key.EncryptedPrivateKey.Decrypt("passphrase")
+	expectedPrivKey, err := key.EncryptedPrivateKey.Decrypt(cltest.Password)
 	require.NoError(t, err)
-	actualPrivKey, err := actual.EncryptedPrivateKey.Decrypt("passphrase")
+	actualPrivKey, err := actual.EncryptedPrivateKey.Decrypt(cltest.Password)
 	require.NoError(t, err)
 	assert.Equal(t, expectedPrivKey, actualPrivKey)
 }
@@ -76,12 +71,9 @@ func Test_ORM_GetCSAKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	var (
-		passphrase = "passphrase"
-		orm        = csa.NewORM(store.DB)
-	)
+	orm := keystore.NewCSAORM(store.DB)
 
-	key, err := csa.NewCSAKey(passphrase, utils.FastScryptParams)
+	key, err := csakey.New(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 
 	id, err := orm.CreateCSAKey(context.Background(), key)
@@ -92,9 +84,9 @@ func Test_ORM_GetCSAKey(t *testing.T) {
 
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, key.PublicKey, actual.PublicKey)
-	expectedPrivKey, err := key.EncryptedPrivateKey.Decrypt("passphrase")
+	expectedPrivKey, err := key.EncryptedPrivateKey.Decrypt(cltest.Password)
 	require.NoError(t, err)
-	actualPrivKey, err := actual.EncryptedPrivateKey.Decrypt("passphrase")
+	actualPrivKey, err := actual.EncryptedPrivateKey.Decrypt(cltest.Password)
 	require.NoError(t, err)
 	assert.Equal(t, expectedPrivKey, actualPrivKey)
 }
