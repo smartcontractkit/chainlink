@@ -47,6 +47,7 @@ type ConfigSchema struct {
 	EthGasBumpTxDepth                         uint16          `env:"ETH_GAS_BUMP_TX_DEPTH" default:"10"`
 	EthGasBumpWei                             big.Int         `env:"ETH_GAS_BUMP_WEI"`
 	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
+	EthGasLimitTransfer                       uint64          `env:"ETH_GAS_LIMIT_TRANSFER" default:"21000"`
 	EthGasLimitMultiplier                     float32         `env:"ETH_GAS_LIMIT_MULTIPLIER" default:"1.0"`
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
