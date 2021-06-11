@@ -4,13 +4,23 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+)
+
+var (
+	promBlockRequestDurations = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "block_fetcher_block_request_durations",
+		Help: "Durations of block-related requests",
+	}, []string{"method"})
 )
 
 //go:generate mockery --name BlockEthClient --output ./mocks/ --case=underscore
@@ -36,7 +46,10 @@ func NewBlockEthClientImpl(ethClient eth.Client, logger *logger.Logger, batchSiz
 }
 
 func (bc *BlockEthClientImpl) BlockByNumber(ctx context.Context, number int64) (*Block, error) {
+	start := time.Now()
 	block, err := bc.ethClient.BlockByNumber(ctx, big.NewInt(number))
+	promBlockRequestDurations.WithLabelValues("BlockByNumber").Observe(float64(time.Since(start).Milliseconds()))
+
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +57,10 @@ func (bc *BlockEthClientImpl) BlockByNumber(ctx context.Context, number int64) (
 }
 
 func (bc *BlockEthClientImpl) FastBlockByHash(ctx context.Context, hash common.Hash) (*Block, error) {
+	start := time.Now()
 	block, err := bc.ethClient.FastBlockByHash(ctx, hash)
+	promBlockRequestDurations.WithLabelValues("FastBlockByHash").Observe(float64(time.Since(start).Milliseconds()))
+
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +128,9 @@ func (bc *BlockEthClientImpl) batchFetch(ctx context.Context, reqs []rpc.BatchEl
 
 		logger.Debugw(fmt.Sprintf("BlockFetcher: Batch fetching %v blocks with numbers: %v", len(numbers), numbers))
 
+		start := time.Now()
 		err := bc.ethClient.BatchCallContext(ctx, reqs[i:j])
+		promBlockRequestDurations.WithLabelValues("BatchCallContext").Observe(float64(time.Since(start).Milliseconds()))
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {

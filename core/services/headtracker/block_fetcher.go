@@ -8,9 +8,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	promBlockDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "block_fetcher_block_downloads",
+		Help: "Number of block downloads",
+	}, []string{"method"})
 )
 
 //go:generate mockery --name BlockFetcherInterface --output ./mocks/ --case=underscore
@@ -88,7 +97,11 @@ func (bf *BlockFetcher) BlockRange(ctx context.Context, fromBlock int64, toBlock
 
 func (bf *BlockFetcher) BlocksWithoutCache(ctx context.Context, numbers []int64) (map[int64]Block, error) {
 	bf.logger.Debugw("BlockFetcher#BlocksWithoutCache", "blockNumbers", numbers)
-	return bf.blockEthClient.FetchBlocksByNumbers(ctx, numbers)
+	blocks, err := bf.blockEthClient.FetchBlocksByNumbers(ctx, numbers)
+	if blocks != nil && len(blocks) > 0 {
+		promBlockDownloads.WithLabelValues("FetchBlocksByNumbers").Add(float64(len(blocks)))
+	}
+	return blocks, err
 }
 
 func (bf *BlockFetcher) Chain(ctx context.Context, latestHead models.Head) (models.Head, error) {
@@ -219,6 +232,7 @@ func (bf *BlockFetcher) downloadRange(ctx context.Context, fromBlock int64, toBl
 			bf.logger.Errorw("BlockFetcher: error while fetching missing blocks", "err", err, "fromBlock", fromBlock, "toBlock", toBlock)
 			return err
 		}
+		promBlockDownloads.WithLabelValues("FetchBlocksByNumbers").Add(float64(len(blocksFetched)))
 
 		if len(blocksFetched) < len(blockNumsToFetch) {
 			bf.logger.Warnw("BlockFetcher: did not fetch all requested blocks",
@@ -378,6 +392,8 @@ func (bf *BlockFetcher) fetchInBatchesUntilKnownAncestor(ctx context.Context, he
 func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash) (Block, error) {
 	bf.logger.Debugf("BlockFetcher: Fetching block by hash: %v", hash)
 	blockPtr, err := bf.blockEthClient.FastBlockByHash(ctx, hash)
+	promBlockDownloads.WithLabelValues("FastBlockByHash").Inc()
+
 	if ctx.Err() != nil {
 		return Block{}, nil
 	}
@@ -393,7 +409,6 @@ func (bf *BlockFetcher) fetchAndSaveBlock(ctx context.Context, hash common.Hash)
 }
 
 func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Block, from int64) (models.Head, error) {
-	fetched := 0
 
 	var chainTip = HeadFromBlock(block)
 	var currentHead = &chainTip
@@ -415,7 +430,7 @@ func (bf *BlockFetcher) sequentialConstructChain(ctx context.Context, block Bloc
 			bf.logger.Debugf("BlockFetcher: Fetching block by number: %v, as existing block was not found by %v", i, currentHead.ParentHash)
 
 			blockPtr, err := bf.blockEthClient.BlockByNumber(ctx, i)
-			fetched++
+			promBlockDownloads.WithLabelValues("BlockByNumber").Inc()
 			if ctx.Err() != nil {
 				break
 			} else if err != nil {
