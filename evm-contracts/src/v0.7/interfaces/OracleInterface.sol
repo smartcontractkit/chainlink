@@ -15,15 +15,6 @@ interface OracleInterface {
       bool
     );
 
-  function isAuthorizedSender(
-    address node
-  )
-    external
-    view
-    returns (
-      bool
-    );
-
   function withdraw(
     address recipient,
     uint256 amount
