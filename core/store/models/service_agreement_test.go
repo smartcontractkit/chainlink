@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -105,7 +106,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 		payment                *assets.Link
 		expiration             int
 		endAt                  models.AnyTime
-		oracles                []models.EIP55Address
+		oracles                []ethkey.EIP55Address
 		aggregator             string
 		aggInitiateJobSelector string
 		aggFulfillSelector     string
@@ -142,7 +143,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"00000000" + "00000000", // Function selectors
 		},
 		{"oracle address", assets.NewLink(0), 0, models.AnyTime{},
-			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
+			[]ethkey.EIP55Address{ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000000" + // Payment
@@ -154,7 +155,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"00000000" + "00000000", // Function selectors
 		},
 		{"different endAt", assets.NewLink(0), 0, models.NewAnyTime(endAt),
-			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
+			[]ethkey.EIP55Address{ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000000" + // Payment
@@ -166,8 +167,8 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"00000000" + "00000000", // Function selectors
 		},
 		{name: "aggregator info", expiration: 0, endAt: models.NewAnyTime(endAt),
-			oracles: []models.EIP55Address{
-				models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e"),
+			oracles: []ethkey.EIP55Address{
+				ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e"),
 			},
 			aggregator:             "0x3141592653589793238462643383279502884197",
 			aggInitiateJobSelector: "0x12345678", aggFulfillSelector: "0x87654321",
@@ -192,7 +193,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				Expiration:             uint64(test.expiration),
 				EndAt:                  test.endAt,
 				Oracles:                test.oracles,
-				Aggregator:             models.EIP55Address(test.aggregator),
+				Aggregator:             ethkey.EIP55Address(test.aggregator),
 				AggInitiateJobSelector: fs(test.aggInitiateJobSelector),
 				AggFulfillSelector:     fs(test.aggFulfillSelector),
 			}

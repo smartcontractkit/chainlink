@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -51,9 +52,9 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 }
 
 func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
-	var eip *models.EIP55Address
+	var eip *ethkey.EIP55Address
 	if p.RunRequest.Requester != nil {
-		coerced := models.EIP55Address(p.RunRequest.Requester.Hex())
+		coerced := ethkey.EIP55Address(p.RunRequest.Requester.Hex())
 		eip = &coerced
 	}
 	return syncInitiatorPresenter{
@@ -137,7 +138,7 @@ type syncInitiatorPresenter struct {
 	Type      string               `json:"type"`
 	RequestID *common.Hash         `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`
-	Requester *models.EIP55Address `json:"requester,omitempty"`
+	Requester *ethkey.EIP55Address `json:"requester,omitempty"`
 }
 
 type syncTaskRunPresenter struct {

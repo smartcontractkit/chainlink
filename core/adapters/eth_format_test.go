@@ -41,7 +41,7 @@ func TestEthBytes32_Perform(t *testing.T) {
 
 			past := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.EthBytes32{}
-			result := adapter.Perform(past, nil)
+			result := adapter.Perform(past, nil, nil)
 
 			require.NoError(t, result.Error())
 			assert.Equal(t, test.expected, result.Result().String())
@@ -80,7 +80,7 @@ func TestEthInt256_Perform(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, test.json)
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 
 			if test.errored {
 				assert.Error(t, result.Error())
@@ -123,7 +123,7 @@ func TestEthUint256_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			jr := cltest.NewJobRun(cltest.NewJobWithRunLogInitiator())
 			input := models.NewRunInput(jr, uuid.NewV4(), cltest.JSONFromString(t, test.json), models.RunStatusUnstarted)
-			result := adapter.Perform(*input, nil)
+			result := adapter.Perform(*input, nil, nil)
 
 			if test.errored {
 				require.Error(t, result.Error())

@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -72,7 +74,7 @@ type (
 		randomP2PPortMtx *sync.RWMutex
 		Dialect          dialects.DialectName
 		AdvisoryLockID   int64
-		keystorePassword string
+		// keystorePassword string
 	}
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
@@ -379,14 +381,6 @@ func (c Config) Set(name string, value interface{}) {
 		}
 	}
 	logger.Panicf("No configuration parameter for %s", name)
-}
-
-func (c *Config) SetKeystorePassword(password string) {
-	c.keystorePassword = password
-}
-
-func (c *Config) GetKeystorePassword() string {
-	return c.keystorePassword
 }
 
 const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
@@ -1158,13 +1152,13 @@ func (c Config) OCRMonitoringEndpoint(override string) string {
 	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
 }
 
-func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP55Address, error) {
+func (c Config) OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error) {
 	if override != nil {
 		return *override, nil
 	}
 	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
 	if taStr != "" {
-		ta, err := models.NewEIP55Address(taStr)
+		ta, err := ethkey.NewEIP55Address(taStr)
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
 		}
@@ -1383,13 +1377,13 @@ func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
+func (c Config) P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error) {
 	if override != nil {
 		return *override, nil
 	}
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
-		var pid models.PeerID
+		var pid p2pkey.PeerID
 		err := pid.UnmarshalText([]byte(pidStr))
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)

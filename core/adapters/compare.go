@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -30,7 +31,7 @@ func (c *Compare) TaskType() models.TaskType {
 
 // Perform uses the Operator to check the run's result against the
 // specified Value.
-func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (c *Compare) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	prevResult := input.Result().String()
 
 	if c.Value == "" {
