@@ -1,4 +1,4 @@
-package csa
+package csakey
 
 import (
 	"crypto/ed25519"
@@ -8,17 +8,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
-type CSAKey struct {
+type Key struct {
 	ID                  uint
 	PublicKey           crypto.PublicKey
+	privateKey          []byte
 	EncryptedPrivateKey crypto.EncryptedPrivateKey
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
 
-// NewCSAKey creates a new CSA key consisting of an ed25519 key. It encrypts the
-// CSAKey with the passphrase.
-func NewCSAKey(passphrase string, scryptParams utils.ScryptParams) (*CSAKey, error) {
+// New creates a new CSA key consisting of an ed25519 key. It encrypts the
+// Key with the passphrase.
+func New(passphrase string, scryptParams utils.ScryptParams) (*Key, error) {
 	pubkey, privkey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, err
@@ -29,8 +30,18 @@ func NewCSAKey(passphrase string, scryptParams utils.ScryptParams) (*CSAKey, err
 		return nil, err
 	}
 
-	return &CSAKey{
+	return &Key{
 		PublicKey:           crypto.PublicKey(pubkey),
+		privateKey:          privkey,
 		EncryptedPrivateKey: *encPrivkey,
 	}, nil
+}
+
+func (k *Key) Unlock(password string) error {
+	pk, err := k.EncryptedPrivateKey.Decrypt(password)
+	if err != nil {
+		return err
+	}
+	k.privateKey = pk
+	return nil
 }

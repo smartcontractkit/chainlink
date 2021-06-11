@@ -67,9 +67,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	// Set the keystore password for CSA keys. This can be removed when we
-	// combine our keystores.
-	cli.Config.SetKeystorePassword(pwd)
 
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
@@ -89,6 +86,10 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR, store.Config, keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
+	}
+
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateCSAKey(keyStore.CSA, keyStorePwd); authErr != nil {
+		return cli.errorOut(errors.Wrapf(authErr, "while authenticating CSA keystore"))
 	}
 
 	if len(c.String("vrfpassword")) != 0 {

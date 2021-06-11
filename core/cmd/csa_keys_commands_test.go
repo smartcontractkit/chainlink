@@ -60,7 +60,7 @@ func TestClient_ListCSAKeys(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	key, err := app.GetCSAKeyService().CreateCSAKey()
+	key, err := app.GetKeyStore().CSA.CreateCSAKey()
 	require.NoError(t, err)
 
 	requireCSAKeyCount(t, app, 1)
@@ -89,7 +89,7 @@ func TestClient_CreateCSAKey(t *testing.T) {
 func requireCSAKeyCount(t *testing.T, app chainlink.Application, length int64) {
 	t.Helper()
 
-	count, err := app.GetCSAKeyService().CountCSAKeys()
+	count, err := app.GetKeyStore().CSA.CountCSAKeys()
 	require.NoError(t, err)
 	require.Equal(t, length, count)
 }

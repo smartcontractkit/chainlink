@@ -9,8 +9,6 @@ import (
 
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
-	csa "github.com/smartcontractkit/chainlink/core/services/csa"
-
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
@@ -193,22 +191,6 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 	return r0
 }
 
-// GetCSAKeyService provides a mock function with given fields:
-func (_m *Application) GetCSAKeyService() csa.Service {
-	ret := _m.Called()
-
-	var r0 csa.Service
-	if rf, ok := ret.Get(0).(func() csa.Service); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(csa.Service)
-		}
-	}
-
-	return r0
-}
-
 // GetExternalInitiatorManager provides a mock function with given fields:
 func (_m *Application) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	ret := _m.Called()
@@ -305,22 +287,6 @@ func (_m *Application) GetLogger() *logger.Logger {
 	return r0
 }
 
-// GetPipelineORM provides a mock function with given fields:
-func (_m *Application) PipelineORM() pipeline.ORM {
-	ret := _m.Called()
-
-	var r0 pipeline.ORM
-	if rf, ok := ret.Get(0).(func() pipeline.ORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(pipeline.ORM)
-		}
-	}
-
-	return r0
-}
-
 // GetStatsPusher provides a mock function with given fields:
 func (_m *Application) GetStatsPusher() synchronization.StatsPusher {
 	ret := _m.Called()
@@ -394,6 +360,22 @@ func (_m *Application) NewBox() packr.Box {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(packr.Box)
+	}
+
+	return r0
+}
+
+// PipelineORM provides a mock function with given fields:
+func (_m *Application) PipelineORM() pipeline.ORM {
+	ret := _m.Called()
+
+	var r0 pipeline.ORM
+	if rf, ok := ret.Get(0).(func() pipeline.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(pipeline.ORM)
+		}
 	}
 
 	return r0
