@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
+	"github.com/smartcontractkit/chainlink/core/services/csa"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -88,6 +89,8 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
+	// This will eventually be refactored into the combined keystore
+	GetCSAKeyService() csa.Service
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -113,6 +116,7 @@ type ChainlinkApplication struct {
 	webhookJobRunner webhook.JobRunner
 	Scheduler        *services.Scheduler
 	Store            *strpkg.Store
+	CSAKeyService    csa.Service
 	// TODO:
 	// moved OCR keystore from store to application in order to resolve:
 	// https://app.clubhouse.io/chainlinklabs/story/10097/remove-ocr-as-dependency-of-store-package
@@ -253,6 +257,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
+		csaKeyORM      = csa.NewORM(store.ORM.DB)
 	)
 
 	vorm := vrf.NewORM(store.DB)
@@ -363,6 +368,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
+		CSAKeyService:            csa.NewService(config, csaKeyORM, utils.DefaultScryptParams),
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -618,6 +624,10 @@ func (app *ChainlinkApplication) GetHeadBroadcaster() httypes.HeadBroadcasterReg
 
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
+}
+
+func (app *ChainlinkApplication) GetCSAKeyService() csa.Service {
+	return app.CSAKeyService
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.

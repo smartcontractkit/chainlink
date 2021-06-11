@@ -72,6 +72,7 @@ type (
 		randomP2PPortMtx *sync.RWMutex
 		Dialect          dialects.DialectName
 		AdvisoryLockID   int64
+		keystorePassword string
 	}
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
@@ -378,6 +379,14 @@ func (c Config) Set(name string, value interface{}) {
 		}
 	}
 	logger.Panicf("No configuration parameter for %s", name)
+}
+
+func (c *Config) SetKeystorePassword(password string) {
+	c.keystorePassword = password
+}
+
+func (c *Config) GetKeystorePassword() string {
+	return c.keystorePassword
 }
 
 const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
@@ -722,9 +731,9 @@ func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
 }
 
-// EthBaseTransactionGasLimit represents how much gas is required to send a eth->eth transfer
-func (c Config) EthBaseTransactionGasLimit() uint64 {
-	return uint64(21000)
+// EthGasLimitTransfer is the gas limit for an ordinary eth->eth transfer
+func (c Config) EthGasLimitTransfer() uint64 {
+	return c.getWithFallback("EthGasLimitTransfer", parseUint64).(uint64)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
