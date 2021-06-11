@@ -60,6 +60,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
+	pwd, err := passwordFromFile(c.String("password"))
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+	}
+	// Set the keystore password for CSA keys. This can be removed when we
+	// combine our keystores.
+	cli.Config.SetKeystorePassword(pwd)
+
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
@@ -68,10 +76,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
 		logger.Warn(e)
 	}
-	pwd, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
+
 	keyStorePwd, err := cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))

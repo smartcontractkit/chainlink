@@ -381,6 +381,23 @@ func NewApp(client *Client) *cli.App {
 				},
 
 				{
+					Name:  "csa",
+					Usage: "Remote commands for administering the node's CSA keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  format(`Create a CSA key, encrypted with password from the password file, and store it in the database.`),
+							Action: client.CreateCSAKey,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available CSA keys`),
+							Action: client.ListCSAKeys,
+						},
+					},
+				},
+
+				{
 					Name:  "ocr",
 					Usage: "Remote commands for administering the node's off chain reporting keys",
 					Subcommands: cli.Commands{
