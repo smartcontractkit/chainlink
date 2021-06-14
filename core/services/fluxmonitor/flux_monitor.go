@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"go.uber.org/zap"
@@ -86,6 +87,7 @@ type addEntry struct {
 // one per initiator of type InitiatorFluxMonitor for added jobs.
 func New(
 	store *store.Store,
+	ethKeyStore *keystore.Eth,
 	runManager RunManager,
 	logBroadcaster log.Broadcaster,
 ) Service {
@@ -95,6 +97,7 @@ func New(
 		logBroadcaster: logBroadcaster,
 		checkerFactory: pollingDeviationCheckerFactory{
 			store:          store,
+			ethKeyStore:    ethKeyStore,
 			logBroadcaster: logBroadcaster,
 		},
 		chAdd:        make(chan addEntry),
@@ -283,6 +286,7 @@ type DeviationCheckerFactory interface {
 
 type pollingDeviationCheckerFactory struct {
 	store          *store.Store
+	ethKeyStore    *keystore.Eth
 	logBroadcaster log.Broadcaster
 }
 
@@ -344,6 +348,7 @@ func (f pollingDeviationCheckerFactory) New(
 
 	return NewPollingDeviationChecker(
 		f.store,
+		f.ethKeyStore,
 		fluxAggregator,
 		flagsContract,
 		f.logBroadcaster,
@@ -413,6 +418,7 @@ type DeviationChecker interface {
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
 	store          *store.Store
+	ethKeyStore    *keystore.Eth
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface
 	flags          flags_wrapper.FlagsInterface
 	runManager     RunManager
@@ -442,6 +448,7 @@ type PollingDeviationChecker struct {
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
 	store *store.Store,
+	ethKeyStore *keystore.Eth,
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
 	flags flags_wrapper.FlagsInterface,
 	logBroadcaster log.Broadcaster,
@@ -457,6 +464,7 @@ func NewPollingDeviationChecker(
 	}
 	pdc := &PollingDeviationChecker{
 		store:            store,
+		ethKeyStore:      ethKeyStore,
 		logBroadcaster:   logBroadcaster,
 		fluxAggregator:   fluxAggregator,
 		initr:            initr,
@@ -679,7 +687,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := p.store.KeyStore.SendingKeys()
+	keys, err := p.ethKeyStore.SendingKeys()
 	if err != nil {
 		return errors.Wrap(err, "failed to load send keys")
 	}

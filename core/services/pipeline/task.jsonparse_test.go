@@ -270,6 +270,19 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 		},
 		{
+			"empty path",
+			"$(foo.bar)",
+			"",
+			"false",
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": map[string]interface{}{"bar": `{"data":["stevetoshi sergeymoto"]}`},
+			}),
+			[]pipeline.Result{},
+			map[string]interface{}{"data": []interface{}{"stevetoshi sergeymoto"}},
+			nil,
+			"",
+		},
+		{
 			"no data or input",
 			"",
 			"$(chain.link)",

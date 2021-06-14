@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -58,7 +60,6 @@ type coordinatorUniverse struct {
 	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
 }
 
-var seed = big.NewInt(1)
 var oneEth = big.NewInt(1000000000000000000) // 1e18 wei
 
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
@@ -69,7 +70,7 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 }
 
-func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key models.Key) coordinatorUniverse {
+func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.Key) coordinatorUniverse {
 	cu := newVRFCoordinatorUniverse(t, key)
 	consumerContractAddress, _, consumerContract, err :=
 		solidity_vrf_consumer_interface_v08.DeployVRFConsumer(
@@ -89,7 +90,7 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key models.Key) coor
 
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
-func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse {
+func newVRFCoordinatorUniverse(t *testing.T, key ethkey.Key) coordinatorUniverse {
 	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
@@ -154,6 +155,7 @@ func TestRequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
 	key := cltest.MustGenerateRandomKey(t)
 	baseContract := newVRFCoordinatorUniverse(t, key).requestIDBase
+	var seed = big.NewInt(1)
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err, "failed to calculate VRF requestID on simulated ethereum blockchain")
 	goRequestLog := &models.RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
@@ -163,6 +165,7 @@ func TestRequestIDMatches(t *testing.T) {
 
 var (
 	rawSecretKey = big.NewInt(1) // never do this in production!
+	secretKey    = vrfkey.NewPrivateKeyXXXTestingOnly(rawSecretKey)
 	publicKey    = (&secp256k1.Secp256k1{}).Point().Mul(secp256k1.IntToScalar(
 		rawSecretKey), nil)
 	hardcodedSeed = big.NewInt(0)
@@ -310,7 +313,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
-	log models.RandomnessRequestLog) vrf.Proof {
+	log models.RandomnessRequestLog) vrfkey.Proof {
 	preSeed, err := vrf.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
 	s := vrf.PreSeedData{
@@ -318,7 +321,10 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}
-	proofBlob, err := vrf.GenerateProofResponseWithNonce(rawSecretKey, s, big.NewInt(1) /* nonce */)
+	seed := vrf.FinalSeed(s)
+	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
+	require.NoError(t, err)
+	proofBlob, err := vrf.GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
 	// Seems to be a bug in the simulated backend: without this extra Commit, the
 	// EVM seems to think it's still on the block in which the request was made,
@@ -330,11 +336,6 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()
-	goProofResponse, err := vrf.UnmarshalProofResponse(proofBlob)
-	require.NoError(t, err,
-		"could not rehydrate proof from blob sent to fulfillRandomnessRequest")
-	proof, err := goProofResponse.CryptoProof(s)
-	require.NoError(t, err, "could not construct actual proof from proof response")
 	return proof
 }
 

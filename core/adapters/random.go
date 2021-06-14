@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -60,7 +62,7 @@ type Random struct {
 	// This is just a hex string because Random is instantiated by json.Unmarshal.
 	// (See adapters.For function.)
 	PublicKey          string              `json:"publicKey"`
-	CoordinatorAddress models.EIP55Address `json:"coordinatorAddress"`
+	CoordinatorAddress ethkey.EIP55Address `json:"coordinatorAddress"`
 }
 
 // TaskType returns the type of Adapter.
@@ -69,7 +71,7 @@ func (ra *Random) TaskType() models.TaskType {
 }
 
 // Perform returns the the proof for the VRF output given seed, or an error.
-func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *keystore.Master) models.RunOutput {
 	shouldFulfill, err := checkFulfillment(ra, input, store)
 	if err != nil {
 		return models.NewRunOutputError(errors.Wrapf(err, "unable to determine if fulfillment needed"))
@@ -82,7 +84,7 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunO
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	solidityProof, err := store.VRFKeyStore.GenerateProof(key, i)
+	solidityProof, err := vrf.GenerateProofResponse(keyStore.VRF(), key, i)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
