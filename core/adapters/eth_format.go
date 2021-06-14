@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,7 +24,7 @@ func (e *EthBytes32) TaskType() models.TaskType {
 // For example, after converting the string "16800.01" to hex encoded Ethereum
 // ABI, it would be:
 // "0x31363830302e3031000000000000000000000000000000000000000000000000"
-func (*EthBytes32) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (*EthBytes32) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	result := input.Result()
 	value := common.RightPadBytes([]byte(result.String()), utils.EVMWordByteLen)
 	hex := utils.RemoveHexPrefix(hexutil.Encode(value))
@@ -49,7 +50,7 @@ func (e *EthInt256) TaskType() models.TaskType {
 // For example, after converting the string "-123.99" to hex encoded Ethereum
 // ABI, it would be:
 // "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85"
-func (*EthInt256) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (*EthInt256) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	value, err := utils.EVMTranscodeInt256(input.Result())
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -72,7 +73,7 @@ func (e *EthUint256) TaskType() models.TaskType {
 // For example, after converting the string "123.99" to hex encoded Ethereum
 // ABI, it would be:
 // "0x000000000000000000000000000000000000000000000000000000000000007b"
-func (*EthUint256) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (*EthUint256) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	value, err := utils.EVMTranscodeUint256(input.Result())
 	if err != nil {
 		return models.NewRunOutputError(err)

@@ -1,34 +1,32 @@
-// Package vrfkey tracks the secret keys associated with VRF proofs. It
-// is a separate package from ../store to increase encapsulation of the keys,
-// reduce the risk of them leaking, and reduce confusion between VRF keys and
-// ethereum keys.
+// Package vrf provides a cryptographically secure pseudo-random number generator.
+
+// Numbers are deterministically generated from seeds and a secret key, and are
+// statistically indistinguishable from uniform sampling from {0,...,2**256-1},
+// to computationally-bounded observers who know the seeds, don't know the key,
+// and only see the generated numbers. But each number also comes with a proof
+// that it was generated according to the procedure mandated by a public key
+// associated with that secret key.
 //
-// The three types, PrivateKey (private_key.go), PublicKey (public_key.go) and
-// EncryptedVRFKey (serialzation.go) are all aspects of the one keypair.
-//
-// The details of the secret key in a keypair should remain private to this
-// package. If you need to access the secret key, you should add a method to
-// PrivateKey which does the crypto requiring it, without leaking the secret.
-// See MakeMarshaledProof in private_key.go, for an example.
-//
-// PrivateKey#PublicKey represents the associated public key, and, in the
-// context of a VRF, represents a public commitment to a particular "verifiable
-// random function."
-//
-// EncryptedVRFKey is used to store a public/private keypair in a database,
-// in encrypted form.
+// See VRF.sol for design notes.
 //
 // Usage
+// -----
 //
-// Call vrfkey.CreateKey() to generate a PrivateKey with cryptographically
-// secure randomness.
+// You should probably not be using this directly.
+// chainlink/store/core/models/vrfkey.PrivateKey provides a simple, more
+// misuse-resistant interface to the same functionality, via the CreateKey and
+// MarshaledProof methods.
 //
-// Call PrivateKey#Encrypt(passphrase) to create a representation of the key
-// which is encrypted for storage.
+// Nonetheless, a secret key sk should be securely sampled uniformly from
+// {0,...,Order-1}. Its public key can be calculated from it by
 //
-// Call MakeMarshaledProof(privateKey, seed) to generate the VRF proof for the given
-// seed and private key. The proof is marshaled in the format expected by the
-// on-chain verification mechanism in VRF.sol. If you want to know the VRF
-// output independently of the on-chain verification mechanism, you can get it
-// from vrf.UnmarshalSolidityProof(p).Output.
+//   secp256k1.Secp256k1{}.Point().Mul(secretKey, Generator)
+//
+// To generate random output from a big.Int seed, pass sk and the seed to
+// GenerateProof, and use the Output field of the returned Proof object.
+//
+// To verify a Proof object p, run p.Verify(); or to verify it on-chain pass
+// p.MarshalForSolidityVerifier() to randomValueFromVRFProof on the VRF solidity
+// contract.
+
 package vrf

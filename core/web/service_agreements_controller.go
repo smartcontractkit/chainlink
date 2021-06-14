@@ -39,7 +39,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
-		if err = services.ValidateServiceAgreement(sa, sac.App.GetStore()); err != nil {
+		if err = services.ValidateServiceAgreement(sa, sac.App.GetStore(), sac.App.GetKeyStore()); err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
 		}

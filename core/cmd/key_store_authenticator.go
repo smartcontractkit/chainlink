@@ -7,18 +7,19 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and
 // a password string.
 type KeyStoreAuthenticator interface {
-	Authenticate(*store.Store, string) (string, error)
-	AuthenticateVRFKey(*store.Store, string) error
-	AuthenticateOCRKey(app chainlink.Application, password string) error
+	AuthenticateEthKey(*keystore.Eth, string) (string, error)
+	AuthenticateCSAKey(*keystore.CSA, string) error
+	AuthenticateVRFKey(*keystore.VRF, string) error
+	AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -31,28 +32,28 @@ type TerminalKeyStoreAuthenticator struct {
 // the KeyStore, and if there are none, a new account will be created
 // by prompting for a password. If there are accounts present, all accounts
 // will be unlocked.
-func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, password string) (string, error) {
+func (auth TerminalKeyStoreAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, password string) (string, error) {
 	passwordProvided := len(password) != 0
 	interactive := auth.Prompter.IsTerminal()
-	hasSendingKeys, err := store.KeyStore.HasDBSendingKeys()
+	hasSendingKeys, err := ethKeyStore.HasDBSendingKeys()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to query DB for send keys")
 	}
 
 	if passwordProvided && hasSendingKeys {
-		return auth.unlockExistingWithPassword(store, password)
+		return auth.unlockExistingWithPassword(ethKeyStore, password)
 	} else if passwordProvided && !hasSendingKeys {
-		return auth.unlockNewWithPassword(store, password)
+		return auth.unlockNewWithPassword(ethKeyStore, password)
 	} else if !passwordProvided && interactive && hasSendingKeys {
-		return auth.promptExistingPassword(store)
+		return auth.promptExistingPassword(ethKeyStore)
 	} else if !passwordProvided && interactive && !hasSendingKeys {
-		return auth.promptNewPassword(store)
+		return auth.promptNewPassword(ethKeyStore)
 	} else {
 		return "", errors.New("No password provided")
 	}
 }
 
-func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(store *store.Store, password string) error {
+func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(ethKeyStore *keystore.Eth, password string) error {
 	// Password policy:
 	//
 	// Must be longer than 12 characters
@@ -109,19 +110,19 @@ func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(store *store.
 	return merr
 }
 
-func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(store *store.Store) (string, error) {
+func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(ethKeyStore *keystore.Eth) (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("Enter key store password:")
-		if store.KeyStore.Unlock(password) == nil {
+		if ethKeyStore.Unlock(password) == nil {
 			return password, nil
 		}
 	}
 }
 
-func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) (string, error) {
+func (auth TerminalKeyStoreAuthenticator) promptNewPassword(ethKeyStore *keystore.Eth) (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
-		err := auth.validatePasswordStrength(store, password)
+		err := auth.validatePasswordStrength(ethKeyStore, password)
 		if err != nil {
 			return password, err
 		}
@@ -133,31 +134,31 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 			fmt.Printf("Passwords don't match. Please try again... ")
 			continue
 		}
-		err = store.KeyStore.Unlock(password)
+		err = ethKeyStore.Unlock(password)
 		if err != nil {
 			return password, errors.Wrap(err, "unexpectedly failed to unlock KeyStore")
 		}
-		_, err = store.KeyStore.CreateNewKey()
+		_, err = ethKeyStore.CreateNewKey()
 		return password, errors.Wrap(err, "failed to create new ETH key")
 	}
 }
 
-func (auth TerminalKeyStoreAuthenticator) unlockNewWithPassword(store *store.Store, password string) (string, error) {
-	err := auth.validatePasswordStrength(store, password)
+func (auth TerminalKeyStoreAuthenticator) unlockNewWithPassword(ethKeyStore *keystore.Eth, password string) (string, error) {
+	err := auth.validatePasswordStrength(ethKeyStore, password)
 	if err != nil {
 		return password, err
 	}
-	err = store.KeyStore.Unlock(password)
+	err = ethKeyStore.Unlock(password)
 	if err != nil {
 		return "", errors.Wrap(err, "Error unlocking key store")
 	}
 	fmt.Println("There are no accounts, creating a new account with the specified password")
-	_, err = store.KeyStore.CreateNewKey()
+	_, err = ethKeyStore.CreateNewKey()
 	return password, errors.Wrap(err, "failed to create new ETH key")
 }
 
-func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(store *store.Store, password string) (string, error) {
-	err := store.KeyStore.Unlock(password)
+func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(ethKeyStore *keystore.Eth, password string) (string, error) {
+	err := ethKeyStore.Unlock(password)
 	return password, err
 }
 
@@ -165,27 +166,32 @@ func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(store *stor
 // store's db if db store has no extant keys. It unlocks at least one VRF key
 // with given password, or returns an error. password must be non-trivial, as an
 // empty password signifies that the VRF oracle functionality is disabled.
-func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store, password string) error {
-	keys, err := store.VRFKeyStore.Get()
+func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, password string) error {
+	keys, err := vrfKeyStore.Get()
 	if err != nil {
 		return errors.Wrapf(err, "while checking for extant VRF keys")
 	}
 	if len(keys) == 0 {
 		fmt.Println("There are no VRF keys; creating a new key encrypted with given password")
-		if _, err := store.VRFKeyStore.CreateKey(password); err != nil {
+		if _, err := vrfKeyStore.CreateKey(password); err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted VRF key")
 		}
 	}
-	return errors.Wrapf(utils.JustError(store.VRFKeyStore.Unlock(password)),
+	return errors.Wrapf(utils.JustError(vrfKeyStore.Unlock(password)),
 		"there are VRF keys in the DB, but that password did not unlock any of "+
 			"them... please check the password in the file specified by vrfpassword"+
 			". You can add and delete VRF keys in the DB using the "+
 			"`chainlink local vrf` subcommands")
 }
 
+func (auth TerminalKeyStoreAuthenticator) AuthenticateCSAKey(csaKeyStore *keystore.CSA, password string) error {
+	return errors.Wrapf(csaKeyStore.Unlock(password),
+		"there are CSA keys in the DB, but that password did not unlock any of "+
+			"them... please check the password in the file")
+}
+
 // AuthenticateOCRKey authenticates OCR keypairs
-func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(app chainlink.Application, password string) error {
-	ocrKeyStore := app.GetOCRKeyStore()
+func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(ocrKeyStore *keystore.OCR, config *orm.Config, password string) error {
 	err := ocrKeyStore.Unlock(password)
 	if err != nil {
 		return errors.Wrapf(err,
@@ -206,9 +212,8 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(app chainlink.Appli
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
 		}
-		store := app.GetStore()
-		if !store.Config.P2PPeerIDIsSet() {
-			store.Config.Set("P2P_PEER_ID", k.PeerID)
+		if !config.P2PPeerIDIsSet() {
+			config.Set("P2P_PEER_ID", k.PeerID)
 		}
 	}
 
