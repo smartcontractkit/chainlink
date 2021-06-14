@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -26,7 +27,7 @@ type Delegate struct {
 	db                 *gorm.DB
 	jobORM             job.ORM
 	config             *orm.Config
-	keyStore           *KeyStore
+	keyStore           *keystore.OCR
 	pipelineRunner     pipeline.Runner
 	ethClient          eth.Client
 	logBroadcaster     log.Broadcaster
@@ -40,7 +41,7 @@ func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
 	config *orm.Config,
-	keyStore *KeyStore,
+	keyStore *keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
@@ -195,6 +196,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			NewTransmitter(d.db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxQueuedTransactions()),
 			d.logBroadcaster,
 			tracker,
+			d.config.ChainID(),
 		)
 
 		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())

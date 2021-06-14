@@ -10,6 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,6 +29,7 @@ type (
 
 	balanceMonitor struct {
 		store          *store.Store
+		ethKeyStore    *keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -36,9 +39,10 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(store *store.Store) BalanceMonitor {
+func NewBalanceMonitor(store *store.Store, ethKeyStore *keystore.Eth) BalanceMonitor {
 	bm := &balanceMonitor{
 		store:          store,
+		ethKeyStore:    ethKeyStore,
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
 	}
@@ -119,7 +123,7 @@ type worker struct {
 }
 
 func (w *worker) Work() {
-	keys, err := w.bm.store.KeyStore.SendingKeys()
+	keys, err := w.bm.ethKeyStore.SendingKeys()
 	if err != nil {
 		logger.Error("BalanceMonitor: error getting keys", err)
 	}
@@ -128,7 +132,7 @@ func (w *worker) Work() {
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k models.Key) {
+		go func(k ethkey.Key) {
 			w.checkAccountBalance(k)
 			wg.Done()
 		}(key)
@@ -139,7 +143,7 @@ func (w *worker) Work() {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(k models.Key) {
+func (w *worker) checkAccountBalance(k ethkey.Key) {
 	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
 	defer cancel()
 

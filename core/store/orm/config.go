@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -72,6 +74,7 @@ type (
 		randomP2PPortMtx *sync.RWMutex
 		Dialect          dialects.DialectName
 		AdvisoryLockID   int64
+		// keystorePassword string
 	}
 
 	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
@@ -94,6 +97,7 @@ type (
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		OptimismGasFees                  bool
+		MinimumContractPayment           *assets.Link
 	}
 )
 
@@ -120,6 +124,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// NOTE: There are probably other variables we can tweak for Kovan and other
@@ -161,6 +166,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	hecoMainnet := bscMainnet
@@ -184,6 +190,7 @@ func init() {
 		GasUpdaterEnabled:                true,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
@@ -200,7 +207,17 @@ func init() {
 		MinIncomingConfirmations:         1,
 		MinRequiredOutgoingConfirmations: 0,
 		OptimismGasFees:                  true,
+		MinimumContractPayment:           assets.NewLink(1000000000000000000),
 	}
+
+	// Fantom
+	fantomTestnet := mainnet
+	fantomTestnet.EthGasPriceDefault = *big.NewInt(15000000000)
+	fantomTestnet.EthMaxGasPriceWei = *big.NewInt(100000000000)
+	fantomTestnet.MinIncomingConfirmations = 3
+	fantomTestnet.MinRequiredOutgoingConfirmations = 2
+	fantomTestnet.MinimumContractPayment = assets.NewLink(3500000000000000)
+	fantomMainnet := fantomTestnet
 
 	GeneralDefaults = mainnet
 	ChainSpecificDefaults[1] = mainnet
@@ -212,6 +229,8 @@ func init() {
 
 	ChainSpecificDefaults[56] = bscMainnet
 	ChainSpecificDefaults[128] = hecoMainnet
+	ChainSpecificDefaults[250] = fantomMainnet
+	ChainSpecificDefaults[4002] = fantomTestnet
 	ChainSpecificDefaults[80001] = polygonMatic
 
 	ChainSpecificDefaults[100] = xDai
@@ -706,9 +725,9 @@ func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
 }
 
-// EthBaseTransactionGasLimit represents how much gas is required to send a eth->eth transfer
-func (c Config) EthBaseTransactionGasLimit() uint64 {
-	return uint64(21000)
+// EthGasLimitTransfer is the gas limit for an ordinary eth->eth transfer
+func (c Config) EthGasLimitTransfer() uint64 {
+	return c.getWithFallback("EthGasLimitTransfer", parseUint64).(uint64)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
@@ -1133,13 +1152,13 @@ func (c Config) OCRMonitoringEndpoint(override string) string {
 	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
 }
 
-func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP55Address, error) {
+func (c Config) OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error) {
 	if override != nil {
 		return *override, nil
 	}
 	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
 	if taStr != "" {
-		ta, err := models.NewEIP55Address(taStr)
+		ta, err := ethkey.NewEIP55Address(taStr)
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
 		}
@@ -1278,7 +1297,11 @@ func (c Config) MinRequiredOutgoingConfirmations() uint64 {
 // MinimumContractPayment represents the minimum amount of LINK that must be
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
-	return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
+	minimumContractPayment := chainSpecificConfig(c).MinimumContractPayment
+	if c.viper.IsSet(EnvVarName("MinimumContractPayment")) || minimumContractPayment == nil {
+		return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
+	}
+	return minimumContractPayment
 }
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
@@ -1354,13 +1377,13 @@ func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
+func (c Config) P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error) {
 	if override != nil {
 		return *override, nil
 	}
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
-		var pid models.PeerID
+		var pid p2pkey.PeerID
 		err := pid.UnmarshalText([]byte(pidStr))
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
