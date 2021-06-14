@@ -172,6 +172,14 @@ tx_queue_no_early_reject = true # Recommended to set this
 tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as well make sure
 ```
 
+- Keeper jobs now support prometheus metrics, they are considered a pipeline with a single `keeper` task type. Example:
+```
+pipeline_run_errors{job_id="1",job_name="example keeper spec"} 1
+pipeline_run_total_time_to_completion{job_id="1",job_name="example keeper spec"} 8.470456e+06
+pipeline_task_execution_time{job_id="1",job_name="example keeper spec",task_type="keeper"} 8.470456e+06
+pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="completed",task_type="keeper"} 1
+```
+
 ### Fixed
 
 - It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.

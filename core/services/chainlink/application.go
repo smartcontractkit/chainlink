@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"sync"
 	"syscall"
-	"time"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -682,14 +681,7 @@ func (app *ChainlinkApplication) RunJobV2(
 
 	// Some jobs are special in that they do not have a task graph.
 	if !jb.Type.HasPipelineSpec() {
-		t := time.Now()
-		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
-			PipelineSpecID: jb.PipelineSpecID,
-			Errors:         pipeline.RunErrors{null.String{}},
-			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},
-			CreatedAt:      t,
-			FinishedAt:     &t,
-		}, nil, false)
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
 		meta := pipeline.JSONSerializable{
 			Val:  meta,
