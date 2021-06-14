@@ -2,7 +2,6 @@ package vrf_test
 
 import (
 	"context"
-	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
@@ -36,6 +36,7 @@ type vrfUniverse struct {
 	ks        *keystore.Master
 	vrfkey    secp256k1.PublicKey
 	submitter common.Address
+	txm       *bptxmmocks.TxManager
 }
 
 func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
@@ -55,6 +56,8 @@ func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
 	require.NoError(t, err)
 	_, err = ks.VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
+	txm := new(bptxmmocks.TxManager)
+	t.Cleanup(func() { txm.AssertExpectations(t) })
 
 	return vrfUniverse{
 		jpv2:      jpv2,
@@ -63,6 +66,7 @@ func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
 		ks:        ks,
 		vrfkey:    vrfkey,
 		submitter: submitter,
+		txm:       txm,
 	}
 }
 
@@ -95,6 +99,7 @@ func TestDelegate(t *testing.T) {
 
 	vd := vrf.NewDelegate(
 		store.DB,
+		vuni.txm,
 		vuni.ks,
 		vuni.jpv2.Pr,
 		vuni.jpv2.Prm,
@@ -121,6 +126,9 @@ func TestDelegate(t *testing.T) {
 	require.NoError(t, listener.Start())
 
 	t.Run("valid log", func(t *testing.T) {
+		txHash := cltest.NewHash()
+		reqID := cltest.NewHash()
+
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		a := cltest.NewAwaiter()
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -129,10 +137,15 @@ func TestDelegate(t *testing.T) {
 		// Expect a call to check if the req is already fulfilled.
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
 
+		// Ensure we queue up a valid eth transaction
+		// Linked to  requestID
+		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(vs.CoordinatorAddress), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
+			return meta.JobID > 0 && meta.RequestID == reqID && meta.RequestTxHash == txHash
+		})).Once().Return(models.EthTx{}, nil)
+
 		// Send a valid log
 		pk, err := secp256k1.NewPublicKeyFromHex(vs.PublicKey)
 		require.NoError(t, err)
-		reqID := cltest.NewHash()
 		logListener.HandleLog(log.NewLogBroadcast(types.Log{
 			// Data has all the NON-indexed parameters
 			Data: append(append(append(append(
@@ -145,7 +158,7 @@ func TestDelegate(t *testing.T) {
 			Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
 			Address:     common.Address{},
 			BlockNumber: 0,
-			TxHash:      common.Hash{},
+			TxHash:      txHash,
 			TxIndex:     0,
 			BlockHash:   common.Hash{},
 			Index:       0,
@@ -163,18 +176,6 @@ func TestDelegate(t *testing.T) {
 		_, ok = m["eth_tx_id"]
 		assert.True(t, ok)
 		assert.Len(t, runs[0].PipelineTaskRuns, 0)
-
-		// Ensure we have queued up a valid eth transaction
-		// Linked to  requestID
-		var ethTxes []models.EthTx
-		err = store.DB.Find(&ethTxes).Error
-		require.NoError(t, err)
-		require.Equal(t, 1, len(ethTxes))
-		assert.Equal(t, vs.CoordinatorAddress, ethTxes[0].ToAddress.String())
-		var em models.EthTxMetaV2
-		err = json.Unmarshal(ethTxes[0].Meta.RawMessage, &em)
-		require.NoError(t, err)
-		assert.Equal(t, reqID, em.RequestID)
 		require.NoError(t, store.DB.Exec(`TRUNCATE eth_txes,pipeline_runs CASCADE`).Error)
 	})
 
