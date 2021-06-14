@@ -4,13 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -427,7 +428,7 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 	}
 	require.NoError(t, orm.DB.Create(&jbs).Error)
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0036_external_job_id"))
-	var jb2 []job.Job
+	var jb2 []migrations.Job36
 	require.NoError(t, orm.DB.Find(&jb2).Error)
 	var seen = make(map[uuid.UUID]struct{})
 	for i := range jb2 {
