@@ -201,7 +201,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	if err == nil {
 		runErrors = pipeline.RunErrors{null.String{}}
 	} else {
-		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to update database state").Error())}
+		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
 	}
 
 	var etx models.EthTx
@@ -239,6 +239,20 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	if err != nil {
 		logger.Errorw("UpkeepExecuter: failed to update database state", "err", err)
 	}
+
+	// TODO: Remove in
+	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+	elapsed := time.Since(start)
+	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String()).Set(float64(elapsed))
+	var status string
+	if runErrors.HasError() || err != nil {
+		status = "error"
+		pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String).Inc()
+	} else {
+		status = "completed"
+	}
+	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String).Set(float64(elapsed))
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String(), status).Inc()
 }
 
 func constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
