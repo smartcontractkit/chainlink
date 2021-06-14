@@ -240,7 +240,8 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		logger.Errorw("UpkeepExecuter: failed to update database state", "err", err)
 	}
 
-	// TODO: Remove in 6065
+	// TODO: Remove in
+	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
 	elapsed := time.Since(start)
 	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String()).Set(float64(elapsed))
 	var status string

@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"sync"
 	"syscall"
-	"time"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -669,27 +668,7 @@ func (app *ChainlinkApplication) RunJobV2(
 
 	// Some jobs are special in that they do not have a task graph.
 	if !jb.Type.HasPipelineSpec() {
-		t := time.Now()
-		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
-			PipelineSpecID: jb.PipelineSpecID,
-			Errors:         pipeline.RunErrors{null.String{}},
-			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},
-			CreatedAt:      t,
-			FinishedAt:     &t,
-		}, nil, false)
-		elapsed := time.Since(t)
-
-		// For testing metrics.
-		pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String, jb.Type.String()).Set(float64(elapsed))
-		var status string
-		if err != nil {
-			status = "error"
-			pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String).Inc()
-		} else {
-			status = "completed"
-		}
-		pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String).Set(float64(elapsed))
-		pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jb.ID), jb.Name.String, jb.Type.String(), status).Inc()
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
 		meta := pipeline.JSONSerializable{
 			Val:  meta,

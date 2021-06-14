@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,6 +37,9 @@ type Runner interface {
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
+
+	// Test method for inserting completed non-pipeline job runs
+	TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error)
 }
 
 type runner struct {
@@ -48,7 +53,8 @@ type runner struct {
 }
 
 var (
-	// TODO: Make private again after 6065
+	// TODO: Make private again after
+	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
 	PromPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
@@ -452,6 +458,32 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pip
 
 func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	return r.orm.InsertFinishedRun(db, run, trrs, saveSuccessfulTaskRuns)
+}
+
+func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
+	t := time.Now()
+	runID, err := r.InsertFinishedRun(db, Run{
+		PipelineSpecID: specID,
+		Errors:         RunErrors{null.String{}},
+		Outputs:        JSONSerializable{Val: "queued eth transaction"},
+		CreatedAt:      t,
+		FinishedAt:     &t,
+	}, nil, false)
+	elapsed := time.Since(t)
+
+	// For testing metrics.
+	id := fmt.Sprintf("%d", jobID)
+	PromPipelineTaskExecutionTime.WithLabelValues(id, jobName, jobType).Set(float64(elapsed))
+	var status string
+	if err != nil {
+		status = "error"
+		PromPipelineRunErrors.WithLabelValues(id, jobName).Inc()
+	} else {
+		status = "completed"
+	}
+	PromPipelineRunTotalTimeToCompletion.WithLabelValues(id, jobName).Set(float64(elapsed))
+	PromPipelineTasksTotalFinished.WithLabelValues(id, jobName, jobType, status).Inc()
+	return runID, err
 }
 
 func (r *runner) runReaper() {
