@@ -173,6 +173,7 @@ tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as
 ### Fixed
 
 - It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+- Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
 
 ### Changed
 

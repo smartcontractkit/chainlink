@@ -14,7 +14,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -41,6 +43,7 @@ type Config interface {
 	EthGasLimitMultiplier() float32
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthMaxQueuedTransactions() uint64
 	EthNonceAutoSync() bool
 	EthRPCDefaultBatchSize() uint32
 	EthTxReaperThreshold() time.Duration
@@ -78,7 +81,15 @@ var (
 	})
 )
 
-var _ models.HeadTrackable = &BulletproofTxManager{}
+var _ TxManager = &BulletproofTxManager{}
+
+//go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
+type TxManager interface {
+	httypes.HeadTrackable
+	service.Service
+	Trigger(addr common.Address)
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error)
+}
 
 type BulletproofTxManager struct {
 	utils.StartStopOnce
@@ -241,8 +252,59 @@ func (b *BulletproofTxManager) Connect(*models.Head) error {
 	return nil
 }
 
-// Disconnect solely exists to conform to HeadTrackable
-func (b *BulletproofTxManager) Disconnect() {}
+// CreateEthTransaction inserts a new transaction
+func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error) {
+	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EthMaxQueuedTransactions())
+	if err != nil {
+		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
+	}
+
+	// meta can hold arbitrary data and is mostly useful for logging/debugging
+	var metaBytes []byte
+	if meta != nil {
+		metaBytes, err = json.Marshal(meta)
+		if err != nil {
+			return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to marshal ethtx metadata")
+		}
+	}
+
+	value := 0
+	// NOTE: It is important to remember that eth_tx_attempts with state
+	// insufficient_eth can actually hang around long after the node has been
+	// refunded and started sending transactions again.
+	// This is because they are not ever deleted if attached to an eth_tx that
+	// is moved into confirmed/fatal_error state
+	res := db.Raw(`
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta)
+(
+SELECT ?,?,?,?,?,'unstarted',NOW(),?
+WHERE NOT EXISTS (
+    SELECT 1 FROM eth_tx_attempts
+	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
+	WHERE eth_txes.from_address = ?
+		AND eth_txes.state = 'unconfirmed'
+		AND eth_tx_attempts.state = 'insufficient_eth'
+)
+)
+RETURNING "eth_txes".*
+`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, fromAddress).Scan(&etx)
+	err = res.Error
+	if err != nil {
+		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
+	}
+
+	if res.RowsAffected == 0 {
+		err = errors.Errorf("wallet is out of eth: %s", fromAddress.Hex())
+		logger.Warnw(err.Error(),
+			"fromAddress", fromAddress,
+			"toAddress", toAddress,
+			"payload", "0x"+hex.EncodeToString(payload),
+			"value", value,
+			"gasLimit", gasLimit,
+		)
+	}
+	return
+}
 
 const optimismGasPrice int64 = 1e9 // 1 GWei
 
@@ -428,63 +490,11 @@ func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (coun
 	return
 }
 
-// CreateEthTransaction inserts a new transaction
-func CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit, maxUnconfirmedTransactions uint64, meta *models.EthTxMetaV2) (etx models.EthTx, err error) {
-	err = CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions)
-	if err != nil {
-		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
-	}
-	var metaBytes []byte
-	if meta != nil {
-		metaBytes, err = json.Marshal(meta)
-		if err != nil {
-			logger.Errorw("failed to marshal ethtx metadata", "err", err)
-		}
-	}
+const EthMaxInFlightTransactionsWarningLabel = `WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck`
 
-	value := 0
-	// NOTE: It is important to remember that eth_tx_attempts with state
-	// insufficient_eth can actually hang around long after the node has been
-	// refunded and started sending transactions again.
-	// This is because they are not ever deleted if attached to an eth_tx that
-	// is moved into confirmed/fatal_error state
-	res := db.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta)
-(
-SELECT ?,?,?,?,?,'unstarted',NOW(),?
-WHERE NOT EXISTS (
-    SELECT 1 FROM eth_tx_attempts
-	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
-	WHERE eth_txes.from_address = ?
-		AND eth_txes.state = 'unconfirmed'
-		AND eth_tx_attempts.state = 'insufficient_eth'
-)
-)
-RETURNING "eth_txes".*
-`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, fromAddress).Scan(&etx)
-	err = res.Error
-	if err != nil {
-		return etx, errors.Wrap(err, "transmitter failed to insert eth_tx")
-	}
+const EthMaxQueuedTransactionsLabel = `WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse`
 
-	if res.RowsAffected == 0 {
-		err = errors.Errorf("wallet is out of eth: %s", fromAddress.Hex())
-		logger.Warnw(err.Error(),
-			"fromAddress", fromAddress,
-			"toAddress", toAddress,
-			"payload", "0x"+hex.EncodeToString(payload),
-			"value", value,
-			"gasLimit", gasLimit,
-		)
-	}
-	return
-}
-
-const EthMaxInFlightTransactionsWarningLabel = `WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck.`
-
-const EthMaxQueuedTransactionsLabel = `WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse.`
-
-const EthNodeConnectivityProblemLabel = `WARNING: If this keeps happening it may be a sign that your eth node has a connectivity problem, and your transactions are not making it to any miners.`
+const EthNodeConnectivityProblemLabel = `WARNING: If this keeps happening it may be a sign that your eth node has a connectivity problem, and your transactions are not making it to any miners`
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
@@ -504,3 +514,20 @@ func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedT
 	}
 	return
 }
+
+var _ TxManager = &NullTxManager{}
+
+type NullTxManager struct {
+	ErrMsg string
+}
+
+func (n *NullTxManager) Connect(*models.Head) error                     { return errors.New(n.ErrMsg) }
+func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
+func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
+func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }
+func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
+func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}) (etx models.EthTx, err error) {
+	return etx, errors.New(n.ErrMsg)
+}
+func (n *NullTxManager) Healthy() error { return nil }
+func (n *NullTxManager) Ready() error   { return nil }

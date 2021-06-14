@@ -96,9 +96,9 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	Exiter          func(int)
-	HeadTracker     *headtracker.HeadTracker
-	HeadBroadcaster *headtracker.HeadBroadcaster
-	BPTXM           *bulletprooftxmanager.BulletproofTxManager
+	HeadTracker     httypes.Tracker
+	HeadBroadcaster httypes.HeadBroadcaster
+	TxManager       bulletprooftxmanager.TxManager
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
 	RunQueue                 services.RunQueue
@@ -144,7 +144,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	setupConfig(config, store)
 
-	headBroadcaster := headtracker.NewHeadBroadcaster()
 	healthChecker := health.NewChecker()
 
 	scryptParams := utils.GetScryptParams(config)
@@ -161,10 +160,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
+	var gasUpdater gasupdater.GasUpdater
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
-		headBroadcaster.Subscribe(gasUpdater)
+		gasUpdater = gasupdater.NewGasUpdater(store.EthClient, store.Config)
 		subservices = append(subservices, gasUpdater)
 	} else {
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
@@ -176,7 +175,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
 		subservices = append(subservices, databaseBackup)
 	} else {
-		logger.Info("DatabaseBackup: periodic database backups are disabled")
+		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	// Init service loggers
@@ -191,7 +190,18 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker", err)
 	}
 
-	headTracker := headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+	var headBroadcaster httypes.HeadBroadcaster
+	var headTracker httypes.Tracker
+	if config.EthereumDisabled() {
+		headBroadcaster = &headtracker.NullBroadcaster{}
+		headTracker = &headtracker.NullTracker{}
+	} else {
+		headBroadcaster = headtracker.NewHeadBroadcaster()
+		if gasUpdater != nil {
+			headBroadcaster.Subscribe(gasUpdater)
+		}
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+	}
 
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue
@@ -209,26 +219,32 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
 
-	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
-	if err != nil {
-		return nil, err
-	}
-
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
-	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster)
+	subservices = append(subservices, eventBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
 	feedsService := feeds.NewService(feedsORM)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster)
+	var txManager bulletprooftxmanager.TxManager
+	var logBroadcaster log.Broadcaster
+	if config.EthereumDisabled() {
+		txManager = &bulletprooftxmanager.NullTxManager{ErrMsg: "TxManager is not running because Ethereum is disabled"}
+		logBroadcaster = &log.NullBroadcaster{ErrMsg: "LogBroadcaster is not running because Ethereum is disabled"}
+	} else {
+		// Highest seen head height is used as part of the start of LogBroadcaster backfill range
+		highestSeenHead, err2 := headTracker.HighestSeenHeadFromDB()
+		if err2 != nil {
+			return nil, err2
+		}
 
-	promReporter := services.NewPromReporter(store.MustSQLDB())
+		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
+		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster)
+		subservices = append(subservices, logBroadcaster, txManager)
+	}
+
+	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster)
 
 	subservices = append(subservices,
-		logBroadcaster,
-		eventBroadcaster,
 		fluxMonitor,
 		jobSubscriber,
 	)
@@ -239,8 +255,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
-
 	subservices = append(subservices, balanceMonitor)
+
+	promReporter := services.NewPromReporter(store.MustSQLDB())
 	subservices = append(subservices, promReporter)
 
 	var (
@@ -260,9 +277,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB,
 				config,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
 			job.VRF: vrf.NewDelegate(
-				store.DB, // For transactions.
+				store.DB,
+				txManager,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
@@ -272,9 +290,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		}
 	)
 
-	if config.Dev() || config.FeatureFluxMonitorV2() {
+	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
+	if config.EthereumDisabled() {
+		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
+	} else if config.Dev() || config.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
-			store,
+			txManager,
 			keyStore.Eth(),
 			jobORM,
 			pipelineORM,
@@ -298,6 +319,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
+			txManager,
 			jobORM,
 			config,
 			keyStore.OCR(),
@@ -325,11 +347,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, bptxm, headBroadcaster)
+	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
-		BPTXM:                    bptxm,
+		TxManager:                txManager,
 		JobSubscriber:            jobSubscriber,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
@@ -360,7 +382,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	headBroadcaster.Subscribe(logBroadcaster)
-	headBroadcaster.Subscribe(bptxm)
+	headBroadcaster.Subscribe(txManager)
 	headBroadcaster.Subscribe(promReporter)
 	headBroadcaster.Subscribe(jobSubscriber)
 	headBroadcaster.Subscribe(balanceMonitor)
@@ -502,6 +524,7 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	app.started = true
+
 	return nil
 }
 

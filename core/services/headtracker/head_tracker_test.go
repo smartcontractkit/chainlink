@@ -809,7 +809,7 @@ func createHeadTrackerWithChecker(logger *logger.Logger, store *strpkg.Store, ch
 
 type headTrackerUniverse struct {
 	headTracker     *headtracker.HeadTracker
-	headBroadcaster *headtracker.HeadBroadcaster
+	headBroadcaster httypes.HeadBroadcaster
 }
 
 func (u headTrackerUniverse) Backfill(ctx context.Context, head models.Head, depth uint) error {
