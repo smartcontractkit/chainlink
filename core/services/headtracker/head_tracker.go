@@ -1,4 +1,4 @@
-package services
+package headtracker
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -31,14 +30,14 @@ var (
 // store on reboot.
 type HeadTracker struct {
 	log             *logger.Logger
-	headBroadcaster *headtracker.HeadBroadcaster
+	headBroadcaster *HeadBroadcaster
 	store           *strpkg.Store
 
 	backfillMB   utils.Mailbox
 	samplingMB   utils.Mailbox
 	muLogger     sync.RWMutex
-	headListener *headtracker.HeadListener
-	headSaver    *headtracker.HeadSaver
+	headListener *HeadListener
+	headSaver    *HeadSaver
 	chStop       chan struct{}
 	wgDone       *sync.WaitGroup
 	utils.StartStopOnce
@@ -50,7 +49,7 @@ type HeadTracker struct {
 func NewHeadTracker(
 	l *logger.Logger,
 	store *strpkg.Store,
-	headBroadcaster *headtracker.HeadBroadcaster,
+	headBroadcaster *HeadBroadcaster,
 	sleepers ...utils.Sleeper,
 ) *HeadTracker {
 
@@ -65,8 +64,8 @@ func NewHeadTracker(
 		samplingMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
 		wgDone:          &wgDone,
-		headListener:    headtracker.NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
-		headSaver:       headtracker.NewHeadSaver(store),
+		headListener:    NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
+		headSaver:       NewHeadSaver(store),
 	}
 }
 

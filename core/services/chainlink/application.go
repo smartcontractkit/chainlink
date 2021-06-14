@@ -96,7 +96,7 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	Exiter          func(int)
-	HeadTracker     *services.HeadTracker
+	HeadTracker     *headtracker.HeadTracker
 	HeadBroadcaster *headtracker.HeadBroadcaster
 	BPTXM           *bulletprooftxmanager.BulletproofTxManager
 	StatsPusher     synchronization.StatsPusher
@@ -191,7 +191,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker", err)
 	}
 
-	headTracker := services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+	headTracker := headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
 
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue

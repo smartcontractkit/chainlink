@@ -1,4 +1,4 @@
-package services_test
+package headtracker_test
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -785,7 +784,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 func createHeadTracker(logger *logger.Logger, store *strpkg.Store) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
 	return &headTrackerUniverse{
-		headTracker:     services.NewHeadTracker(logger, store, hb),
+		headTracker:     headtracker.NewHeadTracker(logger, store, hb),
 		headBroadcaster: hb,
 	}
 }
@@ -793,7 +792,7 @@ func createHeadTracker(logger *logger.Logger, store *strpkg.Store) *headTrackerU
 func createHeadTrackerWithNeverSleeper(logger *logger.Logger, store *strpkg.Store) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
 	return &headTrackerUniverse{
-		headTracker:     services.NewHeadTracker(logger, store, hb, cltest.NeverSleeper{}),
+		headTracker:     headtracker.NewHeadTracker(logger, store, hb, cltest.NeverSleeper{}),
 		headBroadcaster: hb,
 	}
 }
@@ -803,13 +802,13 @@ func createHeadTrackerWithChecker(logger *logger.Logger, store *strpkg.Store, ch
 	hb.Subscribe(checker)
 	hb.Start()
 	return &headTrackerUniverse{
-		headTracker:     services.NewHeadTracker(logger, store, hb, cltest.NeverSleeper{}),
+		headTracker:     headtracker.NewHeadTracker(logger, store, hb, cltest.NeverSleeper{}),
 		headBroadcaster: hb,
 	}
 }
 
 type headTrackerUniverse struct {
-	headTracker     *services.HeadTracker
+	headTracker     *headtracker.HeadTracker
 	headBroadcaster *headtracker.HeadBroadcaster
 }
 
