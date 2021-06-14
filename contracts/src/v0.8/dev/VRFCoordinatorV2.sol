@@ -42,7 +42,10 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         bytes32 indexed keyHash,
         uint16 minimumRequestConfirmations,
         uint16 callbackGasLimit,
-        uint256 preSeed);
+        uint256 preSeed,
+        uint256 subId);
+    event RandomWordsFulfilled(
+        uint256 requestId, uint256 output);
     struct Callback {
         address callbackContract; // Requesting contract, which will receive response
         uint256 callbackGasLimit;
@@ -59,8 +62,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     uint16 private s_minimumRequestBlockConfirmations = 3;
     uint16 private s_maxConsumersPerSubscription = 10;
     uint32 private s_stalenessSeconds =43820;
-    int256 private s_fallbackGasPrice = 200;  // not in config object for gas savings
-    int256 private s_fallbackLinkPrice = 200000; // not in config object for gas savings
+    int256 private s_fallbackGasPrice = 200;
+    int256 private s_fallbackLinkPrice = 200000;
 
     constructor(address link, address blockHashStore, address linkEthFeed, address fastGasFeed) {
         LINK = LinkTokenInterface(link);
@@ -133,7 +136,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             subId: subId,
             seedAndBlockNum: keccak256(abi.encodePacked(preSeedAndRequestId, block.number))
        });
-       emit RandomWordsRequested(keyHash, minimumRequestConfirmations, callbackGasLimit, preSeedAndRequestId);
+       emit RandomWordsRequested(keyHash, minimumRequestConfirmations, callbackGasLimit, preSeedAndRequestId, subId);
        return preSeedAndRequestId;
     }
 
@@ -143,8 +146,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     uint256 public constant PUBLIC_KEY_OFFSET = 0x20;
     // Seed is 7th word in proof, plus word for length, (6+1)*0x20=0xe0
     uint256 public constant PRESEED_OFFSET = 0xe0;
-    // Constant gas for requesting
-    uint256 public constant REQUEST_GAS_COST = 20_000;
+    // TODO: Gas for making payment itself
+    uint256 public constant GAS_BUFFER = 2_000;
 
     function fulfillRandomWords(
         bytes memory _proof
@@ -153,25 +156,26 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     {
         // TODO: maybe fail fast on an invalid keyHash?
         uint256 startGas = gasleft();
-        (bytes32 keyHash, Callback memory callback, bytes32 requestId,
+        (bytes32 keyHash, Callback memory callback, uint256 requestId,
         uint256 randomness) = getRandomnessFromProof(_proof);
-        uint256[] memory randomWords = new uint256[](callback.numWords);
-        for (uint256 i = 0; i < callback.numWords; i++) {
-            randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
-        }
-
-        bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
-        // TODO: Make more exact
-        uint256 payment = calculatePaymentAmount(startGas);
-        s_subscriptions[callback.subId].balance -= payment;
-        LINK.transfer(s_serviceAgreements[keyHash].oracle, payment);
-
-        require(gasleft() > callback.callbackGasLimit, "not enough gas for consumer");
-
-        (bool success,) = callback.callbackContract.call(resp);
-        // Avoid unused-local-variable warning. (success is only present to prevent
-        // a warning that the return value of consumerContract.call is unused.)
-        (success);
+//        uint256[] memory randomWords = new uint256[](callback.numWords);
+//        for (uint256 i = 0; i < callback.numWords; i++) {
+//            randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+//        }
+//
+//        bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
+//        // TODO: Make more exact
+//        uint256 payment = calculatePaymentAmount(startGas);
+//        s_subscriptions[callback.subId].balance -= payment;
+//        LINK.transfer(s_serviceAgreements[keyHash].oracle, payment);
+//
+//        require(gasleft() > callback.callbackGasLimit, "not enough gas for consumer");
+//
+//        (bool success,) = callback.callbackContract.call(resp);
+//        // Avoid unused-local-variable warning. (success is only present to prevent
+//        // a warning that the return value of consumerContract.call is unused.)
+//        (success);
+        emit RandomWordsFulfilled(10, 10);
     }
 
     function calculatePaymentAmount(
@@ -185,12 +189,12 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 linkWei; // link/wei i.e. link price in wei.
         (gasWei, linkWei) = getFeedData();
         // link/wei * wei/gas * gas = link
-        return linkWei*gasWei*(REQUEST_GAS_COST + gasleft() - startGas);
+        return linkWei*gasWei*(GAS_BUFFER + gasleft() - startGas);
     }
 
     function getRandomnessFromProof(bytes memory _proof)
     internal view returns (bytes32 currentKeyHash, Callback memory callback,
-        bytes32 requestId, uint256 randomness) {
+        uint256 requestId, uint256 randomness) {
         // blockNum follows proof, which follows length word (only direct-number
         // constants are allowed in assembly, so have to compute this in code)
         uint256 BLOCKNUM_OFFSET = 0x20 + PROOF_LENGTH;
@@ -208,6 +212,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         currentKeyHash = hashOfKey(publicKey);
 //        requestId = makeRequestId(currentKeyHash, preSeed);
         callback = s_callbacks[preSeed];
+        requestId = preSeed;
         require(callback.callbackContract != address(0), "no corresponding request");
         require(callback.seedAndBlockNum == keccak256(abi.encodePacked(preSeed,
             blockNum)), "wrong preSeed or block num");
@@ -258,7 +263,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         address[] memory consumers // permitted consumers of the subscription
     )
     external
-    returns (uint256 subId)
+    returns (uint256)
     {
         require(consumers.length <= s_maxConsumersPerSubscription, "above max consumers per sub");
         allConsumersValid(consumers);
@@ -272,7 +277,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         emit SubscriptionCreated(currentSubId, msg.sender, consumers);
         // TODO: optionally fund also in the creation transaction? We'd still need a separate
         // fund tx anyways to top it up, but we'd save a tx
-        return subId;
+        return currentSubId;
     }
 
     function allConsumersValid(address[] memory consumers) internal {
@@ -301,6 +306,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     )
     external
     {
+        require(s_subscriptions[subId].owner != address(0), "subID doesnt exist");
         require(msg.sender == s_subscriptions[subId].owner, "only subscription owner can fund");
         uint256 oldBalance = s_subscriptions[subId].balance;
         s_subscriptions[subId].balance += amount;

@@ -5,6 +5,7 @@ package gethwrappers
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
+/*
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/FluxAggregator.abi ../../../evm-contracts/solc/v0.6/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFTestHelper.bin VRFTestHelper solidity_vrf_verifier_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFCoordinator.abi ../../../evm-contracts/solc/v0.6/VRFCoordinator.bin VRFCoordinator solidity_vrf_coordinator_interface
@@ -15,10 +16,15 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/MultiWordConsumer.abi ../../../evm-contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
-
-// v0.8 VRFConsumer
+//
+//v0.8 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id_v08
+ */
+
+// VRF V2
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin VRFCoordinatorV2 vrf_coordinator_v2
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin VRFConsumerV2 vrf_consumer_v2
 
 //go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
 //go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go

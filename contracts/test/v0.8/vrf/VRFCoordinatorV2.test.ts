@@ -10,6 +10,7 @@ describe("VRFCoordinatorV2", () => {
     let owner: Signer;
     let subOwner: Signer;
     let consumer: Signer;
+    let random: Signer;
     const linkEth = BigNumber.from(300000000);
     const gasWei = BigNumber.from(100);
 
@@ -18,6 +19,7 @@ describe("VRFCoordinatorV2", () => {
         owner = accounts[0]
         subOwner = accounts[1]
         consumer = accounts[2]
+        random = accounts[3]
         let ltFactory = await ethers.getContractFactory("LinkToken", accounts[0]);
         linkToken = await ltFactory.deploy()
         let bhFactory = await ethers.getContractFactory("BlockhashStore", accounts[0]);
@@ -33,18 +35,23 @@ describe("VRFCoordinatorV2", () => {
         console.log("link balance", await linkToken.balanceOf(await subOwner.getAddress()))
     });
 
-    it("#subscription", async () => {
-        // Lets create a subscription
-        console.log("address", vrfCoordinatorV2.address)
+    it("subscription lifecycle", async () => {
+        // Create subscription.
         const response = await vrfCoordinatorV2.owner()
-        console.log(response, await owner.getAddress())
         let consumers: string[] = [await consumer.getAddress()]
         const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers)
         const receipt = await tx.wait()
         const subId = receipt.events[0].args['subId']
+
+        // Fund the subscription
         await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"))
         const resp = await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address)
         console.log(resp)
         await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"))
+        // TODO: non-owners cannot fund
+        // TODO: withdraw funds, non-owners cannot
+        // TODO: cancel sub, non-owners cannot
     });
+
+    // TODO: request words, check logs, non consumer cannot request
 })

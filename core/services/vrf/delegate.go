@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -90,7 +91,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(jb.VRFSpec.CoordinatorAddress.Address(), d.ec)
+	if err != nil {
+		return nil, err
+	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
+	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 	l := logger.CreateLogger(logger.Default.SugaredLogger.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -103,7 +109,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		logBroadcaster: d.lb,
 		db:             d.db,
 		abi:            abi,
+		abiV2:          abiV2,
 		coordinator:    coordinator,
+		coordinatorV2:  coordinatorV2,
 		pipelineRunner: d.pr,
 		vorm:           d.vorm,
 		vrfks:          d.vrfks,
@@ -126,8 +134,10 @@ type listener struct {
 	cfg            Config
 	l              logger.Logger
 	abi            abi.ABI
+	abiV2          abi.ABI
 	logBroadcaster log.Broadcaster
 	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
+	coordinatorV2    *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
 	vorm           ORM
@@ -162,14 +172,24 @@ func (lsn *listener) Start() error {
 			},
 			NumConfirmations: uint64(minConfs),
 		})
+		unsubscribeLogsV2 := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
+			Contract: lsn.coordinatorV2,
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
+					{
+						log.Topic(lsn.job.VRFSpec.PublicKey.MustHash()),
+					},
+				},
+			},
+		})
 		go gracefulpanic.WrapRecover(func() {
-			lsn.run(unsubscribeLogs, minConfs)
+			lsn.run([]func(){unsubscribeLogs, unsubscribeLogsV2}, minConfs)
 		})
 		return nil
 	})
 }
 
-func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
+func (lsn *listener) run(unsubscribeLogs []func(), minConfs uint32) {
 	lsn.l.Infow("VRFListener: listening for run requests",
 		"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
 		"gasLimit", lsn.cfg.EthGasLimitDefault(),
@@ -177,7 +197,9 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 	for {
 		select {
 		case <-lsn.chStop:
-			unsubscribeLogs()
+			for _, us := range unsubscribeLogs {
+				us()
+			}
 			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.mbLogs.Notify():
@@ -198,86 +220,221 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 				} else if alreadyConsumed {
 					continue
 				}
-				req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
-				if err != nil {
-					lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-
-				// Check if the vrf req has already been fulfilled
-				callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
-				if err != nil {
-					lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-				} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-					// If seedAndBlockNumber is zero then the response has been fulfilled
-					// and we should skip it
-					lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-
-				s := time.Now()
-				vrfCoordinatorPayload, req, err := lsn.ProcessLog(req, lb)
-				f := time.Now()
-				err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-					if err == nil {
-						// No errors processing the log, submit a transaction
-						var etx models.EthTx
-						var from common.Address
-						from, err = lsn.gethks.GetRoundRobinAddress()
-						if err != nil {
-							return err
-						}
-						etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
-							from,
-							lsn.coordinator.Address(),
-							vrfCoordinatorPayload,
-							lsn.cfg.EthGasLimitDefault(),
-							lsn.cfg.EthMaxQueuedTransactions(),
-							&models.EthTxMetaV2{
-								JobID:         lsn.job.ID,
-								RequestID:     req.RequestID,
-								RequestTxHash: lb.RawLog().TxHash,
-							})
-						if err != nil {
-							return err
-						}
-						// TODO: Once we have eth tasks supported, we can use the pipeline directly
-						// and be able to save errored proof generations. Until then only save
-						// successful runs and log errors.
-						_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-							PipelineSpecID: lsn.job.PipelineSpecID,
-							Errors:         []null.String{{}},
-							Outputs: pipeline.JSONSerializable{
-								Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
-									etx.FromAddress,
-									etx.ToAddress,
-									hex.EncodeToString(etx.EncodedPayload))},
-							},
-							Meta: pipeline.JSONSerializable{
-								Val: map[string]interface{}{"eth_tx_id": etx.ID},
-							},
-							CreatedAt:  s,
-							FinishedAt: &f,
-						}, nil, false)
-						if err != nil {
-							return errors.Wrap(err, "VRFListener: failed to insert finished run")
-						}
-					}
-					// Always mark consumed regardless of whether the proof failed or not.
-					err = lsn.logBroadcaster.MarkConsumed(tx, lb)
-					if err != nil {
-						return err
-					}
-					return nil
-				})
-				if err != nil {
-					lsn.l.Errorw("VRFListener failed to save run", "err", err)
+				// Try v1 first then v2
+				switch lb.DecodedLog().(type) {
+				case *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest:
+					lsn.ProcessV1VRFRequest(lb)
+				case *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested:
+					lsn.ProcessV2VRFRequest(lb)
 				}
 			}
 		}
 	}
+}
+
+func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
+	req, err := lsn.coordinatorV2.ParseRandomWordsRequested(lb.RawLog())
+	if err != nil {
+		lsn.l.Errorw("VRFListenerV2: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+		return
+	}
+
+	// Check if the vrf req has already been fulfilled
+	//callback, err := lsn.coordinatorV2.SCallbacks(nil, req.SubId)
+	//if err != nil {
+	//	lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	//} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+	//	// If seedAndBlockNumber is zero then the response has been fulfilled
+	//	// and we should skip it
+	//	lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId)
+	//	lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+	//	return
+	//}
+
+	s := time.Now()
+	vrfCoordinatorPayload, req, err := lsn.ProcessLogV2(req, lb)
+	f := time.Now()
+	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
+		if err == nil {
+			// No errors processing the log, submit a transaction
+			var etx models.EthTx
+			var from common.Address
+			from, err = lsn.gethks.GetRoundRobinAddress()
+			if err != nil {
+				return err
+			}
+			etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
+				from,
+				lsn.coordinator.Address(),
+				vrfCoordinatorPayload,
+				lsn.cfg.EthGasLimitDefault(),
+				lsn.cfg.EthMaxQueuedTransactions(),
+				&models.EthTxMetaV2{
+					JobID:         lsn.job.ID,
+					//RequestID:     req.PreSeed,
+					RequestTxHash: lb.RawLog().TxHash,
+				})
+			if err != nil {
+				return err
+			}
+			// TODO: Once we have eth tasks supported, we can use the pipeline directly
+			// and be able to save errored proof generations. Until then only save
+			// successful runs and log errors.
+			_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+				PipelineSpecID: lsn.job.PipelineSpecID,
+				Errors:         []null.String{{}},
+				Outputs: pipeline.JSONSerializable{
+					Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
+						etx.FromAddress,
+						etx.ToAddress,
+						hex.EncodeToString(etx.EncodedPayload))},
+				},
+				Meta: pipeline.JSONSerializable{
+					Val: map[string]interface{}{"eth_tx_id": etx.ID},
+				},
+				CreatedAt:  s,
+				FinishedAt: &f,
+			}, nil, false)
+			if err != nil {
+				return errors.Wrap(err, "VRFListener: failed to insert finished run")
+			}
+		}
+		// Always mark consumed regardless of whether the proof failed or not.
+		err = lsn.logBroadcaster.MarkConsumed(tx, lb)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		lsn.l.Errorw("VRFListener failed to save run", "err", err)
+	}
+}
+
+func (lsn *listener) ProcessV1VRFRequest(lb log.Broadcast) {
+	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
+	if err != nil {
+		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+		return
+	}
+
+	// Check if the vrf req has already been fulfilled
+	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// If seedAndBlockNumber is zero then the response has been fulfilled
+		// and we should skip it
+		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
+		lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+		return
+	}
+
+	s := time.Now()
+	vrfCoordinatorPayload, req, err := lsn.ProcessLog(req, lb)
+	f := time.Now()
+	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
+		if err == nil {
+			// No errors processing the log, submit a transaction
+			var etx models.EthTx
+			var from common.Address
+			from, err = lsn.gethks.GetRoundRobinAddress()
+			if err != nil {
+				return err
+			}
+			etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
+				from,
+				lsn.coordinator.Address(),
+				vrfCoordinatorPayload,
+				lsn.cfg.EthGasLimitDefault(),
+				lsn.cfg.EthMaxQueuedTransactions(),
+				&models.EthTxMetaV2{
+					JobID:         lsn.job.ID,
+					RequestID:     req.RequestID,
+					RequestTxHash: lb.RawLog().TxHash,
+				})
+			if err != nil {
+				return err
+			}
+			// TODO: Once we have eth tasks supported, we can use the pipeline directly
+			// and be able to save errored proof generations. Until then only save
+			// successful runs and log errors.
+			_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+				PipelineSpecID: lsn.job.PipelineSpecID,
+				Errors:         []null.String{{}},
+				Outputs: pipeline.JSONSerializable{
+					Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
+						etx.FromAddress,
+						etx.ToAddress,
+						hex.EncodeToString(etx.EncodedPayload))},
+				},
+				Meta: pipeline.JSONSerializable{
+					Val: map[string]interface{}{"eth_tx_id": etx.ID},
+				},
+				CreatedAt:  s,
+				FinishedAt: &f,
+			}, nil, false)
+			if err != nil {
+				return errors.Wrap(err, "VRFListener: failed to insert finished run")
+			}
+		}
+		// Always mark consumed regardless of whether the proof failed or not.
+		err = lsn.logBroadcaster.MarkConsumed(tx, lb)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		lsn.l.Errorw("VRFListener failed to save run", "err", err)
+	}
+}
+
+func (lsn *listener) ProcessLogV2(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+	lsn.l.Infow("VRFListenerV2: received log request",
+		"log", lb.String(),
+		"reqID", req.PreSeed.String(),
+		"keyHash", hex.EncodeToString(req.KeyHash[:]),
+		"txHash", req.Raw.TxHash,
+		"blockNumber", req.Raw.BlockNumber,
+		"seed", req.PreSeed.String())
+	// Validate the key against the spec
+	kh, err := lsn.job.VRFSpec.PublicKey.Hash()
+	if err != nil {
+		return nil, nil, err
+	}
+	if !bytes.Equal(req.KeyHash[:], kh[:]) {
+		return nil, nil, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:])))
+	}
+	// uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
+	preSeed, err := BigToSeed(req.PreSeed)
+	if err != nil {
+		return nil, nil, errors.New("unable to parse preseed")
+	}
+	seed := PreSeedData{
+		PreSeed:   preSeed,
+		BlockHash: req.Raw.BlockHash,
+		BlockNum:  req.Raw.BlockNumber,
+	}
+	lsn.l.Infow("generating proof", "pk", lsn.job.VRFSpec.PublicKey.String(), "seed", preSeed, "blockHash", req.Raw.BlockHash.String())
+	solidityProof, err := lsn.vrfks.GenerateProof(lsn.job.VRFSpec.PublicKey, seed)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
+		return nil, nil, err
+	}
+
+	vrfCoordinatorArgs, err := lsn.abiV2.Methods["fulfillRandomWords"].Inputs.PackValues(
+		[]interface{}{
+			solidityProof[:], // geth expects slice, even if arg is constant-length
+		})
+	if err != nil {
+		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
+		return nil, nil, err
+	}
+
+	return append(lsn.abiV2.Methods["fulfillRandomWords"].ID, vrfCoordinatorArgs...), nil, nil
 }
 
 func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {

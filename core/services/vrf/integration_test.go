@@ -24,8 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIntegration_VRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2", true)
+func TestIntegration_VRF_JPV2(t *testing.T) {
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_jpv2", true)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
@@ -98,3 +98,4 @@ func TestIntegration_VRFV2(t *testing.T) {
 		return len(rf) == 1
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 }
+
