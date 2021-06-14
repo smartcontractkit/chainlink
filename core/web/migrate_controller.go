@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -96,7 +97,7 @@ func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
 func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
-	ca := models.EIP55AddressFromAddress(initr.Address)
+	ca := ethkey.EIP55AddressFromAddress(initr.Address)
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		FluxMonitorSpec: &job.FluxMonitorSpec{

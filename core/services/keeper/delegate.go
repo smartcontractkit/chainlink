@@ -1,24 +1,31 @@
 package keeper
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
 
+type transmitter interface {
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error)
+}
+
 type Delegate struct {
 	config          *orm.Config
 	db              *gorm.DB
+	txm             transmitter
 	jrm             job.ORM
 	pr              pipeline.Runner
 	ethClient       eth.Client
-	headBroadcaster *headtracker.HeadBroadcaster
+	headBroadcaster httypes.HeadBroadcaster
 	logBroadcaster  log.Broadcaster
 }
 
@@ -26,16 +33,18 @@ var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	db *gorm.DB,
+	txm transmitter,
 	jrm job.ORM,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster *headtracker.HeadBroadcaster,
+	headBroadcaster httypes.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
 	config *orm.Config,
 ) *Delegate {
 	return &Delegate{
 		config:          config,
 		db:              db,
+		txm:             txm,
 		jrm:             jrm,
 		pr:              pr,
 		ethClient:       ethClient,
@@ -69,6 +78,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		spec,
 		contract,
 		d.db,
+		d.txm,
 		d.jrm,
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),
@@ -77,6 +87,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
 		d.db,
+		d.txm,
 		d.pr,
 		d.ethClient,
 		d.headBroadcaster,

@@ -72,7 +72,6 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
-		logger.Info("ETH_DISABLED is set, using Null eth.Client")
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
@@ -83,7 +82,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.

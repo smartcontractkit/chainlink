@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -29,15 +30,14 @@ import (
 )
 
 type Delegate struct {
-	cfg    Config
-	vorm   ORM
-	db     *gorm.DB
-	pr     pipeline.Runner
-	porm   pipeline.ORM
-	vrfks  *VRFKeyStore
-	gethks GethKeyStore
-	ec     eth.Client
-	lb     log.Broadcaster
+	cfg  Config
+	db   *gorm.DB
+	txm  bulletprooftxmanager.TxManager
+	pr   pipeline.Runner
+	porm pipeline.ORM
+	ks   *keystore.Master
+	ec   eth.Client
+	lb   log.Broadcaster
 }
 
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
@@ -49,29 +49,26 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EthGasLimitDefault() uint64
-	EthMaxQueuedTransactions() uint64
 }
 
 func NewDelegate(
 	db *gorm.DB,
-	vorm ORM,
-	gethks GethKeyStore,
-	vrfks *VRFKeyStore,
+	txm bulletprooftxmanager.TxManager,
+	ks *keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	lb log.Broadcaster,
 	ec eth.Client,
 	cfg Config) *Delegate {
 	return &Delegate{
-		cfg:    cfg,
-		db:     db,
-		vrfks:  vrfks,
-		gethks: gethks,
-		vorm:   vorm,
-		pr:     pr,
-		porm:   porm,
-		lb:     lb,
-		ec:     ec,
+		cfg:  cfg,
+		db:   db,
+		txm:  txm,
+		ks:   ks,
+		pr:   pr,
+		porm: porm,
+		lb:   lb,
+		ec:   ec,
 	}
 }
 
@@ -97,17 +94,20 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	))
 
+	vorm := keystore.NewVRFORM(d.db)
+
 	logListener := &listener{
 		cfg:            d.cfg,
 		l:              *l,
 		logBroadcaster: d.lb,
 		db:             d.db,
+		txm:            d.txm,
 		abi:            abi,
 		coordinator:    coordinator,
 		pipelineRunner: d.pr,
-		vorm:           d.vorm,
-		vrfks:          d.vrfks,
-		gethks:         d.gethks,
+		vorm:           vorm,
+		vrfks:          d.ks.VRF(),
+		gethks:         d.ks.Eth(),
 		pipelineORM:    d.porm,
 		job:            jb,
 		mbLogs:         utils.NewMailbox(1000),
@@ -130,10 +130,11 @@ type listener struct {
 	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
-	vorm           ORM
+	vorm           keystore.VRFORM
 	job            job.Job
 	db             *gorm.DB
-	vrfks          *VRFKeyStore
+	txm            bulletprooftxmanager.TxManager
+	vrfks          *keystore.VRF
 	gethks         GethKeyStore
 	mbLogs         *utils.Mailbox
 	chStop         chan struct{}
@@ -171,7 +172,6 @@ func (lsn *listener) Start() error {
 
 func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 	lsn.l.Infow("VRFListener: listening for run requests",
-		"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
 		"gasLimit", lsn.cfg.EthGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
@@ -229,12 +229,11 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 						if err != nil {
 							return err
 						}
-						etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
+						etx, err = lsn.txm.CreateEthTransaction(tx,
 							from,
 							lsn.coordinator.Address(),
 							vrfCoordinatorPayload,
 							lsn.cfg.EthGasLimitDefault(),
-							lsn.cfg.EthMaxQueuedTransactions(),
 							&models.EthTxMetaV2{
 								JobID:         lsn.job.ID,
 								RequestID:     req.RequestID,
@@ -296,7 +295,7 @@ func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoord
 		return nil, req, err
 	}
 
-	solidityProof, err := lsn.vrfks.GenerateProof(inputs.pk, inputs.seed)
+	solidityProof, err := GenerateProofResponse(lsn.vrfks, inputs.pk, inputs.seed)
 	if err != nil {
 		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
 		return nil, req, err
