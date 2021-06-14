@@ -13,6 +13,14 @@ export const constants = {
 };
 
 /**
+ * Convert string to hex bytes
+ * @param data string to onvert to hex bytes
+ */
+export function stringToBytes(data: string): string {
+  return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data));
+}
+
+/**
  * Add a hex prefix to a hex string
  *
  * @param hex The hex string to prepend the hex prefix to

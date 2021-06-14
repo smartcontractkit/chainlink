@@ -1,4 +1,5 @@
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { ContractReceipt } from "@ethersproject/contracts";
 import { assert, expect } from "chai";
 
 /**
@@ -28,4 +29,18 @@ export async function evmRevert(action: (() => Promise<any>) | Promise<any>, msg
   } else {
     await expect(action).to.be.reverted;
   }
+}
+
+/**
+ * Assert that an event doesnt exist
+ *
+ * @param max The maximum allowable gas difference
+ * @param receipt1 The contract receipt to compare to
+ * @param receipt2 The contract receipt with a gas difference
+ */
+export function gasDiffLessThan(max: number, receipt1: ContractReceipt, receipt2: ContractReceipt) {
+  assert(receipt1, "receipt1 is not present for gas comparison");
+  assert(receipt2, "receipt2 is not present for gas comparison");
+  const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0);
+  assert.isAbove(max, diff?.toNumber() || Infinity);
 }
