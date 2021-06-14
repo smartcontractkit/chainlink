@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -61,6 +62,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 	if cli.Config.Dev() {
 		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+	}
+	if cli.Config.EthereumDisabled() {
+		logger.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
 	}
 
 	pwd, err := passwordFromFile(c.String("password"))
@@ -137,6 +141,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 	}
 
+	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
