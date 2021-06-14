@@ -188,6 +188,9 @@ func newHttpClient(config orm.ConfigReader) *http.Client {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify()},
 	}
+	if config.InsecureSkipVerify() {
+		fmt.Println("WARNING: INSECURE_SKIP_VERIFY is set to true, skipping SSL certificate verification.")
+	}
 	return &http.Client{Transport: tr}
 }
 
