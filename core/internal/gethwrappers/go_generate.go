@@ -13,7 +13,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin Flags flags_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin Operator operator_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 // v0.8 VRFConsumer
@@ -44,7 +44,7 @@ package gethwrappers
 // might be worthwhile to generate the the wrappers using a static container
 // with abigen and solc, which will complete much faster. E.g.
 //
-//   abigen -sol ../../../evm-contracts/src/v0.6/VRFAll.sol -pkg vrf -out solidity_interfaces.go
+//   abigen -sol ../../../contracts/src/v0.6/VRFAll.sol -pkg vrf -out solidity_interfaces.go
 //
 // where VRFAll.sol simply contains `import "contract_path";` instructions for
 // all the contracts you wish to target. This runs in about 0.25 seconds in my
