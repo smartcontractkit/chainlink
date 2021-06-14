@@ -186,6 +186,8 @@ func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthen
 
 func newHttpClient(config orm.ConfigReader) *http.Client {
 	tr := &http.Transport{
+		// User enables this at their own risk!
+		// #nosec G402
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify()},
 	}
 	if config.InsecureSkipVerify() {
