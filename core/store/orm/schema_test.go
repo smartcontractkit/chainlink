@@ -81,6 +81,7 @@ func TestConfigSchema(t *testing.T) {
 		"GlobalLockRetryInterval":                   "GLOBAL_LOCK_RETRY_INTERVAL",
 		"HTTPServerWriteTimeout":                    "HTTP_SERVER_WRITE_TIMEOUT",
 		"InsecureFastScrypt":                        "INSECURE_FAST_SCRYPT",
+		"InsecureSkipVerify":                        "INSECURE_SKIP_VERIFY",
 		"JSONConsole":                               "JSON_CONSOLE",
 		"JobPipelineMaxRunDuration":                 "JOB_PIPELINE_MAX_RUN_DURATION",
 		"JobPipelineReaperInterval":                 "JOB_PIPELINE_REAPER_INTERVAL",
