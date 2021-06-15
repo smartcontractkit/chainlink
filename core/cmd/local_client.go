@@ -134,10 +134,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		if err != nil {
 			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
 		}
-		if currentBalance.Cmp(big.NewInt(0)) == 0 {
-			logger.Infow("The backup funding address does not have sufficient funds", "address", key.Address.Hex(), "balance", currentBalance)
-		} else {
-			logger.Infow("Funding address ready", "address", key.Address.Hex(), "current-balance", currentBalance)
+		if store.Config.Dev() {
+			if currentBalance.Cmp(big.NewInt(0)) == 0 {
+				logger.Infow("The backup funding address does not have sufficient funds", "address", key.Address.Hex(), "balance", currentBalance)
+			} else {
+				logger.Infow("Funding address ready", "address", key.Address.Hex(), "current-balance", currentBalance)
+			}
 		}
 	}
 
