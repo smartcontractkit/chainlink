@@ -384,7 +384,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 	config.On("EthTxReaperInterval").Return(1 * time.Hour)
 	config.On("EthMaxInFlightTransactions").Return(uint32(42))
-	config.On("EthFinalityDepth").Return(uint(42))
+	config.On("EthFinalityDepth").Maybe().Return(uint(42))
 	kst.On("AllKeys").Return([]ethkey.Key{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
 
+- Matic autoconfig is now enabled for mainnet. Matic nops should remove any custom tweaks they have been running with. In addition, we have better default configs for Optimism, Arbitrum and RSK.
+
 ### Added
 
 - JSON parse tasks (v2) now permit an empty `path` parameter.
@@ -168,6 +170,14 @@ tx_queue_per_sender = 16 # Highly recommended to increase this, must be greater 
 tx_queue_mem_limit = 4 # In MB. Highly recommended to increase this or set to 0
 tx_queue_no_early_reject = true # Recommended to set this
 tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as well make sure
+```
+
+- Keeper jobs now support prometheus metrics, they are considered a pipeline with a single `keeper` task type. Example:
+```
+pipeline_run_errors{job_id="1",job_name="example keeper spec"} 1
+pipeline_run_total_time_to_completion{job_id="1",job_name="example keeper spec"} 8.470456e+06
+pipeline_task_execution_time{job_id="1",job_name="example keeper spec",task_type="keeper"} 8.470456e+06
+pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="completed",task_type="keeper"} 1
 ```
 
 ### Fixed
