@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -70,4 +72,19 @@ func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
 
 	require.NoError(t, app.StartAndConnect())
 	_ = cltest.WaitForJobRunToComplete(t, store, jr)
+}
+
+func TestChainlinkApplication_ChangeInChainID(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+
+	config.Set("ETH_CHAIN_ID", 7853)
+	require.NoError(t, app.Start())
+	require.NoError(t, app.Stop())
+
+	config.Set("ETH_CHAIN_ID", 2663)
+	err := app.Start()
+	assert.Equal(t, chainlink.ErrNewChainID, err)
 }
