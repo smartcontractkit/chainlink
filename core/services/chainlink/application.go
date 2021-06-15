@@ -199,7 +199,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		if gasUpdater != nil {
 			headBroadcaster.Subscribe(gasUpdater)
 		}
-		headTracker = services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
