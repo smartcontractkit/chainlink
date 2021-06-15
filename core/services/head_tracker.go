@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -31,7 +32,7 @@ var (
 // store on reboot.
 type HeadTracker struct {
 	log             *logger.Logger
-	headBroadcaster *headtracker.HeadBroadcaster
+	headBroadcaster httypes.HeadBroadcaster
 	store           *strpkg.Store
 
 	backfillMB   utils.Mailbox
@@ -52,7 +53,7 @@ type HeadTracker struct {
 func NewHeadTracker(
 	l *logger.Logger,
 	store *strpkg.Store,
-	headBroadcaster *headtracker.HeadBroadcaster,
+	headBroadcaster httypes.HeadBroadcaster,
 	blockFetcher headtracker.BlockFetcherInterface,
 	sleepers ...utils.Sleeper,
 ) *HeadTracker {
@@ -93,7 +94,7 @@ func (ht *HeadTracker) logger() *logger.Logger {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.logger().Info("Starting HeadTracker")
+		ht.logger().Debug("Starting HeadTracker")
 		highestSeenHead, err := ht.headSaver.SetHighestSeenHeadFromDB()
 		if err != nil {
 			return err

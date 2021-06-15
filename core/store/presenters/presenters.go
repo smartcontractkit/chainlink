@@ -59,6 +59,7 @@ type EnvPrinter struct {
 	EthGasBumpTxDepth                     uint16          `json:"ETH_GAS_BUMP_TX_DEPTH"`
 	EthGasBumpWei                         *big.Int        `json:"ETH_GAS_BUMP_WEI"`
 	EthGasLimitDefault                    uint64          `json:"ETH_GAS_LIMIT_DEFAULT"`
+	EthGasLimitTransfer                   uint64          `json:"ETH_GAS_LIMIT_TRANSFER"`
 	EthGasPriceDefault                    *big.Int        `json:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth            uint            `json:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EthHeadTrackerMaxBufferSize           uint            `json:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
@@ -154,6 +155,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthGasBumpTxDepth:                     config.EthGasBumpTxDepth(),
 			EthGasBumpWei:                         config.EthGasBumpWei(),
 			EthGasLimitDefault:                    config.EthGasLimitDefault(),
+			EthGasLimitTransfer:                   config.EthGasLimitTransfer(),
 			EthGasPriceDefault:                    config.EthGasPriceDefault(),
 			EthHeadTrackerHistoryDepth:            config.EthHeadTrackerHistoryDepth(),
 			EthHeadTrackerMaxBufferSize:           config.EthHeadTrackerMaxBufferSize(),

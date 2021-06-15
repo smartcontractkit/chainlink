@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -25,10 +26,10 @@ type ConfigSchema struct {
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                                   big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                             string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"0m"`
+	DatabaseBackupDir                         string          `env:"DATABASE_BACKUP_DIR" default:""`
+	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
 	DatabaseBackupMode                        string          `env:"DATABASE_BACKUP_MODE" default:"none"`
 	DatabaseBackupURL                         *url.URL        `env:"DATABASE_BACKUP_URL" default:""`
-	DatabaseBackupDir                         string          `env:"DATABASE_BACKUP_DIR" default:""`
 	DatabaseListenerMaxReconnectDuration      time.Duration   `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
 	DatabaseListenerMinReconnectInterval      time.Duration   `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseMaximumTxDuration                 time.Duration   `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
@@ -47,7 +48,8 @@ type ConfigSchema struct {
 	EthGasBumpThreshold                       uint64          `env:"ETH_GAS_BUMP_THRESHOLD"`
 	EthGasBumpTxDepth                         uint16          `env:"ETH_GAS_BUMP_TX_DEPTH" default:"10"`
 	EthGasBumpWei                             big.Int         `env:"ETH_GAS_BUMP_WEI"`
-	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
+	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EthGasLimitTransfer                       uint64          `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EthGasLimitMultiplier                     float32         `env:"ETH_GAS_LIMIT_MULTIPLIER" default:"1.0"`
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
@@ -55,8 +57,8 @@ type ConfigSchema struct {
 	EthHeadTrackerSamplingInterval            time.Duration   `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL" default:"1s"`
 	EthLogBackfillBatchSize                   uint32          `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
 	EthMaxGasPriceWei                         big.Int         `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EthMaxInFlightTransactions                uint64          `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS" default:"16"`
-	EthMaxQueuedTransactions                  uint64          `env:"ETH_MAX_QUEUED_TRANSACTIONS" default:"250"`
+	EthMaxInFlightTransactions                uint64          `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
+	EthMaxQueuedTransactions                  uint64          `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
 	EthMinGasPriceWei                         big.Int         `env:"ETH_MIN_GAS_PRICE_WEI"`
 	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
@@ -95,7 +97,7 @@ type ConfigSchema struct {
 	KeeperMaximumGracePeriod                  int64           `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperMinimumRequiredConfirmations        uint64          `env:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS" default:"12"`
 	KeeperRegistrySyncInterval                time.Duration   `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
-	LinkContractAddress                       string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	LinkContractAddress                       string          `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                  LogLevel        `env:"LOG_LEVEL" default:"info"`
 	LogSQLMigrations                          bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	LogSQLStatements                          bool            `env:"LOG_SQL" default:"false"`
@@ -134,7 +136,7 @@ type ConfigSchema struct {
 	P2PDHTAnnouncementCounterUserPrefix       uint32          `env:"P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX" default:"0"`
 	P2PListenIP                               net.IP          `env:"P2P_LISTEN_IP" default:"0.0.0.0"`
 	P2PListenPort                             uint16          `env:"P2P_LISTEN_PORT"`
-	P2PPeerID                                 models.PeerID   `env:"P2P_PEER_ID"`
+	P2PPeerID                                 p2pkey.PeerID   `env:"P2P_PEER_ID"`
 	P2PPeerstoreWriteInterval                 time.Duration   `env:"P2P_PEERSTORE_WRITE_INTERVAL" default:"5m"`
 	Port                                      uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`

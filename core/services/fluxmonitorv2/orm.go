@@ -3,9 +3,13 @@ package fluxmonitorv2
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
 )
+
+type transmitter interface {
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error)
+}
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
@@ -15,16 +19,17 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, maxUnconfirmedTransactions uint64) error
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
 }
 
 type orm struct {
-	db *gorm.DB
+	db  *gorm.DB
+	txm transmitter
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *gorm.DB) *orm {
-	return &orm{db}
+func NewORM(db *gorm.DB, txm transmitter) *orm {
+	return &orm{db, txm}
 }
 
 // MostRecentFluxMonitorRoundID finds roundID of the most recent round that the
@@ -95,8 +100,7 @@ func (o *orm) CreateEthTransaction(
 	toAddress common.Address,
 	payload []byte,
 	gasLimit uint64,
-	maxUnconfirmedTransactions uint64,
 ) (err error) {
-	_, err = bulletprooftxmanager.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, maxUnconfirmedTransactions, nil)
+	_, err = o.txm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil)
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }

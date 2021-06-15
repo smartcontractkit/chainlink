@@ -24,6 +24,7 @@ func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
 	db *gorm.DB,
+	txm transmitter,
 	jrm job.ORM,
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
@@ -44,7 +45,7 @@ func NewRegistrySynchronizer(
 		logBroadcaster:   logBroadcaster,
 		mailRoom:         mailRoom,
 		minConfirmations: minConfirmations,
-		orm:              NewORM(db),
+		orm:              NewORM(db, txm),
 		StartStopOnce:    utils.StartStopOnce{},
 		wgDone:           sync.WaitGroup{},
 	}

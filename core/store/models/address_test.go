@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEIP55Address(t *testing.T) {
 	t.Parallel()
 
-	address := EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+	address := ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
 
 	assert.Equal(t, []byte{
 		0xa0, 0x78, 0x8f, 0xc1, 0x7b, 0x1d, 0xee, 0x36,
@@ -33,12 +34,12 @@ func TestEIP55Address(t *testing.T) {
 
 	assert.Equal(t, "0xa0788FC17B1dEe36f057c42B6F373A34B014687e", address.String())
 
-	zeroAddress := EIP55Address("")
+	zeroAddress := ethkey.EIP55Address("")
 	err := json.Unmarshal([]byte(`"0xa0788FC17B1dEe36f057c42B6F373A34B014687e"`), &zeroAddress)
 	assert.NoError(t, err)
 	assert.Equal(t, "0xa0788FC17B1dEe36f057c42B6F373A34B014687e", zeroAddress.String())
 
-	zeroAddress = EIP55Address("")
+	zeroAddress = ethkey.EIP55Address("")
 	err = zeroAddress.UnmarshalText([]byte("0xa0788FC17B1dEe36f057c42B6F373A34B014687e"))
 	assert.NoError(t, err)
 	assert.Equal(t, "0xa0788FC17B1dEe36f057c42B6F373A34B014687e", zeroAddress.String())
@@ -62,7 +63,7 @@ func TestValidateEIP55Address(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := NewEIP55Address(test.input)
+			_, err := ethkey.NewEIP55Address(test.input)
 			valid := err == nil
 			assert.Equal(t, test.valid, valid)
 		})

@@ -70,9 +70,9 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 	case o.logAllQueries:
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Debugw("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Debugw("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	}
 }
