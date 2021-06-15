@@ -69,7 +69,6 @@ func (bf *BlockFetcher) Backfill(ctx context.Context, latestHead models.Head) {
 	if from < 0 {
 		from = 0
 	}
-
 	bf.StartDownloadAsync(ctx, from, latestHead.Number)
 }
 
