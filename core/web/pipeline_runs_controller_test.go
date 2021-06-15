@@ -56,13 +56,13 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	{
 		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-with-body.toml")
 		require.NoError(t, err)
-		webhookJobSpecFromFile, err := webhook.ValidateWebhookSpec(tree.String())
+		webhookJobSpecFromFile, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
 		require.NoError(t, err)
 
-		copy(uuid[:], webhookJobSpecFromFile.WebhookSpec.OnChainJobSpecID[:])
+		uuid = webhookJobSpecFromFile.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -128,13 +128,13 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	{
 		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-no-body.toml")
 		require.NoError(t, err)
-		webhookJobSpecFromFile, err := webhook.ValidateWebhookSpec(tree.String())
+		webhookJobSpecFromFile, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
 		require.NoError(t, err)
 
-		copy(uuid[:], webhookJobSpecFromFile.WebhookSpec.OnChainJobSpecID[:])
+		uuid = webhookJobSpecFromFile.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -259,6 +259,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
+	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 	contractAddress    = "%s"
 	p2pPeerID          = "%s"
 	p2pBootstrapPeers  = [
@@ -285,7 +286,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	ocrJobSpec.OffchainreportingOracleSpec = &os
 
-	err = app.OCRKeyStore.Unlock(cltest.Password)
+	err = app.GetKeyStore().OCR().Unlock(cltest.Password)
 	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})

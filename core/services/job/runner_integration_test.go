@@ -18,7 +18,6 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
@@ -39,15 +39,15 @@ import (
 var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
 	defer cleanupDB()
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
-	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
+	pipelineORM := pipeline.NewORM(db, config)
 	runner := pipeline.NewRunner(pipelineORM, config)
 	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
@@ -256,7 +256,7 @@ func TestRunner(t *testing.T) {
 
 		assert.Len(t, results.Values, 1)
 		assert.Len(t, results.Errors, 1)
-		assert.Equal(t, results.Errors[0].Error(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
+		assert.Contains(t, results.Errors[0].Error(), pipeline.ErrTooManyErrors.Error())
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -272,10 +272,10 @@ func TestRunner(t *testing.T) {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.GetDotID() == "ds1_parse" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), pipeline.ErrTooManyErrors.Error())
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -331,7 +331,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
@@ -362,6 +362,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -376,7 +377,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = job.Job{
@@ -409,6 +410,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -423,7 +425,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -472,6 +474,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -485,7 +488,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -517,6 +520,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -530,7 +534,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = job.Job{
@@ -555,6 +559,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -569,7 +574,7 @@ ds1 -> ds1_parse;
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -593,12 +598,13 @@ ds1 -> ds1_parse;
 
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
 			pw,
 			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)

@@ -1,19 +1,19 @@
 package keeper
 
-import "github.com/smartcontractkit/chainlink/core/store/models"
+import "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
 type Registry struct {
 	ID                int32 `gorm:"primary_key"`
 	BlockCountPerTurn int32
 	CheckGas          int32
-	ContractAddress   models.EIP55Address
-	FromAddress       models.EIP55Address
+	ContractAddress   ethkey.EIP55Address
+	FromAddress       ethkey.EIP55Address
 	JobID             int32
 	KeeperIndex       int32
 	NumKeepers        int32
 }
 
-func NewRegistry(address models.EIP55Address, from models.EIP55Address, jobID int32) Registry {
+func NewRegistry(address ethkey.EIP55Address, from ethkey.EIP55Address, jobID int32) Registry {
 	return Registry{
 		ContractAddress: address,
 		FromAddress:     from,
@@ -28,7 +28,7 @@ func (Registry) TableName() string {
 type UpkeepRegistration struct {
 	ID                  int32 `gorm:"primary_key"`
 	CheckData           []byte
-	ExecuteGas          int32
+	ExecuteGas          uint64
 	LastRunBlockHeight  int64
 	RegistryID          int32
 	Registry            Registry

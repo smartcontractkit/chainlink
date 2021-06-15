@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Checks that the correct abigen is installed in this directory, and installs it
 # if not.

@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"regexp"
 	"sort"
 	"time"
 
@@ -64,13 +65,12 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
-		numPredecessors := g.To(node.ID()).Len()
-		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, numPredecessors)
-		if err != nil {
-			return nil, err
+		if node.dotID == InputTaskKey {
+			return nil, errors.Errorf("'%v' is a reserved keyword that cannot be used as a task's name", InputTaskKey)
 		}
 
-		err = task.SetDefaults(node.attrs, g, *node)
+		numPredecessors := g.To(node.ID()).Len()
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, numPredecessors)
 		if err != nil {
 			return nil, err
 		}
@@ -155,11 +155,18 @@ func (n *TaskDAGNode) String() string {
 	return n.dotID
 }
 
+var bracketQuotedAttrRegexp = regexp.MustCompile(`^\s*<([^<>]+)>\s*$`)
+
 func (n *TaskDAGNode) SetAttribute(attr encoding.Attribute) error {
 	if n.attrs == nil {
 		n.attrs = make(map[string]string)
 	}
-	n.attrs[attr.Key] = attr.Value
+
+	// Strings quoted in angle brackets (supported natively by DOT) should
+	// have those brackets removed before decoding to task parameter types
+	sanitized := bracketQuotedAttrRegexp.ReplaceAllString(attr.Value, "$1")
+
+	n.attrs[attr.Key] = sanitized
 	return nil
 }
 
@@ -173,15 +180,6 @@ func (n *TaskDAGNode) Attributes() []encoding.Attribute {
 		return r[i].Key < r[j].Key
 	})
 	return r
-}
-
-func (n *TaskDAGNode) inputs() []*TaskDAGNode {
-	var nodes []*TaskDAGNode
-	ns := n.g.To(n.ID())
-	for ns.Next() {
-		nodes = append(nodes, ns.Node().(*TaskDAGNode))
-	}
-	return nodes
 }
 
 func (n *TaskDAGNode) outputs() []*TaskDAGNode {

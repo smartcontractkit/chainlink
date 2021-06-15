@@ -2,10 +2,12 @@ package log
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -38,11 +42,10 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		Start() error
-		Stop() error
+		service.Service
+		httypes.HeadTrackable
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
 		TrackedAddressesCount() uint32
 		// DB interactions
@@ -109,7 +112,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
 	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
@@ -123,21 +126,13 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		newHeads:         utils.NewMailbox(1),
 		DependentAwaiter: utils.NewDependentAwaiter(),
 		chStop:           chStop,
+		latestHeadFromDb: highestSavedHead,
 	}
-}
-
-func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	b.latestHeadFromDb = head
 }
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
-		if b.latestHeadFromDb != nil {
-			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
-		} else {
-			logger.Info("LogBroadcaster: Latest head from DB was not set or does not exist.")
-		}
 		go b.awaitInitialSubscribers()
 		return nil
 	})
@@ -151,7 +146,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return atomic.LoadUint32(&b.trackedAddressesCount)
 }
 
-func (b *broadcaster) Stop() error {
+func (b *broadcaster) Close() error {
 	return b.StopOnce("LogBroadcaster", func() error {
 		close(b.chStop)
 		b.wgDone.Wait()
@@ -201,7 +196,6 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 }
 
 func (b *broadcaster) Connect(head *models.Head) error { return nil }
-func (b *broadcaster) Disconnect()                     {}
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
@@ -237,7 +231,30 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
+		var backfillFrom null.Int64
+		if b.latestHeadFromDb != nil {
+			// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
+			// - keeping logs in the in-memory buffers in registration.go
+			//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
+			// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
+			//   (or more heads on fast chains) may be saved but not yet processed by LB
+			//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
+			from := b.latestHeadFromDb.Number -
+				int64(b.registrations.highestNumConfirmations) -
+				int64(b.config.BlockBackfillDepth())
+
+			logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
+				"blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash,
+				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
+			)
+
+			if from < 0 {
+				from = 0
+			}
+			backfillFrom = null.Int64From(from)
+		}
+
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(backfillFrom, addresses, topics)
 		if abort {
 			return
 		}
@@ -426,3 +443,35 @@ func (b *broadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error
 func (b *broadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
 	return b.orm.MarkBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
+
+type NullBroadcaster struct{ ErrMsg string }
+
+func (n *NullBroadcaster) IsConnected() bool { return false }
+func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
+	return func() {}
+}
+func (n *NullBroadcaster) LatestHead() *models.Head {
+	return nil
+}
+func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
+	return 0
+}
+func (n *NullBroadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error) {
+	return false, errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
+	return errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) AddDependents(int) {}
+func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+func (n *NullBroadcaster) DependentReady()                                {}
+func (n *NullBroadcaster) Start() error                                   { return nil }
+func (n *NullBroadcaster) Close() error                                   { return nil }
+func (n *NullBroadcaster) Healthy() error                                 { return nil }
+func (n *NullBroadcaster) Ready() error                                   { return nil }
+func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}

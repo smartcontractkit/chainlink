@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
@@ -31,55 +29,40 @@ const (
 	AutoMigrate = "auto_migrate"
 )
 
-// NotifyNewEthTx allows to notify the ethBroadcaster of a new transaction
-//go:generate mockery --name NotifyNewEthTx --output ../internal/mocks/ --case=underscore
-type NotifyNewEthTx interface {
-	Trigger()
-}
-
 // Store contains fields for the database, Config, and KeyStore
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config         *orm.Config
-	Clock          utils.AfterNower
-	KeyStore       KeyStoreInterface
-	VRFKeyStore    *vrf.VRFKeyStore
+	Config *orm.Config
+	Clock  utils.AfterNower
+	// KeyStore       KeyStoreInterface
+	// VRFKeyStore    *vrf.VRFKeyStore
 	EthClient      eth.Client
-	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
-type KeyStoreGenerator func(*gorm.DB, *orm.Config) KeyStoreInterface
-
-func StandardKeyStoreGen(db *gorm.DB, config *orm.Config) KeyStoreInterface {
-	scryptParams := utils.GetScryptParams(config)
-	return NewKeyStore(db, scryptParams)
-}
-
-func InsecureKeyStoreGen(db *gorm.DB, _ *orm.Config) KeyStoreInterface {
-	return NewInsecureKeyStore(db)
-}
-
 // NewStore will create a new store
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+// func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	// return newStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+	return newStore(config, ethClient, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
 func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+	// return newStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+	return newStore(config, ethClient, advisoryLocker, shutdownSignal)
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
 // See: https://www.pivotaltracker.com/story/show/175493792
-func newStoreWithKeyStore(
+func newStore(
 	config *orm.Config,
 	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
-	keyStoreGenerator KeyStoreGenerator,
+	// keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -91,19 +74,19 @@ func newStoreWithKeyStore(
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
 
-	keyStore := keyStoreGenerator(orm.DB, config)
-	scryptParams := utils.GetScryptParams(config)
+	// keyStore := keyStoreGenerator(orm.DB, config)
+	// scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
 		Clock:          utils.Clock{},
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
-		KeyStore:       keyStore,
-		ORM:            orm,
-		EthClient:      ethClient,
-		closeOnce:      &sync.Once{},
+		// KeyStore:       keyStore,
+		ORM:       orm,
+		EthClient: ethClient,
+		closeOnce: &sync.Once{},
 	}
-	store.VRFKeyStore = vrf.NewVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
+	// store.VRFKeyStore = vrf.newVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil
 }
 
@@ -120,6 +103,14 @@ func (s *Store) Close() error {
 		err = multierr.Append(err, s.AdvisoryLocker.Close())
 	})
 	return err
+}
+
+func (s *Store) Ready() error {
+	return nil
+}
+
+func (s *Store) Healthy() error {
+	return nil
 }
 
 // Unscoped returns a shallow copy of the store, with an unscoped ORM allowing

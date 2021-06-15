@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -28,6 +28,7 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -72,7 +73,6 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
-		logger.Info("ETH_DISABLED is set, using Null eth.Client")
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
@@ -83,7 +83,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, services.NewExternalInitiatorManager(), onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
@@ -97,9 +97,13 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
-	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
-	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	config := app.GetStore().Config
+	mode := gin.ReleaseMode
+	if config.Dev() && config.LogLevel().Level < zapcore.InfoLevel {
+		mode = gin.DebugMode
+	}
+	gin.SetMode(mode)
+	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	var g errgroup.Group
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
@@ -174,10 +178,22 @@ type authenticatedHTTPClient struct {
 func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator, sessionRequest models.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:         config,
-		client:         &http.Client{},
+		client:         newHttpClient(config),
 		cookieAuth:     cookieAuth,
 		sessionRequest: sessionRequest,
 	}
+}
+
+func newHttpClient(config orm.ConfigReader) *http.Client {
+	tr := &http.Transport{
+		// User enables this at their own risk!
+		// #nosec G402
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify()},
+	}
+	if config.InsecureSkipVerify() {
+		fmt.Println("WARNING: INSECURE_SKIP_VERIFY is set to true, skipping SSL certificate verification.")
+	}
+	return &http.Client{Transport: tr}
 }
 
 // Get performs an HTTP Get using the authenticated HTTP client's cookie.
@@ -288,7 +304,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := http.Client{Timeout: 30 * time.Second}
+	client := newHttpClient(t.config)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

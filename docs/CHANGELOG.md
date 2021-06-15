@@ -9,9 +9,193 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
+
+- Matic autoconfig is now enabled for mainnet. Matic nops should remove any custom tweaks they have been running with. In addition, we have better default configs for Optimism, Arbitrum and RSK.
+
+### Added
+
+- INSECURE_SKIP_VERIFY configuration variable disables verification of the Chainlink SSL certificates when using the CLI.
+
+- JSON parse tasks (v2) now permit an empty `path` parameter.
+
+- Eth->eth transfer gas limit is no longer hardcoded at 21000 and can now be adjusted using `ETH_GAS_LIMIT_TRANSFER`
+
+- HTTP and Bridge tasks (v2 pipeline) now log the request parameters (including the body) upon making the request when `LOG_LEVEL=debug`.
+
+- Webhook v2 jobs now support two new parameters, `externalInitiatorName` and `externalInitiatorSpec`. The v2 version of the following v1 spec:
+    ```
+    {
+      "initiators": [
+        {
+          "type": "external",
+          "params": {
+            "name": "substrate",
+            "body": {
+              "endpoint": "substrate",
+              "feed_id": 0,
+              "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+              "fluxmonitor": {
+                "requestData": {
+                  "data": { "from": "DOT", "to": "USD" }
+                },
+                "feeds": [{ "url": "http://adapter1:8080" }],
+                "threshold": 0.5,
+                "absoluteThreshold": 0,
+                "precision": 8,
+                "pollTimer": { "period": "30s" },
+                "idleTimer": { "duration": "1m" }
+              }
+            }
+          }
+        }
+      ],
+      "tasks": [
+        {
+          "type": "substrate-adapter1",
+          "params": { "multiply": 1e8 }
+        }
+      ]
+    }
+    ```
+    is:
+    ```
+    type            = "webhook"
+    schemaVersion   = 1
+    jobID           = "0EEC7E1D-D0D2-475C-A1A8-72DFB6633F46"
+    externalInitiatorName = "substrate"
+    externalInitiatorSpec = """
+        {
+          "endpoint": "substrate",
+          "feed_id": 0,
+          "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+          "fluxmonitor": {
+            "requestData": {
+              "data": { "from": "DOT", "to": "USD" }
+            },
+            "feeds": [{ "url": "http://adapter1:8080" }],
+            "threshold": 0.5,
+            "absoluteThreshold": 0,
+            "precision": 8,
+            "pollTimer": { "period": "30s" },
+            "idleTimer": { "duration": "1m" }
+          }
+        }
+    """
+    observationSource   = """
+        submit [type=bridge name="substrate-adapter1" requestData=<{ "multiply": 1e8 }>]
+    """
+    ```
+    
+
+- Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
+
+    ``` 
+    my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+    ```
+    ... can now be written as:
+    ``` 
+    my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
+    ```
+    Multiline strings are supported with this syntax as well:
+    ``` 
+    my_bridge [type=bridge
+               name="my_bridge"
+               requestData=<{
+                   "hi": "hello",
+                   "foo": "bar"
+               }>]
+    ```
+
+- v2 jobs (those with TOML specs) now support variable interpolation in pipeline definitions. For example:
+
+    ```
+    fetch1    [type=bridge name="fetch"]
+    parse1    [type=jsonparse path="foo,bar"]
+    fetch2    [type=bridge name="fetch"]
+    parse2    [type=jsonparse path="foo,bar"]
+    medianize [type=median]
+    submit    [type=bridge name="submit"
+               requestData=<{
+                              "result": $(medianize),
+                              "fetchedData": [ $(parse1), $(parse2) ]
+                            }>]
+
+    fetch1 -> parse1 -> medianize
+    fetch2 -> parse2 -> medianize
+    medianize -> submit
+    ```
+
+    This syntax is supported by the following tasks/parameters:
+
+    - `bridge`
+        - `requestData`
+    - `http`
+        - `requestData`
+    - `jsonparse`
+        - `data` (falls back to the first input if unspecified)
+    - `median`
+        - `values` (falls back to the array of inputs if unspecified)
+    - `multiply`
+        - `input` (falls back to the first input if unspecified)
+        - `times`
+
+- Add `ETH_MAX_IN_FLIGHT_TRANSACTIONS` configuration option. This defaults to 16 and controls how many unconfirmed transactions may be in-flight at any given moment. This is set conservatively by default, node operators running many jobs on high throughput chains will probably need to increase this above the default to avoid lagging behind. However, before increasing this value, you MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise your node may get permanently stuck. Set to 0 to disable the limit entirely (the old behaviour). Disabling this setting is not recommended.
+
+Relevant settings for geth (and forks e.g. BSC)
+
+```toml
+[Eth.TxPool]
+Locals = ["0xYourNodeAddress1", "0xYourNodeAddress2"]  # Add your node addresses here
+NoLocals = false # Disabled by default but might as well make sure
+Journal = "transactions.rlp" # Make sure you set a journal file
+Rejournal = 3600000000000 # Default 1h, it might make sense to reduce this to e.g. 5m
+PriceBump = 10 # Must be set less than or equal to chainlink's ETH_GAS_BUMP_PERCENT
+AccountSlots = 16 # Highly recommended to increase this, must be greater than or equal to chainlink's ETH_MAX_IN_FLIGHT_TRANSACTIONS setting
+GlobalSlots = 4096 # Increase this as necessary
+AccountQueue = 64 # Increase this as necessary
+GlobalQueue = 1024 # Increase this as necessary
+Lifetime = 10800000000000 # Default 3h, this is probably ok, you might even consider reducing it
+
+```
+
+Relevant settings for parity/openethereum (and forks e.g. xDai)
+
+NOTE: There is a bug in parity (and xDai) where occasionally local transactions are inexplicably culled. See: https://github.com/openethereum/parity-ethereum/issues/10228
+
+Adjusting the settings below might help.
+
+```toml
+tx_queue_locals = ["0xYourNodeAddress1", "0xYourNodeAddress2"] # Add your node addresses here
+tx_queue_size = 8192 # Increase this as necessary
+tx_queue_per_sender = 16 # Highly recommended to increase this, must be greater than or equal to chainlink's ETH_MAX_IN_FLIGHT_TRANSACTIONS setting
+tx_queue_mem_limit = 4 # In MB. Highly recommended to increase this or set to 0
+tx_queue_no_early_reject = true # Recommended to set this
+tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as well make sure
+```
+
+- Keeper jobs now support prometheus metrics, they are considered a pipeline with a single `keeper` task type. Example:
+```
+pipeline_run_errors{job_id="1",job_name="example keeper spec"} 1
+pipeline_run_total_time_to_completion{job_id="1",job_name="example keeper spec"} 8.470456e+06
+pipeline_task_execution_time{job_id="1",job_name="example keeper spec",task_type="keeper"} 8.470456e+06
+pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="completed",task_type="keeper"} 1
+```
+
+### Fixed
+
+- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+- Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
+
 ### Changed
 
+- The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
+
 - Chainlink no longers writes/reads eth key files to disk
+- Add sensible default configuration settings for Fantom
+
+- Rename `ETH_MAX_UNCONFIRMED_TRANSACTIONS` to `ETH_MAX_QUEUED_TRANSACTIONS`. It still performs the same function but the name was misleading and would have caused confusion with the new `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
+
 
 ## [0.10.7] - 2021-05-24
 

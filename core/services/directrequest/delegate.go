@@ -34,10 +34,12 @@ type (
 	}
 
 	Config interface {
-		MinRequiredOutgoingConfirmations() uint64
+		MinIncomingConfirmations() uint32
 		MinimumContractPayment() *assets.Link
 	}
 )
+
+var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	logBroadcaster log.Broadcaster,
@@ -62,6 +64,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
+
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err error) {
 	if job.DirectRequestSpec == nil {
@@ -74,28 +79,24 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		return
 	}
 
-	minConfirmations := d.config.MinRequiredOutgoingConfirmations()
+	minIncomingConfirmations := d.config.MinIncomingConfirmations()
 
-	if concreteSpec.NumConfirmations.Uint32 > uint32(minConfirmations) {
-		minConfirmations = uint64(concreteSpec.NumConfirmations.Uint32)
+	if concreteSpec.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
+		minIncomingConfirmations = concreteSpec.MinIncomingConfirmations.Uint32
 	}
 
 	logListener := &listener{
-		config:           d.config,
-		logBroadcaster:   d.logBroadcaster,
-		oracle:           oracle,
-		pipelineRunner:   d.pipelineRunner,
-		db:               d.db,
-		pipelineORM:      d.pipelineORM,
-		job:              job,
-		onChainJobSpecID: job.DirectRequestSpec.OnChainJobSpecID.Hash(),
-
-		// At the moment the mailbox would start skipping if there were
-		// too many relevant logs for the same job (> 50) in each block.
-		// This is going to get fixed after new LB changes are merged.
-		mbLogs:           utils.NewMailbox(50),
-		minConfirmations: minConfirmations,
-		chStop:           make(chan struct{}),
+		config:                   d.config,
+		logBroadcaster:           d.logBroadcaster,
+		oracle:                   oracle,
+		pipelineRunner:           d.pipelineRunner,
+		db:                       d.db,
+		pipelineORM:              d.pipelineORM,
+		job:                      job,
+		onChainJobSpecID:         job.ExternalIDToTopicHash(),
+		mbLogs:                   utils.NewMailbox(50),
+		minIncomingConfirmations: uint64(minIncomingConfirmations),
+		chStop:                   make(chan struct{}),
 	}
 	services = append(services, logListener)
 
@@ -108,19 +109,19 @@ var (
 )
 
 type listener struct {
-	config            Config
-	logBroadcaster    log.Broadcaster
-	oracle            oracle_wrapper.OracleInterface
-	pipelineRunner    pipeline.Runner
-	db                *gorm.DB
-	pipelineORM       pipeline.ORM
-	job               job.Job
-	onChainJobSpecID  common.Hash
-	runs              sync.Map
-	shutdownWaitGroup sync.WaitGroup
-	mbLogs            *utils.Mailbox
-	minConfirmations  uint64
-	chStop            chan struct{}
+	config                   Config
+	logBroadcaster           log.Broadcaster
+	oracle                   oracle_wrapper.OracleInterface
+	pipelineRunner           pipeline.Runner
+	db                       *gorm.DB
+	pipelineORM              pipeline.ORM
+	job                      job.Job
+	onChainJobSpecID         common.Hash
+	runs                     sync.Map
+	shutdownWaitGroup        sync.WaitGroup
+	mbLogs                   *utils.Mailbox
+	minIncomingConfirmations uint64
+	chStop                   chan struct{}
 	utils.StartStopOnce
 }
 
@@ -133,7 +134,7 @@ func (l *listener) Start() error {
 				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.onChainJobSpecID)}},
 				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.onChainJobSpecID)}},
 			},
-			NumConfirmations: l.minConfirmations,
+			NumConfirmations: l.minIncomingConfirmations,
 		})
 		l.shutdownWaitGroup.Add(2)
 		go l.run()

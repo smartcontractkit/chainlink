@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/fatih/color"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
@@ -26,12 +28,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/health"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -56,26 +63,37 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if cli.Config.Dev() {
 		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
+	if cli.Config.EthereumDisabled() {
+		logger.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
+	}
+
+	pwd, err := passwordFromFile(c.String("password"))
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+	}
 
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
 	store := app.GetStore()
+	keyStore := app.GetKeyStore()
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
 		logger.Warn(e)
 	}
-	pwd, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
-	keyStorePwd, err := cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	// TODO - RYAN - authenticating the keystore should be done in one step here! with ONE password file
+	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
+	keyStorePwd, err := cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth(), pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(app, keyStorePwd); authErr != nil {
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR(), store.Config, keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
+	}
+
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateCSAKey(keyStore.CSA(), keyStorePwd); authErr != nil {
+		return cli.errorOut(errors.Wrapf(authErr, "while authenticating CSA keystore"))
 	}
 
 	if len(c.String("vrfpassword")) != 0 {
@@ -85,7 +103,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 				"error reading VRF password from vrfpassword file \"%s\"",
 				c.String("vrfpassword")))
 		}
-		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
+		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(keyStore.VRF(), vrfpwd); authErr != nil {
 			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
 		}
 	}
@@ -112,17 +130,20 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	if !store.Config.EthereumDisabled() {
-		key, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
+		key, currentBalance, err := setupFundingKey(context.TODO(), store.EthClient, keyStore.Eth(), keyStorePwd)
 		if err != nil {
 			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
 		}
-		if currentBalance.Cmp(big.NewInt(0)) == 0 {
-			logger.Infow("The backup funding address does not have sufficient funds", "address", key.Address.Hex(), "balance", currentBalance)
-		} else {
-			logger.Infow("Funding address ready", "address", key.Address.Hex(), "current-balance", currentBalance)
+		if store.Config.Dev() {
+			if currentBalance.Cmp(big.NewInt(0)) == 0 {
+				logger.Infow("The backup funding address does not have sufficient funds", "address", key.Address.Hex(), "balance", currentBalance)
+			} else {
+				logger.Infow("Funding address ready", "address", key.Address.Hex(), "current-balance", currentBalance)
+			}
 		}
 	}
 
+	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
@@ -216,14 +237,18 @@ func logConfigVariables(store *strpkg.Store) error {
 	return nil
 }
 
-func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (key models.Key, balance *big.Int, err error) {
-	key, existed, err := str.KeyStore.EnsureFundingKey()
+func setupFundingKey(ctx context.Context,
+	etClient eth.Client,
+	ethKeyStore *keystore.Eth,
+	pwd string,
+) (key ethkey.Key, balance *big.Int, err error) {
+	key, existed, err := ethKeyStore.EnsureFundingKey()
 	if err != nil {
 		return key, nil, err
 	}
 	if existed {
 		// TODO How to make sure the EthClient is connected?
-		balance, ethErr := str.EthClient.BalanceAt(ctx, key.Address.Address(), nil)
+		balance, ethErr := etClient.BalanceAt(ctx, key.Address.Address(), nil)
 		return key, balance, ethErr
 	}
 	logger.Infow("New funding address created", "address", key.Address.Hex(), "balance", 0)
@@ -257,6 +282,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}()
 	store := app.GetStore()
+	keyStore := app.GetKeyStore()
 
 	err = store.EthClient.Dial(context.TODO())
 	if err != nil {
@@ -267,7 +293,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	_, err = cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth(), pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
@@ -279,7 +305,11 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	ec := bulletprooftxmanager.NewEthConfirmer(store, cli.Config)
+	allKeys, err := keyStore.Eth().AllKeys()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -310,6 +340,61 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 
 	logger.Info("successfully reset the node state in the database")
 	return nil
+}
+
+type HealthCheckPresenter struct {
+	webPresenters.Check
+}
+
+func (p *HealthCheckPresenter) ToRow() []string {
+	red := color.New(color.FgRed).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+
+	var status string
+
+	switch p.Status {
+	case health.StatusFailing:
+		status = red(p.Status)
+	case health.StatusPassing:
+		status = green(p.Status)
+	}
+
+	return []string{
+		p.Name,
+		status,
+		p.Output,
+	}
+}
+
+type HealthCheckPresenters []HealthCheckPresenter
+
+// RenderTable implements TableRenderer
+func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"Name", "Status", "Output"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
+// Status will display the health of various services
+func (cli *Client) Status(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/health?full=1", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
 func (cli *Client) makeApp() (chainlink.Application, func(), error) {
@@ -549,6 +634,6 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 
 	srcKeyPath := c.Args().First() // e.g. ./keys/mykey
 
-	_, err = app.GetStore().KeyStore.ImportKeyFileToDB(srcKeyPath)
+	_, err = app.GetKeyStore().Eth().ImportKeyFileToDB(srcKeyPath)
 	return cli.errorOut(err)
 }

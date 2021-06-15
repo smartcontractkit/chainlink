@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 DB_FILE="$1"
 DB_SUPER_USER="postgres"

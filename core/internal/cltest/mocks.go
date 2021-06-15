@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -165,19 +166,23 @@ func (a noopStopApplication) Stop() error {
 
 // CallbackAuthenticator contains a call back authenticator method
 type CallbackAuthenticator struct {
-	Callback func(*store.Store, string) (string, error)
+	Callback func(*keystore.Eth, string) (string, error)
 }
 
 // Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (string, error) {
-	return a.Callback(store, pwd)
+func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd string) (string, error) {
+	return a.Callback(ethKeyStore, pwd)
 }
 
-func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
+func (a CallbackAuthenticator) AuthenticateVRFKey(*keystore.VRF, string) error {
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(chainlink.Application, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error {
+	return nil
+}
+
+func (a CallbackAuthenticator) AuthenticateCSAKey(*keystore.CSA, string) error {
 	return nil
 }
 
@@ -358,7 +363,6 @@ type MockCronEntry struct {
 type MockHeadTrackable struct {
 	connectedCount    int32
 	ConnectedCallback func(bn *models.Head)
-	disconnectedCount int32
 	onNewHeadCount    int32
 }
 
@@ -374,14 +378,6 @@ func (m *MockHeadTrackable) Connect(bn *models.Head) error {
 // ConnectedCount returns the count of connections made, safely.
 func (m *MockHeadTrackable) ConnectedCount() int32 {
 	return atomic.LoadInt32(&m.connectedCount)
-}
-
-// Disconnect increases the disconnected count by one
-func (m *MockHeadTrackable) Disconnect() { atomic.AddInt32(&m.disconnectedCount, 1) }
-
-// DisconnectedCount returns the count of disconnections made, safely.
-func (m *MockHeadTrackable) DisconnectedCount() int32 {
-	return atomic.LoadInt32(&m.disconnectedCount)
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one

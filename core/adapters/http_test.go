@@ -40,7 +40,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := test.adapter.Perform(models.RunInput{}, store)
+			result := test.adapter.Perform(models.RunInput{}, store, nil)
 			assert.True(t, result.HasError())
 			assert.Empty(t, result.Data())
 		})
@@ -97,7 +97,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 			}
 			assert.Equal(t, test.queryParams, hga.QueryParams)
 
-			result := hga.Perform(input, store)
+			result := hga.Perform(input, store, nil)
 
 			if test.wantErrored {
 				require.Error(t, result.Error())
@@ -135,7 +135,7 @@ func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
 	}
 
 	input := cltest.NewRunInputWithResult("inputValue")
-	result := hga.Perform(input, store)
+	result := hga.Perform(input, store, nil)
 	require.NoError(t, result.Error())
 
 	gomega.NewGomegaWithT(t).Eventually(func() int {
@@ -169,7 +169,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 			defer cleanup()
 
 			hga := test.factory(cltest.WebURL(t, mock.URL))
-			result := hga.Perform(input, store)
+			result := hga.Perform(input, store, nil)
 
 			require.Error(t, result.Error())
 			assert.Contains(t, result.Error().Error(), "HTTP response too large")
@@ -201,7 +201,7 @@ func TestHTTP_PerformWithRestrictedIP(t *testing.T) {
 			defer mock.Close()
 
 			h := test.factory(cltest.WebURL(t, mock.URL))
-			result := h.Perform(input, store)
+			result := h.Perform(input, store, nil)
 
 			require.Error(t, result.Error())
 			assert.Contains(t, result.Error().Error(), "disallowed IP")
@@ -350,7 +350,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			}
 			assert.Equal(t, test.queryParams, hpa.QueryParams)
 
-			result := hpa.Perform(input, leanStore())
+			result := hpa.Perform(input, leanStore(), nil)
 
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
@@ -687,6 +687,13 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			"http://example.com?firstKey=firstVal",
 		},
 		{
+			"subdirectory with trailing slash",
+			"http://example.com/subdir/",
+			`""`,
+			`"?firstKey=firstVal"`,
+			"http://example.com/subdir/?firstKey=firstVal",
+		},
+		{
 			"path no query params",
 			baseUrl,
 			`"one"`,
@@ -781,7 +788,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 					}))
 				defer srv.Close()
 				hga := makeHTTPGetAdapter(t, srv)
-				_ = hga.Perform(input, str)
+				_ = hga.Perform(input, str, nil)
 				if atomic.LoadUint32(&counter) != 1 {
 					t.Fatalf("expected retry count to be 1 for status %d but is %d", statusCode, counter)
 				}
@@ -802,7 +809,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 			}))
 		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
-		_ = hga.Perform(input, str)
+		_ = hga.Perform(input, str, nil)
 		if atomic.LoadUint32(&counter) != 3 {
 			t.Fatalf("expected adapter to make 3 call, when the first 2 are 500s, instead it made %d calls", counter)
 		}
@@ -819,7 +826,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 			}))
 		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
-		_ = hga.Perform(input, str)
+		_ = hga.Perform(input, str, nil)
 		if atomic.LoadUint32(&counter) != 1 {
 			t.Fatalf("expected adapter to give up when it receives a large response but instead it tried %d times", counter)
 		}
@@ -834,7 +841,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 			}))
 		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
-		_ = hga.Perform(input, str)
+		_ = hga.Perform(input, str, nil)
 		expected := str.Config.DefaultMaxHTTPAttempts()
 		if atomic.LoadUint32(&counter) != uint32(expected) {
 			t.Fatalf("expected adapter to give up after %d attempts but instead it tried %d times", expected, counter)
@@ -858,7 +865,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 			}))
 		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
-		_ = hga.Perform(input, str)
+		_ = hga.Perform(input, str, nil)
 		expected := uint32(str.Config.DefaultMaxHTTPAttempts())
 		if atomic.LoadUint32(&counter) != expected {
 			t.Fatalf("expected adapter to try %d times but got %d when the server is broken", expected, counter)

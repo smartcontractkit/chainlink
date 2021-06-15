@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -77,7 +78,7 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 			medianFetcher, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls, 32768)
 			require.NoError(t, err)
 
-			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta)
+			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 			require.NoError(t, err)
 			assert.Equal(t, test.expect, medianPrice.String())
 		})
@@ -101,7 +102,7 @@ func TestHTTPFetcher_Happy(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, feedURL, 32768)
-	price, err := fetcher.Fetch(context.Background(), emptyMeta)
+	price, err := fetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 	require.NoError(t, err)
 	assert.Equal(t, decimal.NewFromInt(9700), price)
 }
@@ -129,7 +130,7 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
-	fetcher.Fetch(context.Background(), md)
+	fetcher.Fetch(context.Background(), md, *logger.Default)
 }
 
 func TestHTTPFetcher_ErrorMessage(t *testing.T) {
@@ -149,7 +150,7 @@ func TestHTTPFetcher_ErrorMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
-	price, err := fetcher.Fetch(context.Background(), emptyMeta)
+	price, err := fetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
 	assert.Contains(t, err.Error(), "could not hit data fetcher")
@@ -169,7 +170,7 @@ func TestHTTPFetcher_OnlyErrorMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
-	price, err := fetcher.Fetch(context.Background(), emptyMeta)
+	price, err := fetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
 	assert.Contains(t, err.Error(), "RequestId")
@@ -188,7 +189,7 @@ func TestHTTPFetcher_NoResultNorErrorMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
-	price, err := fetcher.Fetch(context.Background(), emptyMeta)
+	price, err := fetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 	assert.Error(t, err)
 	assert.True(t, decimal.NewFromInt(0).Equal(price))
 }
@@ -227,7 +228,7 @@ func TestMedianFetcher_FetchError(t *testing.T) {
 	s2 := newErroringPricedFetcher()
 	medianFetcher, err := newMedianFetcher(s1, s2)
 	require.NoError(t, err)
-	price, err := medianFetcher.Fetch(context.Background(), emptyMeta)
+	price, err := medianFetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
 }
@@ -251,7 +252,7 @@ func TestMedianFetcher_MajorityFetches(t *testing.T) {
 			medianFetcher, err := newMedianFetcher(test.fetchers...)
 			require.NoError(t, err)
 
-			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta)
+			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 			assert.NoError(t, err)
 			assert.True(t, decimal.NewFromInt(100).Equal(medianPrice))
 		})
@@ -279,7 +280,7 @@ func TestMedianFetcher_MajorityFetchesCalculatesCorrectMedian(t *testing.T) {
 			medianFetcher, err := newMedianFetcher(test.fetchers...)
 			require.NoError(t, err)
 
-			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta)
+			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 			assert.NoError(t, err)
 			assert.Equal(t, medianPrice.String(), test.expectedMedian)
 		})
@@ -305,7 +306,7 @@ func TestMedianFetcher_MinorityErrors(t *testing.T) {
 			medianFetcher, err := newMedianFetcher(test.fetchers...)
 			require.NoError(t, err)
 
-			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta)
+			medianPrice, err := medianFetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 			assert.Error(t, err)
 			assert.True(t, decimal.NewFromInt(0).Equal(medianPrice))
 		})
@@ -332,5 +333,5 @@ func TestHTTPFetcher_AddsArbitraryRequestID(t *testing.T) {
 	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
-	fetcher.Fetch(context.Background(), emptyMeta)
+	fetcher.Fetch(context.Background(), emptyMeta, *logger.Default)
 }

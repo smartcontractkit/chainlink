@@ -3,6 +3,7 @@ package static
 import (
 	"fmt"
 	"net/url"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -16,6 +17,8 @@ var Sha = "unset"
 // InstanceUUID is generated on startup and uniquely identifies this instance of Chainlink
 var InstanceUUID uuid.UUID
 
+var InitTime time.Time
+
 const (
 	// ExternalInitiatorAccessKeyHeader is the header name for the access key
 	// used by external initiators to authenticate
@@ -26,6 +29,7 @@ const (
 )
 
 func init() {
+	InitTime = time.Now()
 	InstanceUUID = uuid.NewV4()
 }
 

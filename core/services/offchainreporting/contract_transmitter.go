@@ -2,6 +2,7 @@ package offchainreporting
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -24,6 +25,7 @@ type (
 		transmitter     Transmitter
 		contractCaller  *offchainaggregator.OffchainAggregatorCaller
 		tracker         *OCRContractTracker
+		chainID         *big.Int
 	}
 
 	Transmitter interface {
@@ -39,6 +41,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	logBroadcaster log.Broadcaster,
 	tracker *OCRContractTracker,
+	chainID *big.Int,
 ) *OCRContractTransmitter {
 	return &OCRContractTransmitter{
 		contractAddress: address,
@@ -46,6 +49,7 @@ func NewOCRContractTransmitter(
 		transmitter:     transmitter,
 		contractCaller:  contractCaller,
 		tracker:         tracker,
+		chainID:         chainID,
 	}
 }
 
@@ -69,6 +73,10 @@ func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context)
 
 func (oc *OCRContractTransmitter) FromAddress() gethCommon.Address {
 	return oc.transmitter.FromAddress()
+}
+
+func (oc *OCRContractTransmitter) ChainID() *big.Int {
+	return oc.chainID
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest

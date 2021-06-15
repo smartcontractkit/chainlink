@@ -4,16 +4,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	corestore "github.com/smartcontractkit/chainlink/core/store"
 	"gorm.io/gorm"
 )
 
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
 	db             *gorm.DB
-	store          *corestore.Store
+	txm            transmitter
+	ethKeyStore    *keystore.Eth
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
@@ -22,9 +23,12 @@ type Delegate struct {
 	cfg            Config
 }
 
+var _ job.Delegate = (*Delegate)(nil)
+
 // NewDelegate constructs a new delegate
 func NewDelegate(
-	store *corestore.Store,
+	txm transmitter,
+	ethKeyStore *keystore.Eth,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
@@ -35,7 +39,8 @@ func NewDelegate(
 ) *Delegate {
 	return &Delegate{
 		db,
-		store,
+		txm,
+		ethKeyStore,
 		jobORM,
 		pipelineORM,
 		pipelineRunner,
@@ -50,6 +55,9 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
+
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
 	if spec.FluxMonitorSpec == nil {
@@ -59,10 +67,10 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	fm, err := NewFromJobSpec(
 		spec,
 		d.db,
-		NewORM(d.store.DB),
+		NewORM(d.db, d.txm),
 		d.jobORM,
 		d.pipelineORM,
-		NewKeyStore(d.store.KeyStore),
+		NewKeyStore(d.ethKeyStore),
 		d.ethClient,
 		d.logBroadcaster,
 		d.pipelineRunner,

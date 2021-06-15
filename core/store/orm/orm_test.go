@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -842,6 +843,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, store.CreateBridgeType(bt))
@@ -855,7 +857,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	executor := services.NewRunExecutor(store, pusher)
+	executor := services.NewRunExecutor(store, keyStore, pusher)
 	require.NoError(t, executor.Execute(run.ID))
 
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
@@ -1097,9 +1099,8 @@ func TestBulkDeleteRuns(t *testing.T) {
 	var resultCount int64
 	var taskCount int64
 	var runCount int64
-	orm := store.ORM
 
-	err := orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
+	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		job := cltest.NewJobWithWebInitiator()
 		require.NoError(t, store.ORM.CreateJob(&job))
 
@@ -1107,7 +1108,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		// but none of the statuses
 		oldIncompleteRun := cltest.NewJobRun(job)
 		oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
-		err := orm.CreateJobRun(&oldIncompleteRun)
+		err := store.ORM.CreateJobRun(&oldIncompleteRun)
 		require.NoError(t, err)
 		db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
@@ -1117,7 +1118,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		oldCompletedRun.TaskRuns[0].Status = models.RunStatusCompleted
 		oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
 		oldCompletedRun.SetStatus(models.RunStatusCompleted)
-		err = orm.CreateJobRun(&oldCompletedRun)
+		err = store.ORM.CreateJobRun(&oldCompletedRun)
 		require.NoError(t, err)
 		db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
@@ -1126,7 +1127,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		newCompletedRun := cltest.NewJobRun(job)
 		newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
 		newCompletedRun.SetStatus(models.RunStatusCompleted)
-		err = orm.CreateJobRun(&newCompletedRun)
+		err = store.ORM.CreateJobRun(&newCompletedRun)
 		require.NoError(t, err)
 		db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
@@ -1134,11 +1135,11 @@ func TestBulkDeleteRuns(t *testing.T) {
 		newIncompleteRun := cltest.NewJobRun(job)
 		newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
 		newIncompleteRun.SetStatus(models.RunStatusCompleted)
-		err = orm.CreateJobRun(&newIncompleteRun)
+		err = store.ORM.CreateJobRun(&newIncompleteRun)
 		require.NoError(t, err)
 		db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-		err = store.ORM.BulkDeleteRuns(&models.BulkDeleteRunRequest{
+		err = orm.BulkDeleteRuns(store.DB, &models.BulkDeleteRunRequest{
 			Status:        []models.RunStatus{models.RunStatusCompleted},
 			UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
 		})
@@ -1260,8 +1261,9 @@ func TestORM_RemoveUnstartedTransaction_RemoveByJobRun(t *testing.T) {
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
@@ -1519,12 +1521,13 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 	// NOTE: Must sidestep transactional tests since we rely on transaction
 	// rollback due to constraint violation for this function
-	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
+	tc, orm, cleanup := heavyweight.FullTestORM(t, "eth_task_run_transactions", true, true)
 	defer cleanup()
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
 	defer cleanup()
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	sharedTaskRunID, _ := cltest.MustInsertTaskRun(t, store)
 
@@ -1592,6 +1595,17 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 		// But the second insert did not change the gas limit
 		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
+	})
+
+	t.Run("returns error if fromAddress does not correspond to a key", func(t *testing.T) {
+		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: taskRunID}, cltest.NewAddress(), toAddress, encodedPayload, gasLimit)
+		assert.Error(t, err)
+		assert.EqualError(t, err, "ERROR: insert or update on table \"eth_txes\" violates foreign key constraint \"eth_txes_from_address_fkey\" (SQLSTATE 23503)")
 	})
 }
 

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -30,13 +32,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
+	store, cleanupDB := cltest.NewStore(t)
 	defer cleanupDB()
 
 	config := testConfig{
-		minRequiredOutgoingConfirmations: 1,
+		minIncomingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, orm.DB, config)
+	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -67,12 +69,11 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
-	db := oldORM.DB
+	config := cltest.NewTestConfig(t)
+	store, cleanupDB := cltest.NewStoreWithConfig(t, config)
+	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, store.DB)
 
-	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
-
-	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(store.DB, store.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	cleanup := func() {
 		cleanupDB()
@@ -80,9 +81,10 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 		jobORM.Close()
 	}
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, db, drConfig)
+	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
+	spec.ExternalJobID = uuid.NewV4()
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
 	serviceArray, err := delegate.ServicesForSpec(*spec)
@@ -109,7 +111,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 
 func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	drConfig := testConfig{
-		minRequiredOutgoingConfirmations: 1,
+		minIncomingConfirmations: 1,
 	}
 	return NewDirectRequestUniverseWithConfig(t, drConfig)
 }
@@ -134,7 +136,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -179,7 +181,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 			BlockNumber: 0,
 		}).Maybe()
@@ -242,11 +244,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash()}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -273,12 +275,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
-			RequestId:        uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+			RequestId:        uni.spec.ExternalIDToTopicHash(),
 		}
 		runLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		runLog.On("DecodedLog").Return(&logOracleRequest)
@@ -287,11 +289,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash()}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -332,8 +334,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has sufficient funds", func(t *testing.T) {
 		drConfig := testConfig{
-			minRequiredOutgoingConfirmations: 1,
-			minimumContractPayment:           assets.NewLink(100),
+			minIncomingConfirmations: 1,
+			minimumContractPayment:   assets.NewLink(100),
 		}
 		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
 		defer uni.Cleanup()
@@ -349,7 +351,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -383,8 +385,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has insufficient funds", func(t *testing.T) {
 		drConfig := testConfig{
-			minRequiredOutgoingConfirmations: 1,
-			minimumContractPayment:           assets.NewLink(100),
+			minIncomingConfirmations: 1,
+			minimumContractPayment:   assets.NewLink(100),
 		}
 		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
 		defer uni.Cleanup()
@@ -400,7 +402,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
-				uni.spec.DirectRequestSpec.OnChainJobSpecID.Hash(),
+				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -423,12 +425,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 }
 
 type testConfig struct {
-	minRequiredOutgoingConfirmations uint64
-	minimumContractPayment           *assets.Link
+	minIncomingConfirmations uint32
+	minimumContractPayment   *assets.Link
 }
 
-func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
-	return c.minRequiredOutgoingConfirmations
+func (c testConfig) MinIncomingConfirmations() uint32 {
+	return c.minIncomingConfirmations
 }
 
 func (c testConfig) MinimumContractPayment() *assets.Link {

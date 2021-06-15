@@ -12,12 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +39,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	// setup node key
 	nodeKey := cltest.MustGenerateRandomKey(t)
 	nodeAddress := nodeKey.Address.Address()
-	nodeAddressEIP55 := models.EIP55AddressFromAddress(nodeAddress)
+	nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
 
 	// setup blockchain
 	sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
@@ -55,6 +56,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	defer backend.Close()
 
 	stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 	defer stopMining()
@@ -86,7 +88,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	backend.Commit()
 
 	// setup app
-	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "keeper_eth_integration", true, true)
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	defer cfgCleanup()
 	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test
@@ -99,7 +101,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	// create job
-	regAddrEIP55 := models.EIP55AddressFromAddress(regAddr)
+	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
 	cltest.MustInsertKeeperJob(t, app.Store, nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received

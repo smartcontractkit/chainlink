@@ -9,17 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-type WebhookToml struct {
-	OnChainJobSpecID uuid.UUID `toml:"jobID"`
-}
-
 var ErrMissingJobID = errors.New("missing job ID")
 
-func ValidateWebhookSpec(tomlString string) (job.Job, error) {
+func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (job.Job, error) {
 	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
-	var spec WebhookToml
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return jb, err
@@ -28,21 +23,26 @@ func ValidateWebhookSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, err
 	}
-	err = tree.Unmarshal(&spec)
-	if err != nil {
-		return jb, err
-	}
-	if spec.OnChainJobSpecID == (uuid.UUID{}) {
+	if jb.ExternalJobID == (uuid.UUID{}) {
 		return jb, ErrMissingJobID
 	}
-	jb.WebhookSpec = &job.WebhookSpec{}
-	copy(jb.WebhookSpec.OnChainJobSpecID[:], spec.OnChainJobSpecID.Bytes())
-
 	if jb.Type != job.Webhook {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
+	}
+
+	var spec job.WebhookSpec
+	err = tree.Unmarshal(&spec)
+	if err != nil {
+		return jb, err
+	}
+	jb.WebhookSpec = &spec
+	if !spec.ExternalInitiatorName.IsZero() {
+		if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName.String); err != nil {
+			return jb, err
+		}
 	}
 	return jb, nil
 }

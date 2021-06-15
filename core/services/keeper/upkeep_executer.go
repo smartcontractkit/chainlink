@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -34,44 +34,45 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
 var _ job.Service = (*UpkeepExecuter)(nil)
-var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
+var _ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 
 type UpkeepExecuter struct {
-	chStop            chan struct{}
-	ethClient         eth.Client
-	executionQueue    chan struct{}
-	headBroadcaster   *services.HeadBroadcaster
-	job               job.Job
-	mailbox           *utils.Mailbox
-	maxGracePeriod    int64
-	maxUnconfirmedTXs uint64
-	orm               ORM
-	pr                pipeline.Runner
-	wgDone            sync.WaitGroup
+	chStop          chan struct{}
+	ethClient       eth.Client
+	txm             transmitter
+	executionQueue  chan struct{}
+	headBroadcaster httypes.HeadBroadcasterRegistry
+	job             job.Job
+	mailbox         *utils.Mailbox
+	maxGracePeriod  int64
+	orm             ORM
+	pr              pipeline.Runner
+	wgDone          sync.WaitGroup
 	utils.StartStopOnce
 }
 
 func NewUpkeepExecuter(
 	job job.Job,
 	db *gorm.DB,
+	txm transmitter,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
+	headBroadcaster httypes.HeadBroadcaster,
 	config *orm.Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
-		chStop:            make(chan struct{}),
-		ethClient:         ethClient,
-		executionQueue:    make(chan struct{}, executionQueueSize),
-		headBroadcaster:   headBroadcaster,
-		job:               job,
-		mailbox:           utils.NewMailbox(1),
-		maxUnconfirmedTXs: config.EthMaxUnconfirmedTransactions(),
-		maxGracePeriod:    config.KeeperMaximumGracePeriod(),
-		orm:               NewORM(db),
-		pr:                pr,
-		wgDone:            sync.WaitGroup{},
-		StartStopOnce:     utils.StartStopOnce{},
+		chStop:          make(chan struct{}),
+		ethClient:       ethClient,
+		txm:             txm,
+		executionQueue:  make(chan struct{}, executionQueueSize),
+		headBroadcaster: headBroadcaster,
+		job:             job,
+		mailbox:         utils.NewMailbox(1),
+		maxGracePeriod:  config.KeeperMaximumGracePeriod(),
+		orm:             NewORM(db, txm),
+		pr:              pr,
+		wgDone:          sync.WaitGroup{},
+		StartStopOnce:   utils.StartStopOnce{},
 	}
 }
 
@@ -79,9 +80,9 @@ func (executer *UpkeepExecuter) Start() error {
 	return executer.StartOnce("UpkeepExecuter", func() error {
 		executer.wgDone.Add(2)
 		go executer.run()
-		unsubscribe := executer.headBroadcaster.Subscribe(executer)
+		unsubscribeHeads := executer.headBroadcaster.Subscribe(executer)
 		go func() {
-			defer unsubscribe()
+			defer unsubscribeHeads()
 			defer executer.wgDone.Done()
 			<-executer.chStop
 		}()
@@ -96,6 +97,8 @@ func (executer *UpkeepExecuter) Close() error {
 		return nil
 	})
 }
+
+func (executer *UpkeepExecuter) Connect(head *models.Head) error { return nil }
 
 func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	executer.mailbox.Deliver(head)
@@ -198,14 +201,14 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	if err == nil {
 		runErrors = pipeline.RunErrors{null.String{}}
 	} else {
-		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to update database state").Error())}
+		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
 	}
 
 	var etx models.EthTx
 	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
-		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData, executer.maxUnconfirmedTXs)
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData)
 		if err != nil {
 			return errors.Wrap(err, "failed to create eth_tx for upkeep")
 		}
@@ -236,6 +239,20 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	if err != nil {
 		logger.Errorw("UpkeepExecuter: failed to update database state", "err", err)
 	}
+
+	// TODO: Remove in
+	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+	elapsed := time.Since(start)
+	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String()).Set(float64(elapsed))
+	var status string
+	if runErrors.HasError() || err != nil {
+		status = "error"
+		pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String).Inc()
+	} else {
+		status = "completed"
+	}
+	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String).Set(float64(elapsed))
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String(), status).Inc()
 }
 
 func constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {

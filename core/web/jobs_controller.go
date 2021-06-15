@@ -32,7 +32,7 @@ type JobsController struct {
 // Example:
 // "GET <application>/jobs"
 func (jc *JobsController) Index(c *gin.Context) {
-	jobs, err := jc.App.GetJobORM().JobsV2()
+	jobs, err := jc.App.JobORM().JobsV2()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -52,7 +52,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 
-	jobSpec, err = jc.App.GetJobORM().FindJob(jobSpec.ID)
+	jobSpec, err = jc.App.JobORM().FindJob(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
@@ -109,11 +109,11 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.Keeper:
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
-		js, err = cron.ValidateCronSpec(request.TOML)
+		js, err = cron.ValidatedCronSpec(request.TOML)
 	case job.VRF:
-		js, err = vrf.ValidateVRFSpec(request.TOML)
+		js, err = vrf.ValidatedVRFSpec(request.TOML)
 	case job.Webhook:
-		js, err = webhook.ValidateWebhookSpec(request.TOML)
+		js, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
@@ -132,7 +132,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	job, err := jc.App.GetJobORM().FindJob(jobID)
+	job, err := jc.App.JobORM().FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -141,7 +141,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
 }
 
-// Delete soft deletes a job spec.
+// Delete hard deletes a job spec.
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
@@ -162,5 +162,5 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, nil, "offChainReportingJobSpec", http.StatusNoContent)
+	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

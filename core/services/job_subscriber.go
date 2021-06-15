@@ -8,6 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,11 +31,11 @@ var (
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
-	store.HeadTrackable
+	httypes.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
 	RemoveJob(ID models.JobID) error
 	Jobs() []models.JobSpec
-	Stop() error
+	service.Service
 }
 
 // jobSubscriber implementation
@@ -86,9 +88,13 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 	return js
 }
 
+func (js *jobSubscriber) Start() error {
+	return nil
+}
+
 // Called on node shutdown, unsubscribe from everything
 // and remove the subscriptions.
-func (js *jobSubscriber) Stop() error {
+func (js *jobSubscriber) Close() error {
 	js.jobsMutex.Lock()
 	defer js.jobsMutex.Unlock()
 
@@ -97,6 +103,14 @@ func (js *jobSubscriber) Stop() error {
 	}
 	js.jobSubscriptions = map[string]JobSubscription{}
 	return js.jobResumer.Stop()
+}
+
+func (js *jobSubscriber) Ready() error {
+	return nil
+}
+
+func (js *jobSubscriber) Healthy() error {
+	return nil
 }
 
 func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
@@ -185,13 +199,6 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	return multierr.Append(merr, err)
 }
 
-// Called when we disconnect from the head tracker
-// because of an error in the head subscription or shutdown.
-func (js *jobSubscriber) Disconnect() {
-	// Do nothing, subscription connections are managed by
-	// the listenToLogs goroutines.
-}
-
 // OnNewLongestChain resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
 	js.nextBlockWorker.setHead(*head.ToInt())
@@ -202,7 +209,6 @@ func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head
 type NullJobSubscriber struct{}
 
 func (NullJobSubscriber) Connect(head *models.Head) error                         { return nil }
-func (NullJobSubscriber) Disconnect()                                             {}
 func (NullJobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {}
 func (NullJobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	return errors.New("NullJobSubscriber#AddJob should never be called")
@@ -211,4 +217,7 @@ func (NullJobSubscriber) RemoveJob(ID models.JobID) error {
 	return errors.New("NullJobSubscriber#RemoveJob should never be called")
 }
 func (NullJobSubscriber) Jobs() (j []models.JobSpec) { return }
-func (NullJobSubscriber) Stop() error                { return nil }
+func (NullJobSubscriber) Start() error               { return nil }
+func (NullJobSubscriber) Close() error               { return nil }
+func (NullJobSubscriber) Ready() error               { return nil }
+func (NullJobSubscriber) Healthy() error             { return nil }

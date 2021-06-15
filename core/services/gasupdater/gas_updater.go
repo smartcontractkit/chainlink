@@ -10,8 +10,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -52,9 +53,8 @@ type (
 	// GasUpdater listens for new heads and updates the base gas price dynamically
 	// based on the configured percentile of gas prices in that block
 	GasUpdater interface {
-		store.HeadTrackable
-		Start() error
-		Close() error
+		httypes.HeadTrackable
+		service.Service
 	}
 
 	// Config defines the interface for the supplied config
@@ -106,9 +106,6 @@ func (gu *gasUpdater) Connect(bn *models.Head) error {
 	return nil
 }
 
-func (gu *gasUpdater) Disconnect() {
-}
-
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
 func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
@@ -121,6 +118,7 @@ func (gu *gasUpdater) Start() error {
 		if uint(gu.config.GasUpdaterBlockHistorySize()) > gu.config.EthFinalityDepth() {
 			gu.logger.Warnf("GasUpdater: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every gas updater cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", gu.config.GasUpdaterBlockHistorySize(), gu.config.EthFinalityDepth())
 		}
+
 		ctx, cancel := context.WithTimeout(gu.ctx, maxStartTime)
 		defer cancel()
 		latestHead, err := gu.ethClient.HeaderByNumber(ctx, nil)
@@ -142,7 +140,6 @@ func (gu *gasUpdater) Close() error {
 		gu.ctxCancel()
 		gu.wg.Wait()
 		return nil
-
 	})
 }
 

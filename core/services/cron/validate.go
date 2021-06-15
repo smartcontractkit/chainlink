@@ -1,16 +1,22 @@
 package cron
 
 import (
+	"strings"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func ValidateCronSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{Pipeline: *pipeline.NewTaskDAG()}
+func ValidatedCronSpec(tomlString string) (job.Job, error) {
+	var jb = job.Job{
+		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		Pipeline:      *pipeline.NewTaskDAG(),
+	}
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -34,6 +40,10 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 	}
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
+	}
+
+	if !(strings.HasPrefix(spec.CronSchedule, "CRON_TZ=") || strings.HasPrefix(spec.CronSchedule, "@")) {
+		return jb, errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@hourly'")
 	}
 
 	if _, err := cron.New().AddFunc(spec.CronSchedule, func() {}); err != nil {

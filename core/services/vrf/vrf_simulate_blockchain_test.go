@@ -13,7 +13,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -25,7 +27,7 @@ import (
 func registerExistingProvingKey(
 	t *testing.T,
 	coordinator coordinatorUniverse,
-	provingKey *vrf.PrivateKey,
+	provingKey *vrfkey.PrivateKey,
 	jobID models.JobID,
 	vrfFee *big.Int,
 ) {
@@ -53,11 +55,12 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	pk, err := secp256k1.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
-	provingKey := vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	app.KeyStore.VRF().StoreInMemoryXXXTestingOnly(provingKey)
+	var seed = big.NewInt(1)
 
 	j := cltest.NewJobWithRandomnessLog()
 	contractAddress := cu.rootContractAddress.String()
@@ -77,7 +80,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
 	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
-	r := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
+	r := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100))
 
 	cltest.WaitForRuns(t, j, app.Store, 1)
 	runs, err := app.Store.JobRunsFor(j.ID)
@@ -87,7 +90,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.Len(t, jr.TaskRuns, 2)
 	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
-	app.EthBroadcaster.Trigger()
+	app.TxManager.Trigger(app.Key.Address.Address())
 	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 	require.Len(t, attempts, 1)
 
@@ -124,7 +127,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 // TestIntegration_SharedProvingKey tests the scenario where multiple nodes share
 // a single proving key
 func TestIntegration_SharedProvingKey(t *testing.T) {
-	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "vrf_shared_proving_key", true, true)
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "vrf_shared_proving_key", true, true)
 	defer cfgCleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
 
@@ -141,11 +144,11 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	pk, err := secp256k1.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
-	provingKey := vrf.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has "+
 			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	app.KeyStore.VRF().StoreInMemoryXXXTestingOnly(provingKey)
 
 	j := cltest.NewJobWithRandomnessLog()
 	contractAddress := cu.rootContractAddress.String()
@@ -167,7 +170,7 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
 
 	// trigger job run by requesting randomness
-	log := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
+	log := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100))
 	seed := common.BigToHash(log.Seed).String()
 	cltest.WaitForRuns(t, j, app.Store, 1)
 	var jobRun models.JobRun
@@ -187,7 +190,7 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
 	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	adapter := adapters.Random{PublicKey: pk.String()}
-	result := adapter.Perform(*input, app.Store)
+	result := adapter.Perform(*input, app.Store, app.KeyStore)
 	require.NoError(t, result.Error(), "while running random adapter")
 	encodedProofHex := result.Result().String()
 	encodedProof, err := hexutil.Decode(encodedProofHex)

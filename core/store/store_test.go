@@ -8,13 +8,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStore_SquashMigrationUpgrade(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationssquash", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrationssquash", false)
 	defer cleanup()
 	db := orm.DB
 

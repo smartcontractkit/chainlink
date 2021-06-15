@@ -442,12 +442,28 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+func HexToBig(s string) *big.Int {
+	n, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
+	}
+	return n
+}
+
 // Uint256ToHex returns the hex representation of n, or error if out of bounds
 func Uint256ToHex(n *big.Int) (string, error) {
 	if err := CheckUint256(n); err != nil {
 		return "", err
 	}
 	return common.BigToHash(n).Hex(), nil
+}
+
+// Uint256ToBytes32 returns the bytes32 encoding of the big int provided
+func Uint256ToBytes32(n *big.Int) []byte {
+	if n.BitLen() > 256 {
+		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
+	}
+	return common.LeftPadBytes(n.Bytes(), 32)
 }
 
 // ToDecimal converts an input to a decimal
@@ -850,10 +866,14 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
+var (
+	ErrNotStarted = errors.New("Not started")
+)
+
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state      atomic.Int32
-	sync.Mutex // lock is held during statup/shutdown
+	state        atomic.Int32
+	sync.RWMutex // lock is held during statup/shutdown, RLock is held while executing functions dependent on a particular state
 }
 
 // StartStopOnceState holds the state for StartStopOnce
@@ -926,11 +946,33 @@ func (once *StartStopOnce) State() StartStopOnceState {
 	return StartStopOnceState(state)
 }
 
-func (once *StartStopOnce) IfStarted(f func()) {
+// IfStarted runs the func and returns true only if started, otherwise returns false
+func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
+	once.RLock()
+	defer once.RUnlock()
+
 	state := once.state.Load()
+
 	if StartStopOnceState(state) == StartStopOnce_Started {
 		f()
+		return true
 	}
+	return false
+}
+
+func (once *StartStopOnce) Ready() error {
+	if once.State() == StartStopOnce_Started {
+		return nil
+	}
+	return ErrNotStarted
+}
+
+// Override this per-service with more specific implementations
+func (once *StartStopOnce) Healthy() error {
+	if once.State() == StartStopOnce_Started {
+		return nil
+	}
+	return ErrNotStarted
 }
 
 // WithJitter adds +/- 10% to a duration

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -37,13 +38,15 @@ type RunExecutor interface {
 
 type runExecutor struct {
 	store       *store.Store
+	keyStore    *keystore.Master
 	statsPusher synchronization.StatsPusher
 }
 
 // NewRunExecutor initializes a RunExecutor.
-func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher) RunExecutor {
+func NewRunExecutor(store *store.Store, keyStore *keystore.Master, statsPusher synchronization.StatsPusher) RunExecutor {
 	return &runExecutor{
 		store:       store,
+		keyStore:    keyStore,
 		statsPusher: statsPusher,
 	}
 }
@@ -153,7 +156,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 	}
 
 	input := *models.NewRunInput(*run, taskRun.ID, data, taskRun.Status)
-	result := adapter.Perform(input, re.store)
+	result := adapter.Perform(input, re.store, re.keyStore)
 	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
 
 	return result
