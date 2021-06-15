@@ -174,7 +174,7 @@ func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd
 	return a.Callback(ethKeyStore, pwd)
 }
 
-func (a CallbackAuthenticator) AuthenticateVRFKey(*keystore.VRF, string) error {
+func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd string) error {
 	return nil
 }
 
