@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.8] - 2021-06-21
+
 ### Fixed
 
 - The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
