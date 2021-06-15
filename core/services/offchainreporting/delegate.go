@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -34,6 +35,7 @@ type Delegate struct {
 	logBroadcaster     log.Broadcaster
 	peerWrapper        *SingletonPeerWrapper
 	monitoringEndpoint ocrtypes.MonitoringEndpoint
+	chain              *chains.Chain
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -49,6 +51,7 @@ func NewDelegate(
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
+	chain *chains.Chain,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -61,6 +64,7 @@ func NewDelegate(
 		logBroadcaster,
 		peerWrapper,
 		monitoringEndpoint,
+		chain,
 	}
 }
 
@@ -108,6 +112,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		*logger.Default,
 		d.db,
 		ocrdb,
+		d.chain,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOCRContract")

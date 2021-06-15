@@ -48,6 +48,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			*logger.Default,
 			s.DB,
 			db,
+			nil,
 		)
 		require.NoError(t, err)
 		logBroadcast := new(mocks.Broadcast)
@@ -88,6 +89,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			*logger.Default,
 			s.DB,
 			db,
+			nil,
 		)
 		require.NoError(t, err)
 		logBroadcast := new(mocks.Broadcast)
@@ -126,6 +128,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			*logger.Default,
 			s.DB,
 			db,
+			nil,
 		)
 		require.NoError(t, err)
 
@@ -232,6 +235,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			*logger.Default,
 			s.DB,
 			db,
+			nil,
 		)
 		require.NoError(t, err)
 
@@ -267,6 +271,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			*logger.Default,
 			s.DB,
 			db,
+			nil,
 		)
 		require.NoError(t, err)
 

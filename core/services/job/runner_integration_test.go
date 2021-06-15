@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/pkg/errors"
@@ -370,7 +371,8 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			nil,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			nil)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
 		require.Error(t, err)
@@ -419,6 +421,7 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
+			chains.EthMainnet,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -482,7 +485,9 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -528,7 +533,8 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -567,7 +573,9 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -606,7 +614,9 @@ ds1 -> ds1_parse;
 			ethClient,
 			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 

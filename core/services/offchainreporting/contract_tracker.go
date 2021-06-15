@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"gorm.io/gorm"
@@ -61,6 +61,7 @@ type (
 		logger           logger.Logger
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
+		blockTranslator  BlockTranslator
 
 		// Start/Stop lifecycle
 		ctx             context.Context
@@ -94,6 +95,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	gdb *gorm.DB,
 	db OCRContractTrackerDB,
+	chain *chains.Chain,
 ) (o *OCRContractTracker, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &OCRContractTracker{
@@ -107,6 +109,7 @@ func NewOCRContractTracker(
 		logger,
 		db,
 		gdb,
+		NewBlockTranslator(chain),
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -132,6 +135,8 @@ func (t *OCRContractTracker) Start() error {
 		})
 		t.unsubscribeLogs = unsubscribe
 
+		t.blockTranslator.Start()
+
 		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
 		if err != nil {
 			unsubscribe()
@@ -150,6 +155,7 @@ func (t *OCRContractTracker) Close() error {
 		t.wg.Wait()
 		t.unsubscribeLogs()
 		close(t.chConfigs)
+		t.blockTranslator.Close()
 		return nil
 	})
 }
@@ -312,9 +318,10 @@ func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedIn
 
 // ConfigFromLogs queries the eth node for logs for this contract
 func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
+	fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(changedInBlock)
 	q := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(changedInBlock)),
-		ToBlock:   big.NewInt(int64(changedInBlock)),
+		FromBlock: fromBlock,
+		ToBlock:   toBlock,
 		Addresses: []gethCommon.Address{t.contract.Address()},
 		Topics: [][]gethCommon.Hash{
 			{OCRContractConfigSet},
