@@ -119,6 +119,8 @@ func init() {
 	// TODO: We should probably move these to TOML or JSON files
 	// See: https://app.clubhouse.io/chainlinklabs/story/11091/chain-configs-should-move-to-toml-json-files
 
+	var defaultGasUpdaterBatchSize uint32 = 4
+
 	ChainSpecificDefaults = make(map[int64]ChainSpecificDefaultSet)
 
 	GeneralDefaults = ChainSpecificDefaultSet{
@@ -137,7 +139,7 @@ func init() {
 		EthMaxQueuedTransactions:         250,
 		EthMinGasPriceWei:                *big.NewInt(1000000000), // 1 Gwei
 		EthTxResendAfterThreshold:        1 * time.Minute,
-		GasUpdaterBatchSize:              4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
+		GasUpdaterBatchSize:              defaultGasUpdaterBatchSize, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
 		GasUpdaterEnabled:                true,
@@ -195,7 +197,7 @@ func init() {
 	bscMainnet.GasUpdaterBlockDelay = 2
 	bscMainnet.GasUpdaterBlockHistorySize = 24
 	bscMainnet.GasUpdaterEnabled = true
-  bscMainnet.BlockFetcherBatchSize =           &defaultGasUpdaterBatchSize
+	bscMainnet.BlockFetcherBatchSize = &defaultGasUpdaterBatchSize
 	bscMainnet.LinkContractAddress = "0x404460c6a5ede2d891e8297795264fde62adbb75"
 	bscMainnet.MinIncomingConfirmations = 3
 	bscMainnet.MinRequiredOutgoingConfirmations = 12
@@ -220,6 +222,7 @@ func init() {
 	polygonMainnet.GasUpdaterBlockDelay = 32                     // Delay needs to be large on polygon since re-orgs are so frequent at the top level
 	polygonMainnet.GasUpdaterBlockHistorySize = 128
 	polygonMainnet.GasUpdaterEnabled = true
+	polygonMainnet.BlockFetcherBatchSize = &defaultGasUpdaterBatchSize
 	polygonMainnet.LinkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.MinIncomingConfirmations = 39         // mainnet * 13 (1s vs 13s block time)
 	polygonMainnet.MinRequiredOutgoingConfirmations = 39 // mainnet * 13
@@ -236,7 +239,8 @@ func init() {
 	arbitrumMainnet.EthMinGasPriceWei = *big.NewInt(1000000000000)  // Fix the gas price
 	arbitrumMainnet.GasUpdaterEnabled = false
 	arbitrumMainnet.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on arbitrum
-	arbitrumMainnet.LinkContractAddress = ""       // TBD
+	arbitrumMainnet.BlockFetcherBatchSize = &defaultGasUpdaterBatchSize
+	arbitrumMainnet.LinkContractAddress = "" // TBD
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.LinkContractAddress = "0xf1c3C8C14C31a5f74614572e922cD8F4fC626185"
 
@@ -250,6 +254,7 @@ func init() {
 	optimismMainnet.EthTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
 	optimismMainnet.GasUpdaterEnabled = false
+	optimismMainnet.BlockFetcherBatchSize = &defaultGasUpdaterBatchSize
 	optimismMainnet.LinkContractAddress = "" // TBD
 	optimismMainnet.MinIncomingConfirmations = 1
 	optimismMainnet.MinRequiredOutgoingConfirmations = 0
