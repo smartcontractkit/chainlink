@@ -49,7 +49,6 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint64(300), cp.MinimumRequestExpiration)
 	assert.Equal(t, big.NewInt(5000000000), cp.EthGasBumpWei)
 	assert.Equal(t, big.NewInt(20000000000), cp.EthGasPriceDefault)
-	assert.Equal(t, orm.NewConfig().LinkContractAddress(), cp.LinkContractAddress)
 	assert.Equal(t, orm.NewConfig().BlockBackfillDepth(), cp.BlockBackfillDepth)
 	assert.Equal(t, assets.NewLink(100), cp.MinimumContractPayment)
 	assert.Equal(t, common.Address{}, cp.OperatorContractAddress)
