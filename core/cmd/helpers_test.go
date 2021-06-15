@@ -1,9 +1,7 @@
 package cmd
 
-import (
-	"github.com/smartcontractkit/chainlink/core/store"
-)
+import "github.com/smartcontractkit/chainlink/core/services/keystore"
 
-func (auth TerminalKeyStoreAuthenticator) ExportedValidatePasswordStrength(store *store.Store, password string) error {
-	return auth.validatePasswordStrength(store, password)
+func (auth TerminalKeyStoreAuthenticator) ExportedValidatePasswordStrength(ethKeyStore *keystore.Eth, password string) error {
+	return auth.validatePasswordStrength(ethKeyStore, password)
 }

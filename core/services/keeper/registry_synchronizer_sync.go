@@ -8,8 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -173,7 +173,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 }
 
 // the positioning constant is fixed because upkeepID and registryAddress are immutable
-func CalcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID int64, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(upkeepBytes, upkeepID)
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/services/csa"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,13 +15,13 @@ import (
 func TestCSAKeyResource(t *testing.T) {
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	key, err := csa.NewCSAKey("passphrase", utils.FastScryptParams)
+	key, err := csakey.New("passphrase", utils.FastScryptParams)
 	require.NoError(t, err)
 	key.ID = 1
 	key.CreatedAt = timestamp
 	key.UpdatedAt = timestamp
 
-	r := NewCSAKeyResource(*key)
+	r := NewResource(*key)
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
 

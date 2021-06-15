@@ -49,7 +49,7 @@ func (jsc *JobSpecsController) getAndCheckJobSpec(c *gin.Context) (js models.Job
 	if err := jsc.requireImplemented(js); err != nil {
 		return models.JobSpec{}, http.StatusNotImplemented, err
 	}
-	if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
+	if err := services.ValidateJob(js, jsc.App.GetStore(), jsc.App.GetKeyStore()); err != nil {
 		return models.JobSpec{}, http.StatusBadRequest, err
 	}
 	return js, 0, nil

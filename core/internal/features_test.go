@@ -36,7 +36,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -696,7 +696,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 		ethClient,
 	)
 	defer cleanup()
-	cltest.MustAddRandomKeyToKeystore(t, app.Store)
+	cltest.MustAddRandomKeyToKeystore(t, app.GetKeyStore().Eth())
 
 	app.InstantClock()
 	require.NoError(t, app.Start())
@@ -1133,7 +1133,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	)
 	defer appCleanup()
 
-	_, address := cltest.MustAddRandomKeyToKeystore(t, app.Store)
+	_, address := cltest.MustAddRandomKeyToKeystore(t, app.GetKeyStore().Eth())
 
 	// Start, connect, and initialize node
 	sub.On("Err").Return(nil).Maybe()
@@ -1532,7 +1532,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
-	sendingKeys, err := app.Store.KeyStore.SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
 	_, err = operatorContract.SetAuthorizedSenders(user, authorizedSenders)
@@ -1653,9 +1653,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true)
 	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, _, err := app.OCRKeyStore.GenerateEncryptedP2PKey()
+	_, _, err := app.GetKeyStore().OCR().GenerateEncryptedP2PKey()
 	require.NoError(t, err)
-	p2pIDs := app.OCRKeyStore.DecryptedP2PKeys()
+	p2pIDs := app.GetKeyStore().OCR().DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].MustGetPeerID().Raw()
@@ -1666,7 +1666,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 	app.Config.Set("CHAINLINK_DEV", true) // Disables ocr spec validation so we can have fast polling for the test.
 
-	sendingKeys, err := app.Store.KeyStore.SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address.Address()
 
@@ -1681,7 +1681,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.NoError(t, err)
 	b.Commit()
 
-	_, kb, err := app.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	_, kb, err := app.GetKeyStore().OCR().GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
 	return app, peerID, transmitter, kb, func() {
 		ormCleanup()
@@ -2080,9 +2080,9 @@ func TestIntegration_GasUpdater(t *testing.T) {
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	keys, err := app.Store.KeyStore.SendingKeys()
+	keys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	for _, k := range keys {
-		app.BPTXM.Trigger(k.Address.Address())
+		app.TxManager.Trigger(k.Address.Address())
 	}
 }

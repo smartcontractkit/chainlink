@@ -103,7 +103,7 @@ func TestQuotient_Perform_Success(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Quotient{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 
 			require.NoError(t, result.Error())
 			require.NoError(t, jsonErr)
@@ -129,7 +129,7 @@ func TestQuotient_Perform_Error(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Quotient{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 
 			require.NoError(t, jsonErr)
 			assert.Error(t, result.Error())

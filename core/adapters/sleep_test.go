@@ -24,7 +24,7 @@ func TestSleep_Perform(t *testing.T) {
 
 	doneChan := make(chan struct{})
 	go func() {
-		result := adapter.Perform(models.RunInput{}, store)
+		result := adapter.Perform(models.RunInput{}, store, nil)
 		assert.Equal(t, string(models.RunStatusCompleted), string(result.Status()))
 		doneChan <- struct{}{}
 	}()
@@ -49,7 +49,7 @@ func TestSleep_Perform_AlreadyElapsed(t *testing.T) {
 	err := json.Unmarshal([]byte(`{"until": 1332151919}`), &adapter)
 	require.NoError(t, err)
 
-	result := adapter.Perform(models.RunInput{}, store)
+	result := adapter.Perform(models.RunInput{}, store, nil)
 	require.NoError(t, result.Error())
 	assert.Equal(t, string(models.RunStatusCompleted), string(result.Status()))
 }

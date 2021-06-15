@@ -7,8 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -101,7 +102,7 @@ func (cli *Client) CreateVRFKey(c *cli.Context) error {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
 
-	vrfKeyStore := app.GetStore().VRFKeyStore
+	vrfKeyStore := app.GetKeyStore().VRF()
 	key, err := vrfKeyStore.CreateKey(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
@@ -147,8 +148,8 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetStore().VRFKeyStore
-	key, err := vrfKeyStore.CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
+	vrfKeyStore := app.GetKeyStore().VRF()
+	key, err := vrfKeyStore.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(
 		string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while creating testing key")
@@ -192,9 +193,9 @@ func (cli *Client) ImportVRFKey(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetStore().VRFKeyStore
+	vrfKeyStore := app.GetKeyStore().VRF()
 	if err := vrfKeyStore.Import(keyjson, string(password)); err != nil {
-		if err == vrf.MatchingVRFKeyError {
+		if err == keystore.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
 			if e := json.Unmarshal(keyjson, &key); e != nil {
@@ -244,7 +245,7 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 }
 
 // getKeys retrieves the keys for an ExportVRFKey request
-func getKeys(cli *Client, c *cli.Context) (*vrf.EncryptedVRFKey, error) {
+func getKeys(cli *Client, c *cli.Context) (*vrfkey.EncryptedVRFKey, error) {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return nil, err
@@ -253,7 +254,7 @@ func getKeys(cli *Client, c *cli.Context) (*vrf.EncryptedVRFKey, error) {
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetStore().VRFKeyStore
+	vrfKeyStore := app.GetKeyStore().VRF()
 	enckey, err := vrfKeyStore.GetSpecificKey(publicKey)
 	if err != nil {
 		return nil, errors.Wrapf(err,
@@ -280,19 +281,19 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetStore().VRFKeyStore
+	vrfKeyStore := app.GetKeyStore().VRF()
 
 	hardDelete := c.Bool("hard")
 	if hardDelete {
 		if err := vrfKeyStore.Delete(publicKey); err != nil {
-			if err == vrf.AttemptToDeleteNonExistentKeyFromDB {
+			if err == keystore.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
 		}
 	} else {
 		if err := vrfKeyStore.Archive(publicKey); err != nil {
-			if err == vrf.AttemptToDeleteNonExistentKeyFromDB {
+			if err == keystore.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
@@ -319,7 +320,7 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
-	vrfKeyStore := app.GetStore().VRFKeyStore
+	vrfKeyStore := app.GetKeyStore().VRF()
 	keys, err := vrfKeyStore.ListKeys()
 	if err != nil {
 		return err
