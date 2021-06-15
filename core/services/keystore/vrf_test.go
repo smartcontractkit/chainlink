@@ -2,9 +2,10 @@ package keystore_test
 
 import (
 	"bytes"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -107,17 +106,13 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 
 // Export exports a VRF key
 // Example:
-// "Post <application>/keys/vrf/export"
+// "Post <application>/keys/vrf/export/:keyID"
 func (vrfkc *VRFKeysController) Export(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
 	pk, err := secp256k1.NewPublicKeyFromHex(c.Param("keyID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.New("invalid key ID"))
 		return
 	}
 	// New password to re-encrypt the export with

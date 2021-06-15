@@ -176,8 +176,8 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(vrfKeyStore *keysto
 	}
 	if len(keys) == 0 {
 		fmt.Println("There are no VRF keys; creating a new key encrypted with given password")
-		if _, err := vrfKeyStore.CreateKey(); err != nil {
-			return errors.Wrapf(err, "while creating a new encrypted VRF key")
+		if _, err2 := vrfKeyStore.CreateKey(); err2 != nil {
+			return errors.Wrapf(err2, "while creating a new encrypted VRF key")
 		}
 	}
 	// Double check we can read back the encrypted key

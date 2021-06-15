@@ -173,7 +173,7 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	}
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/ocr/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
+	resp, err := cli.HTTP.Post("/v2/keys/vrf/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
@@ -184,7 +184,11 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		errResult, err2 := ioutil.ReadAll(resp.Body)
+		if err2 != nil {
+			return cli.errorOut(errors.Errorf("error exporting status code %d error reading body %s", resp.StatusCode, err2))
+		}
+		return cli.errorOut(errors.Errorf("error exporting status code %d body %s", resp.StatusCode, string(errResult)))
 	}
 
 	keyJSON, err := ioutil.ReadAll(resp.Body)
@@ -203,30 +207,6 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	}
 
 	return nil
-	/*
-		encryptedKey, err := getKeys(cli, c)
-		if err != nil {
-			return err
-		}
-		if c.String("file") == "" {
-			return fmt.Errorf("must specify file to export to") // Or could default to stdout?
-		}
-		keypath := c.String("file")
-		_, err = os.Stat(keypath)
-		if err == nil {
-			return fmt.Errorf(
-				"refusing to overwrite existing file %s. Please move it or change the save path",
-				keypath)
-		}
-		if !os.IsNotExist(err) {
-			return errors.Wrapf(err, "while checking whether file %s exists", keypath)
-		}
-		if err := encryptedKey.WriteToDisk(keypath); err != nil {
-			return errors.Wrapf(err, "could not save %#+v to %s", encryptedKey, keypath)
-		}
-
-		return nil
-	*/
 }
 
 // DeleteVRFKey soft-deletes the VRF key with given public key from the db
@@ -266,10 +246,11 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 }
 
 func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
-	if c.String("publicKey") == "" {
+	pkHexString := c.Args().Get(0)
+	if pkHexString == "" {
 		return secp256k1.PublicKey{}, fmt.Errorf("must specify public key")
 	}
-	publicKey, err := secp256k1.NewPublicKeyFromHex(c.String("publicKey"))
+	publicKey, err := secp256k1.NewPublicKeyFromHex(pkHexString)
 	if err != nil {
 		return secp256k1.PublicKey{}, errors.Wrap(err, "failed to parse public key")
 	}
