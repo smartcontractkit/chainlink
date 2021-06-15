@@ -362,6 +362,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -409,6 +410,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -472,6 +474,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -517,6 +520,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -555,6 +559,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -593,6 +598,7 @@ ds1 -> ds1_parse;
 
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,

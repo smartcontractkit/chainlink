@@ -29,8 +29,8 @@ func (set callbackSet) clone() callbackSet {
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster() *HeadBroadcaster {
-	return &HeadBroadcaster{
+func NewHeadBroadcaster() httypes.HeadBroadcaster {
+	return &headBroadcaster{
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.RWMutex{},
@@ -40,9 +40,9 @@ func NewHeadBroadcaster() *HeadBroadcaster {
 	}
 }
 
-// HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
+// headBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
-type HeadBroadcaster struct {
+type headBroadcaster struct {
 	callbacks callbackSet
 	mailbox   *utils.Mailbox
 	mutex     *sync.RWMutex
@@ -51,9 +51,9 @@ type HeadBroadcaster struct {
 	utils.StartStopOnce
 }
 
-var _ httypes.HeadTrackable = (*HeadBroadcaster)(nil)
+var _ httypes.HeadTrackable = (*headBroadcaster)(nil)
 
-func (hr *HeadBroadcaster) Start() error {
+func (hr *headBroadcaster) Start() error {
 	return hr.StartOnce("HeadBroadcaster", func() error {
 		hr.wgDone.Add(1)
 		go hr.run()
@@ -61,7 +61,7 @@ func (hr *HeadBroadcaster) Start() error {
 	})
 }
 
-func (hr *HeadBroadcaster) Close() error {
+func (hr *headBroadcaster) Close() error {
 	return hr.StopOnce("HeadBroadcaster", func() error {
 
 		hr.mutex.Lock()
@@ -75,7 +75,7 @@ func (hr *HeadBroadcaster) Close() error {
 	})
 }
 
-func (hr *HeadBroadcaster) Connect(head *models.Head) error {
+func (hr *headBroadcaster) Connect(head *models.Head) error {
 	hr.mutex.RLock()
 	callbacks := hr.callbacks.clone()
 	hr.mutex.RUnlock()
@@ -90,13 +90,13 @@ func (hr *HeadBroadcaster) Connect(head *models.Head) error {
 	return nil
 }
 
-func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	hr.mailbox.Deliver(head)
 }
 
 // Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
+func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
 	id, err := newID()
@@ -113,7 +113,7 @@ func (hr *HeadBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscrib
 	return
 }
 
-func (hr *HeadBroadcaster) run() {
+func (hr *headBroadcaster) run() {
 	defer hr.wgDone.Done()
 	for {
 		select {
@@ -128,7 +128,7 @@ func (hr *HeadBroadcaster) run() {
 // DEV: the head relayer makes no promises about head delivery! Subscribing
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
-func (hr *HeadBroadcaster) executeCallbacks() {
+func (hr *headBroadcaster) executeCallbacks() {
 	hr.mutex.RLock()
 	callbacks := hr.callbacks.clone()
 	hr.mutex.RUnlock()
@@ -177,3 +177,15 @@ func newID() (id callbackID, _ error) {
 	copy(id[:], randBytes)
 	return id, nil
 }
+
+type NullBroadcaster struct{}
+
+func (*NullBroadcaster) Start() error                                            { return nil }
+func (*NullBroadcaster) Close() error                                            { return nil }
+func (*NullBroadcaster) Connect(head *models.Head) error                         { return nil }
+func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {}
+func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
+	return func() {}
+}
+func (n *NullBroadcaster) Healthy() error { return nil }
+func (n *NullBroadcaster) Ready() error   { return nil }
