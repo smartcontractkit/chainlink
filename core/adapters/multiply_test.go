@@ -118,7 +118,7 @@ func TestMultiply_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Multiply{Times: &test.Times}
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 
 			require.NoError(t, result.Error())
 			assert.Equal(t, test.want, result.Result().String())
@@ -140,7 +140,7 @@ func TestMultiply_Perform_Failure(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Multiply{Times: &test.Times}
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 			require.Error(t, result.Error())
 		})
 	}

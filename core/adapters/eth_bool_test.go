@@ -31,7 +31,7 @@ func TestEthBool_Perform(t *testing.T) {
 			t.Parallel()
 			past := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.EthBool{}
-			result := adapter.Perform(past, nil)
+			result := adapter.Perform(past, nil, nil)
 
 			assert.NoError(t, result.Error())
 			assert.Equal(t, test.expected, result.Result().String())

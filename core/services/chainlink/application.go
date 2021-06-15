@@ -9,14 +9,12 @@ import (
 	"reflect"
 	"sync"
 	"syscall"
-	"time"
 
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/csa"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -38,6 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -45,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -63,7 +62,7 @@ type Application interface {
 	GetLogger() *logger.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
-	GetOCRKeyStore() *offchainreporting.KeyStore // TODO: this should be replaced with a generic GetKeystore()
+	GetKeyStore() *keystore.Master
 	GetStatsPusher() synchronization.StatsPusher
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
@@ -89,8 +88,6 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
-	// This will eventually be refactored into the combined keystore
-	GetCSAKeyService() csa.Service
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -98,35 +95,25 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	Exiter          func(int)
-	HeadTracker     *services.HeadTracker
-	HeadBroadcaster *headtracker.HeadBroadcaster
-	BPTXM           *bulletprooftxmanager.BulletproofTxManager
+	HeadTracker     httypes.Tracker
+	HeadBroadcaster httypes.HeadBroadcaster
+	TxManager       bulletprooftxmanager.TxManager
 	StatsPusher     synchronization.StatsPusher
 	services.RunManager
-	RunQueue         services.RunQueue
-	JobSubscriber    services.JobSubscriber
-	LogBroadcaster   log.Broadcaster
-	EventBroadcaster postgres.EventBroadcaster
-	jobORM           job.ORM
-	jobSpawner       job.Spawner
-	pipelineORM      pipeline.ORM
-	pipelineRunner   pipeline.Runner
-	FluxMonitor      fluxmonitor.Service
-	FeedsService     feeds.Service
-	webhookJobRunner webhook.JobRunner
-	Scheduler        *services.Scheduler
-	Store            *strpkg.Store
-	CSAKeyService    csa.Service
-	// TODO:
-	// moved OCR keystore from store to application in order to resolve:
-	// https://app.clubhouse.io/chainlinklabs/story/10097/remove-ocr-as-dependency-of-store-package
-
-	// waiting on this before combining and moving other keystores
-	// https://github.com/smartcontractkit/chainlink/pull/4447
-
-	// finally, keystore unification will be completed by:
-	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	OCRKeyStore              *offchainreporting.KeyStore
+	RunQueue                 services.RunQueue
+	JobSubscriber            services.JobSubscriber
+	LogBroadcaster           log.Broadcaster
+	EventBroadcaster         postgres.EventBroadcaster
+	jobORM                   job.ORM
+	jobSpawner               job.Spawner
+	pipelineORM              pipeline.ORM
+	pipelineRunner           pipeline.Runner
+	FluxMonitor              fluxmonitor.Service
+	FeedsService             feeds.Service
+	webhookJobRunner         webhook.JobRunner
+	Scheduler                *services.Scheduler
+	Store                    *strpkg.Store
+	KeyStore                 *keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
@@ -145,20 +132,21 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) (Application, error) {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
+	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
 	if err != nil {
 		return nil, err
 	}
 
 	setupConfig(config, store)
 
-	headBroadcaster := headtracker.NewHeadBroadcaster()
-
 	healthChecker := health.NewChecker()
+
+	scryptParams := utils.GetScryptParams(config)
+	keyStore := keystore.New(store.DB, scryptParams)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -171,10 +159,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
+	var gasUpdater gasupdater.GasUpdater
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
-		headBroadcaster.Subscribe(gasUpdater)
+		gasUpdater = gasupdater.NewGasUpdater(store.EthClient, store.Config)
 		subservices = append(subservices, gasUpdater)
 	} else {
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
@@ -186,7 +174,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
 		subservices = append(subservices, databaseBackup)
 	} else {
-		logger.Info("DatabaseBackup: periodic database backups are disabled")
+		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	// Init service loggers
@@ -201,14 +189,25 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Fatal("error starting logger for head tracker", err)
 	}
 
-	headTracker := services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+	var headBroadcaster httypes.HeadBroadcaster
+	var headTracker httypes.Tracker
+	if config.EthereumDisabled() {
+		headBroadcaster = &headtracker.NullBroadcaster{}
+		headTracker = &headtracker.NullTracker{}
+	} else {
+		headBroadcaster = headtracker.NewHeadBroadcaster()
+		if gasUpdater != nil {
+			headBroadcaster.Subscribe(gasUpdater)
+		}
+		headTracker = services.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+	}
 
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue
 	var runManager services.RunManager
 	var jobSubscriber services.JobSubscriber
 	if config.EnableLegacyJobPipeline() {
-		runExecutor = services.NewRunExecutor(store, statsPusher)
+		runExecutor = services.NewRunExecutor(store, keyStore, statsPusher)
 		runQueue = services.NewRunQueue(runExecutor)
 		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 		jobSubscriber = services.NewJobSubscriber(store, runManager)
@@ -219,48 +218,54 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
 
-	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
-	if err != nil {
-		return nil, err
-	}
-
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
-	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
+	subservices = append(subservices, eventBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
 	feedsService := feeds.NewService(feedsORM)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, store.KeyStore, advisoryLocker, eventBroadcaster)
+	var txManager bulletprooftxmanager.TxManager
+	var logBroadcaster log.Broadcaster
+	if config.EthereumDisabled() {
+		txManager = &bulletprooftxmanager.NullTxManager{ErrMsg: "TxManager is not running because Ethereum is disabled"}
+		logBroadcaster = &log.NullBroadcaster{ErrMsg: "LogBroadcaster is not running because Ethereum is disabled"}
+	} else {
+		// Highest seen head height is used as part of the start of LogBroadcaster backfill range
+		highestSeenHead, err2 := headTracker.HighestSeenHeadFromDB()
+		if err2 != nil {
+			return nil, err2
+		}
 
-	promReporter := services.NewPromReporter(store.MustSQLDB())
+		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
+		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster)
+		subservices = append(subservices, logBroadcaster, txManager)
+	}
+
+	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster)
 
 	subservices = append(subservices,
-		logBroadcaster,
-		eventBroadcaster,
 		fluxMonitor,
 		jobSubscriber,
 	)
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(store)
+		balanceMonitor = services.NewBalanceMonitor(store, keyStore.Eth())
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
-
 	subservices = append(subservices, balanceMonitor)
+
+	promReporter := services.NewPromReporter(store.MustSQLDB())
 	subservices = append(subservices, promReporter)
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
-		csaKeyORM      = csa.NewORM(store.ORM.DB)
 	)
 
-	vorm := vrf.NewORM(store.DB)
+	// vorm := vrf.NewORM(store.DB)
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -271,12 +276,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB,
 				config,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
 			job.VRF: vrf.NewDelegate(
-				store.DB, // For transactions.
-				vorm,
-				store.KeyStore,
-				store.VRFKeyStore,
+				store.DB,
+				txManager,
+				keyStore,
 				pipelineRunner,
 				pipelineORM,
 				logBroadcaster,
@@ -285,9 +289,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		}
 	)
 
-	if config.Dev() || config.FeatureFluxMonitorV2() {
+	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
+	if config.EthereumDisabled() {
+		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
+	} else if config.Dev() || config.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
-			store,
+			txManager,
+			keyStore.Eth(),
 			jobORM,
 			pipelineORM,
 			pipelineRunner,
@@ -304,18 +312,16 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		)
 	}
 
-	scryptParams := utils.GetScryptParams(config)
-	ocrKeyStore := offchainreporting.NewKeyStore(store.DB, scryptParams)
-
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
-		concretePW := offchainreporting.NewSingletonPeerWrapper(ocrKeyStore, config, store.DB)
+		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
+			txManager,
 			jobORM,
 			config,
-			ocrKeyStore,
+			keyStore.OCR(),
 			pipelineRunner,
 			ethClient,
 			logBroadcaster,
@@ -340,11 +346,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, bptxm, headBroadcaster)
+	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
-		BPTXM:                    bptxm,
+		TxManager:                txManager,
 		JobSubscriber:            jobSubscriber,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
@@ -360,7 +366,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		webhookJobRunner:         webhookJobRunner,
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
-		OCRKeyStore:              ocrKeyStore,
+		KeyStore:                 keyStore,
 		SessionReaper:            services.NewSessionReaper(store),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
@@ -368,7 +374,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
-		CSAKeyService:            csa.NewService(config, csaKeyORM, utils.DefaultScryptParams),
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -376,7 +381,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	headBroadcaster.Subscribe(logBroadcaster)
-	headBroadcaster.Subscribe(bptxm)
+	headBroadcaster.Subscribe(txManager)
 	headBroadcaster.Subscribe(promReporter)
 	headBroadcaster.Subscribe(jobSubscriber)
 	headBroadcaster.Subscribe(balanceMonitor)
@@ -518,6 +523,7 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	app.started = true
+
 	return nil
 }
 
@@ -590,8 +596,8 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
-func (app *ChainlinkApplication) GetOCRKeyStore() *offchainreporting.KeyStore {
-	return app.OCRKeyStore
+func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {
+	return app.KeyStore
 }
 
 func (app *ChainlinkApplication) GetLogger() *logger.Logger {
@@ -624,10 +630,6 @@ func (app *ChainlinkApplication) GetHeadBroadcaster() httypes.HeadBroadcasterReg
 
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
-}
-
-func (app *ChainlinkApplication) GetCSAKeyService() csa.Service {
-	return app.CSAKeyService
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.
@@ -679,14 +681,7 @@ func (app *ChainlinkApplication) RunJobV2(
 
 	// Some jobs are special in that they do not have a task graph.
 	if !jb.Type.HasPipelineSpec() {
-		t := time.Now()
-		runID, err = app.pipelineRunner.InsertFinishedRun(app.Store.DB.WithContext(ctx), pipeline.Run{
-			PipelineSpecID: jb.PipelineSpecID,
-			Errors:         pipeline.RunErrors{null.String{}},
-			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},
-			CreatedAt:      t,
-			FinishedAt:     &t,
-		}, nil, false)
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
 		meta := pipeline.JSONSerializable{
 			Val:  meta,

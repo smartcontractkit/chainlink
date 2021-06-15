@@ -8,7 +8,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -20,10 +20,10 @@ func TestETHKeyResource(t *testing.T) {
 		nextNonce  = int64(1)
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
 	)
-	address, err := models.NewEIP55Address(addressStr)
+	address, err := ethkey.NewEIP55Address(addressStr)
 	require.NoError(t, err)
 
-	key := models.Key{
+	key := ethkey.Key{
 		ID:        1,
 		Address:   address,
 		CreatedAt: now,

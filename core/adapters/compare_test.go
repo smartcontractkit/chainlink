@@ -805,7 +805,7 @@ func TestCompare_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithResult(test.input)
 			adapter := test.adapter
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 			val := result.Result()
 			assert.NoError(t, result.Error())
 			assert.Equal(t, test.wantResult, val.Bool())
@@ -880,7 +880,7 @@ func TestCompareError_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithResult(test.input)
 			adapter := test.adapter
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 			assert.Equal(t, test.expected, result.Error())
 		})
 	}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,9 +28,9 @@ type Encumbrance struct {
 	// Agreement is valid until this time
 	EndAt AnyTime `json:"endAt"`
 	// Addresses of oracles committed to this agreement
-	Oracles EIP55AddressCollection `json:"oracles" gorm:"type:text"`
+	Oracles ethkey.EIP55AddressCollection `json:"oracles" gorm:"type:text"`
 	// Address of aggregator contract
-	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
+	Aggregator ethkey.EIP55Address `json:"aggregator" gorm:"not null"`
 	// selector for initialization method on aggregator contract
 	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
 	// selector for fulfillment (oracle reporting) method on aggregator contract
@@ -61,16 +62,16 @@ type ServiceAgreement struct {
 
 // ServiceAgreementRequest encodes external ServiceAgreement json representation.
 type ServiceAgreementRequest struct {
-	Initiators             []InitiatorRequest     `json:"initiators"`
-	Tasks                  []TaskSpecRequest      `json:"tasks"`
-	Payment                *assets.Link           `json:"payment,omitempty"`
-	Expiration             uint64                 `json:"expiration"`
-	EndAt                  AnyTime                `json:"endAt"`
-	Oracles                EIP55AddressCollection `json:"oracles"`
-	Aggregator             EIP55Address           `json:"aggregator"`
-	AggInitiateJobSelector FunctionSelector       `json:"aggInitiateJobSelector"`
-	AggFulfillSelector     FunctionSelector       `json:"aggFulfillSelector"`
-	StartAt                AnyTime                `json:"startAt"`
+	Initiators             []InitiatorRequest            `json:"initiators"`
+	Tasks                  []TaskSpecRequest             `json:"tasks"`
+	Payment                *assets.Link                  `json:"payment,omitempty"`
+	Expiration             uint64                        `json:"expiration"`
+	EndAt                  AnyTime                       `json:"endAt"`
+	Oracles                ethkey.EIP55AddressCollection `json:"oracles"`
+	Aggregator             ethkey.EIP55Address           `json:"aggregator"`
+	AggInitiateJobSelector FunctionSelector              `json:"aggInitiateJobSelector"`
+	AggFulfillSelector     FunctionSelector              `json:"aggFulfillSelector"`
+	StartAt                AnyTime                       `json:"startAt"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -242,7 +243,7 @@ func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func encodeOracles(buffer *bytes.Buffer, oracles []EIP55Address) error {
+func encodeOracles(buffer *bytes.Buffer, oracles []ethkey.EIP55Address) error {
 	for _, o := range oracles {
 		_, err := buffer.Write(address256Bits(o))
 		if err != nil {
@@ -253,6 +254,6 @@ func encodeOracles(buffer *bytes.Buffer, oracles []EIP55Address) error {
 }
 
 // address256Bits Zero left-pads a to 32 bytes, as in Solidity's abi.encodePacking
-func address256Bits(a EIP55Address) []byte {
+func address256Bits(a ethkey.EIP55Address) []byte {
 	return a.Hash().Bytes()
 }

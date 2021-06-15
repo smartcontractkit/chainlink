@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -52,7 +53,7 @@ type EthConfirmer struct {
 	keystore       KeyStore
 	advisoryLocker postgres.AdvisoryLocker
 
-	keys []models.Key
+	keys []ethkey.Key
 
 	mb        *utils.Mailbox
 	ctx       context.Context
@@ -61,7 +62,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []models.Key) *EthConfirmer {
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.Key) *EthConfirmer {
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
 		utils.StartStopOnce{},
@@ -529,14 +530,18 @@ func (ec *EthConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error
 	rows, err := d.QueryContext(ctx, `
 UPDATE eth_txes
 SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL
-WHERE id IN (
-	SELECT eth_txes.id FROM eth_txes
-	INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id
-	WHERE eth_txes.state = 'confirmed_missing_receipt'
-	GROUP BY eth_txes.id
-	HAVING max(eth_tx_attempts.broadcast_before_block_num) < $2
-)
-RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
+FROM (
+	SELECT e1.id, e1.nonce, e1.from_address FROM eth_txes AS e1 WHERE id IN (
+		SELECT e2.id FROM eth_txes AS e2
+		INNER JOIN eth_tx_attempts ON e2.id = eth_tx_attempts.eth_tx_id
+		WHERE e2.state = 'confirmed_missing_receipt'
+		GROUP BY e2.id
+		HAVING max(eth_tx_attempts.broadcast_before_block_num) < $2
+	)
+	FOR UPDATE OF e1
+) e0
+WHERE e0.id = eth_txes.id
+RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff)
 
 	if err != nil {
 		return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
@@ -551,11 +556,13 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 			return errors.Wrap(err, "error scanning row")
 		}
 
-		logger.Errorf("EthConfirmer: eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+		logger.Errorw(fmt.Sprintf("EthConfirmer: eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
-			"This can happen if an external wallet has been used to send a transaction from account %s with nonce %v."+
-			" Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64)
+			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
+			"an external wallet has been used to send a transaction from account %s with nonce %v."+
+			" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
+			" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
+			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64), "ethTxID", ethTxID, "nonce", nonce, "fromAddress", fromAddress)
 	}
 
 	return nil
