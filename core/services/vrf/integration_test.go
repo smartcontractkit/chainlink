@@ -33,9 +33,9 @@ func TestIntegration_VRFV2(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
-	vrfkey, err := app.KeyStore.VRF().CreateKey(cltest.Password)
-	require.NoError(t, err)
 	unlocked, err := app.KeyStore.VRF().Unlock(cltest.Password)
+	require.NoError(t, err)
+	vrfkey, err := app.KeyStore.VRF().CreateKey()
 	require.NoError(t, err)
 	jid := uuid.NewV4()
 	incomingConfs := 2
