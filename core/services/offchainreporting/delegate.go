@@ -144,6 +144,16 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
+	var overrideContractConfirmations uint16
+	// L2 chains
+	if d.config.Chain().IsArbitrum() || d.config.Chain().IsOptimism() {
+		if lc.ContractConfigConfirmations != 0 {
+			overrideContractConfirmations = 0
+		}
+	} else {
+		// overrideContractConfirmations =
+	}
+
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
 		ContractConfigConfirmations:            d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
