@@ -10,9 +10,11 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -34,6 +36,8 @@ type Delegate struct {
 	logBroadcaster     log.Broadcaster
 	peerWrapper        *SingletonPeerWrapper
 	monitoringEndpoint ocrtypes.MonitoringEndpoint
+	chain              *chains.Chain
+	headBroadcaster    httypes.HeadBroadcaster
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -49,6 +53,8 @@ func NewDelegate(
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
+	chain *chains.Chain,
+	headBroadcaster httypes.HeadBroadcaster,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -61,6 +67,8 @@ func NewDelegate(
 		logBroadcaster,
 		peerWrapper,
 		monitoringEndpoint,
+		chain,
+		headBroadcaster,
 	}
 }
 
@@ -98,7 +106,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	ocrdb := NewDB(gormdb, concreteSpec.ID)
 
-	tracker, err := NewOCRContractTracker(
+	tracker := NewOCRContractTracker(
 		contract,
 		contractFilterer,
 		contractCaller,
@@ -108,10 +116,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		*logger.Default,
 		d.db,
 		ocrdb,
+		d.chain,
+		d.headBroadcaster,
 	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling NewOCRContract")
-	}
 	services = append(services, tracker)
 
 	peerID, err := d.config.P2PPeerID(concreteSpec.P2PPeerID)
@@ -140,8 +147,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	})
 
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
-		ContractConfigConfirmations:            d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
+		BlockchainTimeout:           d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
+		ContractConfigConfirmations: d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
+		// TODO: Uncomment this when upgraded to libocr that supports it, check this PR: https://github.com/smartcontractkit/offchain-reporting/pull/218/files
+		// SkipContractConfigConfirmations:        d.config.Chain().IsL2(),
 		ContractConfigTrackerPollInterval:      d.config.OCRContractPollInterval(time.Duration(concreteSpec.ContractConfigTrackerPollInterval)),
 		ContractConfigTrackerSubscribeInterval: d.config.OCRContractSubscribeInterval(time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval)),
 		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
