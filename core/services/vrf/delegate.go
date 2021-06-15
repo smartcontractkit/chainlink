@@ -32,6 +32,7 @@ import (
 type Delegate struct {
 	cfg  Config
 	db   *gorm.DB
+	txm  bulletprooftxmanager.TxManager
 	pr   pipeline.Runner
 	porm pipeline.ORM
 	ks   *keystore.Master
@@ -48,11 +49,11 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EthGasLimitDefault() uint64
-	EthMaxQueuedTransactions() uint64
 }
 
 func NewDelegate(
 	db *gorm.DB,
+	txm bulletprooftxmanager.TxManager,
 	ks *keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
@@ -62,6 +63,7 @@ func NewDelegate(
 	return &Delegate{
 		cfg:  cfg,
 		db:   db,
+		txm:  txm,
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
@@ -99,6 +101,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		l:              *l,
 		logBroadcaster: d.lb,
 		db:             d.db,
+		txm:            d.txm,
 		abi:            abi,
 		coordinator:    coordinator,
 		pipelineRunner: d.pr,
@@ -130,6 +133,7 @@ type listener struct {
 	vorm           keystore.VRFORM
 	job            job.Job
 	db             *gorm.DB
+	txm            bulletprooftxmanager.TxManager
 	vrfks          *keystore.VRF
 	gethks         GethKeyStore
 	mbLogs         *utils.Mailbox
@@ -168,7 +172,6 @@ func (lsn *listener) Start() error {
 
 func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 	lsn.l.Infow("VRFListener: listening for run requests",
-		"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
 		"gasLimit", lsn.cfg.EthGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
@@ -226,12 +229,11 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 						if err != nil {
 							return err
 						}
-						etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
+						etx, err = lsn.txm.CreateEthTransaction(tx,
 							from,
 							lsn.coordinator.Address(),
 							vrfCoordinatorPayload,
 							lsn.cfg.EthGasLimitDefault(),
-							lsn.cfg.EthMaxQueuedTransactions(),
 							&models.EthTxMetaV2{
 								JobID:         lsn.job.ID,
 								RequestID:     req.RequestID,
