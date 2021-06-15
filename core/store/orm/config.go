@@ -1095,6 +1095,15 @@ func (c Config) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
+// InsecureSkipVerify disables SSL certificiate verification when connection to
+// a chainlink client using the remote client, i.e. when executing most remote
+// commands in the CLI.
+//
+// This is mostly useful for people who want to use TLS on localhost.
+func (c Config) InsecureSkipVerify() bool {
+	return c.viper.GetBool(EnvVarName("InsecureSkipVerify"))
+}
+
 func (c Config) TriggerFallbackDBPollInterval() time.Duration {
 	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
