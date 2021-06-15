@@ -225,7 +225,7 @@ func (ks *VRF) Import(keyjson []byte, auth string) (vrfkey.EncryptedVRFKey, erro
 	if err != nil {
 		return enckey, errors.Wrapf(err,
 			"while attempting to decrypt key with public key %s",
-			key.PublicKey.String())
+			enckey.PublicKey.String())
 	}
 	if err := ks.orm.FirstOrCreateEncryptedSecretVRFKey(&enckey); err != nil {
 		return enckey, errors.Wrapf(err, "while saving encrypted key to DB")
@@ -243,7 +243,7 @@ func (ks *VRF) Export(pk secp256k1.PublicKey, newPassword string) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	encKey, err := privateKey.Encrypt(ks.password, ks.scryptParams)
+	encKey, err := privateKey.Encrypt(newPassword, ks.scryptParams)
 	if err != nil {
 		return nil, err
 	}
