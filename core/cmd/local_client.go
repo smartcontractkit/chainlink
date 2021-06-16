@@ -97,7 +97,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	if len(c.String("vrfpassword")) != 0 {
-		// TODO: include password strength check here too?
 		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
 			return cli.errorOut(errors.Wrapf(fileErr,

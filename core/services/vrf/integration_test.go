@@ -33,7 +33,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
-	unlocked, err := app.KeyStore.VRF().Unlock(cltest.Password)
+	_, err := app.KeyStore.VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
 	vrfkey, err := app.KeyStore.VRF().CreateKey()
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 		Name:               "vrf-primary",
 		CoordinatorAddress: cu.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
-		PublicKey:          unlocked[0].String()}).Toml()
+		PublicKey:          vrfkey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
