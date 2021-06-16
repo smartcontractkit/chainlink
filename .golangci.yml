@@ -1,0 +1,31 @@
+linters:
+  enable:
+    - exhaustive
+    - exportloopref
+    - golint
+    - goimports
+    - gosec
+  disable:
+    # Disable these default linters so we match our current lint set up
+    - deadcode
+    - gosimple
+    - ineffassign
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
+  golint:
+    min-confidence: 1.0
+  gosec:
+    excludes:
+      - G101
+      - G104
+      - G204
+      - G304
+      - G404
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
