@@ -90,8 +90,8 @@ func (ks *CSA) Unlock(password string) error {
 		return err
 	}
 
-	for _, key := range keys {
-		err := ks.unlockAndAddKey(&key, password)
+	for i := range keys {
+		err := ks.unlockAndAddKey(&keys[i], password)
 		errs = multierr.Append(errs, err)
 	}
 

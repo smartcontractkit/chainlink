@@ -117,14 +117,15 @@ func (r *Recurring) Stop() {
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
 func (r *Recurring) AddJob(job models.JobSpec) {
-	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
-		_, err := r.Cron.AddFunc(string(initr.Schedule), func() {
+	initrs := job.InitiatorsFor(models.InitiatorCron)
+	for i := range initrs {
+		_, err := r.Cron.AddFunc(string(initrs[i].Schedule), func() {
 			now := time.Now()
 			if !job.Started(now) || job.Ended(now) {
 				return
 			}
 
-			_, err := r.runManager.Create(job.ID, &initr, nil, &models.RunRequest{})
+			_, err := r.runManager.Create(job.ID, &initrs[i], nil, &models.RunRequest{})
 			if err != nil && !ExpectedRecurringScheduleJobError(err) {
 				logger.Errorw(err.Error())
 			}
