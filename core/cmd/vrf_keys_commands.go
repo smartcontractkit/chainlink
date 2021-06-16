@@ -62,8 +62,6 @@ func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
 	renderList(headers, rows, rt.Writer)
 	_, err := rt.Write([]byte("\n"))
 	return err
-
-	return nil
 }
 
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
