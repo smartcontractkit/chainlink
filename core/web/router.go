@@ -297,6 +297,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", csakc.Create)
 
+		vrfkc := VRFKeysController{app}
+		authv2.GET("/keys/vrf", vrfkc.Index)
+		authv2.POST("/keys/vrf", vrfkc.Create)
+		authv2.DELETE("/keys/vrf/:keyID", vrfkc.Delete)
+		authv2.POST("/keys/vrf/import", vrfkc.Import)
+		authv2.POST("/keys/vrf/export/:keyID", vrfkc.Export)
+
 		jc := JobsController{app}
 		authv2.GET("/jobs", jc.Index)
 		authv2.GET("/jobs/:ID", jc.Show)

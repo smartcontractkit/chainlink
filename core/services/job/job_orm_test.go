@@ -285,6 +285,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	defer cleanup()
 	db := store.DB
 	keyStore := cltest.NewKeyStore(t, store.DB)
+	keyStore.VRF().Unlock("blah")
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
@@ -340,7 +341,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
-		pk, err := keyStore.VRF().CreateKey(cltest.Password)
+		pk, err := keyStore.VRF().CreateKey()
 		require.NoError(t, err)
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
 		require.NoError(t, err)
