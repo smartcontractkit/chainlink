@@ -25,7 +25,7 @@ func (p VRFKeyPresenter) FriendlyDeletedAt() string {
 	if p.DeletedAt != nil {
 		return p.DeletedAt.String()
 	}
-	return "\n"
+	return ""
 }
 
 // RenderTable implements TableRenderer
