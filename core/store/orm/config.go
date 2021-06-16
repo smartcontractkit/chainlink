@@ -54,9 +54,10 @@ var (
 
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 
-	// keyed by ChainID
+	// ChainSpecificDefaults are keyed by ChainID
 	ChainSpecificDefaults map[int64]ChainSpecificDefaultSet
-	// If the chain is unknown, fallback to the general defaults
+	// GeneralDefaults are chain defaults for when the chain is unknown.
+	// Fallback to the general defaults.
 	GeneralDefaults ChainSpecificDefaultSet
 )
 
