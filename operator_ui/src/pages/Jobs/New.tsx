@@ -164,7 +164,16 @@ export const New = ({
 
   // Extract the tasks from the job spec to display in the preview
   useEffect(() => {
-    const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
+    const timeout = setTimeout(() => {
+      setValueErrorMsg('')
+      const taskList = getTaskList({ value })
+      if (taskList.error) {
+        setValid(false)
+        setValueErrorMsg(taskList.error)
+      } else {
+        setTasks(taskList)
+      }
+    }, 500)
 
     return () => clearTimeout(timeout)
   }, [value, setTasks])
@@ -273,7 +282,7 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading}
+                      disabled={loading || Boolean(valueErrorMsg)}
                     >
                       Create Job
                       {loading && (

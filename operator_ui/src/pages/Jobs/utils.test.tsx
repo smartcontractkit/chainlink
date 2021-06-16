@@ -74,6 +74,7 @@ describe('pages/jobs/utils', () => {
       ).toEqual({
         format: 'json',
         list: [{ type: 'HTTPGet' }, { type: 'JSONParse' }],
+        error: '',
       })
     })
 
@@ -85,6 +86,7 @@ describe('pages/jobs/utils', () => {
       ).toEqual({
         format: false,
         list: false,
+        error: '',
       })
     })
 
@@ -112,6 +114,7 @@ describe('pages/jobs/utils', () => {
             parentIds: [],
           },
         ],
+        error: '',
       })
     })
 
@@ -124,6 +127,7 @@ describe('pages/jobs/utils', () => {
       ).toEqual({
         format: false,
         list: false,
+        error: '',
       })
     })
 
@@ -135,6 +139,20 @@ describe('pages/jobs/utils', () => {
       ).toEqual({
         format: JobSpecFormats.TOML,
         list: false,
+        error: '',
+      })
+    })
+
+    it('returns an error on duplicate parents', () => {
+      expect(
+        getTaskList({
+          value:
+            'observationSource = """ ds -> ds_parse; ds1 -> ds1_parse; ds -> ds_parse;  """',
+        }),
+      ).toEqual({
+        format: JobSpecFormats.TOML,
+        list: false,
+        error: 'ds has duplicate ds_parse children',
       })
     })
   })
