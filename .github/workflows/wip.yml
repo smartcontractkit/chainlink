@@ -7,7 +7,10 @@ jobs:
     runs-on: [self-hosted]
     
     steps:
-      - name: Test
+      - name: Setup
+        run: |
+          sudo ln -s /bin/true /bin/apt-get
+      - name: Run
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: true
