@@ -77,6 +77,8 @@ In addition, a minor annoyance has been fixed whereby previously if you enabled 
 
 - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS replaces MINIMUM_CONTRACT_PAYMENT, which will be deprecated in a future release.
 
+- If the ETH_CHAIN_ID is changed between successive invocations of the Chainlink Node, it will abort. We cannot currently support this scenario as the Chainlink Node only persists state about the chain it was connected to.
+
 - INSECURE_SKIP_VERIFY configuration variable disables verification of the Chainlink SSL certificates when using the CLI.
 
 - JSON parse tasks (v2) now permit an empty `path` parameter.
