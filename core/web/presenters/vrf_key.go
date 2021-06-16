@@ -9,7 +9,6 @@ import (
 
 type VRFKeyResource struct {
 	JAID
-	//PublicKey secp256k1.PublicKey `json:"publicKey"`
 	Compressed   string     `json:"compressed"`
 	Uncompressed string     `json:"uncompressed"`
 	Hash         string     `json:"hash"`
