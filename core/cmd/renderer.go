@@ -110,8 +110,8 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 			key.Compressed,
 			key.Uncompressed,
 			key.Hash,
-			key.FriendlyCreatedAt(),
-			key.FriendlyUpdatedAt(),
+			key.CreatedAt.String(),
+			key.UpdatedAt.String(),
 			key.FriendlyDeletedAt(),
 		})
 	}
