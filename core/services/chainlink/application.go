@@ -453,8 +453,7 @@ func validateCurrentChainID(store *strpkg.Store) error {
 	err := store.GetConfigValue("ChainID", currentChainID)
 	if err != nil {
 		if errors.Cause(err) == orm.ErrorNotFound {
-			err := store.SetConfigValue("ChainID", chainID)
-			if err != nil {
+			if err = store.SetConfigValue("ChainID", chainID); err != nil {
 				return err
 			}
 			return nil
