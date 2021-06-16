@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { evmWordToAddress, publicAbi } from "../helpers";
+import { evmWordToAddress, publicAbi } from "../test-helpers/helpers";
 import { assert } from "chai";
 import { Contract, ContractFactory, ContractReceipt } from "ethers";
-import { getUsers, Roles } from "../setup";
+import { getUsers, Roles } from "../test-helpers/setup";
 
 let linkTokenFactory: ContractFactory;
 let operatorGeneratorFactory: ContractFactory;

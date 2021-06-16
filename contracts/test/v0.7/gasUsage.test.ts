@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
-import { toBytes32String, toWei } from "../helpers";
+import { toBytes32String, toWei } from "../test-helpers/helpers";
 import { Contract, ContractFactory } from "ethers";
-import { getUsers, Roles } from "../setup";
-import { convertFufillParams, convertFulfill2Params, decodeRunRequest } from "../oracle";
-import { gasDiffLessThan } from "../matchers";
+import { getUsers, Roles } from "../test-helpers/setup";
+import { convertFufillParams, convertFulfill2Params, decodeRunRequest } from "../test-helpers/oracle";
+import { gasDiffLessThan } from "../test-helpers/matchers";
 
 let operatorFactory: ContractFactory;
 let oracleFactory: ContractFactory;

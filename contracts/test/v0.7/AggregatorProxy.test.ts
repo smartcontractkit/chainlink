@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
-import { increaseTimeBy, numToBytes32, publicAbi, toWei } from "../helpers";
+import { increaseTimeBy, numToBytes32, publicAbi, toWei } from "../test-helpers/helpers";
 import { assert } from "chai";
 import { BigNumber, Contract, ContractFactory, Signer } from "ethers";
-import { Personas, getUsers } from "../setup";
-import { bigNumEquals, evmRevert } from "../matchers";
+import { Personas, getUsers } from "../test-helpers/setup";
+import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 
 let personas: Personas;
 let defaultAccount: Signer;

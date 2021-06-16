@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
-import { publicAbi } from "../helpers";
+import { publicAbi } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, Contract, ContractFactory } from "ethers";
-import { Personas, getUsers } from "../setup";
-import { bigNumEquals } from "../matchers";
+import { Personas, getUsers } from "../test-helpers/setup";
+import { bigNumEquals } from "../test-helpers/matchers";
 
 let personas: Personas;
 let validatorFactory: ContractFactory;

@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { assert, expect } from "chai";
 import { BigNumber, Contract, ContractFactory, ContractTransaction } from "ethers";
-import { getUsers, Personas, Roles } from "../setup";
+import { getUsers, Personas, Roles } from "../test-helpers/setup";
 import {
   constants,
   evmWordToAddress,
@@ -11,7 +11,7 @@ import {
   toWei,
   numToBytes32,
   getLogs,
-} from "../helpers";
+} from "../test-helpers/helpers";
 
 let roles: Roles;
 let personas: Personas;

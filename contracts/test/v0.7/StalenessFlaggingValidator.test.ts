@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
-import { evmWordToAddress, getLog, getLogs, numToBytes32, publicAbi } from "../helpers";
+import { evmWordToAddress, getLog, getLogs, numToBytes32, publicAbi } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, Contract, ContractFactory } from "ethers";
-import { Personas, getUsers } from "../setup";
-import { evmRevert } from "../matchers";
+import { Personas, getUsers } from "../test-helpers/setup";
+import { evmRevert } from "../test-helpers/matchers";
 
 let personas: Personas;
 let validatorFactory: ContractFactory;
