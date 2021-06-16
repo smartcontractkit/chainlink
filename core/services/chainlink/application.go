@@ -448,7 +448,7 @@ var ErrNewChainID = errors.New("The ChainID has changed since last run, this is 
 // Changes to ChainID are not supported, because various records are assumed to
 // represent on chain state.
 func validateCurrentChainID(store *strpkg.Store) error {
-	var currentChainID *big.Int
+	currentChainID := new(big.Int)
 	err := store.GetConfigValue("ChainID", currentChainID)
 	if err != nil && errors.Cause(err) != orm.ErrorNotFound {
 		return err

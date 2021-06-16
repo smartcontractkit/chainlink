@@ -3,6 +3,7 @@
 package chainlink_test
 
 import (
+	"context"
 	"syscall"
 	"testing"
 
@@ -80,11 +81,8 @@ func TestChainlinkApplication_ChangeInChainID(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
+	require.NoError(t, app.Store.SetConfigStrValue(context.TODO(), "ChainID", "2663"))
 	config.Set("ETH_CHAIN_ID", 7853)
-	require.NoError(t, app.Start())
-	require.NoError(t, app.Stop())
-
-	config.Set("ETH_CHAIN_ID", 2663)
 	err := app.Start()
 	assert.Equal(t, chainlink.ErrNewChainID, err)
 }
