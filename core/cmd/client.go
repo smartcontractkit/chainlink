@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -177,10 +178,22 @@ type authenticatedHTTPClient struct {
 func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator, sessionRequest models.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:         config,
-		client:         &http.Client{},
+		client:         newHttpClient(config),
 		cookieAuth:     cookieAuth,
 		sessionRequest: sessionRequest,
 	}
+}
+
+func newHttpClient(config orm.ConfigReader) *http.Client {
+	tr := &http.Transport{
+		// User enables this at their own risk!
+		// #nosec G402
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify()},
+	}
+	if config.InsecureSkipVerify() {
+		fmt.Println("WARNING: INSECURE_SKIP_VERIFY is set to true, skipping SSL certificate verification.")
+	}
+	return &http.Client{Transport: tr}
 }
 
 // Get performs an HTTP Get using the authenticated HTTP client's cookie.
@@ -291,7 +304,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := http.Client{Timeout: 30 * time.Second}
+	client := newHttpClient(t.config)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

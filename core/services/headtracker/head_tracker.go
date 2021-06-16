@@ -1,4 +1,4 @@
-package services
+package headtracker
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -38,8 +37,8 @@ type HeadTracker struct {
 	backfillMB   utils.Mailbox
 	samplingMB   utils.Mailbox
 	muLogger     sync.RWMutex
-	headListener *headtracker.HeadListener
-	headSaver    *headtracker.HeadSaver
+	headListener *HeadListener
+	headSaver    *HeadSaver
 	chStop       chan struct{}
 	wgDone       *sync.WaitGroup
 	utils.StartStopOnce
@@ -66,8 +65,8 @@ func NewHeadTracker(
 		samplingMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
 		wgDone:          &wgDone,
-		headListener:    headtracker.NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
-		headSaver:       headtracker.NewHeadSaver(store),
+		headListener:    NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
+		headSaver:       NewHeadSaver(store),
 	}
 }
 
