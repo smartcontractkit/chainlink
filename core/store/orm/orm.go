@@ -734,7 +734,9 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 	if err != nil {
 		return err
 	}
-	return orm.DB.Where(models.Configuration{Name: name}).
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	return orm.DB.WithContext(ctx).Where(models.Configuration{Name: name}).
 		Assign(models.Configuration{Name: name, Value: string(textValue)}).
 		FirstOrCreate(&models.Configuration{}).Error
 }
