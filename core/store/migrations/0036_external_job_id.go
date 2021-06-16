@@ -3,8 +3,10 @@ package migrations
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
+
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +31,29 @@ const (
     `
 )
 
+// Copy this here to avoid a direct job.Job reference which could change
+// and break the migration.
+type Job36 struct {
+	ID                            int32     `toml:"-" gorm:"primary_key"`
+	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+	OffchainreportingOracleSpecID *int32
+	CronSpecID                    *int32
+	DirectRequestSpecID           *int32
+	FluxMonitorSpecID             *int32
+	KeeperSpecID                  *int32
+	VRFSpecID                     *int32
+	WebhookSpecID                 *int32
+	PipelineSpecID                int32
+	Type                          string
+	SchemaVersion                 uint32
+	Name                          null.String
+	MaxTaskDuration               models.Interval
+}
+
+func (Job36) TableName() string {
+	return "jobs"
+}
+
 func init() {
 	Migrations = append(Migrations, &Migration{
 		ID: "0036_external_job_id",
@@ -40,7 +65,7 @@ func init() {
 
 			// Update all jobs to have an external_job_id.
 			// We do this to avoid using the uuid postgres extension.
-			var jobs []job.Job
+			var jobs []Job36
 			if err := db.Find(&jobs).Error; err != nil {
 				return err
 			}

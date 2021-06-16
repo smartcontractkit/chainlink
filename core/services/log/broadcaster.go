@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -41,6 +43,7 @@ type (
 	Broadcaster interface {
 		utils.DependentAwaiter
 		service.Service
+		httypes.HeadTrackable
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 		LatestHead() *models.Head
@@ -440,3 +443,35 @@ func (b *broadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error
 func (b *broadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
 	return b.orm.MarkBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
+
+type NullBroadcaster struct{ ErrMsg string }
+
+func (n *NullBroadcaster) IsConnected() bool { return false }
+func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
+	return func() {}
+}
+func (n *NullBroadcaster) LatestHead() *models.Head {
+	return nil
+}
+func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
+	return 0
+}
+func (n *NullBroadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error) {
+	return false, errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
+	return errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) AddDependents(int) {}
+func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+func (n *NullBroadcaster) DependentReady()                                {}
+func (n *NullBroadcaster) Start() error                                   { return nil }
+func (n *NullBroadcaster) Close() error                                   { return nil }
+func (n *NullBroadcaster) Healthy() error                                 { return nil }
+func (n *NullBroadcaster) Ready() error                                   { return nil }
+func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}

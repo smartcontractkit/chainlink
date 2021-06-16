@@ -7,6 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -16,7 +19,7 @@ type ProofResponse struct {
 	// Approximately the proof which will be checked on-chain. Note that this
 	// contains the pre-seed in place of the final seed. That should be computed
 	// as in FinalSeed.
-	P        Proof
+	P        vrfkey.Proof
 	PreSeed  Seed   // Seed received during VRF request
 	BlockNum uint64 // Height of the block in which tihs request was made
 }
@@ -35,7 +38,7 @@ type MarshaledOnChainResponse [OnChainResponseLength]byte
 // VRFCoordinator.
 func (p *ProofResponse) MarshalForVRFCoordinator() (
 	response MarshaledOnChainResponse, err error) {
-	solidityProof, err := p.P.SolidityPrecalculations()
+	solidityProof, err := SolidityPrecalculations(&p.P)
 	if err != nil {
 		return MarshaledOnChainResponse{}, errors.Wrap(err,
 			"while marshaling proof for VRFCoordinator")
@@ -70,34 +73,36 @@ func UnmarshalProofResponse(m MarshaledOnChainResponse) (*ProofResponse, error) 
 }
 
 // CryptoProof returns the proof implied by p, with the correct seed
-func (p ProofResponse) CryptoProof(s PreSeedData) (Proof, error) {
+func (p ProofResponse) CryptoProof(s PreSeedData) (vrfkey.Proof, error) {
 	proof := p.P // Copy P, which has wrong seed value
 	proof.Seed = FinalSeed(s)
 	valid, err := proof.VerifyVRFProof()
 	if err != nil {
-		return Proof{}, errors.Wrap(err,
+		return vrfkey.Proof{}, errors.Wrap(err,
 			"could not validate proof implied by on-chain response")
 	}
 	if !valid {
-		return Proof{}, errors.Errorf(
+		return vrfkey.Proof{}, errors.Errorf(
 			"proof implied by on-chain response is invalid")
 	}
 	return proof, nil
 }
 
-// GenerateProofResponse returns the marshaled proof of the VRF output given the
-// secretKey and the seed computed from the s.PreSeed and the s.BlockHash
-func GenerateProofResponse(secretKey common.Hash, s PreSeedData) (
-	MarshaledOnChainResponse, error) {
-	seed := FinalSeed(s)
-	proof, err := GenerateProof(secretKey, common.BigToHash(seed))
-	if err != nil {
-		return MarshaledOnChainResponse{}, err
-	}
+func generateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (MarshaledOnChainResponse, error) {
 	p := ProofResponse{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum}
 	rv, err := p.MarshalForVRFCoordinator()
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
 	}
 	return rv, nil
+}
+
+func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedData) (
+	MarshaledOnChainResponse, error) {
+	seed := FinalSeed(s)
+	proof, err := keystore.GenerateProof(key, seed)
+	if err != nil {
+		return MarshaledOnChainResponse{}, err
+	}
+	return generateProofResponseFromProof(proof, s)
 }

@@ -141,7 +141,7 @@ func TestJsonParse_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithResult(test.result)
 			adapter := adapters.JSONParse{Path: test.path}
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, nil, nil)
 			assert.Equal(t, test.wantData, result.Data().String())
 			assert.Equal(t, test.wantStatus, result.Status())
 
@@ -162,7 +162,7 @@ func TestJsonParse_Perform_WithPreParsedJSON(t *testing.T) {
 	input := cltest.NewRunInputWithResult(parsed)
 
 	adapter := adapters.JSONParse{Path: []string{"last"}}
-	result := adapter.Perform(input, nil)
+	result := adapter.Perform(input, nil, nil)
 	assert.Equal(t, `{"result":"11779.99"}`, result.Data().String())
 	assert.Equal(t, models.RunStatusCompleted, result.Status())
 	assert.NoError(t, result.Error())

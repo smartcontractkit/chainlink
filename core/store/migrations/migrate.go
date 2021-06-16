@@ -65,8 +65,11 @@ func Current(db *gorm.DB) (*Migration, error) {
 		ValidateUnknownMigrations: false,
 	}, Migrations)
 
-	migration, err := g.getLastRunMigration()
+	if err := g.createMigrationTableIfNotExists(); err != nil {
+		return nil, err
+	}
 
+	migration, err := g.getLastRunMigration()
 	if err != nil {
 		return nil, err
 	}
