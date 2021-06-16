@@ -14,3 +14,4 @@ craco.config.js
 solc_bin/**
 integration/apocalypse/**
 contracts/
+tools/ci-ts/tests/ethers/**
