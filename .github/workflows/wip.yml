@@ -1,0 +1,12 @@
+name: test
+
+on: [pull_request]
+
+jobs:
+  test:
+    runs-on: [self-hosted]
+    
+    steps:
+      - name: Test
+        run: |
+          curl checkip.amazonaws.com
