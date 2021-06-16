@@ -8,5 +8,6 @@ jobs:
     
     steps:
       - name: Test
-        run: |
-          curl checkip.amazonaws.com
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
