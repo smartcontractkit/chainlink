@@ -75,7 +75,6 @@ type FluxMonitorSpec struct {
 func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 	return &FluxMonitorSpec{
 		ContractAddress:   spec.ContractAddress,
-		Precision:         spec.Precision,
 		Threshold:         spec.Threshold,
 		AbsoluteThreshold: spec.AbsoluteThreshold,
 		PollTimerPeriod:   spec.PollTimerPeriod.String(),

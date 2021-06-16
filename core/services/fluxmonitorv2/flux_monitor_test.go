@@ -2,7 +2,6 @@ package fluxmonitorv2_test
 
 import (
 	"context"
-	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -56,7 +55,6 @@ var (
 	threshold         = float64(0.5)
 	absoluteThreshold = float64(0.01)
 	idleTimerPeriod   = time.Minute
-	precision         = int32(2)
 	defaultLogger     = *logger.Default
 	pipelineSpec      = pipeline.Spec{
 		ID: 1,
@@ -175,11 +173,10 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		contractAddress,
 		tm.contractSubmitter,
 		fluxmonitorv2.NewDeviationChecker(threshold, absoluteThreshold),
-		fluxmonitorv2.NewSubmissionChecker(big.NewInt(0), big.NewInt(100000000000), precision),
+		fluxmonitorv2.NewSubmissionChecker(big.NewInt(0), big.NewInt(100000000000)),
 		fluxmonitorv2.Flags{},
 		tm.fluxAggregator,
 		tm.logBroadcaster,
-		precision,
 		logger.Default,
 	)
 	require.NoError(t, err)
@@ -302,9 +299,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			if tc.answersDeviate {
 				answers = deviatedAnswers
 			}
-			latestAnswerNoPrecision := answers.latestAnswer * int64(
-				math.Pow10(int(precision)),
-			)
+			latestAnswer := answers.latestAnswer
 
 			// Setup Run
 			run := pipeline.Run{
@@ -361,7 +356,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			roundState := flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          reportableRoundID,
 				EligibleToSubmit: tc.eligible,
-				LatestSubmission: big.NewInt(latestAnswerNoPrecision),
+				LatestSubmission: big.NewInt(latestAnswer),
 				AvailableFunds:   availableFunds,
 				PaymentAmount:    paymentAmount,
 				OracleCount:      oracleCount,
@@ -475,7 +470,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			return flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          roundID,
 				EligibleToSubmit: true,
-				LatestSubmission: big.NewInt(100 * int64(math.Pow10(int(precision)))),
+				LatestSubmission: big.NewInt(100),
 				AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
 				PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
 			}
@@ -665,7 +660,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			tm.keyStore.On("SendingKeys").Return([]ethkey.Key{ethkey.Key{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 			const fetchedAnswer = 100
-			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
+			answerBigInt := big.NewInt(fetchedAnswer)
 
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
@@ -738,7 +733,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{ethkey.Key{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
-	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
+	answerBigInt := big.NewInt(fetchedAnswer)
 
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
@@ -845,7 +840,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	ch := make(chan struct{})
 
 	const fetchedAnswer = 100
-	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
+	answerBigInt := big.NewInt(fetchedAnswer)
 	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
@@ -1029,7 +1024,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{ethkey.Key{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
-	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
+	answerBigInt := big.NewInt(fetchedAnswer)
 
 	chRoundState1 := make(chan struct{})
 	chRoundState2 := make(chan struct{})

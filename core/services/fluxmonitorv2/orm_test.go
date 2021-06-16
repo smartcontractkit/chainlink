@@ -148,7 +148,6 @@ func makeJob(t *testing.T) *job.Job {
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
-			Precision:         2,
 			Threshold:         0.5,
 			PollTimerPeriod:   1 * time.Second,
 			PollTimerDisabled: false,
