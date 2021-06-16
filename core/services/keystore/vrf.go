@@ -309,7 +309,7 @@ func (ks *VRF) ListKeys() (publicKeys []*secp256k1.PublicKey, err error) {
 	return publicKeys, nil
 }
 
-// ListKeys lists the public keys contained in the db
+// ListKeysIncludingArchived lists the public keys contained in the db
 func (ks *VRF) ListKeysIncludingArchived() (publicKeys []*secp256k1.PublicKey, err error) {
 	allKeys, err := ks.orm.FindEncryptedSecretVRFKeysIncludingArchived()
 	if err != nil {
