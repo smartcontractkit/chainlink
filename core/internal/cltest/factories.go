@@ -234,7 +234,7 @@ func NewPeerID() p2ppeer.ID {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	rand.Read(b)
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
 	return b
 }
 
