@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
-import { publicAbi, toBytes32String, toWei, stringToBytes, increaseTime5Minutes, constants } from "../helpers";
+import { publicAbi, toBytes32String, toWei, stringToBytes, increaseTime5Minutes, constants } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, Contract, ContractFactory, ContractReceipt, ContractTransaction, Signer } from "ethers";
-import { getUsers, Roles } from "../setup";
-import { bigNumEquals, evmRevert } from "../matchers";
+import { getUsers, Roles } from "../test-helpers/setup";
+import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 import type { providers } from "ethers";
 import {
   convertCancelParams,
@@ -13,7 +13,7 @@ import {
   encodeOracleRequest,
   encodeRequestOracleData,
   RunRequest,
-} from "../oracle";
+} from "../test-helpers/oracle";
 
 let v7ConsumerFactory: ContractFactory;
 let basicConsumerFactory: ContractFactory;

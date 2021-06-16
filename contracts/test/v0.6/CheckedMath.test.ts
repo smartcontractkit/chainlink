@@ -2,11 +2,11 @@
 // Adapted from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/c9630526e24ba53d9647787588a19ffaa3dd65e1/test/math/SignedSafeMath.test.js
 
 import { ethers } from "hardhat";
-import { constants } from "../helpers";
+import { constants } from "../test-helpers/helpers";
 import { assert } from "chai";
 import { BigNumber, Contract, ContractFactory } from "ethers";
-import { Personas, getUsers } from "../setup";
-import { bigNumEquals } from "../matchers";
+import { Personas, getUsers } from "../test-helpers/setup";
+import { bigNumEquals } from "../test-helpers/matchers";
 
 let mathFactory: ContractFactory;
 let personas: Personas;

@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { publicAbi } from "../helpers";
+import { publicAbi } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { Contract, ContractFactory } from "ethers";
-import { Personas, getUsers } from "../setup";
+import { Personas, getUsers } from "../test-helpers/setup";
 
 let personas: Personas;
 

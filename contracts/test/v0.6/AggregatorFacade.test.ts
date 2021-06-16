@@ -1,10 +1,10 @@
 import { ethers } from "hardhat";
-import { numToBytes32, publicAbi } from "../helpers";
+import { numToBytes32, publicAbi } from "../test-helpers/helpers";
 import { assert } from "chai";
 import { Contract, ContractFactory, Signer } from "ethers";
-import { getUsers } from "../setup";
-import { convertFufillParams, decodeRunRequest } from "../oracle";
-import { bigNumEquals, evmRevert } from "../matchers";
+import { getUsers } from "../test-helpers/setup";
+import { convertFufillParams, decodeRunRequest } from "../test-helpers/oracle";
+import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 
 let defaultAccount: Signer;
 

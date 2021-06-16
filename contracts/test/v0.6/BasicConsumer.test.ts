@@ -1,12 +1,12 @@
 import { ethers } from "hardhat";
-import { toWei, increaseTime5Minutes, toHex, constants } from "../helpers";
+import { toWei, increaseTime5Minutes, toHex, constants } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, Contract, ContractFactory } from "ethers";
-import { Roles, getUsers } from "../setup";
-import { bigNumEquals, evmRevert } from "../matchers";
-import { convertFufillParams, decodeRunRequest, encodeOracleRequest, RunRequest } from "../oracle";
+import { Roles, getUsers } from "../test-helpers/setup";
+import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
+import { convertFufillParams, decodeRunRequest, encodeOracleRequest, RunRequest } from "../test-helpers/oracle";
 import cbor from "cbor";
-import { makeDebug } from "../debug";
+import { makeDebug } from "../test-helpers/debug";
 
 const d = makeDebug("BasicConsumer");
 let basicConsumerFactory: ContractFactory;

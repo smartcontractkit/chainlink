@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
 import { assert, expect } from "chai";
 import { Signer, Contract, ContractFactory, BigNumber, BigNumberish, ContractTransaction } from "ethers";
-import { Personas, getUsers } from "../setup";
-import { bigNumEquals, evmRevert } from "../matchers";
-import { constants, publicAbi, toWei, increaseTimeBy, mineBlock, evmWordToAddress } from "../helpers";
+import { Personas, getUsers } from "../test-helpers/setup";
+import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
+import { constants, publicAbi, toWei, increaseTimeBy, mineBlock, evmWordToAddress } from "../test-helpers/helpers";
 import { randomBytes } from "@ethersproject/random";
 
 let personas: Personas;

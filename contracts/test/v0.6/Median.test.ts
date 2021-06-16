@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
 import { assert } from "chai";
 import { Signer, Contract, ContractFactory, BigNumber } from "ethers";
-import { Personas, getUsers } from "../setup";
-import { bigNumEquals } from "../matchers";
+import { Personas, getUsers } from "../test-helpers/setup";
+import { bigNumEquals } from "../test-helpers/matchers";
 
 let defaultAccount: Signer;
 let medianTestHelperFactory: ContractFactory;
