@@ -33,8 +33,8 @@ func (p *VRFKeyPresenter) RenderTable(rt RendererTable) error {
 	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
 	rows := [][]string{p.ToRow()}
 	renderList(headers, rows, rt.Writer)
-	rt.Write([]byte("\n"))
-	return nil
+	_, err := rt.Write([]byte("\n"))
+	return err
 }
 
 func (p *VRFKeyPresenter) ToRow() []string {
