@@ -749,6 +749,16 @@ func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value strin
 		FirstOrCreate(&models.Configuration{}).Error
 }
 
+// GetOrSetConfigValue persists the configuration value if not already
+// persisted, always returning the value persisted to the DB.
+func (orm *ORM) GetOrSetConfigValue(field, value string) (string, error) {
+	name := EnvVarName(field)
+	config := models.Configuration{Name: name, Value: value}
+	return config.Value, orm.DB.
+		Where(models.Configuration{Name: name}).
+		FirstOrCreate(&config).Error
+}
+
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
