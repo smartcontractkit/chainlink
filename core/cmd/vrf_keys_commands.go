@@ -25,7 +25,7 @@ func (p VRFKeyPresenter) FriendlyDeletedAt() string {
 	if p.DeletedAt != nil {
 		return p.DeletedAt.String()
 	}
-	return ""
+	return "\n"
 }
 
 // RenderTable implements TableRenderer
@@ -64,7 +64,7 @@ func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
 }
 
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
-// the password file
+// the vrf password file provided when starting the chainlink node.
 func (cli *Client) CreateVRFKey(c *cli.Context) error {
 	resp, err := cli.HTTP.Post("/v2/keys/vrf", nil)
 	if err != nil {
@@ -78,36 +78,6 @@ func (cli *Client) CreateVRFKey(c *cli.Context) error {
 
 	var presenter VRFKeyPresenter
 	return cli.renderAPIResponse(resp, &presenter)
-}
-
-// CreateAndExportWeakVRFKey creates a key in the VRF keystore, protected by the
-// password in the password file, but with weak key-derivation-function
-// parameters, which makes it cheaper for testing, but also more vulnerable to
-// bruteforcing of the encrypted key material. For testing purposes only!
-//
-// The key is only stored at the specified file location, not stored in the DB.
-func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
-	password, err := getPassword(c)
-	if err != nil {
-		return err
-	}
-	app, err := cli.AppFactory.NewApplication(cli.Config)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
-	}
-	vrfKeyStore := app.GetKeyStore().VRF()
-	key, err := vrfKeyStore.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(
-		string(password))
-	if err != nil {
-		return errors.Wrapf(err, "while creating testing key")
-	}
-	if !c.IsSet("file") || !noFileToOverwrite(c.String("file")) {
-		errmsg := "must specify path to key file which does not already exist"
-		fmt.Println(errmsg)
-		return fmt.Errorf(errmsg)
-	}
-	fmt.Println("Don't use this key for anything sensitive!")
-	return key.WriteToDisk(c.String("file"))
 }
 
 // ImportVRFKey reads a file into an EncryptedVRFKey in the db
@@ -150,7 +120,7 @@ func (cli *Client) ImportVRFKey(c *cli.Context) error {
 // requested file path.
 func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
+		return cli.errorOut(errors.New("Must pass the ID (compressed public key) of the key to export"))
 	}
 
 	newPasswordFile := c.String("newpassword")
@@ -201,7 +171,7 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported VRF key %s to %s", pk.String(), filepath))
+	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported VRF key %s to %s\n", pk.String(), filepath))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -209,13 +179,12 @@ func (cli *Client) ExportVRFKey(c *cli.Context) error {
 	return nil
 }
 
-// DeleteVRFKey soft-deletes the VRF key with given public key from the db
-//
-// Since this runs in an independent process from any chainlink node, it cannot
-// cause running nodes to forget the key, if they already have it unlocked.
+// DeleteVRFKey deletes (hard or soft) the VRF key with given public key from the db
+// and memory. V2 jobs referencing the VRF key will be removed if the key is deleted
+// (no such protection for the V1 jobs exists).
 func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
+		return cli.errorOut(errors.New("Must pass the key ID (compressed public key) to be deleted"))
 	}
 	id, err := getPublicKey(c)
 	if err != nil {
@@ -242,7 +211,7 @@ func (cli *Client) DeleteVRFKey(c *cli.Context) error {
 	}()
 
 	var presenter VRFKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
+	return cli.renderAPIResponse(resp, &presenter, "VRF key deleted")
 }
 
 func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
@@ -271,6 +240,36 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 
 	var presenters VRFKeyPresenters
 	return cli.renderAPIResponse(resp, &presenters, "🔑 VRF Keys")
+}
+
+// CreateAndExportWeakVRFKey creates a key in the VRF keystore, protected by the
+// password in the password file, but with weak key-derivation-function
+// parameters, which makes it cheaper for testing, but also more vulnerable to
+// bruteforcing of the encrypted key material. For testing purposes only!
+//
+// The key is only stored at the specified file location, not stored in the DB.
+func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
+	password, err := getPassword(c)
+	if err != nil {
+		return err
+	}
+	app, err := cli.AppFactory.NewApplication(cli.Config)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	vrfKeyStore := app.GetKeyStore().VRF()
+	key, err := vrfKeyStore.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(
+		string(password))
+	if err != nil {
+		return errors.Wrapf(err, "while creating testing key")
+	}
+	if !c.IsSet("file") || !noFileToOverwrite(c.String("file")) {
+		errmsg := "must specify path to key file which does not already exist"
+		fmt.Println(errmsg)
+		return fmt.Errorf(errmsg)
+	}
+	fmt.Println("Don't use this key for anything sensitive!")
+	return key.WriteToDisk(c.String("file"))
 }
 
 func noFileToOverwrite(path string) bool {

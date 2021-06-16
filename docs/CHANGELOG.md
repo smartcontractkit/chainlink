@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Matic autoconfig is now enabled for mainnet. Matic nops should remove any custom tweaks they have been running with. In addition, we have better default configs for Optimism, Arbitrum and RSK.
 
+- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+
+- Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
+
+
 ### Added
 
 - INSECURE_SKIP_VERIFY configuration variable disables verification of the Chainlink SSL certificates when using the CLI.
@@ -182,19 +187,41 @@ pipeline_task_execution_time{job_id="1",job_name="example keeper spec",task_type
 pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="completed",task_type="keeper"} 1
 ```
 
-### Fixed
-
-- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
-- Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
-
 ### Changed
 
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
 - Chainlink no longers writes/reads eth key files to disk
+
 - Add sensible default configuration settings for Fantom
 
 - Rename `ETH_MAX_UNCONFIRMED_TRANSACTIONS` to `ETH_MAX_QUEUED_TRANSACTIONS`. It still performs the same function but the name was misleading and would have caused confusion with the new `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
+
+- The VRF keys are now managed remotely through the node only. Example commands:
+```
+// Starting a node with a vrf key
+chainlink node start -p path/to/passwordfile -vp path/to/vrfpasswordfile 
+
+// Remotely managing the vrf keys
+chainlink keys vrf create // Creates a key with path/to/vrfpasswordfile
+chainlink keys vrf list // Lists all keys on the node 
+chainlink keys vrf delete // Lists all keys on the node 
+
+// Archives (soft deletes) vrf key with compressed pub key 0x788.. 
+chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 
+
+// Hard deletes vrf key with compressed pub key 0x788.. 
+chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 --hard 
+
+// Exports 0x788.. key to file 0x788_exported_key on disk encrypted with path/to/vrfpasswordfile 
+// Note you can re-encrypt it with a different password if you like when exporting.
+chainlink keys vrf export 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 -p path/to/vrfpasswordfile -o 0x788_exported_key  
+
+// Import key material in 0x788_exported_key using path/to/vrfpasswordfile to decrypt.
+// Will be re-encrypted with the nodes vrf password file i.e. "-vp" 
+chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key 
+```
+
 
 
 ## [0.10.7] - 2021-05-24
