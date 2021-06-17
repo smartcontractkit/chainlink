@@ -1,6 +1,6 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { FluxAggregator__factory } from './ethers/factories/FluxAggregator__factory'
+import { FluxAggregator__factory } from '@chainlink/contracts/ethers/v0.6/factories/FluxAggregator__factory'
 import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
 import ChainlinkClient from '../test-helpers/chainlinkClient'
 import fluxMonitorJobTemplate from '../fixtures/flux-monitor-job'
@@ -28,7 +28,7 @@ const {
 
 const provider = t.createProvider()
 const carol = ethers.Wallet.createRandom().connect(provider)
-const linkTokenFactory = new contract.LinkToken__factory(carol)
+const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregator__factory(carol)
 const deposit = h.toWei('1000')
 const emptyAddress = '0x0000000000000000000000000000000000000000'
@@ -61,7 +61,7 @@ const clClient2 = new ChainlinkClient(
 // TODO import JobSpecRequest from operator_ui/@types/core/store/models.d.ts
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
-let linkToken: contract.Instance<contract.LinkToken__factory>
+let linkToken: contract.Instance<contract.LinkTokenFactory>
 let fluxAggregator: contract.Instance<FluxAggregator__factory>
 
 let node1Address: string
