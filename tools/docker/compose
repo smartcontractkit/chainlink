@@ -146,7 +146,7 @@ test:ts)
 
   $ts_test run integration-ts /bin/sh -c \
     "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test --runInBand ${@:2}"
+      && cd tools/ci-ts && npm install && npm run test --runInBand ${@:2}"
   exit_code=$?
   set -e
   save_test_logs
@@ -162,7 +162,7 @@ test:ts:dev)
   set +e
   $dev_ts_integration run integration-ts /bin/sh -c \
     "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test --verbose --runInBand ${@:2}"
+      && cd tools/ci-ts && npm install && npm run test --verbose --runInBand ${@:2}"
   exit_code=$?
   set -e
   save_test_logs
