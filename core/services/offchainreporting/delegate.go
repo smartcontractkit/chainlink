@@ -147,10 +147,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	})
 
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:           d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
-		ContractConfigConfirmations: d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
-		// TODO: Uncomment this when upgraded to libocr that supports it, check this PR: https://github.com/smartcontractkit/offchain-reporting/pull/218/files
-		// SkipContractConfigConfirmations:        d.config.Chain().IsL2(),
+		BlockchainTimeout:                      d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
+		ContractConfigConfirmations:            d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
+		SkipContractConfigConfirmations:        d.config.Chain().IsL2(),
 		ContractConfigTrackerPollInterval:      d.config.OCRContractPollInterval(time.Duration(concreteSpec.ContractConfigTrackerPollInterval)),
 		ContractConfigTrackerSubscribeInterval: d.config.OCRContractSubscribeInterval(time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval)),
 		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
