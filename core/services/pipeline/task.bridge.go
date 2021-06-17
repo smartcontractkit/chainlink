@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,7 +19,7 @@ type BridgeTask struct {
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 
-	safeTx SafeTx
+	tx     *gorm.DB
 	config Config
 }
 
@@ -113,12 +114,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
 	task := models.TaskType(name)
 
-	if t.safeTx.txMu != nil {
-		t.safeTx.txMu.Lock()
-		defer t.safeTx.txMu.Unlock()
-	}
-
-	bridge, err := FindBridge(t.safeTx.tx, task)
+	bridge, err := FindBridge(t.tx, task)
 	if err != nil {
 		return URLParam{}, err
 	}

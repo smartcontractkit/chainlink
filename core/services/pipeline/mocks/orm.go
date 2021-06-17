@@ -21,20 +21,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateSpec provides a mock function with given fields: ctx, tx, taskDAG, maxTaskTimeout
-func (_m *ORM) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG pipeline.TaskDAG, maxTaskTimeout models.Interval) (int32, error) {
-	ret := _m.Called(ctx, tx, taskDAG, maxTaskTimeout)
+// CreateSpec provides a mock function with given fields: ctx, tx, _a2, maxTaskTimeout
+func (_m *ORM) CreateSpec(ctx context.Context, tx *gorm.DB, _a2 pipeline.Pipeline, maxTaskTimeout models.Interval) (int32, error) {
+	ret := _m.Called(ctx, tx, _a2, maxTaskTimeout)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, pipeline.TaskDAG, models.Interval) int32); ok {
-		r0 = rf(ctx, tx, taskDAG, maxTaskTimeout)
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, pipeline.Pipeline, models.Interval) int32); ok {
+		r0 = rf(ctx, tx, _a2, maxTaskTimeout)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, pipeline.TaskDAG, models.Interval) error); ok {
-		r1 = rf(ctx, tx, taskDAG, maxTaskTimeout)
+	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, pipeline.Pipeline, models.Interval) error); ok {
+		r1 = rf(ctx, tx, _a2, maxTaskTimeout)
 	} else {
 		r1 = ret.Error(1)
 	}

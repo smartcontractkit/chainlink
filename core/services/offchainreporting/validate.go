@@ -9,7 +9,6 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -20,7 +19,6 @@ import (
 func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
-		Pipeline:      *pipeline.NewTaskDAG(),
 	}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
@@ -126,18 +124,14 @@ func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job)
 	if err := validateExplicitlySetKeys(tree, expected, notExpected, "non-bootstrap"); err != nil {
 		return err
 	}
-	if spec.Pipeline.DOTSource == "" {
+	if spec.Pipeline.Source == "" {
 		return errors.New("no pipeline specified")
 	}
 	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.OffchainreportingOracleSpec.ObservationTimeout))
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")
 	}
-	tasks, err := spec.Pipeline.TasksInDependencyOrder()
-	if err != nil {
-		return errors.Wrap(err, "invalid observation source")
-	}
-	for _, task := range tasks {
+	for _, task := range spec.Pipeline.Tasks {
 		timeout, set := task.TaskTimeout()
 		if set && timeout > observationTimeout {
 			return errors.Errorf("individual max task duration must be < observation timeout")

@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 
@@ -56,7 +54,6 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	r := pipeline.NewRunner(orm, store.Config)
 
-	d := pipeline.TaskDAG{}
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
@@ -78,9 +75,7 @@ median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
 `, s2.URL, s4.URL, s5.URL)
-	err = d.UnmarshalText([]byte(s))
-	require.NoError(t, err)
-	ts, err := d.TasksInDependencyOrder()
+	d, err := pipeline.Parse(s)
 	require.NoError(t, err)
 
 	spec := pipeline.Spec{
@@ -88,7 +83,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	_, trrs, err := r.ExecuteRun(context.Background(), spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
-	require.Len(t, trrs, len(ts))
+	require.Len(t, trrs, len(d.Tasks))
 
 	finalResults := trrs.FinalResult()
 	require.Len(t, finalResults.Values, 3)
@@ -102,7 +97,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
-		if trr.Result.Error != nil && !trr.IsTerminal {
+		if trr.Result.Error != nil && !trr.IsTerminal() {
 			errorResults = append(errorResults, trr)
 		}
 	}
@@ -237,11 +232,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			orm.On("DB").Return(store.DB)
 
 			runner := pipeline.NewRunner(orm, store.Config)
-			taskDAG := pipeline.TaskDAG{}
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
-			err := taskDAG.UnmarshalText([]byte(specStr))
-			require.NoError(t, err)
-			tasks, err := taskDAG.TasksInDependencyOrder()
+			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
 			spec := pipeline.Spec{
@@ -255,22 +247,22 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			}
 			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, test.pipelineInput, meta, *logger.Default)
 			require.NoError(t, err)
-			require.Len(t, taskRunResults, len(tasks))
+			require.Len(t, taskRunResults, len(p.Tasks))
 
 			type M = map[string]interface{}
 			expectedResults := map[string]pipeline.Result{
-				"ds1":          pipeline.Result{Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
-				"ds1_parse":    pipeline.Result{Value: M{"result": "9700", "times": "1000000000000000000"}},
-				"ds1_multiply": pipeline.Result{Value: *mustDecimal(t, "9700000000000000000000")},
-				"ds2":          pipeline.Result{Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
-				"ds2_parse":    pipeline.Result{Value: M{"result": "9600", "times": "1000000000000000000"}},
-				"ds2_multiply": pipeline.Result{Value: *mustDecimal(t, "9600000000000000000000")},
-				"ds3":          pipeline.Result{Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
-				"ds3_parse":    pipeline.Result{Error: pipeline.ErrTooManyErrors},
-				"ds3_multiply": pipeline.Result{Error: pipeline.ErrTooManyErrors},
-				"ds4":          pipeline.Result{Value: "some random string"},
-				"median":       pipeline.Result{Value: *mustDecimal(t, "9650000000000000000000")},
-				"submit":       pipeline.Result{Value: `{"ok":true}` + "\n"},
+				"ds1":          {Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
+				"ds1_parse":    {Value: M{"result": "9700", "times": "1000000000000000000"}},
+				"ds1_multiply": {Value: *mustDecimal(t, "9700000000000000000000")},
+				"ds2":          {Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
+				"ds2_parse":    {Value: M{"result": "9600", "times": "1000000000000000000"}},
+				"ds2_multiply": {Value: *mustDecimal(t, "9600000000000000000000")},
+				"ds3":          {Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
+				"ds3_parse":    {Error: pipeline.ErrTooManyErrors},
+				"ds3_multiply": {Error: pipeline.ErrTooManyErrors},
+				"ds4":          {Value: "some random string"},
+				"median":       {Value: *mustDecimal(t, "9650000000000000000000")},
+				"submit":       {Value: `{"ok":true}` + "\n"},
 			}
 
 			for _, r := range taskRunResults {
@@ -332,10 +324,63 @@ answer1 [type=median                      index=0];
 	_, trrs, err := r.ExecuteRun(ctx, spec, nil, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
-		if trr.IsTerminal {
+		if trr.IsTerminal() {
 			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.(decimal.Decimal))
 		}
 	}
+}
+
+func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(input.val)" times=2]
+b1 [type=multiply input="$(a)" times=2]
+b2 [type=multiply input="$(a)" times=3]
+c [type=median values=<[ $(b1), $(b2) ]> index=0]
+a->b1->c;
+a->b2->c;`,
+	}, input, pipeline.JSONSerializable{}, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult().HasErrors())
+
+	// a = 4
+	// (b1 = 8) + (b2 = 12)
+	// c = 20 / 2
+
+	result, err := trrs.FinalResult().SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
+}
+
+func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(input.val)" times=2]
+b1 [type=multiply input="$(a)" times=2 index=0]
+b2 [type=multiply input="$(a)" times=3 index=1]
+a->b1;
+a->b2;`,
+	}, input, pipeline.JSONSerializable{}, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(trrs))
+	result := trrs.FinalResult()
+	assert.Equal(t, false, result.HasErrors())
+
+	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
+	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
 }
 
 func TestPanicTask_Run(t *testing.T) {
@@ -359,9 +404,6 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
-	assert.Equal(t, pipeline.ErrRunPanicked.Error(), trrs.FinalResult().Errors[0].Error())
-	for _, trr := range trrs {
-		assert.Equal(t, null.NewString("pipeline run panicked", true), trr.Result.ErrorDB())
-		assert.Equal(t, true, trr.Result.OutputDB().Null)
-	}
+	assert.Equal(t, true, trrs.FinalResult().HasErrors())
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().Errors[0])
 }
