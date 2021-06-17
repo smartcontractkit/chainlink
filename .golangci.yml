@@ -3,7 +3,7 @@ linters:
     - exhaustive
     - exportloopref
     - golint
-    - goimports
+    - revive
     - gosec
   disable:
     # Disable these default linters so we match our current lint set up

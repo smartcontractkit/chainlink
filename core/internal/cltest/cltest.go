@@ -91,7 +91,8 @@ const (
 	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password    = "p4SsW0rD1!@#_"
+	VRFPassword = "testingpassword"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultKeyAddress is the ETH address of the fixture key
@@ -423,6 +424,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 	}
 	require.NoError(t, app.KeyStore.Eth().Unlock(Password))
+	_, err := app.KeyStore.VRF().Unlock(VRFPassword)
+	require.NoError(t, err)
 
 	return app, cleanup
 }
@@ -622,10 +625,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:                       r,
-		Config:                         ta.Config.Config,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
+		Renderer:   r,
+		Config:     ta.Config.Config,
+		AppFactory: seededAppFactory{ta.ChainlinkApplication},
+		KeyStoreAuthenticator: CallbackAuthenticator{
+			Callback: func(*keystore.Eth, string) (string, error) {
+				return Password, nil
+			},
+		},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),

@@ -97,7 +97,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	var roundID uint32 = 1
 
 	j := makeJob(t)
-	err := jobORM.CreateJob(context.Background(), j, *pipeline.NewTaskDAG())
+	err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
 	require.NoError(t, err)
 
 	jb, err := jobORM.FindJob(j.ID)
@@ -120,7 +120,6 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,
 					FinishedAt: f,
-					IsTerminal: true,
 				},
 			}, true)
 		require.NoError(t, err)
@@ -143,7 +142,6 @@ func makeJob(t *testing.T) *job.Job {
 		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
-		Pipeline:      *pipeline.NewTaskDAG(),
 		ExternalJobID: uuid.NewV4(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,

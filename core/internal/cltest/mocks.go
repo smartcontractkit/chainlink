@@ -174,7 +174,7 @@ func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd
 	return a.Callback(ethKeyStore, pwd)
 }
 
-func (a CallbackAuthenticator) AuthenticateVRFKey(*keystore.VRF, string) error {
+func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd string) error {
 	return nil
 }
 
@@ -430,7 +430,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	if user, err := store.FindUser(); err == nil {
 		return user, err
 	}
-	m.Count += 1
+	m.Count++
 	user := MustRandomUser()
 	return user, store.SaveUser(&user)
 }
@@ -458,7 +458,7 @@ type MockSessionRequestBuilder struct {
 }
 
 func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
-	m.Count += 1
+	m.Count++
 	if m.Error != nil {
 		return models.SessionRequest{}, m.Error
 	}
