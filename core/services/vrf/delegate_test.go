@@ -45,7 +45,7 @@ func setup(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
 	ec := new(eth_mocks.Client)
 
 	// Don't mock db interactions
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, db)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, db, nil, nil)
 	ks := cltest.NewKeyStore(t, db)
 	require.NoError(t, ks.Eth().Unlock(cltest.Password))
 	_, err := ks.Eth().CreateNewKey()

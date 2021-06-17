@@ -20,6 +20,7 @@ import (
 	corenull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	fmmocks "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	jobmocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -151,6 +152,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 	}
 	fm, err := fluxmonitorv2.NewFluxMonitor(
 		tm.pipelineRunner,
+		job.Job{},
 		pipelineSpec,
 		db,
 		options.orm,
@@ -483,6 +485,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{ethkey.Key{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
+	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Maybe()
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).
 		Return(makeRoundStateForRoundID(1), nil).
@@ -662,6 +665,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer)
 
+			tm.fluxAggregator.On("Address").Return(common.Address{})
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
@@ -735,6 +739,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
 
+	tm.fluxAggregator.On("Address").Return(contractAddress)
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	tm.logBroadcaster.On("IsConnected").Return(true)
@@ -856,6 +861,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 		Run(func(mock.Arguments) { close(ch) }).
 		Once()
 
+	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
 	fm.SetOracleAddress()
@@ -898,6 +904,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
+			tm.fluxAggregator.On("Address").Return(common.Address{})
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
 			tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
@@ -968,6 +975,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			tm.keyStore.On("SendingKeys").Return([]ethkey.Key{ethkey.Key{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
+			tm.fluxAggregator.On("Address").Return(common.Address{})
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
 
@@ -1032,6 +1040,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
+	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(flux_aggregator_wrapper.OracleRoundState{

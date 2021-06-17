@@ -43,7 +43,7 @@ func setup(t *testing.T) (
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)
 	executer := keeper.NewUpkeepExecuter(job, store.DB, txm, jpv2.Pr, ethMock, headBroadcaster, store.Config)

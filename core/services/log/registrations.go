@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -31,15 +32,14 @@ import (
 type (
 	registrations struct {
 		registrations map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
-		decoders      map[common.Address]AbigenContract
+		decoders      map[common.Address]ParseLogFunc
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
 	}
 
-	// The Listener responds to log events through HandleLog, and contains setup/tear-down
-	// callbacks in the On* functions.
+	// The Listener responds to log events through HandleLog.
 	Listener interface {
 		HandleLog(b Broadcast)
 		JobID() models.JobID
@@ -65,13 +65,13 @@ type (
 func newRegistrations() *registrations {
 	return &registrations{
 		registrations: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
-		decoders:      make(map[common.Address]AbigenContract),
+		decoders:      make(map[common.Address]ParseLogFunc),
 	}
 }
 
 func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) {
-	addr := reg.opts.Contract.Address()
-	r.decoders[addr] = reg.opts.Contract
+	addr := reg.opts.Contract
+	r.decoders[addr] = reg.opts.ParseLog
 
 	if reg.opts.NumConfirmations <= 0 {
 		reg.opts.NumConfirmations = 1
@@ -79,20 +79,6 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 
 	if _, exists := r.registrations[addr]; !exists {
 		r.registrations[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
-	}
-
-	for _, log := range reg.opts.Logs {
-		topic := log.Topic()
-
-		if _, exists := r.registrations[addr][topic]; !exists {
-			r.registrations[addr][topic] = make(map[Listener]*listenerMetadata)
-			needsResubscribe = true
-		}
-
-		r.registrations[addr][topic][reg.listener] = &listenerMetadata{
-			opts:                     reg.opts,
-			lowestAllowedBlockNumber: uint64(0),
-		}
 	}
 
 	for topic, topicValueFilters := range reg.opts.LogsWithTopics {
@@ -113,14 +99,12 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 }
 
 func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
-	addr := reg.opts.Contract.Address()
+	addr := reg.opts.Contract
 
 	if _, exists := r.registrations[addr]; !exists {
 		return
 	}
-	for _, logType := range reg.opts.Logs {
-		topic := logType.Topic()
-
+	for topic := range reg.opts.LogsWithTopics {
 		if _, exists := r.registrations[addr][topic]; !exists {
 			continue
 		}
@@ -246,10 +230,15 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead models.Head, 
 		})
 
 		logCopy := gethwrappers.CopyLog(log)
-		decodedLog, err := r.decoders[log.Address].ParseLog(logCopy)
-		if err != nil {
-			logger.Errorw("Could not parse contract log", "error", err)
-			continue
+
+		var decodedLog generated.AbigenLog
+		var err error
+		if parseLog := r.decoders[log.Address]; parseLog != nil {
+			decodedLog, err = parseLog(logCopy)
+			if err != nil {
+				logger.Errorw("Could not parse contract log", "error", err)
+				continue
+			}
 		}
 
 		wg.Add(1)

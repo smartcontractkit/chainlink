@@ -2,9 +2,8 @@ package pipeline
 
 import (
 	"context"
-	"math/big"
-
 	"crypto/rand"
+	"math/big"
 
 	"github.com/pkg/errors"
 )

@@ -409,7 +409,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	logBroadcaster := new(logmocks.Broadcaster)
 	logBroadcaster.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
-		return opts.Contract.Address() == initr.Address
+		return opts.Contract == initr.Address
 	})).Return(func() {})
 
 	rm := new(mocks.RunManager)
@@ -1502,6 +1502,7 @@ func TestFluxMonitor_IdleTimer(t *testing.T) {
 	lb := new(logmocks.Broadcaster)
 	lb.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	lb.On("IsConnected").Return(true)
+	fluxAggregator.On("Address").Return(common.Address{})
 	fluxAggregator.On("GetOracles", mock.Anything).Return([]common.Address{}, nil)
 	fluxAggregator.On("LatestRoundData", mock.Anything).Return(
 		flux_aggregator_wrapper.LatestRoundData{RoundId: big.NewInt(10), StartedAt: nil}, nil)

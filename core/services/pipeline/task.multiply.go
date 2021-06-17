@@ -22,7 +22,7 @@ func (t *MultiplyTask) Type() TaskType {
 func (t *MultiplyTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
 	var (

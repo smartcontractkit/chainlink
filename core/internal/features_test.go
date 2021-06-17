@@ -1050,7 +1050,7 @@ externalInitiatorSpec = """
     %v
 """
 observationSource   = """
-    parse  [type=jsonparse path="result" data="$(input)"]
+    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
     parse -> submit
 """
