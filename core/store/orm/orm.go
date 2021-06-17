@@ -751,10 +751,20 @@ func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value strin
 // persisted, always returning the value persisted to the DB.
 func (orm *ORM) GetOrSetConfigValue(field, value string) (string, error) {
 	name := EnvVarName(field)
-	config := models.Configuration{Name: name, Value: value}
-	return config.Value, orm.DB.
-		Where(models.Configuration{Name: name}).
-		FirstOrCreate(&config).Error
+	now := time.Now()
+	rows, err := orm.DB.Raw(`
+		INSERT INTO configurations (name, value, updated_at, created_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT DO NOTHING`, name, value, now, now).Rows()
+	if err != nil {
+		return "", err
+	}
+	if rows.Next() {
+		oldValue := ""
+		return oldValue, rows.Scan(&oldValue)
+	}
+	config := models.Configuration{}
+	return config.Value, orm.DB.First(&config, "name = ?", name).Error
 }
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
