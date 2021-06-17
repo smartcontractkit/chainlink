@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
 
+- Removed prometheus metrics that were no longer valid after recent changes to head tracking: 
+  `head_tracker_heads_in_queue`, `head_tracker_callback_execution_duration`, 
+  `head_tracker_callback_execution_duration_hist`, `head_tracker_num_heads_dropped`
 
 ### Added
 
