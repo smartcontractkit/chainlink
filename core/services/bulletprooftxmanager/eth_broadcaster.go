@@ -55,7 +55,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener postgres.Subscription
 	eventBroadcaster    postgres.EventBroadcaster
 
-	keys []ethkey.Key
+	keys []ethkey.KeyV2
 
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
@@ -72,7 +72,7 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
 	advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster,
-	allKeys []ethkey.Key, estimator gas.Estimator, logger *logger.Logger) *EthBroadcaster {
+	allKeys []ethkey.KeyV2, estimator gas.Estimator, logger *logger.Logger) *EthBroadcaster {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
@@ -172,7 +172,7 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	}
 }
 
-func (eb *EthBroadcaster) monitorEthTxs(k ethkey.Key, triggerCh chan struct{}) {
+func (eb *EthBroadcaster) monitorEthTxs(k ethkey.KeyV2, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
@@ -201,8 +201,12 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.Key, triggerCh chan struct{}) {
 	}
 }
 
-func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key ethkey.Key) error {
-	return eb.advisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
+func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key ethkey.KeyV2) error {
+	keyState, err := eb.keystore.GetState(key.ID())
+	if err != nil {
+		return err
+	}
+	return eb.advisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthBroadcaster, keyState.ID, func() error {
 		return eb.processUnstartedEthTxs(key.Address.Address())
 	})
 }
@@ -559,7 +563,7 @@ func saveFatallyErroredTransaction(db *gorm.DB, etx *EthTx) error {
 // GetNextNonce returns keys.next_nonce for the given address
 func GetNextNonce(db *gorm.DB, address gethCommon.Address) (int64, error) {
 	var nonce int64
-	row := db.Raw("SELECT next_nonce FROM keys WHERE address = ?", address).Row()
+	row := db.Raw("SELECT next_nonce FROM eth_key_states WHERE address = ?", address).Row()
 	if err := row.Scan(&nonce); err != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed scanning row")
 	}
@@ -568,7 +572,7 @@ func GetNextNonce(db *gorm.DB, address gethCommon.Address) (int64, error) {
 
 // IncrementNextNonce increments keys.next_nonce by 1
 func IncrementNextNonce(db *gorm.DB, address gethCommon.Address, currentNonce int64) error {
-	res := db.Exec("UPDATE keys SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = ? AND next_nonce = ?", address.Bytes(), currentNonce)
+	res := db.Exec("UPDATE eth_key_states SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = ? AND next_nonce = ?", address.Bytes(), currentNonce)
 	if res.Error != nil {
 		return errors.Wrap(res.Error, "IncrementNextNonce failed to update keys")
 	}

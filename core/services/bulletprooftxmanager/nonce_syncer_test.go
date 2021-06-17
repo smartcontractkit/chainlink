@@ -78,8 +78,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-		k1 := cltest.MustInsertRandomKey(t, store.DB, int64(32))
-		ethKeyStore.Unlock(cltest.Password)
+		k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return k1.Address.Address() == addr
@@ -105,9 +104,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
-		_, key2 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(32))
-		ethKeyStore.Unlock(cltest.Password)
+		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
+		_, key2 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// Nothing to do for key2
@@ -132,10 +130,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
-		ethKeyStore.Unlock(cltest.Password)
+		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
 
 		cltest.MustInsertInProgressEthTxWithAttempt(t, db, 1, key1)
 
@@ -172,7 +169,7 @@ func assertDatabaseNonce(t *testing.T, db *gorm.DB, address common.Address, nonc
 	t.Helper()
 
 	var nextNonce int64
-	err := db.Raw(`SELECT next_nonce FROM keys WHERE address = ?`, address).Scan(&nextNonce).Error
+	err := db.Raw(`SELECT next_nonce FROM eth_key_states WHERE address = ?`, address).Scan(&nextNonce).Error
 	require.NoError(t, err)
 	assert.Equal(t, nonce, nextNonce)
 }
