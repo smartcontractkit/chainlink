@@ -61,9 +61,8 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 }
 
 func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {
-
-	var jobID1Value interface{} = nil
-	var jobID2Value interface{} = nil
+	var jobID1Value interface{}
+	var jobID2Value interface{}
 
 	switch v := jobID.(type) {
 	case models.JobID:
