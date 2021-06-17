@@ -70,7 +70,7 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 // (InitiatorFluxMonitor kicks off work, but not a user-specified job.)
 var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog, InitiatorRandomnessLog}
 
-// topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
+// TopicsForInitiatorsWhichRequireJobSpecIDTopic are the log topics which kick off
 // a user job with the given type of initiator. If chainlink has any jobs with
 // these initiators, it subscribes on startup to logs which match both these
 // topics and some representation of the job spec ID.
