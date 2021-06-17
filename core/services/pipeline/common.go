@@ -229,6 +229,7 @@ const (
 	TaskTypeBridge          TaskType = "bridge"
 	TaskTypeMean            TaskType = "mean"
 	TaskTypeMedian          TaskType = "median"
+	TaskTypeSum             TaskType = "sum"
 	TaskTypeMultiply        TaskType = "multiply"
 	TaskTypeJSONParse       TaskType = "jsonparse"
 	TaskTypeCBORParse       TaskType = "cborparse"
