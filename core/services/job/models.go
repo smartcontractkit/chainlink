@@ -29,6 +29,7 @@ const (
 	Webhook           Type = "webhook"
 )
 
+//revive:disable:redefines-builtin-id
 type Type string
 
 func (t Type) String() string {

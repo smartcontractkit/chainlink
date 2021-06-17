@@ -198,7 +198,7 @@ func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key ethkey.Key) error {
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
 func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address) error {
-	var n uint = 0
+	var n uint
 	mark := time.Now()
 	defer func() {
 		if n > 0 {

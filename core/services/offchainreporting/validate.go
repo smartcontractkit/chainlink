@@ -115,10 +115,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
 	}
-	if err := validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap"); err != nil {
-		return err
-	}
-	return nil
+	return validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
 func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job) error {
