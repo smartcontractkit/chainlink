@@ -370,7 +370,8 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	vrfKeyStore := app.GetKeyStore().VRF()
-	_, err := vrfKeyStore.CreateKey(string(cltest.Password))
+	vrfKeyStore.Unlock(cltest.Password)
+	_, err := vrfKeyStore.CreateKey()
 	require.NoError(t, err)
 	return app, client
 }

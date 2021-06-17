@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and
@@ -167,21 +166,26 @@ func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(ethKeyStore
 // with given password, or returns an error. password must be non-trivial, as an
 // empty password signifies that the VRF oracle functionality is disabled.
 func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, password string) error {
-	keys, err := vrfKeyStore.Get()
+	keys, err := vrfKeyStore.Unlock(password) // Saves the password
 	if err != nil {
-		return errors.Wrapf(err, "while checking for extant VRF keys")
+		return errors.Wrapf(err,
+			"there are VRF keys in the DB, but there were errors unlocking "+
+				"them... please check the password in the file specified by --vrfpassword"+
+				". You can add and delete VRF keys in the DB using the "+
+				"`chainlink keys vrf` subcommand")
 	}
 	if len(keys) == 0 {
 		fmt.Println("There are no VRF keys; creating a new key encrypted with given password")
-		if _, err := vrfKeyStore.CreateKey(password); err != nil {
-			return errors.Wrapf(err, "while creating a new encrypted VRF key")
+		if _, err2 := vrfKeyStore.CreateKey(); err2 != nil {
+			return errors.Wrapf(err2, "while creating a new encrypted VRF key")
 		}
 	}
-	return errors.Wrapf(utils.JustError(vrfKeyStore.Unlock(password)),
-		"there are VRF keys in the DB, but that password did not unlock any of "+
-			"them... please check the password in the file specified by vrfpassword"+
-			". You can add and delete VRF keys in the DB using the "+
-			"`chainlink local vrf` subcommands")
+	// Double check we can read back the encrypted key
+	_, err = vrfKeyStore.Get()
+	if err != nil {
+		return errors.Wrap(err, "could not fetch encrypted VRF keys from database")
+	}
+	return nil
 }
 
 func (auth TerminalKeyStoreAuthenticator) AuthenticateCSAKey(csaKeyStore *keystore.CSA, password string) error {
