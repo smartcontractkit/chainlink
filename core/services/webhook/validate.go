@@ -6,15 +6,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 var ErrMissingJobID = errors.New("missing job ID")
 
 func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (job.Job, error) {
-	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
-	}
+	var jb = job.Job{}
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return jb, err

@@ -110,7 +110,7 @@ func TestDelegate(t *testing.T) {
 	t.Log(vs)
 	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, *pipeline.NewTaskDAG()))
+	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, pipeline.Pipeline{}))
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)

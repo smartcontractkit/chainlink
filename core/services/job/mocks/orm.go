@@ -78,13 +78,13 @@ func (_m *ORM) Close() error {
 	return r0
 }
 
-// CreateJob provides a mock function with given fields: ctx, jobSpec, taskDAG
-func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.Job, taskDAG pipeline.TaskDAG) error {
-	ret := _m.Called(ctx, jobSpec, taskDAG)
+// CreateJob provides a mock function with given fields: ctx, jobSpec, _a2
+func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.Job, _a2 pipeline.Pipeline) error {
+	ret := _m.Called(ctx, jobSpec, _a2)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *job.Job, pipeline.TaskDAG) error); ok {
-		r0 = rf(ctx, jobSpec, taskDAG)
+	if rf, ok := ret.Get(0).(func(context.Context, *job.Job, pipeline.Pipeline) error); ok {
+		r0 = rf(ctx, jobSpec, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}

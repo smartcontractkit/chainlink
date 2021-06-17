@@ -29,6 +29,7 @@ const (
 	Webhook           Type = "webhook"
 )
 
+//revive:disable:redefines-builtin-id
 type Type string
 
 func (t Type) String() string {
@@ -76,7 +77,7 @@ type Job struct {
 	SchemaVersion                 uint32
 	Name                          null.String
 	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
 func (j Job) ExternalIDToTopicHash() common.Hash {

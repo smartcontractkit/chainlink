@@ -388,7 +388,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 								Value: decimal.NewFromInt(answers.polledAnswer),
 								Error: nil,
 							},
-							IsTerminal: true,
+							Task: &pipeline.HTTPTask{},
 						},
 					}, nil)
 			}
@@ -523,7 +523,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 					Value: decimal.NewFromInt(fetchedValue),
 					Error: nil,
 				},
-				IsTerminal: true,
+				Task: &pipeline.HTTPTask{},
 			},
 		}, nil)
 	tm.pipelineRunner.
@@ -558,7 +558,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 					Value: decimal.NewFromInt(fetchedValue),
 					Error: nil,
 				},
-				IsTerminal: true,
+				Task: &pipeline.HTTPTask{},
 			},
 		}, nil)
 	tm.pipelineRunner.
@@ -593,7 +593,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 					Value: decimal.NewFromInt(fetchedValue),
 					Error: nil,
 				},
-				IsTerminal: true,
+				Task: &pipeline.HTTPTask{},
 			},
 		}, nil)
 	tm.pipelineRunner.
@@ -1208,7 +1208,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 						Value: decimal.NewFromInt(answer),
 						Error: nil,
 					},
-					IsTerminal: true,
+					Task: &pipeline.HTTPTask{},
 				},
 			}, nil)
 		tm.pipelineRunner.
@@ -1327,7 +1327,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 						Value: decimal.NewFromInt(answer),
 						Error: nil,
 					},
-					IsTerminal: true,
+					Task: &pipeline.HTTPTask{},
 				},
 			}, nil)
 		tm.pipelineRunner.

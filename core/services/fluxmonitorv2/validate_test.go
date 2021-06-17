@@ -92,7 +92,7 @@ pollTimerDisabled = false
 observationSource = """
 ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
 ds1_parse [type=jsonparse path="latest"];
-ds1 -> ds1_parse -> answer1;
+ds1 -> ds1_parse;
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
