@@ -16,14 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// MatchingVRFKeyError is returned when Import attempts to import key with a
+// ErrMatchingVRFKey is returned when Import attempts to import key with a
 // PublicKey matching one already in the database
-var MatchingVRFKeyError = errors.New(
+var ErrMatchingVRFKey = errors.New(
 	`key with matching public key already stored in DB`)
 
-// AttemptToDeleteNonExistentKeyFromDB is returned when Delete is asked to
+// ErrAttemptToDeleteNonExistentKeyFromDB is returned when Delete is asked to
 // delete a key it can't find in the DB.
-var AttemptToDeleteNonExistentKeyFromDB = errors.New("key is not present in DB")
+var ErrAttemptToDeleteNonExistentKeyFromDB = errors.New("key is not present in DB")
 
 // The VRF keystore tracks auxiliary VRF secret keys, and generates their VRF proofs
 //
@@ -176,7 +176,7 @@ func (ks *VRF) Archive(key secp256k1.PublicKey) (err error) {
 	if err != nil {
 		return errors.Wrapf(err, "while checking for existence of key %s in DB", key.String())
 	} else if len(matches) == 0 {
-		return AttemptToDeleteNonExistentKeyFromDB
+		return ErrAttemptToDeleteNonExistentKeyFromDB
 	}
 	err2 := ks.orm.ArchiveEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
 	return multierr.Append(err, err2)
@@ -199,7 +199,7 @@ func (ks *VRF) Delete(key secp256k1.PublicKey) (err error) {
 			key.String())
 	}
 	if len(matches) == 0 {
-		return AttemptToDeleteNonExistentKeyFromDB
+		return ErrAttemptToDeleteNonExistentKeyFromDB
 	}
 	err2 := ks.orm.DeleteEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
 	return multierr.Append(err, err2)
@@ -219,7 +219,7 @@ func (ks *VRF) Import(keyjson []byte, auth string) (vrfkey.EncryptedVRFKey, erro
 		return enckey, errors.Wrapf(err, "while checking for matching extant key in DB")
 	}
 	if len(extantMatchingKeys) != 0 {
-		return enckey, MatchingVRFKeyError
+		return enckey, ErrMatchingVRFKey
 	}
 	key, err := vrfkey.Decrypt(&enckey, auth)
 	if err != nil {

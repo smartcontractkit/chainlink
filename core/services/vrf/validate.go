@@ -8,7 +8,6 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
@@ -19,7 +18,6 @@ var (
 func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
-		Pipeline:      *pipeline.NewTaskDAG(),
 	}
 
 	tree, err := toml.Load(tomlString)

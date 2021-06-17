@@ -68,8 +68,7 @@ type FluxMonitor struct {
 	fluxAggregator    flux_aggregator_wrapper.FluxAggregatorInterface
 	logBroadcaster    log.Broadcaster
 
-	logger    *logger.Logger
-	precision int32
+	logger *logger.Logger
 
 	backlog       *utils.BoundedPriorityQueue
 	chProcessLogs chan struct{}
@@ -97,7 +96,6 @@ func NewFluxMonitor(
 	flags Flags,
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
 	logBroadcaster log.Broadcaster,
-	precision int32,
 	fmLogger *logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
@@ -117,7 +115,6 @@ func NewFluxMonitor(
 		flags:             flags,
 		logBroadcaster:    logBroadcaster,
 		fluxAggregator:    fluxAggregator,
-		precision:         precision,
 		logger:            fmLogger,
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
@@ -238,11 +235,10 @@ func NewFromJobSpec(
 			float64(fmSpec.Threshold),
 			float64(fmSpec.AbsoluteThreshold),
 		),
-		NewSubmissionChecker(min, max, fmSpec.Precision),
+		NewSubmissionChecker(min, max),
 		*flags,
 		fluxAggregator,
 		logBroadcaster,
-		fmSpec.Precision,
 		fmLogger,
 	)
 }
@@ -844,7 +840,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
-	// amount as precision
+	// amount as "decimals" in the FM contract.
 	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, nil, pipeline.JSONSerializable{Val: metaDataForBridge}, *fm.logger)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
@@ -868,7 +864,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	jobID := fmt.Sprintf("%d", fm.spec.JobID)
-	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, -fm.precision)
+	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, 0)
 	promfm.SetDecimal(promfm.SeenValue.WithLabelValues(jobID), answer)
 
 	l = l.With(
