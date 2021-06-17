@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Matic autoconfig is now enabled for mainnet. Matic nops should remove any custom tweaks they have been running with. In addition, we have better default configs for Optimism, Arbitrum and RSK.
 
+- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+
+- Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
+
+- Removed prometheus metrics that were no longer valid after recent changes to head tracking: 
+  `head_tracker_heads_in_queue`, `head_tracker_callback_execution_duration`, 
+  `head_tracker_callback_execution_duration_hist`, `head_tracker_num_heads_dropped`
+
 ### Added
 
 - INSECURE_SKIP_VERIFY configuration variable disables verification of the Chainlink SSL certificates when using the CLI.
