@@ -207,9 +207,8 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, pipelineInput interf
 		if retry {
 			time.Sleep(b.Duration())
 			continue
-		} else {
-			break
 		}
+		break
 	}
 	if i == numPanicRetries {
 		return r.panickedRunResults(spec)

@@ -18,10 +18,7 @@ func MigrateUp(db *gorm.DB, to string) error {
 	if to == "" {
 		to = Migrations[len(Migrations)-1].ID
 	}
-	if err := g.MigrateTo(to); err != nil {
-		return err
-	}
-	return nil
+	return g.MigrateTo(to)
 }
 
 func MigrateDown(db *gorm.DB) error {

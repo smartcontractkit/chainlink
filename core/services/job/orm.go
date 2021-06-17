@@ -334,7 +334,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, err error) {
 	o.claimedJobsMu.RLock()
 	defer o.claimedJobsMu.RUnlock()
-	var claimedJobIDs []int32 = o.claimedJobIDs()
+	var claimedJobIDs = o.claimedJobIDs()
 
 	rows, err := o.db.Raw(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(claimedJobIDs)).Rows()
 	if err != nil {
