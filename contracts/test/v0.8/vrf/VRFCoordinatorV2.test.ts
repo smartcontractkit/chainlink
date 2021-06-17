@@ -86,5 +86,11 @@ describe("VRFCoordinatorV2", () => {
         console.log(reqId)
         //Should see the callback
         console.log(await vrfCoordinatorV2.s_callbacks(reqId))
+        // 265747905000000
+        const r = await vrfCoordinatorV2.calculatePaymentAmount(100000000);
+        const rr = await r.wait()
+        const s = rr .events[0].args['seed']
+        console.log("payment", s.integerValue())
+        // console.log("payment", r);
     })
 })

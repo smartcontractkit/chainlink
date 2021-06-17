@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -137,7 +138,7 @@ type listener struct {
 	abiV2          abi.ABI
 	logBroadcaster log.Broadcaster
 	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
-	coordinatorV2    *vrf_coordinator_v2.VRFCoordinatorV2
+	coordinatorV2  *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
 	vorm           ORM
@@ -253,7 +254,7 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 	}
 
 	s := time.Now()
-	vrfCoordinatorPayload, req, err := lsn.ProcessLogV2(req, lb)
+	vrfCoordinatorPayload, _, err := lsn.ProcessLogV2(req, lb)
 	f := time.Now()
 	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 		if err == nil {
@@ -271,7 +272,7 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 				lsn.cfg.EthGasLimitDefault(),
 				lsn.cfg.EthMaxQueuedTransactions(),
 				&models.EthTxMetaV2{
-					JobID:         lsn.job.ID,
+					JobID: lsn.job.ID,
 					//RequestID:     req.PreSeed,
 					RequestTxHash: lb.RawLog().TxHash,
 				})

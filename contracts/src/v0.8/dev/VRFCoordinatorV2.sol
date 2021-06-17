@@ -16,7 +16,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
     // TODO: struct packing
-    event SeedUsed(uint256 seed, address a1, address a2);
+    event Payment(uint256 seed, uint256 v2);
     event SubscriptionCreated(uint256 subId, address owner, address[] consumers);
     event SubscriptionFundsAdded(uint256 subId, uint256 oldBalance, uint256 newBalance);
     event SubscriptionConsumersUpdated(uint256 subId, address[] oldConsumers, address[] newConsumers);
@@ -37,6 +37,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         bytes32 keyHash;
     }
     mapping(bytes32 /* keyHash */ => ServiceAgreement) public s_serviceAgreements;
+    mapping(address /* oracle */ => uint256 /* LINK balance */) public s_withdrawableTokens;
     mapping(bytes32 => mapping(address /* consumer */ => uint256)) s_nonces;
 
     event RandomWordsRequested(
@@ -46,7 +47,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 preSeed,
         uint256 subId);
     event RandomWordsFulfilled(
-        uint256 requestId, uint256 output);
+        uint256 requestId, uint256[] output);
     struct Callback {
         address callbackContract; // Requesting contract, which will receive response
         uint256 callbackGasLimit;
@@ -62,7 +63,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
 
     uint16 private s_minimumRequestBlockConfirmations = 3;
     uint16 private s_maxConsumersPerSubscription = 10;
-    uint32 private s_stalenessSeconds =43820;
+    uint32 private s_stalenessSeconds = 0;
     int256 private s_fallbackGasPrice = 200;
     int256 private s_fallbackLinkPrice = 200000;
 
@@ -159,17 +160,17 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // TODO: maybe fail fast on an invalid keyHash?
         uint256 startGas = gasleft();
         (bytes32 keyHash, Callback memory callback, uint256 requestId,
-        uint256 randomness, uint256 actualSeed) = getRandomnessFromProof(_proof);
-//        uint256[] memory randomWords = new uint256[](callback.numWords);
-//        for (uint256 i = 0; i < callback.numWords; i++) {
-//            randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
-//        }
-//
-//        bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
-//        // TODO: Make more exact
-//        uint256 payment = calculatePaymentAmount(startGas);
-//        s_subscriptions[callback.subId].balance -= payment;
-//        LINK.transfer(s_serviceAgreements[keyHash].oracle, payment);
+        uint256 randomness) = getRandomnessFromProof(_proof);
+        uint256[] memory randomWords = new uint256[](callback.numWords);
+        for (uint256 i = 0; i < callback.numWords; i++) {
+            randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+        }
+
+        bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
+        // TODO: Make more exact
+        uint256 payment = calculatePaymentAmount(startGas);
+        s_subscriptions[callback.subId].balance -= payment;
+        s_withdrawableTokens[s_serviceAgreements[keyHash].oracle] += payment;
 //
 //        require(gasleft() > callback.callbackGasLimit, "not enough gas for consumer");
 //
@@ -177,26 +178,26 @@ contract VRFCoordinatorV2 is VRF, Ownable {
 //        // Avoid unused-local-variable warning. (success is only present to prevent
 //        // a warning that the return value of consumerContract.call is unused.)
 //        (success);
-        emit RandomWordsFulfilled(10, 10);
+        emit RandomWordsFulfilled(requestId, randomWords);
     }
 
     function calculatePaymentAmount(
         uint256 startGas
     )
-    internal
+    public
     returns (uint256)
     {
         // Get the amount of gas used for (fulfillment + request)
         uint256 gasWei; // wei/gas i.e. gasPrice
         uint256 linkWei; // link/wei i.e. link price in wei.
         (gasWei, linkWei) = getFeedData();
-        // link/wei * wei/gas * gas = link
-        return linkWei*gasWei*(GAS_BUFFER + gasleft() - startGas);
+        // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
+        return 1e18*gasWei*(GAS_BUFFER + startGas - gasleft()) / linkWei;
     }
 
     function getRandomnessFromProof(bytes memory _proof)
     internal view returns (bytes32 currentKeyHash, Callback memory callback,
-        uint256 requestId, uint256 randomness, uint256 actualSeed) {
+        uint256 requestId, uint256 randomness) {
         // blockNum follows proof, which follows length word (only direct-number
         // constants are allowed in assembly, so have to compute this in code)
         uint256 BLOCKNUM_OFFSET = 0x20 + PROOF_LENGTH;
@@ -212,7 +213,6 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             blockNum := mload(add(_proof, BLOCKNUM_OFFSET))
         }
         currentKeyHash = hashOfKey(publicKey);
-//        requestId = makeRequestId(currentKeyHash, preSeed);
         callback = s_callbacks[preSeed];
         requestId = preSeed;
         require(callback.callbackContract != address(0), "no corresponding request");
@@ -225,8 +225,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             require(blockHash != bytes32(0), "please prove blockhash");
         }
         // The seed actually used by the VRF machinery, mixing in the blockhash
-        actualSeed = uint256(keccak256(abi.encodePacked(preSeed, blockHash)));
-        //actualSeed = uint256(keccak256(abi.encodePacked(preSeed)));
+        uint256 actualSeed = uint256(keccak256(abi.encodePacked(preSeed, blockHash)));
         // solhint-disable-next-line no-inline-assembly
         assembly { // Construct the actual proof from the remains of _proof
             mstore(add(_proof, PRESEED_OFFSET), actualSeed)

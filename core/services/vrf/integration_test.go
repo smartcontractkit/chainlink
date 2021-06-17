@@ -98,4 +98,3 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 		return len(rf) == 1
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 }
-

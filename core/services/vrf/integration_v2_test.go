@@ -2,6 +2,11 @@ package vrf_test
 
 import (
 	"context"
+	"math/big"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -22,21 +27,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"strings"
-	"testing"
-	"time"
 )
 
 type coordinatorV2Universe struct {
 	// Golang wrappers ofr solidity contracts
-	rootContract               *vrf_coordinator_v2.VRFCoordinatorV2
-	linkContract               *link_token_interface.LinkToken
-	consumerContract           *vrf_consumer_v2.VRFConsumerV2
-	rootContractAddress        common.Address
-	consumerContractAddress    common.Address
-	linkContractAddress        common.Address
+	rootContract            *vrf_coordinator_v2.VRFCoordinatorV2
+	linkContract            *link_token_interface.LinkToken
+	consumerContract        *vrf_consumer_v2.VRFConsumerV2
+	rootContractAddress     common.Address
+	consumerContractAddress common.Address
+	linkContractAddress     common.Address
 	// Abstraction representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
 	coordinatorABI *abi.ABI
@@ -82,15 +84,17 @@ func newVRFCoordinatorV2Universe(t *testing.T, key models.Key) coordinatorV2Univ
 	fastGasFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 			carol, backend, 0, big.NewInt(1000000000)) // 1 gwei per unit gas
+	require.NoError(t, err)
 	linkEthFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 			carol, backend, 18, big.NewInt(10000000000000000)) // 0.01 eth per link
+	require.NoError(t, err)
 	// Deploy coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
 		vrf_coordinator_v2.DeployVRFCoordinatorV2(
-			neil, backend, linkAddress, common.Address{} /*blockHash store*/, fastGasFeed /* gasPrices */, linkEthFeed /* linkEth*/)
+			neil, backend, linkAddress, common.Address{} /*blockHash store*/, linkEthFeed /* linkEth*/, fastGasFeed /* gasPrices */)
 	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
-	// Deploy consumer
+	// Deploy consumer it has 1 LINK
 	consumerContractAddress, _, consumerContract, err :=
 		vrf_consumer_v2.DeployVRFConsumerV2(
 			carol, backend, coordinatorAddress, linkAddress)
@@ -143,6 +147,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
 	t.Log(vrfkey)
 
+	b, err := uni.linkContract.BalanceOf(nil, uni.consumerContractAddress)
+	require.NoError(t, err)
+	t.Log("starting balance", uni.consumerContract.Address(), b.String())
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
@@ -150,14 +157,22 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 	uni.backend.Commit()
 	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
-		big.NewInt(100))
+		big.NewInt(100000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
+	// Assert we funded the account 0.1 link
+	b, err = uni.linkContract.BalanceOf(nil, uni.consumerContractAddress)
+	require.NoError(t, err)
+	t.Log("end balance", b.String())
 	t.Log("Funded account")
 	subId, err := uni.consumerContract.SubId(nil)
 	require.NoError(t, err)
 	t.Log("subscription ID", subId)
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 10000,big.NewInt(1))
+	// We fund it 0.1 link.
+	// The gas cost is about 50k gas @ 1 gwei/gas = 0.00005 ETH which is 0.00005 ETH / (0.01 ETH/LINK) = 0.0005 LINK
+	// Should be taken from the subscription
+	nw := big.NewInt(10)
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 10000, nw)
 	require.NoError(t, err)
 	// Mine the required number of blocks
 	// So our request gets confirmed.
@@ -194,4 +209,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		return len(rf) == 1
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 	t.Log("randomness fulfilled req ID", rf[0].RequestId.String())
+	assert.Equal(t, nw.Int64(), int64(len(rf[0].Output)))
+	for _, rw := range rf[0].Output {
+		t.Log("random word", rw.String())
+	}
 }
