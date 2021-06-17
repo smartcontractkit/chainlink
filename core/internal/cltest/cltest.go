@@ -91,7 +91,8 @@ const (
 	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password    = "p4SsW0rD1!@#_"
+	VRFPassword = "testingpassword"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultKeyAddress is the ETH address of the fixture key
@@ -306,7 +307,8 @@ func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2Te
 func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
+	err := eventBroadcaster.Start()
+	require.NoError(t, err)
 	return pipeline.NewORM(db, config), eventBroadcaster, func() {
 		eventBroadcaster.Close()
 	}
@@ -315,7 +317,8 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
+	err := eventBroadcaster.Start()
+	require.NoError(t, err)
 	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys), func() {
 		eventBroadcaster.Close()
 	}
@@ -421,6 +424,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 	}
 	require.NoError(t, app.KeyStore.Eth().Unlock(Password))
+	_, err := app.KeyStore.VRF().Unlock(VRFPassword)
+	require.NoError(t, err)
 
 	return app, cleanup
 }
@@ -482,7 +487,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		ta.StopIfStarted()
+		err := ta.StopIfStarted()
+		require.NoError(t, err)
 	}
 }
 
@@ -532,9 +538,12 @@ func (ta *TestApplication) Start() error {
 	ta.Started = true
 	// TODO - RYAN - we should have a global keystore.Unlock() function
 	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
+	err := ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
+	if err != nil {
+		return err
+	}
 
-	err := ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start()
 	return err
 }
 
@@ -573,7 +582,10 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	ta.ChainlinkApplication.StopIfStarted()
+	err := ta.ChainlinkApplication.StopIfStarted()
+	if err != nil {
+		return err
+	}
 	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -613,10 +625,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:                       r,
-		Config:                         ta.Config.Config,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
+		Renderer:   r,
+		Config:     ta.Config.Config,
+		AppFactory: seededAppFactory{ta.ChainlinkApplication},
+		KeyStoreAuthenticator: CallbackAuthenticator{
+			Callback: func(*keystore.Eth, string) (string, error) {
+				return Password, nil
+			},
+		},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
@@ -708,7 +724,8 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 			logger.Warn("unable to clear test store:", err)
 		}
 	}()
-	logger.Sync()
+	// Ignore sync errors for testing
+	_ = logger.Sync()
 	require.NoError(t, store.Close())
 }
 
@@ -726,7 +743,8 @@ func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON models.JSONAPIErrors
-	json.Unmarshal(b, &respJSON)
+	err = json.Unmarshal(b, &respJSON)
+	require.NoError(t, err)
 	return &respJSON
 }
 

@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
@@ -45,8 +47,8 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	defer cleanup()
 
 	ks := cltest.NewKeyStore(t, store.DB).VRF()
-	// ks := vrf.newVRFKeyStore(vrf.NewORM(store.DB), utils.GetScryptParams(store.Config))
-	key, err := ks.CreateKey(phrase) // NB: Varies from run to run. Shouldn't matter, though
+	ks.Unlock(phrase)
+	key, err := ks.CreateKey() // NB: Varies from run to run. Shouldn't matter, though
 	require.NoError(t, err, "could not create encrypted key")
 	require.NoError(t, ks.Forget(key), "could not forget a created key from in-memory store")
 
@@ -54,23 +56,21 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	require.NoError(t, err, "failed to retrieve expected key from db")
 	assert.True(t, len(keys) == 1 && keys[0].PublicKey == key, "did not get back the expected key from db retrial")
 
-	ophrase := phrase + "corruption" // Extra key; make sure it's not returned by Get
-	newKey, err := ks.CreateKey(ophrase)
-	require.NoError(t, err, "could not create extra key")
+	ophrase := phrase + "corruption" // Cannot unlock with the wrong phrase
+	_, err = ks.Unlock(ophrase)
+	require.Error(t, err)
 
 	keys, err = ks.Get(key) // Test targeted Get
-	require.NoError(t, err, "key databese retrieval failed")
-	require.NoError(t, ks.Forget(newKey), "failed to forget in-memory copy of second key")
+	require.NoError(t, err, "key database retrieval failed")
 	require.Equal(t, keys[0].PublicKey, key, "retrieved wrong key from db")
 	require.Len(t, keys, 1, "retrieved more keys than expected from db")
 
 	keys, err = ks.Get() // Verify both keys are present in the db
 	require.NoError(t, err, "could not retrieve keys from db")
-	require.Len(t, keys, 2, "failed to remember both the keys just created")
+	require.Len(t, keys, 1, "failed to remember the key just created")
 
 	unlockedKeys, err := ks.Unlock(phrase) // Unlocking enables generation of proofs
-	require.Contains(t, err.Error(), "could not decrypt key with given password", "should have a complaint about not being able to unlock the key with a different password")
-	assert.Contains(t, err.Error(), newKey.String(), "complaint about inability to unlock should pertain to the key with a different password")
+	require.NoError(t, err)
 	assert.Len(t, unlockedKeys, 1, "should have only unlocked one key")
 	assert.Equal(t, unlockedKeys[0], key, "should have only unlocked the key with the offered password")
 
@@ -83,7 +83,8 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	require.NoError(t, err, "failed to generate proof response")
 
 	// ...but only for unlocked keys
-	_, err = vrf.GenerateProofResponse(ks, newKey, seed)
+	randomKey := vrfkey.CreateKey()
+	_, err = vrf.GenerateProofResponse(ks, randomKey.PublicKey, seed)
 	require.Error(t, err, "should not be able to generate VRF proofs unless key has been unlocked")
 	require.Contains(t, err.Error(), "has not been unlocked", "complaint when attempting to generate VRF proof with unclocked key should be that it's locked")
 
@@ -118,10 +119,10 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	keyjson, err := encryptedKey.JSON()
 	require.NoError(t, err, "failed to serialize key to JSON")
 
-	err = ks.Import(keyjson, phrase)
+	_, err = ks.Import(keyjson, phrase)
 	require.NoError(t, err, "failed to import encrypted key to database")
 
-	err = ks.Import(keyjson, phrase)
+	_, err = ks.Import(keyjson, phrase)
 	require.Equal(t, keystore.MatchingVRFKeyError, err, "should be prevented from importing a key with a public key already present in the DB")
 
 	_, err = vrf.GenerateProofResponse(ks, key, seed)
