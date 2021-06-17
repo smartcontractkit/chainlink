@@ -3,7 +3,6 @@ schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 externalJobID     = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F48"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0 # optional
 
