@@ -94,7 +94,12 @@ func (helper *broadcasterHelper) start() {
 	require.NoError(helper.t, err)
 }
 
-func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint64) {
+type abigenContract interface {
+	Address() common.Address
+	ParseLog(log types.Log) (generated.AbigenLog, error)
+}
+
+func (helper *broadcasterHelper) register(listener log.Listener, contract abigenContract, numConfirmations uint64) {
 	logs := []generated.AbigenLog{
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
@@ -102,21 +107,20 @@ func (helper *broadcasterHelper) register(listener log.Listener, contract log.Ab
 	helper.registerWithTopics(listener, contract, logs, numConfirmations)
 }
 
-func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract log.AbigenContract, topics []generated.AbigenLog, numConfirmations uint64) {
-	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
-		Contract:         contract,
-		Logs:             topics,
-		NumConfirmations: numConfirmations,
-	})
-
-	helper.toUnsubscribe = append(helper.toUnsubscribe, unsubscribe)
+func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract abigenContract, logs []generated.AbigenLog, numConfirmations uint64) {
+	logsWithTopics := make(map[common.Hash][][]log.Topic)
+	for _, log := range logs {
+		logsWithTopics[log.Topic()] = nil
+	}
+	helper.registerWithTopicValues(listener, contract, numConfirmations, logsWithTopics)
 }
 
-func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract log.AbigenContract, numConfirmations uint64,
+func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract abigenContract, numConfirmations uint64,
 	topics map[common.Hash][][]log.Topic) {
 
 	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
-		Contract:         contract,
+		Contract:         contract.Address(),
+		ParseLog:         contract.ParseLog,
 		LogsWithTopics:   topics,
 		NumConfirmations: numConfirmations,
 	})

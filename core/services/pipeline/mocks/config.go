@@ -116,6 +116,34 @@ func (_m *Config) DefaultMaxHTTPAttempts() uint {
 	return r0
 }
 
+// EthGasLimitDefault provides a mock function with given fields:
+func (_m *Config) EthGasLimitDefault() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// EthMaxQueuedTransactions provides a mock function with given fields:
+func (_m *Config) EthMaxQueuedTransactions() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // JobPipelineMaxRunDuration provides a mock function with given fields:
 func (_m *Config) JobPipelineMaxRunDuration() time.Duration {
 	ret := _m.Called()

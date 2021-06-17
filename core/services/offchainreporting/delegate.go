@@ -211,6 +211,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Datasource: &dataSource{
 				pipelineRunner: d.pipelineRunner,
 				ocrLogger:      *loggerWith,
+				jobSpec:        jobSpec,
 				spec:           *jobSpec.PipelineSpec,
 				runResults:     runResults,
 			},

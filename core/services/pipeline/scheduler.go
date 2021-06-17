@@ -11,7 +11,6 @@ type scheduler struct {
 	ctx          context.Context
 	pipeline     *Pipeline
 	dependencies map[int]uint
-	input        interface{}
 	waiting      uint
 	results      map[int]TaskRunResult
 	vars         Vars
@@ -20,7 +19,7 @@ type scheduler struct {
 	resultCh chan TaskRunResult
 }
 
-func newScheduler(ctx context.Context, p *Pipeline, pipelineInput interface{}) *scheduler {
+func newScheduler(ctx context.Context, p *Pipeline, vars Vars) *scheduler {
 	dependencies := make(map[int]uint, len(p.Tasks))
 	var roots []Task
 
@@ -37,9 +36,8 @@ func newScheduler(ctx context.Context, p *Pipeline, pipelineInput interface{}) *
 		ctx:          ctx,
 		pipeline:     p,
 		dependencies: dependencies,
-		input:        pipelineInput,
 		results:      make(map[int]TaskRunResult, len(p.Tasks)),
-		vars:         NewVarsFrom(map[string]interface{}{"input": pipelineInput}),
+		vars:         vars,
 
 		// taskCh should never block
 		taskCh:   make(chan *memoryTaskRun, len(dependencies)),
@@ -48,8 +46,6 @@ func newScheduler(ctx context.Context, p *Pipeline, pipelineInput interface{}) *
 
 	for _, task := range roots {
 		run := &memoryTaskRun{task: task, vars: s.vars.Copy()}
-		// fill in the inputs
-		run.inputs = append(run.inputs, input{index: 0, result: Result{Value: s.input}})
 
 		s.taskCh <- run
 		s.waiting++

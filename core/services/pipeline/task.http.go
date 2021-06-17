@@ -44,13 +44,18 @@ func (t *HTTPTask) Type() TaskType {
 }
 
 func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
+	_, err := CheckInputs(inputs, -1, -1, 0)
+	if err != nil {
+		return Result{Error: errors.Wrap(err, "task inputs")}
+	}
+
 	var (
 		method                         StringParam
 		url                            URLParam
 		requestData                    MapParam
 		allowUnrestrictedNetworkAccess BoolParam
 	)
-	err := multierr.Combine(
+	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
 		errors.Wrap(ResolveParam(&url, From(NonemptyString(t.URL))), "url"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),

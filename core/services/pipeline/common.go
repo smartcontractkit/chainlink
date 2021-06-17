@@ -42,6 +42,8 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
+		EthGasLimitDefault() uint64
+		EthMaxQueuedTransactions() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -55,6 +57,7 @@ var (
 	ErrParameterEmpty        = errors.New("parameter is empty")
 	ErrTooManyErrors         = errors.New("too many errors")
 	ErrTimeout               = errors.New("timeout")
+	ErrTaskRunFailed         = errors.New("task run failed")
 )
 
 const (
@@ -222,13 +225,19 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeAny       TaskType = "any"
-	TaskTypeVRF       TaskType = "vrf"
+	TaskTypeHTTP            TaskType = "http"
+	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMedian          TaskType = "median"
+	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeJSONParse       TaskType = "jsonparse"
+	TaskTypeCBORParse       TaskType = "cborparse"
+	TaskTypeAny             TaskType = "any"
+	TaskTypeVRF             TaskType = "vrf"
+	TaskTypeETHCall         TaskType = "ethcall"
+	TaskTypeETHTx           TaskType = "ethtx"
+	TaskTypeETHABIEncode    TaskType = "ethabiencode"
+	TaskTypeETHABIDecode    TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -268,6 +277,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
 		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHCall:
+		task = &ETHCallTask{BaseTask: BaseTask{dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
