@@ -3,8 +3,17 @@ package types
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
+
+type Tracker interface {
+	HighestSeenHeadFromDB() (*models.Head, error)
+	Start() error
+	Stop() error
+	SetLogger(logger *logger.Logger)
+}
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
@@ -15,6 +24,13 @@ type HeadTrackable interface {
 }
 
 type HeadBroadcasterRegistry interface {
+	Subscribe(callback HeadTrackable) (unsubscribe func())
+}
+
+// HeadBroadcaster is the external interface of headBroadcaster
+type HeadBroadcaster interface {
+	service.Service
+	HeadTrackable
 	Subscribe(callback HeadTrackable) (unsubscribe func())
 }
 

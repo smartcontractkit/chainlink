@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -14,7 +15,7 @@ func (noa *NoOp) TaskType() models.TaskType {
 }
 
 // Perform returns the input
-func (noa *NoOp) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (noa *NoOp) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	val := input.Result().Value()
 	return models.NewRunOutputCompleteWithResult(val, input.ResultCollection())
 }
@@ -29,6 +30,6 @@ func (noa *NoOpPendOutgoing) TaskType() models.TaskType {
 
 // Perform on this adapter type returns an empty RunResult with an
 // added field for the status to indicate the task is Pending.
-func (noa *NoOpPendOutgoing) Perform(_ models.RunInput, _ *store.Store) models.RunOutput {
+func (noa *NoOpPendOutgoing) Perform(_ models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(models.JSON{})
 }

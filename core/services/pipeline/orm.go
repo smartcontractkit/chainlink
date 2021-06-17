@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
@@ -36,27 +34,6 @@ type orm struct {
 }
 
 var _ ORM = (*orm)(nil)
-
-var (
-	promPipelineRunErrors = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pipeline_run_errors",
-		Help: "Number of errors for each pipeline spec",
-	},
-		[]string{"job_id", "job_name"},
-	)
-	promPipelineRunTotalTimeToCompletion = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pipeline_run_total_time_to_completion",
-		Help: "How long each pipeline run took to finish (from the moment it was created)",
-	},
-		[]string{"job_id", "job_name"},
-	)
-	promPipelineTasksTotalFinished = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pipeline_tasks_total_finished",
-		Help: "The total number of pipeline tasks which have finished",
-	},
-		[]string{"job_id", "job_name", "task_type", "status"},
-	)
-)
 
 func NewORM(db *gorm.DB, config Config) *orm {
 	return &orm{db, config}

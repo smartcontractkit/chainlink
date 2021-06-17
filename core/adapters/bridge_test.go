@@ -17,6 +17,7 @@ import (
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
@@ -35,7 +36,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
 	input := cltest.NewRunInputWithResult("100")
-	result := ba.Perform(input, store)
+	result := ba.Perform(input, store, keyStore)
 	require.NoError(t, result.Error())
 	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
@@ -44,6 +45,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 	jobRunID := uuid.NewV4()
 	taskRunID := uuid.NewV4()
@@ -59,7 +61,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 
 	jr := cltest.NewJobRun(cltest.NewJobWithLogInitiator())
 	input := *models.NewRunInput(jr, taskRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
-	result := ba.Perform(input, store)
+	result := ba.Perform(input, store, keyStore)
 	require.NoError(t, result.Error())
 	assert.Equal(t, "251990120", result.Result().String())
 }
@@ -79,6 +81,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 
 	for _, test := range cases {
@@ -89,7 +92,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 			jr := cltest.NewJobRun(cltest.NewJobWithLogInitiator())
 			input := *models.NewRunInputWithResult(jr, uuid.NewV4(), "100", test.status)
-			result := ba.Perform(input, store)
+			result := ba.Perform(input, store, keyStore)
 
 			assert.Equal(t, test.result, result.Data().String())
 			assert.Equal(t, test.wantStatus, result.Status())
@@ -118,6 +121,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 	runID := uuid.NewV4()
 	taskRunID := uuid.NewV4()
@@ -137,7 +141,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			jr := cltest.NewJobRun(cltest.NewJobWithLogInitiator())
 			jr.ID = runID
 			input := *models.NewRunInput(jr, taskRunID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
-			result := eb.Perform(input, store)
+			result := eb.Perform(input, store, keyStore)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
@@ -171,6 +175,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			keyStore := cltest.NewKeyStore(t, store.DB)
 			store.Config.Set("BRIDGE_RESPONSE_URL", test.configuredURL)
 
 			mock, ensureCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", ``,
@@ -181,7 +186,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: *bt}
-			eb.Perform(input, store)
+			eb.Perform(input, store, keyStore)
 		})
 	}
 }
@@ -193,6 +198,7 @@ func TestBridgeResponse_TooLarge(t *testing.T) {
 
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	largePayload := `{"pending": true}`
 	mock, serverCleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", largePayload,
@@ -204,7 +210,7 @@ func TestBridgeResponse_TooLarge(t *testing.T) {
 	ba := &adapters.Bridge{BridgeType: *bt}
 
 	input := cltest.NewRunInputWithResult("100")
-	result := ba.Perform(input, store)
+	result := ba.Perform(input, store, keyStore)
 
 	require.Error(t, result.Error())
 	assert.Contains(t, result.Error().Error(), "HTTP response too large")

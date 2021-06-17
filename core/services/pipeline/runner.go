@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,6 +37,9 @@ type Runner interface {
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pipelineInput interface{}, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
+
+	// Test method for inserting completed non-pipeline job runs
+	TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error)
 }
 
 type runner struct {
@@ -48,11 +53,32 @@ type runner struct {
 }
 
 var (
-	promPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	// PromPipelineTaskExecutionTime reports how long each pipeline task took to execute
+	// TODO: Make private again after
+	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+	PromPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
 	},
 		[]string{"job_id", "job_name", "task_type"},
+	)
+	PromPipelineRunErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pipeline_run_errors",
+		Help: "Number of errors for each pipeline spec",
+	},
+		[]string{"job_id", "job_name"},
+	)
+	PromPipelineRunTotalTimeToCompletion = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_run_total_time_to_completion",
+		Help: "How long each pipeline run took to finish (from the moment it was created)",
+	},
+		[]string{"job_id", "job_name"},
+	)
+	PromPipelineTasksTotalFinished = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pipeline_tasks_total_finished",
+		Help: "The total number of pipeline tasks which have finished",
+	},
+		[]string{"job_id", "job_name", "task_type", "status"},
 	)
 	ErrRunPanicked = errors.New("pipeline run panicked")
 )
@@ -312,9 +338,9 @@ func (r *runner) executeRun(
 	finishRun := time.Now()
 	runTime := finishRun.Sub(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
-	promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
+	PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
 	if retry || taskRunResults.FinalResult().HasErrors() {
-		promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
+		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
 	}
 	if !retry {
 		run.Errors = taskRunResults.FinalResult().ErrorsDB()
@@ -407,14 +433,14 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, vars Vars, taskR
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	elapsed := trr.FinishedAt.Sub(trr.CreatedAt)
 
-	promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type())).Set(float64(elapsed))
+	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type())).Set(float64(elapsed))
 	var status string
 	if trr.Result.Error != nil {
 		status = "error"
 	} else {
 		status = "completed"
 	}
-	promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type()), status).Inc()
+	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type()), status).Inc()
 }
 
 // ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
@@ -433,6 +459,32 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, pip
 
 func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	return r.orm.InsertFinishedRun(db, run, trrs, saveSuccessfulTaskRuns)
+}
+
+func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
+	t := time.Now()
+	runID, err := r.InsertFinishedRun(db, Run{
+		PipelineSpecID: specID,
+		Errors:         RunErrors{null.String{}},
+		Outputs:        JSONSerializable{Val: "queued eth transaction"},
+		CreatedAt:      t,
+		FinishedAt:     &t,
+	}, nil, false)
+	elapsed := time.Since(t)
+
+	// For testing metrics.
+	id := fmt.Sprintf("%d", jobID)
+	PromPipelineTaskExecutionTime.WithLabelValues(id, jobName, jobType).Set(float64(elapsed))
+	var status string
+	if err != nil {
+		status = "error"
+		PromPipelineRunErrors.WithLabelValues(id, jobName).Inc()
+	} else {
+		status = "completed"
+	}
+	PromPipelineRunTotalTimeToCompletion.WithLabelValues(id, jobName).Set(float64(elapsed))
+	PromPipelineTasksTotalFinished.WithLabelValues(id, jobName, jobType, status).Inc()
+	return runID, err
 }
 
 func (r *runner) runReaper() {
