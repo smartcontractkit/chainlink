@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -45,7 +44,7 @@ type DelegateConfig interface {
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
-	OCRKeyBundleID() (models.Sha256Hash, error)
+	OCRKeyBundleID() (string, error)
 	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRTraceLogging() bool
@@ -61,7 +60,7 @@ type Delegate struct {
 	txm                   txManager
 	jobORM                job.ORM
 	config                DelegateConfig
-	keyStore              *keystore.OCR
+	keyStore              keystore.OCR
 	pipelineRunner        pipeline.Runner
 	ethClient             eth.Client
 	logBroadcaster        log.Broadcaster
@@ -80,7 +79,7 @@ func NewDelegate(
 	txm txManager,
 	jobORM job.ORM,
 	config DelegateConfig,
-	keyStore *keystore.OCR,
+	keyStore keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
@@ -215,18 +214,18 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		if len(bootstrapPeers) < 1 {
 			return nil, errors.New("need at least one bootstrap peer")
 		}
-		var kb models.Sha256Hash
-		if concreteSpec.EncryptedOCRKeyBundleID != nil {
-			kb = *concreteSpec.EncryptedOCRKeyBundleID
+		var kb string
+		if concreteSpec.EncryptedOCRKeyBundleID.Valid {
+			kb = concreteSpec.EncryptedOCRKeyBundleID.String
 		} else {
 			kb, err = d.config.OCRKeyBundleID()
 			if err != nil {
 				return nil, err
 			}
 		}
-		ocrkey, exists := d.keyStore.DecryptedOCRKey(kb)
-		if !exists {
-			return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
+		ocrkey, err := d.keyStore.Get(kb)
+		if err != nil {
+			return nil, err
 		}
 		contractABI, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
 		if err != nil {
@@ -290,7 +289,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
-			PrivateKeys:                  &ocrkey,
+			PrivateKeys:                  ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              bootstrapPeers,

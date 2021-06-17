@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -50,17 +51,20 @@ func TestRunner(t *testing.T) {
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
 
 	pipelineORM := pipeline.NewORM(db)
 	runner := pipeline.NewRunner(pipelineORM, config, nil, nil, nil, nil)
-	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer jobORM.Close()
 
 	runner.Start()
 	defer runner.Close()
 
-	key := cltest.MustInsertRandomKey(t, db, 0)
-	transmitterAddress := key.Address.Address()
+	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	ethClient, _, _ := cltest.NewEthMocks(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
@@ -329,7 +333,6 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
 		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
@@ -357,7 +360,7 @@ ds1 -> ds1_parse;
 			nil,
 			jobORM,
 			config,
-			keyStore,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
@@ -372,8 +375,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
 		var os = job.Job{}
 		s := `
@@ -382,7 +384,8 @@ ds1 -> ds1_parse;
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
 `
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		peerID := key.PeerID()
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
 		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
@@ -401,7 +404,7 @@ ds1 -> ds1_parse;
 			nil,
 			jobORM,
 			config,
-			keyStore,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
@@ -415,10 +418,9 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		var os = job.Job{}
 		s := `
@@ -434,10 +436,12 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		peerID := key.PeerID()
+		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
 		config.GeneralConfig.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
-		config.GeneralConfig.Overrides.OCRKeyBundleID = &kb.ID
-		config.GeneralConfig.Overrides.OCRTransmitterAddress = &key.Address
+		config.GeneralConfig.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
+		config.GeneralConfig.Overrides.OCRTransmitterAddress = &tAddress
 		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
@@ -460,7 +464,7 @@ ds1 -> ds1_parse;
 			nil,
 			jobORM,
 			config,
-			keyStore,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
@@ -474,14 +478,13 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		var os = job.Job{}
 
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), key.PeerID(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
 		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
@@ -492,9 +495,10 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
+		peerID := key.PeerID()
 		// Required to create job spawner delegate.
 		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
@@ -502,7 +506,7 @@ ds1 -> ds1_parse;
 			nil,
 			jobORM,
 			config,
-			keyStore,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
@@ -516,11 +520,10 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
 		var os = job.Job{}
-		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
+		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), key.PeerID())
 		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
@@ -529,8 +532,9 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Required to create job spawner delegate.
+		peerID := key.PeerID()
 		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
@@ -538,7 +542,7 @@ ds1 -> ds1_parse;
 			nil,
 			jobORM,
 			config,
-			keyStore,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
@@ -553,12 +557,11 @@ ds1 -> ds1_parse;
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
-		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
+		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), key.PeerID(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
 		dbSpec := makeOCRJobSpecFromToml(t, db, spec)
 
 		// Create an OCR job
@@ -566,8 +569,9 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Required to create job spawner delegate.
+		peerID := key.PeerID()
 		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 
@@ -576,7 +580,7 @@ ds1 -> ds1_parse;
 			nil,
 			jobORM,
 			config,
-			keyStore,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			log.NewBroadcaster(log.NewORM(db), ethClient, config, logger.Default, nil),
@@ -821,7 +825,7 @@ observationSource   = """
 	ds1 [type=bridge async=true name="bridge" timeout=0 requestData=<{"value": $(parse)}>]
 	ds1_parse [type=jsonparse lax=false  path="data,result"]
 	ds1_multiply [type=multiply times=1000000000000000000 index=0]
-	
+
 	parse->ds1->ds1_parse->ds1_multiply;
 """
     `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
@@ -842,7 +846,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, cfg, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
+		jobORM := job.NewORM(app.Store.ORM.DB, cfg, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{}, app.KeyStore)
 
 		// Trigger v2/resume
 		select {

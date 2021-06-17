@@ -2,7 +2,6 @@ package feeds_test
 
 import (
 	"context"
-	"crypto/ed25519"
 	"database/sql"
 	"encoding/hex"
 	"math/big"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -63,8 +63,8 @@ type TestService struct {
 	txm         *pgmocks.TransactionManager
 	spawner     *jobmocks.Spawner
 	fmsClient   *mocks.FeedsManagerClient
-	csaKeystore *ksmocks.CSAKeystoreInterface
-	ethKeystore *ksmocks.EthKeyStoreInterface
+	csaKeystore *ksmocks.CSA
+	ethKeystore *ksmocks.Eth
 	cfg         *mocks.Config
 }
 
@@ -76,8 +76,8 @@ func setupTestService(t *testing.T) *TestService {
 		txm         = &pgmocks.TransactionManager{}
 		spawner     = &jobmocks.Spawner{}
 		fmsClient   = &mocks.FeedsManagerClient{}
-		csaKeystore = &ksmocks.CSAKeystoreInterface{}
-		ethKeystore = &ksmocks.EthKeyStoreInterface{}
+		csaKeystore = &ksmocks.CSA{}
+		ethKeystore = &ksmocks.Eth{}
 		cfg         = &mocks.Config{}
 	)
 
@@ -115,8 +115,7 @@ func setupTestService(t *testing.T) *TestService {
 func Test_Service_RegisterManager(t *testing.T) {
 	t.Parallel()
 
-	_, privkey, err := ed25519.GenerateKey(nil)
-	require.NoError(t, err)
+	key := cltest.DefaultCSAKey
 
 	var (
 		id        = int64(1)
@@ -125,19 +124,17 @@ func Test_Service_RegisterManager(t *testing.T) {
 	)
 
 	var pubKey crypto.PublicKey
-	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
-	key := csakey.Key{
-		PublicKey: pubKey,
-	}
 
 	svc := setupTestService(t)
 
 	svc.orm.On("CountManagers", context.Background()).Return(int64(0), nil)
 	svc.orm.On("CreateManager", context.Background(), &ms).
 		Return(id, nil)
-	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
-	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{ms}, nil).Maybe()
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(&ms)
@@ -363,9 +360,8 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			OCRBootstrapPeerMultiaddr: null.StringFrom(multiaddr),
 		}
 		chainID    = big.NewInt(1)
-		sendingKey = ethkey.Key{
-			Address:   ethkey.EIP55AddressFromAddress(rawKey.Address),
-			IsFunding: false,
+		sendingKey = ethkey.KeyV2{
+			Address: ethkey.EIP55AddressFromAddress(rawKey.Address),
 		}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -376,7 +372,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", ctx, feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
+	svc.ethKeystore.On("SendingKeys").Return([]ethkey.KeyV2{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
 	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
@@ -398,33 +394,24 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
-	_, privkey, err := ed25519.GenerateKey(nil)
-	require.NoError(t, err)
+	key := cltest.DefaultCSAKey
 
 	var (
 		ctx = context.Background()
 		mgr = feeds.FeedsManager{
 			ID: 1,
 		}
-		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	)
-	var pubKey crypto.PublicKey
-	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
-	require.NoError(t, err)
-	key := csakey.Key{
-		PublicKey: pubKey,
-	}
 
 	svc := setupTestService(t)
 
 	ctx = mockTransactWithContext(ctx, svc.txm)
 	svc.orm.On("UpdateManager", ctx, mgr).Return(nil)
-	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
-	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	err = svc.UpdateFeedsManager(ctx, mgr)
+	err := svc.UpdateFeedsManager(ctx, mgr)
 	require.NoError(t, err)
 }
 
@@ -595,8 +582,7 @@ func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 }
 
 func Test_Service_StartStop(t *testing.T) {
-	_, privkey, err := ed25519.GenerateKey(nil)
-	require.NoError(t, err)
+	key := cltest.DefaultCSAKey
 
 	var (
 		mgr = feeds.FeedsManager{
@@ -607,16 +593,12 @@ func Test_Service_StartStop(t *testing.T) {
 	)
 
 	var pubKey crypto.PublicKey
-	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
-	key := csakey.Key{
-		PublicKey: pubKey,
-	}
 
 	svc := setupTestService(t)
 
-	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
-	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil)
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))

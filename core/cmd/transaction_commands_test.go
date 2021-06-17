@@ -112,7 +112,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 
 	set := flag.NewFlagSet("sendether", 0)
 	amount := "100.5"
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
 	set.Parse([]string{amount, fromAddress.Hex(), to})
 

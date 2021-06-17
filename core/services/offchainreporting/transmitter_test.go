@@ -15,11 +15,11 @@ import (
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	key := cltest.MustInsertRandomKey(t, store.DB, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	gasLimit := uint64(1000)
-	fromAddress := key.Address.Address()
 	toAddress := cltest.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := new(bptxmmocks.TxManager)
