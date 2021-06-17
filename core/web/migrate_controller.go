@@ -102,7 +102,6 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 		Name: null.StringFrom(js.Name),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ContractAddress:   ca,
-			Precision:         initr.Precision,
 			Threshold:         initr.Threshold,
 			AbsoluteThreshold: initr.AbsoluteThreshold,
 			PollTimerPeriod:   initr.PollTimer.Period.Duration(),
