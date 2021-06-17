@@ -4,8 +4,8 @@ import "time"
 
 type BaseTask struct {
 	outputTask      Task
-	dotID           string        `mapstructure:"-"`
-	numPredecessors int           `mapstructure:"-"`
+	dotID           string
+	numPredecessors int
 	Index           int32         `mapstructure:"index" json:"-" `
 	Timeout         time.Duration `mapstructure:"timeout"`
 }
