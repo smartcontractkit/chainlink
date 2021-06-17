@@ -246,3 +246,23 @@ func (cli *Client) Migrate(c *cli.Context) error {
 	err = cli.renderAPIResponse(resp, &presenter, "V2 job created from V1 job")
 	return nil
 }
+
+// TriggerPipelineRun triggers a V2 job run based on a job ID
+func (cli *Client) TriggerPipelineRun(c *cli.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
+	}
+	resp, err := cli.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var run pipeline.Run
+	err = cli.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
+	return err
+}
