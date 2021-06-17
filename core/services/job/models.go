@@ -29,6 +29,7 @@ const (
 	Webhook           Type = "webhook"
 )
 
+//revive:disable:redefines-builtin-id
 type Type string
 
 func (t Type) String() string {
@@ -76,7 +77,7 @@ type Job struct {
 	SchemaVersion                 uint32
 	Name                          null.String
 	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
 func (j Job) ExternalIDToTopicHash() common.Hash {
@@ -263,7 +264,6 @@ func (CronSpec) TableName() string {
 type FluxMonitorSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
-	Precision       int32               `gorm:"type:smallint"`
 	Threshold       float32             `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value

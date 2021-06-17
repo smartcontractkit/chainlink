@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -19,7 +18,6 @@ var (
 )
 
 type Vars struct {
-	mu   *sync.RWMutex
 	vars map[string]interface{}
 }
 
@@ -27,16 +25,18 @@ func NewVarsFrom(m map[string]interface{}) Vars {
 	if m == nil {
 		m = make(map[string]interface{})
 	}
-	return Vars{
-		mu:   &sync.RWMutex{},
-		vars: m,
+	return Vars{vars: m}
+}
+
+func (vars Vars) Copy() Vars {
+	m := make(map[string]interface{})
+	for k, v := range vars.vars {
+		m[k] = v
 	}
+	return Vars{vars: m}
 }
 
 func (vars Vars) Get(keypathStr string) (interface{}, error) {
-	vars.mu.RLock()
-	defer vars.mu.RUnlock()
-
 	keypath, err := newKeypathFromString(keypathStr)
 	if err != nil {
 		return nil, err
@@ -88,8 +88,6 @@ func (vars Vars) Set(dotID string, value interface{}) {
 	} else if strings.IndexByte(dotID, keypathSeparator[0]) >= 0 {
 		panic("cannot set a nested key of a pipeline.Vars")
 	}
-	vars.mu.Lock()
-	defer vars.mu.Unlock()
 	vars.vars[dotID] = value
 }
 

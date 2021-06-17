@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 type DirectRequestToml struct {
@@ -13,9 +12,7 @@ type DirectRequestToml struct {
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
-	}
+	var jb = job.Job{}
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return jb, err

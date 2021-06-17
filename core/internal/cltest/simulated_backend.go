@@ -164,7 +164,7 @@ func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
 }
 
-var balanceOfABIString string = `[
+var balanceOfABIString = `[
   {
     "constant": true,
     "inputs": [
