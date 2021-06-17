@@ -11,6 +11,7 @@ describe("VRFCoordinatorV2", () => {
     let subOwner: Signer;
     let consumer: Signer;
     let random: Signer;
+    let oracle: Signer;
     const linkEth = BigNumber.from(300000000);
     const gasWei = BigNumber.from(100);
 
@@ -20,6 +21,7 @@ describe("VRFCoordinatorV2", () => {
         subOwner = accounts[1]
         consumer = accounts[2]
         random = accounts[3]
+        oracle = accounts[4]
         let ltFactory = await ethers.getContractFactory("LinkToken", accounts[0]);
         linkToken = await ltFactory.deploy()
         let bhFactory = await ethers.getContractFactory("BlockhashStore", accounts[0]);
@@ -54,4 +56,35 @@ describe("VRFCoordinatorV2", () => {
     });
 
     // TODO: request words, check logs, non consumer cannot request
+    it("request random words", async () => {
+        // Create subscription.
+        const response = await vrfCoordinatorV2.owner()
+        let consumers: string[] = [await consumer.getAddress()]
+        const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers)
+        const receipt = await tx.wait()
+        const subId = receipt.events[0].args['subId']
+
+        // Fund the subscription
+        await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"))
+        const resp = await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address)
+        console.log(resp)
+        await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"))
+
+        // Request random words
+        //        bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
+        //         uint16  minimumRequestConfirmations,
+        //         uint16  callbackGasLimit,
+        //         uint256 subId,   // A data structure for billing
+        //         uint256 numWords  // Desired number of random words
+        const testKey = [BigNumber.from("1"), BigNumber.from("2")]
+        let kh = await vrfCoordinatorV2.hashOfKey(testKey)
+        console.log("key hash", kh)
+        await vrfCoordinatorV2.registerProvingKey(await oracle.getAddress(), [1, 2])
+        const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(kh, 1, 1000, subId, 1)
+        const reqReceipt = await reqTx.wait()
+        const reqId = reqReceipt.events[0].args['preSeed']
+        console.log(reqId)
+        //Should see the callback
+        console.log(await vrfCoordinatorV2.s_callbacks(reqId))
+    })
 })

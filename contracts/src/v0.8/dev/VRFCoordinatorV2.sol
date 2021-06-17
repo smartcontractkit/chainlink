@@ -16,6 +16,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
     // TODO: struct packing
+    event SeedUsed(uint256 seed, address a1, address a2);
     event SubscriptionCreated(uint256 subId, address owner, address[] consumers);
     event SubscriptionFundsAdded(uint256 subId, uint256 oldBalance, uint256 newBalance);
     event SubscriptionConsumersUpdated(uint256 subId, address[] oldConsumers, address[] newConsumers);
@@ -126,6 +127,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
        // accept that gas price fluctuations between request and response could potentially
        // result in request accepted but failed to fulfill
        require(s_subscriptions[subId].owner != address(0), "invalid subId");
+       require(s_serviceAgreements[keyHash].oracle != address(0), "must be a registered key");
        uint256 nonce = s_nonces[keyHash][msg.sender] + 1;
        s_nonces[keyHash][msg.sender] = nonce;
        uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
@@ -157,7 +159,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // TODO: maybe fail fast on an invalid keyHash?
         uint256 startGas = gasleft();
         (bytes32 keyHash, Callback memory callback, uint256 requestId,
-        uint256 randomness) = getRandomnessFromProof(_proof);
+        uint256 randomness, uint256 actualSeed) = getRandomnessFromProof(_proof);
 //        uint256[] memory randomWords = new uint256[](callback.numWords);
 //        for (uint256 i = 0; i < callback.numWords; i++) {
 //            randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
@@ -194,7 +196,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
 
     function getRandomnessFromProof(bytes memory _proof)
     internal view returns (bytes32 currentKeyHash, Callback memory callback,
-        uint256 requestId, uint256 randomness) {
+        uint256 requestId, uint256 randomness, uint256 actualSeed) {
         // blockNum follows proof, which follows length word (only direct-number
         // constants are allowed in assembly, so have to compute this in code)
         uint256 BLOCKNUM_OFFSET = 0x20 + PROOF_LENGTH;
@@ -223,7 +225,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             require(blockHash != bytes32(0), "please prove blockhash");
         }
         // The seed actually used by the VRF machinery, mixing in the blockhash
-        uint256 actualSeed = uint256(keccak256(abi.encodePacked(preSeed, blockHash)));
+        actualSeed = uint256(keccak256(abi.encodePacked(preSeed, blockHash)));
+        //actualSeed = uint256(keccak256(abi.encodePacked(preSeed)));
         // solhint-disable-next-line no-inline-assembly
         assembly { // Construct the actual proof from the remains of _proof
             mstore(add(_proof, PRESEED_OFFSET), actualSeed)

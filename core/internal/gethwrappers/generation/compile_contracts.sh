@@ -7,7 +7,8 @@ COMPILE_COMMAND="$CDIR/../../../../evm-contracts/scripts/native_solc_compile_all
 COMPILE_COMMAND_2="$CDIR/../../../../contracts/scripts/native_solc_compile_all"
 
 # Only print compilation output on failure.
-OUT="$(bash -c "${COMPILE_COMMAND} && ${COMPILE_COMMAND_2}" 2>&1)"
+#OUT="$(bash -c "${COMPILE_COMMAND} && ${COMPILE_COMMAND_2}" 2>&1)"
+OUT="$(bash -c "${COMPILE_COMMAND_2}" 2>&1)"
 ERR="$?"
 
 # shellcheck disable=SC2181

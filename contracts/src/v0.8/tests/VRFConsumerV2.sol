@@ -38,8 +38,8 @@ contract VRFConsumerV2 {
     }
 
     function testRequestRandomness(bytes32 _keyHash, uint256 _subId, uint16 minReqConfs, uint16 callbackGasLimit, uint256 numWords)
-    external returns (uint256 _requestId)
+    external
     {
-        return COORDINATOR.requestRandomWords(_keyHash, minReqConfs, callbackGasLimit, _subId, numWords);
+        requestId = COORDINATOR.requestRandomWords(_keyHash, minReqConfs, callbackGasLimit, _subId, numWords);
     }
 }

@@ -164,6 +164,12 @@ func TestIntegrationVRFV2(t *testing.T) {
 	for i := 0; i < incomingConfs; i++ {
 		uni.backend.Commit()
 	}
+	reqID, err := uni.consumerContract.RequestId(nil)
+	require.NoError(t, err)
+	t.Log(reqID)
+	callback, err := uni.rootContract.SCallbacks(nil, reqID)
+	require.NoError(t, err)
+	t.Log(callback)
 	var runs []pipeline.Run
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()

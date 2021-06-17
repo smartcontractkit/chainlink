@@ -161,17 +161,17 @@ func (lsn *listener) Start() error {
 		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
 			minConfs = lsn.job.VRFSpec.Confirmations
 		}
-		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
-			Contract: lsn.coordinator,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
-					{
-						log.Topic(lsn.job.ExternalIDToTopicHash()),
-					},
-				},
-			},
-			NumConfirmations: uint64(minConfs),
-		})
+		//unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
+		//	Contract: lsn.coordinator,
+		//	LogsWithTopics: map[common.Hash][][]log.Topic{
+		//		solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
+		//			{
+		//				log.Topic(lsn.job.ExternalIDToTopicHash()),
+		//			},
+		//		},
+		//	},
+		//	NumConfirmations: uint64(minConfs),
+		//})
 		unsubscribeLogsV2 := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinatorV2,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
@@ -183,7 +183,7 @@ func (lsn *listener) Start() error {
 			},
 		})
 		go gracefulpanic.WrapRecover(func() {
-			lsn.run([]func(){unsubscribeLogs, unsubscribeLogsV2}, minConfs)
+			lsn.run([]func(){unsubscribeLogsV2}, minConfs)
 		})
 		return nil
 	})
@@ -241,16 +241,16 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 	}
 
 	// Check if the vrf req has already been fulfilled
-	//callback, err := lsn.coordinatorV2.SCallbacks(nil, req.SubId)
-	//if err != nil {
-	//	lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-	//} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-	//	// If seedAndBlockNumber is zero then the response has been fulfilled
-	//	// and we should skip it
-	//	lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId)
-	//	lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-	//	return
-	//}
+	callback, err := lsn.coordinatorV2.SCallbacks(nil, req.PreSeed)
+	if err != nil {
+		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// If seedAndBlockNumber is zero then the response has been fulfilled
+		// and we should skip it
+		lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId, "callback", callback)
+		lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+		return
+	}
 
 	s := time.Now()
 	vrfCoordinatorPayload, req, err := lsn.ProcessLogV2(req, lb)

@@ -251,7 +251,7 @@ contract VRF {
      * @param multiplicand: secp256k1 point
      * @param scalar: non-zero GF(GROUP_ORDER) scalar
      * @param product: secp256k1 expected to be multiplier * multiplicand
-     * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
+     * @return verifies true iff product==scalar*ecmulVerify*multiplicand, with cryptographically high probability
      */
     function ecmulVerify(uint256[2] memory multiplicand, uint256 scalar,
         uint256[2] memory product) internal pure returns(bool verifies)
@@ -265,8 +265,9 @@ contract VRF {
         // scalar*multiplicand. See https://crypto.stackexchange.com/a/18106
         bytes32 scalarTimesX = bytes32(mulmod(scalar, x, GROUP_ORDER));
         address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
-        // Explicit conversion to address takes bottom 160 bits
-        address expected = address(bytes20(keccak256(abi.encodePacked(product)))); // Solidity v0.8 change - converting to bytes20 first
+        // Note that we want the bottom 20 bytes, byte bytes20 normally takes the top 20
+        // so we need to shift first.
+        address expected = address(bytes20(keccak256(abi.encodePacked(product))<<8*12));
         return (actual == expected);
     }
 
@@ -408,8 +409,11 @@ contract VRF {
         uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
         uint256 zInv)
     internal pure returns (uint256[2] memory) {
-        require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0,
-            "points in sum must be distinct");
+        uint256 diff;
+        unchecked {
+            diff = cp1Witness[0] - sp2Witness[0];
+        }
+        require((diff) % FIELD_SIZE != 0, "points in sum must be distinct");
         require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
         require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
         return affineECAdd(cp1Witness, sp2Witness, zInv);
@@ -473,7 +477,7 @@ contract VRF {
             c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
         // Steps 7. and 8. of IETF draft section 5.3
         uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
-//        require(c == derivedC, "invalid proof");
+        require(c == derivedC, "invalid proof");
     }
 
     // Domain-separation tag for the hash used as the final VRF output.
