@@ -13,6 +13,8 @@ import (
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
+	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
+
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
@@ -20,8 +22,6 @@ import (
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	null "gopkg.in/guregu/null.v4"
-
-	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	packr "github.com/gobuffalo/packr"
 
@@ -255,6 +255,22 @@ func (_m *Application) GetHealthChecker() health.Checker {
 	return r0
 }
 
+// GetKeyStore provides a mock function with given fields:
+func (_m *Application) GetKeyStore() *keystore.Master {
+	ret := _m.Called()
+
+	var r0 *keystore.Master
+	if rf, ok := ret.Get(0).(func() *keystore.Master); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*keystore.Master)
+		}
+	}
+
+	return r0
+}
+
 // GetLogger provides a mock function with given fields:
 func (_m *Application) GetLogger() *logger.Logger {
 	ret := _m.Called()
@@ -265,38 +281,6 @@ func (_m *Application) GetLogger() *logger.Logger {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*logger.Logger)
-		}
-	}
-
-	return r0
-}
-
-// GetOCRKeyStore provides a mock function with given fields:
-func (_m *Application) GetOCRKeyStore() *offchainreporting.KeyStore {
-	ret := _m.Called()
-
-	var r0 *offchainreporting.KeyStore
-	if rf, ok := ret.Get(0).(func() *offchainreporting.KeyStore); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*offchainreporting.KeyStore)
-		}
-	}
-
-	return r0
-}
-
-// GetPipelineORM provides a mock function with given fields:
-func (_m *Application) PipelineORM() pipeline.ORM {
-	ret := _m.Called()
-
-	var r0 pipeline.ORM
-	if rf, ok := ret.Get(0).(func() pipeline.ORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(pipeline.ORM)
 		}
 	}
 
@@ -376,6 +360,22 @@ func (_m *Application) NewBox() packr.Box {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(packr.Box)
+	}
+
+	return r0
+}
+
+// PipelineORM provides a mock function with given fields:
+func (_m *Application) PipelineORM() pipeline.ORM {
+	ret := _m.Called()
+
+	var r0 pipeline.ORM
+	if rf, ok := ret.Get(0).(func() pipeline.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(pipeline.ORM)
+		}
 	}
 
 	return r0

@@ -153,3 +153,24 @@ func (_m *Runner) Start() error {
 
 	return r0
 }
+
+// TestInsertFinishedRun provides a mock function with given fields: db, jobID, jobName, jobType, specID
+func (_m *Runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
+	ret := _m.Called(db, jobID, jobName, jobType, specID)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(*gorm.DB, int32, string, string, int32) int64); ok {
+		r0 = rf(db, jobID, jobName, jobType, specID)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*gorm.DB, int32, string, string, int32) error); ok {
+		r1 = rf(db, jobID, jobName, jobType, specID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}

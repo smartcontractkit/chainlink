@@ -3,9 +3,12 @@
 package mocks
 
 import (
+	context "context"
+
+	gorm "gorm.io/gorm"
+
 	log "github.com/smartcontractkit/chainlink/core/services/log"
 	mock "github.com/stretchr/testify/mock"
-	gorm "gorm.io/gorm"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -43,6 +46,20 @@ func (_m *Broadcaster) Close() error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Connect provides a mock function with given fields: head
+func (_m *Broadcaster) Connect(head *models.Head) error {
+	ret := _m.Called(head)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
+		r0 = rf(head)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -111,6 +128,11 @@ func (_m *Broadcaster) MarkConsumed(db *gorm.DB, lb log.Broadcast) error {
 	}
 
 	return r0
+}
+
+// OnNewLongestChain provides a mock function with given fields: ctx, head
+func (_m *Broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+	_m.Called(ctx, head)
 }
 
 // Ready provides a mock function with given fields:

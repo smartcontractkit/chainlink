@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -14,7 +15,7 @@ func (r ResultCollect) TaskType() models.TaskType {
 }
 
 // Perform takes an input to run and returns the output
-func (r ResultCollect) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+func (r ResultCollect) Perform(input models.RunInput, store *store.Store, _ *keystore.Master) models.RunOutput {
 	updatedCollection := make([]interface{}, 0)
 	for _, c := range input.ResultCollection().Array() {
 		updatedCollection = append(updatedCollection, c.Value())

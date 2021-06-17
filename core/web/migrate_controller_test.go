@@ -84,6 +84,10 @@ requestData="{\"data\":{\"coin\":\"ETH\",\"market\":\"USD\"}}"
 type=http
 url="https://lambda.staging.devnet.tools/bnc/call"
 ];
+jsonparse0 [
+path="data,result"
+type=jsonparse
+];
 multiply0 [
 times=10
 type=multiply
@@ -91,7 +95,8 @@ type=multiply
 
 // Edge definitions.
 median -> multiply0;
-feed0 -> median;
+feed0 -> jsonparse0;
+jsonparse0 -> median;
 `,
 		},
 		{
@@ -142,6 +147,10 @@ name=testbridge
 requestData="{\"data\":{\"coin\":\"ETH\",\"market\":\"USD\"}}"
 type=bridge
 ];
+jsonparse0 [
+path="data,result"
+type=jsonparse
+];
 multiply0 [
 times=10
 type=multiply
@@ -149,7 +158,8 @@ type=multiply
 
 // Edge definitions.
 median -> multiply0;
-feed0 -> median;
+feed0 -> jsonparse0;
+jsonparse0 -> median;
 `,
 		},
 	}

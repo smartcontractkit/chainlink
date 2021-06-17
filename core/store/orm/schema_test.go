@@ -42,6 +42,7 @@ func TestConfigSchema(t *testing.T) {
 		"EthGasBumpTxDepth":                         "ETH_GAS_BUMP_TX_DEPTH",
 		"EthGasBumpWei":                             "ETH_GAS_BUMP_WEI",
 		"EthGasLimitDefault":                        "ETH_GAS_LIMIT_DEFAULT",
+		"EthGasLimitTransfer":                       "ETH_GAS_LIMIT_TRANSFER",
 		"EthGasLimitMultiplier":                     "ETH_GAS_LIMIT_MULTIPLIER",
 		"EthGasPriceDefault":                        "ETH_GAS_PRICE_DEFAULT",
 		"EthHeadTrackerHistoryDepth":                "ETH_HEAD_TRACKER_HISTORY_DEPTH",
@@ -80,6 +81,7 @@ func TestConfigSchema(t *testing.T) {
 		"GlobalLockRetryInterval":                   "GLOBAL_LOCK_RETRY_INTERVAL",
 		"HTTPServerWriteTimeout":                    "HTTP_SERVER_WRITE_TIMEOUT",
 		"InsecureFastScrypt":                        "INSECURE_FAST_SCRYPT",
+		"InsecureSkipVerify":                        "INSECURE_SKIP_VERIFY",
 		"JSONConsole":                               "JSON_CONSOLE",
 		"JobPipelineMaxRunDuration":                 "JOB_PIPELINE_MAX_RUN_DURATION",
 		"JobPipelineReaperInterval":                 "JOB_PIPELINE_REAPER_INTERVAL",
@@ -163,10 +165,13 @@ func TestConfigSchema(t *testing.T) {
 		// If this test is failing, you've probably added a new configuration
 		// variable, please make sure to:
 		//
+		// 0. Make sure that the method in config.go has a comment explaining
+		//    in detail what the new config var does
 		// 1. Update the changelog
 		// 2. Update the ConfigPrinter found in core/store/presenters/presenters.go
 		//    if you think this variable needs to be shown in the UI
-		// 3. Update the documentation page
+		// 3. Make a PR into the documentation page if node operators might
+		//    need to use this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%20Operators/configuration-variables.md) - don't forget to update TOC
 		// 4. Add your new config variable to this test
 		//
 
