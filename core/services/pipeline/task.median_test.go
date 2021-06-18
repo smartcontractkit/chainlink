@@ -91,7 +91,7 @@ func TestMedian(t *testing.T) {
 				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, test.inputs)
+			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -123,7 +123,7 @@ func TestMedian(t *testing.T) {
 				Values:        "$(foo.bar)",
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -169,7 +169,7 @@ func TestMedian(t *testing.T) {
 				Values:        valuesParam,
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)

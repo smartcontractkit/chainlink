@@ -26,7 +26,7 @@ func (t *ETHCallTask) Type() TaskType {
 	return TaskTypeETHCall
 }
 
-func (t *ETHCallTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}

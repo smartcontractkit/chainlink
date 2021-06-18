@@ -81,7 +81,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
@@ -193,9 +193,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			if test.meta != nil {
 				expectedRequestDS1["meta"] = test.meta
 				expectedRequestSubmit["meta"] = test.meta
-			} else {
-				expectedRequestDS1["meta"] = nil
-				expectedRequestSubmit["meta"] = nil
+				test.vars["jobRun"] = map[string]interface{}{"meta": test.meta}
 			}
 			if test.includeInputAtKey != "" {
 				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
@@ -239,13 +237,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			var meta pipeline.JSONSerializable
-			if test.meta != nil {
-				meta.Val = test.meta
-			} else {
-				meta.Null = true
-			}
-			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), meta, *logger.Default)
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), *logger.Default)
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -322,7 +314,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(ctx, spec, vars, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal() {
@@ -346,7 +338,7 @@ b2 [type=multiply input="$(a)" times=3]
 c [type=median values=<[ $(b1), $(b2) ]> index=0]
 a->b1->c;
 a->b2->c;`,
-	}, pipeline.NewVarsFrom(input), pipeline.JSONSerializable{}, *logger.Default)
+	}, pipeline.NewVarsFrom(input), *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, false, trrs.FinalResult().HasErrors())
@@ -374,7 +366,7 @@ b1 [type=multiply input="$(a)" times=2 index=0]
 b2 [type=multiply input="$(a)" times=3 index=1]
 a->b1;
 a->b2;`,
-	}, pipeline.NewVarsFrom(input), pipeline.JSONSerializable{}, *logger.Default)
+	}, pipeline.NewVarsFrom(input), *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
 	result := trrs.FinalResult()
@@ -404,7 +396,7 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, pipeline.JSONSerializable{}, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
