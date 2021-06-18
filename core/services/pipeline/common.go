@@ -229,6 +229,7 @@ const (
 	TaskTypeBridge          TaskType = "bridge"
 	TaskTypeMean            TaskType = "mean"
 	TaskTypeMedian          TaskType = "median"
+	TaskTypeMode            TaskType = "mode"
 	TaskTypeSum             TaskType = "sum"
 	TaskTypeMultiply        TaskType = "multiply"
 	TaskTypeDivide          TaskType = "divide"
