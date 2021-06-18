@@ -23,7 +23,7 @@ func (t *ETHABIEncodeTask) Type() TaskType {
 	return TaskTypeETHABIEncode
 }
 
-func (t *ETHABIEncodeTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *ETHABIEncodeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}
