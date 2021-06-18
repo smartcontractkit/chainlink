@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"gorm.io/gorm"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -39,6 +41,7 @@ const configMailboxSanityLimit = 100
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
 	_ log.Listener                   = &OCRContractTracker{}
+	_ httypes.HeadTrackable          = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -60,6 +63,12 @@ type (
 		logger           logger.Logger
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
+		blockTranslator  BlockTranslator
+		chain            *chains.Chain
+
+		// HeadBroadcaster
+		headBroadcaster  httypes.HeadBroadcaster
+		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
 		ctx             context.Context
@@ -74,6 +83,9 @@ type (
 		// ContractConfig
 		configsMB utils.Mailbox
 		chConfigs chan ocrtypes.ContractConfig
+
+		// LatestBlockHeight
+		latestBlockHeight int64
 	}
 
 	OCRContractTrackerDB interface {
@@ -93,7 +105,9 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	gdb *gorm.DB,
 	db OCRContractTrackerDB,
-) (o *OCRContractTracker, err error) {
+	chain *chains.Chain,
+	headBroadcaster httypes.HeadBroadcaster,
+) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &OCRContractTracker{
 		utils.StartStopOnce{},
@@ -106,6 +120,10 @@ func NewOCRContractTracker(
 		logger,
 		db,
 		gdb,
+		NewBlockTranslator(chain),
+		chain,
+		headBroadcaster,
+		nil,
 		ctx,
 		cancel,
 		sync.WaitGroup{},
@@ -114,14 +132,20 @@ func NewOCRContractTracker(
 		sync.RWMutex{},
 		*utils.NewMailbox(configMailboxSanityLimit),
 		make(chan ocrtypes.ContractConfig),
-	}, nil
+		-1,
+	}
 }
 
 // Start must be called before logs can be delivered
 // It ought to be called before starting OCR
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
-		unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
+		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
+		if err != nil {
+			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
+		}
+
+		t.unsubscribeLogs = t.logBroadcaster.Register(t, log.ListenerOpts{
 			Contract: t.contract.Address(),
 			ParseLog: t.contract.ParseLog,
 			LogsWithTopics: map[gethCommon.Hash][][]log.Topic{
@@ -130,13 +154,9 @@ func (t *OCRContractTracker) Start() error {
 			},
 			NumConfirmations: 1,
 		})
-		t.unsubscribeLogs = unsubscribe
 
-		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
-		if err != nil {
-			unsubscribe()
-			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
-		}
+		t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
+
 		t.wg.Add(1)
 		go t.processLogs()
 		return nil
@@ -148,10 +168,19 @@ func (t *OCRContractTracker) Close() error {
 	return t.StopOnce("OCRContractTracker", func() error {
 		t.ctxCancel()
 		t.wg.Wait()
+		t.unsubscribeHeads()
 		t.unsubscribeLogs()
 		close(t.chConfigs)
 		return nil
 	})
+}
+
+// Connect conforms to HeadTrackable
+func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
+
+// OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
+func (t *OCRContractTracker) OnNewLongestChain(ctx context.Context, h models.Head) {
+	atomic.StoreInt64(&t.latestBlockHeight, h.Number)
 }
 
 func (t *OCRContractTracker) processLogs() {
@@ -312,9 +341,10 @@ func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedIn
 
 // ConfigFromLogs queries the eth node for logs for this contract
 func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
+	fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(changedInBlock)
 	q := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(changedInBlock)),
-		ToBlock:   big.NewInt(int64(changedInBlock)),
+		FromBlock: fromBlock,
+		ToBlock:   toBlock,
 		Addresses: []gethCommon.Address{t.contract.Address()},
 		Topics: [][]gethCommon.Hash{
 			{OCRContractConfigSet},
@@ -345,9 +375,18 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 }
 
 // LatestBlockHeight queries the eth node for the most recent header
-// TODO(sam): This could (should?) be optimised to use the head tracker
-// https://www.pivotaltracker.com/story/show/177006717
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
+	// We skip confirmation checking anyway on L2 so there's no need to look up the blockheight
+	if t.chain.IsL2() {
+		return 0, nil
+	}
+	latestBlockHeight := atomic.LoadInt64(&t.latestBlockHeight)
+	if latestBlockHeight >= 0 {
+		return uint64(latestBlockHeight), nil
+	}
+
+	t.logger.Debugw("OCRContractTracker: still waiting for first head, falling back to on-chain lookup")
+
 	var cancel context.CancelFunc
 	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
 	defer cancel()
