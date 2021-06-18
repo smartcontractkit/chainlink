@@ -10,13 +10,13 @@ import (
 // block number range suitable for query in FilterLogs
 type BlockTranslator interface {
 	NumberToQueryRange(changedInBlock uint64) (fromBlock *big.Int, toBlock *big.Int)
-	Start()
-	Close()
 }
 
 // NewBlockTranslator returns the block translator for the given chain
 func NewBlockTranslator(chain *chains.Chain) BlockTranslator {
-	if chain.IsArbitrum() {
+	if chain == nil {
+		return &l1BlockTranslator{}
+	} else if chain.IsArbitrum() {
 		return newArbitrumBlockTranslator(chain)
 	} else if chain.IsOptimism() {
 		return newOptimismBlockTranslator()
@@ -29,8 +29,6 @@ type l1BlockTranslator struct{}
 func (*l1BlockTranslator) NumberToQueryRange(changedInBlock uint64) (fromBlock *big.Int, toBlock *big.Int) {
 	return big.NewInt(int64(changedInBlock)), big.NewInt(int64(changedInBlock))
 }
-func (*l1BlockTranslator) Start() {}
-func (*l1BlockTranslator) Close() {}
 
 type arbitrumBlockTranslator struct {
 	min int64
@@ -60,8 +58,6 @@ func (a *arbitrumBlockTranslator) NumberToQueryRange(changedInBlock uint64) (fro
 	// NOTE: Mainnet l2
 	return big.NewInt(a.min), nil
 }
-func (a *arbitrumBlockTranslator) Start() {}
-func (a *arbitrumBlockTranslator) Close() {}
 
 type optimismBlockTranslator struct{}
 
@@ -75,5 +71,3 @@ func (*optimismBlockTranslator) NumberToQueryRange(changedInBlock uint64) (fromB
 	// See: https://app.clubhouse.io/chainlinklabs/story/11270/optimise-blocktranslator-ocr-for-optimism-and-arbitrum
 	return big.NewInt(0), nil
 }
-func (a *optimismBlockTranslator) Start() {}
-func (a *optimismBlockTranslator) Close() {}

@@ -145,8 +145,6 @@ func (t *OCRContractTracker) Start() error {
 			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 		}
 
-		t.blockTranslator.Start()
-
 		t.unsubscribeLogs = t.logBroadcaster.Register(t, log.ListenerOpts{
 			Contract: t.contract.Address(),
 			ParseLog: t.contract.ParseLog,
@@ -173,7 +171,6 @@ func (t *OCRContractTracker) Close() error {
 		t.unsubscribeHeads()
 		t.unsubscribeLogs()
 		close(t.chConfigs)
-		t.blockTranslator.Close()
 		return nil
 	})
 }
