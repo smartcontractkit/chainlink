@@ -983,7 +983,10 @@ func (c Config) OCRContractConfirmations(override uint16) uint16 {
 	if override != uint16(0) {
 		return override
 	}
-	return c.getWithFallback("OCRContractConfirmations", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("OCRContractConfirmations")) {
+		return uint16(c.viper.GetUint32(EnvVarName("OCRContractConfirmations")))
+	}
+	return chainSpecificConfig(c).OCRContractConfirmations
 }
 
 func (c Config) OCRDatabaseTimeout() time.Duration {
