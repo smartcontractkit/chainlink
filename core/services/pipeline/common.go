@@ -231,6 +231,7 @@ const (
 	TaskTypeMedian          TaskType = "median"
 	TaskTypeSum             TaskType = "sum"
 	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeDivide          TaskType = "divide"
 	TaskTypeJSONParse       TaskType = "jsonparse"
 	TaskTypeCBORParse       TaskType = "cborparse"
 	TaskTypeAny             TaskType = "any"
