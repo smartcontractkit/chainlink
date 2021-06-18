@@ -223,7 +223,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		// Arbitrum
 		{"invalid message format", true},
 		{"forbidden sender address", true},
-		{"tx dropped due to L2 congestion", true},
+		{"tx dropped due to L2 congestion", false},
 		{"execution reverted: error code", true},
 	}
 
