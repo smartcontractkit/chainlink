@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
@@ -49,7 +51,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 	}{
 		{"string", "foo bar baz", pipeline.BytesParam("foo bar baz"), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
-		{"int", 12345, pipeline.BytesParam(""), pipeline.ErrBadInput},
+		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -61,6 +63,93 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
 			require.Equal(t, test.expected, p)
+		})
+	}
+}
+
+func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+
+	var addr pipeline.AddressParam
+	copy(addr[:], []byte("deadbeefdeadbeefdead"))
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"20-char string", "deadbeefdeadbeefdead", addr, nil},
+		{"21-char string", "deadbeefdeadbeefdeadb", nil, pipeline.ErrBadInput},
+		{"19-char string", "deadbeefdeadbeefdea", nil, pipeline.ErrBadInput},
+		{"20-char []byte", []byte("deadbeefdeadbeefdead"), addr, nil},
+		{"21-char []byte", []byte("deadbeefdeadbeefdeadb"), nil, pipeline.ErrBadInput},
+		{"19-char []byte", []byte("deadbeefdeadbeefdea"), nil, pipeline.ErrBadInput},
+
+		{"42-char string with 0x", "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", pipeline.AddressParam(common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")), nil},
+		{"41-char string with 0x", "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbee", nil, pipeline.ErrBadInput},
+		{"43-char string with 0x", "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefd", nil, pipeline.ErrBadInput},
+		{"42-char string without 0x", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefde", nil, pipeline.ErrBadInput},
+		{"40-char string without 0x", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", nil, pipeline.ErrBadInput},
+
+		{"42-char []byte with 0x", []byte("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"), pipeline.AddressParam(common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")), nil},
+		{"41-char []byte with 0x", []byte("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbee"), nil, pipeline.ErrBadInput},
+		{"43-char []byte with 0x", []byte("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefd"), nil, pipeline.ErrBadInput},
+		{"42-char []byte without 0x", []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefde"), nil, pipeline.ErrBadInput},
+		{"40-char []byte without 0x", []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"), nil, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p pipeline.AddressParam
+			err := p.UnmarshalPipelineParam(test.input)
+			require.Equal(t, test.err, errors.Cause(err))
+			if test.expected != nil {
+				require.Equal(t, test.expected, p)
+			}
+		})
+	}
+}
+
+func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+
+	addr1 := common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	addr2 := common.HexToAddress("0xcafebabecafebabecafebabecafebabecafebabe")
+	expected := pipeline.AddressSliceParam{addr1, addr2}
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"json", `[ "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "0xcafebabecafebabecafebabecafebabecafebabe" ]`, expected, nil},
+		{"[]common.Address", []common.Address{addr1, addr2}, expected, nil},
+		{"[]interface{} with common.Address", []interface{}{addr1, addr2}, expected, nil},
+		{"[]interface{} with strings", []interface{}{addr1.String(), addr2.String()}, expected, nil},
+		{"[]interface{} with []byte", []interface{}{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
+		{"[]interface{} with []byte", []interface{}{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
+		{"nil", nil, pipeline.AddressSliceParam(nil), nil},
+
+		{"bad json", `[ "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "0xcafebabecafebabecafebabecafebabecafebabe" ]`, nil, pipeline.ErrBadInput},
+		{"[]interface{} with bad types", []interface{}{123, true}, nil, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p pipeline.AddressSliceParam
+			err := p.UnmarshalPipelineParam(test.input)
+			require.Equal(t, test.err, errors.Cause(err))
+			if test.expected != nil {
+				require.Equal(t, test.expected, p)
+			}
 		})
 	}
 }
@@ -302,10 +391,10 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
+func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
-	expected := pipeline.StringSliceParam{"1.1", "2.2", "3.3", "sergey"}
+	expected := pipeline.JSONPathParam{"1.1", "2.2", "3.3", "sergey"}
 
 	tests := []struct {
 		name     string
@@ -316,7 +405,7 @@ func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		{"[]interface{}", []interface{}{"1.1", "2.2", "3.3", "sergey"}, expected, nil},
 		{"string", `1.1,2.2,3.3,sergey`, expected, nil},
 		{"[]byte", []byte(`1.1,2.2,3.3,sergey`), expected, nil},
-		{"bool", true, pipeline.StringSliceParam(nil), pipeline.ErrBadInput},
+		{"bool", true, pipeline.JSONPathParam(nil), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -324,7 +413,7 @@ func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			var p pipeline.StringSliceParam
+			var p pipeline.JSONPathParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
 			require.Equal(t, test.expected, p)

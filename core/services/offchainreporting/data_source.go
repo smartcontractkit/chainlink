@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -19,6 +20,7 @@ import (
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
 	pipelineRunner        pipeline.Runner
+	jobSpec               job.Job
 	spec                  pipeline.Spec
 	ocrLogger             logger.Logger
 	runResults            chan<- pipeline.RunWithResults
@@ -35,7 +37,19 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	if err != nil {
 		logger.Warnw("unable to attach metadata for run", "err", err)
 	}
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, nil, pipeline.JSONSerializable{
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    ds.jobSpec.ID,
+			"externalJobID": ds.jobSpec.ExternalJobID,
+			"name":          ds.jobSpec.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta": md,
+		},
+	})
+
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, pipeline.JSONSerializable{
 		Val: md,
 	}, ds.ocrLogger)
 	if err != nil {

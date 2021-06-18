@@ -55,7 +55,7 @@ func setupRegistrySync(t *testing.T) (
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
@@ -64,7 +64,7 @@ func setupRegistrySync(t *testing.T) (
 	require.NoError(t, err)
 
 	lbMock.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
-		return opts.Contract.Address() == contractAddress
+		return opts.Contract == contractAddress
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
