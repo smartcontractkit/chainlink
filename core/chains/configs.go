@@ -11,7 +11,6 @@ type (
 
 	// ChainSpecificConfig lists the config defaults specific to a particular chain ID
 	ChainSpecificConfig struct {
-		set                              bool
 		EnableLegacyJobPipeline          bool
 		EthBalanceMonitorBlockDelay      uint16
 		EthFinalityDepth                 uint
@@ -35,6 +34,8 @@ type (
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
 		MinimumContractPayment           *assets.Link
+		OCRContractConfirmations         uint16
+		set                              bool
 	}
 )
 
@@ -79,6 +80,7 @@ func setConfigs() {
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
 		MinimumContractPayment:           assets.NewLink(100000000000000), // 0.0001 LINK
+		OCRContractConfirmations:         4,
 	}
 
 	mainnet := FallbackConfig
@@ -169,6 +171,7 @@ func setConfigs() {
 	arbitrumMainnet.GasUpdaterEnabled = false
 	arbitrumMainnet.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on arbitrum
 	arbitrumMainnet.LinkContractAddress = ""       // TBD
+	arbitrumMainnet.OCRContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.LinkContractAddress = "0xf1c3C8C14C31a5f74614572e922cD8F4fC626185"
 
@@ -185,6 +188,7 @@ func setConfigs() {
 	optimismMainnet.LinkContractAddress = "" // TBD
 	optimismMainnet.MinIncomingConfirmations = 1
 	optimismMainnet.MinRequiredOutgoingConfirmations = 0
+	optimismMainnet.OCRContractConfirmations = 1
 	optimismKovan := optimismMainnet
 	optimismKovan.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 
