@@ -166,6 +166,17 @@ describe('AuthorizedForwarder', () => {
           .setAuthorizedSenders([roles.defaultAccount.address])
       })
 
+      describe('when sending to a non-contract address', () => {
+        it('reverts', async () => {
+          await matchers.evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .forward(zeroAddress, payload),
+            'Must forward to a contract',
+          )
+        })
+      })
+
       describe('when attempting to forward to the link token', () => {
         it('reverts', async () => {
           const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
@@ -291,6 +302,15 @@ describe('AuthorizedForwarder', () => {
             .ownerForward(mock.address, payload)
           await tx.wait()
           assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('reverts when sending to a non-contract address', async () => {
+          await matchers.evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .ownerForward(zeroAddress, payload),
+            'Must forward to a contract',
+          )
         })
 
         it('perceives the message is sent by the Operator', async () => {
