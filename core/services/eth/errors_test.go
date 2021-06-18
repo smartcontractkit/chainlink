@@ -24,127 +24,160 @@ func Test_Eth_Errors(t *testing.T) {
 	t.Run("IsNonceTooLowError", func(t *testing.T) {
 		assert.False(t, randomError.IsNonceTooLowError())
 
-		// Geth
-		err = eth.NewSendErrorS("nonce too low")
-		assert.True(t, err.IsNonceTooLowError())
-		err = newSendErrorWrapped("nonce too low")
-		assert.True(t, err.IsNonceTooLowError())
-		// Parity
-		err = eth.NewSendErrorS("Transaction nonce is too low. Try incrementing the nonce.")
-		assert.True(t, err.IsNonceTooLowError())
-		err = newSendErrorWrapped("Transaction nonce is too low. Try incrementing the nonce.")
-		assert.True(t, err.IsNonceTooLowError())
-		// Arbitrum
-		err = eth.NewSendErrorS("transaction rejected: nonce too low")
-		assert.True(t, err.IsNonceTooLowError())
-		err = newSendErrorWrapped("transaction rejected: nonce too low")
-		assert.True(t, err.IsNonceTooLowError())
-		// Optimism
-		err = eth.NewSendErrorS("invalid transaction: nonce too low")
-		assert.True(t, err.IsNonceTooLowError())
-		err = newSendErrorWrapped("invalid transaction: nonce too low")
-		assert.True(t, err.IsNonceTooLowError())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Geth
+			{"nonce too low", true},
+			// Parity
+			{"Transaction nonce is too low. Try incrementing the nonce.", true},
+			// Arbitrum
+			{"transaction rejected: nonce too low", true},
+			{"invalid transaction nonce", true},
+			// Optimism
+			{"invalid transaction: nonce too low", true},
+		}
+
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsNonceTooLowError(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsNonceTooLowError(), test.expect)
+		}
 	})
 
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
-		// Geth
-		err = eth.NewSendErrorS("replacement transaction underpriced")
-		assert.True(t, err.IsReplacementUnderpriced())
-		err = newSendErrorWrapped("replacement transaction underpriced")
-		assert.True(t, err.IsReplacementUnderpriced())
-		// Parity
-		s := "Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce."
-		err = eth.NewSendErrorS(s)
-		assert.True(t, err.IsReplacementUnderpriced())
-		err = newSendErrorWrapped(s)
-		assert.True(t, err.IsReplacementUnderpriced())
 
-		s = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
-		err = eth.NewSendErrorS(s)
-		assert.False(t, err.IsReplacementUnderpriced())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Geth
+			{"replacement transaction underpriced", true},
+			// Parity
+			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true},
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false},
+			// Arbitrum
+			{"gas price too low", false},
+		}
+
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsReplacementUnderpriced(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsReplacementUnderpriced(), test.expect)
+		}
 	})
 
 	t.Run("IsTransactionAlreadyInMempool", func(t *testing.T) {
 		assert.False(t, randomError.IsTransactionAlreadyInMempool())
 
-		// Geth
-		// I have seen this in log output
-		err = eth.NewSendErrorS("known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960")
-		assert.True(t, err.IsTransactionAlreadyInMempool())
-		err = newSendErrorWrapped("known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960")
-		assert.True(t, err.IsTransactionAlreadyInMempool())
-		// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
-		err = eth.NewSendErrorS("already known")
-		assert.True(t, err.IsTransactionAlreadyInMempool())
-		// This one is present in the light client (?!)
-		err = eth.NewSendErrorS("Known transaction (7f65)")
-		assert.True(t, err.IsTransactionAlreadyInMempool())
-		// Parity
-		s := "Transaction with the same hash was already imported."
-		err = eth.NewSendErrorS(s)
-		assert.True(t, err.IsTransactionAlreadyInMempool())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Geth
+			// I have seen this in log output
+			{"known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960", true},
+			// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
+			{"already known", true},
+			// This one is present in the light client (?!)
+			{"Known transaction (7f65)", true},
+			// Parity
+			{"Transaction with the same hash was already imported.", true},
+		}
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsTransactionAlreadyInMempool(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsTransactionAlreadyInMempool(), test.expect)
+		}
 	})
 
 	t.Run("IsTerminallyUnderpriced", func(t *testing.T) {
 		assert.False(t, randomError.IsTerminallyUnderpriced())
 
-		// Geth
-		err = eth.NewSendErrorS("transaction underpriced")
-		assert.True(t, err.IsTerminallyUnderpriced())
-		err = newSendErrorWrapped("transaction underpriced")
-		assert.True(t, err.IsTerminallyUnderpriced())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Geth
+			{"transaction underpriced", true},
+			{"replacement transaction underpriced", false},
+			// Parity
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false},
+			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true},
+			// Arbitrum
+			{"gas price too low", true},
+		}
 
-		err = eth.NewSendErrorS("replacement transaction underpriced")
-		assert.False(t, err.IsTerminallyUnderpriced())
-		// Parity
-		err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
-		assert.False(t, err.IsTerminallyUnderpriced())
-		err = eth.NewSendErrorS("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
-		assert.True(t, err.IsTerminallyUnderpriced())
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect)
+		}
 	})
 
 	t.Run("IsTemporarilyUnderpriced", func(t *testing.T) {
-		// Parity
-		err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
-		assert.True(t, err.IsTemporarilyUnderpriced())
-		err = newSendErrorWrapped("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
-		assert.True(t, err.IsTemporarilyUnderpriced())
-		err = eth.NewSendErrorS("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
-		assert.False(t, err.IsTemporarilyUnderpriced())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Parity
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", true},
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", true},
+			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", false},
+		}
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsTemporarilyUnderpriced(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsTemporarilyUnderpriced(), test.expect)
+		}
 	})
 
 	t.Run("IsInsufficientEth", func(t *testing.T) {
-		// Geth
-		err = eth.NewSendErrorS("insufficient funds for transfer")
-		assert.True(t, err.IsInsufficientEth())
-		err = newSendErrorWrapped("insufficient funds for transfer")
-		assert.True(t, err.IsInsufficientEth())
-		err = eth.NewSendErrorS("insufficient funds for gas * price + value")
-		assert.True(t, err.IsInsufficientEth())
-		err = eth.NewSendErrorS("insufficient balance for transfer")
-		assert.True(t, err.IsInsufficientEth())
-		// Parity
-		err = eth.NewSendErrorS("Insufficient balance for transaction. Balance=100.25, Cost=200.50")
-		assert.True(t, err.IsInsufficientEth())
-		err = eth.NewSendErrorS("Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.")
-		assert.True(t, err.IsInsufficientEth())
-		// Arbitrum
-		err = eth.NewSendErrorS("transaction rejected: insufficient funds for gas * price + value")
-		assert.True(t, err.IsInsufficientEth())
-		// Optimism
-		err = eth.NewSendErrorS("invalid transaction: insufficient funds for gas * price + value")
-		assert.True(t, err.IsInsufficientEth())
-		// Nil
-		err = eth.NewSendError(nil)
-		assert.False(t, err.IsInsufficientEth())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Geth
+			{"insufficient funds for transfer", true},
+			{"insufficient funds for gas * price + value", true},
+			{"insufficient balance for transfer", true},
+			// Parity
+			{"Insufficient balance for transaction. Balance=100.25, Cost=200.50", true},
+			{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.", true},
+			// Arbitrum
+			{"transaction rejected: insufficient funds for gas * price + value", true},
+			{"not enough funds for gas", true},
+			// Opitmism
+			{"invalid transaction: insufficient funds for gas * price + value", true},
+		}
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsInsufficientEth(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsInsufficientEth(), test.expect)
+		}
 	})
 
 	t.Run("IsTooExpensive", func(t *testing.T) {
-		// Geth
-		err = eth.NewSendErrorS("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
-		assert.True(t, err.IsTooExpensive())
-		err = newSendErrorWrapped("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
-		assert.True(t, err.IsTooExpensive())
+		tests := []struct {
+			message string
+			expect  bool
+		}{
+			// Geth
+			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true},
+		}
+		for _, test := range tests {
+			err = eth.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsTooExpensive(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsTooExpensive(), test.expect)
+		}
 
 		assert.False(t, randomError.IsTooExpensive())
 		// Nil
@@ -186,6 +219,12 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Transaction cost exceeds current gas limit. Limit: 50, got: 100. Try decreasing supplied gas.", true},
 		{"Invalid signature: some old bollocks", true},
 		{"Invalid RLP data: some old bollocks", true},
+
+		// Arbitrum
+		{"invalid message format", true},
+		{"forbidden sender address", true},
+		{"tx dropped due to L2 congestion", false},
+		{"execution reverted: error code", true},
 	}
 
 	for _, test := range tests {
