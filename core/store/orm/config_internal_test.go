@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -93,43 +94,43 @@ func TestConfig_EthereumSecondaryURLs(t *testing.T) {
 	}
 }
 
-func TestConfig_ChainSpecificDefaults(t *testing.T) {
+func TestConfig_ChainSpecificConfig(t *testing.T) {
 	t.Parallel()
 
-	t.Run("with unknown chain ID returns mainnet defaults", func(t *testing.T) {
+	t.Run("with unknown chain ID returns generic defaults", func(t *testing.T) {
 		config := NewConfig()
 		config.Set("ETH_CHAIN_ID", "0")
 
-		assert.Equal(t, ChainSpecificDefaults[1].EthGasBumpThreshold, config.EthGasBumpThreshold())
-		assert.Equal(t, ChainSpecificDefaults[1].EthGasBumpWei, *config.EthGasBumpWei())
-		assert.Equal(t, ChainSpecificDefaults[1].EthGasPriceDefault, *config.EthGasPriceDefault())
-		assert.Equal(t, ChainSpecificDefaults[1].EthMaxGasPriceWei, *config.EthMaxGasPriceWei())
-		assert.Equal(t, ChainSpecificDefaults[1].EthFinalityDepth, config.EthFinalityDepth())
-		assert.Equal(t, ChainSpecificDefaults[1].EthHeadTrackerHistoryDepth, config.EthHeadTrackerHistoryDepth())
-		assert.Equal(t, ChainSpecificDefaults[1].EthBalanceMonitorBlockDelay, config.EthBalanceMonitorBlockDelay())
-		assert.Equal(t, ChainSpecificDefaults[1].EthTxResendAfterThreshold, config.EthTxResendAfterThreshold())
-		assert.Equal(t, ChainSpecificDefaults[1].GasUpdaterBlockDelay, config.GasUpdaterBlockDelay())
-		assert.Equal(t, ChainSpecificDefaults[1].GasUpdaterBlockHistorySize, config.GasUpdaterBlockHistorySize())
-		assert.Equal(t, ChainSpecificDefaults[1].MinIncomingConfirmations, config.MinIncomingConfirmations())
-		assert.Equal(t, ChainSpecificDefaults[1].MinRequiredOutgoingConfirmations, config.MinRequiredOutgoingConfirmations())
+		assert.Equal(t, chains.FallbackConfig.EthGasBumpThreshold, config.EthGasBumpThreshold())
+		assert.Equal(t, chains.FallbackConfig.EthGasBumpWei, *config.EthGasBumpWei())
+		assert.Equal(t, chains.FallbackConfig.EthGasPriceDefault, *config.EthGasPriceDefault())
+		assert.Equal(t, chains.FallbackConfig.EthMaxGasPriceWei, *config.EthMaxGasPriceWei())
+		assert.Equal(t, chains.FallbackConfig.EthFinalityDepth, config.EthFinalityDepth())
+		assert.Equal(t, chains.FallbackConfig.EthHeadTrackerHistoryDepth, config.EthHeadTrackerHistoryDepth())
+		assert.Equal(t, chains.FallbackConfig.EthBalanceMonitorBlockDelay, config.EthBalanceMonitorBlockDelay())
+		assert.Equal(t, chains.FallbackConfig.EthTxResendAfterThreshold, config.EthTxResendAfterThreshold())
+		assert.Equal(t, chains.FallbackConfig.GasUpdaterBlockDelay, config.GasUpdaterBlockDelay())
+		assert.Equal(t, chains.FallbackConfig.GasUpdaterBlockHistorySize, config.GasUpdaterBlockHistorySize())
+		assert.Equal(t, chains.FallbackConfig.MinIncomingConfirmations, config.MinIncomingConfirmations())
+		assert.Equal(t, chains.FallbackConfig.MinRequiredOutgoingConfirmations, config.MinRequiredOutgoingConfirmations())
 	})
 
 	t.Run("with known chain ID returns defaults for that chain", func(t *testing.T) {
 		config := NewConfig()
 		config.Set("ETH_CHAIN_ID", "80001")
 
-		assert.Equal(t, ChainSpecificDefaults[80001].EthGasBumpThreshold, config.EthGasBumpThreshold())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthGasBumpWei, *config.EthGasBumpWei())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthGasPriceDefault, *config.EthGasPriceDefault())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthMaxGasPriceWei, *config.EthMaxGasPriceWei())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthFinalityDepth, config.EthFinalityDepth())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthHeadTrackerHistoryDepth, config.EthHeadTrackerHistoryDepth())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthBalanceMonitorBlockDelay, config.EthBalanceMonitorBlockDelay())
-		assert.Equal(t, ChainSpecificDefaults[80001].EthTxResendAfterThreshold, config.EthTxResendAfterThreshold())
-		assert.Equal(t, ChainSpecificDefaults[80001].GasUpdaterBlockDelay, config.GasUpdaterBlockDelay())
-		assert.Equal(t, ChainSpecificDefaults[80001].GasUpdaterBlockHistorySize, config.GasUpdaterBlockHistorySize())
-		assert.Equal(t, ChainSpecificDefaults[80001].MinIncomingConfirmations, config.MinIncomingConfirmations())
-		assert.Equal(t, ChainSpecificDefaults[80001].MinRequiredOutgoingConfirmations, config.MinRequiredOutgoingConfirmations())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthGasBumpThreshold, config.EthGasBumpThreshold())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthGasBumpWei, *config.EthGasBumpWei())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthGasPriceDefault, *config.EthGasPriceDefault())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthMaxGasPriceWei, *config.EthMaxGasPriceWei())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthFinalityDepth, config.EthFinalityDepth())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthHeadTrackerHistoryDepth, config.EthHeadTrackerHistoryDepth())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthBalanceMonitorBlockDelay, config.EthBalanceMonitorBlockDelay())
+		assert.Equal(t, chains.PolygonMumbai.Config().EthTxResendAfterThreshold, config.EthTxResendAfterThreshold())
+		assert.Equal(t, chains.PolygonMumbai.Config().GasUpdaterBlockDelay, config.GasUpdaterBlockDelay())
+		assert.Equal(t, chains.PolygonMumbai.Config().GasUpdaterBlockHistorySize, config.GasUpdaterBlockHistorySize())
+		assert.Equal(t, chains.PolygonMumbai.Config().MinIncomingConfirmations, config.MinIncomingConfirmations())
+		assert.Equal(t, chains.PolygonMumbai.Config().MinRequiredOutgoingConfirmations, config.MinRequiredOutgoingConfirmations())
 	})
 
 	t.Run("setting env var overrides", func(t *testing.T) {

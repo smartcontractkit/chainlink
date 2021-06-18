@@ -105,7 +105,16 @@ func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOrac
 	if config.Dev() {
 		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode
 	}
-	return offchainreporting.SanityCheckLocalConfig(lc)
+
+	err := offchainreporting.SanityCheckLocalConfig(lc)
+
+	if config.Chain().IsL2() {
+		if lc.ContractConfigConfirmations > 0 {
+			err = multierr.Append(err, errors.New("contract config block-depth confirmation threshold has no effect when set to a value greater than 0 for L2 chains"))
+		}
+	}
+
+	return err
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {

@@ -327,6 +327,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			logBroadcaster,
 			concretePW,
 			monitoringEndpoint,
+			config.Chain(),
+			headBroadcaster,
 		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
