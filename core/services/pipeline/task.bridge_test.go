@@ -127,7 +127,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB)
 
 	// Insert bridge
 	_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -319,7 +319,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 				RequestData:       test.requestData,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetConfigAndTxDB(store.Config, store.DB)
+			task.HelperSetDependencies(store.Config, store.DB)
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -381,7 +381,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB)
 
 	_, bridge := cltest.NewBridgeType(t)
 	bridge.URL = *feedWebURL
@@ -425,7 +425,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetConfigAndTxDB(store.Config, store.DB)
+			task.HelperSetDependencies(store.Config, store.DB)
 
 			// Insert bridge
 			feedURL, err := url.ParseRequestURI(s1.URL)
@@ -478,7 +478,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB)
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -513,7 +513,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB)
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -535,7 +535,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.Nil(t, result.Value)

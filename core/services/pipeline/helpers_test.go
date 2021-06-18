@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 var (
@@ -28,11 +30,22 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetConfigAndTxDB(config Config, txdb *gorm.DB) {
+func (t *BridgeTask) HelperSetDependencies(config Config, db *gorm.DB) {
 	t.config = config
-	t.tx = txdb
+	t.db = db
 }
 
-func (t *HTTPTask) HelperSetConfig(config Config) {
+func (t *HTTPTask) HelperSetDependencies(config Config) {
 	t.config = config
+}
+
+func (t *ETHCallTask) HelperSetDependencies(client eth.Client) {
+	t.ethClient = client
+}
+
+func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, config Config, keyStore KeyStore, txManager TxManager) {
+	t.db = db
+	t.config = config
+	t.keyStore = keyStore
+	t.txManager = txManager
 }

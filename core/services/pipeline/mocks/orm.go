@@ -72,27 +72,6 @@ func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
 	return r0
 }
 
-// FindBridge provides a mock function with given fields: name
-func (_m *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
-	ret := _m.Called(name)
-
-	var r0 models.BridgeType
-	if rf, ok := ret.Get(0).(func(models.TaskType) models.BridgeType); ok {
-		r0 = rf(name)
-	} else {
-		r0 = ret.Get(0).(models.BridgeType)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(models.TaskType) error); ok {
-		r1 = rf(name)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindRun provides a mock function with given fields: id
 func (_m *ORM) FindRun(id int64) (pipeline.Run, error) {
 	ret := _m.Called(id)

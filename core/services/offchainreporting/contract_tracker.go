@@ -19,7 +19,6 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -123,10 +122,11 @@ func NewOCRContractTracker(
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
 		unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
-			Contract: t.contract,
-			Logs: []generated.AbigenLog{
-				offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
-				offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
+			Contract: t.contract.Address(),
+			ParseLog: t.contract.ParseLog,
+			LogsWithTopics: map[gethCommon.Hash][][]log.Topic{
+				offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{}.Topic(): nil,
+				offchain_aggregator_wrapper.OffchainAggregatorConfigSet{}.Topic():      nil,
 			},
 			NumConfirmations: 1,
 		})

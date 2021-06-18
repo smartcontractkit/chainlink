@@ -79,13 +79,12 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	pipelineInput := string(bodyBytes)
 	idStr := c.Param("ID")
 
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
-		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, pipelineInput, pipeline.JSONSerializable{Null: true})
+		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return

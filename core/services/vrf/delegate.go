@@ -153,7 +153,8 @@ func (lsn *listener) Start() error {
 			minConfs = lsn.job.VRFSpec.Confirmations
 		}
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
-			Contract: lsn.coordinator,
+			Contract: lsn.coordinator.Address(),
+			ParseLog: lsn.coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
 					{

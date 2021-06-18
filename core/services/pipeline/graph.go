@@ -66,7 +66,7 @@ func (n *GraphNode) String() string {
 	return n.dotID
 }
 
-var bracketQuotedAttrRegexp = regexp.MustCompile(`^\s*<([^<>]+)>\s*$`)
+var bracketQuotedAttrRegexp = regexp.MustCompile(`\A\s*<([^<>]+)>\s*\z`)
 
 func (n *GraphNode) SetAttribute(attr encoding.Attribute) error {
 	if n.attrs == nil {

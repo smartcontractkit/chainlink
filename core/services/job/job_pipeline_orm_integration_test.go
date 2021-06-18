@@ -119,7 +119,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
-		runner := pipeline.NewRunner(orm, config)
+		runner := pipeline.NewRunner(orm, config, nil, nil)
 		defer runner.Close()
 		jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
@@ -138,7 +138,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		pipelineSpecID := pipelineSpecs[0].ID
 
 		// Create the run
-		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run
