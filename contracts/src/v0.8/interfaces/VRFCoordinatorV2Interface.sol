@@ -4,10 +4,10 @@ interface VRFCoordinatorV2Interface {
 
     function requestRandomWords(
         bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
+        uint32  subId,   // A data structure for billing
         uint16  minimumRequestConfirmations,
-        uint16  callbackGasLimit,
-        uint256 subId,   // A data structure for billing
-        uint256 numWords  // Desired number of random words
+        uint32  callbackGasLimit,
+        uint16 numWords  // Desired number of random words
     )
     external
     returns (uint256 requestId);
@@ -16,10 +16,10 @@ interface VRFCoordinatorV2Interface {
         address[] memory consumers // permitted consumers of the subscription
     )
     external
-    returns (uint256 subId);
+    returns (uint32 subId);
 
     function fundSubscription(
-        uint256 subId,
+        uint32 subId,
         uint256 amount
     )
     external;

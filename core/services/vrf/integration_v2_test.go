@@ -2,6 +2,7 @@ package vrf_test
 
 import (
 	"context"
+	"github.com/shopspring/decimal"
 	"math/big"
 	"strings"
 	"testing"
@@ -50,6 +51,11 @@ type coordinatorV2Universe struct {
 	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
 }
 
+var (
+	gasPrice = decimal.RequireFromString("1000000000")
+	ethLink = decimal.RequireFromString("10000000000000000")
+)
+
 func newVRFCoordinatorV2Universe(t *testing.T, key models.Key) coordinatorV2Universe {
 	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
@@ -83,11 +89,11 @@ func newVRFCoordinatorV2Universe(t *testing.T, key models.Key) coordinatorV2Univ
 	// Deploy feeds
 	fastGasFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			carol, backend, 0, big.NewInt(1000000000)) // 1 gwei per unit gas
+			carol, backend, 0, gasPrice.BigInt()) // 1 gwei per unit gas
 	require.NoError(t, err)
 	linkEthFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			carol, backend, 18, big.NewInt(10000000000000000)) // 0.01 eth per link
+			carol, backend, 18, ethLink.BigInt()) // 0.01 eth per link
 	require.NoError(t, err)
 	// Deploy coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
@@ -168,11 +174,15 @@ func TestIntegrationVRFV2(t *testing.T) {
 	subId, err := uni.consumerContract.SubId(nil)
 	require.NoError(t, err)
 	t.Log("subscription ID", subId)
+	// Our subscription should have 0.1 link also
+	subBalanceStart, err := uni.rootContract.SSubscriptions(nil, subId)
+	require.NoError(t, err)
+	t.Log("subscription balance start", subBalanceStart.Balance.String())
 	// We fund it 0.1 link.
 	// The gas cost is about 50k gas @ 1 gwei/gas = 0.00005 ETH which is 0.00005 ETH / (0.01 ETH/LINK) = 0.0005 LINK
 	// Should be taken from the subscription
-	nw := big.NewInt(10)
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 10000, nw)
+	nw := 10
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 10000, 10)
 	require.NoError(t, err)
 	// Mine the required number of blocks
 	// So our request gets confirmed.
@@ -209,8 +219,62 @@ func TestIntegrationVRFV2(t *testing.T) {
 		return len(rf) == 1
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 	t.Log("randomness fulfilled req ID", rf[0].RequestId.String())
-	assert.Equal(t, nw.Int64(), int64(len(rf[0].Output)))
+	assert.Equal(t, nw, int64(len(rf[0].Output)))
 	for _, rw := range rf[0].Output {
 		t.Log("random word", rw.String())
 	}
+
+	// Assert that we were only charged for how much gas we actually used.
+	// We should be charge for the verification + our callbacks execution in link
+	subBalanceEnd, err := uni.rootContract.SSubscriptions(nil, subId)
+	require.NoError(t, err)
+	t.Log("subscription balance end", subBalanceEnd.Balance.String())
+	var(
+		end = decimal.RequireFromString(subBalanceEnd.Balance.String())
+		start = decimal.RequireFromString(subBalanceStart.Balance.String())
+		wei = decimal.RequireFromString("1000000000000000000")
+	)
+	linkCharged := start.Sub(end).Div(wei)
+	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", gasPrice.Div(decimal.RequireFromString("1000000000")), ethLink.Div(wei), linkCharged)
+
+
+
+	// Assert the oracle has been paid.
+	// Assert the new subscription balance.
+	// Assert the oracle can withdraw its payment.
+}
+
+func TestRequestCost(t *testing.T) {
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2", true)
+	defer cleanupDB()
+	key := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, key)
+	t.Log(uni)
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
+	defer cleanup()
+	require.NoError(t, app.StartAndConnect())
+
+	vrfkey, err := app.Store.VRFKeyStore.CreateKey(cltest.Password)
+	require.NoError(t, err)
+	_, err = app.Store.VRFKeyStore.Unlock(cltest.Password)
+	require.NoError(t, err)
+	p, err := vrfkey.Point()
+	_, err = uni.rootContract.RegisterProvingKey(
+		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
+	require.NoError(t, err)
+	uni.backend.Commit()
+	// 		bytes32 _keyHash, uint256 _subId, uint16 minReqConfs, uint16 callbackGasLimit, uint256 numWords
+	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
+		big.NewInt(100000000000000000)) // 0.1 LINK
+	require.NoError(t, err)
+	uni.backend.Commit()
+	subId, err := uni.consumerContract.SubId(nil)
+	require.NoError(t, err)
+	estimate := estimateGas(t, uni.backend, common.Address{},
+		uni.consumerContractAddress, uni.consumerABI,
+		"testRequestRandomness", vrfkey.MustHash(), subId, uint16(2), uint32(10000), uint16(1))
+	t.Log(estimate)
+	//assert.Greater(t, estimate, uint64(134000),
+	//	"requestRandomness tx gas cost lower than expected")
 }

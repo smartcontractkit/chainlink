@@ -15,47 +15,43 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     AggregatorV3Interface public immutable FAST_GAS_FEED;
     BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
-    // TODO: struct packing
-    event Payment(uint256 seed, uint256 v2);
-    event SubscriptionCreated(uint256 subId, address owner, address[] consumers);
-    event SubscriptionFundsAdded(uint256 subId, uint256 oldBalance, uint256 newBalance);
-    event SubscriptionConsumersUpdated(uint256 subId, address[] oldConsumers, address[] newConsumers);
-    event SubscriptionFundsWithdrawn(uint256 subId, uint256 oldBalance, uint256 newBalance);
-    event SubscriptionCanceled(uint256 subId);
-    uint256 currentSubId;
+    event SubscriptionCreated(uint32 subId, address owner, address[] consumers);
+    event SubscriptionFundsAdded(uint32 subId, uint256 oldBalance, uint256 newBalance);
+    event SubscriptionConsumersUpdated(uint32 subId, address[] oldConsumers, address[] newConsumers);
+    event SubscriptionFundsWithdrawn(uint32 subId, uint256 oldBalance, uint256 newBalance);
+    event SubscriptionCanceled(uint32 subId);
+    uint32 currentSubId;
     struct Subscription {
-        uint256 subId;
         address owner; // Owner can fund/withdraw/cancel the sub
         address[] consumers; // List of addresses which can consume using this subscription.
         uint256 balance; // Common balance used for all consumer requests.
     }
-    mapping(uint256 /* subId */ => Subscription /* subscription */) public s_subscriptions;
+    mapping(uint32 /* subId */ => Subscription /* subscription */) public s_subscriptions;
 
     event NewServiceAgreement(bytes32 keyHash, address oracle);
-    struct ServiceAgreement {
-        address oracle;
-        bytes32 keyHash;
-    }
-    mapping(bytes32 /* keyHash */ => ServiceAgreement) public s_serviceAgreements;
+    mapping(bytes32 /* keyHash */ => address /* oracle */) public s_serviceAgreements;
     mapping(address /* oracle */ => uint256 /* LINK balance */) public s_withdrawableTokens;
     mapping(bytes32 => mapping(address /* consumer */ => uint256)) s_nonces;
 
     event RandomWordsRequested(
         bytes32 indexed keyHash,
         uint16 minimumRequestConfirmations,
-        uint16 callbackGasLimit,
+        uint32 callbackGasLimit,
         uint256 preSeed,
-        uint256 subId);
+        uint32 subId);
     event RandomWordsFulfilled(
         uint256 requestId, uint256[] output);
+    // Should all fit in 2 32 byte values
     struct Callback {
-        address callbackContract; // Requesting contract, which will receive response
-        uint256 callbackGasLimit;
-        uint256 numWords;
-        uint256 subId;
+//        address callbackContract; // 20 bytes
+        uint16 consumerIndex; // index in sub.consumers
+        uint32 subId;
+        uint32 callbackGasLimit;
+        uint16 numWords;
         bytes32 seedAndBlockNum;
     }
-    mapping(uint256 /* requestID */ => Callback) public s_callbacks;
+    // 240 requestID || 16 bits consumerIndex
+    mapping(uint256 /* requestID */ => bytes32) public s_callbacks;
 
 
     bytes4 constant private FULFILL_RANDOM_WORDS_SELECTOR = bytes4(keccak256("fulfillRandomWords(bytes32,[]uint256)"));
@@ -81,11 +77,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     onlyOwner()
     {
         bytes32 kh = hashOfKey(publicProvingKey);
-        require(s_serviceAgreements[kh].oracle == address(0), "cannot re-register the same proving key");
-        s_serviceAgreements[kh] = ServiceAgreement({
-            oracle: oracle,
-            keyHash: kh
-        });
+        require(s_serviceAgreements[kh] == address(0), "cannot re-register the same proving key");
+        s_serviceAgreements[kh] = oracle;
         emit NewServiceAgreement(kh, oracle);
     }
 
@@ -97,29 +90,29 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         return keccak256(abi.encodePacked(_publicKey));
     }
 
-    function setConfig(
-        uint16 minimumRequestBlockConfirmations,
-        uint16 maxConsumersPerSubscription,
-        uint32 stalenessSeconds,
-        int256 fallbackGasPrice,
-        int256 fallbackLinkPrice
-    )
-    external
-    onlyOwner()
-    {
-        s_maxConsumersPerSubscription = maxConsumersPerSubscription;
-        s_minimumRequestBlockConfirmations = minimumRequestBlockConfirmations;
-        s_stalenessSeconds = stalenessSeconds;
-        s_fallbackGasPrice = fallbackGasPrice;
-        s_fallbackLinkPrice = fallbackLinkPrice;
-    }
+//    function setConfig(
+//        uint16 minimumRequestBlockConfirmations,
+//        uint16 maxConsumersPerSubscription,
+//        uint32 stalenessSeconds,
+//        int256 fallbackGasPrice,
+//        int256 fallbackLinkPrice
+//    )
+//    external
+//    onlyOwner()
+//    {
+//        s_maxConsumersPerSubscription = maxConsumersPerSubscription;
+//        s_minimumRequestBlockConfirmations = minimumRequestBlockConfirmations;
+//        s_stalenessSeconds = stalenessSeconds;
+//        s_fallbackGasPrice = fallbackGasPrice;
+//        s_fallbackLinkPrice = fallbackLinkPrice;
+//    }
 
     function requestRandomWords(
         bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
+        uint32  subId,   // A data structure for billing
         uint16  minimumRequestConfirmations,
-        uint16  callbackGasLimit,
-        uint256 subId,   // A data structure for billing
-        uint256 numWords  // Desired number of random words
+        uint32  callbackGasLimit,
+        uint16  numWords  // Desired number of random words
     )
     external
     returns (uint256 requestId)
@@ -128,17 +121,36 @@ contract VRFCoordinatorV2 is VRF, Ownable {
        // accept that gas price fluctuations between request and response could potentially
        // result in request accepted but failed to fulfill
        require(s_subscriptions[subId].owner != address(0), "invalid subId");
-       require(s_serviceAgreements[keyHash].oracle != address(0), "must be a registered key");
+       bool validConsumer;
+       uint16 consumerIndex;
+       for (uint16 i = 0; i < s_subscriptions[subId].consumers.length; i++) {
+           if (s_subscriptions[subId].consumers[i] == msg.sender) {
+               validConsumer = true;
+               consumerIndex = i;
+               break;
+           }
+       }
+       require(validConsumer, "invalid consumer");
+       require(s_serviceAgreements[keyHash] != address(0), "must be a registered key");
        uint256 nonce = s_nonces[keyHash][msg.sender] + 1;
        s_nonces[keyHash][msg.sender] = nonce;
        uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
-       s_callbacks[preSeedAndRequestId] = Callback({
-            callbackContract: msg.sender,
-            callbackGasLimit: callbackGasLimit, // For sanity checking
-            numWords: numWords,
-            subId: subId,
-            seedAndBlockNum: keccak256(abi.encodePacked(preSeedAndRequestId, block.number))
-       });
+       uint240 preSeedAndRequestId = preSeedAndRequestId << 16
+//       s_callbacks[preSeedAndRequestId].subId = subId;
+//       s_callbacks[preSeedAndRequestId].callbackGasLimit = callbackGasLimit;
+//       s_callbacks[preSeedAndRequestId].callbackContract = msg.sender;
+//       s_callbacks[preSeedAndRequestId].numWords = numWords;
+//       s_callbacks[preSeedAndRequestId].seedAndBlockNum = keccak256(abi.encodePacked(preSeedAndRequestId, block.number));
+       uint256 callbackKey = (preSeedAndRequestId << 16) | consumerIndex;
+       s_callbacks[callbackKey] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, numWords, callbackGasLimit));
+//       s_callbacks[preSeedAndRequestId] =
+//        Callback({
+////            consumerIndex: msg.sender,
+////            callbackGasLimit: callbackGasLimit, // For sanity checking
+////            numWords: numWords,
+////            subId: subId,
+//            seedAndBlockNum: keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, numWords, callbackGasLimit))
+//       });
        emit RandomWordsRequested(keyHash, minimumRequestConfirmations, callbackGasLimit, preSeedAndRequestId, subId);
        return preSeedAndRequestId;
     }
@@ -150,14 +162,13 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     // Seed is 7th word in proof, plus word for length, (6+1)*0x20=0xe0
     uint256 public constant PRESEED_OFFSET = 0xe0;
     // TODO: Gas for making payment itself
-    uint256 public constant GAS_BUFFER = 2_000;
+    uint256 public constant GAS_BUFFER = 10_000;
 
     function fulfillRandomWords(
         bytes memory _proof
     )
     external
     {
-        // TODO: maybe fail fast on an invalid keyHash?
         uint256 startGas = gasleft();
         (bytes32 keyHash, Callback memory callback, uint256 requestId,
         uint256 randomness) = getRandomnessFromProof(_proof);
@@ -166,25 +177,31 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
         }
 
+        // Prevent re-entrancy. The user callback cannot call fulfillRandomWords again
+        // with the same proof because this getRandomnessFromProof will revert because the requestId
+        // is gone.
+        delete s_callbacks[requestId];
+        require(gasleft() > callback.callbackGasLimit, "not enough gas for consumer");
         bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
-        // TODO: Make more exact
-        uint256 payment = calculatePaymentAmount(startGas);
-        s_subscriptions[callback.subId].balance -= payment;
-        s_withdrawableTokens[s_serviceAgreements[keyHash].oracle] += payment;
-//
-//        require(gasleft() > callback.callbackGasLimit, "not enough gas for consumer");
-//
-//        (bool success,) = callback.callbackContract.call(resp);
-//        // Avoid unused-local-variable warning. (success is only present to prevent
-//        // a warning that the return value of consumerContract.call is unused.)
-//        (success);
+        (bool success,) = callback.callbackContract.call(resp);
+        // Avoid unused-local-variable warning. (success is only present to prevent
+        // a warning that the return value of consumerContract.call is unused.)
+        (success);
+        // TODO: We want to charge users exactly for how much gas they use in their callback.
+        // The GAS_BUFFER is meant to cover these to additional operations where we
+        // decrement the subscription balance and increment the oracles withdrawable balance.
+        uint256 payment = calculatePaymentAmount(startGas, GAS_BUFFER);
+        s_subscriptions[callback.subId].balance -= payment; // 5k
+        s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment; // 5k
+
         emit RandomWordsFulfilled(requestId, randomWords);
     }
 
     function calculatePaymentAmount(
-        uint256 startGas
+        uint256 startGas,
+        uint256 gasBuffer
     )
-    public
+    private
     returns (uint256)
     {
         // Get the amount of gas used for (fulfillment + request)
@@ -192,7 +209,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 linkWei; // link/wei i.e. link price in wei.
         (gasWei, linkWei) = getFeedData();
         // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
-        return 1e18*gasWei*(GAS_BUFFER + startGas - gasleft()) / linkWei;
+        return 1e18*gasWei*(gasBuffer + startGas - gasleft()) / linkWei;
     }
 
     function getRandomnessFromProof(bytes memory _proof)
@@ -247,6 +264,9 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 timestamp;
         int256 gasWei;
         int256 linkEth;
+        // Fallback to the fallback price if the feed is too stale.
+        // Maybe need to optimize to avoid this contract call and used a cached
+        // price, say in the case of a large number of fulfillments in short succession.
         (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData();
         if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
             gasWei = s_fallbackGasPrice;
@@ -258,6 +278,14 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         return (uint256(gasWei), uint256(linkEth));
     }
 
+    function withdraw(address _recipient, uint256 _amount)
+    external
+    {
+        // Will revert if insufficient funds
+        s_withdrawableTokens[msg.sender] = s_withdrawableTokens[msg.sender] - _amount;
+        assert(LINK.transfer(_recipient, _amount));
+    }
+
     /*
         Subscription management, to be handled by a single account/contract.
     */
@@ -265,14 +293,13 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         address[] memory consumers // permitted consumers of the subscription
     )
     external
-    returns (uint256)
+    returns (uint32)
     {
         require(consumers.length <= s_maxConsumersPerSubscription, "above max consumers per sub");
         allConsumersValid(consumers);
         currentSubId++;
         s_subscriptions[currentSubId] = Subscription({
             owner: msg.sender,
-            subId: currentSubId,
             consumers: consumers,
             balance: 0
         });
@@ -290,7 +317,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function updateSubscription(
-        uint256 subId,
+        uint32 subId,
         address[] memory consumers // permitted consumers of the subscription
     )
     external
@@ -303,7 +330,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function fundSubscription(
-        uint256 subId,
+        uint32 subId,
         uint256 amount
     )
     external
@@ -317,7 +344,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function withdrawFromSubscription(
-        uint256 subId,
+        uint32 subId,
         address to,
         uint256 amount
     )

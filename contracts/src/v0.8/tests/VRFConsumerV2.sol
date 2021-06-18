@@ -10,7 +10,7 @@ contract VRFConsumerV2 {
     uint256 public requestId;
     VRFCoordinatorV2Interface COORDINATOR;
     LinkTokenInterface LINKTOKEN;
-    uint256 public subId;
+    uint32 public subId;
 
     constructor(address vrfCoordinator, address link)
     {
@@ -37,9 +37,10 @@ contract VRFConsumerV2 {
         COORDINATOR.fundSubscription(subId, amount);
     }
 
-    function testRequestRandomness(bytes32 _keyHash, uint256 _subId, uint16 minReqConfs, uint16 callbackGasLimit, uint256 numWords)
+    function testRequestRandomness(bytes32 _keyHash, uint32 _subId, uint16 minReqConfs, uint32 callbackGasLimit, uint16 numWords)
     external
+returns (uint256)
     {
-        requestId = COORDINATOR.requestRandomWords(_keyHash, minReqConfs, callbackGasLimit, _subId, numWords);
+        return COORDINATOR.requestRandomWords(_keyHash, _subId, minReqConfs, callbackGasLimit, numWords);
     }
 }
