@@ -42,18 +42,18 @@ func (s *SendError) CauseStr() string {
 	return ""
 }
 
-var (
-	NonceTooLow                       = "NonceTooLow"
-	ReplacementTransactionUnderpriced = "ReplacementTransactionUnderpriced"
-	LimitReached                      = "LimitReached"
-	TransactionAlreadyInMempool       = "TransactionAlreadyInMempool"
-	TerminallyUnderpriced             = "TerminallyUnderpriced"
-	InsufficientEth                   = "InsufficientEth"
-	TooExpensive                      = "TooExpensive"
-	Fatal                             = "Fatal"
+const (
+	NonceTooLow = iota
+	ReplacementTransactionUnderpriced
+	LimitReached
+	TransactionAlreadyInMempool
+	TerminallyUnderpriced
+	InsufficientEth
+	TooExpensive
+	Fatal
 )
 
-type ClientErrors = map[string]*regexp.Regexp
+type ClientErrors = map[int]*regexp.Regexp
 
 // Parity
 // See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420
@@ -83,8 +83,9 @@ var geth = ClientErrors{
 
 // Arbitrum
 // https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
-var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address|tx dropped due to L2 congestion|execution reverted: error code)$`)
+var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address|execution reverted: error code)$`)
 var arbitrum = ClientErrors{
+	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
 	NonceTooLow: regexp.MustCompile(`(: |^)invalid transaction nonce$`),
 	// TODO: Is it terminally or replacement?
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
@@ -94,7 +95,7 @@ var arbitrum = ClientErrors{
 
 var clients = []ClientErrors{parity, geth, arbitrum}
 
-func (s *SendError) isError(errorType string) bool {
+func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
 		return false
 	}
@@ -114,29 +115,29 @@ var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
-	return s.isError(ReplacementTransactionUnderpriced)
+	return s.is(ReplacementTransactionUnderpriced)
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
-	return s.isError(NonceTooLow)
+	return s.is(NonceTooLow)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
 func (s *SendError) IsTransactionAlreadyInMempool() bool {
-	return s.isError(TransactionAlreadyInMempool)
+	return s.is(TransactionAlreadyInMempool)
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far underpriced the node won't even accept it in the first place
 func (s *SendError) IsTerminallyUnderpriced() bool {
-	return s.isError(TerminallyUnderpriced)
+	return s.is(TerminallyUnderpriced)
 }
 
 func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s.isError(LimitReached)
+	return s.is(LimitReached)
 }
 
 func (s *SendError) IsInsufficientEth() bool {
-	return s.isError(InsufficientEth)
+	return s.is(InsufficientEth)
 }
 
 // IsTooExpensive returns true if the transaction and gas price are combined in
@@ -144,7 +145,7 @@ func (s *SendError) IsInsufficientEth() bool {
 // accept at all. No amount of retrying at this or higher gas prices can ever
 // succeed.
 func (s *SendError) IsTooExpensive() bool {
-	return s.isError(TooExpensive)
+	return s.is(TooExpensive)
 }
 
 func NewFatalSendErrorS(s string) *SendError {
