@@ -17,7 +17,7 @@ type Tracker interface {
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being subscribed to HeadBroadcaster
-//go:generate mockery --name HeadTrackable --output ../internal/mocks/ --case=underscore
+//go:generate mockery --name HeadTrackable --output ../mocks/ --case=underscore
 type HeadTrackable interface {
 	Connect(head *models.Head) error
 	OnNewLongestChain(ctx context.Context, head models.Head)
@@ -28,6 +28,7 @@ type HeadBroadcasterRegistry interface {
 }
 
 // HeadBroadcaster is the external interface of headBroadcaster
+//go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
 	service.Service
 	HeadTrackable
