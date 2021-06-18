@@ -42,132 +42,101 @@ func (s *SendError) CauseStr() string {
 	return ""
 }
 
-// Parity errors
 var (
-	// Non-fatal
-	parTooCheapToReplace    = regexp.MustCompile("^Transaction gas price .+is too low. There is another transaction with same nonce in the queue")
-	parLimitReached         = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
-	parAlreadyImported      = "Transaction with the same hash was already imported."
-	parNonceTooLow          = "Transaction nonce is too low. Try incrementing the nonce."
-	parInsufficientGasPrice = regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price")
-	parInsufficientEth      = regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)")
-
-	// Fatal
-	parInsufficientGas  = regexp.MustCompile("^Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction")
-	parGasLimitExceeded = regexp.MustCompile("^Transaction cost exceeds current gas limit. Limit:")
-	parInvalidSignature = regexp.MustCompile("^Invalid signature")
-	parInvalidGasLimit  = "Supplied gas is beyond limit."
-	parSenderBanned     = "Sender is banned in local queue."
-	parRecipientBanned  = "Recipient is banned in local queue."
-	parCodeBanned       = "Code is banned in local queue."
-	parNotAllowed       = "Transaction is not permitted."
-	parTooBig           = "Transaction is too big, see chain specification for the limit."
-	parInvalidRlp       = regexp.MustCompile("^Invalid RLP data:")
+	NonceTooLow                       = "NonceTooLow"
+	ReplacementTransactionUnderpriced = "ReplacementTransactionUnderpriced"
+	LimitReached                      = "LimitReached"
+	TransactionAlreadyInMempool       = "TransactionAlreadyInMempool"
+	TerminallyUnderpriced             = "TerminallyUnderpriced"
+	InsufficientEth                   = "InsufficientEth"
+	TooExpensive                      = "TooExpensive"
+	Fatal                             = "Fatal"
 )
 
-// Geth and geth-compatible errors
-var (
-	gethNonceTooLow                       = regexp.MustCompile(`(: |^)nonce too low$`)
-	gethReplacementTransactionUnderpriced = regexp.MustCompile(`(: |^)replacement transaction underpriced$`)
-	gethKnownTransaction                  = regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`)
-	gethTransactionUnderpriced            = regexp.MustCompile(`(: |^)transaction underpriced$`)
-	gethInsufficientEth                   = regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`)
-	gethTxFeeExceedsCap                   = regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)$`)
+type ClientErrors = map[string]*regexp.Regexp
 
-	// Fatal Errors
-	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
-	gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
-)
+// Parity
+// See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420
+var parFatal = regexp.MustCompile(`^Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction|^Transaction cost exceeds current gas limit. Limit:|^Invalid signature|Recipient is banned in local queue.|Supplied gas is beyond limit|Sender is banned in local queue|Code is banned in local queue|Transaction is not permitted|Transaction is too big, see chain specification for the limit|^Invalid RLP data`)
+var parity = ClientErrors{
+	NonceTooLow:                       regexp.MustCompile("^Transaction nonce is too low. Try incrementing the nonce."),
+	ReplacementTransactionUnderpriced: regexp.MustCompile("^Transaction gas price .+is too low. There is another transaction with same nonce in the queue"),
+	LimitReached:                      regexp.MustCompile("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."),
+	TransactionAlreadyInMempool:       regexp.MustCompile("Transaction with the same hash was already imported."),
+	TerminallyUnderpriced:             regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
+	InsufficientEth:                   regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)"),
+	Fatal:                             parFatal,
+}
+
+// Geth
+// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
+var gethFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+var geth = ClientErrors{
+	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
+	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
+	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
+	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
+	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+	TooExpensive:                      regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)$`),
+	Fatal:                             gethFatal,
+}
+
+// Arbitrum
+// https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
+var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address|tx dropped due to L2 congestion|execution reverted: error code)$`)
+var arbitrum = ClientErrors{
+	NonceTooLow: regexp.MustCompile(`(: |^)invalid transaction nonce$`),
+	// TODO: Is it terminally or replacement?
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
+	InsufficientEth:       regexp.MustCompile(`(: |^)not enough funds for gas`),
+	Fatal:                 arbitrumFatal,
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum}
+
+func (s *SendError) isError(errorType string) bool {
+	if s == nil || s.err == nil {
+		return false
+	}
+	str := s.CauseStr()
+	for _, client := range clients {
+		if _, ok := client[errorType]; !ok {
+			continue
+		}
+		if client[errorType].MatchString(str) {
+			return true
+		}
+	}
+	return false
+}
 
 var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
-	if s == nil || s.err == nil {
-		return false
-	}
-
-	str := s.CauseStr()
-
-	switch {
-	case gethReplacementTransactionUnderpriced.MatchString(str):
-		return true
-	case parTooCheapToReplace.MatchString(str):
-		return true
-	default:
-		return false
-	}
+	return s.isError(ReplacementTransactionUnderpriced)
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
-	if s == nil || s.err == nil {
-		return false
-	}
-
-	str := s.CauseStr()
-	switch {
-	case gethNonceTooLow.MatchString(str):
-		return true
-	case str == parNonceTooLow:
-		return true
-	default:
-		return false
-	}
+	return s.isError(NonceTooLow)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
 func (s *SendError) IsTransactionAlreadyInMempool() bool {
-	if s == nil || s.err == nil {
-		return false
-	}
-
-	str := s.CauseStr()
-	switch {
-	case gethKnownTransaction.MatchString(str):
-		return true
-	case str == parAlreadyImported:
-		return true
-	default:
-		return false
-	}
+	return s.isError(TransactionAlreadyInMempool)
 }
 
-// IsTerminallyUnderpriced indicates that this transaction is so far
-// underpriced the node won't even accept it in the first place
+// IsTerminallyUnderpriced indicates that this transaction is so far underpriced the node won't even accept it in the first place
 func (s *SendError) IsTerminallyUnderpriced() bool {
-	if s == nil || s.err == nil {
-		return false
-	}
-
-	str := s.CauseStr()
-	switch {
-	case gethTransactionUnderpriced.MatchString(str):
-		return true
-	case parInsufficientGasPrice.MatchString(str):
-		return true
-	default:
-		return false
-	}
+	return s.isError(TerminallyUnderpriced)
 }
 
 func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s != nil && s.err != nil && s.CauseStr() == parLimitReached
+	return s.isError(LimitReached)
 }
 
 func (s *SendError) IsInsufficientEth() bool {
-	if s == nil || s.err == nil {
-		return false
-	}
-
-	str := s.CauseStr()
-	switch {
-	case gethInsufficientEth.MatchString(str):
-		return true
-	case parInsufficientEth.MatchString(str):
-		return true
-	default:
-		return false
-	}
+	return s.isError(InsufficientEth)
 }
 
 // IsTooExpensive returns true if the transaction and gas price are combined in
@@ -175,13 +144,7 @@ func (s *SendError) IsInsufficientEth() bool {
 // accept at all. No amount of retrying at this or higher gas prices can ever
 // succeed.
 func (s *SendError) IsTooExpensive() bool {
-	if s == nil || s.err == nil {
-		return false
-	}
-
-	str := s.CauseStr()
-
-	return gethTxFeeExceedsCap.MatchString(str)
+	return s.isError(TooExpensive)
 }
 
 func NewFatalSendErrorS(s string) *SendError {
@@ -215,25 +178,15 @@ func isFatalSendError(err error) bool {
 		return false
 	}
 	str := errors.Cause(err).Error()
-	return isGethFatal(str) || isParityFatal(str)
-}
-
-func isGethFatal(s string) bool {
-	return gethFatal.MatchString(s)
-}
-
-// See: https://github.com/openethereum/openethereum/blob/master/rpc/src/v1/helpers/errors.rs#L420
-func isParityFatal(s string) bool {
-	return s == parInvalidGasLimit ||
-		s == parSenderBanned ||
-		s == parRecipientBanned ||
-		s == parCodeBanned ||
-		s == parNotAllowed ||
-		s == parTooBig ||
-		(parInsufficientGas.MatchString(s) ||
-			parGasLimitExceeded.MatchString(s) ||
-			parInvalidSignature.MatchString(s) ||
-			parInvalidRlp.MatchString(s))
+	for _, client := range clients {
+		if _, ok := client[Fatal]; !ok {
+			continue
+		}
+		if client[Fatal].MatchString(str) {
+			return true
+		}
+	}
+	return false
 }
 
 // go-ethereum@v1.10.0/rpc/json.go
