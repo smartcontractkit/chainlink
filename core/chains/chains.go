@@ -1,6 +1,7 @@
 package chains
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -39,17 +40,11 @@ func (c *Chain) Config() ChainSpecificConfig {
 
 // IsArbitrum returns true if the chain is arbitrum mainnet or testnet
 func (c *Chain) IsArbitrum() bool {
-	if c == nil {
-		return false
-	}
 	return c.ID().Cmp(ArbitrumMainnet.ID()) == 0 || c.ID().Cmp(ArbitrumRinkeby.ID()) == 0
 }
 
 // IsOptimism returns true if the chain is optimism mainnet or testnet
 func (c *Chain) IsOptimism() bool {
-	if c == nil {
-		return false
-	}
 	return c.ID().Cmp(OptimismMainnet.ID()) == 0 || c.ID().Cmp(OptimismKovan.ID()) == 0
 }
 
@@ -108,24 +103,17 @@ func init() {
 	setConfigs()
 }
 
-var chainsMu sync.RWMutex
+var chainsMu sync.Mutex
 
 // ChainFromID returns the chain for the given ID
 // If no chain is found, creates a new one and returns that
 func ChainFromID(id *big.Int) *Chain {
 	if !id.IsInt64() {
-		panic("chain IDs larger than the max 64 bit integer are not currently supported")
-	}
-	// Use rlock for the hot path
-	chainsMu.RLock()
-	chain, exists := chains[id.Int64()]
-	chainsMu.RUnlock()
-	if exists {
-		return chain
+		panic(fmt.Sprintf("chain IDs larger than the max 64 bit integer are not currently supported, got: %s", id.String()))
 	}
 	chainsMu.Lock()
 	defer chainsMu.Unlock()
-	chain, exists = chains[id.Int64()]
+	chain, exists := chains[id.Int64()]
 	if exists {
 		return chain
 	}

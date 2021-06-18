@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -85,7 +86,6 @@ type (
 
 		// LatestBlockHeight
 		latestBlockHeight int64
-		lbhMu             sync.RWMutex
 	}
 
 	OCRContractTrackerDB interface {
@@ -133,7 +133,6 @@ func NewOCRContractTracker(
 		*utils.NewMailbox(configMailboxSanityLimit),
 		make(chan ocrtypes.ContractConfig),
 		-1,
-		sync.RWMutex{},
 	}
 }
 
@@ -184,9 +183,7 @@ func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
 func (t *OCRContractTracker) OnNewLongestChain(ctx context.Context, h models.Head) {
-	t.lbhMu.Lock()
-	defer t.lbhMu.Unlock()
-	t.latestBlockHeight = h.Number
+	atomic.StoreInt64(&t.latestBlockHeight, h.Number)
 }
 
 func (t *OCRContractTracker) processLogs() {
@@ -386,7 +383,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	if t.chain.IsL2() {
 		return 0, nil
 	}
-	latestBlockHeight := t.getLatestBlockHeight()
+	latestBlockHeight := atomic.LoadInt64(&t.latestBlockHeight)
 	if latestBlockHeight >= 0 {
 		return uint64(latestBlockHeight), nil
 	}
@@ -406,12 +403,6 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	}
 
 	return uint64(h.Number), nil
-}
-
-func (t *OCRContractTracker) getLatestBlockHeight() int64 {
-	t.lbhMu.RLock()
-	defer t.lbhMu.RUnlock()
-	return t.latestBlockHeight
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest
