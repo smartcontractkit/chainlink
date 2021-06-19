@@ -24,12 +24,12 @@ func Test_BlockTranslator(t *testing.T) {
 	t.Run("for L2 chains, returns an initial block number and nil", func(t *testing.T) {
 		bt := offchainreporting.NewBlockTranslator(chains.ArbitrumMainnet)
 		from, to := bt.NumberToQueryRange(42)
-		assert.Equal(t, big.NewInt(12525700), from)
+		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 
 		bt = offchainreporting.NewBlockTranslator(chains.ArbitrumRinkeby)
 		from, to = bt.NumberToQueryRange(42)
-		assert.Equal(t, big.NewInt(8700589), from)
+		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 
 		bt = offchainreporting.NewBlockTranslator(chains.OptimismMainnet)
