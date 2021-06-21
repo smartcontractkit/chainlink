@@ -94,8 +94,8 @@ func PopulateExternalInitiator(db *gorm.DB, jb Job) (Job, error) {
 		// TODO: Once jpv1 is gone make an FK from external_initiators to jobs.
 		// Populate any external initiators
 		var exi models.ExternalInitiator
-		err := db.Raw(`SELECT * from external_initiators 
-				JOIN webhook_specs 
+		err := db.Raw(`SELECT * from external_initiators
+				JOIN webhook_specs
 				ON webhook_specs.external_initiator_name = external_initiators.name
 				WHERE webhook_specs.id = ?
 				`, jb.WebhookSpecID).Scan(&exi).Error
@@ -280,9 +280,9 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 
 	err := o.db.Exec(`
 		WITH deleted_jobs AS (
-			DELETE FROM jobs WHERE id = ? RETURNING 
-				pipeline_spec_id, 
-				offchainreporting_oracle_spec_id, 
+			DELETE FROM jobs WHERE id = ? RETURNING
+				pipeline_spec_id,
+				offchainreporting_oracle_spec_id,
 				keeper_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
