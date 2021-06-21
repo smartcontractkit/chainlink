@@ -26,7 +26,7 @@ type (
 		Type() TaskType
 		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
+		Run(ctx context.Context, vars Vars, inputs []Result) Result
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task

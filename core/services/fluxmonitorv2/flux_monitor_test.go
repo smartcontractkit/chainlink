@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -373,12 +374,21 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					UpdatedAt: big.NewInt(100),
 				}, nil)
 				tm.pipelineRunner.
-					On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{
-						Val: map[string]interface{}{
-							"latestAnswer": float64(10),
-							"updatedAt":    float64(100),
+					On("ExecuteRun", context.Background(), pipelineSpec, pipeline.NewVarsFrom(
+						map[string]interface{}{
+							"jobRun": map[string]interface{}{
+								"meta": map[string]interface{}{
+									"latestAnswer": float64(10),
+									"updatedAt":    float64(100),
+								},
+							},
+							"jobSpec": map[string]interface{}{
+								"databaseID":    int32(0),
+								"externalJobID": uuid.UUID{},
+								"name":          "",
+							},
 						},
-					}, defaultLogger).
+					), defaultLogger).
 					Return(pipeline.Run{}, pipeline.TaskRunResults{
 						{
 							Result: pipeline.Result{
@@ -514,7 +524,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    1,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -549,7 +559,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -584,7 +594,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, pipeline.JSONSerializable{Val: map[string]interface{}(nil), Null: false}, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -1205,7 +1215,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
@@ -1324,7 +1334,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{

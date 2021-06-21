@@ -1022,7 +1022,6 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			expectedBridgeRequest := map[string]interface{}{
 				"value": float64(42),
-				"meta":  nil,
 			}
 			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
 

@@ -106,7 +106,7 @@ func setConfigs() {
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := FallbackConfig
 	xDaiMainnet.EnableLegacyJobPipeline = true
-	xDaiMainnet.EthGasBumpThreshold = 8                       // mainnet * 2.8 ish (5s vs 13s block time)
+	xDaiMainnet.EthGasBumpThreshold = 3                       // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.EthGasPriceDefault = *big.NewInt(1000000000)  // 1 Gwei
 	xDaiMainnet.EthMinGasPriceWei = *big.NewInt(1000000000)   // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
 	xDaiMainnet.EthMaxGasPriceWei = *big.NewInt(500000000000) // 500 Gwei
@@ -119,7 +119,7 @@ func setConfigs() {
 	bscMainnet.EnableLegacyJobPipeline = true
 	bscMainnet.EthBalanceMonitorBlockDelay = 2
 	bscMainnet.EthFinalityDepth = 50                        // Keeping this >> 11 because it's not expensive and gives us a safety margin
-	bscMainnet.EthGasBumpThreshold = 12                     // mainnet * 4 (3s vs 13s block time)
+	bscMainnet.EthGasBumpThreshold = 5                      // 15s delay since feeds update every minute in volatile situations
 	bscMainnet.EthGasBumpWei = *big.NewInt(5000000000)      // 5 Gwei
 	bscMainnet.EthGasPriceDefault = *big.NewInt(5000000000) // 5 Gwei
 	bscMainnet.EthHeadTrackerHistoryDepth = 100
@@ -142,7 +142,7 @@ func setConfigs() {
 	polygonMainnet.EnableLegacyJobPipeline = true
 	polygonMainnet.EthBalanceMonitorBlockDelay = 13             // equivalent of 1 eth block seems reasonable
 	polygonMainnet.EthFinalityDepth = 200                       // A sprint is 64 blocks long and doesn't guarantee finality. To be safe we take three sprints (192 blocks) plus a safety margin
-	polygonMainnet.EthGasBumpThreshold = 39                     // mainnet * 13
+	polygonMainnet.EthGasBumpThreshold = 10                     // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.EthGasBumpWei = *big.NewInt(5000000000)      // 5 Gwei
 	polygonMainnet.EthGasPriceDefault = *big.NewInt(1000000000) // 1 Gwei
 	polygonMainnet.EthHeadTrackerHistoryDepth = 250             // EthFinalityDepth + safety margin
@@ -151,12 +151,12 @@ func setConfigs() {
 	polygonMainnet.EthMaxQueuedTransactions = 2000               // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
 	polygonMainnet.EthMinGasPriceWei = *big.NewInt(1000000000)   // 1 Gwei
 	polygonMainnet.EthTxResendAfterThreshold = 5 * time.Minute   // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
-	polygonMainnet.GasUpdaterBlockDelay = 32                     // Delay needs to be large on polygon since re-orgs are so frequent at the top level
-	polygonMainnet.GasUpdaterBlockHistorySize = 128
+	polygonMainnet.GasUpdaterBlockDelay = 10
+	polygonMainnet.GasUpdaterBlockHistorySize = 24
 	polygonMainnet.GasUpdaterEnabled = true
 	polygonMainnet.LinkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
-	polygonMainnet.MinIncomingConfirmations = 39         // mainnet * 13 (1s vs 13s block time)
-	polygonMainnet.MinRequiredOutgoingConfirmations = 39 // mainnet * 13
+	polygonMainnet.MinIncomingConfirmations = 12
+	polygonMainnet.MinRequiredOutgoingConfirmations = 12
 	polygonMumbai := polygonMainnet
 	polygonMumbai.LinkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
