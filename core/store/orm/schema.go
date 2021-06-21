@@ -146,6 +146,8 @@ type ConfigSchema struct {
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                           int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`
 	RootDir                                   string          `env:"ROOT" default:"~/.chainlink"`
+	RPID                                      string          `env:"RPID"`
+	RPOrigin                                  string          `env:"RPOrigin"`
 	SecureCookies                             bool            `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                            models.Duration `env:"SESSION_TIMEOUT" default:"15m"`
 	StatsPusherLogging                        string          `env:"STATS_PUSHER_LOGGING" default:"false"`

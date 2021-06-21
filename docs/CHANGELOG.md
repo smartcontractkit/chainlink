@@ -211,6 +211,8 @@ pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="
 
 ### Changed
 
+- Added WebAuthn support for the Operator UI and corresponding support in the Go backend
+
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
 - Chainlink no longers writes/reads eth key files to disk
