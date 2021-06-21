@@ -38,7 +38,7 @@ func (l *Link) String() string {
 	if l == nil {
 		return "0"
 	}
-	return format((*big.Int)(l), 18)
+	return fmt.Sprintf("%v", (*big.Int)(l))
 }
 
 // SetInt64 delegates to *big.Int.SetInt64
