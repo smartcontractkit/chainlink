@@ -23,7 +23,7 @@ func (t *ModeTask) Type() TaskType {
 	return TaskTypeMode
 }
 
-func (t *ModeTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam

@@ -4,10 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bmizerany/assert"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -204,7 +202,7 @@ func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 	require.NoError(t, err)
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeMedian {
-			assert.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
+			require.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
 		}
 	}
 }

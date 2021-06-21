@@ -20,7 +20,7 @@ func (t *SumTask) Type() TaskType {
 	return TaskTypeSum
 }
 
-func (t *SumTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *SumTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam

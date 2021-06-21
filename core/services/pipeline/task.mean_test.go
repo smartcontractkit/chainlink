@@ -99,6 +99,13 @@ func TestMeanTask(t *testing.T) {
 			"2",
 			pipeline.Result{Value: mustDecimal(t, "2.90")},
 		},
+		{
+			"precision (negative)",
+			[]pipeline.Result{{Value: mustDecimal(t, "12.34")}, {Value: mustDecimal(t, "23.45")}, {Value: mustDecimal(t, "34.56")}, {Value: mustDecimal(t, "45.67")}},
+			"1",
+			"-1",
+			pipeline.Result{Value: mustDecimal(t, "30")},
+		},
 	}
 
 	for _, test := range tests {
@@ -109,7 +116,7 @@ func TestMeanTask(t *testing.T) {
 				AllowedFaults: test.allowedFaults,
 				Precision:     test.precision,
 			}
-			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, test.inputs)
+			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -142,7 +149,7 @@ func TestMeanTask(t *testing.T) {
 				AllowedFaults: test.allowedFaults,
 				Precision:     test.precision,
 			}
-			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -189,7 +196,7 @@ func TestMeanTask(t *testing.T) {
 				AllowedFaults: test.allowedFaults,
 				Precision:     test.precision,
 			}
-			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)

@@ -20,7 +20,7 @@ func (t *DivideTask) Type() TaskType {
 	return TaskTypeDivide
 }
 
-func (t *DivideTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *DivideTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}
@@ -29,7 +29,7 @@ func (t *DivideTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 	var (
 		a              DecimalParam
 		b              DecimalParam
-		maybePrecision MaybeUint64Param
+		maybePrecision MaybeInt32Param
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
@@ -42,8 +42,8 @@ func (t *DivideTask) Run(_ context.Context, vars Vars, _ JSONSerializable, input
 
 	value := a.Decimal().Div(b.Decimal())
 
-	if precision, isSet := maybePrecision.Uint64(); isSet {
-		value = value.Truncate(int32(precision))
+	if precision, isSet := maybePrecision.Int32(); isSet {
+		value = value.Round(precision)
 	}
 
 	return Result{Value: value}

@@ -21,10 +21,10 @@ func (t *MeanTask) Type() TaskType {
 	return TaskTypeMean
 }
 
-func (t *MeanTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *MeanTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
-		maybePrecision     MaybeUint64Param
+		maybePrecision     MaybeInt32Param
 		valuesAndErrs      SliceParam
 		decimalValues      DecimalSliceParam
 		allowedFaults      int
@@ -63,8 +63,8 @@ func (t *MeanTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs 
 	}
 	mean := total.Div(decimal.NewFromInt(int64(len(decimalValues))))
 
-	if precision, isSet := maybePrecision.Uint64(); isSet {
-		mean = mean.Truncate(int32(precision))
+	if precision, isSet := maybePrecision.Int32(); isSet {
+		mean = mean.Round(precision)
 	}
 	return Result{Value: mean}
 }
