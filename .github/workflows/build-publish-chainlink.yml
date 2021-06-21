@@ -36,7 +36,7 @@ jobs:
             echo "::set-output name=password::$PASSWORD"
           }
       - name: Build & Push image
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v2.5.0
         with:
           registry: ${{ steps.login-ecr.outputs.registry }}
           repository: ${{ secrets.ECR_REPO }}
