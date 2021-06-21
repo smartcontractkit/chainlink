@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
+	"github.com/duo-labs/webauthn.io/session"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
@@ -15,13 +17,24 @@ import (
 
 // SessionsController manages session requests.
 type SessionsController struct {
-	App chainlink.Application
+	App      chainlink.Application
+	Sessions *session.Store
 }
 
 // Create creates a session ID for the given user credentials, and returns it
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
+	logger.Trace("Starting Session Creation")
+	if sc.Sessions == nil {
+		var err error
+		sc.Sessions, err = session.NewStore()
+		if err != nil {
+			logger.Errorf("Could not create a session store for MFA authentication")
+			jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
+			return
+		}
+	}
 
 	session := sessions.Default(c)
 	var sr models.SessionRequest
@@ -30,11 +43,18 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		return
 	}
 
+	// Populate our session store and context, required for successful WebAuthn
+	// authentication
+	sr.SessionStore = sc.Sessions
+	sr.RequestContext = c
+	sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
+
 	sid, err := sc.App.GetStore().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
 	}
+
 	if err := saveSessionID(session, sid); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("unable to save session id"), err))
 		return

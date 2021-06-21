@@ -12,6 +12,7 @@ import { P2PKeys } from './p2pKeys'
 import { OcrRuns } from './ocrRuns'
 import { Jobs } from './jobs'
 import { LogConfig } from './logConfig'
+import { WebAuthn } from './webauthn'
 
 export class V2 {
   constructor(private api: Api) {}
@@ -29,4 +30,5 @@ export class V2 {
   public jobs = new Jobs(this.api)
   public ocrRuns = new OcrRuns(this.api)
   public logConfig = new LogConfig(this.api)
+  public webauthn = new WebAuthn(this.api)
 }

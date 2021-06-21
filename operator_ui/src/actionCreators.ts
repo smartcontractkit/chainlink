@@ -12,6 +12,10 @@ import {
   NotifyActionType,
   ResourceActionType,
 } from './reducers/actions'
+//import { dispatch } from 'd3'
+import * as models from 'core/store/models'
+import { ContactSupportOutlined } from '@material-ui/icons'
+import { assert } from 'console'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
   T
@@ -77,6 +81,7 @@ type UnboxApi<T extends AnyFunc> = T extends (...args: any[]) => infer U
 type Parameter<T extends AnyFunc> = Parameters<T>[0]
 
 const signInSuccessAction = (doc: UnboxApi<Sessions['createSession']>) => {
+
   return {
     type: AuthActionType.RECEIVE_SIGNIN_SUCCESS,
     authenticated: doc.data.attributes.authenticated,
@@ -88,19 +93,96 @@ const signInFailAction = () => ({ type: AuthActionType.RECEIVE_SIGNIN_FAIL })
 function sendSignIn(data: Parameter<Sessions['createSession']>) {
   return (dispatch: Dispatch) => {
     dispatch({ type: AuthActionType.REQUEST_SIGNIN })
-
+    //api.sessions.createSession(data).then((a) => console.log(a.response))
+    
     return api.sessions
       .createSession(data)
       .then((doc) => dispatch(signInSuccessAction(doc)))
       .catch((error: Errors) => {
         if (error instanceof jsonapi.AuthenticationError) {
-          dispatch(signInFailAction())
+          // Read the response to see if we're hitting a required MFA 401
+          try {
+            if (error.errors.length == 0) {
+              dispatch(signInFailAction())
+              return
+            }
+            let errorResponse = error.errors[0].detail;
+            // Our response is good and we need to complete our challenge.
+            errorResponse.json().then((challengeData: any) => {
+              if (!challengeData) {
+                // Ensure the data structure we're expecting is present
+                dispatch(signInFailAction())
+                return
+              }
+
+              // Throws if navigator is unavailable or user cancels flow
+              try {
+                var publicKey = JSON.parse(challengeData["errors"][0]["detail"])
+                
+                publicKey.publicKey.challenge = bufferDecode(publicKey.publicKey.challenge);
+                publicKey.publicKey.allowCredentials.forEach((listItem: any) => {
+                  listItem.id = bufferDecode(listItem.id)
+                });
+
+                navigator.credentials.get({
+                  publicKey: publicKey.publicKey
+                }).then((assertion: Credential|null) => {
+                  if (assertion === null) {
+                    // This likely means the user did not follow through
+                    // with the attestation/authentication
+                    dispatch(signInFailAction())
+                    return
+                  }
+
+                  let pkassertion = assertion as PublicKeyCredential;
+                  let response = pkassertion.response as AuthenticatorAssertionResponse;
+
+                  let authData = response.authenticatorData;
+                  let clientDataJSON = response.clientDataJSON;
+                  let rawId = pkassertion.rawId;
+                  let sig = response.signature;
+                  let userHandle = response.userHandle;
+
+                  // Build our response assertion
+                  let waData = JSON.stringify({
+                    id: assertion.id,
+                    rawId: bufferEncode(rawId),
+                    type: assertion.type,
+                    response: {
+                      authenticatorData: bufferEncode(authData),
+                      clientDataJSON: bufferEncode(clientDataJSON),
+                      signature: bufferEncode(sig),
+                      userHandle: bufferEncode(userHandle),
+                    },
+                  });
+
+                  data.webauthndata = waData;
+
+                  // Retry login with this new attestation
+                  return api.sessions
+                    .createSession(data)
+                    .then((doc) => dispatch(signInSuccessAction(doc)))
+                    .catch((_error: Errors) => {
+                      dispatch(signInFailAction())
+                    });
+                })
+              } catch {
+                dispatch(signInFailAction())
+              }
+            });
+          } catch {
+            // There was no data in our 401 response. So this is just a bad password
+            dispatch(
+              createErrorAction(error, AuthActionType.RECEIVE_SIGNIN_ERROR),
+            )  
+          }
+          
         } else {
           dispatch(
             createErrorAction(error, AuthActionType.RECEIVE_SIGNIN_ERROR),
           )
         }
-      })
+      });
   }
 }
 
@@ -114,6 +196,67 @@ function sendSignOut(dispatch: Dispatch) {
     .destroySession()
     .then(() => dispatch(receiveSignoutSuccess()))
     .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
+}
+
+// Base64 to ArrayBuffer
+function bufferDecode(value: any) {
+  return Uint8Array.from(atob(value), c => c.charCodeAt(0));
+}
+
+// ArrayBuffer to URLBase64
+function bufferEncode(value: ArrayBuffer|null) {
+  if (value === null) {
+    return "";
+  }
+  
+  var uint8View = new Uint8Array(value);
+  var ar = String.fromCharCode.apply(null, Array.from(uint8View));
+  return btoa(ar)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+function completeKeyRegistration(response: any) {
+  var credentialCreationOptions = response["data"]["attributes"]["settings"];
+  credentialCreationOptions.publicKey.challenge = bufferDecode(credentialCreationOptions.publicKey.challenge);
+  credentialCreationOptions.publicKey.user.id = bufferDecode(credentialCreationOptions.publicKey.user.id);
+  if (credentialCreationOptions.publicKey.excludeCredentials) {
+    credentialCreationOptions.publicKey.excludeCredentials.forEach((excludeCredential: any) => {
+      excludeCredential.id = bufferDecode(excludeCredential.id);
+    })
+  }
+
+  return navigator.credentials.create({
+    publicKey: credentialCreationOptions.publicKey
+  })
+}
+
+// Why does this not work when I have dispatch: Dispatch?
+function sendBeginRegistration() {
+  return api.v2.webauthn
+    .beginKeyRegistration({})
+    .then((response) => completeKeyRegistration(response).then((credential: Credential|null) => {
+      if (credential === null) {
+        alert("Error, could not generate credential. User declined to enroll?");
+        return;
+      }
+
+      let pkcredential = credential as PublicKeyCredential;
+      let response = pkcredential.response as AuthenticatorAttestationResponse;
+
+      var credentialStr = {
+        id: credential.id,
+        rawId: bufferEncode(pkcredential.rawId),
+        type: credential.type,
+        response: {
+          attestationObject: bufferEncode(response.attestationObject),
+          clientDataJSON: bufferEncode(response.clientDataJSON),
+        },
+      };
+
+      return api.v2.webauthn.finishKeyRegistration(credentialStr)
+    }))
 }
 
 const RECEIVE_CREATE_SUCCESS_ACTION = {
@@ -132,7 +275,10 @@ const receiveUpdateSuccess = (response: Response) => ({
 
 export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
+
 export const submitSignOut = () => sendSignOut
+
+export const beginRegistration = () => sendBeginRegistration()
 
 export const deleteJobSpec = (
   id: string,

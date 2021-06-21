@@ -1332,6 +1332,16 @@ func (c Config) RootDir() string {
 	return c.getWithFallback("RootDir", parseHomeDir).(string)
 }
 
+// Fetch the RPID used for WebAuthn sessions
+func (c Config) RPID() string {
+	return c.viper.GetString(EnvVarName("RPID"))
+}
+
+// Fetch the RPOrigin used for WebAuthn sessions
+func (c Config) RPOrigin() string {
+	return c.viper.GetString(EnvVarName("RPOrigin"))
+}
+
 // SecureCookies allows toggling of the secure cookies HTTP flag
 func (c Config) SecureCookies() bool {
 	return c.viper.GetBool(EnvVarName("SecureCookies"))

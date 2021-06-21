@@ -11,9 +11,13 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
+	github.com/denisenkom/go-mssqldb v0.0.0-20200428022330-06a60b6afbbc // indirect
+	github.com/duo-labs/webauthn v0.0.0-20200714211715-1daaee874e43
+	github.com/duo-labs/webauthn.io v0.0.0-20200929144140-c031a3e0f95d
 	github.com/ethereum/go-ethereum v1.10.3
-	github.com/fatih/color v1.12.0
-	github.com/fxamacker/cbor/v2 v2.3.0
+	github.com/fatih/color v1.10.0
+	github.com/fxamacker/cbor/v2 v2.2.0
+	github.com/garslo/gogen v0.0.0-20170307003452-d6ebae628c7c // indirect
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
