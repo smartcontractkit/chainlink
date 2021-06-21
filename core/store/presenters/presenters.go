@@ -515,7 +515,7 @@ func (sa ServiceAgreement) FriendlyExpiration() string {
 // FriendlyPayment returns the ServiceAgreement's Encumbrance payment amount in
 // a human readable format.
 func (sa ServiceAgreement) FriendlyPayment() string {
-	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.String())
+	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.Link())
 }
 
 // FriendlyAggregator returns the ServiceAgreement's aggregator address,
