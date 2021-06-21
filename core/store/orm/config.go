@@ -214,7 +214,7 @@ func init() {
 	polygonMainnet.EthMaxQueuedTransactions = 2000               // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
 	polygonMainnet.EthMinGasPriceWei = *big.NewInt(1000000000)   // 1 Gwei
 	polygonMainnet.EthTxResendAfterThreshold = 5 * time.Minute   // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
-	polygonMainnet.GasUpdaterBlockDelay = 2
+	polygonMainnet.GasUpdaterBlockDelay = 10
 	polygonMainnet.GasUpdaterBlockHistorySize = 24
 	polygonMainnet.GasUpdaterEnabled = true
 	polygonMainnet.LinkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
