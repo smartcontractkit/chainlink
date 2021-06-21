@@ -1173,7 +1173,6 @@ func SendBlocksUntilComplete(
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
 	start int64,
-	ethClient *mocks.Client,
 ) models.JobRun {
 	t.Helper()
 
