@@ -20,8 +20,7 @@ type transmitter interface {
 
 type Delegate struct {
 	config          *orm.Config
-	db              *gorm.DB
-	txm             transmitter
+	orm             ORM
 	jrm             job.ORM
 	pr              pipeline.Runner
 	ethClient       eth.Client
@@ -43,8 +42,7 @@ func NewDelegate(
 ) *Delegate {
 	return &Delegate{
 		config:          config,
-		db:              db,
-		txm:             txm,
+		orm:             NewORM(db, txm, config),
 		jrm:             jrm,
 		pr:              pr,
 		ethClient:       ethClient,
@@ -77,8 +75,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	registrySynchronizer := NewRegistrySynchronizer(
 		spec,
 		contract,
-		d.db,
-		d.txm,
+		d.orm,
 		d.jrm,
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),
@@ -86,8 +83,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	)
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
-		d.db,
-		d.txm,
+		d.orm,
 		d.pr,
 		d.ethClient,
 		d.headBroadcaster,

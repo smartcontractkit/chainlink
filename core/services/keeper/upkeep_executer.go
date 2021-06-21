@@ -39,12 +39,11 @@ var _ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 type UpkeepExecuter struct {
 	chStop          chan struct{}
 	ethClient       eth.Client
-	txm             transmitter
+	config          *orm.Config
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	job             job.Job
 	mailbox         *utils.Mailbox
-	maxGracePeriod  int64
 	orm             ORM
 	pr              pipeline.Runner
 	wgDone          sync.WaitGroup
@@ -53,8 +52,7 @@ type UpkeepExecuter struct {
 
 func NewUpkeepExecuter(
 	job job.Job,
-	db *gorm.DB,
-	txm transmitter,
+	orm ORM,
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
@@ -63,13 +61,12 @@ func NewUpkeepExecuter(
 	return &UpkeepExecuter{
 		chStop:          make(chan struct{}),
 		ethClient:       ethClient,
-		txm:             txm,
 		executionQueue:  make(chan struct{}, executionQueueSize),
 		headBroadcaster: headBroadcaster,
 		job:             job,
 		mailbox:         utils.NewMailbox(1),
-		maxGracePeriod:  config.KeeperMaximumGracePeriod(),
-		orm:             NewORM(db, txm),
+		config:          config,
+		orm:             orm,
 		pr:              pr,
 		wgDone:          sync.WaitGroup{},
 		StartStopOnce:   utils.StartStopOnce{},
@@ -136,7 +133,12 @@ func (executer *UpkeepExecuter) processActiveUpkeeps() {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
-	activeUpkeeps, err := executer.orm.EligibleUpkeepsForRegistry(ctx, executer.job.KeeperSpec.ContractAddress, head.Number, executer.maxGracePeriod)
+	activeUpkeeps, err := executer.orm.EligibleUpkeepsForRegistry(
+		ctx,
+		executer.job.KeeperSpec.ContractAddress,
+		head.Number,
+		executer.config.KeeperMaximumGracePeriod(),
+	)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -165,7 +167,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		"upkeepID", upkeep.UpkeepID,
 	}
 
-	msg, err := constructCheckUpkeepCallMsg(upkeep)
+	msg, err := executer.constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
 		logger.Error(err)
 		return
@@ -255,7 +257,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String(), status).Inc()
 }
 
-func constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
+func (executer *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
 	checkPayload, err := RegistryABI.Pack(
 		checkUpkeep,
 		big.NewInt(int64(upkeep.UpkeepID)),
@@ -266,10 +268,11 @@ func constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, e
 	}
 
 	to := upkeep.Registry.ContractAddress.Address()
+	gasLimit := executer.config.KeeperRegistryGasOverhead() + uint64(upkeep.Registry.CheckGas) + upkeep.ExecuteGas
 	msg := ethereum.CallMsg{
 		From: utils.ZeroAddress,
 		To:   &to,
-		Gas:  uint64(upkeep.Registry.CheckGas),
+		Gas:  gasLimit,
 		Data: checkPayload,
 	}
 

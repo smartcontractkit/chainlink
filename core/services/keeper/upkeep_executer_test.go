@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,7 +47,8 @@ func setup(t *testing.T) (
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)
-	executer := keeper.NewUpkeepExecuter(job, store.DB, txm, jpv2.Pr, ethMock, headBroadcaster, store.Config)
+	orm := keeper.NewORM(store.DB, txm, store.Config)
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, headBroadcaster, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
@@ -81,8 +83,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		store, ethMock, executer, registry, upkeep, job, jpv2, txm := setup(t)
 
+		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryGasOverhead()
 		ethTxCreated := cltest.NewAwaiter()
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, uint64(210000), nil).Once().Return(models.EthTx{}, nil).Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
+		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
+			Once().
+			Return(models.EthTx{}, nil).
+			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
@@ -107,7 +113,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, uint64(210000), nil).Once().Return(models.EthTx{}, nil).Run(func(mock.Arguments) { etxs[0].ItHappened() })
+		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryGasOverhead()
+		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
+			Once().
+			Return(models.EthTx{}, nil).
+			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
@@ -133,7 +143,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// head 40 triggers a new run
 		head = *cltest.Head(40)
 
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, uint64(210000), nil).Once().Return(models.EthTx{}, nil).Run(func(mock.Arguments) { etxs[1].ItHappened() })
+		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
+			Once().
+			Return(models.EthTx{}, nil).
+			Run(func(mock.Arguments) { etxs[1].ItHappened() })
 
 		executer.OnNewLongestChain(context.Background(), head)
 		etxs[1].AwaitOrFail(t)
@@ -146,7 +159,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
 	})
-
 }
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
@@ -167,4 +179,15 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
 	cltest.AssertCountStays(t, store, models.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
+}
+
+func Test_UpkeepExecuter_ConstructCheckUpkeepCallMsg(t *testing.T) {
+	store, _, executer, registry, upkeep, _, _, _ := setup(t)
+	msg, err := executer.ExportedConstructCheckUpkeepCallMsg(upkeep)
+	require.NoError(t, err)
+	expectedGasLimit := upkeep.ExecuteGas + uint64(registry.CheckGas) + store.Config.KeeperRegistryGasOverhead()
+	require.Equal(t, expectedGasLimit, msg.Gas)
+	require.Equal(t, registry.ContractAddress.Address(), *msg.To)
+	require.Equal(t, utils.ZeroAddress, msg.From)
+	require.Nil(t, msg.Value)
 }
