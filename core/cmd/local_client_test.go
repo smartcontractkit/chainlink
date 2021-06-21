@@ -96,7 +96,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "LOG_TO_DISK: true")
 	assert.Contains(t, logs, "MIN_INCOMING_CONFIRMATIONS: 1\\n")
 	assert.Contains(t, logs, "MIN_OUTGOING_CONFIRMATIONS: 6\\n")
-	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT_LINK_JUELS: 0.000000000000000100\\n")
+	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT_LINK_JUELS: 100\\n")
 	assert.Contains(t, logs, "OPERATOR_CONTRACT_ADDRESS: \\n")
 	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
 
