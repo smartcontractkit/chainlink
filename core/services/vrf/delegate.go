@@ -2,9 +2,13 @@ package vrf
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"github.com/ethereum/go-ethereum"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 
@@ -107,6 +111,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	logListener := &listener{
 		cfg:            d.cfg,
 		l:              *l,
+		ethClient:      d.ec,
 		logBroadcaster: d.lb,
 		db:             d.db,
 		abi:            abi,
@@ -136,6 +141,7 @@ type listener struct {
 	l              logger.Logger
 	abi            abi.ABI
 	abiV2          abi.ABI
+	ethClient      eth.Client
 	logBroadcaster log.Broadcaster
 	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
 	coordinatorV2  *vrf_coordinator_v2.VRFCoordinatorV2
@@ -242,7 +248,7 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 	}
 
 	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinatorV2.SCallbacks2(nil, req.PreSeed)
+	callback, err := lsn.coordinatorV2.SCallbacks(nil, req.PreSeed)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback[:]) {
@@ -254,7 +260,11 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 	}
 
 	s := time.Now()
-	vrfCoordinatorPayload, _, err := lsn.ProcessLogV2(req, lb)
+	proof, err1 := lsn.LogToProof(req, lb)
+	gasLimit, err2 := lsn.computeTxGasLimit(req.CallbackGasLimit, proof)
+	vrfCoordinatorPayoad, _, err3 := lsn.ProcessLogV2(proof)
+	err = multierr.Combine(err1, err2, err3)
+	logger.Infow("estimated gas limit for tx", "gasLimit", gasLimit, "callbackLimit", req.CallbackGasLimit)
 	f := time.Now()
 	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 		if err == nil {
@@ -268,8 +278,8 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 			etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
 				from,
 				lsn.coordinator.Address(),
-				vrfCoordinatorPayload,
-				lsn.cfg.EthGasLimitDefault(),
+				vrfCoordinatorPayoad,
+				gasLimit,
 				lsn.cfg.EthMaxQueuedTransactions(),
 				&models.EthTxMetaV2{
 					JobID: lsn.job.ID,
@@ -395,11 +405,31 @@ func (lsn *listener) ProcessV1VRFRequest(lb log.Broadcast) {
 
 // Compute the gasLimit required for the fulfillment transaction
 // such that the user gets their requested amount of gas.
-func (lsn *listener) computeTxGasLimit(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested) (uint64, error) {
-	return 0, nil
+func (lsn *listener) computeTxGasLimit(requestedCallbackGas uint64, proof []byte) (uint64, error) {
+	vrfCoordinatorArgs, err := lsn.abiV2.Methods["getRandomnessFromProof"].Inputs.PackValues(
+		[]interface{}{
+			proof[:], // geth expects slice, even if arg is constant-length
+		})
+	if err != nil {
+		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
+		return 0, err
+	}
+	to := lsn.coordinatorV2.Address()
+	variableVerifyGas, err := lsn.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
+		To:   &to,
+		Data: append(lsn.abiV2.Methods["getRandomnessFromProof"].ID, vrfCoordinatorArgs...),
+	})
+	if err != nil {
+		return 0, err
+	}
+	// Gas for everything other than "getRandomnessFromProof" calls and oracle payments
+	// We will have a hard upper bound on that - worse case is first request etc.
+	// TODO: seems to be variation with the sim and also seems to cost a more than 6k as suggested in v1?
+	staticVerifyGas := uint64(22000)
+	return variableVerifyGas + requestedCallbackGas + staticVerifyGas, nil
 }
 
-func (lsn *listener) ProcessLogV2(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+func (lsn *listener) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, error) {
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
 		"reqID", req.PreSeed.String(),
@@ -410,15 +440,15 @@ func (lsn *listener) ProcessLogV2(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	// Validate the key against the spec
 	kh, err := lsn.job.VRFSpec.PublicKey.Hash()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if !bytes.Equal(req.KeyHash[:], kh[:]) {
-		return nil, nil, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:])))
+		return nil, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:])))
 	}
 	// uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
 	preSeed, err := BigToSeed(req.PreSeed)
 	if err != nil {
-		return nil, nil, errors.New("unable to parse preseed")
+		return nil, errors.New("unable to parse preseed")
 	}
 	seed := PreSeedData{
 		PreSeed:   preSeed,
@@ -434,9 +464,16 @@ func (lsn *listener) ProcessLogV2(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	solidityProof, err := lsn.vrfks.GenerateProof(lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
 		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
+	return solidityProof[:], nil
+}
 
+func (lsn *listener) ProcessLogV2(solidityProof []byte) ([]byte, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+	//solidityProof, err := lsn.LogToProof(req, lb)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
 	vrfCoordinatorArgs, err := lsn.abiV2.Methods["fulfillRandomWords"].Inputs.PackValues(
 		[]interface{}{
 			solidityProof[:], // geth expects slice, even if arg is constant-length

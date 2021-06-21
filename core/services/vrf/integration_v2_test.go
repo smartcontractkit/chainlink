@@ -179,12 +179,15 @@ func TestIntegrationVRFV2(t *testing.T) {
 	subBalanceStart, err := uni.rootContract.SSubscriptions(nil, subId)
 	require.NoError(t, err)
 	t.Log("subscription balance start", subBalanceStart.Balance.String())
+	require.NoError(t, err)
+
 	// We fund it 0.1 link.
 	// The gas cost is about 50k gas @ 1 gwei/gas = 0.00005 ETH which is 0.00005 ETH / (0.01 ETH/LINK) = 0.0005 LINK
 	// Should be taken from the subscription
 	nw := 10
 	// If we request a 500k gas limit it should fail because we default to 500k gaslimit on the tx (static)
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 500000, 10)
+	gasRequested := 500000
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 500000, uint64(nw))
 	require.NoError(t, err)
 	// Mine the required number of blocks
 	// So our request gets confirmed.
@@ -194,7 +197,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	reqID, err := uni.consumerContract.RequestId(nil)
 	require.NoError(t, err)
 	t.Log(reqID)
-	callback, err := uni.rootContract.SCallbacks2(nil, reqID)
+	callback, err := uni.rootContract.SCallbacks(nil, reqID)
 	require.NoError(t, err)
 	t.Log(callback)
 	var runs []pipeline.Run
@@ -210,17 +213,6 @@ func TestIntegrationVRFV2(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	t.Log(runs[0])
 
-	//var rt []*vrf_coordinator_v2.VRFCoordinatorV2TestLog
-	//gomega.NewGomegaWithT(t).Eventually(func() bool {
-	//	rfIterator, err := uni.rootContract.FilterTestLog(nil)
-	//	require.NoError(t, err, "failed to logs")
-	//	for rfIterator.Next() {
-	//		rt = append(rt, rfIterator.Event)
-	//	}
-	//	return len(rt) == 1
-	//}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
-	//t.Log("randomness test", rt[0].A, rt[0].B, rt[0].C, rt[0].S)
-
 	// Assert the request was fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -231,11 +223,23 @@ func TestIntegrationVRFV2(t *testing.T) {
 		}
 		return len(rf) == 1
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
-	t.Log("randomness fulfilled req ID", rf[0].RequestId.String())
-	assert.Equal(t, nw, len(rf[0].Output))
-	for _, rw := range rf[0].Output {
-		t.Log("random word", rw.String())
+	assert.True(t, rf[0].Success, "expected callback to succeed")
+
+	// Assert all the random words are different and non-zero.
+	seen := make(map[string]struct{})
+	var rw *big.Int
+	for i := 0; i < nw; i++ {
+		rw, err = uni.consumerContract.RandomWords(nil, big.NewInt(int64(i)))
+		require.NoError(t, err)
+		_, ok := seen[rw.String()]
+		assert.False(t, ok)
+		seen[rw.String()] = struct{}{}
 	}
+
+	// We should have at least as much gas as we requested
+	ga, err := uni.consumerContract.GasAvailable(nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, ga.Cmp(big.NewInt(int64(gasRequested))), "expected gas available to exceed gas received")
 
 	// Assert that we were only charged for how much gas we actually used.
 	// We should be charge for the verification + our callbacks execution in link
@@ -287,6 +291,7 @@ func TestRequestCost(t *testing.T) {
 		"testRequestRandomness", vrfkey.MustHash(), subId, uint64(2), uint64(10000), uint64(1))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
+	// Note that a second call drops further to 68998 gas, but would also drop in V1.
 	assert.Less(t, estimate, uint64(87000),
 		"requestRandomness tx gas cost more than expected")
 }

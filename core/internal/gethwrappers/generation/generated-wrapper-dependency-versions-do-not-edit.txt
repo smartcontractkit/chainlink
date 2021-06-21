@@ -11,5 +11,5 @@ solidity_vrf_coordinator_interface: ../../../evm-contracts/solc/v0.6/VRFCoordina
 solidity_vrf_request_id: ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin 383b59e861732c1911ddb7b002c6158608496ce889979296527215fd0366b318
 solidity_vrf_request_id_v08: ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin 6433bb911a291c76d2f5ef3dc4a8511b12e806badf0011e944b5c1aaac1684a6
 solidity_vrf_verifier_wrapper: ../../../evm-contracts/solc/v0.6/VRFTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFTestHelper.bin 44c2b67d8d2990ab580453deb29d63508c6147a3dc49908a1db563bef06e6474
-vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin 6c9dc2cdfcd000cec21b38837b18d80d2d338a8ce4145d2913c858b8f603660a
-vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin aca08c608a51208b94413a1a1b438c6bcfff89458e15b218f51418caab2499cf
+vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin 2994bef53556ebb2197a193755c76ac44fec6014ae80f3773b1a26f17cd6d689
+vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin 7811e7bccdff517c1ee9b4a93825e764d3a9393f4350107efd3f7db97329d6d5

@@ -11,6 +11,7 @@ contract VRFConsumerV2 {
     VRFCoordinatorV2Interface COORDINATOR;
     LinkTokenInterface LINKTOKEN;
     uint64 public subId;
+    uint256 public gasAvailable;
 
     constructor(address vrfCoordinator, address link)
     {
@@ -21,6 +22,7 @@ contract VRFConsumerV2 {
     function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords)
     external
     {
+        gasAvailable = gasleft();
         randomWords = _randomWords;
         requestId = _requestId;
     }

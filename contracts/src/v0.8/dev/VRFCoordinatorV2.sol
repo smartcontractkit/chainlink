@@ -15,7 +15,6 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     AggregatorV3Interface public immutable FAST_GAS_FEED;
     BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
-    event TestLog(uint64 a, uint64 b, uint64 c, address s);
     event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
     event SubscriptionFundsAdded(uint64 subId, uint256 oldBalance, uint256 newBalance);
     event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
@@ -43,7 +42,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint64 numWords,
         address sender);
     event RandomWordsFulfilled(
-        uint256 requestId, uint256[] output);
+        uint256 requestId, uint256[] output, bool success);
 
     // Just to relieve stack pressure
     struct FulfillmentParams {
@@ -52,11 +51,10 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint64 numWords;
         address sender;
     }
-//    mapping(uint256 /* requestID */ => Callback) public s_callbacks;
-    mapping(uint256 /* requestID */ => bytes32) public s_callbacks2;
+    mapping(uint256 /* requestID */ => bytes32) public s_callbacks;
 
 
-    bytes4 constant private FULFILL_RANDOM_WORDS_SELECTOR = bytes4(keccak256("fulfillRandomWords(bytes32,[]uint256)"));
+    bytes4 constant private FULFILL_RANDOM_WORDS_SELECTOR = bytes4(keccak256("fulfillRandomWords(uint256,uint256[])"));
 
     uint16 private s_minimumRequestBlockConfirmations = 3;
     uint16 private s_maxConsumersPerSubscription = 10;
@@ -138,7 +136,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
        s_nonces[keyHash][msg.sender] = nonce;
        uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
        // Min req confirmations not needed as part of fulfillment, leave out of the commitment
-       s_callbacks2[preSeedAndRequestId] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, callbackGasLimit, numWords, msg.sender));
+       s_callbacks[preSeedAndRequestId] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, callbackGasLimit, numWords, msg.sender));
        emit RandomWordsRequested(keyHash, preSeedAndRequestId, subId, minimumRequestConfirmations, callbackGasLimit, numWords, msg.sender);
        return preSeedAndRequestId;
     }
@@ -169,9 +167,9 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // Prevent re-entrancy. The user callback cannot call fulfillRandomWords again
         // with the same proof because this getRandomnessFromProof will revert because the requestId
         // is gone.
-        delete s_callbacks2[requestId];
-        require(gasleft() > fp.callbackGasLimit, "not enough gas for consumer");
+        delete s_callbacks[requestId];
         bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
+        require(gasleft() > fp.callbackGasLimit, "not enough gas for consumer");
         (bool success,) = fp.sender.call(resp);
         // Avoid unused-local-variable warning. (success is only present to prevent
         // a warning that the return value of consumerContract.call is unused.)
@@ -183,7 +181,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         s_subscriptions[fp.subId].balance -= payment; // 5k
         s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment; // 5k
 
-        emit RandomWordsFulfilled(requestId, randomWords);
+        emit RandomWordsFulfilled(requestId, randomWords, success);
     }
 
     function calculatePaymentAmount(
@@ -202,7 +200,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function getRandomnessFromProof(bytes memory _proof)
-    external view returns (bytes32 currentKeyHash,
+    public view returns (bytes32 currentKeyHash,
         uint256 requestId, uint256 randomness, FulfillmentParams memory fp) {
         // blockNum follows proof, which follows length word (only direct-number
         // constants are allowed in assembly, so have to compute this in code)
@@ -225,7 +223,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
             sender := mload(add(add(_proof, BLOCKNUM_OFFSET), 0x80))
         }
         currentKeyHash = hashOfKey(publicKey);
-        bytes32 callback = s_callbacks2[preSeed];
+        bytes32 callback = s_callbacks[preSeed];
         requestId = preSeed;
         require(callback != 0, "no corresponding request");
         require(callback == keccak256(abi.encodePacked(requestId, blockNum, fp.subId, fp.callbackGasLimit, fp.numWords, sender)), "incorrect commitment");
