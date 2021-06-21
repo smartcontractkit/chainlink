@@ -4,11 +4,13 @@ pragma solidity ^0.7.0;
 import "../interfaces/OperatorInterface.sol";
 import "./ConfirmedOwnerWithProposal.sol";
 import "./AuthorizedReceiver.sol";
+import "../vendor/Address.sol";
 
 contract AuthorizedForwarder is
   ConfirmedOwnerWithProposal,
   AuthorizedReceiver
 {
+  using Address for address;
 
   address public immutable getChainlinkToken;
 
@@ -46,8 +48,7 @@ contract AuthorizedForwarder is
     validateAuthorizedSender()
   {
     require(to != getChainlinkToken, "Cannot #forward to Link token");
-    (bool status,) = to.call(data);
-    require(status, "Forwarded call failed");
+    _forward(to, data);
   }
 
   /**
@@ -63,8 +64,7 @@ contract AuthorizedForwarder is
     external
     onlyOwner()
   {
-    (bool status,) = to.call(data);
-    require(status, "Forwarded call failed");
+    _forward(to, data);
   }
 
   /**
@@ -93,6 +93,20 @@ contract AuthorizedForwarder is
     returns (bool)
   {
     return owner() == msg.sender;
+  }
+
+  /**
+   * @notice common forwarding functionality and validation
+   */
+  function _forward(
+    address to,
+    bytes calldata data
+  )
+    private
+  {
+    require(to.isContract(), "Must forward to a contract");
+    (bool status,) = to.call(data);
+    require(status, "Forwarded call failed");
   }
 
 }
