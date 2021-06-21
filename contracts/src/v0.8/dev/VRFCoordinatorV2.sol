@@ -15,18 +15,19 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     AggregatorV3Interface public immutable FAST_GAS_FEED;
     BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
-    event SubscriptionCreated(uint32 subId, address owner, address[] consumers);
-    event SubscriptionFundsAdded(uint32 subId, uint256 oldBalance, uint256 newBalance);
-    event SubscriptionConsumersUpdated(uint32 subId, address[] oldConsumers, address[] newConsumers);
-    event SubscriptionFundsWithdrawn(uint32 subId, uint256 oldBalance, uint256 newBalance);
-    event SubscriptionCanceled(uint32 subId);
+    event TestLog(uint64 a, uint64 b, uint64 c, address s);
+    event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
+    event SubscriptionFundsAdded(uint64 subId, uint256 oldBalance, uint256 newBalance);
+    event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
+    event SubscriptionFundsWithdrawn(uint64 subId, uint256 oldBalance, uint256 newBalance);
+    event SubscriptionCanceled(uint64 subId);
     uint32 currentSubId;
     struct Subscription {
         address owner; // Owner can fund/withdraw/cancel the sub
         address[] consumers; // List of addresses which can consume using this subscription.
         uint256 balance; // Common balance used for all consumer requests.
     }
-    mapping(uint32 /* subId */ => Subscription /* subscription */) public s_subscriptions;
+    mapping(uint64 /* subId */ => Subscription /* subscription */) public s_subscriptions;
 
     event NewServiceAgreement(bytes32 keyHash, address oracle);
     mapping(bytes32 /* keyHash */ => address /* oracle */) public s_serviceAgreements;
@@ -35,27 +36,27 @@ contract VRFCoordinatorV2 is VRF, Ownable {
 
     event RandomWordsRequested(
         bytes32 indexed keyHash,
-        uint16 minimumRequestConfirmations,
-        uint32 callbackGasLimit,
         uint256 preSeed,
-        uint32 subId);
+        uint64 subId,
+        uint64 minimumRequestConfirmations,
+        uint64 callbackGasLimit,
+        uint64 numWords,
+        address sender);
     event RandomWordsFulfilled(
         uint256 requestId, uint256[] output);
-    // Should all fit in 2 32 byte values
-    struct Callback {
-//        address callbackContract; // 20 bytes
-        uint16 consumerIndex; // index in sub.consumers
-        uint32 subId;
-        uint32 callbackGasLimit;
-        uint16 numWords;
-        bytes32 seedAndBlockNum;
+
+    // Just to relieve stack pressure
+    struct FulfillmentParams {
+        uint64 subId;
+        uint64 callbackGasLimit;
+        uint64 numWords;
+        address sender;
     }
-    // 240 requestID || 16 bits consumerIndex
-    mapping(uint256 /* requestID */ => bytes32) public s_callbacks;
+//    mapping(uint256 /* requestID */ => Callback) public s_callbacks;
+    mapping(uint256 /* requestID */ => bytes32) public s_callbacks2;
 
 
     bytes4 constant private FULFILL_RANDOM_WORDS_SELECTOR = bytes4(keccak256("fulfillRandomWords(bytes32,[]uint256)"));
-
 
     uint16 private s_minimumRequestBlockConfirmations = 3;
     uint16 private s_maxConsumersPerSubscription = 10;
@@ -109,24 +110,25 @@ contract VRFCoordinatorV2 is VRF, Ownable {
 
     function requestRandomWords(
         bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
-        uint32  subId,   // A data structure for billing
-        uint16  minimumRequestConfirmations,
-        uint32  callbackGasLimit,
-        uint16  numWords  // Desired number of random words
+        uint64  subId,
+        uint64  minimumRequestConfirmations,
+        uint64  callbackGasLimit,
+        uint64  numWords  // Desired number of random words
     )
     external
     returns (uint256 requestId)
     {
-       // Sanity check the subscription has enough link? Just
-       // accept that gas price fluctuations between request and response could potentially
-       // result in request accepted but failed to fulfill
+       // One would consider doing a sanity check that the subscription has enough link here,
+       // but:
+       //   1) you'd need to either store a cached price or do a lookup which are both costly
+       //   2) set a fixed min which would be hard to estimate
+       //   3) price could fluctuate anyways between request and response, so it could still fail to fulfill
+       //   4) if it did fail to fulfill, you could simply top up the subscription and re-try and it would succeed
        require(s_subscriptions[subId].owner != address(0), "invalid subId");
        bool validConsumer;
-       uint16 consumerIndex;
        for (uint16 i = 0; i < s_subscriptions[subId].consumers.length; i++) {
            if (s_subscriptions[subId].consumers[i] == msg.sender) {
                validConsumer = true;
-               consumerIndex = i;
                break;
            }
        }
@@ -135,23 +137,9 @@ contract VRFCoordinatorV2 is VRF, Ownable {
        uint256 nonce = s_nonces[keyHash][msg.sender] + 1;
        s_nonces[keyHash][msg.sender] = nonce;
        uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
-       uint240 preSeedAndRequestId = preSeedAndRequestId << 16
-//       s_callbacks[preSeedAndRequestId].subId = subId;
-//       s_callbacks[preSeedAndRequestId].callbackGasLimit = callbackGasLimit;
-//       s_callbacks[preSeedAndRequestId].callbackContract = msg.sender;
-//       s_callbacks[preSeedAndRequestId].numWords = numWords;
-//       s_callbacks[preSeedAndRequestId].seedAndBlockNum = keccak256(abi.encodePacked(preSeedAndRequestId, block.number));
-       uint256 callbackKey = (preSeedAndRequestId << 16) | consumerIndex;
-       s_callbacks[callbackKey] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, numWords, callbackGasLimit));
-//       s_callbacks[preSeedAndRequestId] =
-//        Callback({
-////            consumerIndex: msg.sender,
-////            callbackGasLimit: callbackGasLimit, // For sanity checking
-////            numWords: numWords,
-////            subId: subId,
-//            seedAndBlockNum: keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, numWords, callbackGasLimit))
-//       });
-       emit RandomWordsRequested(keyHash, minimumRequestConfirmations, callbackGasLimit, preSeedAndRequestId, subId);
+       // Min req confirmations not needed as part of fulfillment, leave out of the commitment
+       s_callbacks2[preSeedAndRequestId] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, callbackGasLimit, numWords, msg.sender));
+       emit RandomWordsRequested(keyHash, preSeedAndRequestId, subId, minimumRequestConfirmations, callbackGasLimit, numWords, msg.sender);
        return preSeedAndRequestId;
     }
 
@@ -161,7 +149,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     uint256 public constant PUBLIC_KEY_OFFSET = 0x20;
     // Seed is 7th word in proof, plus word for length, (6+1)*0x20=0xe0
     uint256 public constant PRESEED_OFFSET = 0xe0;
-    // TODO: Gas for making payment itself
+    // Gas for making payment itself
     uint256 public constant GAS_BUFFER = 10_000;
 
     function fulfillRandomWords(
@@ -170,28 +158,29 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     external
     {
         uint256 startGas = gasleft();
-        (bytes32 keyHash, Callback memory callback, uint256 requestId,
-        uint256 randomness) = getRandomnessFromProof(_proof);
-        uint256[] memory randomWords = new uint256[](callback.numWords);
-        for (uint256 i = 0; i < callback.numWords; i++) {
+        (bytes32 keyHash, uint256 requestId,
+        uint256 randomness, FulfillmentParams memory fp) = getRandomnessFromProof(_proof);
+
+        uint256[] memory randomWords = new uint256[](fp.numWords);
+        for (uint256 i = 0; i < fp.numWords; i++) {
             randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
         }
 
         // Prevent re-entrancy. The user callback cannot call fulfillRandomWords again
         // with the same proof because this getRandomnessFromProof will revert because the requestId
         // is gone.
-        delete s_callbacks[requestId];
-        require(gasleft() > callback.callbackGasLimit, "not enough gas for consumer");
+        delete s_callbacks2[requestId];
+        require(gasleft() > fp.callbackGasLimit, "not enough gas for consumer");
         bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
-        (bool success,) = callback.callbackContract.call(resp);
+        (bool success,) = fp.sender.call(resp);
         // Avoid unused-local-variable warning. (success is only present to prevent
         // a warning that the return value of consumerContract.call is unused.)
         (success);
-        // TODO: We want to charge users exactly for how much gas they use in their callback.
+        // We want to charge users exactly for how much gas they use in their callback.
         // The GAS_BUFFER is meant to cover these to additional operations where we
         // decrement the subscription balance and increment the oracles withdrawable balance.
         uint256 payment = calculatePaymentAmount(startGas, GAS_BUFFER);
-        s_subscriptions[callback.subId].balance -= payment; // 5k
+        s_subscriptions[fp.subId].balance -= payment; // 5k
         s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment; // 5k
 
         emit RandomWordsFulfilled(requestId, randomWords);
@@ -213,28 +202,34 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function getRandomnessFromProof(bytes memory _proof)
-    internal view returns (bytes32 currentKeyHash, Callback memory callback,
-        uint256 requestId, uint256 randomness) {
+    external view returns (bytes32 currentKeyHash,
+        uint256 requestId, uint256 randomness, FulfillmentParams memory fp) {
         // blockNum follows proof, which follows length word (only direct-number
         // constants are allowed in assembly, so have to compute this in code)
         uint256 BLOCKNUM_OFFSET = 0x20 + PROOF_LENGTH;
         // _proof.length skips the initial length word, so not including the
         // blocknum in this length check balances out.
-        require(_proof.length == BLOCKNUM_OFFSET, "wrong proof length");
+        // Proof + 5 words (blocknum, subId, callbackLimit, nw, sender)
+        require(_proof.length == PROOF_LENGTH + 0x20*5, "wrong proof length");
         uint256[2] memory publicKey;
         uint256 preSeed;
         uint256 blockNum;
+        address sender;
         assembly { // solhint-disable-line no-inline-assembly
             publicKey := add(_proof, PUBLIC_KEY_OFFSET)
             preSeed := mload(add(_proof, PRESEED_OFFSET))
             blockNum := mload(add(_proof, BLOCKNUM_OFFSET))
+            mstore(fp, mload(add(add(_proof, BLOCKNUM_OFFSET), 0x20)))
+            mstore(add(fp, 0x20), mload(add(add(_proof, BLOCKNUM_OFFSET), 0x40)))
+            mstore(add(fp, 0x40), mload(add(add(_proof, BLOCKNUM_OFFSET), 0x60)))
+            sender := mload(add(add(_proof, BLOCKNUM_OFFSET), 0x80))
         }
         currentKeyHash = hashOfKey(publicKey);
-        callback = s_callbacks[preSeed];
+        bytes32 callback = s_callbacks2[preSeed];
         requestId = preSeed;
-        require(callback.callbackContract != address(0), "no corresponding request");
-        require(callback.seedAndBlockNum == keccak256(abi.encodePacked(preSeed,
-            blockNum)), "wrong preSeed or block num");
+        require(callback != 0, "no corresponding request");
+        require(callback == keccak256(abi.encodePacked(requestId, blockNum, fp.subId, fp.callbackGasLimit, fp.numWords, sender)), "incorrect commitment");
+        fp.sender = sender;
 
         bytes32 blockHash = blockhash(blockNum);
         if (blockHash == bytes32(0)) {
@@ -266,7 +261,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         int256 linkEth;
         // Fallback to the fallback price if the feed is too stale.
         // Maybe need to optimize to avoid this contract call and used a cached
-        // price, say in the case of a large number of fulfillments in short succession.
+        // price, say in the case of a large number of fulfillments in short succession?
         (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData();
         if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
             gasWei = s_fallbackGasPrice;
@@ -317,7 +312,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function updateSubscription(
-        uint32 subId,
+        uint64 subId,
         address[] memory consumers // permitted consumers of the subscription
     )
     external
@@ -330,7 +325,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function fundSubscription(
-        uint32 subId,
+        uint64 subId,
         uint256 amount
     )
     external
@@ -344,7 +339,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     }
 
     function withdrawFromSubscription(
-        uint32 subId,
+        uint64 subId,
         address to,
         uint256 amount
     )

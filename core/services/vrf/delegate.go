@@ -242,10 +242,10 @@ func (lsn *listener) ProcessV2VRFRequest(lb log.Broadcast) {
 	}
 
 	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinatorV2.SCallbacks(nil, req.PreSeed)
+	callback, err := lsn.coordinatorV2.SCallbacks2(nil, req.PreSeed)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+	} else if utils.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
 		lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId, "callback", callback)
@@ -393,6 +393,12 @@ func (lsn *listener) ProcessV1VRFRequest(lb log.Broadcast) {
 	}
 }
 
+// Compute the gasLimit required for the fulfillment transaction
+// such that the user gets their requested amount of gas.
+func (lsn *listener) computeTxGasLimit(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested) (uint64, error) {
+	return 0, nil
+}
+
 func (lsn *listener) ProcessLogV2(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
@@ -418,8 +424,13 @@ func (lsn *listener) ProcessLogV2(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 		PreSeed:   preSeed,
 		BlockHash: req.Raw.BlockHash,
 		BlockNum:  req.Raw.BlockNumber,
+		// V2 only fields
+		SubId:            req.SubId,
+		CallbackGasLimit: req.CallbackGasLimit,
+		NumWords:         req.NumWords,
+		Sender:           req.Sender,
 	}
-	lsn.l.Infow("generating proof", "pk", lsn.job.VRFSpec.PublicKey.String(), "seed", preSeed, "blockHash", req.Raw.BlockHash.String())
+	lsn.l.Infow("generating proof", "pk", lsn.job.VRFSpec.PublicKey.String(), "seed", preSeed, "blockHash", req.Raw.BlockHash.String(), "sender", req.Sender)
 	solidityProof, err := lsn.vrfks.GenerateProof(lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
 		lsn.l.Errorw("VRFListener: error generating proof", "err", err)

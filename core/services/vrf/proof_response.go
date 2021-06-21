@@ -4,6 +4,9 @@ package vrf
 // block in which a VRF request appeared
 
 import (
+	"encoding/hex"
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
@@ -19,13 +22,23 @@ type ProofResponse struct {
 	P        Proof
 	PreSeed  Seed   // Seed received during VRF request
 	BlockNum uint64 // Height of the block in which tihs request was made
+	// V2 Only fields
+	SubId            uint64
+	CallbackGasLimit uint64
+	NumWords         uint64
+	Sender           common.Address
 }
 
 // OnChainResponseLength is the length of the MarshaledOnChainResponse. The
 // extra 32 bytes are for blocknumber (as a uint256), which goes at the end. The
 // seed is rewritten with the preSeed. (See MarshalForVRFCoordinator and
 // ProofResponse#ActualProof.)
-const OnChainResponseLength = ProofLength + 32
+const OnChainResponseLength = ProofLength +
+	32 + //blocknum
+	32 + //subID
+	32 + //gaslimit
+	32 + //numWords
+	32 //sender
 
 // MarshaledOnChainResponse is the flat bytes which are sent back to the
 // VRFCoordinator.
@@ -47,7 +60,12 @@ func (p *ProofResponse) MarshalForVRFCoordinator() (
 	solidityProof.P.Seed = common.BytesToHash(p.PreSeed[:]).Big()
 	mProof := solidityProof.MarshalForSolidityVerifier()
 	wireBlockNum := utils.EVMWordUint64(p.BlockNum)
-	rl := copy(response[:], append(mProof[:], wireBlockNum...))
+	subId := utils.EVMWordUint64(p.SubId)
+	callbackLimit := utils.EVMWordUint64(p.CallbackGasLimit)
+	numWords := utils.EVMWordUint64(p.NumWords)
+	sender := utils.EVMWordAddress(p.Sender)
+	fmt.Println("sender", p.Sender.String(), hex.EncodeToString(sender))
+	rl := copy(response[:], append(append(append(append(append(mProof[:], wireBlockNum...), subId...), callbackLimit...), numWords...), sender...))
 	if rl != OnChainResponseLength {
 		return MarshaledOnChainResponse{}, errors.Errorf(
 			"wrong length for response to VRFCoordinator")
@@ -94,7 +112,7 @@ func GenerateProofResponse(secretKey common.Hash, s PreSeedData) (
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
 	}
-	p := ProofResponse{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum}
+	p := ProofResponse{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum, SubId: s.SubId, CallbackGasLimit: s.CallbackGasLimit, NumWords: s.NumWords, Sender: s.Sender}
 	rv, err := p.MarshalForVRFCoordinator()
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
