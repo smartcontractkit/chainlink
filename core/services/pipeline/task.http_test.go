@@ -40,7 +40,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{emptyMeta, false}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -167,7 +167,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			bridge.URL = *feedWebURL
 			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-			result := task.Run(context.Background(), test.vars, test.meta, test.inputs)
+			test.vars.Set("meta", test.meta)
+			result := task.Run(context.Background(), test.vars, test.inputs)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				if test.expectedErrorContains != "" {
@@ -214,7 +215,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -243,7 +244,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, nil)
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)

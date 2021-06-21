@@ -99,7 +99,7 @@ func TestETHABIDecodeTask(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result := task.Run(context.Background(), test.vars, pipeline.JSONSerializable{}, test.inputs)
+			result := task.Run(context.Background(), test.vars, test.inputs)
 
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))

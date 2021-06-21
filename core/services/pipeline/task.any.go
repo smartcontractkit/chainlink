@@ -20,7 +20,7 @@ func (t *AnyTask) Type() TaskType {
 	return TaskTypeAny
 }
 
-func (t *AnyTask) Run(_ context.Context, _ Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *AnyTask) Run(_ context.Context, _ Vars, inputs []Result) (result Result) {
 	if len(inputs) == 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "AnyTask requires at least 1 input")}
 	}
