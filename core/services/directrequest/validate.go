@@ -1,17 +1,15 @@
 package directrequest
 
 import (
-	"github.com/gofrs/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type DirectRequestToml struct {
-	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID uuid.UUID           `toml:"jobID"`
+	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
@@ -32,7 +30,6 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 		return jb, err
 	}
 	jb.DirectRequestSpec = &job.DirectRequestSpec{ContractAddress: spec.ContractAddress}
-	copy(jb.DirectRequestSpec.OnChainJobSpecID[:], spec.OnChainJobSpecID.Bytes())
 
 	if jb.Type != job.DirectRequest {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
@@ -67,11 +68,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 
 	var app *cltest.TestApplication
 	var cleanup func()
-	if sopts.WithKey {
-		app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	} else {
-		app, cleanup = cltest.NewApplicationWithConfig(t, config, sopts.FlagsAndDeps...)
-	}
+	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
 	t.Cleanup(cleanup)
 	app.Logger = app.Config.CreateProductionLogger()
 	app.Logger.SetDB(app.GetStore().DB)
@@ -378,7 +375,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 func TestClient_ArchiveJobSpec(t *testing.T) {
 	t.Parallel()
 
-	eim := new(mocks.ExternalInitiatorManager)
+	eim := new(webhookmocks.ExternalInitiatorManager)
 	app := startNewApplication(t, withMocks(eim))
 	client, _ := app.NewClientAndRenderer()
 
@@ -389,7 +386,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 
-	eim.On("DeleteJob", mock.Anything, mock.MatchedBy(func(id models.JobID) bool {
+	eim.On("DeleteJob", mock.MatchedBy(func(id models.JobID) bool {
 		return id.String() == job.ID.String()
 	})).Once().Return(nil)
 

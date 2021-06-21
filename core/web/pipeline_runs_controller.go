@@ -1,14 +1,19 @@
 package web
 
 import (
+	"context"
+	"errors"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"gorm.io/gorm"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -27,7 +32,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 		return
 	}
 
-	pipelineRuns, count, err := prc.App.GetJobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
+	pipelineRuns, count, err := prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -47,10 +52,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
-		Where("pipeline_runs.id = ?", pipelineRun.ID).
-		First(&pipelineRun).Error
-
+	pipelineRun, err = prc.App.PipelineORM().FindRun(pipelineRun.ID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -63,38 +65,48 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
+	respondWithPipelineRun := func(jobRunID int64) {
+		pipelineRun, err := prc.App.PipelineORM().FindRun(jobRunID)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
+	}
+
+	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
+	pipelineInput := string(bodyBytes)
+	idStr := c.Param("ID")
 
-	jobRunID, err := prc.App.RunJobV2(c, jobSpec.ID, nil)
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	// Is it a UUID? Then process it as a webhook job
+	jobUUID, err := uuid.FromString(idStr)
+	if err == nil {
+		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, pipelineInput, pipeline.JSONSerializable{Null: true})
+		if err2 != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err2)
+			return
+		}
+		respondWithPipelineRun(jobRunID)
 		return
 	}
 
-	pipelineRun := pipeline.Run{}
-	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
-		Where("pipeline_runs.id = ?", jobRunID).
-		First(&pipelineRun).Error
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	// Is it an int32? Then process it regardless of type
+	var jobID int32
+	jobID64, err := strconv.ParseInt(idStr, 10, 32)
+	if err == nil {
+		jobID = int32(jobID64)
+		jobRunID, err := prc.App.RunJobV2(context.Background(), jobID, nil)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		respondWithPipelineRun(jobRunID)
 		return
 	}
 
-	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
-}
-
-func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
-	return db.
-		Preload("PipelineSpec").
-		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Order("created_at ASC, id ASC")
-		})
+	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))
 }

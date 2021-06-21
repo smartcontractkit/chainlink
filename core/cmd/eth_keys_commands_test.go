@@ -17,8 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,6 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 		createdAt   = time.Now()
 		updatedAt   = time.Now().Add(time.Second)
 		deletedAt   = time.Now().Add(2 * time.Second)
-		lastUsed    = time.Now()
 		bundleID    = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
 		buffer      = bytes.NewBufferString("")
 		r           = cmd.RendererTable{Writer: buffer}
@@ -52,7 +52,6 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 			EthBalance:  ethBalance,
 			LinkBalance: linkBalance,
 			NextNonce:   nextNonce,
-			LastUsed:    &lastUsed,
 			IsFunding:   isFunding,
 			CreatedAt:   createdAt,
 			UpdatedAt:   updatedAt,
@@ -68,7 +67,6 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, ethBalance.String())
 	assert.Contains(t, output, linkBalance.String())
 	assert.Contains(t, output, fmt.Sprintf("%d", nextNonce))
-	assert.Contains(t, output, lastUsed.String())
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
@@ -84,7 +82,6 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, ethBalance.String())
 	assert.Contains(t, output, linkBalance.String())
 	assert.Contains(t, output, fmt.Sprintf("%d", nextNonce))
-	assert.Contains(t, output, lastUsed.String())
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
@@ -141,7 +138,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 		withKey(),
 		withMocks(ethClient),
 	)
-	store := app.GetStore()
+	ethKeyStore := app.GetKeyStore().Eth()
 	client, _ := app.NewClientAndRenderer()
 
 	ethClient.On("Dial", mock.Anything)
@@ -149,19 +146,18 @@ func TestClient_DeleteEthKey(t *testing.T) {
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	// Create the key
-	account, err := store.KeyStore.NewAccount()
+	key, err := ethKeyStore.CreateNewKey()
 	require.NoError(t, err)
-	require.NoError(t, store.SyncDiskKeyStoreToDB())
 
 	// Delete the key
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("yes", true, "")
-	set.Parse([]string{account.Address.Hex()})
+	set.Parse([]string{key.Address.Hex()})
 	c := cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
 
-	_, err = store.KeyByAddress(account.Address)
+	_, err = ethKeyStore.KeyByAddress(key.Address.Address())
 	assert.Error(t, err)
 }
 
@@ -186,12 +182,12 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	err := client.RemoteLogin(c)
 	assert.NoError(t, err)
 
-	err = app.Store.KeyStore.Unlock(cltest.Password)
+	err = app.GetKeyStore().Eth().Unlock(cltest.Password)
 	assert.NoError(t, err)
 
 	err = client.ListETHKeys(c)
 	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 0)
+	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
 
 	r.Renders = nil
 
@@ -208,11 +204,11 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
+	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 2)
 
 	ethkeys := *r.Renders[0].(*cmd.EthKeyPresenters)
 	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
-	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
+	assert.Equal(t, addr.Hex(), ethkeys[1].Address)
 
 	testdir := filepath.Join(os.TempDir(), t.Name())
 	err = os.MkdirAll(testdir, 0700|os.ModeDir)
@@ -242,12 +238,12 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	assert.NoError(t, err)
 
 	scryptParams := utils.GetScryptParams(app.Store.Config)
-	keystore := store.NewKeyStore(keystoreDir, scryptParams)
+	keystore := keystore.New(app.Store.DB, scryptParams).Eth()
 	err = keystore.Unlock(string(oldpassword))
 	assert.NoError(t, err)
-	acct, err := keystore.Import(keyJSON, strings.TrimSpace(string(newpassword)))
+	key, err := keystore.ImportKey(keyJSON, strings.TrimSpace(string(newpassword)))
 	assert.NoError(t, err)
-	assert.Equal(t, addr.Hex(), acct.Address.Hex())
+	assert.Equal(t, addr.Hex(), key.Address.Hex())
 
 	// Export test invalid id
 	keyName := keyNameForTest(t)
@@ -261,8 +257,9 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
 
-func requireEthKeysCount(t *testing.T, store *store.Store, length int) []models.Key {
-	keys, err := store.AllKeys()
+func requireEthKeysCount(t *testing.T, store *store.Store, length int) []ethkey.Key {
+	var keys []ethkey.Key
+	err := store.DB.Find(&keys).Error
 	require.NoError(t, err)
 	require.Len(t, keys, length)
 	return keys

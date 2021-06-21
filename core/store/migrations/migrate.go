@@ -59,3 +59,20 @@ func Rollback(db *gorm.DB, m *Migration) error {
 
 	return g.RollbackMigration(m)
 }
+
+func Current(db *gorm.DB) (*Migration, error) {
+	g := New(db, &Options{
+		ValidateUnknownMigrations: false,
+	}, Migrations)
+
+	if err := g.createMigrationTableIfNotExists(); err != nil {
+		return nil, err
+	}
+
+	migration, err := g.getLastRunMigration()
+	if err != nil {
+		return nil, err
+	}
+
+	return migration, nil
+}

@@ -97,7 +97,7 @@ You can configure your node's behavior by setting environment variables. All the
 
 ## Project Structure
 
-Chainlink is a monorepo containing several logicaly separatable and relatable
+Chainlink is a monorepo containing several logically separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
@@ -173,6 +173,8 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
+> Note: `evm-contracts/` directory houses Solidity versions <=0.7. New contracts, using v0.8, are being developed in the `contracts/` directory, using hardhat.
+
 Inside the `evm-contracts/` directory:
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
@@ -191,17 +193,50 @@ yarn setup
    yarn test
    ```
 
-   ii. Solidity versions `>=0.8.x`:
+#### Solidity >=v0.8
 
-   As of Solidity version 0.8, we are using Hardhat to compile and test smart contracts.
+Inside the `contracts/` directory:
+1. Install dependencies:
 
-   ```bash
-   yarn test:new
-   ```
+```bash
+yarn
+```
+
+2. Run tests:
+
+```bash
+yarn test
+```
 
 ### Use of Go Generate
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+
+### Nix Flake
+
+A [flake](https://nixos.wiki/wiki/Flakes) is provided for use with the [Nix
+package manager](https://nixos.org/). It defines a declarative, reproducible
+development environment.
+
+To use it:
+
+1. [Nix has to be installed with flake support](https://nixos.wiki/wiki/Flakes#Installing_flakes).
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
+   Alternatively, a `direnv` integration exists to automatically change the
+   environment when `cd`-ing into the folder.
+3. Create a local postgres database:
+
+```
+cd $PGDATA/
+initdb
+pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start
+createdb chainlink_test -h localhost
+createuser --superuser --no-password chainlink -h localhost
+```
+
+4. Start postgres, `pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start`
+
+Now you can run tests or compile code as usual.
 
 ### Development Tips
 

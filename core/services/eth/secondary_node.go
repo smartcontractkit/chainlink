@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -52,12 +53,16 @@ func (s secondarynode) SendTransaction(ctx context.Context, tx *types.Transactio
 	s.log.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 	)
-	return s.geth.SendTransaction(ctx, tx)
+	return s.wrap(s.geth.SendTransaction(ctx, tx))
 }
 
 func (s secondarynode) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	s.log.Debugw("eth.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 	)
-	return s.rpc.BatchCallContext(ctx, b)
+	return s.wrap(s.rpc.BatchCallContext(ctx, b))
+}
+
+func (s secondarynode) wrap(err error) error {
+	return wrap(err, fmt.Sprintf("secondary http (%s)", s.uri.String()))
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -20,16 +20,15 @@ func TestETHKeyResource(t *testing.T) {
 		nextNonce  = int64(1)
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
 	)
-	address, err := models.NewEIP55Address(addressStr)
+	address, err := ethkey.NewEIP55Address(addressStr)
 	require.NoError(t, err)
 
-	key := models.Key{
+	key := ethkey.Key{
 		ID:        1,
 		Address:   address,
 		CreatedAt: now,
 		UpdatedAt: now,
 		NextNonce: nextNonce,
-		LastUsed:  &now,
 		IsFunding: true,
 	}
 
@@ -55,7 +54,6 @@ func TestETHKeyResource(t *testing.T) {
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "nextNonce":1,
-			  "lastUsed":"2000-01-01T00:00:00Z",
 			  "isFunding":true,
 			  "createdAt":"2000-01-01T00:00:00Z",
 			  "updatedAt":"2000-01-01T00:00:00Z",
@@ -88,7 +86,6 @@ func TestETHKeyResource(t *testing.T) {
 				"ethBalance":"1",
 				"linkBalance":"1",
 				"nextNonce":1,
-				"lastUsed":"2000-01-01T00:00:00Z",
 				"isFunding":true,
 				"createdAt":"2000-01-01T00:00:00Z",
 				"updatedAt":"2000-01-01T00:00:00Z",

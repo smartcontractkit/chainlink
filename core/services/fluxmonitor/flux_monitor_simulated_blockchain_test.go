@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -58,8 +59,8 @@ type fluxAggregatorUniverse struct {
 // setupFluxAggregatorUniverse returns a fully initialized fluxAggregator universe. The
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
-func setupFluxAggregatorUniverse(t *testing.T, key models.Key, min, max *big.Int) fluxAggregatorUniverse {
-	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+func setupFluxAggregatorUniverse(t *testing.T, key ethkey.Key, min, max *big.Int) fluxAggregatorUniverse {
+	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
@@ -488,7 +489,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
 	defer mockServer.Close()
 
-	// // When event appears on submissionReceived, flux monitor job run is complete
+	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := make(chan *faw.FluxAggregatorSubmissionReceived)
 	subscription, err := fa.aggregatorContract.WatchSubmissionReceived(
 		nil,
@@ -528,11 +529,14 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	reportPrice = int64(2) // change in price should trigger run
 	_, _ = awaitSubmission(t, submissionReceived)
 
-	// lower contract's flag - should have no effect (but currently does)
-	// TODO - https://www.pivotaltracker.com/story/show/175419789
+	// lower contract's flag - should have no effect
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	_, _ = awaitSubmission(t, submissionReceived)
+	select {
+	case <-submissionReceived:
+		t.Fatalf("should not trigger a new run, while already in hibernation mode")
+	case <-time.After(2 * time.Second):
+	}
 
 	// change in price should trigger run
 	reportPrice = int64(4)

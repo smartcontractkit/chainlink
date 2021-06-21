@@ -93,15 +93,9 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 			r[i] = coerced
 		}
 		return r, nil
-	case cbor.Tag:
-		if value, ok := typed.Content.([]byte); ok {
-			if typed.Number == 2 {
-				return big.NewInt(0).SetBytes(value), nil
-			} else if typed.Number == 3 {
-				return big.NewInt(0).Sub(big.NewInt(-1), big.NewInt(0).SetBytes(value)), nil
-			}
-		}
-		return in, nil
+	case big.Int:
+		value, _ := (in).(big.Int)
+		return &value, nil
 	default:
 		return in, nil
 	}

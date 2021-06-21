@@ -23,19 +23,12 @@ func TestValidateJob(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	// Create a funding key.
-	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-	funding, err := store.KeyStore.NewAccount()
+	require.NoError(t, keyStore.Eth().Unlock(cltest.Password))
+	fundingKey, _, err := keyStore.Eth().EnsureFundingKey()
 	require.NoError(t, err)
-	fundingKey := models.Key{
-		Address:   models.EIP55Address(funding.Address.Hex()),
-		IsFunding: true,
-		JSON: models.JSON{
-			Result: gjson.ParseBytes([]byte(`{"json" : true}`)),
-		},
-	}
-	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
 	tests := []struct {
 		name  string
 		input []byte
@@ -85,7 +78,7 @@ func TestValidateJob(t *testing.T) {
 		{
 			"runlog and ethtx with a fromAddress that doesn't match one of our keys",
 			cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_ethtx_w_missing_fromAddress_job.json"),
-			models.NewJSONAPIErrorsWith("error record not found finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
+			models.NewJSONAPIErrorsWith("error address 0x0f416A5a298F05d386CfE8164f342Bec5b5E10D7 not in keystore finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
 		},
 		{
 			"runlog with two ethtx tasks",
@@ -103,7 +96,7 @@ func TestValidateJob(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var j models.JobSpec
 			assert.NoError(t, json.Unmarshal(test.input, &j))
-			result := services.ValidateJob(j, store)
+			result := services.ValidateJob(j, store, keyStore)
 			assert.Equal(t, test.want, result)
 		})
 	}
@@ -112,15 +105,16 @@ func TestValidateJob(t *testing.T) {
 func TestValidateJob_RejectsSleepAdapterWhenExperimentalAdaptersAreDisabled(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	sleepingJob := cltest.NewJobWithWebInitiator()
 	sleepingJob.Tasks[0].Type = adapters.TaskTypeSleep
 
 	store.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", true)
-	assert.NoError(t, services.ValidateJob(sleepingJob, store))
+	assert.NoError(t, services.ValidateJob(sleepingJob, store, keyStore))
 
 	store.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", false)
-	assert.Error(t, services.ValidateJob(sleepingJob, store))
+	assert.Error(t, services.ValidateJob(sleepingJob, store, keyStore))
 }
 
 func TestValidateBridgeType(t *testing.T) {
@@ -325,10 +319,9 @@ func TestValidateServiceAgreement(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	err := store.KeyStore.Unlock(cltest.Password)
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-	assert.NoError(t, err)
-	_, err = store.KeyStore.NewAccount()
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	err := keyStore.Eth().Unlock(cltest.Password)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth(), 0)
 	assert.NoError(t, err)
 
 	oracles := []string{fromAddress.Hex()}
@@ -370,7 +363,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 			sa, err := cltest.ServiceAgreementFromString(test.input)
 			require.NoError(t, err)
 
-			result := services.ValidateServiceAgreement(sa, store)
+			result := services.ValidateServiceAgreement(sa, store, keyStore)
 
 			cltest.AssertError(t, test.wantError, result)
 		})
@@ -507,12 +500,13 @@ func TestValidateJob_VRF_Happy(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	input := cltest.MustReadFile(t, "../testdata/jsonspecs/randomness_job.json")
 
 	var j models.JobSpec
 	assert.NoError(t, json.Unmarshal(input, &j))
-	err := services.ValidateJob(j, store)
+	err := services.ValidateJob(j, store, keyStore)
 	assert.NoError(t, err)
 }
 
@@ -521,6 +515,7 @@ func TestValidateJob_VRF_Error(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	input := cltest.MustReadFile(t, "../testdata/jsonspecs/randomness_job.json")
 
@@ -554,7 +549,7 @@ func TestValidateJob_VRF_Error(t *testing.T) {
 		{"single initiator", job4},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := services.ValidateJob(test.job, store)
+			err := services.ValidateJob(test.job, store, keyStore)
 			assert.Error(t, err)
 		})
 	}

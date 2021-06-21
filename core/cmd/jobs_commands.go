@@ -106,6 +106,18 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.KeeperSpec != nil {
 			return p.KeeperSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.CronJobSpec:
+		if p.CronSpec != nil {
+			return p.CronSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.VRFJobSpec:
+		if p.VRFSpec != nil {
+			return p.VRFSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.WebhookJobSpec:
+		if p.WebhookSpec != nil {
+			return p.WebhookSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

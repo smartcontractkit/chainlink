@@ -17,3 +17,4 @@ gethload.js
 craco.config.js
 solc_bin/**
 integration/apocalypse/**
+contracts/

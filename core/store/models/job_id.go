@@ -4,10 +4,13 @@ import (
 	"database/sql/driver"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// ONLY USE FOR JPV1 JOBS
 // JobID is a UUID that has a custom display format
 type JobID uuid.UUID
 
@@ -20,13 +23,20 @@ func (id JobID) UUID() uuid.UUID {
 	return uuid.UUID(id)
 }
 
+// Hash converts it to a common.Hash
+func (id JobID) Hash() common.Hash {
+	var hash common.Hash
+	copy(hash[:], id[:])
+	return hash
+}
+
 // NewJobID returns a new JobID
 func NewJobID() JobID {
 	return (JobID)(uuid.NewV4())
 }
 
-// NewIDFromString is a convenience function to return an id from an input string
-func NewIDFromString(input string) (JobID, error) {
+// NewJobIDFromString is a convenience function to return an id from an input string
+func NewJobIDFromString(input string) (JobID, error) {
 	id := new(JobID)
 	return *id, id.UnmarshalString(input)
 }

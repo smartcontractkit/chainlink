@@ -57,7 +57,7 @@ func TestResultCollect_Perform(t *testing.T) {
 			t.Parallel()
 			past := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.ResultCollect{}
-			result := adapter.Perform(past, nil)
+			result := adapter.Perform(past, nil, nil)
 			assert.NoError(t, result.Error())
 			require.Len(t, result.ResultCollection().Array(), len(test.expectedResultCollection))
 			for i, r := range result.ResultCollection().Array() {

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -48,14 +50,13 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
 		FilterLogs:          1,
-		Unsubscribe:         1,
 	}
 
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	store.EthClient = mockEth.ethClient
 
 	dborm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config)
+	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config, nil)
 	store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
@@ -68,13 +69,13 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	}
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client) *broadcasterHelper {
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
 	store, cleanup := cltest.NewStore(t)
 
 	store.EthClient = ethClient
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config, highestSeenHead)
 
 	return &broadcasterHelper{
 		t:             t,
@@ -89,13 +90,8 @@ func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener 
 	return newLogListener(helper.t, helper.store, name)
 }
 func (helper *broadcasterHelper) start() {
-	helper.startWithLatestHeadInDb(nil)
-}
-
-func (helper *broadcasterHelper) startWithLatestHeadInDb(head *models.Head) {
 	err := helper.lb.Start()
 	require.NoError(helper.t, err)
-	helper.lb.SetLatestHeadFromStorage(head)
 }
 
 func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint64) {
@@ -135,7 +131,7 @@ func (helper *broadcasterHelper) unsubscribeAll() {
 	time.Sleep(100 * time.Millisecond)
 }
 func (helper *broadcasterHelper) stop() {
-	err := helper.lb.Stop()
+	err := helper.lb.Close()
 	require.NoError(helper.t, err)
 	helper.storeCleanup()
 }
@@ -184,21 +180,21 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 }
 
 type simpleLogListener struct {
-	handler    func(lb log.Broadcast) bool
 	consumerID models.JobID
 	name       string
 	received   *received
+	t          *testing.T
+	db         *gorm.DB
 }
 
 func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
 	var rec received
 	return &simpleLogListener{
-		handler: func(lb log.Broadcast) bool {
-			return handleLogBroadcast(t, lb)
-		},
+		db:         store.DB,
 		consumerID: createJob(t, store).ID,
 		name:       name,
 		received:   &rec,
+		t:          t,
 	}
 }
 
@@ -208,7 +204,7 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	defer listener.received.Unlock()
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
-	consumed := listener.handler(lb)
+	consumed := listener.handleLogBroadcast(listener.t, lb)
 
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
@@ -248,20 +244,27 @@ func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState
 	received.Unlock()
 }
 
-func handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {
+func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {
 	t.Helper()
-	consumed, err := lb.WasAlreadyConsumed()
+	consumed, err := listener.WasAlreadyConsumed(listener.db, lb)
 	require.NoError(t, err)
 	if !consumed {
 
-		err = lb.MarkConsumed()
+		err = listener.MarkConsumed(listener.db, lb)
 		require.NoError(t, err)
 
-		consumed2, err := lb.WasAlreadyConsumed()
+		consumed2, err := listener.WasAlreadyConsumed(listener.db, lb)
 		require.NoError(t, err)
 		require.True(t, consumed2)
 	}
 	return consumed
+}
+
+func (listener simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.consumerID)
+}
+func (listener simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
+	return log.NewORM(listener.db).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.consumerID)
 }
 
 type mockListener struct {
@@ -269,12 +272,14 @@ type mockListener struct {
 	jobIDV2 int32
 }
 
-func (l *mockListener) JobID() models.JobID     { return l.jobID }
-func (l *mockListener) JobIDV2() int32          { return l.jobIDV2 }
-func (l *mockListener) IsV2Job() bool           { return l.jobID.IsZero() }
-func (l *mockListener) OnConnect()              {}
-func (l *mockListener) OnDisconnect()           {}
-func (l *mockListener) HandleLog(log.Broadcast) {}
+func (l *mockListener) JobID() models.JobID                                     { return l.jobID }
+func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
+func (l *mockListener) IsV2Job() bool                                           { return l.jobID.IsZero() }
+func (l *mockListener) OnConnect()                                              {}
+func (l *mockListener) OnDisconnect()                                           {}
+func (l *mockListener) HandleLog(log.Broadcast)                                 {}
+func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
+func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }
 
 func createJob(t *testing.T, store *store.Store) models.JobSpec {
 	t.Helper()
@@ -310,7 +315,6 @@ type mockEthClientExpectedCalls struct {
 	SubscribeFilterLogs int
 	HeaderByNumber      int
 	FilterLogs          int
-	Unsubscribe         int
 
 	FilterLogsResult []types.Log
 }
