@@ -54,39 +54,41 @@ func TestPipelineORM_Integration(t *testing.T) {
 	var specID int32
 
 	answer1 := &pipeline.MedianTask{
-		BaseTask: pipeline.NewBaseTask("answer1", nil, 0, 0),
+		AllowedFaults: "",
 	}
 	answer2 := &pipeline.BridgeTask{
-		Name:     "election_winner",
-		BaseTask: pipeline.NewBaseTask("answer2", nil, 1, 0),
+		Name: "election_winner",
 	}
 	ds1_multiply := &pipeline.MultiplyTask{
-		Times:    "1.23",
-		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0, 0),
+		Times: "1.23",
 	}
 	ds1_parse := &pipeline.JSONParseTask{
-		Path:     "one,two",
-		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0, 0),
+		Path: "one,two",
 	}
 	ds1 := &pipeline.BridgeTask{
-		Name:     "voter_turnout",
-		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0, 0),
+		Name: "voter_turnout",
 	}
 	ds2_multiply := &pipeline.MultiplyTask{
-		Times:    "4.56",
-		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0, 0),
+		Times: "4.56",
 	}
 	ds2_parse := &pipeline.JSONParseTask{
-		Path:     "three,four",
-		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0, 0),
+		Path: "three,four",
 	}
 	ds2 := &pipeline.HTTPTask{
 		URL:         "https://chain.link/voter_turnout/USA-2020",
 		Method:      "GET",
 		RequestData: `{"hi": "hello"}`,
-		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
-	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
+
+	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1", []pipeline.Task{ds1_multiply, ds2_multiply}, nil, 0)
+	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
+	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply", []pipeline.Task{ds1_parse}, []pipeline.Task{answer1}, 0)
+	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply", []pipeline.Task{ds2_parse}, []pipeline.Task{answer1}, 0)
+	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse", []pipeline.Task{ds1}, []pipeline.Task{ds1_multiply}, 0)
+	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse", []pipeline.Task{ds2}, []pipeline.Task{ds2_multiply}, 0)
+	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
+	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
+	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
@@ -97,11 +99,10 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
 
-		g := pipeline.NewTaskDAG()
-		err := g.UnmarshalText([]byte(DotStr))
+		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(context.Background(), db, *g, models.Interval(0))
+		specID, err = orm.CreateSpec(context.Background(), db, *p, models.Interval(0))
 		require.NoError(t, err)
 
 		var specs []pipeline.Spec
@@ -118,7 +119,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
-		runner := pipeline.NewRunner(orm, config)
+		runner := pipeline.NewRunner(orm, config, nil, nil)
 		defer runner.Close()
 		jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
@@ -137,7 +138,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		pipelineSpecID := pipelineSpecs[0].ID
 
 		// Create the run
-		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run

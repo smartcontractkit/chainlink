@@ -1022,7 +1022,6 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			expectedBridgeRequest := map[string]interface{}{
 				"value": float64(42),
-				"meta":  nil,
 			}
 			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
 
@@ -1050,7 +1049,7 @@ externalInitiatorSpec = """
     %v
 """
 observationSource   = """
-    parse  [type=jsonparse path="result" data="$(input)"]
+    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
     parse -> submit
 """

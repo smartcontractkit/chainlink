@@ -408,7 +408,7 @@ func TestMigrate_ExternalJobID(t *testing.T) {
 		SchemaVersion                 uint32
 		Name                          null.String
 		MaxTaskDuration               models.Interval
-		Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+		Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 	}
 	var ps []pipeline.Spec
 	for i := 0; i < 10; i++ {
