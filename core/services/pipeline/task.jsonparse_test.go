@@ -321,7 +321,7 @@ func TestJSONParseTask(t *testing.T) {
 				Data:     test.data,
 				Lax:      test.lax,
 			}
-			result := task.Run(context.Background(), test.vars, pipeline.JSONSerializable{}, test.inputs)
+			result := task.Run(context.Background(), test.vars, test.inputs)
 
 			if test.wantErrorCause != nil {
 				require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))

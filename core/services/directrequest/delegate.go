@@ -298,7 +298,7 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 			},
 		})
 
-		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, vars, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
+		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, vars, *logger)
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {

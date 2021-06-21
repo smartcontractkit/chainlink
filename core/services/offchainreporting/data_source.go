@@ -49,9 +49,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 		},
 	})
 
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, pipeline.JSONSerializable{
-		Val: md,
-	}, ds.ocrLogger)
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.ocrLogger)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
