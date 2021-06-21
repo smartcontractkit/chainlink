@@ -41,6 +41,14 @@ func (l *Link) String() string {
 	return fmt.Sprintf("%v", (*big.Int)(l))
 }
 
+// Link returns Link formatted as a string, in LINK units
+func (l *Link) Link() string {
+	if l == nil {
+		return "0"
+	}
+	return format((*big.Int)(l), 18)
+}
+
 // SetInt64 delegates to *big.Int.SetInt64
 func (l *Link) SetInt64(w int64) *Link {
 	return (*Link)((*big.Int)(l).SetInt64(w))
