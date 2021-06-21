@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -24,9 +25,10 @@ import (
 
 type Delegate struct {
 	db                 *gorm.DB
+	txm                txManager
 	jobORM             job.ORM
 	config             *orm.Config
-	keyStore           *KeyStore
+	keyStore           *keystore.OCR
 	pipelineRunner     pipeline.Runner
 	ethClient          eth.Client
 	logBroadcaster     log.Broadcaster
@@ -34,18 +36,23 @@ type Delegate struct {
 	monitoringEndpoint ocrtypes.MonitoringEndpoint
 }
 
+var _ job.Delegate = (*Delegate)(nil)
+
 func NewDelegate(
 	db *gorm.DB,
+	txm txManager,
 	jobORM job.ORM,
 	config *orm.Config,
-	keyStore *KeyStore,
+	keyStore *keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
-	return &Delegate{db,
+	return &Delegate{
+		db,
+		txm,
 		jobORM,
 		config,
 		keyStore,
@@ -60,6 +67,9 @@ func NewDelegate(
 func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
+
+func (Delegate) OnJobCreated(spec job.Job) {}
+func (Delegate) OnJobDeleted(spec job.Job) {}
 
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
 	if jobSpec.OffchainreportingOracleSpec == nil {
@@ -96,6 +106,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.logBroadcaster,
 		jobSpec.ID,
 		*logger.Default,
+		d.db,
 		ocrdb,
 	)
 	if err != nil {
@@ -122,6 +133,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
+		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
@@ -185,9 +197,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(gormdb, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()),
+			NewTransmitter(d.txm, d.db, ta.Address(), d.config.EthGasLimitDefault()),
 			d.logBroadcaster,
 			tracker,
+			d.config.ChainID(),
 		)
 
 		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
@@ -219,10 +232,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
 		services = append([]job.Service{NewResultRunSaver(
+			d.db,
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			jobSpec.ID,
+			*loggerWith,
 		)}, services...)
 	}
 

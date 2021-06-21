@@ -4,6 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -17,7 +21,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 		orm            = new(fmmocks.ORM)
 		keyStore       = new(fmmocks.KeyStoreInterface)
 		gasLimit       = uint64(2100)
-		submitter      = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit, 0)
+		submitter      = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit)
 
 		toAddress   = cltest.NewAddress()
 		fromAddress = cltest.NewAddress()
@@ -28,10 +32,10 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	payload, err := fluxmonitorv2.FluxAggregatorABI.Pack("submit", roundID, submission)
 	assert.NoError(t, err)
 
-	keyStore.On("GetRoundRobinAddress").Return(fromAddress, nil)
+	keyStore.On("GetRoundRobinAddress", mock.Anything).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
-	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit, uint64(0)).Return(nil)
+	orm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit).Return(nil)
 
-	err = submitter.Submit(roundID, submission)
+	err = submitter.Submit(&gorm.DB{}, roundID, submission)
 	assert.NoError(t, err)
 }

@@ -4,18 +4,17 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 // ETHKeyResource represents a ETH key JSONAPI resource. It holds the hex
-// representation of the address plus it's ETH & LINK balances
+// representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
 	Address     string       `json:"address"`
 	EthBalance  *assets.Eth  `json:"ethBalance"`
 	LinkBalance *assets.Link `json:"linkBalance"`
 	NextNonce   int64        `json:"nextNonce"`
-	LastUsed    *time.Time   `json:"lastUsed"`
 	IsFunding   bool         `json:"isFunding"`
 	CreatedAt   time.Time    `json:"createdAt"`
 	UpdatedAt   time.Time    `json:"updatedAt"`
@@ -37,14 +36,13 @@ type NewETHKeyOption func(*ETHKeyResource) error
 // NewETHKeyResource constructs a new ETHKeyResource from a Key.
 //
 // Use the functional options to inject the ETH and LINK balances
-func NewETHKeyResource(k models.Key, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
+func NewETHKeyResource(k ethkey.Key, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
 	r := &ETHKeyResource{
 		JAID:        NewJAID(k.Address.Hex()),
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,
 		NextNonce:   k.NextNonce,
-		LastUsed:    k.LastUsed,
 		IsFunding:   k.IsFunding,
 		CreatedAt:   k.CreatedAt,
 		UpdatedAt:   k.UpdatedAt,

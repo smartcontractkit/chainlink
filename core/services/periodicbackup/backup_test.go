@@ -3,6 +3,7 @@ package periodicbackup
 import (
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 
 func TestPeriodicBackup_RunBackup(t *testing.T) {
 	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), orm.DatabaseBackupModeFull)
+	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -28,13 +29,13 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 
 	assert.Greater(t, file.Size(), int64(0))
 	assert.Equal(t, file.Size(), result.size)
-	assert.Contains(t, result.path, "cl_backup_0.9.9")
+	assert.Contains(t, result.path, "backup/cl_backup_0.9.9")
 	assert.NotContains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
 }
 
 func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), orm.DatabaseBackupModeLite)
+	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeLite)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -48,13 +49,13 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 
 	assert.Greater(t, file.Size(), int64(0))
 	assert.Equal(t, file.Size(), result.size)
-	assert.Contains(t, result.path, "cl_backup_0.9.9")
+	assert.Contains(t, result.path, "backup/cl_backup_0.9.9")
 	assert.Contains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
 }
 
 func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), orm.DatabaseBackupModeFull)
+	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -68,13 +69,13 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 
 	assert.Greater(t, file.Size(), int64(0))
 	assert.Equal(t, file.Size(), result.size)
-	assert.Contains(t, result.path, "cl_backup_unset")
+	assert.Contains(t, result.path, "backup/cl_backup_unset")
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 	rawConfig := orm.NewConfig()
 	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
-	backupConfig := newTestConfig(time.Minute, altUrl, rawConfig.DatabaseURL(), os.TempDir(), orm.DatabaseBackupModeFull)
+	backupConfig := newTestConfig(time.Minute, altUrl, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -85,15 +86,36 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
 	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(), orm.DatabaseBackupModeFull)
+	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
+}
+
+func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
+	rawConfig := orm.NewConfig()
+	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(),
+		filepath.Join(os.TempDir(), "alternative"), orm.DatabaseBackupModeFull)
+
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+
+	result, err := periodicBackup.runBackup("0.9.9")
+	require.NoError(t, err, "error not nil for backup")
+
+	defer os.Remove(result.path)
+
+	file, err := os.Stat(result.path)
+	require.NoError(t, err, "error not nil when checking for output file")
+
+	assert.Greater(t, file.Size(), int64(0))
+	assert.Contains(t, result.path, "/alternative/cl_backup_0.9.9.dump")
+
 }
 
 type testConfig struct {
 	databaseBackupFrequency time.Duration
 	databaseBackupMode      orm.DatabaseBackupMode
 	databaseBackupURL       *url.URL
+	databaseBackupDir       string
 	databaseURL             url.URL
 	rootDir                 string
 }
@@ -107,6 +129,9 @@ func (config testConfig) DatabaseBackupMode() orm.DatabaseBackupMode {
 func (config testConfig) DatabaseBackupURL() *url.URL {
 	return config.databaseBackupURL
 }
+func (config testConfig) DatabaseBackupDir() string {
+	return config.databaseBackupDir
+}
 func (config testConfig) DatabaseURL() url.URL {
 	return config.databaseURL
 }
@@ -114,12 +139,13 @@ func (config testConfig) RootDir() string {
 	return config.rootDir
 }
 
-func newTestConfig(frequency time.Duration, databaseBackupURL *url.URL, databaseURL url.URL, outputParentDir string, mode orm.DatabaseBackupMode) testConfig {
+func newTestConfig(frequency time.Duration, databaseBackupURL *url.URL, databaseURL url.URL, rootDir string, databaseBackupDir string, mode orm.DatabaseBackupMode) testConfig {
 	return testConfig{
 		databaseBackupFrequency: frequency,
 		databaseBackupMode:      mode,
 		databaseBackupURL:       databaseBackupURL,
 		databaseURL:             databaseURL,
-		rootDir:                 outputParentDir,
+		rootDir:                 rootDir,
+		databaseBackupDir:       databaseBackupDir,
 	}
 }

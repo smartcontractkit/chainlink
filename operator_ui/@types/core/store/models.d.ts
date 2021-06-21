@@ -474,6 +474,7 @@ declare module 'core/store/models' {
       dotDagSource: string
     }
     schemaVersion: number
+    externalJobID: string
   }
 
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
@@ -481,13 +482,15 @@ declare module 'core/store/models' {
     directRequestSpec: {
       initiator: 'runlog'
       contractAddress: common.Address
+      minIncomingConfirmations: number | null
       createdAt: time.Time
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
     keeperSpec: null
     cronSpec: null
-    webSpec: null
+    webhookSpec: null
+    vrfSpec: null
   }
 
   export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
@@ -505,10 +508,11 @@ declare module 'core/store/models' {
       createdAt: time.Time
     }
     cronSpec: null
-    webSpec: null
+    webhookSpec: null
     directRequestSpec: null
     offChainReportingOracleSpec: null
     keeperSpec: null
+    vrfSpec: null
   }
 
   export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
@@ -530,7 +534,8 @@ declare module 'core/store/models' {
       updatedAt: time.Time
     }
     cronSpec: null
-    webSpec: null
+    webhookSpec: null
+    vrfSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     keeperSpec: null
@@ -545,7 +550,8 @@ declare module 'core/store/models' {
       updatedAt: time.Time
     }
     cronSpec: null
-    webSpec: null
+    webhookSpec: null
+    vrfSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -559,22 +565,41 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
     }
-    webSpec: null
+    webhookSpec: null
+    directRequestSpec: null
+    vrfSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type WebhookV2Spec = BaseJobSpecV2 & {
+    type: 'webhook'
+    keeperSpec: null
+    webhookSpec: {
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    cronSpec: null
+    vrfSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
   }
 
-  export type WebV2Spec = BaseJobSpecV2 & {
-    type: 'web'
+  export type VRFV2Spec = BaseJobSpecV2 & {
+    type: 'vrf'
     keeperSpec: null
-    webSpec: {
+    vrfSpec: {
+      confirmations: number
+      publicKey: string
+      coordinatorAddress: common.Address,
       createdAt: time.Time
       updatedAt: time.Time
     }
     cronSpec: null
     directRequestSpec: null
     fluxMonitorSpec: null
+    webhookSpec: null
     offChainReportingOracleSpec: null
   }
 
@@ -584,7 +609,8 @@ declare module 'core/store/models' {
     | OffChainReportingOracleJobV2Spec
     | KeeperV2Spec
     | CronV2Spec
-    | WebV2Spec
+    | WebhookV2Spec
+    | VRFV2Spec
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]

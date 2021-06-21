@@ -3,6 +3,8 @@ package fluxmonitorv2
 import (
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -12,7 +14,8 @@ import (
 
 func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error) {
 	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		Pipeline:      *pipeline.NewTaskDAG(),
 	}
 	var spec job.FluxMonitorSpec
 	tree, err := toml.Load(ts)
@@ -56,8 +59,8 @@ func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error
 		}
 	}
 
-	if !validatePollTimer(spec.PollTimerDisabled, minTimeout, spec.PollTimerPeriod) {
-		return jb, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, spec.PollTimerPeriod)
+	if !validatePollTimer(jb.FluxMonitorSpec.PollTimerDisabled, minTimeout, jb.FluxMonitorSpec.PollTimerPeriod) {
+		return jb, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, jb.FluxMonitorSpec.PollTimerPeriod)
 	}
 
 	return jb, nil

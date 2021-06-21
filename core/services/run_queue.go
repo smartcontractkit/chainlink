@@ -6,6 +6,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -26,8 +27,8 @@ var (
 
 // RunQueue safely handles coordinating job runs.
 type RunQueue interface {
-	Start() error
-	Stop()
+	service.Service
+
 	Run(uuid.UUID)
 
 	WorkerCount() int
@@ -55,12 +56,21 @@ func (rq *runQueue) Start() error {
 	return nil
 }
 
-// Stop closes all open worker channels.
-func (rq *runQueue) Stop() {
+// Close closes all open worker channels.
+func (rq *runQueue) Close() error {
 	rq.workersMutex.Lock()
 	rq.stopRequested = true
 	rq.workersMutex.Unlock()
 	rq.workersWg.Wait()
+	return nil
+}
+
+func (rq *runQueue) Ready() error {
+	return nil
+}
+
+func (rq *runQueue) Healthy() error {
+	return nil
 }
 
 func (rq *runQueue) incrementQueue(runID string) bool {
@@ -129,8 +139,10 @@ func (rq *runQueue) WorkerCount() int {
 // NullRunQueue implements Null pattern for RunQueue interface
 type NullRunQueue struct{}
 
-func (NullRunQueue) Start() error { return nil }
-func (NullRunQueue) Stop()        {}
+func (NullRunQueue) Start() error   { return nil }
+func (NullRunQueue) Close() error   { return nil }
+func (NullRunQueue) Ready() error   { return nil }
+func (NullRunQueue) Healthy() error { return nil }
 func (NullRunQueue) Run(uuid.UUID) {
 	panic("NullRunQueue#Run should never be called")
 }

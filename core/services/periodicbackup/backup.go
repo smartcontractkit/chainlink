@@ -11,8 +11,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -40,8 +42,7 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		Start() error
-		Close() error
+		service.Service
 		RunBackupGracefully(version string)
 	}
 
@@ -52,12 +53,14 @@ type (
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
+		utils.StartStopOnce
 	}
 
 	Config interface {
 		DatabaseBackupMode() orm.DatabaseBackupMode
 		DatabaseBackupFrequency() time.Duration
 		DatabaseBackupURL() *url.URL
+		DatabaseBackupDir() string
 		DatabaseURL() url.URL
 		RootDir() string
 	}
@@ -69,42 +72,56 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 	if dbBackupUrl != nil {
 		dbUrl = *dbBackupUrl
 	}
+
+	outputParentDir := filepath.Join(config.RootDir(), "backup")
+	if config.DatabaseBackupDir() != "" {
+		dir, err := filepath.Abs(config.DatabaseBackupDir())
+		if err != nil {
+			logger.Errorf("Invalid path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+		}
+		outputParentDir = dir
+	}
+
 	return &databaseBackup{
 		logger,
 		dbUrl,
 		config.DatabaseBackupMode(),
 		config.DatabaseBackupFrequency(),
-		config.RootDir(),
+		outputParentDir,
 		make(chan bool),
+		utils.StartStopOnce{},
 	}
 }
 
-func (backup databaseBackup) Start() error {
-
-	if backup.frequencyIsTooSmall() {
-		return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
-	}
-
-	ticker := time.NewTicker(backup.frequency)
-
-	go func() {
-		for {
-			select {
-			case <-backup.done:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				backup.RunBackupGracefully(static.Version)
-			}
+func (backup *databaseBackup) Start() error {
+	return backup.StartOnce("DatabaseBackup", func() (err error) {
+		if backup.frequencyIsTooSmall() {
+			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
 		}
-	}()
 
-	return nil
+		ticker := time.NewTicker(backup.frequency)
+
+		go func() {
+			for {
+				select {
+				case <-backup.done:
+					ticker.Stop()
+					return
+				case <-ticker.C:
+					backup.RunBackupGracefully(static.Version)
+				}
+			}
+		}()
+
+		return nil
+	})
 }
 
-func (backup databaseBackup) Close() error {
-	backup.done <- true
-	return nil
+func (backup *databaseBackup) Close() error {
+	return backup.StopOnce("DatabaseBackup", func() (err error) {
+		backup.done <- true
+		return nil
+	})
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
@@ -125,9 +142,13 @@ func (backup *databaseBackup) RunBackupGracefully(version string) {
 
 func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
+	err := os.MkdirAll(backup.outputParentDir, os.ModePerm)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("DatabaseBackup: Failed to create directories on the path: %s", backup.outputParentDir))
+	}
 	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "cl_backup_tmp_")
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to create a tmp file")
+		return nil, errors.Wrap(err, "DatabaseBackup: Failed to create a tmp file")
 	}
 	err = os.Remove(tmpFile.Name())
 	if err != nil {

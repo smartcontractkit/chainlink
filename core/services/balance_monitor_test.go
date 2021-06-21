@@ -25,16 +25,17 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
 		store.EthClient = ethClient
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		bm := services.NewBalanceMonitor(store, ethKeyStore)
+		defer bm.Close()
 
 		k0bal := big.NewInt(42)
 		k1bal := big.NewInt(43)
@@ -60,15 +61,16 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("handles nil head", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
 		store.EthClient = ethClient
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		bm := services.NewBalanceMonitor(store, ethKeyStore)
+		defer bm.Close()
 		k0bal := big.NewInt(42)
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
@@ -84,15 +86,16 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("recovers on error", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
 		store.EthClient = ethClient
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		bm := services.NewBalanceMonitor(store, ethKeyStore)
+		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
 			Once().
@@ -111,16 +114,17 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		ethClient := new(mocks.Client)
 		defer ethClient.AssertExpectations(t)
 		store.EthClient = ethClient
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
-		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(store)
-		defer bm.Stop()
+		bm := services.NewBalanceMonitor(store, ethKeyStore)
+		defer bm.Close()
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -164,14 +168,15 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	cltest.MustAddRandomKeyToKeystore(t, store)
+	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	ethClient := new(mocks.Client)
 	ethClient.AssertExpectations(t)
 	store.EthClient = ethClient
 
-	bm := services.NewBalanceMonitor(store)
+	bm := services.NewBalanceMonitor(store, ethKeyStore)
 
 	head := cltest.Head(0)
 
@@ -200,7 +205,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 		mockUnblocker <- time.Time{}
 	})
 
-	bm.Stop()
+	bm.Close()
 
 	// Make sure the BalanceAt mock wasn't called more than once
 	assert.LessOrEqual(t, atomic.LoadInt32(&callCount), int32(1))

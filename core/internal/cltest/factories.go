@@ -20,8 +20,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -29,14 +32,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"gorm.io/gorm"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
+	geth_keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -210,9 +215,9 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
-func NewEIP55Address() models.EIP55Address {
+func NewEIP55Address() ethkey.EIP55Address {
 	a := NewAddress()
-	e, err := models.NewEIP55Address(a.Hex())
+	e, err := ethkey.NewEIP55Address(a.Hex())
 	if err != nil {
 		panic(err)
 	}
@@ -276,6 +281,13 @@ func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	j, err := models.ParseJSON(body)
 	require.NoError(t, err)
 	return j
+}
+
+func MustJSONMarshal(t *testing.T, val interface{}) string {
+	t.Helper()
+	bs, err := json.Marshal(val)
+	require.NoError(t, err)
+	return string(bs)
 }
 
 // MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
@@ -463,7 +475,7 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 	return *models.NewRunInputWithResult(jr, taskRunID, value, models.RunStatusUnstarted)
 }
 
-func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
+func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store, eks *keystore.Eth) *fluxmonitor.PollingDeviationChecker {
 	fluxAggregator := new(mocks.FluxAggregator)
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
@@ -476,7 +488,7 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 		},
 	}
 	lb := new(logmocks.Broadcaster)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, eks, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	return checker
 }
@@ -652,30 +664,28 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress co
 	return etx
 }
 
-func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...interface{}) (models.Key, common.Address) {
+func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore *keystore.Eth, opts ...interface{}) (ethkey.Key, common.Address) {
 	t.Helper()
 
 	k := MustGenerateRandomKey(t, opts...)
-	err := store.KeyStore.Unlock(Password)
-	require.NoError(t, err)
-	MustAddKeyToKeystore(t, &k, store)
+	MustAddKeyToKeystore(t, &k, ethKeyStore)
+
 	return k, k.Address.Address()
 }
 
-func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
+func MustAddKeyToKeystore(t testing.TB, key *ethkey.Key, ethKeyStore *keystore.Eth) {
 	t.Helper()
 
-	err := store.KeyStore.Unlock(Password)
+	err := ethKeyStore.Unlock(Password)
 	require.NoError(t, err)
-	_, err = store.KeyStore.Import(key.JSON.Bytes(), Password)
+	err = ethKeyStore.AddKey(key)
 	require.NoError(t, err)
-	require.NoError(t, store.DB.Create(key).Error)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
 // secure) key for testing
 // If using this with the keystore, it should be called before the keystore loads keys from the database
-func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.Key {
+func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) ethkey.Key {
 	t.Helper()
 
 	key := MustGenerateRandomKey(t, opts...)
@@ -684,22 +694,20 @@ func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.
 	return key
 }
 
-func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
+func MustGenerateRandomKey(t testing.TB, opts ...interface{}) ethkey.Key {
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
 	//  < Geth 1.10 id type []byte
 	//  >= Geth 1.10 id type [16]byte
 	id := googleuuid.New()
-	k := &keystore.Key{
+	k := &geth_keystore.Key{
 		Id:         id,
 		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
 		PrivateKey: privateKeyECDSA,
 	}
-	keyjsonbytes, err := keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
+	keyjsonbytes, err := geth_keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
 	require.NoError(t, err)
-	keyjson, err := models.ParseJSON(keyjsonbytes)
-	require.NoError(t, err)
-	eip, err := models.EIP55AddressFromAddress(k.Address)
+	eip := ethkey.EIP55AddressFromAddress(k.Address)
 	require.NoError(t, err)
 
 	var nextNonce int64
@@ -717,9 +725,9 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 		}
 	}
 
-	key := models.Key{
+	key := ethkey.Key{
 		Address:   eip,
-		JSON:      keyjson,
+		JSON:      gormpostgrestypes.Jsonb{RawMessage: keyjsonbytes},
 		NextNonce: nextNonce,
 		IsFunding: funding,
 	}
@@ -736,7 +744,7 @@ func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head
 func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
-	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
+	addr, err := ethkey.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	pipelineSpec := pipeline.Spec{}
@@ -747,6 +755,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	jb := job.Job{
 		OffchainreportingOracleSpec:   &oracleSpec,
 		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		ExternalJobID:                 uuid.NewV4(),
 		Type:                          job.OffchainReporting,
 		SchemaVersion:                 1,
 		PipelineSpec:                  &pipelineSpec,
@@ -758,10 +767,10 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
-	pid := models.PeerID(DefaultP2PPeerID)
+	pid := p2pkey.PeerID(DefaultP2PPeerID)
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
 		P2PPeerID:                              &pid,
@@ -782,11 +791,10 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
 	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID := uuid.NewV4()
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
+		ExternalJobID:     uuid.NewV4(),
 		DirectRequestSpec: drs,
 		Pipeline:          *pipeline.NewTaskDAG(),
 		PipelineSpec:      &pipeline.Spec{},
@@ -800,7 +808,7 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
-func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
 	pipelineSpec := pipeline.Spec{}
 	err := store.DB.Create(&pipelineSpec).Error
@@ -814,6 +822,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	specDB := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
+		ExternalJobID:  uuid.NewV4(),
 		Type:           job.Keeper,
 		SchemaVersion:  1,
 		PipelineSpec:   &pipelineSpec,
@@ -824,8 +833,8 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	return specDB
 }
 
-func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) (keeper.Registry, job.Job) {
-	key, _ := MustAddRandomKeyToKeystore(t, store)
+func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *keystore.Eth) (keeper.Registry, job.Job) {
+	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
@@ -846,11 +855,11 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) (keeper.Registr
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
 	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(store.DB).LowestUnsyncedID(ctx, registry)
+	upkeepID, err := keeper.NewORM(store.DB, nil).LowestUnsyncedID(ctx, registry)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
-		ExecuteGas: int32(10_000),
+		ExecuteGas: uint64(10_000),
 		Registry:   registry,
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),

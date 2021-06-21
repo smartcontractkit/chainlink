@@ -60,9 +60,9 @@ type ConfigReader interface {
 	GasUpdaterBlockDelay() uint16
 	GasUpdaterBlockHistorySize() uint16
 	GasUpdaterTransactionPercentile() uint16
+	InsecureSkipVerify() bool
 	JSONConsole() bool
 	KeyFile() string
-	KeysDir() string
 	LinkContractAddress() string
 	LogLevel() LogLevel
 	LogSQLStatements() bool

@@ -8,14 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -28,8 +29,9 @@ import (
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-	_, err := store.KeyStore.NewAccount()
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	require.NoError(t, keyStore.Eth().Unlock(cltest.Password))
+	_, err := keyStore.Eth().CreateNewKey()
 	require.NoError(t, err)
 
 	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
@@ -43,10 +45,11 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
 
-	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 store.Config,
@@ -117,15 +120,14 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			keyStore := cltest.NewKeyStore(t, store.DB)
 			// Clear out fixture
 			err := store.DeleteUser()
-			require.NoError(t, err)
-			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-			_, err = store.KeyStore.NewAccount()
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
+			app.On("GetKeyStore").Return(keyStore)
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
@@ -134,12 +136,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 			store.EthClient = ethClient
 
-			_, err = store.KeyStore.NewAccount()
-			require.NoError(t, err)
+			cltest.MustInsertRandomKey(t, store.DB)
 
 			var unlocked bool
-			callback := func(store *strpkg.Store, phrase string) (string, error) {
-				err := store.KeyStore.Unlock(phrase)
+			callback := func(store *keystore.Eth, phrase string) (string, error) {
+				err := keyStore.Eth().Unlock(phrase)
 				unlocked = err == nil
 				return phrase, err
 			}
@@ -177,12 +178,14 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	// Clear out fixture
 	defer cleanup()
-	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-	_, err := store.KeyStore.NewAccount()
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	require.NoError(t, keyStore.Eth().Unlock(cltest.Password))
+	_, err := keyStore.Eth().CreateNewKey()
 	require.NoError(t, err)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 
@@ -190,11 +193,11 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	store.EthClient = ethClient
 
-	_, err = store.KeyStore.NewAccount()
+	_, err = keyStore.Eth().CreateNewKey()
 	require.NoError(t, err)
 
-	callback := func(store *strpkg.Store, phrase string) (string, error) {
-		unlockErr := store.KeyStore.Unlock(phrase)
+	callback := func(store *keystore.Eth, phrase string) (string, error) {
+		unlockErr := keyStore.Eth().Unlock(phrase)
 		return phrase, unlockErr
 	}
 	auth := cltest.CallbackAuthenticator{Callback: callback}
@@ -207,7 +210,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 		Runner:                 cltest.EmptyRunner{},
 	}
 
-	var fundingKey = models.Key{}
+	var fundingKey = ethkey.Key{}
 	_ = store.DB.Where("is_funding = TRUE").First(&fundingKey).Error
 	assert.Empty(t, fundingKey.ID, "expected no funding key")
 
@@ -243,12 +246,14 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// Clear out fixture
 			store.DeleteUser()
 			defer cleanup()
-			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-			_, err := store.KeyStore.NewAccount()
+			keyStore := cltest.NewKeyStore(t, store.DB)
+			require.NoError(t, keyStore.Eth().Unlock(cltest.Password))
+			_, err := keyStore.Eth().CreateNewKey()
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
+			app.On("GetKeyStore").Return(keyStore)
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
@@ -257,7 +262,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 			store.EthClient = ethClient
 
-			callback := func(*strpkg.Store, string) (string, error) { return "", nil }
+			callback := func(*keystore.Eth, string) (string, error) { return "", nil }
 			noauth := cltest.CallbackAuthenticator{Callback: callback}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
@@ -287,28 +292,23 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 func TestClient_ImportKey(t *testing.T) {
 	t.Parallel()
 
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	kst := cltest.NewKeyStore(t, store.DB).Eth()
+
 	ethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplication(t, ethClient, kst)
 	defer cleanup()
 
 	client, _ := app.NewClientAndRenderer()
 
+	path := "../internal/fixtures/keys/7fc66c61f88A61DFB670627cA715Fe808057123e.json"
+
 	set := flag.NewFlagSet("import", 0)
-	set.Parse([]string{"../internal/fixtures/keys/7fc66c61f88A61DFB670627cA715Fe808057123e.json"})
+	set.Parse([]string{path})
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ImportKey(c))
-
-	// importing again simply upserts
-	require.NoError(t, client.ImportKey(c))
-
-	keys, err := app.GetStore().SendKeys()
-	require.NoError(t, err)
-
-	require.Len(t, keys, 1)
-	require.Equal(t, "0x7fc66c61f88A61DFB670627cA715Fe808057123e", keys[0].Address.String())
 }
 
 func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
@@ -326,7 +326,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			defer configCleanup()
 			config.Set("CHAINLINK_DEV", true)
 			config.Set("LOG_TO_DISK", tt.logToDiskValue)
-			require.NoError(t, os.MkdirAll(config.KeysDir(), os.FileMode(0700)))
+			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
 			previousLogger := logger.Default
@@ -343,12 +343,13 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
+	config, _, cleanup := heavyweight.FullTestORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
 	defer connectedCleanup()
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
+	keyStore := cltest.NewKeyStore(t, connectedStore.DB)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth(), 0)
 
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
@@ -372,17 +373,18 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
-	store.KeyStore.Unlock(cltest.Password)
+	keyStore.Eth().Unlock(cltest.Password)
 	require.NoError(t, connectedStore.Start())
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	ethClient := new(mocks.Client)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	store.EthClient = ethClient
 
-	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+	auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 	client := cmd.Client{
 		Config:                 config.Config,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -429,13 +431,14 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions_outsiderange", true, true)
+			config, _, cleanup := heavyweight.FullTestORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			defer cleanup()
 			config.Config.Dialect = dialects.Postgres
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
 			defer connectedCleanup()
+			keyStore := cltest.NewKeyStore(t, connectedStore.DB)
 
-			_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
+			_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth(), 0)
 
 			set := flag.NewFlagSet("test", 0)
 			set.Bool("debug", true, "")
@@ -455,17 +458,18 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			config.Config.Dialect = dialects.PostgresWithoutLock
 			store, cleanup := cltest.NewStoreWithConfig(t, config)
 			defer cleanup()
-			store.KeyStore.Unlock(cltest.Password)
+			keyStore.Eth().Unlock(cltest.Password)
 			require.NoError(t, connectedStore.Start())
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
+			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
 			ethClient := new(mocks.Client)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			store.EthClient = ethClient
 
-			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+			auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 			client := cmd.Client{
 				Config:                 config.Config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -498,11 +502,12 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
+	config, _, cleanup := heavyweight.FullTestORM(t, "setnextnonce", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.Postgres
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	client := cmd.Client{
 		Config: config.Config,
@@ -512,13 +517,13 @@ func TestClient_SetNextNonce(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("debug", true, "")
 	set.Uint("nextNonce", 42, "")
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 	set.String("address", fromAddress.Hex(), "")
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.SetNextNonce(c))
 
-	var key models.Key
+	var key ethkey.Key
 	require.NoError(t, store.DB.First(&key).Error)
 	require.NotNil(t, key.NextNonce)
 	require.Equal(t, int64(42), key.NextNonce)

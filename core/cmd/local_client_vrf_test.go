@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -79,9 +81,11 @@ func TestLocalClientVRF_ListVRFKeys(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 
 	r := &cltest.RendererMock{}
 	client := cmd.Client{
@@ -110,9 +114,11 @@ func TestLocalClientVRF_CreateVRFKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 
 	client := cmd.Client{
 		Config:     store.Config,
@@ -128,11 +134,11 @@ func TestLocalClientVRF_CreateVRFKey(t *testing.T) {
 	set.String("password", vrfPasswordFilePath, "")
 	c = cli.NewContext(nil, set, nil)
 
-	requireVRFKeysCount(t, store, 0)
+	requireVRFKeysCount(t, keyStore.VRF(), 0)
 
 	require.NoError(t, client.CreateVRFKey(c))
 
-	requireVRFKeysCount(t, store, 1)
+	requireVRFKeysCount(t, keyStore.VRF(), 1)
 }
 
 func TestLocalClientVRF_ImportVRFKey(t *testing.T) {
@@ -140,9 +146,11 @@ func TestLocalClientVRF_ImportVRFKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 
 	client := cmd.Client{
 		Config:     store.Config,
@@ -178,7 +186,7 @@ func TestLocalClientVRF_ImportVRFKey(t *testing.T) {
 	app.GetStore().DB.Find(&keys)
 	assert.Len(t, keys, 1)
 
-	pubKey, err := vrfkey.NewPublicKeyFromHex(vrfPublicKey)
+	pubKey, err := secp256k1.NewPublicKeyFromHex(vrfPublicKey)
 	require.NoError(t, err)
 	assert.Equal(t, pubKey, keys[0].PublicKey)
 
@@ -194,9 +202,11 @@ func TestLocalClientVRF_ExportVRFKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 
 	client := cmd.Client{
 		Config:     store.Config,
@@ -251,9 +261,11 @@ func TestLocalClientVRF_DeleteVRFKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
+	app.On("GetKeyStore").Return(keyStore)
 
 	client := cmd.Client{
 		Config:     store.Config,
@@ -285,8 +297,8 @@ func TestLocalClientVRF_DeleteVRFKey(t *testing.T) {
 	assert.Len(t, keys, 0)
 }
 
-func requireVRFKeysCount(t *testing.T, store *store.Store, length int) []*vrfkey.PublicKey {
-	keys, err := store.VRFKeyStore.ListKeys()
+func requireVRFKeysCount(t *testing.T, ks *keystore.VRF, length int) []*secp256k1.PublicKey {
+	keys, err := ks.ListKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, length)
 	return keys

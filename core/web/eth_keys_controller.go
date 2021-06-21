@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// KeysController manages account keys
+// ETHKeysController manages account keys
 type ETHKeysController struct {
 	App chainlink.Application
 }
@@ -25,19 +25,23 @@ type ETHKeysController struct {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
-	store := ekc.App.GetStore()
-	keys, err := store.AllKeys()
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
+	keys, err := ethKeyStore.AllKeys()
 	if err != nil {
-		err = errors.Errorf("error fetching ETH keys from database: %v", err)
+		err = errors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	var resources []presenters.ETHKeyResource
 	for _, key := range keys {
-		k, err := store.ORM.KeyByAddress(key.Address.Address())
+		if !ekc.App.GetStore().Config.Dev() && key.IsFunding {
+			continue
+		}
+
+		k, err := ethKeyStore.KeyByAddress(key.Address.Address())
 		if err != nil {
-			err = errors.Errorf("error fetching ETH key from DB: %v", err)
+			err = errors.Errorf("error getting key: %v", err)
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -61,17 +65,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Create(c *gin.Context) {
-	account, err := ekc.App.GetStore().KeyStore.NewAccount()
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-	if err = ekc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	key, err := ekc.App.GetStore().KeyByAddress(account.Address)
+	key, err := ekc.App.GetKeyStore().Eth().CreateNewKey()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -109,25 +103,8 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 	address := common.HexToAddress(c.Param("keyID"))
-	if exists, err2 := ekc.App.GetStore().KeyExists(address); err2 != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err2)
-		return
-	} else if !exists {
-		jsonAPIError(c, http.StatusNotFound, errors.New("Key does not exist"))
-		return
-	}
 
-	key, err := ekc.App.GetStore().KeyByAddress(address)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	if hardDelete {
-		err = ekc.App.GetStore().DeleteKey(address)
-	} else {
-		err = ekc.App.GetStore().ArchiveKey(address)
-	}
+	key, err := ekc.App.GetKeyStore().Eth().RemoveKey(address, hardDelete)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -145,10 +122,9 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	jsonAPIResponse(c, r, "account")
 }
 
+// Import imports a key
 func (ekc *ETHKeysController) Import(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
-
-	store := ekc.App.GetStore()
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -157,21 +133,8 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	}
 	oldPassword := c.Query("oldpassword")
 
-	acct, err := store.KeyStore.Import(bytes, oldPassword)
+	key, err := ekc.App.GetKeyStore().Eth().ImportKey(bytes, oldPassword)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	err = store.SyncDiskKeyStoreToDB()
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	key, err := store.ORM.KeyByAddress(acct.Address)
-	if err != nil {
-		err = errors.Errorf("error fetching ETH key from DB: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -195,7 +158,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 	address := common.HexToAddress(addressStr)
 	newPassword := c.Query("newpassword")
 
-	bytes, err := ekc.App.GetStore().KeyStore.Export(address, newPassword)
+	bytes, err := ekc.App.GetKeyStore().Eth().ExportKey(address, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

@@ -29,6 +29,7 @@ import (
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -51,7 +52,7 @@ var emptyList = []common.Address{}
 // fluxAggregatorUniverse represents the universe with which the aggregator
 // contract interacts
 type fluxAggregatorUniverse struct {
-	key                       models.Key
+	key                       ethkey.Key
 	aggregatorContract        *faw.FluxAggregator
 	aggregatorContractAddress common.Address
 	linkContract              *link_token_interface.LinkToken
@@ -101,7 +102,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	}
 
 	key := cltest.MustGenerateRandomKey(t)
-	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
@@ -383,11 +384,11 @@ func assertNoSubmission(t *testing.T,
 func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
-	db.Where("round_id = ?", roundID).Find(&stats)
+	require.NoError(t, db.Where("round_id = ?", roundID).Find(&stats).Error)
 
 	// Verify the pipeline run data
 	run := pipeline.Run{}
-	db.Find(&run, stats.PipelineRunID)
+	require.NoError(t, db.Find(&run, stats.PipelineRunID).Error, "runID %v", stats.PipelineRunID)
 	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
 }
 
@@ -709,11 +710,10 @@ ds1 -> ds1_parse
 	reportPrice = int64(2) // change in price should trigger run
 	awaitSubmission(t, submissionReceived)
 
-	// lower contract's flag - should have no effect (but currently does)
-	// TODO - https://www.pivotaltracker.com/story/show/175419789
+	// lower contract's flag - should have no effect
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{fa.aggregatorContractAddress})
 	fa.backend.Commit()
-	awaitSubmission(t, submissionReceived)
+	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run because FM is already hibernating")
 
 	// change in price should trigger run
 	reportPrice = int64(4)
@@ -734,7 +734,7 @@ ds1 -> ds1_parse
 
 	// change in price should not trigger run
 	reportPrice = int64(8)
-	assertNoSubmission(t, submissionReceived, 5*time.Second, "should not trigger a new run, while flag is raised")
+	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run, while flag is raised")
 }
 
 func TestFluxMonitor_InvalidSubmission(t *testing.T) {

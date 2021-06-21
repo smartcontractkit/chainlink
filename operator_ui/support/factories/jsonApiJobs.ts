@@ -7,7 +7,8 @@ import {
   fluxMonitorJobV2,
   keeperJobV2,
   ocrJobSpecV2,
-  webJobV2,
+  webhookJobV2,
+  vrfJobV2,
 } from './jobSpecV2'
 
 function getRandomInt(max: number) {
@@ -95,13 +96,25 @@ export const cronJobResource = (
 }
 
 export const webJobResource = (
-  job: Partial<JobSpecV2['webSpec'] & { id?: string; name?: string }>,
+  job: Partial<JobSpecV2['webhookSpec'] & { id?: string; name?: string }>,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
   return {
     type: 'jobs',
     id,
-    attributes: webJobV2(job, { name: job.name }),
+    attributes: webhookJobV2(job, { name: job.name }),
+  } as ResourceObject<JobSpecV2>
+}
+
+export const vrfJobResource = (
+  job: Partial<JobSpecV2['vrfSpec'] & { id?: string; name?: string }>,
+) => {
+  const id = job.id || getRandomInt(1_000_000).toString()
+
+  return {
+    type: 'jobs',
+    id,
+    attributes: vrfJobV2(job, { name: job.name }),
   } as ResourceObject<JobSpecV2>
 }

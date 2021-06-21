@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -22,7 +23,7 @@ import (
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
 // application logic errors.
-func ValidateJob(j models.JobSpec, store *store.Store) error {
+func ValidateJob(j models.JobSpec, store *store.Store, keyStore *keystore.Master) error {
 	fe := models.NewJSONAPIErrors()
 	if j.StartAt.Valid && j.EndAt.Valid && j.StartAt.Time.After(j.EndAt.Time) {
 		fe.Add("StartAt cannot be before EndAt")
@@ -36,7 +37,7 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 		}
 	}
 	for _, task := range j.Tasks {
-		if err := validateTask(task, store); err != nil {
+		if err := validateTask(task, store, keyStore); err != nil {
 			fe.Merge(err)
 		}
 	}
@@ -299,7 +300,7 @@ func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error 
 	return fe.CoerceEmptyToNil()
 }
 
-func validateTask(task models.TaskSpec, store *store.Store) error {
+func validateTask(task models.TaskSpec, store *store.Store, keyStore *keystore.Master) error {
 	adapter, err := adapters.For(task, store.Config, store.ORM)
 	if err != nil {
 		return err
@@ -311,20 +312,20 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 	}
 	switch adapter.TaskType() {
 	case adapters.TaskTypeEthTx:
-		return validateTaskTypeEthTx(task, store)
+		return validateTaskTypeEthTx(task, store, keyStore)
 	case adapters.TaskTypeRandom:
 		return validateTaskTypeRandom(task)
 	}
 	return nil
 }
 
-func validateTaskTypeEthTx(task models.TaskSpec, store *store.Store) error {
+func validateTaskTypeEthTx(task models.TaskSpec, store *store.Store, keyStore *keystore.Master) error {
 	if task.Params.Get("fromAddress").Exists() {
 		fromAddress := task.Params.Get("fromAddress").String()
 		if !common.IsHexAddress(fromAddress) {
 			return errors.Errorf("cannot set EthTx Task's fromAddress parameter invalid address %v", fromAddress)
 		}
-		key, err := store.KeyByAddress(common.HexToAddress(fromAddress))
+		key, err := keyStore.Eth().KeyByAddress(common.HexToAddress(fromAddress))
 		if err != nil {
 			return errors.Errorf("error %v finding key for address %s", err, fromAddress)
 		}
@@ -346,7 +347,7 @@ func validateTaskTypeRandom(task models.TaskSpec) error {
 }
 
 // ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.
-func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) error {
+func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store, keyStore *keystore.Master) error {
 	fe := models.NewJSONAPIErrors()
 	config := store.Config
 
@@ -362,7 +363,11 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	found := false
 	for _, oracle := range sa.Encumbrance.Oracles {
-		if store.KeyStore.HasAccountWithAddress(oracle.Address()) {
+		has, err := keyStore.Eth().HasSendingKeyWithAddress(oracle.Address())
+		if err != nil {
+			return err
+		}
+		if has {
 			found = true
 		}
 	}
@@ -370,7 +375,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 		fe.Add("Service agreement encumbrance error: This node must be listed in the participating oracles")
 	}
 
-	if err := ValidateJob(sa.JobSpec, store); err != nil {
+	if err := ValidateJob(sa.JobSpec, store, keyStore); err != nil {
 		fe.Add(fmt.Sprintf("Service agreement job spec error: Job spec validation: %v", err))
 	}
 

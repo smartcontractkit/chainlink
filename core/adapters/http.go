@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -34,7 +35,7 @@ func (hga *HTTPGet) TaskType() models.TaskType {
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
-func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store, _ *keystore.Master) models.RunOutput {
 	request, err := hga.GetRequest()
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -82,7 +83,7 @@ func (hpa *HTTPPost) TaskType() models.TaskType {
 
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
-func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store, _ *keystore.Master) models.RunOutput {
 	request, err := hpa.GetRequest(input.Data().String())
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -121,7 +122,25 @@ func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 }
 
 func appendExtendedPath(request *http.Request, extPath ExtendedPath) {
-	request.URL.Path = path.Join(append([]string{request.URL.Path}, []string(extPath)...)...)
+	// Remove early empty extPath entries
+	extPaths := []string(extPath[:])
+	for _, path := range extPaths {
+		if len(path) != 0 {
+			break
+		}
+		extPaths = extPaths[1:]
+	}
+
+	if len(extPaths) == 0 {
+		return
+	}
+
+	if strings.HasPrefix(extPath[0], "/") || strings.HasSuffix(request.URL.Path, "/") {
+		request.URL.Path = request.URL.Path + path.Join(extPaths...)
+		return
+	}
+
+	request.URL.Path = request.URL.Path + "/" + path.Join(extPaths...)
 }
 
 func appendQueryParams(request *http.Request, queryParams QueryParameters) {

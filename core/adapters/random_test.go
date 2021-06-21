@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -29,7 +28,8 @@ func TestRandom_Perform(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	publicKey := cltest.StoredVRFKey(t, store)
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	publicKey := cltest.StoredVRFKey(t, keyStore.VRF())
 	adapter := adapters.Random{PublicKey: publicKey.String()}
 	hash := utils.MustHash("a random string")
 	seed := big.NewInt(0x10)
@@ -43,7 +43,7 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, err) // Can't fail
 	jr := cltest.NewJobRun(cltest.NewJobWithRandomnessLog())
 	input := models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
-	result := adapter.Perform(*input, store)
+	result := adapter.Perform(*input, store, keyStore)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
 	var wireProof []byte
@@ -55,7 +55,7 @@ func TestRandom_Perform(t *testing.T) {
 		vrf.OnChainResponseLength, "wrong response length")
 	response, err := vrf.UnmarshalProofResponse(onChainResponse)
 	require.NoError(t, err, "random adapter produced bad proof response")
-	actualProof, err := response.CryptoProof(tvrf.SeedData(t, seed, hash, blockNum))
+	actualProof, err := response.CryptoProof(vrf.TestXXXSeedData(t, seed, hash, blockNum))
 	require.NoError(t, err, "could not extract proof from random adapter response")
 	expected := common.HexToHash(
 		"0x71a7c50918feaa753485ae039cb84ddd70c5c85f66b236138dea453a23d0f27e")
@@ -65,7 +65,7 @@ func TestRandom_Perform(t *testing.T) {
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
 	input = models.NewRunInput(jr, uuid.Nil, jsonInput, models.RunStatusUnstarted)
-	result = adapter.Perform(*input, store)
+	result = adapter.Perform(*input, store, keyStore)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }
 
@@ -73,11 +73,12 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	ethMock := new(mocks.Client)
 	store.EthClient = ethMock
 
-	publicKey := cltest.StoredVRFKey(t, store)
+	publicKey := cltest.StoredVRFKey(t, keyStore.VRF())
 	address := cltest.NewEIP55Address()
 	hash := utils.MustHash("a random string")
 	seed := big.NewInt(0x10)
@@ -123,7 +124,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 				registryMock.MockResponse("callbacks", response).Once()
 			}
 
-			result := adapter.Perform(*input, store)
+			result := adapter.Perform(*input, store, keyStore)
 			require.Equal(tt, test.shouldFulfill, result.Error() == nil)
 			ethMock.AssertExpectations(t)
 		})

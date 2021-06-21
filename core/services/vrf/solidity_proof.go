@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	bm "github.com/smartcontractkit/chainlink/core/utils/big_math"
 	"go.dedis.ch/kyber/v3"
 )
 
 // SolidityProof contains precalculations which VRF.sol needs to verifiy proofs
 type SolidityProof struct {
-	P                           *Proof         // The core proof
+	P                           *vrfkey.Proof  // The core proof
 	UWitness                    common.Address // Address of P.C*P.PK+P.S*G
 	CGammaWitness, SHashWitness kyber.Point    // P.C*P.Gamma, P.S*HashToCurve(P.Seed)
 	ZInv                        *big.Int       // Inverse of Z coord from ProjectiveECAdd(CGammaWitness, SHashWitness)
@@ -31,27 +32,27 @@ func (p *SolidityProof) String() string {
 }
 
 func point() kyber.Point {
-	return secp256k1Curve.Point()
+	return vrfkey.Secp256k1Curve.Point()
 }
 
 // SolidityPrecalculations returns the precomputed values needed by the solidity
 // verifier, or an error on failure.
-func (p *Proof) SolidityPrecalculations() (*SolidityProof, error) {
+func SolidityPrecalculations(p *vrfkey.Proof) (*SolidityProof, error) {
 	var rv SolidityProof
 	rv.P = p
 	c := secp256k1.IntToScalar(p.C)
 	s := secp256k1.IntToScalar(p.S)
-	u := point().Add(point().Mul(c, p.PublicKey), point().Mul(s, Generator))
+	u := point().Add(point().Mul(c, p.PublicKey), point().Mul(s, vrfkey.Generator))
 	var err error
 	rv.UWitness = secp256k1.EthereumAddress(u)
 	rv.CGammaWitness = point().Mul(c, p.Gamma)
-	hash, err := HashToCurve(p.PublicKey, p.Seed, func(*big.Int) {})
+	hash, err := vrfkey.HashToCurve(p.PublicKey, p.Seed, func(*big.Int) {})
 	if err != nil {
 		return nil, err
 	}
 	rv.SHashWitness = point().Mul(s, hash)
-	_, _, z := ProjectiveECAdd(rv.CGammaWitness, rv.SHashWitness)
-	rv.ZInv = z.ModInverse(z, FieldSize)
+	_, _, z := vrfkey.ProjectiveECAdd(rv.CGammaWitness, rv.SHashWitness)
+	rv.ZInv = z.ModInverse(z, vrfkey.FieldSize)
 	return &rv, nil
 }
 
@@ -84,14 +85,14 @@ func (p *SolidityProof) MarshalForSolidityVerifier() (proof MarshaledProof) {
 	write := func(b []byte) { cursor = append(cursor, b...) }
 	write(secp256k1.LongMarshal(p.P.PublicKey))
 	write(secp256k1.LongMarshal(p.P.Gamma))
-	write(uint256ToBytes32(p.P.C))
-	write(uint256ToBytes32(p.P.S))
-	write(uint256ToBytes32(p.P.Seed))
+	write(utils.Uint256ToBytes32(p.P.C))
+	write(utils.Uint256ToBytes32(p.P.S))
+	write(utils.Uint256ToBytes32(p.P.Seed))
 	write(make([]byte, 12)) // Left-pad address to 32 bytes, with zeros
 	write(p.UWitness[:])
 	write(secp256k1.LongMarshal(p.CGammaWitness))
 	write(secp256k1.LongMarshal(p.SHashWitness))
-	write(uint256ToBytes32(p.ZInv))
+	write(utils.Uint256ToBytes32(p.ZInv))
 	if len(cursor) != ProofLength {
 		panic(fmt.Errorf("wrong proof length: %d", len(proof)))
 	}
@@ -99,17 +100,17 @@ func (p *SolidityProof) MarshalForSolidityVerifier() (proof MarshaledProof) {
 }
 
 // MarshalForSolidityVerifier renders p as required by randomValueFromVRFProof
-func (p *Proof) MarshalForSolidityVerifier() (MarshaledProof, error) {
+func MarshalForSolidityVerifier(p *vrfkey.Proof) (MarshaledProof, error) {
 	var rv MarshaledProof
-	solidityProof, err := p.SolidityPrecalculations()
+	solidityProof, err := SolidityPrecalculations(p)
 	if err != nil {
 		return rv, err
 	}
 	return solidityProof.MarshalForSolidityVerifier(), nil
 }
 
-func UnmarshalSolidityProof(proof []byte) (rv Proof, err error) {
-	failedProof := Proof{}
+func UnmarshalSolidityProof(proof []byte) (rv vrfkey.Proof, err error) {
+	failedProof := vrfkey.Proof{}
 	if len(proof) != ProofLength {
 		return failedProof, fmt.Errorf(
 			"VRF proof is %d bytes long, should be %d: \"%x\"", len(proof),
@@ -122,10 +123,10 @@ func UnmarshalSolidityProof(proof []byte) (rv Proof, err error) {
 	if rv.Gamma, err = secp256k1.LongUnmarshal(rawGamma); err != nil {
 		return failedProof, errors.Wrapf(err, "while reading proof gamma")
 	}
-	rv.C = i().SetBytes(proof[128:160])
-	rv.S = i().SetBytes(proof[160:192])
-	rv.Seed = i().SetBytes(proof[192:224])
-	rv.Output = utils.MustHash(string(vrfRandomOutputHashPrefix) +
+	rv.C = bm.I().SetBytes(proof[128:160])
+	rv.S = bm.I().SetBytes(proof[160:192])
+	rv.Seed = bm.I().SetBytes(proof[192:224])
+	rv.Output = utils.MustHash(string(vrfkey.RandomOutputHashPrefix) +
 		string(rawGamma)).Big()
 	return rv, nil
 }

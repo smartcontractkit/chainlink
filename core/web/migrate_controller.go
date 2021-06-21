@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -14,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -59,7 +62,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jb, err := mc.App.GetJobORM().FindJob(jid)
+	jb, err := mc.App.JobORM().FindJob(jid)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -94,10 +97,7 @@ func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
 func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
-	ca, err := models.EIP55AddressFromAddress(initr.Address)
-	if err != nil {
-		return jb, err
-	}
+	ca := ethkey.EIP55AddressFromAddress(initr.Address)
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
@@ -115,6 +115,7 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 		},
 		Type:          job.FluxMonitor,
 		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
 	}
 	ps, pd, err := BuildFMTaskDAG(js)
 	if err != nil {
@@ -140,24 +141,31 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 		// Support anyways just in case someone was using it without our knowledge.
 		// ALL fm jobs are POSTs see
 		// https://github.com/smartcontractkit/chainlink/blob/e5957895e3aa4947c2ddb5a4a8525041639962e9/core/services/fluxmonitor/fetchers.go#L67
-		var n *pipeline.TaskDAGNode
+		var httpTask *pipeline.TaskDAGNode
 		if feed.IsObject() && feed.Get("bridge").Exists() {
-			n = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
+			httpTask = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
 				"type":        pipeline.TaskTypeBridge.String(),
 				"method":      "POST",
 				"name":        feed.Get("bridge").String(),
 				"requestData": js.Initiators[0].InitiatorParams.RequestData.String(),
 			})
 		} else {
-			n = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
+			httpTask = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
 				"type":        pipeline.TaskTypeHTTP.String(),
 				"method":      "POST",
 				"url":         feed.String(),
 				"requestData": js.Initiators[0].InitiatorParams.RequestData.String(),
 			})
 		}
-		dg.AddNode(n)
-		dg.SetEdge(dg.NewEdge(n, medianTask))
+		dg.AddNode(httpTask)
+		// We always implicity parse {"data": {"result": X}}
+		parseTask := pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("jsonparse%d", i), map[string]string{
+			"type": pipeline.TaskTypeJSONParse.String(),
+			"path": "data,result",
+		})
+		dg.AddNode(parseTask)
+		dg.SetEdge(dg.NewEdge(httpTask, parseTask))
+		dg.SetEdge(dg.NewEdge(parseTask, medianTask))
 	}
 	// Now add tasks linearly from the median task.
 	var foundEthTx = false
@@ -177,7 +185,7 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 			dg.AddNode(n)
 			dg.SetEdge(dg.NewEdge(last, n))
 			last = n
-		case adapters.TaskTypeEthUint256:
+		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2.
 		case adapters.TaskTypeEthTx:
 			// Do nothing. This is implicit in FMV2.
