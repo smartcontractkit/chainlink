@@ -405,6 +405,7 @@ declare module 'core/store/models' {
   export interface SessionRequest {
     email: string
     password: string
+    webauthndata: string
   }
   //#endregion user.go
   //#region bulk.go
@@ -636,6 +637,45 @@ declare module 'core/store/models' {
     level: LogConfigLevel
     sqlEnabled: boolean
   }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+   export interface BeginWebAuthnRegistrationV2Request {
+  }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface BeginWebAuthnRegistrationV2 {
+  }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface FinishWebAuthnRegistrationV2Request {
+    id: string
+    rawId: string
+    type: string
+    response: {
+      attestationObject: string
+      clientDataJSON: string
+    }
+  }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface FinishWebAuthnRegistrationV2 {
+    id: string
+    rawId: string
+    type: string
+    response: {
+      attestationObject: string
+      clientDataJSON: string
+    }
+  }
+  
 }
 
 export interface PipelineTaskRun {

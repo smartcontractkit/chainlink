@@ -68,6 +68,7 @@ type Application interface {
 	WakeSessionReaper()
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
+	GetWebAuthnConfiguration() models.WebAuthnConfiguration
 
 	// V1 Jobs (JSON specified)
 	services.RunManager // For managing job runs.
@@ -743,4 +744,23 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
+}
+
+// Returns the configuration to use for creating and authenticating
+// new WebAuthn credentials
+func (app *ChainlinkApplication) GetWebAuthnConfiguration() models.WebAuthnConfiguration {
+	rpid := app.Store.Config.RPID()
+	rporigin := app.Store.Config.RPOrigin()
+	if rpid == "" {
+		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
+	}
+
+	if rporigin == "" {
+		app.GetLogger().Errorf("RPOrigin is not set, WebAuthn will likely not work as intended")
+	}
+
+	return models.WebAuthnConfiguration{
+		RPID:     rpid,
+		RPOrigin: rporigin,
+	}
 }
