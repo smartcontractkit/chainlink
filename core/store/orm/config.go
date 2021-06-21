@@ -218,7 +218,7 @@ func init() {
 	polygonMainnet.GasUpdaterBlockHistorySize = 24
 	polygonMainnet.GasUpdaterEnabled = true
 	polygonMainnet.LinkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
-	polygonMainnet.MinIncomingConfirmations = 3
+	polygonMainnet.MinIncomingConfirmations = 12
 	polygonMainnet.MinRequiredOutgoingConfirmations = 12
 	polygonMumbai := polygonMainnet
 	polygonMumbai.LinkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
