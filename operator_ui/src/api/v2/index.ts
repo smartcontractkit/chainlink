@@ -15,6 +15,7 @@ import { OcrRuns } from './ocrRuns'
 import { Jobs } from './jobs'
 import { JobProposals } from './jobProposals'
 import { LogConfig } from './logConfig'
+import { WebAuthn } from './webauthn'
 
 export class V2 {
   constructor(private api: Api) {}
@@ -35,4 +36,5 @@ export class V2 {
   public ocrRuns = new OcrRuns(this.api)
   public logConfig = new LogConfig(this.api)
   public csaKeys = new CSAKeys(this.api)
+  public webauthn = new WebAuthn(this.api)
 }

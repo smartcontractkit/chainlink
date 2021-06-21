@@ -995,6 +995,24 @@ func findUser(db *gorm.DB) (user models.User, err error) {
 	return user, db.Preload(clause.Associations).Order("created_at desc").First(&user).Error
 }
 
+// GetUserWebAuthn will return a list of structures representing all enrolled WebAuthn
+// tokens for the user. This list must be used when logging in (for obvious reasons) but
+// must also be used for registration to prevent the user from enrolling the same hardware
+// token multiple times.
+func (orm *ORM) GetUserWebAuthn(user *models.User) ([]models.WebAuthn, error) {
+	var uwas []models.WebAuthn
+	err := orm.DB.Where("email = ?", user.Email).Find(&uwas).Error
+
+	if err != nil {
+		// In the event of not found, there is no MFA on this account and it is not an error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return uwas, nil
+		}
+		return uwas, err
+	}
+	return uwas, nil
+}
+
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (models.User, error) {
@@ -1048,22 +1066,80 @@ func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 }
 
 // CreateSession will check the password in the SessionRequest against
-// the hashed API User password in the db.
+// the hashed API User password in the db. Also will check WebAuthn if it's
+// enabled for that user.
 func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
 	user, err := orm.FindUser()
 	if err != nil {
 		return "", err
 	}
 
+	// Do email and password check first to prevent extra database look up
+	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(sr.Email, user.Email) {
 		return "", errors.New("Invalid email")
 	}
 
-	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		return "", errors.New("Invalid password")
+	}
+
+	// Mutate the user stucture and load all valid MFA tokens into it
+	uwas, err := orm.GetUserWebAuthn(&user)
+
+	// There was an issue loading data from the persistent datastore.
+	// This means we don't know if a user has MFA enabled or not. Since we are
+	// unsure, we disallow session creation.
+	if err != nil {
+		logger.Errorf("Could not fetch user's MFA data: %v", err)
+		return "", errors.New("MFA Error")
+	}
+
+	// The database returned no errors but the user's WebAuthn structure is nil
+	// This means there is no MFA for the user and we allow normal authentication
+	if len(uwas) == 0 {
+		logger.Infof("No MFA for user. Creating Session")
+		// The user does have WebAuthn enabled but failed the check
 		session := models.NewSession()
 		return session.ID, orm.DB.Save(&session).Error
 	}
-	return "", errors.New("Invalid password")
+
+	// Indicates the user gave us no WebAuthn data but their internal user
+	// structure contains WebAuthn data. We need them to pass WebAuthn
+	// before we can authenticate them so we will return a 401 with the
+	// challenge in the response
+	if sr.WebAuthnData == "" {
+		logger.Warnf("Attempted login to MFA user. Generating challenge for user.")
+		options, err := models.BeginWebAuthnLogin(user, uwas, sr)
+		if err != nil {
+			logger.Errorf("Could not begin WebAuthn verification: %v", err)
+			return "", errors.New("MFA Error")
+		}
+
+		j, err := json.Marshal(options)
+		if err != nil {
+			logger.Errorf("Could not serialize WebAuthn challenge: %v", err)
+			return "", errors.New("MFA Error")
+		}
+
+		return "", errors.New(string(j))
+	}
+
+	// The user is at the final stage of logging in with MFA. We have an
+	// attestation back from the user, we now need to verify that it is
+	// correct.
+	err = models.FinishWebAuthnLogin(user, uwas, sr)
+
+	if err != nil {
+		// The user does have WebAuthn enabled but failed the check
+		logger.Errorf("User sent an invalid attestation: %v", err)
+		return "", errors.New("MFA Error")
+	}
+
+	logger.Infof("User passed MFA authentication and login will proceed")
+	// This is a success so we can create the sessions
+	session := models.NewSession()
+	return session.ID, orm.DB.Save(&session).Error
 }
 
 const constantTimeEmailLength = 256
@@ -1165,6 +1241,16 @@ func (orm *ORM) SaveUser(user *models.User) error {
 		return err
 	}
 	return orm.DB.Save(user).Error
+}
+
+// SaveSession saves the session.
+func (orm *ORM) SaveSession(session *models.Session) error {
+	return orm.DB.Save(session).Error
+}
+
+// SaveWebAuthn saves new WebAuthn token information.
+func (orm *ORM) SaveWebAuthn(token *models.WebAuthn) error {
+	return orm.DB.Create(token).Error
 }
 
 // CreateBridgeType saves the bridge type.
