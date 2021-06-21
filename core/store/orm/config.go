@@ -902,6 +902,10 @@ func (c Config) JobPipelineReaperThreshold() time.Duration {
 	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
 }
 
+func (c Config) KeeperRegistryGasOverhead() uint64 {
+	return c.getWithFallback("KeeperRegistryGasOverhead", parseUint64).(uint64)
+}
+
 func (c Config) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
 }

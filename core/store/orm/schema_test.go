@@ -89,6 +89,7 @@ func TestConfigSchema(t *testing.T) {
 		"JobPipelineResultWriteQueueDepth":          "JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH",
 		"KeeperMaximumGracePeriod":                  "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperMinimumRequiredConfirmations":        "KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS",
+		"KeeperRegistryGasOverhead":                 "KEEPER_REGISTRY_GAS_OVERHEAD",
 		"KeeperRegistrySyncInterval":                "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"LinkContractAddress":                       "LINK_CONTRACT_ADDRESS",
 		"LogLevel":                                  "LOG_LEVEL",
