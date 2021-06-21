@@ -196,6 +196,9 @@ func TestVRF_ImportExport(t *testing.T) {
 	require.NoError(t, client.ExportVRFKey(c))
 	// File exists
 	require.NoError(t, utils.JustError(os.Stat(keyName)))
+	t.Cleanup(func() {
+		os.Remove(keyName)
+	})
 
 	// Should error if we try to import a duplicate key
 	importSet := flag.NewFlagSet("test VRF import", 0)

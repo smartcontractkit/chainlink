@@ -450,7 +450,6 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	schemaVersion     = 1
 	name              = "integration test"
 	contractAddress   = "%s"
-	precision = 0
 	threshold = 2.0
 	absoluteThreshold = 0.0
 
@@ -562,7 +561,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -666,7 +664,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = 0
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -773,7 +770,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = %d
 threshold = 0.5
 absoluteThreshold = 0.01
 
@@ -791,7 +787,7 @@ ds1 -> ds1_parse
 """
 `
 
-	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, 8, "100ms", mockServer.URL)
+	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, "100ms", mockServer.URL)
 
 	// raise flags
 	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
@@ -878,7 +874,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0
 
