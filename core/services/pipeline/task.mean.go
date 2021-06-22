@@ -61,10 +61,13 @@ func (t *MeanTask) Run(_ context.Context, vars Vars, inputs []Result) (result Re
 	for _, val := range decimalValues {
 		total = total.Add(val)
 	}
-	mean := total.Div(decimal.NewFromInt(int64(len(decimalValues))))
+
+	numValues := decimal.NewFromInt(int64(len(decimalValues)))
 
 	if precision, isSet := maybePrecision.Int32(); isSet {
-		mean = mean.Round(precision)
+		return Result{Value: total.DivRound(numValues, precision)}
 	}
-	return Result{Value: mean}
+	// Note that decimal library defaults to rounding to 16 precision
+	//https://github.com/shopspring/decimal/blob/2568a29459476f824f35433dfbef158d6ad8618c/decimal.go#L44
+	return Result{Value: total.Div(numValues)}
 }

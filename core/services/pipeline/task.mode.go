@@ -46,7 +46,7 @@ func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Re
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to sum task > number allowed faults %v", faults, allowedFaults)}
+		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to mode task > number allowed faults %v", faults, allowedFaults)}
 	} else if len(values) == 0 {
 		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}
 	}
