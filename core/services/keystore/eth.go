@@ -104,9 +104,9 @@ func (ks *Eth) Unlock(password string) (merr error) {
 		if err != nil {
 			merr = multierr.Combine(merr, errors.Errorf("invalid password for account %s", k.Address.Hex()), err)
 			continue
-		} else {
-			logger.Infow(fmt.Sprint("Unlocked account ", k.Address.Hex()), "address", k.Address.Hex(), "type", k.Type())
+
 		}
+		logger.Infow(fmt.Sprint("Unlocked account ", k.Address.Hex()), "address", k.Address.Hex(), "type", k.Type())
 		cKey := combinedKey{k, *dKey, time.Time{}}
 		ks.keys = append(ks.keys, cKey)
 	}

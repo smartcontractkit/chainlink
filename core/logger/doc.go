@@ -1,4 +1,4 @@
-// package logger exports multiple type loggers:
+// Package logger exports multiple type loggers:
 // - the *Logger type is a wrapper over uber/zap#SugaredLogger with added conditional utilities.
 // - the Default instance is exported and used in all top-level functions (similar to godoc.org/log).
 //   You can use this dirrectly but the recommended way is to create a new *Logger for your module using Named(), eg:  logger.Default.Named("<my-package-name>")

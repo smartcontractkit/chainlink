@@ -33,7 +33,6 @@ func TestRun_Status(t *testing.T) {
 				Error: nil,
 			},
 			FinishedAt: time.Now(),
-			IsTerminal: true,
 		},
 		{
 			Task: &pipeline.HTTPTask{},
@@ -42,7 +41,6 @@ func TestRun_Status(t *testing.T) {
 				Error: nil,
 			},
 			FinishedAt: time.Now(),
-			IsTerminal: true,
 		},
 	}
 	var fail = pipeline.TaskRunResults{
@@ -53,7 +51,6 @@ func TestRun_Status(t *testing.T) {
 				Error: errors.New("fail"),
 			},
 			FinishedAt: time.Now(),
-			IsTerminal: true,
 		},
 		{
 			Task: &pipeline.HTTPTask{},
@@ -62,7 +59,6 @@ func TestRun_Status(t *testing.T) {
 				Error: errors.New("fail"),
 			},
 			FinishedAt: time.Now(),
-			IsTerminal: true,
 		},
 	}
 

@@ -234,7 +234,7 @@ func NewPeerID() p2ppeer.ID {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	rand.Read(b)
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
 	return b
 }
 
@@ -796,7 +796,7 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 		SchemaVersion:     1,
 		ExternalJobID:     uuid.NewV4(),
 		DirectRequestSpec: drs,
-		Pipeline:          *pipeline.NewTaskDAG(),
+		Pipeline:          pipeline.Pipeline{},
 		PipelineSpec:      &pipeline.Spec{},
 	}
 	return spec

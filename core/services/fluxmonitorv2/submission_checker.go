@@ -13,10 +13,10 @@ type SubmissionChecker struct {
 }
 
 // NewSubmissionChecker initializes a new SubmissionChecker
-func NewSubmissionChecker(min *big.Int, max *big.Int, precision int32) *SubmissionChecker {
+func NewSubmissionChecker(min *big.Int, max *big.Int) *SubmissionChecker {
 	return &SubmissionChecker{
-		Min: decimal.NewFromBigInt(min, -precision),
-		Max: decimal.NewFromBigInt(max, -precision),
+		Min: decimal.NewFromBigInt(min, 0),
+		Max: decimal.NewFromBigInt(max, 0),
 	}
 }
 

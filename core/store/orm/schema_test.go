@@ -99,7 +99,7 @@ func TestConfigSchema(t *testing.T) {
 		"MigrateDatabase":                           "MIGRATE_DATABASE",
 		"MinIncomingConfirmations":                  "MIN_INCOMING_CONFIRMATIONS",
 		"MinRequiredOutgoingConfirmations":          "MIN_OUTGOING_CONFIRMATIONS",
-		"MinimumContractPayment":                    "MINIMUM_CONTRACT_PAYMENT",
+		"MinimumContractPayment":                    "MINIMUM_CONTRACT_PAYMENT_LINK_JUELS",
 		"MinimumRequestExpiration":                  "MINIMUM_REQUEST_EXPIRATION",
 		"MinimumServiceDuration":                    "MINIMUM_SERVICE_DURATION",
 		"OCRBlockchainTimeout":                      "OCR_BLOCKCHAIN_TIMEOUT",
