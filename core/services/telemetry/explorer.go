@@ -3,7 +3,9 @@ package telemetry
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 type ExplorerAgent struct {
@@ -19,4 +21,9 @@ func NewExplorerAgent(explorerClient synchronization.ExplorerClient) *ExplorerAg
 // SendLog sends a telemetry log to the explorer
 func (t *ExplorerAgent) SendLog(log []byte) {
 	t.explorerClient.Send(context.Background(), log, synchronization.ExplorerBinaryMessage)
+}
+
+// GenMonitoringEndpoint creates a monitoring endpoint for telemetry
+func (t *ExplorerAgent) GenMonitoringEndpoint(addr common.Address) ocrtypes.MonitoringEndpoint {
+	return t
 }
