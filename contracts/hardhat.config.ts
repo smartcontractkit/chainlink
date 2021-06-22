@@ -1,6 +1,16 @@
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-contract-sizer";
 
+const COMPILER_SETTINGS = {
+  optimizer: {
+    enabled: true,
+    runs: 1000000,
+  },
+  metadata: {
+    bytecodeHash: "none",
+  },
+};
+
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -18,69 +28,29 @@ export default {
     compilers: [
       {
         version: "0.4.24",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000000,
-          },
-          metadata: {
-            bytecodeHash: "none",
-          },
-        },
+        settings: COMPILER_SETTINGS,
       },
       {
         version: "0.5.0",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000000,
-          },
-          metadata: {
-            bytecodeHash: "none",
-          },
-        },
+        settings: COMPILER_SETTINGS,
       },
       {
         version: "0.6.6",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000000,
-          },
-          metadata: {
-            bytecodeHash: "none",
-          },
-        },
+        settings: COMPILER_SETTINGS,
       },
       {
         version: "0.7.6",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000000,
-          },
-          metadata: {
-            bytecodeHash: "none",
-          },
-        },
+        settings: COMPILER_SETTINGS,
       },
       {
         version: "0.8.4",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000000,
-          },
-          metadata: {
-            bytecodeHash: "none",
-          },
-        },
+        settings: COMPILER_SETTINGS,
       },
     ],
   },
   contractSizer: {
     alphaSort: true,
-    runOnCompile: true,
+    runOnCompile: false,
     disambiguatePaths: false,
   },
 };
