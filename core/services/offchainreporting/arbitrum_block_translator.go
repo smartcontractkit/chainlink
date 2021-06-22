@@ -120,12 +120,12 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 	var exactMatch bool
 	{
 		l2lower, err = search(l2lower, l2upper+1, func(l2 int64) (bool, error) {
-			l1, miss, err := a.arbL2ToL1(ctx, l2)
+			l1, miss, err2 := a.arbL2ToL1(ctx, l2)
 			if miss {
 				n++
 			}
-			if err != nil {
-				return false, err
+			if err2 != nil {
+				return false, err2
 			}
 			if targetL1 == l1 {
 				exactMatch = true
@@ -141,12 +141,12 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 	if !skipUpperBound {
 		var r int64
 		r, err = search(l2lower, l2upper+1, func(l2 int64) (bool, error) {
-			l1, miss, err := a.arbL2ToL1(ctx, l2)
+			l1, miss, err2 := a.arbL2ToL1(ctx, l2)
 			if miss {
 				n++
 			}
-			if err != nil {
-				return false, err
+			if err2 != nil {
+				return false, err2
 			}
 			if targetL1 == l1 {
 				exactMatch = true
@@ -157,11 +157,12 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 			return nil, nil, err
 		}
 		l2upper = r - 1
+		l2upperBound = big.NewInt(l2upper)
 	}
 	if !exactMatch {
 		return nil, nil, errors.Errorf("target L1 block number %d is not represented by any L2 block", targetL1)
 	}
-	return big.NewInt(l2lower), big.NewInt(l2upper), nil
+	return big.NewInt(l2lower), l2upperBound, nil
 }
 
 // reverseLookup takes an l1 and returns lower and upper bounds for an L2 based on cache data
