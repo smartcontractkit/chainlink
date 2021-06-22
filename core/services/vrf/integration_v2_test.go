@@ -109,7 +109,18 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+	// Set the configuration on the coordinator.
+	_, err = coordinatorContract.SetConfig(neil,
+		uint16(1),                     // minRequestConfirmations
+		uint16(1000),                  // maxConsumersPerSubscription
+		uint32(60*60*24),              // stalenessSeconds
+		uint32(12000),                 // gasAfterPaymentCalculation
+		big.NewInt(100000000000),      // 100 gwei fallbackGasPrice
+		big.NewInt(10000000000000000), // 0.01 eth per link fallbackLinkPrice
+	)
+	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
+
 	return coordinatorV2Universe{
 		rootContract:            coordinatorContract,
 		rootContractAddress:     coordinatorAddress,
@@ -177,7 +188,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("subscription ID", subId)
 	// Our subscription should have 0.1 link also
-	subBalanceStart, err := uni.rootContract.SSubscriptions(nil, subId)
+	subBalanceStart, err := uni.rootContract.GetSubscription(nil, subId)
 	require.NoError(t, err)
 	t.Log("subscription balance start", subBalanceStart.Balance.String())
 	require.NoError(t, err)
@@ -198,7 +209,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	reqID, err := uni.consumerContract.RequestId(nil)
 	require.NoError(t, err)
 	t.Log(reqID)
-	callback, err := uni.rootContract.SCallbacks(nil, reqID)
+	callback, err := uni.rootContract.GetCallback(nil, reqID)
 	require.NoError(t, err)
 	t.Log(callback)
 	var runs []pipeline.Run
@@ -244,7 +255,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 
 	// Assert that we were only charged for how much gas we actually used.
 	// We should be charge for the verification + our callbacks execution in link
-	subBalanceEnd, err := uni.rootContract.SSubscriptions(nil, subId)
+	subBalanceEnd, err := uni.rootContract.GetSubscription(nil, subId)
 	require.NoError(t, err)
 	t.Log("subscription balance end", subBalanceEnd.Balance.String())
 	var (

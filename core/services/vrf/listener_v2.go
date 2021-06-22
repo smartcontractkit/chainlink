@@ -97,12 +97,12 @@ func (lsn *listenerV2) Connect(head *models.Head) error {
 
 func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head models.Head) {
 	// Check if any v2 logs are ready for processing.
-	lsn.l.Debugw("VRFListenerV2: new longest chain")
 	lsn.latestHead = uint64(head.Number)
 	var remainingLogs []pendingRequest
 	for _, pl := range lsn.pendingLogs {
 		if pl.confirmedAtBlock <= lsn.latestHead {
 			// Note below makes API calls and opens a database transaction
+			// TODO: Batch these requests in a follow up.
 			lsn.ProcessV2VRFRequest(pl.req, pl.lb)
 		} else {
 			remainingLogs = append(remainingLogs, pl)
@@ -158,7 +158,7 @@ func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 
 func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) {
 	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinator.SCallbacks(nil, req.PreSeed)
+	callback, err := lsn.coordinator.GetCallback(nil, req.PreSeedAndRequestId)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback[:]) {
@@ -261,11 +261,11 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, error) {
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
-		"reqID", req.PreSeed.String(),
+		"reqID", req.PreSeedAndRequestId.String(),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,
 		"blockNumber", req.Raw.BlockNumber,
-		"seed", req.PreSeed.String())
+		"seed", req.PreSeedAndRequestId.String())
 	// Validate the key against the spec
 	kh, err := lsn.job.VRFSpec.PublicKey.Hash()
 	if err != nil {
@@ -276,7 +276,7 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	}
 
 	// req.PreSeed is uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
-	preSeed, err := BigToSeed(req.PreSeed)
+	preSeed, err := BigToSeed(req.PreSeedAndRequestId)
 	if err != nil {
 		return nil, errors.New("unable to parse preseed")
 	}

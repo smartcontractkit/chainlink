@@ -20,6 +20,7 @@
     "ethereum-waffle": "^3.3.0",
     "ethers": "^5.1.4",
     "hardhat": "^2.3.0",
+    "hardhat-contract-sizer": "^2.0.3",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.2"
   }
