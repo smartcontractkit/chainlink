@@ -100,6 +100,13 @@ func TestMeanTask(t *testing.T) {
 			pipeline.Result{Value: mustDecimal(t, "2.90")},
 		},
 		{
+			"precision (> 16)",
+			[]pipeline.Result{{Value: mustDecimal(t, "1.11111111111111111111")}, {Value: mustDecimal(t, "3.33333333333333333333")}},
+			"1",
+			"18",
+			pipeline.Result{Value: mustDecimal(t, "2.222222222222222222")},
+		},
+		{
 			"precision (negative)",
 			[]pipeline.Result{{Value: mustDecimal(t, "12.34")}, {Value: mustDecimal(t, "23.45")}, {Value: mustDecimal(t, "34.56")}, {Value: mustDecimal(t, "45.67")}},
 			"1",
@@ -182,6 +189,9 @@ func TestMeanTask(t *testing.T) {
 			case 1:
 				valuesParam = "[ $(foo) ]"
 				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0]})
+			case 2:
+				valuesParam = "[ $(foo), $(bar) ]"
+				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1]})
 			case 3:
 				valuesParam = "[ $(foo), $(bar), $(chain) ]"
 				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2]})

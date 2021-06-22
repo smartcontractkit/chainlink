@@ -40,11 +40,10 @@ func (t *DivideTask) Run(_ context.Context, vars Vars, inputs []Result) (result 
 		return Result{Error: err}
 	}
 
-	value := a.Decimal().Div(b.Decimal())
-
 	if precision, isSet := maybePrecision.Int32(); isSet {
-		value = value.Round(precision)
+		return Result{Value: a.Decimal().DivRound(b.Decimal(), precision)}
 	}
-
-	return Result{Value: value}
+	// Note that decimal library defaults to rounding to 16 precision
+	// https://github.com/shopspring/decimal/blob/2568a29459476f824f35433dfbef158d6ad8618c/decimal.go#L44
+	return Result{Value: a.Decimal().Div(b.Decimal())}
 }

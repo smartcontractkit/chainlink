@@ -76,6 +76,7 @@ func TestDivideTask_Happy(t *testing.T) {
 		{"float64, large value", float64(12345.67), "1000000000000000000", "", mustDecimal(t, "0.0000000000000123"), nil, ""},
 
 		{"precision", float64(12345.67), "1000", "2", mustDecimal(t, "12.35"), nil, ""},
+		{"precision (> 16)", float64(200), "6", "18", mustDecimal(t, "33.333333333333333333"), nil, ""},
 		{"precision (negative)", float64(12345.67), "1000", "-1", mustDecimal(t, "10"), nil, ""},
 	}
 
