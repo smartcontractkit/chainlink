@@ -140,7 +140,6 @@ func BuildFMTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
 		// Support anyways just in case someone was using it without our knowledge.
 		// ALL fm jobs are POSTs see
 		// https://github.com/smartcontractkit/chainlink/blob/e5957895e3aa4947c2ddb5a4a8525041639962e9/core/services/fluxmonitor/fetchers.go#L67
-
 		var httpTask *pipeline.GraphNode
 		if feed.IsObject() && feed.Get("bridge").Exists() {
 			httpTask = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
