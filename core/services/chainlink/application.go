@@ -46,7 +46,6 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
@@ -147,11 +146,11 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	keyStore := keystore.New(store.DB, scryptParams)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
-	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
+	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())
-		monitoringEndpoint = telemetry.NewAgent(explorerClient)
+		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 	subservices = append(subservices, explorerClient)
 
@@ -286,7 +285,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 			ethClient,
 			logBroadcaster,
 			concretePW,
-			monitoringEndpoint,
+			monitoringEndpointGen,
 			cfg.Chain(),
 			headBroadcaster,
 		)
