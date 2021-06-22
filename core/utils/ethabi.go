@@ -261,6 +261,18 @@ func EVMWordBigInt(val *big.Int) ([]byte, error) {
 	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
 }
 
+func Bytes32FromString(s string) [32]byte {
+	var b32 [32]byte
+	copy(b32[:], s[:])
+	return b32
+}
+
+func Bytes4FromString(s string) [4]byte {
+	var b4 [4]byte
+	copy(b4[:], s[:])
+	return b4
+}
+
 // "Constants" used by EVM words
 var (
 	maxUint257 = &big.Int{}

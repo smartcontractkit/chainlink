@@ -3,19 +3,25 @@ package pipeline
 import "time"
 
 type BaseTask struct {
-	outputTask      Task
-	dotID           string        `mapstructure:"-"`
-	numPredecessors int           `mapstructure:"-"`
-	Index           int32         `mapstructure:"index" json:"-" `
-	Timeout         time.Duration `mapstructure:"timeout"`
+	outputs []Task
+	inputs  []Task
+
+	id      int
+	dotID   string
+	Index   int32         `mapstructure:"index" json:"-" `
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
-func NewBaseTask(dotID string, t Task, index int32, numPredecessors int) BaseTask {
-	return BaseTask{dotID: dotID, outputTask: t, Index: index, numPredecessors: numPredecessors}
+func NewBaseTask(id int, dotID string, inputs, outputs []Task, index int32) BaseTask {
+	return BaseTask{id: id, dotID: dotID, inputs: inputs, outputs: outputs, Index: index}
 }
 
-func (t BaseTask) NumPredecessors() int {
-	return t.numPredecessors
+func (t *BaseTask) Base() *BaseTask {
+	return t
+}
+
+func (t BaseTask) ID() int {
+	return t.id
 }
 
 func (t BaseTask) DotID() string {
@@ -26,12 +32,12 @@ func (t BaseTask) OutputIndex() int32 {
 	return t.Index
 }
 
-func (t BaseTask) OutputTask() Task {
-	return t.outputTask
+func (t BaseTask) Outputs() []Task {
+	return t.outputs
 }
 
-func (t *BaseTask) SetOutputTask(outputTask Task) {
-	t.outputTask = outputTask
+func (t BaseTask) Inputs() []Task {
+	return t.inputs
 }
 
 func (t BaseTask) TaskTimeout() (time.Duration, bool) {

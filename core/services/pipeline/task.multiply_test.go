@@ -109,8 +109,8 @@ func TestMultiplyTask_Happy(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask("task", nil, 0, 0), Times: test.times}
-			result := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, []pipeline.Result{{Value: test.input}})
+			task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
+			result := task.Run(context.Background(), vars, []pipeline.Result{{Value: test.input}})
 			require.NoError(t, result.Error)
 			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
 		})
@@ -124,11 +124,11 @@ func TestMultiplyTask_Happy(t *testing.T) {
 				"chain": map[string]interface{}{"link": test.times},
 			})
 			task := pipeline.MultiplyTask{
-				BaseTask: pipeline.NewBaseTask("task", nil, 0, 0),
+				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    "$(foo.bar)",
 				Times:    "$(chain.link)",
 			}
-			result := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, []pipeline.Result{})
+			result := task.Run(context.Background(), vars, []pipeline.Result{})
 			require.NoError(t, result.Error)
 			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
 		})
@@ -161,11 +161,11 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 			t.Parallel()
 
 			task := pipeline.MultiplyTask{
-				BaseTask: pipeline.NewBaseTask("task", nil, 0, 0),
+				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,
 				Times:    test.times,
 			}
-			result := task.Run(context.Background(), test.vars, pipeline.JSONSerializable{}, test.inputs)
+			result := task.Run(context.Background(), test.vars, test.inputs)
 			require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
 			if test.wantErrorContains != "" {
 				require.Contains(t, result.Error.Error(), test.wantErrorContains)
