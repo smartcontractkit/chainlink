@@ -290,7 +290,7 @@ describe("ValidatorProxy", () => {
           it("uses a specific amount of gas", async () => {
             const resp = await validatorProxy.connect(aggregator).validate(200, 300, 400, 500);
             const receipt = await resp.wait();
-            assert.equal(receipt.gasUsed.toString(), "35371");
+            assert.equal(receipt.gasUsed.toString(), "32406");
           });
         });
 
@@ -319,7 +319,7 @@ describe("ValidatorProxy", () => {
           it("uses a specific amount of gas", async () => {
             const resp = await validatorProxy.connect(aggregator).validate(2000, 3000, 4000, 5000);
             const receipt = await resp.wait();
-            assert.equal(receipt.gasUsed.toString(), "45318");
+            assert.equal(receipt.gasUsed.toString(), "40495");
           });
         });
       });
