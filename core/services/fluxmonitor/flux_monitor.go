@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -606,10 +605,11 @@ func (p *PollingDeviationChecker) consume() {
 
 	// subscribe to contract logs
 	unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
-		Contract: p.fluxAggregator,
-		Logs: []generated.AbigenLog{
-			flux_aggregator_wrapper.FluxAggregatorNewRound{},
-			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		Contract: p.fluxAggregator.Address(),
+		ParseLog: p.fluxAggregator.ParseLog,
+		LogsWithTopics: map[common.Hash][][]log.Topic{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{}.Topic():      nil,
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}.Topic(): nil,
 		},
 		NumConfirmations: 1,
 	})
@@ -617,10 +617,11 @@ func (p *PollingDeviationChecker) consume() {
 
 	if p.flags != nil {
 		unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
-			Contract: p.flags,
-			Logs: []generated.AbigenLog{
-				flags_wrapper.FlagsFlagLowered{},
-				flags_wrapper.FlagsFlagRaised{},
+			Contract: p.flags.Address(),
+			ParseLog: p.flags.ParseLog,
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				flags_wrapper.FlagsFlagLowered{}.Topic(): nil,
+				flags_wrapper.FlagsFlagRaised{}.Topic():  nil,
 			},
 			NumConfirmations: 1,
 		})

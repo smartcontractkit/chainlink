@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,7 +19,7 @@ type BridgeTask struct {
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 
-	safeTx SafeTx
+	db     *gorm.DB
 	config Config
 }
 
@@ -28,10 +29,10 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result {
+func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 	inputValues, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
 	var (
@@ -54,7 +55,9 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	}
 
 	var metaMap MapParam
-	switch v := meta.Val.(type) {
+
+	meta, _ := vars.Get("jobRun.meta")
+	switch v := meta.(type) {
 	case map[string]interface{}:
 		metaMap = MapParam(v)
 	case nil:
@@ -111,18 +114,12 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	task := models.TaskType(name)
-
-	if t.safeTx.txMu != nil {
-		t.safeTx.txMu.Lock()
-		defer t.safeTx.txMu.Unlock()
-	}
-
-	bridge, err := FindBridge(t.safeTx.tx, task)
+	var bt models.BridgeType
+	err := t.db.First(&bt, "name = ?", string(name)).Error
 	if err != nil {
-		return URLParam{}, err
+		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
-	return URLParam(bridge.URL), nil
+	return URLParam(bt.URL), nil
 }
 
 func withMeta(request MapParam, meta MapParam) MapParam {
@@ -130,6 +127,8 @@ func withMeta(request MapParam, meta MapParam) MapParam {
 	for k, v := range request {
 		output[k] = v
 	}
-	output["meta"] = meta
+	if meta != nil {
+		output["meta"] = meta
+	}
 	return output
 }

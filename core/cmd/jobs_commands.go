@@ -55,21 +55,12 @@ func (p JobPresenter) toRow(task string) []string {
 // GetTasks extracts the tasks from the dependency graph
 func (p JobPresenter) GetTasks() ([]string, error) {
 	types := []string{}
-	dag := pipeline.NewTaskDAG()
-	err := dag.UnmarshalText([]byte(p.PipelineSpec.DotDAGSource))
+	pipeline, err := pipeline.Parse(p.PipelineSpec.DotDAGSource)
 	if err != nil {
 		return nil, err
 	}
 
-	tasks, err := dag.TasksInDependencyOrder()
-	if err != nil {
-		return nil, err
-	}
-
-	// Reverse the order as dependency tasks start from output and end at the
-	// inputs.
-	for i := len(tasks) - 1; i >= 0; i-- {
-		t := tasks[i]
+	for _, t := range pipeline.Tasks {
 		types = append(types, fmt.Sprintf("%s %s", t.DotID(), t.Type()))
 	}
 
@@ -245,4 +236,24 @@ func (cli *Client) Migrate(c *cli.Context) error {
 	var presenter JobPresenter
 	err = cli.renderAPIResponse(resp, &presenter, "V2 job created from V1 job")
 	return nil
+}
+
+// TriggerPipelineRun triggers a V2 job run based on a job ID
+func (cli *Client) TriggerPipelineRun(c *cli.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
+	}
+	resp, err := cli.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var run pipeline.Run
+	err = cli.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
+	return err
 }

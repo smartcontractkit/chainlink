@@ -256,8 +256,7 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 	}
 
 	err = sp.DB.WithContext(ctx).Delete(event).Error
-	if ctx.Err() != nil {
-	} else if err != nil {
+	if err != nil {
 		return errors.Wrap(err, "syncEvent#DB.Delete failed")
 	}
 

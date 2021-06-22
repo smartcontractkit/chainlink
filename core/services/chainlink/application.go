@@ -81,7 +81,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
@@ -261,7 +261,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config, ethClient, txManager)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
@@ -327,6 +327,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			logBroadcaster,
 			concretePW,
 			monitoringEndpoint,
+			config.Chain(),
+			headBroadcaster,
 		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
@@ -660,8 +662,8 @@ func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) e
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, pipelineInput interface{}, meta pipeline.JSONSerializable) (int64, error) {
-	return app.webhookJobRunner.RunJob(ctx, jobUUID, pipelineInput, meta)
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
 // Only used for testing, not supported by the UI.
@@ -671,7 +673,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	meta map[string]interface{},
 ) (int64, error) {
 	if !app.Store.Config.Dev() {
-		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use.")
+		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
 	jb, err := app.jobORM.FindJob(jobID)
 	if err != nil {
@@ -683,11 +685,12 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !jb.Type.HasPipelineSpec() {
 		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
-		meta := pipeline.JSONSerializable{
-			Val:  meta,
-			Null: false,
+		vars := map[string]interface{}{
+			"jobRun": map[string]interface{}{
+				"meta": meta,
+			},
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, nil, meta, *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
 	}
 	return runID, err
 }

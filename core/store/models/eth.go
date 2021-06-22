@@ -354,7 +354,7 @@ func (f FunctionSelector) Bytes() []byte { return f[:] }
 // SetBytes sets the FunctionSelector to that of the given bytes (will trim).
 func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLength]) }
 
-var hexRegexp *regexp.Regexp = regexp.MustCompile("^[0-9a-fA-F]*$")
+var hexRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 
 func unmarshalFromString(s string, f *FunctionSelector) error {
 	if utils.HasHexPrefix(s) {

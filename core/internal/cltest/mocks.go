@@ -174,7 +174,7 @@ func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd
 	return a.Callback(ethKeyStore, pwd)
 }
 
-func (a CallbackAuthenticator) AuthenticateVRFKey(*keystore.VRF, string) error {
+func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd string) error {
 	return nil
 }
 
@@ -261,7 +261,7 @@ func NewHTTPMockServer(
 		called = true
 
 		w.WriteHeader(status)
-		io.WriteString(w, response)
+		_, _ = io.WriteString(w, response) // Assignment for errcheck. Only used in tests so we can ignore.
 	})
 
 	server := httptest.NewServer(handler)
@@ -285,7 +285,7 @@ func NewHTTPMockServerWithRequest(
 		called = true
 
 		w.WriteHeader(status)
-		io.WriteString(w, response)
+		_, _ = io.WriteString(w, response) // Assignment for errcheck. Only used in tests so we can ignore.
 	})
 
 	server := httptest.NewServer(handler)
@@ -300,7 +300,7 @@ func NewHTTPMockServerWithAlterableResponse(
 	server = httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			io.WriteString(w, response())
+			_, _ = io.WriteString(w, response())
 		}))
 	return server
 }
@@ -310,7 +310,7 @@ func NewHTTPMockServerWithAlterableResponseAndRequest(t *testing.T, response fun
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			callback(r)
 			w.WriteHeader(http.StatusOK)
-			io.WriteString(w, response())
+			_, _ = io.WriteString(w, response())
 		}))
 	return server
 }
@@ -430,7 +430,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	if user, err := store.FindUser(); err == nil {
 		return user, err
 	}
-	m.Count += 1
+	m.Count++
 	user := MustRandomUser()
 	return user, store.SaveUser(&user)
 }
@@ -458,7 +458,7 @@ type MockSessionRequestBuilder struct {
 }
 
 func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
-	m.Count += 1
+	m.Count++
 	if m.Error != nil {
 		return models.SessionRequest{}, m.Error
 	}

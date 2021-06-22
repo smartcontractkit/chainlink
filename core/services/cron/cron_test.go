@@ -34,7 +34,6 @@ func TestCronV2Pipeline(t *testing.T) {
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
-		Pipeline:      *pipeline.NewTaskDAG(),
 		PipelineSpec:  &pipeline.Spec{},
 		ExternalJobID: uuid.NewV4(),
 	}
@@ -59,12 +58,11 @@ func TestCronV2Schedule(t *testing.T) {
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
-		Pipeline:      *pipeline.NewTaskDAG(),
 		PipelineSpec:  &pipeline.Spec{},
 	}
 	runner := new(pipelinemocks.Runner)
 
-	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).
+	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).
 		Return(int64(0), pipeline.FinalResult{}, nil)
 
 	service, err := cron.NewCronFromJobSpec(spec, runner)
