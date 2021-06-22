@@ -22,6 +22,8 @@ pkgs.mkShell {
     goimports
     gopls
     delve
+    gotools
+    go-tools
 
     # gofuzz
   ];
