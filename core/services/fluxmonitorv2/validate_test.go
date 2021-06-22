@@ -26,7 +26,6 @@ type              = "fluxmonitor"
 schemaVersion       = 1
 name                = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0 
 
@@ -61,7 +60,6 @@ answer1 [type=median index=0];
 				assert.Equal(t, "fluxmonitor", j.Type.String())
 				assert.Equal(t, uint32(1), j.SchemaVersion)
 				assert.Equal(t, "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", j.FluxMonitorSpec.ContractAddress.String())
-				assert.Equal(t, int32(2), spec.Precision)
 				assert.Equal(t, float32(0.5), spec.Threshold)
 				assert.Equal(t, float32(0), spec.AbsoluteThreshold)
 				assert.Equal(t, 1*time.Second, spec.IdleTimerPeriod)
@@ -79,7 +77,6 @@ type              = "fluxmonitor"
 schemaVersion       = 1
 name                = "example flux monitor spec"
 contractAddress   = "0x3CCad4715152693fE3BC4460591e3D3Fbd071b42"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0 
 
@@ -92,7 +89,7 @@ pollTimerDisabled = false
 observationSource = """
 ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
 ds1_parse [type=jsonparse path="latest"];
-ds1 -> ds1_parse -> answer1;
+ds1 -> ds1_parse;
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -109,7 +106,6 @@ schemaVersion       = 1
 name                = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 maxTaskDuration = "1s"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0 
 

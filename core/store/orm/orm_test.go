@@ -114,10 +114,10 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 
 	job := cltest.NewJob()
 	job.Tasks = []models.TaskSpec{
-		models.TaskSpec{Type: models.MustNewTaskType("task1")},
-		models.TaskSpec{Type: models.MustNewTaskType("task2")},
-		models.TaskSpec{Type: models.MustNewTaskType("task3")},
-		models.TaskSpec{Type: models.MustNewTaskType("task4")},
+		{Type: models.MustNewTaskType("task1")},
+		{Type: models.MustNewTaskType("task2")},
+		{Type: models.MustNewTaskType("task3")},
+		{Type: models.MustNewTaskType("task4")},
 	}
 	assert.NoError(t, store.CreateJob(&job))
 
@@ -843,6 +843,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, store.CreateBridgeType(bt))
@@ -856,7 +857,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	executor := services.NewRunExecutor(store, pusher)
+	executor := services.NewRunExecutor(store, keyStore, pusher)
 	require.NoError(t, executor.Execute(run.ID))
 
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
@@ -1260,8 +1261,9 @@ func TestORM_RemoveUnstartedTransaction_RemoveByJobRun(t *testing.T) {
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
@@ -1524,7 +1526,8 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
 	defer cleanup()
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	sharedTaskRunID, _ := cltest.MustInsertTaskRun(t, store)
 

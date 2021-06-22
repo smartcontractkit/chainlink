@@ -11,14 +11,15 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/pkg/errors"
 
 	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
@@ -49,7 +50,7 @@ func TestRunner(t *testing.T) {
 	defer eventBroadcaster.Close()
 
 	pipelineORM := pipeline.NewORM(db, config)
-	runner := pipeline.NewRunner(pipelineORM, config)
+	runner := pipeline.NewRunner(pipelineORM, config, nil, nil)
 	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
@@ -106,7 +107,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), *logger.Default, true)
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
@@ -202,7 +203,7 @@ func TestRunner(t *testing.T) {
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Errors, 1)
@@ -252,7 +253,7 @@ func TestRunner(t *testing.T) {
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -300,7 +301,7 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -332,10 +333,8 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		keyStore := cltest.NewKeyStore(t, db).OCR()
+		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -363,6 +362,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -370,19 +370,20 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			nil,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			nil,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
 		require.Error(t, err)
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -410,6 +411,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -418,20 +420,20 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -473,6 +475,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -480,20 +483,21 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
 		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
@@ -518,6 +522,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -525,18 +530,19 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
 		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
@@ -556,6 +562,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -563,14 +570,17 @@ ds1 -> ds1_parse;
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		keyStore := cltest.NewKeyStore(t, db).OCR()
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
@@ -594,6 +604,7 @@ ds1 -> ds1_parse;
 
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
 			config.Config,
 			keyStore,
@@ -601,7 +612,10 @@ ds1 -> ds1_parse;
 			ethClient,
 			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			&headtracker.NullBroadcaster{},
+		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
@@ -657,7 +671,7 @@ ds1 -> ds1_parse;
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.Errors[0])
@@ -668,7 +682,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Create another run
-		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.Error(t, err)
 	})
 
@@ -691,7 +705,7 @@ ds1 -> ds1_parse;
 
 		jb, err := jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
@@ -701,7 +715,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.Errors[0])
@@ -715,7 +729,7 @@ ds1 -> ds1_parse;
 		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, nil, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.Errors[0])
 	})

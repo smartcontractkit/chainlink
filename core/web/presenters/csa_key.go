@@ -3,7 +3,7 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/csa"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 )
 
 // CSAKeyResource represents a CSA key JSONAPI resource.
@@ -19,7 +19,7 @@ func (CSAKeyResource) GetName() string {
 	return "csaKeys"
 }
 
-func NewCSAKeyResource(key csa.CSAKey) *CSAKeyResource {
+func NewResource(key csakey.Key) *CSAKeyResource {
 	r := &CSAKeyResource{
 		JAID:      NewJAIDUint(key.ID),
 		PubKey:    key.PublicKey.String(),
@@ -30,10 +30,10 @@ func NewCSAKeyResource(key csa.CSAKey) *CSAKeyResource {
 	return r
 }
 
-func NewCSAKeyResources(keys []csa.CSAKey) []CSAKeyResource {
+func NewResources(keys []csakey.Key) []CSAKeyResource {
 	rs := []CSAKeyResource{}
 	for _, key := range keys {
-		rs = append(rs, *NewCSAKeyResource(key))
+		rs = append(rs, *NewResource(key))
 	}
 
 	return rs

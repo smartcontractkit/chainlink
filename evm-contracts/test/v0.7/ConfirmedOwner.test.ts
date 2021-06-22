@@ -6,9 +6,11 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { ConfirmedOwner__factory } from '../../ethers/v0.7/factories/ConfirmedOwner__factory'
 import { ConfirmedOwnerTestHelper__factory } from '../../ethers/v0.7/factories/ConfirmedOwnerTestHelper__factory'
 
 const confirmedOwnerTestHelperFactory = new ConfirmedOwnerTestHelper__factory()
+const confirmedOwnerFactory = new ConfirmedOwner__factory()
 const provider = setup.provider()
 
 let personas: setup.Personas
@@ -53,6 +55,15 @@ describe('ConfirmedOwner', () => {
 
       assert.equal(actual, expected)
     })
+
+    it('reverts if assigned to the zero address', async () => {
+      await matchers.evmRevert(
+        confirmedOwnerFactory
+          .connect(owner)
+          .deploy(ethers.constants.AddressZero),
+        'Cannot set owner to zero',
+      )
+    })
   })
 
   describe('#onlyOwner modifier', () => {
@@ -66,8 +77,8 @@ describe('ConfirmedOwner', () => {
     })
 
     describe('when called by anyone but the owner', () => {
-      it('reverts', () =>
-        matchers.evmRevert(
+      it('reverts', async () =>
+        await matchers.evmRevert(
           confirmedOwner.connect(nonOwner).modifierOnlyOwner(),
         ))
     })
@@ -99,8 +110,8 @@ describe('ConfirmedOwner', () => {
   })
 
   describe('when called by anyone but the owner', () => {
-    it('successfully calls the method', () =>
-      matchers.evmRevert(
+    it('successfully calls the method', async () =>
+      await matchers.evmRevert(
         confirmedOwner.connect(nonOwner).transferOwnership(newOwner.address),
       ))
   })
@@ -123,8 +134,10 @@ describe('ConfirmedOwner', () => {
         expect(h.eventArgs(event).from).toEqual(owner.address)
       })
 
-      it('does not allow a non-recipient to call it', () =>
-        matchers.evmRevert(confirmedOwner.connect(nonOwner).acceptOwnership()))
+      it('does not allow a non-recipient to call it', async () =>
+        await matchers.evmRevert(
+          confirmedOwner.connect(nonOwner).acceptOwnership(),
+        ))
     })
   })
 })

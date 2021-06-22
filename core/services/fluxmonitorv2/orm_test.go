@@ -2,7 +2,6 @@ package fluxmonitorv2_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -10,8 +9,8 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -26,7 +25,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	orm := fluxmonitorv2.NewORM(corestore.DB)
+	orm := fluxmonitorv2.NewORM(corestore.DB, nil)
 
 	address := cltest.NewAddress()
 
@@ -92,13 +91,13 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-	orm := fluxmonitorv2.NewORM(corestore.DB)
+	orm := fluxmonitorv2.NewORM(corestore.DB, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
 
 	j := makeJob(t)
-	err := jobORM.CreateJob(context.Background(), j, *pipeline.NewTaskDAG())
+	err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
 	require.NoError(t, err)
 
 	jb, err := jobORM.FindJob(j.ID)
@@ -121,7 +120,6 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,
 					FinishedAt: f,
-					IsTerminal: true,
 				},
 			}, true)
 		require.NoError(t, err)
@@ -144,12 +142,10 @@ func makeJob(t *testing.T) *job.Job {
 		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
-		Pipeline:      *pipeline.NewTaskDAG(),
 		ExternalJobID: uuid.NewV4(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
-			Precision:         2,
 			Threshold:         0.5,
 			PollTimerPeriod:   1 * time.Second,
 			PollTimerDisabled: false,
@@ -168,7 +164,8 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	var (
-		orm = fluxmonitorv2.NewORM(corestore.DB)
+		txm = new(bptxmmocks.TxManager)
+		orm = fluxmonitorv2.NewORM(corestore.DB, txm)
 
 		key      = cltest.MustInsertRandomKey(t, corestore.DB, 0)
 		from     = key.Address.Address()
@@ -177,64 +174,9 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
+	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil).Return(models.EthTx{}, nil).Once()
 
-	etx := models.EthTx{}
-	require.NoError(t, corestore.ORM.DB.First(&etx).Error)
+	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
 
-	require.Equal(t, gasLimit, etx.GasLimit)
-	require.Equal(t, from, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress)
-	require.Equal(t, payload, etx.EncodedPayload)
-	require.Equal(t, assets.NewEthValue(0), etx.Value)
-}
-
-func TestORM_CreateEthTransaction_OutOfEth(t *testing.T) {
-	t.Parallel()
-
-	corestore, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-
-	var (
-		orm = fluxmonitorv2.NewORM(corestore.DB)
-
-		key      = cltest.MustInsertRandomKey(t, corestore.DB, 1)
-		otherKey = cltest.MustInsertRandomKey(t, corestore.DB, 1)
-		from     = key.Address.Address()
-		to       = cltest.NewAddress()
-		payload  = []byte{1, 0, 0}
-		gasLimit = uint64(21000)
-	)
-
-	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, otherKey.Address.Address())
-
-		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
-		require.NoError(t, err)
-
-		etx := models.EthTx{}
-		require.NoError(t, corestore.ORM.DB.First(&etx, "nonce IS NULL AND from_address = ?", from).Error)
-		require.Equal(t, payload, etx.EncodedPayload)
-	})
-
-	require.NoError(t, corestore.DB.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, from).Error)
-
-	t.Run("if this key has any transactions with insufficient eth errors, skips transmission entirely", func(t *testing.T) {
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, corestore, 0, from)
-
-		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
-		require.EqualError(t, err, fmt.Sprintf("Skipped Flux Monitor submission: wallet is out of eth: %s", from))
-	})
-
-	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
-		require.NoError(t, corestore.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
-		require.NoError(t, corestore.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
-
-		err := orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit, 0)
-		require.NoError(t, err)
-
-		etx := models.EthTx{}
-		require.NoError(t, corestore.ORM.DB.First(&etx, "nonce IS NULL AND from_address = ?", from).Error)
-		require.Equal(t, payload, etx.EncodedPayload)
-	})
+	txm.AssertExpectations(t)
 }

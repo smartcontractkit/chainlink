@@ -4,12 +4,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/ethereum/go-ethereum/common"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
@@ -24,6 +25,7 @@ func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
 	db *gorm.DB,
+	txm transmitter,
 	jrm job.ORM,
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
@@ -44,7 +46,7 @@ func NewRegistrySynchronizer(
 		logBroadcaster:   logBroadcaster,
 		mailRoom:         mailRoom,
 		minConfirmations: minConfirmations,
-		orm:              NewORM(db),
+		orm:              NewORM(db, txm),
 		StartStopOnce:    utils.StartStopOnce{},
 		wgDone:           sync.WaitGroup{},
 	}
@@ -74,13 +76,14 @@ func (rs *RegistrySynchronizer) Start() error {
 		go rs.run()
 
 		logListenerOpts := log.ListenerOpts{
-			Contract: rs.contract,
-			Logs: []generated.AbigenLog{
-				keeper_registry_wrapper.KeeperRegistryKeepersUpdated{},
-				keeper_registry_wrapper.KeeperRegistryConfigSet{},
-				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{},
-				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{},
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{},
+			Contract: rs.contract.Address(),
+			ParseLog: rs.contract.ParseLog,
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
+				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
 			},
 			NumConfirmations: rs.minConfirmations,
 		}

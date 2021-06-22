@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -45,7 +46,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener postgres.Subscription
 	eventBroadcaster    postgres.EventBroadcaster
 
-	keys []models.Key
+	keys []ethkey.Key
 
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
@@ -60,7 +61,7 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, allKeys []models.Key) *EthBroadcaster {
+func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, allKeys []ethkey.Key) *EthBroadcaster {
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
 	return &EthBroadcaster{
@@ -157,7 +158,7 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	}
 }
 
-func (eb *EthBroadcaster) monitorEthTxs(k models.Key, triggerCh chan struct{}) {
+func (eb *EthBroadcaster) monitorEthTxs(k ethkey.Key, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
@@ -186,7 +187,7 @@ func (eb *EthBroadcaster) monitorEthTxs(k models.Key, triggerCh chan struct{}) {
 	}
 }
 
-func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key models.Key) error {
+func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key ethkey.Key) error {
 	return eb.advisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
 		return eb.processUnstartedEthTxs(key.Address.Address())
 	})
@@ -197,7 +198,7 @@ func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key models.Key) error {
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
 func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address) error {
-	var n uint = 0
+	var n uint
 	mark := time.Now()
 	defer func() {
 		if n > 0 {
@@ -515,7 +516,7 @@ func IncrementNextNonce(db *gorm.DB, address gethCommon.Address, currentNonce in
 		return errors.Wrap(res.Error, "IncrementNextNonce failed to update keys")
 	}
 	if res.RowsAffected == 0 {
-		var key models.Key
+		var key ethkey.Key
 		db.Where("address = ?", address.Bytes()).First(&key)
 		return errors.New("invariant violation: could not increment nonce because no rows matched query. " +
 			"Either the key is missing or the nonce has been modified by an external process. This is an unrecoverable error")

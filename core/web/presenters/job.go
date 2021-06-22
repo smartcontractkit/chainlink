@@ -3,15 +3,15 @@ package presenters
 import (
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-
 	"github.com/lib/pq"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -34,7 +34,7 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress          models.EIP55Address `json:"contractAddress"`
+	ContractAddress          ethkey.EIP55Address `json:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
 	Initiator                string              `json:"initiator"`
 	CreatedAt                time.Time           `json:"createdAt"`
@@ -57,8 +57,7 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 
 // FluxMonitorSpec defines the spec details of a FluxMonitor Job
 type FluxMonitorSpec struct {
-	ContractAddress   models.EIP55Address `json:"contractAddress"`
-	Precision         int32               `json:"precision"`
+	ContractAddress   ethkey.EIP55Address `json:"contractAddress"`
 	Threshold         float32             `json:"threshold"`
 	AbsoluteThreshold float32             `json:"absoluteThreshold"`
 	PollTimerPeriod   string              `json:"pollTimerPeriod"`
@@ -75,7 +74,6 @@ type FluxMonitorSpec struct {
 func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 	return &FluxMonitorSpec{
 		ContractAddress:   spec.ContractAddress,
-		Precision:         spec.Precision,
 		Threshold:         spec.Threshold,
 		AbsoluteThreshold: spec.AbsoluteThreshold,
 		PollTimerPeriod:   spec.PollTimerPeriod.String(),
@@ -90,12 +88,12 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
-	ContractAddress                        models.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                              *models.PeerID       `json:"p2pPeerID"`
+	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
 	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash   `json:"keyBundleID"`
-	TransmitterAddress                     *models.EIP55Address `json:"transmitterAddress"`
+	TransmitterAddress                     *ethkey.EIP55Address `json:"transmitterAddress"`
 	ObservationTimeout                     models.Interval      `json:"observationTimeout"`
 	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout"`
 	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
@@ -141,8 +139,8 @@ func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 
 // KeeperSpec defines the spec details of a Keeper Job
 type KeeperSpec struct {
-	ContractAddress models.EIP55Address `json:"contractAddress"`
-	FromAddress     models.EIP55Address `json:"fromAddress"`
+	ContractAddress ethkey.EIP55Address `json:"contractAddress"`
+	FromAddress     ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
 }
@@ -188,7 +186,7 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress models.EIP55Address `json:"coordinatorAddress"`
+	CoordinatorAddress ethkey.EIP55Address `json:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey `json:"publicKey"`
 	Confirmations      uint32              `json:"confirmations"`
 	CreatedAt          time.Time           `json:"createdAt"`

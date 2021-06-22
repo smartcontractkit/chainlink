@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -33,15 +33,16 @@ type listenerV2 struct {
 	abi            abi.ABI
 	ethClient      eth.Client
 	logBroadcaster log.Broadcaster
-	hb             *headtracker.HeadBroadcaster
+	txm            bulletprooftxmanager.TxManager
+	//hb             *headtracker.HeadBroadcaster
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
-	vorm           ORM
+	vorm           keystore.VRFORM
 	job            job.Job
 	db             *gorm.DB
-	vrfks          *VRFKeyStore
-	gethks         GethKeyStore
+	vrfks          *keystore.VRF
+	gethks         *keystore.Eth
 	mbLogs         *utils.Mailbox
 	chStop         chan struct{}
 	waitOnStop     chan struct{}
@@ -58,7 +59,7 @@ func (lsn *listenerV2) Start() error {
 			minConfs = lsn.job.VRFSpec.Confirmations
 		}
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
-			Contract: lsn.coordinator,
+			Contract: lsn.coordinator.Address(),
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
 					{
@@ -68,7 +69,7 @@ func (lsn *listenerV2) Start() error {
 			},
 		})
 		// Subscribe to the head tracker
-		lsn.hb.Subscribe(lsn)
+		//lsn.hb.Subscribe(lsn)
 		go gracefulpanic.WrapRecover(func() {
 			lsn.run([]func(){unsubscribeLogs}, minConfs)
 		})
@@ -86,7 +87,7 @@ func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head models.Head) 
 
 func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 	lsn.l.Infow("VRFListener: listening for run requests",
-		"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
+		//"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
 		"gasLimit", lsn.cfg.EthGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
@@ -157,12 +158,12 @@ func (lsn *listenerV2) ProcessV2VRFRequest(lb log.Broadcast) {
 			if err != nil {
 				return err
 			}
-			etx, err = bulletprooftxmanager.CreateEthTransaction(tx,
+			etx, err = lsn.txm.CreateEthTransaction(tx,
 				from,
 				lsn.coordinator.Address(),
 				vrfCoordinatorPayoad,
 				gasLimit,
-				lsn.cfg.EthMaxQueuedTransactions(),
+				//lsn.cfg.EthMaxQueuedTransactions(),
 				&models.EthTxMetaV2{
 					JobID: lsn.job.ID,
 					//RequestID:     req.PreSeed,
@@ -263,7 +264,7 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 		Sender:           req.Sender,
 	}
 	lsn.l.Infow("generating proof", "pk", lsn.job.VRFSpec.PublicKey.String(), "seed", preSeed, "blockHash", req.Raw.BlockHash.String(), "sender", req.Sender)
-	solidityProof, err := lsn.vrfks.GenerateProof(lsn.job.VRFSpec.PublicKey, seed)
+	solidityProof, err := GenerateProofResponse(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
 		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
 		return nil, err

@@ -3,7 +3,6 @@ package vrf
 import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -11,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -18,17 +18,15 @@ import (
 )
 
 type Delegate struct {
-	cfg    Config
-	vorm   ORM
-	db     *gorm.DB
-	txm    bulletprooftxmanager.TxManager
-	pr     pipeline.Runner
-	porm   pipeline.ORM
-	vrfks  *VRFKeyStore
-	gethks GethKeyStore
-	ec     eth.Client
-	lb     log.Broadcaster
-	hb     *headtracker.HeadBroadcaster
+	cfg  Config
+	db   *gorm.DB
+	txm  bulletprooftxmanager.TxManager
+	pr   pipeline.Runner
+	porm pipeline.ORM
+	ks   *keystore.Master
+	ec   eth.Client
+	lb   log.Broadcaster
+	//hb     *headtracker.He
 }
 
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
@@ -40,31 +38,28 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EthGasLimitDefault() uint64
-	EthMaxQueuedTransactions() uint64
 }
 
 func NewDelegate(
 	db *gorm.DB,
-	vorm ORM,
-	gethks GethKeyStore,
-	vrfks *VRFKeyStore,
+	txm bulletprooftxmanager.TxManager,
+	ks *keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	lb log.Broadcaster,
-	hb *headtracker.HeadBroadcaster,
+	//hb *headtracker.HeadBroadcaster,
 	ec eth.Client,
 	cfg Config) *Delegate {
 	return &Delegate{
-		cfg:    cfg,
-		db:     db,
-		vrfks:  vrfks,
-		gethks: gethks,
-		vorm:   vorm,
-		pr:     pr,
-		porm:   porm,
-		lb:     lb,
-		hb:     hb,
-		ec:     ec,
+		cfg:  cfg,
+		db:   db,
+		txm:  txm,
+		ks:   ks,
+		pr:   pr,
+		porm: porm,
+		lb:   lb,
+		ec:   ec,
+		//hb:     hb,
 	}
 }
 
@@ -95,6 +90,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	))
 
+	vorm := keystore.NewVRFORM(d.db)
 	return []job.Service{
 		&listenerV1{
 			cfg:            d.cfg,
@@ -103,10 +99,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			db:             d.db,
 			abi:            abi,
 			coordinator:    coordinator,
+			txm:            d.txm,
 			pipelineRunner: d.pr,
-			vorm:           d.vorm,
-			vrfks:          d.vrfks,
-			gethks:         d.gethks,
+			vorm:           vorm,
+			vrfks:          d.ks.VRF(),
+			gethks:         d.ks.Eth(),
 			pipelineORM:    d.porm,
 			job:            jb,
 			mbLogs:         utils.NewMailbox(1000),
@@ -121,10 +118,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			db:             d.db,
 			abi:            abiV2,
 			coordinator:    coordinatorV2,
+			txm:            d.txm,
 			pipelineRunner: d.pr,
-			vorm:           d.vorm,
-			vrfks:          d.vrfks,
-			gethks:         d.gethks,
+			vorm:           vorm,
+			vrfks:          d.ks.VRF(),
+			gethks:         d.ks.Eth(),
 			pipelineORM:    d.porm,
 			job:            jb,
 			mbLogs:         utils.NewMailbox(1000),

@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,13 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 //go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
-//go:generate mockery --name AbigenContract --output ./mocks/ --case=underscore --structname AbigenContract --filename abigen_contract.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -41,6 +42,7 @@ type (
 	Broadcaster interface {
 		utils.DependentAwaiter
 		service.Service
+		httypes.HeadTrackable
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 		LatestHead() *models.Head
@@ -79,24 +81,20 @@ type (
 	}
 
 	ListenerOpts struct {
-		Contract AbigenContract
-
-		// Event types to receive, filtered only by event
-		Logs []generated.AbigenLog
+		Contract common.Address
 
 		// Event types to receive, with value filter for each field in the event
 		// No filter or an empty filter for a given field position mean: all values allowed
 		// the key should be a result of AbigenLog.Topic() call
 		LogsWithTopics map[common.Hash][][]Topic
 
+		ParseLog ParseLogFunc
+
 		// Minimum number of block confirmations before the log is received
 		NumConfirmations uint64
 	}
 
-	AbigenContract interface {
-		Address() common.Address
-		ParseLog(log types.Log) (generated.AbigenLog, error)
-	}
+	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
 
 	registration struct {
 		listener Listener
@@ -172,12 +170,8 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	if len(opts.Logs) == 0 && len(opts.LogsWithTopics) == 0 {
+	if len(opts.LogsWithTopics) == 0 {
 		logger.Fatal("Must supply at least 1 Log to Register")
-	}
-
-	if len(opts.Logs) > 0 && len(opts.LogsWithTopics) > 0 {
-		logger.Fatal("Must use either Logs or LogsWithTopics but not both")
 	}
 
 	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})
@@ -440,3 +434,35 @@ func (b *broadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error
 func (b *broadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
 	return b.orm.MarkBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
+
+type NullBroadcaster struct{ ErrMsg string }
+
+func (n *NullBroadcaster) IsConnected() bool { return false }
+func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
+	return func() {}
+}
+func (n *NullBroadcaster) LatestHead() *models.Head {
+	return nil
+}
+func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
+	return 0
+}
+func (n *NullBroadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error) {
+	return false, errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
+	return errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) AddDependents(int) {}
+func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+func (n *NullBroadcaster) DependentReady()                                {}
+func (n *NullBroadcaster) Start() error                                   { return nil }
+func (n *NullBroadcaster) Close() error                                   { return nil }
+func (n *NullBroadcaster) Healthy() error                                 { return nil }
+func (n *NullBroadcaster) Ready() error                                   { return nil }
+func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}

@@ -17,22 +17,22 @@ type CSAKeysController struct {
 // Example:
 // "GET <application>/keys/csa"
 func (ctrl *CSAKeysController) Index(c *gin.Context) {
-	keys, err := ctrl.App.GetCSAKeyService().ListCSAKeys()
+	keys, err := ctrl.App.GetKeyStore().CSA().ListCSAKeys()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewCSAKeyResources(keys), "csaKeys")
+	jsonAPIResponse(c, presenters.NewResources(keys), "csaKeys")
 }
 
 // Create and return a P2P key
 // Example:
 // "POST <application>/keys/csa"
 func (ctrl *CSAKeysController) Create(c *gin.Context) {
-	key, err := ctrl.App.GetCSAKeyService().CreateCSAKey()
+	key, err := ctrl.App.GetKeyStore().CSA().CreateCSAKey()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewCSAKeyResource(*key), "csaKeys")
+	jsonAPIResponse(c, presenters.NewResource(*key), "csaKeys")
 }

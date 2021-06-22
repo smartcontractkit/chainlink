@@ -43,7 +43,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 			defer r.Body.Close()
 			bs, err := ioutil.ReadAll(r.Body)
 			require.NoError(t, err)
-			require.Equal(t, `{"meta":null,"result":"12345"}`, string(bs))
+			require.Equal(t, `{"result":"12345"}`, string(bs))
 		})
 		defer cleanup()
 
@@ -115,7 +115,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 			defer r.Body.Close()
 			bs, err := ioutil.ReadAll(r.Body)
 			require.NoError(t, err)
-			require.Equal(t, `{"meta":null,"result":"12345"}`, string(bs))
+			require.Equal(t, `{"result":"12345"}`, string(bs))
 		})
 		defer cleanup()
 
@@ -170,7 +170,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 
 	var parsedResponse []pipeline.Run
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"meta":null,"errors":[null],"outputs":["3"]`)
+	assert.Contains(t, string(responseBytes), `"errors":[null],"outputs":["3"]`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
@@ -193,7 +193,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 
 	var parsedResponse []pipeline.Run
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"meta":null,"errors":[null],"outputs":["3"]`)
+	assert.Contains(t, string(responseBytes), `"errors":[null],"outputs":["3"]`)
 	assert.Contains(t, string(responseBytes), `"meta":{"count":2}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
@@ -216,7 +216,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 
 	var parsedResponse pipeline.Run
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"meta":null,"errors":[null],"outputs":["3"]`)
+	assert.Contains(t, string(responseBytes), `"errors":[null],"outputs":["3"]`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
@@ -286,7 +286,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	ocrJobSpec.OffchainreportingOracleSpec = &os
 
-	err = app.OCRKeyStore.Unlock(cltest.Password)
+	err = app.GetKeyStore().OCR().Unlock(cltest.Password)
 	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})

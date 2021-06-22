@@ -36,7 +36,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -163,13 +163,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	triggerAllKeys(t, app)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	// Do the thing
-	newHeads <- cltest.Head(safe)
-
-	// sending another head to make sure EthTx executes after EthConfirmer is done
-	newHeads <- cltest.Head(safe + 1)
-
-	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, safe)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -481,7 +475,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), ethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -696,7 +690,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 		ethClient,
 	)
 	defer cleanup()
-	cltest.MustAddRandomKeyToKeystore(t, app.Store)
+	cltest.MustAddRandomKeyToKeystore(t, app.GetKeyStore().Eth())
 
 	app.InstantClock()
 	require.NoError(t, app.Start())
@@ -1022,7 +1016,6 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			expectedBridgeRequest := map[string]interface{}{
 				"value": float64(42),
-				"meta":  nil,
 			}
 			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
 
@@ -1050,7 +1043,7 @@ externalInitiatorSpec = """
     %v
 """
 observationSource   = """
-    parse  [type=jsonparse path="result" data="$(input)"]
+    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
     parse -> submit
 """
@@ -1133,7 +1126,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	)
 	defer appCleanup()
 
-	_, address := cltest.MustAddRandomKeyToKeystore(t, app.Store)
+	_, address := cltest.MustAddRandomKeyToKeystore(t, app.GetKeyStore().Eth())
 
 	// Start, connect, and initialize node
 	sub.On("Err").Return(nil).Maybe()
@@ -1228,7 +1221,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Check the FM price on completed run output
-	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, ethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe)
 
 	requestParams := jr.RunRequest.RequestParams
 	assert.Equal(t, "102", requestParams.Get("result").String())
@@ -1383,7 +1376,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	triggerAllKeys(t, app)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, ethClient)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
@@ -1532,7 +1525,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
-	sendingKeys, err := app.Store.KeyStore.SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
 	_, err = operatorContract.SetAuthorizedSenders(user, authorizedSenders)
@@ -1653,9 +1646,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true)
 	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	_, _, err := app.OCRKeyStore.GenerateEncryptedP2PKey()
+	_, _, err := app.GetKeyStore().OCR().GenerateEncryptedP2PKey()
 	require.NoError(t, err)
-	p2pIDs := app.OCRKeyStore.DecryptedP2PKeys()
+	p2pIDs := app.GetKeyStore().OCR().DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].MustGetPeerID().Raw()
@@ -1666,7 +1659,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 	app.Config.Set("CHAINLINK_DEV", true) // Disables ocr spec validation so we can have fast polling for the test.
 
-	sendingKeys, err := app.Store.KeyStore.SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address.Address()
 
@@ -1681,7 +1674,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.NoError(t, err)
 	b.Commit()
 
-	_, kb, err := app.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	_, kb, err := app.GetKeyStore().OCR().GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
 	return app, peerID, transmitter, kb, func() {
 		ormCleanup()
@@ -2080,9 +2073,9 @@ func TestIntegration_GasUpdater(t *testing.T) {
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	keys, err := app.Store.KeyStore.SendingKeys()
+	keys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	for _, k := range keys {
-		app.BPTXM.Trigger(k.Address.Address())
+		app.TxManager.Trigger(k.Address.Address())
 	}
 }

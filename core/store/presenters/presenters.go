@@ -58,6 +58,7 @@ type EnvPrinter struct {
 	EthGasBumpTxDepth                     uint16          `json:"ETH_GAS_BUMP_TX_DEPTH"`
 	EthGasBumpWei                         *big.Int        `json:"ETH_GAS_BUMP_WEI"`
 	EthGasLimitDefault                    uint64          `json:"ETH_GAS_LIMIT_DEFAULT"`
+	EthGasLimitTransfer                   uint64          `json:"ETH_GAS_LIMIT_TRANSFER"`
 	EthGasPriceDefault                    *big.Int        `json:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth            uint            `json:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EthHeadTrackerMaxBufferSize           uint            `json:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
@@ -88,7 +89,7 @@ type EnvPrinter struct {
 	MinIncomingConfirmations              uint32          `json:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations      uint64          `json:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumServiceDuration                models.Duration `json:"MINIMUM_SERVICE_DURATION"`
-	MinimumContractPayment                *assets.Link    `json:"MINIMUM_CONTRACT_PAYMENT"`
+	MinimumContractPayment                *assets.Link    `json:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	MinimumRequestExpiration              uint64          `json:"MINIMUM_REQUEST_EXPIRATION"`
 	OCRBootstrapCheckInterval             time.Duration   `json:"OCR_BOOTSTRAP_CHECK_INTERVAL"`
 	OCRContractTransmitterTransmitTimeout time.Duration   `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
@@ -152,6 +153,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthGasBumpTxDepth:                     config.EthGasBumpTxDepth(),
 			EthGasBumpWei:                         config.EthGasBumpWei(),
 			EthGasLimitDefault:                    config.EthGasLimitDefault(),
+			EthGasLimitTransfer:                   config.EthGasLimitTransfer(),
 			EthGasPriceDefault:                    config.EthGasPriceDefault(),
 			EthHeadTrackerHistoryDepth:            config.EthHeadTrackerHistoryDepth(),
 			EthHeadTrackerMaxBufferSize:           config.EthHeadTrackerMaxBufferSize(),
@@ -513,7 +515,7 @@ func (sa ServiceAgreement) FriendlyExpiration() string {
 // FriendlyPayment returns the ServiceAgreement's Encumbrance payment amount in
 // a human readable format.
 func (sa ServiceAgreement) FriendlyPayment() string {
-	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.String())
+	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.Link())
 }
 
 // FriendlyAggregator returns the ServiceAgreement's aggregator address,

@@ -2,6 +2,7 @@ package orm_test
 
 import (
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -56,17 +57,17 @@ func TestConfig_Profiles(t *testing.T) {
 		{"mainnet", "1", 500000, 1000000000000000000},
 		{"kovan", "42", 500000, 1000000000000000000},
 
-		{"optimism", "10", 500000, 1000000000000000000},
-		{"optimism", "69", 500000, 1000000000000000000},
-		{"optimism", "420", 500000, 1000000000000000000},
+		{"optimism", "10", 500000, 100000000000000},
+		{"optimism", "69", 500000, 100000000000000},
+		{"optimism", "420", 500000, 100000000000000},
 
-		{"bscMainnet", "56", 500000, 1000000000000000000},
-		{"hecoMainnet", "128", 500000, 1000000000000000000},
-		{"fantomMainnet", "250", 500000, 3500000000000000},
-		{"fantomTestnet", "4002", 500000, 3500000000000000},
-		{"polygonMatic", "800001", 500000, 1000000000000000000},
+		{"bscMainnet", "56", 500000, 100000000000000},
+		{"hecoMainnet", "128", 500000, 100000000000000},
+		{"fantomMainnet", "250", 500000, 100000000000000},
+		{"fantomTestnet", "4002", 500000, 100000000000000},
+		{"polygonMatic", "800001", 500000, 100000000000000},
 
-		{"xDai", "100", 500000, 1000000000000000000},
+		{"xDai", "100", 500000, 100000000000000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -75,4 +76,28 @@ func TestConfig_Profiles(t *testing.T) {
 			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment), config.MinimumContractPayment())
 		})
 	}
+}
+
+func TestConfig_MinimumContractPayment(t *testing.T) {
+	originalJuels := os.Getenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS")
+	originalLink := os.Getenv("MINIMUM_CONTRACT_PAYMENT")
+	defer func() {
+		os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", originalJuels)
+		os.Setenv("MINIMUM_CONTRACT_PAYMENT", originalLink)
+	}()
+
+	config := orm.NewConfig()
+	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
+
+	os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", "5987")
+	config = orm.NewConfig()
+	assert.Equal(t, assets.NewLink(5987), config.MinimumContractPayment())
+
+	os.Setenv("MINIMUM_CONTRACT_PAYMENT", "4937")
+	config = orm.NewConfig()
+	assert.Equal(t, assets.NewLink(5987), config.MinimumContractPayment())
+
+	os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", "")
+	config = orm.NewConfig()
+	assert.Equal(t, assets.NewLink(4937), config.MinimumContractPayment())
 }

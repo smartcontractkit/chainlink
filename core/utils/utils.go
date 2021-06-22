@@ -442,12 +442,28 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+func HexToBig(s string) *big.Int {
+	n, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
+	}
+	return n
+}
+
 // Uint256ToHex returns the hex representation of n, or error if out of bounds
 func Uint256ToHex(n *big.Int) (string, error) {
 	if err := CheckUint256(n); err != nil {
 		return "", err
 	}
 	return common.BigToHash(n).Hex(), nil
+}
+
+// Uint256ToBytes32 returns the bytes32 encoding of the big int provided
+func Uint256ToBytes32(n *big.Int) []byte {
+	if n.BitLen() > 256 {
+		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
+	}
+	return common.LeftPadBytes(n.Bytes(), 32)
 }
 
 // ToDecimal converts an input to a decimal

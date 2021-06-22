@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,11 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 	"time"
 )
@@ -28,12 +32,12 @@ type listenerV1 struct {
 	coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
-	vorm           ORM
+	vorm           keystore.VRFORM
 	job            job.Job
 	db             *gorm.DB
 	txm            bulletprooftxmanager.TxManager
-	vrfks          *VRFKeyStore
-	gethks         GethKeyStore
+	vrfks          *keystore.VRF
+	gethks         *keystore.Eth
 	mbLogs         *utils.Mailbox
 	chStop         chan struct{}
 	waitOnStop     chan struct{}

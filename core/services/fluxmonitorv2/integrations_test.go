@@ -29,6 +29,7 @@ import (
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -51,7 +52,7 @@ var emptyList = []common.Address{}
 // fluxAggregatorUniverse represents the universe with which the aggregator
 // contract interacts
 type fluxAggregatorUniverse struct {
-	key                       models.Key
+	key                       ethkey.Key
 	aggregatorContract        *faw.FluxAggregator
 	aggregatorContractAddress common.Address
 	linkContract              *link_token_interface.LinkToken
@@ -449,7 +450,6 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	schemaVersion     = 1
 	name              = "integration test"
 	contractAddress   = "%s"
-	precision = 0
 	threshold = 2.0
 	absoluteThreshold = 0.0
 
@@ -561,7 +561,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -665,7 +664,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = 0
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -772,7 +770,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = %d
 threshold = 0.5
 absoluteThreshold = 0.01
 
@@ -790,7 +787,7 @@ ds1 -> ds1_parse
 """
 `
 
-	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, 8, "100ms", mockServer.URL)
+	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, "100ms", mockServer.URL)
 
 	// raise flags
 	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
@@ -877,7 +874,6 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
-precision = 2
 threshold = 0.5
 absoluteThreshold = 0.0
 

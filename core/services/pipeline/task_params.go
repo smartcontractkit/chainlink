@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -8,8 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -209,7 +212,7 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 	}
 }
 
-type BytesParam string
+type BytesParam []byte
 
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
@@ -225,6 +228,8 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 		*b = BytesParam(v)
 	case []byte:
 		*b = BytesParam(v)
+	case nil:
+		*b = BytesParam(nil)
 	default:
 		return ErrBadInput
 	}
@@ -373,6 +378,29 @@ func (u *URLParam) String() string {
 	return (*url.URL)(u).String()
 }
 
+type AddressParam common.Address
+
+func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
+	switch v := val.(type) {
+	case string:
+		return a.UnmarshalPipelineParam([]byte(v))
+	case []byte:
+		if bytes.Equal(v[:2], []byte("0x")) && len(v) == 42 {
+			*a = AddressParam(common.HexToAddress(string(v)))
+			return nil
+		} else if len(v) == 20 {
+			copy((*a)[:], v)
+			return nil
+		}
+		return ErrBadInput
+	case common.Address:
+		*a = AddressParam(v)
+	default:
+		return ErrBadInput
+	}
+	return nil
+}
+
 type MapParam map[string]interface{}
 
 func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
@@ -478,10 +506,71 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	return nil
 }
 
-type StringSliceParam []string
+type HashSliceParam []common.Hash
 
-func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
-	var ssp StringSliceParam
+func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
+	var dsp HashSliceParam
+	switch v := val.(type) {
+	case nil:
+		dsp = nil
+	case []common.Hash:
+		dsp = v
+	case string:
+		err := json.Unmarshal([]byte(v), &dsp)
+		if err != nil {
+			return err
+		}
+	case []byte:
+		err := json.Unmarshal(v, &dsp)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.Wrap(ErrBadInput, "HashSliceParam")
+	}
+	*s = dsp
+	return nil
+}
+
+type AddressSliceParam []common.Address
+
+func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
+	var asp AddressSliceParam
+	switch v := val.(type) {
+	case nil:
+		asp = nil
+	case []common.Address:
+		asp = v
+	case string:
+		err := json.Unmarshal([]byte(v), &asp)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+		}
+	case []byte:
+		err := json.Unmarshal(v, &asp)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+		}
+	case []interface{}:
+		for _, a := range v {
+			var addr AddressParam
+			err := addr.UnmarshalPipelineParam(a)
+			if err != nil {
+				return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+			}
+			asp = append(asp, common.Address(addr))
+		}
+	default:
+		return errors.Wrapf(ErrBadInput, "AddressSliceParam: cannot convert %T", val)
+	}
+	*s = asp
+	return nil
+}
+
+type JSONPathParam []string
+
+func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
+	var ssp JSONPathParam
 	switch v := val.(type) {
 	case nil:
 		ssp = nil

@@ -52,7 +52,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
-	err := app.Store.KeyStore.Unlock(Password)
+	err := app.KeyStore.Eth().Unlock(Password)
 	require.NoError(t, err)
 
 	return app, func() { appCleanup(); client.Close() }
@@ -164,7 +164,7 @@ func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
 }
 
-var balanceOfABIString string = `[
+var balanceOfABIString = `[
   {
     "constant": true,
     "inputs": [

@@ -259,7 +259,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateExternalInitiator(c)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			var exi models.ExternalInitiator
 			err = app.Store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {

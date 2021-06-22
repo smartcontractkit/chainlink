@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -96,12 +97,11 @@ func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
 func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
-	ca := models.EIP55AddressFromAddress(initr.Address)
+	ca := ethkey.EIP55AddressFromAddress(initr.Address)
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ContractAddress:   ca,
-			Precision:         initr.Precision,
 			Threshold:         initr.Threshold,
 			AbsoluteThreshold: initr.AbsoluteThreshold,
 			PollTimerPeriod:   initr.PollTimer.Period.Duration(),
@@ -123,15 +123,15 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	jb.PipelineSpec = &pipeline.Spec{
 		DotDagSource: ps,
 	}
-	jb.Pipeline = pd
+	jb.Pipeline = *pd
 	return jb, nil
 }
 
-func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
-	dg := pipeline.NewTaskDAG()
+func BuildFMTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
+	dg := pipeline.NewGraph()
 	// First add the feeds as parallel HTTP tasks,
 	// which all coalesce into a single median task.
-	var medianTask = pipeline.NewTaskDAGNode(dg.NewNode(), "median", map[string]string{
+	var medianTask = pipeline.NewGraphNode(dg.NewNode(), "median", map[string]string{
 		"type": pipeline.TaskTypeMedian.String(),
 	})
 	dg.AddNode(medianTask)
@@ -140,24 +140,31 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 		// Support anyways just in case someone was using it without our knowledge.
 		// ALL fm jobs are POSTs see
 		// https://github.com/smartcontractkit/chainlink/blob/e5957895e3aa4947c2ddb5a4a8525041639962e9/core/services/fluxmonitor/fetchers.go#L67
-		var n *pipeline.TaskDAGNode
+		var httpTask *pipeline.GraphNode
 		if feed.IsObject() && feed.Get("bridge").Exists() {
-			n = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
+			httpTask = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
 				"type":        pipeline.TaskTypeBridge.String(),
 				"method":      "POST",
 				"name":        feed.Get("bridge").String(),
 				"requestData": js.Initiators[0].InitiatorParams.RequestData.String(),
 			})
 		} else {
-			n = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
+			httpTask = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
 				"type":        pipeline.TaskTypeHTTP.String(),
 				"method":      "POST",
 				"url":         feed.String(),
 				"requestData": js.Initiators[0].InitiatorParams.RequestData.String(),
 			})
 		}
-		dg.AddNode(n)
-		dg.SetEdge(dg.NewEdge(n, medianTask))
+		dg.AddNode(httpTask)
+		// We always implicity parse {"data": {"result": X}}
+		parseTask := pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse%d", i), map[string]string{
+			"type": pipeline.TaskTypeJSONParse.String(),
+			"path": "data,result",
+		})
+		dg.AddNode(parseTask)
+		dg.SetEdge(dg.NewEdge(httpTask, parseTask))
+		dg.SetEdge(dg.NewEdge(parseTask, medianTask))
 	}
 	// Now add tasks linearly from the median task.
 	var foundEthTx = false
@@ -171,37 +178,36 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 			if ts.Params.Get("times").Exists() {
 				attrs["times"] = ts.Params.Get("times").String()
 			} else {
-				return "", *dg, errors.New("no times param on multiply task")
+				return "", nil, errors.New("no times param on multiply task")
 			}
-			n := pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("multiply%d", i), attrs)
+			n := pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply%d", i), attrs)
 			dg.AddNode(n)
 			dg.SetEdge(dg.NewEdge(last, n))
 			last = n
-		case adapters.TaskTypeEthUint256:
+		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2.
 		case adapters.TaskTypeEthTx:
 			// Do nothing. This is implicit in FMV2.
 			foundEthTx = true
 		default:
-			return "", *dg, errors.Errorf("unsupported task type %v", ts.Type)
+			return "", nil, errors.Errorf("unsupported task type %v", ts.Type)
 		}
 	}
 	if !foundEthTx {
-		return "", *dg, errors.New("expected ethtx in FM v1 job spec")
+		return "", nil, errors.New("expected ethtx in FM v1 job spec")
 	}
 	s, err := dot.Marshal(dg, "", "", "")
 	if err != nil {
-		return "", *dg, err
+		return "", nil, err
 	}
 
 	// Double check we can unmarshal it
 	generatedDotDagSource := string(s)
 	generatedDotDagSource = strings.Replace(generatedDotDagSource, "strict digraph {", "", 1)
 	generatedDotDagSource = generatedDotDagSource[:len(generatedDotDagSource)-1] // Remove final }
-	p := pipeline.NewTaskDAG()
-	err = p.UnmarshalText([]byte(generatedDotDagSource))
+	p, err := pipeline.Parse(generatedDotDagSource)
 	if err != nil {
-		return "", *dg, err
+		return "", nil, err
 	}
-	return generatedDotDagSource, *p, err
+	return generatedDotDagSource, p, err
 }

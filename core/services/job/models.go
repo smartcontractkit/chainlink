@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	uuid "github.com/satori/go.uuid"
-
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-
 	"github.com/lib/pq"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
@@ -30,6 +29,7 @@ const (
 	Webhook           Type = "webhook"
 )
 
+//revive:disable:redefines-builtin-id
 type Type string
 
 func (t Type) String() string {
@@ -77,7 +77,7 @@ type Job struct {
 	SchemaVersion                 uint32
 	Name                          null.String
 	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.TaskDAG `toml:"observationSource" gorm:"-"`
+	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
 func (j Job) ExternalIDToTopicHash() common.Hash {
@@ -135,12 +135,12 @@ func (pr *PipelineRun) SetID(value string) error {
 // which has https://github.com/go-gorm/gorm/issues/2748 fixed.
 type OffchainReportingOracleSpec struct {
 	ID                                     int32                `toml:"-" gorm:"primary_key"`
-	ContractAddress                        models.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                              *models.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
+	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
 	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
 	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
-	TransmitterAddress                     *models.EIP55Address `toml:"transmitterAddress"`
+	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
 	ObservationTimeout                     models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
 	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
 	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
@@ -216,7 +216,7 @@ func (WebhookSpec) TableName() string {
 
 type DirectRequestSpec struct {
 	ID                       int32               `toml:"-" gorm:"primary_key"`
-	ContractAddress          models.EIP55Address `toml:"contractAddress"`
+	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
 	CreatedAt                time.Time           `toml:"-"`
 	UpdatedAt                time.Time           `toml:"-"`
@@ -263,8 +263,7 @@ func (CronSpec) TableName() string {
 
 type FluxMonitorSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
-	ContractAddress models.EIP55Address `toml:"contractAddress"`
-	Precision       int32               `gorm:"type:smallint"`
+	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 	Threshold       float32             `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
@@ -281,15 +280,15 @@ type FluxMonitorSpec struct {
 
 type KeeperSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
-	ContractAddress models.EIP55Address `toml:"contractAddress"`
-	FromAddress     models.EIP55Address `toml:"fromAddress"`
+	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
+	FromAddress     ethkey.EIP55Address `toml:"fromAddress"`
 	CreatedAt       time.Time           `toml:"-"`
 	UpdatedAt       time.Time           `toml:"-"`
 }
 
 type VRFSpec struct {
 	ID                 int32
-	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
+	CoordinatorAddress ethkey.EIP55Address `toml:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
 	Confirmations      uint32              `toml:"confirmations"`
 	CreatedAt          time.Time           `toml:"-"`
