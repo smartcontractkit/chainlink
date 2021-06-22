@@ -59,5 +59,5 @@ export default {
     alphaSort: true,
     runOnCompile: true,
     disambiguatePaths: false,
-  }
+  },
 };
