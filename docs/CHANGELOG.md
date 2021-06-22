@@ -269,7 +269,7 @@ chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
 - See example web job spec below: 
 
 ```
-type            = "web"
+type            = "webhook"
 schemaVersion   = 1
 jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 observationSource = """
