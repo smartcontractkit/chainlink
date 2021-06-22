@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+
 	"github.com/shopspring/decimal"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -27,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,7 +58,7 @@ var (
 	ethLink  = decimal.RequireFromString("10000000000000000")
 )
 
-func newVRFCoordinatorV2Universe(t *testing.T, key models.Key) coordinatorV2Universe {
+func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Universe {
 	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
@@ -137,9 +138,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
-	vrfkey, err := app.Store.VRFKeyStore.CreateKey(cltest.Password)
+	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
-	unlocked, err := app.Store.VRFKeyStore.Unlock(cltest.Password)
+	vrfkey, err := app.GetKeyStore().VRF().CreateKey()
 	require.NoError(t, err)
 	jid := uuid.NewV4()
 	incomingConfs := 2
@@ -148,7 +149,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		Name:               "vrf-primary",
 		CoordinatorAddress: uni.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
-		PublicKey:          unlocked[0].String()}).Toml()
+		PublicKey:          vrfkey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
@@ -187,7 +188,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	nw := 10
 	// If we request a 500k gas limit it should fail because we default to 500k gaslimit on the tx (static)
 	gasRequested := 500000
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, 2, 500000, uint64(nw))
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(incomingConfs), 500000, uint64(nw))
 	require.NoError(t, err)
 	// Mine the required number of blocks
 	// So our request gets confirmed.
@@ -270,9 +271,9 @@ func TestRequestCost(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
-	vrfkey, err := app.Store.VRFKeyStore.CreateKey(cltest.Password)
+	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
-	_, err = app.Store.VRFKeyStore.Unlock(cltest.Password)
+	vrfkey, err := app.GetKeyStore().VRF().CreateKey()
 	require.NoError(t, err)
 	p, err := vrfkey.Point()
 	require.NoError(t, err)

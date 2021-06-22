@@ -276,7 +276,15 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB,
 				config,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(
+				store.DB,
+				txManager,
+				jobORM,
+				pipelineRunner,
+				store.EthClient,
+				headBroadcaster,
+				logBroadcaster,
+				config),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -284,8 +292,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				pipelineORM,
 				logBroadcaster,
+				headBroadcaster,
 				store.EthClient,
-				store.Config),
+				config),
 		}
 	)
 

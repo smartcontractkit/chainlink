@@ -3,6 +3,7 @@ package vrf
 import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -26,7 +27,7 @@ type Delegate struct {
 	ks   *keystore.Master
 	ec   eth.Client
 	lb   log.Broadcaster
-	//hb     *headtracker.He
+	hb   httypes.HeadBroadcasterRegistry
 }
 
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
@@ -47,7 +48,7 @@ func NewDelegate(
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	lb log.Broadcaster,
-	//hb *headtracker.HeadBroadcaster,
+	hb httypes.HeadBroadcasterRegistry,
 	ec eth.Client,
 	cfg Config) *Delegate {
 	return &Delegate{
@@ -59,7 +60,7 @@ func NewDelegate(
 		porm: porm,
 		lb:   lb,
 		ec:   ec,
-		//hb:     hb,
+		hb:   hb,
 	}
 }
 
@@ -111,23 +112,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			waitOnStop:     make(chan struct{}),
 		},
 		&listenerV2{
-			cfg:            d.cfg,
-			l:              *l,
-			ethClient:      d.ec,
-			logBroadcaster: d.lb,
-			db:             d.db,
-			abi:            abiV2,
-			coordinator:    coordinatorV2,
-			txm:            d.txm,
-			pipelineRunner: d.pr,
-			vorm:           vorm,
-			vrfks:          d.ks.VRF(),
-			gethks:         d.ks.Eth(),
-			pipelineORM:    d.porm,
-			job:            jb,
-			mbLogs:         utils.NewMailbox(1000),
-			chStop:         make(chan struct{}),
-			waitOnStop:     make(chan struct{}),
+			cfg:             d.cfg,
+			l:               *l,
+			ethClient:       d.ec,
+			logBroadcaster:  d.lb,
+			headBroadcaster: d.hb,
+			db:              d.db,
+			abi:             abiV2,
+			coordinator:     coordinatorV2,
+			txm:             d.txm,
+			pipelineRunner:  d.pr,
+			vorm:            vorm,
+			vrfks:           d.ks.VRF(),
+			gethks:          d.ks.Eth(),
+			pipelineORM:     d.porm,
+			job:             jb,
+			mbLogs:          utils.NewMailbox(1000),
+			chStop:          make(chan struct{}),
+			waitOnStop:      make(chan struct{}),
 		},
 	}, nil
 }

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
-	"time"
 )
 
 type listenerV1 struct {
@@ -261,7 +262,7 @@ func (lsn *listenerV1) Close() error {
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.mbLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("VRFListener: l mailbox is over capacity - dropped the oldest l")
+		logger.Error("VRFListener: log mailbox is over capacity - dropped the oldest log")
 	}
 }
 

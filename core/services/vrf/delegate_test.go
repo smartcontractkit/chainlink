@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -99,6 +101,7 @@ func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
 	t.Cleanup(cleanup)
 	vuni := buildVrfUni(t, store.DB, cfg)
 
+	headBroadcaster := headtracker.NewHeadBroadcaster()
 	vd := vrf.NewDelegate(
 		store.DB,
 		vuni.txm,
@@ -106,6 +109,7 @@ func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
 		vuni.jpv2.Pr,
 		vuni.jpv2.Prm,
 		vuni.lb,
+		headBroadcaster,
 		vuni.ec,
 		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
@@ -115,7 +119,7 @@ func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
 	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, pipeline.Pipeline{}))
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
-	require.Len(t, vl, 1)
+	require.Len(t, vl, 2)
 
 	listener := vl[0]
 	unsubscribeAwaiter := cltest.NewAwaiter()
@@ -187,6 +191,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 	assert.True(t, ok)
 	assert.Len(t, runs[0].PipelineTaskRuns, 0)
 }
+
 func TestDelegate_InvalidLog(t *testing.T) {
 	vuni, logListener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)

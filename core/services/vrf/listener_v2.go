@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -24,36 +26,43 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
-	"time"
 )
 
+type pendingRequest struct {
+	confirmedAtBlock uint64
+	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
+	lb               log.Broadcast
+}
+
 type listenerV2 struct {
-	cfg            Config
-	l              logger.Logger
-	abi            abi.ABI
-	ethClient      eth.Client
-	logBroadcaster log.Broadcaster
-	txm            bulletprooftxmanager.TxManager
-	//hb             *headtracker.HeadBroadcaster
-	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
-	pipelineRunner pipeline.Runner
-	pipelineORM    pipeline.ORM
-	vorm           keystore.VRFORM
-	job            job.Job
-	db             *gorm.DB
-	vrfks          *keystore.VRF
-	gethks         *keystore.Eth
-	mbLogs         *utils.Mailbox
-	chStop         chan struct{}
-	waitOnStop     chan struct{}
+	cfg             Config
+	l               logger.Logger
+	abi             abi.ABI
+	ethClient       eth.Client
+	logBroadcaster  log.Broadcaster
+	txm             bulletprooftxmanager.TxManager
+	headBroadcaster httypes.HeadBroadcasterRegistry
+	coordinator     *vrf_coordinator_v2.VRFCoordinatorV2
+	pipelineRunner  pipeline.Runner
+	pipelineORM     pipeline.ORM
+	vorm            keystore.VRFORM
+	job             job.Job
+	db              *gorm.DB
+	vrfks           *keystore.VRF
+	gethks          *keystore.Eth
+	mbLogs          *utils.Mailbox
+	chStop          chan struct{}
+	waitOnStop      chan struct{}
+	latestHead      uint64
+	pendingLogs     []pendingRequest
 	utils.StartStopOnce
 }
 
 func (lsn *listenerV2) Start() error {
-	return lsn.StartOnce("VRFListener", func() error {
-		// Take the larger of the global vs specific
-		// Note that runtime changes to incoming confirmations require a job delete/add
-		// because we need to resubscribe to the lb with the new min.
+	return lsn.StartOnce("VRFListenerV2", func() error {
+		// Take the larger of the global vs specific.
+		// Note that the v2 vrf requests specify their own confirmation requirements.
+		// We wait for max(minConfs, request required confs) to be safe.
 		minConfs := lsn.cfg.MinIncomingConfirmations()
 		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
 			minConfs = lsn.job.VRFSpec.Confirmations
@@ -67,28 +76,43 @@ func (lsn *listenerV2) Start() error {
 					},
 				},
 			},
+			// Do not specify min confirmations, as it varies from request to request.
 		})
-		// Subscribe to the head tracker
-		//lsn.hb.Subscribe(lsn)
-		go gracefulpanic.WrapRecover(func() {
-			lsn.run([]func(){unsubscribeLogs}, minConfs)
-		})
+
+		// Subscribe to the head broadcaster for handling
+		// per request conf requirements.
+		unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+
+		// Goroutine 1 receives logs from the log broadcaster and stores them in
+		//
+		go lsn.run([]func(){unsubscribeLogs, unsubscribeHeadBroadcaster}, minConfs)
 		return nil
 	})
 }
 
 func (lsn *listenerV2) Connect(head *models.Head) error {
+	lsn.latestHead = uint64(head.Number)
 	return nil
 }
 
 func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head models.Head) {
 	// Check if any v2 logs are ready for processing.
+	lsn.l.Debugw("VRFListenerV2: new longest chain")
+	lsn.latestHead = uint64(head.Number)
+	var remainingLogs []pendingRequest
+	for _, pl := range lsn.pendingLogs {
+		if pl.confirmedAtBlock <= lsn.latestHead {
+			// Note below makes API calls and opens a database transaction
+			lsn.ProcessV2VRFRequest(pl.req, pl.lb)
+		} else {
+			remainingLogs = append(remainingLogs, pl)
+		}
+	}
+	lsn.pendingLogs = remainingLogs
 }
 
 func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
-	lsn.l.Infow("VRFListener: listening for run requests",
-		//"maxUnconfirmed", lsn.cfg.EthMaxQueuedTransactions(),
-		"gasLimit", lsn.cfg.EthGasLimitDefault(),
+	lsn.l.Infow("VRFListenerV2: listening for run requests",
 		"minConfs", minConfs)
 	for {
 		select {
@@ -107,29 +131,32 @@ func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 				}
 				lb, ok := i.(log.Broadcast)
 				if !ok {
-					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
+					panic(fmt.Sprintf("VRFListenerV2: invariant violated, expected log.Broadcast got %T", i))
 				}
 				alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
 				if err != nil {
-					lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+					lsn.l.Errorw("VRFListenerV2: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 					continue
 				} else if alreadyConsumed {
 					continue
 				}
-				lsn.ProcessV2VRFRequest(lb)
+				req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
+				if err != nil {
+					lsn.l.Errorw("VRFListenerV2: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+					return
+				}
+				lsn.pendingLogs = append(lsn.pendingLogs, pendingRequest{
+					confirmedAtBlock: req.Raw.BlockNumber + req.MinimumRequestConfirmations,
+					req:              req,
+					lb:               lb,
+				})
 			}
 		}
 	}
 }
 
-func (lsn *listenerV2) ProcessV2VRFRequest(lb log.Broadcast) {
-	req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
-	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-		lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-		return
-	}
-
+func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) {
 	// Check if the vrf req has already been fulfilled
 	callback, err := lsn.coordinator.SCallbacks(nil, req.PreSeed)
 	if err != nil {
@@ -145,7 +172,7 @@ func (lsn *listenerV2) ProcessV2VRFRequest(lb log.Broadcast) {
 	s := time.Now()
 	proof, err1 := lsn.LogToProof(req, lb)
 	gasLimit, err2 := lsn.computeTxGasLimit(req.CallbackGasLimit, proof)
-	vrfCoordinatorPayoad, _, err3 := lsn.ProcessLogV2(proof)
+	vrfCoordinatorPayload, _, err3 := lsn.ProcessLogV2(proof)
 	err = multierr.Combine(err1, err2, err3)
 	logger.Infow("estimated gas limit for tx", "gasLimit", gasLimit, "callbackLimit", req.CallbackGasLimit)
 	f := time.Now()
@@ -161,9 +188,8 @@ func (lsn *listenerV2) ProcessV2VRFRequest(lb log.Broadcast) {
 			etx, err = lsn.txm.CreateEthTransaction(tx,
 				from,
 				lsn.coordinator.Address(),
-				vrfCoordinatorPayoad,
+				vrfCoordinatorPayload,
 				gasLimit,
-				//lsn.cfg.EthMaxQueuedTransactions(),
 				&models.EthTxMetaV2{
 					JobID: lsn.job.ID,
 					//RequestID:     req.PreSeed,
@@ -191,7 +217,7 @@ func (lsn *listenerV2) ProcessV2VRFRequest(lb log.Broadcast) {
 				FinishedAt: &f,
 			}, nil, false)
 			if err != nil {
-				return errors.Wrap(err, "VRFListener: failed to insert finished run")
+				return errors.Wrap(err, "VRFListenerV2: failed to insert finished run")
 			}
 		}
 		// Always mark consumed regardless of whether the proof failed or not.
@@ -202,7 +228,7 @@ func (lsn *listenerV2) ProcessV2VRFRequest(lb log.Broadcast) {
 		return nil
 	})
 	if err != nil {
-		lsn.l.Errorw("VRFListener failed to save run", "err", err)
+		lsn.l.Errorw("VRFListenerV2 failed to save run", "err", err)
 	}
 }
 
@@ -214,7 +240,7 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 			proof[:], // geth expects slice, even if arg is constant-length
 		})
 	if err != nil {
-		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
+		lsn.l.Errorw("VRFListenerV2: error building fulfill args", "err", err)
 		return 0, err
 	}
 	to := lsn.coordinator.Address()
@@ -248,7 +274,8 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	if !bytes.Equal(req.KeyHash[:], kh[:]) {
 		return nil, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:])))
 	}
-	// uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
+
+	// req.PreSeed is uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
 	preSeed, err := BigToSeed(req.PreSeed)
 	if err != nil {
 		return nil, errors.New("unable to parse preseed")
@@ -266,7 +293,7 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	lsn.l.Infow("generating proof", "pk", lsn.job.VRFSpec.PublicKey.String(), "seed", preSeed, "blockHash", req.Raw.BlockHash.String(), "sender", req.Sender)
 	solidityProof, err := GenerateProofResponse(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
+		lsn.l.Errorw("VRFListenerV2: error generating proof", "err", err)
 		return nil, err
 	}
 	return solidityProof[:], nil
@@ -278,7 +305,7 @@ func (lsn *listenerV2) ProcessLogV2(solidityProof []byte) ([]byte, *vrf_coordina
 			solidityProof[:], // geth expects slice, even if arg is constant-length
 		})
 	if err != nil {
-		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
+		lsn.l.Errorw("VRFListenerV2: error building fulfill args", "err", err)
 		return nil, nil, err
 	}
 
@@ -287,7 +314,7 @@ func (lsn *listenerV2) ProcessLogV2(solidityProof []byte) ([]byte, *vrf_coordina
 
 // Close complies with job.Service
 func (lsn *listenerV2) Close() error {
-	return lsn.StopOnce("VRFListener", func() error {
+	return lsn.StopOnce("VRFListenerV2", func() error {
 		close(lsn.chStop)
 		<-lsn.waitOnStop
 		return nil
@@ -297,7 +324,7 @@ func (lsn *listenerV2) Close() error {
 func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.mbLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("VRFListener: l mailbox is over capacity - dropped the oldest l")
+		logger.Error("VRFListenerV2: log mailbox is over capacity - dropped the oldest log")
 	}
 }
 
