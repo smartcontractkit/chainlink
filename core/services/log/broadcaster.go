@@ -25,7 +25,6 @@ import (
 
 //go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 //go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
-//go:generate mockery --name AbigenContract --output ./mocks/ --case=underscore --structname AbigenContract --filename abigen_contract.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -82,24 +81,20 @@ type (
 	}
 
 	ListenerOpts struct {
-		Contract AbigenContract
-
-		// Event types to receive, filtered only by event
-		Logs []generated.AbigenLog
+		Contract common.Address
 
 		// Event types to receive, with value filter for each field in the event
 		// No filter or an empty filter for a given field position mean: all values allowed
 		// the key should be a result of AbigenLog.Topic() call
 		LogsWithTopics map[common.Hash][][]Topic
 
+		ParseLog ParseLogFunc
+
 		// Minimum number of block confirmations before the log is received
 		NumConfirmations uint64
 	}
 
-	AbigenContract interface {
-		Address() common.Address
-		ParseLog(log types.Log) (generated.AbigenLog, error)
-	}
+	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
 
 	registration struct {
 		listener Listener
@@ -175,12 +170,8 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	if len(opts.Logs) == 0 && len(opts.LogsWithTopics) == 0 {
+	if len(opts.LogsWithTopics) == 0 {
 		logger.Fatal("Must supply at least 1 Log to Register")
-	}
-
-	if len(opts.Logs) > 0 && len(opts.LogsWithTopics) > 0 {
-		logger.Fatal("Must use either Logs or LogsWithTopics but not both")
 	}
 
 	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})

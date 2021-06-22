@@ -266,7 +266,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:  "eth",
-					Usage: "Local commands for administering the node's Ethereum keys",
+					Usage: "Remote commands for administering the node's Ethereum keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
@@ -456,33 +456,44 @@ func NewApp(client *Client) *cli.App {
 				},
 
 				{
-					Name: "vrf",
-					Usage: format(`Local commands for administering the database of VRF proof
-           keys. These commands will not affect the extant in-memory keys of
-           any live node.`),
+					Name:  "vrf",
+					Usage: "Remote commands for administering the node's vrf keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create a VRF key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  "Create a VRF key",
 							Action: client.CreateVRFKey,
 						},
 						{
-							Name:   "import",
-							Usage:  "Import key from keyfile.",
-							Flags:  append(flags("password, p"), flags("file, f")...),
+							Name:  "import",
+							Usage: "Import VRF key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
 							Action: client.ImportVRFKey,
 						},
 						{
-							Name:   "export",
-							Usage:  "Export key to keyfile.",
-							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
+							Name:  "export",
+							Usage: "Export VRF key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
 							Action: client.ExportVRFKey,
 						},
 						{
-							Name:  "delete",
-							Usage: "Remove key from database, if present",
+							Name: "delete",
+							Usage: "Archive or delete VRF key from memory and the database, if present. " +
+								"Note that V2 jobs referencing the removed key will also be removed.",
 							Flags: []cli.Flag{
 								cli.StringFlag{Name: "publicKey, pk"},
 								cli.BoolFlag{
@@ -497,11 +508,8 @@ func NewApp(client *Client) *cli.App {
 							Action: client.DeleteVRFKey,
 						},
 						{
-							Name: "list", Usage: "List the public keys in the db",
+							Name: "list", Usage: "List the VRF keys",
 							Action: client.ListVRFKeys,
-						},
-						{
-							Name: "",
 						},
 						{
 							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",

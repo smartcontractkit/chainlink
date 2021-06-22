@@ -19,11 +19,11 @@ import (
 
 var (
 	promNumHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "head_listener_heads_received",
+		Name: "head_tracker_heads_received",
 		Help: "The total number of heads seen",
 	})
 	promEthConnectionErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "head_listener_eth_connection_errors",
+		Name: "head_tracker_eth_connection_errors",
 		Help: "The total number of eth node connection errors",
 	})
 )

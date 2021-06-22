@@ -2510,6 +2510,15 @@ describe("Operator", () => {
           assert.equal(await mock.getBytes(), bytes);
         });
 
+        it('reverts when sending to a non-contract address', async () => {
+          await evmRevert(
+            operator
+              .connect(roles.defaultAccount)
+              .ownerForward(zeroAddress, payload),
+            'Must forward to a contract',
+          )
+        })
+
         it("perceives the message is sent by the Operator", async () => {
           const tx = await operator.connect(roles.defaultAccount).ownerForward(mock.address, payload);
           const receipt = await tx.wait();

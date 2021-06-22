@@ -916,10 +916,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(meta models.EthTxMeta, fromAddress 
 			return err
 		}
 		ethTaskRunTransaction.EthTxID = etx.ID
-		if err = dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
-			return err
-		}
-		return nil
+		return dbtx.Create(&ethTaskRunTransaction).Error
 	})
 	switch v := err.(type) {
 	case *pgconn.PgError:
@@ -1036,11 +1033,7 @@ func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
 			return fmt.Errorf("initiator %v for job spec %s has already been run", i.ID, i.JobSpecID.String())
 		}
 
-		if err := dbtx.Model(i).UpdateColumn("ran", ran).Error; err != nil {
-			return err
-		}
-
-		return nil
+		return dbtx.Model(i).UpdateColumn("ran", ran).Error
 	})
 }
 
@@ -1088,11 +1081,7 @@ func (orm *ORM) DeleteUser() error {
 			return err
 		}
 
-		if err = dbtx.Exec("DELETE FROM sessions").Error; err != nil {
-			return err
-		}
-
-		return nil
+		return dbtx.Exec("DELETE FROM sessions").Error
 	})
 }
 
@@ -1610,7 +1599,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
 }
 
-func (ct Connection) initializeDatabase() (*gorm.DB, error) {
+func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 	originalURI := ct.uri
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
