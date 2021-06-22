@@ -12,67 +12,75 @@ export default {
     tests: "./test",
   },
   networks: {
-    hardhat: {
-      allowUnlimitedContractSize: true,
-    },
+    hardhat: {},
   },
   solidity: {
     compilers: [
       {
         version: "0.4.24",
-        optimizer: {
-          enabled: true,
-          runs: 1000000,
-        },
-        metadata: {
-          bytecodeHash: "none",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000,
+          },
+          metadata: {
+            bytecodeHash: "none",
+          },
         },
       },
       {
         version: "0.5.0",
-        optimizer: {
-          enabled: true,
-          runs: 1000000,
-        },
-        metadata: {
-          bytecodeHash: "none",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000,
+          },
+          metadata: {
+            bytecodeHash: "none",
+          },
         },
       },
       {
         version: "0.6.6",
-        optimizer: {
-          enabled: true,
-          runs: 1000000,
-        },
-        metadata: {
-          bytecodeHash: "none",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000,
+          },
+          metadata: {
+            bytecodeHash: "none",
+          },
         },
       },
       {
         version: "0.7.6",
-        optimizer: {
-          enabled: true,
-          runs: 1000000,
-        },
-        metadata: {
-          bytecodeHash: "none",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000,
+          },
+          metadata: {
+            bytecodeHash: "none",
+          },
         },
       },
       {
         version: "0.8.4",
-        optimizer: {
-          enabled: true,
-          runs: 1000000,
-        },
-        metadata: {
-          bytecodeHash: "none",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000,
+          },
+          metadata: {
+            bytecodeHash: "none",
+          },
         },
       },
     ],
   },
   contractSizer: {
     alphaSort: true,
-    runOnCompile: false,
+    runOnCompile: true,
     disambiguatePaths: false,
   },
 };
