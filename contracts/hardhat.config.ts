@@ -24,12 +24,18 @@ export default {
           enabled: true,
           runs: 1000000,
         },
+        metadata: {
+          bytecodeHash: "none",
+        },
       },
       {
         version: "0.5.0",
         optimizer: {
           enabled: true,
           runs: 1000000,
+        },
+        metadata: {
+          bytecodeHash: "none",
         },
       },
       {
@@ -38,12 +44,18 @@ export default {
           enabled: true,
           runs: 1000000,
         },
+        metadata: {
+          bytecodeHash: "none",
+        },
       },
       {
         version: "0.7.6",
         optimizer: {
           enabled: true,
           runs: 1000000,
+        },
+        metadata: {
+          bytecodeHash: "none",
         },
       },
       {
@@ -52,12 +64,15 @@ export default {
           enabled: true,
           runs: 1000000,
         },
+        metadata: {
+          bytecodeHash: "none",
+        },
       },
     ],
   },
   contractSizer: {
     alphaSort: true,
-    runOnCompile: true,
+    runOnCompile: false,
     disambiguatePaths: false,
   },
 };
