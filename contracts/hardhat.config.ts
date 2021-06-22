@@ -1,4 +1,5 @@
 import "@nomiclabs/hardhat-waffle";
+import "hardhat-contract-sizer";
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -54,4 +55,9 @@ export default {
       },
     ],
   },
+  contractSizer: {
+    alphaSort: true,
+    runOnCompile: true,
+    disambiguatePaths: false,
+  }
 };

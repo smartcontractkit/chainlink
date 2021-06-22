@@ -155,16 +155,14 @@ describe("AuthorizedForwarder", () => {
         await forwarder.connect(roles.defaultAccount).setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       });
 
-      describe('when sending to a non-contract address', () => {
-        it('reverts', async () => {
+      describe("when sending to a non-contract address", () => {
+        it("reverts", async () => {
           await evmRevert(
-            forwarder
-              .connect(roles.defaultAccount)
-              .forward(zeroAddress, payload),
-            'Must forward to a contract'
-          )
-        })
-      })
+            forwarder.connect(roles.defaultAccount).forward(zeroAddress, payload),
+            "Must forward to a contract",
+          );
+        });
+      });
 
       describe("when attempting to forward to the link token", () => {
         it("reverts", async () => {
@@ -264,14 +262,12 @@ describe("AuthorizedForwarder", () => {
           assert.equal(await mock.getBytes(), bytes);
         });
 
-        it('reverts when sending to a non-contract address', async () => {
+        it("reverts when sending to a non-contract address", async () => {
           await evmRevert(
-            forwarder
-              .connect(roles.defaultAccount)
-              .ownerForward(zeroAddress, payload),
-            'Must forward to a contract',
-          )
-        })
+            forwarder.connect(roles.defaultAccount).ownerForward(zeroAddress, payload),
+            "Must forward to a contract",
+          );
+        });
 
         it("perceives the message is sent by the Operator", async () => {
           const tx = await forwarder.connect(roles.defaultAccount).ownerForward(mock.address, payload);
