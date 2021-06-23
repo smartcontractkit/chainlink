@@ -301,7 +301,7 @@ jobs:
 
   build-chainlink:
     name: Build chainlink image
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         dockerfile: [core/chainlink.Dockerfile]
