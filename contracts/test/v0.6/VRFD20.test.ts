@@ -1,9 +1,8 @@
 import { ethers } from "hardhat";
 import { assert, expect } from "chai";
-import { BigNumber, Contract, ContractFactory, ContractTransaction } from "ethers";
+import { BigNumber, constants, Contract, ContractFactory, ContractTransaction } from "ethers";
 import { getUsers, Personas, Roles } from "../test-helpers/setup";
 import {
-  constants,
   evmWordToAddress,
   getLog,
   publicAbi,
@@ -167,7 +166,7 @@ describe("VRFD20", () => {
         const topics = log?.topics;
         assert.equal(evmWordToAddress(topics?.[1]), vrfD20.address);
         assert.equal(topics?.[2], keyHash);
-        assert.equal(topics?.[3], constants.ZERO_BYTES32);
+        assert.equal(topics?.[3], constants.HashZero);
       });
     });
 

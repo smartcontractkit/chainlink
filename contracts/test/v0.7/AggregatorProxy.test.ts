@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { increaseTimeBy, numToBytes32, publicAbi, toWei } from "../test-helpers/helpers";
 import { assert } from "chai";
-import { BigNumber, Contract, ContractFactory, Signer } from "ethers";
+import { BigNumber, constants, Contract, ContractFactory, Signer } from "ethers";
 import { Personas, getUsers } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 
@@ -51,7 +51,7 @@ describe("AggregatorProxy", () => {
     aggregator = await aggregatorFactory.connect(defaultAccount).deploy(decimals, response);
     await link.transfer(aggregator.address, deposit);
     proxy = await aggregatorProxyFactory.connect(defaultAccount).deploy(aggregator.address);
-    const emptyAddress = "0x0000000000000000000000000000000000000000";
+    const emptyAddress = constants.AddressZero;
     flux = await fluxAggregatorFactory
       .connect(personas.Carol)
       .deploy(link.address, 0, 0, emptyAddress, 0, 0, 18, "TEST / LINK");

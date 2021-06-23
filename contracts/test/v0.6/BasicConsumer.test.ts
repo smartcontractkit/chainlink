@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
-import { toWei, increaseTime5Minutes, toHex, constants } from "../test-helpers/helpers";
+import { toWei, increaseTime5Minutes, toHex } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
-import { BigNumber, Contract, ContractFactory } from "ethers";
+import { BigNumber, constants, Contract, ContractFactory } from "ethers";
 import { Roles, getUsers } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 import { convertFufillParams, decodeRunRequest, encodeOracleRequest, RunRequest } from "../test-helpers/oracle";
@@ -125,7 +125,7 @@ describe("BasicConsumer", () => {
           cc.address,
           basicConsumerFactory.interface.getSighash("fulfill"),
           43,
-          constants.ZERO_BYTES32,
+          constants.HashZero,
         );
         const tx = await link.transferAndCall(oc.address, 0, args);
         const receipt = await tx.wait();

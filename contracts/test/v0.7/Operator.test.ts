@@ -1,14 +1,7 @@
 import { ethers } from "hardhat";
-import {
-  publicAbi,
-  toBytes32String,
-  toWei,
-  stringToBytes,
-  increaseTime5Minutes,
-  constants,
-} from "../test-helpers/helpers";
+import { publicAbi, toBytes32String, toWei, stringToBytes, increaseTime5Minutes } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
-import { BigNumber, Contract, ContractFactory, ContractReceipt, ContractTransaction, Signer } from "ethers";
+import { BigNumber, constants, Contract, ContractFactory, ContractReceipt, ContractTransaction, Signer } from "ethers";
 import { getUsers, Roles } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 import type { providers } from "ethers";
@@ -532,7 +525,7 @@ describe("Operator", () => {
   describe("#onTokenTransfer", () => {
     describe("when called from any address but the LINK token", () => {
       it("triggers the intended method", async () => {
-        const callData = encodeOracleRequest(specId, to, fHash, 0, constants.ZERO_BYTES32);
+        const callData = encodeOracleRequest(specId, to, fHash, 0, constants.HashZero);
 
         await evmRevert(operator.onTokenTransfer(await roles.defaultAccount.getAddress(), 0, callData));
       });
@@ -540,7 +533,7 @@ describe("Operator", () => {
 
     describe("when called from the LINK token", () => {
       it("triggers the intended method", async () => {
-        const callData = encodeOracleRequest(specId, to, fHash, 0, constants.ZERO_BYTES32);
+        const callData = encodeOracleRequest(specId, to, fHash, 0, constants.HashZero);
 
         const tx = await link.transferAndCall(operator.address, 0, callData, {
           value: 0,
@@ -606,7 +599,7 @@ describe("Operator", () => {
     });
 
     it("does not allow recursive calls of onTokenTransfer", async () => {
-      const requestPayload = encodeOracleRequest(specId, to, fHash, 0, constants.ZERO_BYTES32);
+      const requestPayload = encodeOracleRequest(specId, to, fHash, 0, constants.HashZero);
 
       const ottSelector = operatorFactory.interface.getSighash("onTokenTransfer");
       const header =
@@ -632,7 +625,7 @@ describe("Operator", () => {
       let receipt: providers.TransactionReceipt;
 
       beforeEach(async () => {
-        const args = encodeOracleRequest(specId, to, fHash, 1, constants.ZERO_BYTES32);
+        const args = encodeOracleRequest(specId, to, fHash, 1, constants.HashZero);
         const tx = await link.transferAndCall(operator.address, paid, args);
         receipt = await tx.wait();
         assert.equal(3, receipt?.logs?.length);
@@ -657,7 +650,7 @@ describe("Operator", () => {
       });
 
       it("does not allow the same requestId to be used twice", async () => {
-        const args2 = encodeOracleRequest(specId, to, fHash, 1, constants.ZERO_BYTES32);
+        const args2 = encodeOracleRequest(specId, to, fHash, 1, constants.HashZero);
         await evmRevert(link.transferAndCall(operator.address, paid, args2));
       });
 
@@ -683,7 +676,7 @@ describe("Operator", () => {
     describe("when dataVersion is higher than 255", () => {
       it("throws an error", async () => {
         const paid = 100;
-        const args = encodeOracleRequest(specId, to, fHash, 1, constants.ZERO_BYTES32, 256);
+        const args = encodeOracleRequest(specId, to, fHash, 1, constants.HashZero, 256);
         await evmRevert(link.transferAndCall(operator.address, paid, args));
       });
     });
@@ -706,7 +699,7 @@ describe("Operator", () => {
       let receipt: providers.TransactionReceipt;
 
       beforeEach(async () => {
-        const args = encodeRequestOracleData(specId, to, fHash, 1, constants.ZERO_BYTES32);
+        const args = encodeRequestOracleData(specId, to, fHash, 1, constants.HashZero);
         const tx = await link.transferAndCall(operator.address, paid, args);
         receipt = await tx.wait();
         assert.equal(3, receipt?.logs?.length);
@@ -731,7 +724,7 @@ describe("Operator", () => {
       });
 
       it("does not allow the same requestId to be used twice", async () => {
-        const args2 = encodeRequestOracleData(specId, to, fHash, 1, constants.ZERO_BYTES32);
+        const args2 = encodeRequestOracleData(specId, to, fHash, 1, constants.HashZero);
         await evmRevert(link.transferAndCall(operator.address, paid, args2));
       });
 
@@ -757,7 +750,7 @@ describe("Operator", () => {
     describe("when dataVersion is higher than 255", () => {
       it("throws an error", async () => {
         const paid = 100;
-        const args = encodeRequestOracleData(specId, to, fHash, 1, constants.ZERO_BYTES32, 256);
+        const args = encodeRequestOracleData(specId, to, fHash, 1, constants.HashZero, 256);
         await evmRevert(link.transferAndCall(operator.address, paid, args));
       });
     });
@@ -2168,7 +2161,7 @@ describe("Operator", () => {
 
       beforeEach(async () => {
         const mock = await getterSetterFactory.connect(roles.defaultAccount).deploy();
-        const args = encodeOracleRequest(specId, mock.address, fHash, 0, constants.ZERO_BYTES32);
+        const args = encodeOracleRequest(specId, mock.address, fHash, 0, constants.HashZero);
         const tx = await link.transferAndCall(operator.address, payment, args);
         const receipt = await tx.wait();
         assert.equal(3, receipt.logs?.length);
@@ -2286,7 +2279,7 @@ describe("Operator", () => {
 
     beforeEach(async () => {
       const mock = await getterSetterFactory.connect(roles.defaultAccount).deploy();
-      const args = encodeOracleRequest(specId, mock.address, fHash, 0, constants.ZERO_BYTES32);
+      const args = encodeOracleRequest(specId, mock.address, fHash, 0, constants.HashZero);
       const tx = await link.transferAndCall(operator.address, amount, args);
       const receipt = await tx.wait();
       assert.equal(3, receipt.logs?.length);
@@ -2331,7 +2324,7 @@ describe("Operator", () => {
         operator.address,
         operatorFactory.interface.getSighash("fulfillOracleRequest"),
         1,
-        constants.ZERO_BYTES32,
+        constants.HashZero,
       );
     });
 
@@ -2422,7 +2415,7 @@ describe("Operator", () => {
 
         await link.transfer(await roles.consumer.getAddress(), startingBalance);
 
-        const args = encodeOracleRequest(specId, await roles.consumer.getAddress(), fHash, 1, constants.ZERO_BYTES32);
+        const args = encodeOracleRequest(specId, await roles.consumer.getAddress(), fHash, 1, constants.HashZero);
         const tx = await link.connect(roles.consumer).transferAndCall(operator.address, requestAmount, args);
         receipt = await tx.wait();
 
