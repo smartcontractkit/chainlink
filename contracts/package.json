@@ -16,6 +16,9 @@
     "setup": "yarn compile",
     "prepublishOnly": "yarn compile"
   },
+  "files": [
+    "src/"
+  ],
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
