@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConfigSchema(t *testing.T) {
@@ -73,6 +73,7 @@ func TestConfigSchema(t *testing.T) {
 		"FeatureOffchainReporting":                  "FEATURE_OFFCHAIN_REPORTING",
 		"FeatureWebhookV2":                          "FEATURE_WEBHOOK_V2",
 		"FlagsContractAddress":                      "FLAGS_CONTRACT_ADDRESS",
+		"FMDefaultTransactionQueueDepth":            "FM_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"GasUpdaterBatchSize":                       "GAS_UPDATER_BATCH_SIZE",
 		"GasUpdaterBlockDelay":                      "GAS_UPDATER_BLOCK_DELAY",
 		"GasUpdaterBlockHistorySize":                "GAS_UPDATER_BLOCK_HISTORY_SIZE",
@@ -87,6 +88,7 @@ func TestConfigSchema(t *testing.T) {
 		"JobPipelineReaperInterval":                 "JOB_PIPELINE_REAPER_INTERVAL",
 		"JobPipelineReaperThreshold":                "JOB_PIPELINE_REAPER_THRESHOLD",
 		"JobPipelineResultWriteQueueDepth":          "JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH",
+		"KeeperDefaultTransactionQueueDepth":        "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"KeeperMaximumGracePeriod":                  "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperMinimumRequiredConfirmations":        "KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS",
 		"KeeperRegistryCheckGasOverhead":            "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
@@ -120,6 +122,7 @@ func TestConfigSchema(t *testing.T) {
 		"OCRObservationTimeout":                     "OCR_OBSERVATION_TIMEOUT",
 		"OCROutgoingMessageBufferSize":              "OCR_OUTGOING_MESSAGE_BUFFER_SIZE",
 		"OCRTraceLogging":                           "OCR_TRACE_LOGGING",
+		"OCRDefaultTransactionQueueDepth":           "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"OCRTransmitterAddress":                     "OCR_TRANSMITTER_ADDRESS",
 		"ORMMaxIdleConns":                           "ORM_MAX_IDLE_CONNS",
 		"ORMMaxOpenConns":                           "ORM_MAX_OPEN_CONNS",
@@ -158,7 +161,7 @@ func TestConfigSchema(t *testing.T) {
 		//
 		// ╭──╮   ╭────────────────────────────────────╮
 		// │  │   │ It looks like you're trying to add │
-		// @  @  ╭│ configuration variable!            │
+		// @  @  ╭│ a new configuration variable!      │
 		// ││ ││ ││                                    │
 		// ││ ││ ╯╰────────────────────────────────────╯
 		// │╰─╯│
@@ -177,8 +180,8 @@ func TestConfigSchema(t *testing.T) {
 		// 4. Add your new config variable to this test
 		//
 
-		require.True(t, found, fmt.Sprintf("New test variable: '%s', see test comment for guide on steps to follow when adding a configuration variable", field.Name))
+		assert.True(t, found, fmt.Sprintf("New test variable: '%s', see test comment for guide on steps to follow when adding a configuration variable", field.Name))
 		env := field.Tag.Get("env")
-		require.Equal(t, item, env)
+		assert.Equal(t, item, env)
 	}
 }

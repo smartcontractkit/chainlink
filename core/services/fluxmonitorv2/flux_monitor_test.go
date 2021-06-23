@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	corenull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	fmmocks "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -665,7 +666,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB, nil)
+				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
 			)
 
 			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
@@ -842,7 +843,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	var (
 		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
-		orm     = fluxmonitorv2.NewORM(store.DB, nil)
+		orm     = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
 	)
 
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -904,7 +905,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB, nil)
+				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
 			)
 
 			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -972,7 +973,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB, nil)
+				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
 			)
 
 			fm, tm := setup(t,
@@ -1034,7 +1035,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
-		orm = fluxmonitorv2.NewORM(store.DB, nil)
+		orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
 	)
 
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
