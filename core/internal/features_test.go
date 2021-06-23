@@ -163,13 +163,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	triggerAllKeys(t, app)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	// Do the thing
-	newHeads <- cltest.Head(safe)
-
-	// sending another head to make sure EthTx executes after EthConfirmer is done
-	newHeads <- cltest.Head(safe + 1)
-
-	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, safe)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -481,7 +475,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), ethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -1227,7 +1221,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Check the FM price on completed run output
-	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, ethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe)
 
 	requestParams := jr.RunRequest.RequestParams
 	assert.Equal(t, "102", requestParams.Get("result").String())
@@ -1382,7 +1376,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	triggerAllKeys(t, app)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, ethClient)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)

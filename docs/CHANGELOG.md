@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.8] - 2021-06-21
+
 ### Fixed
 
 - The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
@@ -22,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `head_tracker_callback_execution_duration_hist`, `head_tracker_num_heads_dropped`
 
 ### Added
+
+- MINIMUM_CONTRACT_PAYMENT_LINK_JUELS replaces MINIMUM_CONTRACT_PAYMENT, which will be deprecated in a future release.
 
 - INSECURE_SKIP_VERIFY configuration variable disables verification of the Chainlink SSL certificates when using the CLI.
 
@@ -267,7 +271,7 @@ chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
 - See example web job spec below: 
 
 ```
-type            = "web"
+type            = "webhook"
 schemaVersion   = 1
 jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 observationSource = """

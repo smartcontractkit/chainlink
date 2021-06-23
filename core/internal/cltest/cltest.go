@@ -266,7 +266,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
-	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
+	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", minimumContractPayment.Text(10))
 	rawConfig.Set("ROOT", rootdir)
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
@@ -1173,7 +1173,6 @@ func SendBlocksUntilComplete(
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
 	start int64,
-	ethClient *mocks.Client,
 ) models.JobRun {
 	t.Helper()
 

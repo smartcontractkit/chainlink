@@ -8,6 +8,7 @@ import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/OperatorInterface.sol";
 import "../interfaces/OwnableInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
+import "../vendor/Address.sol";
 import "../vendor/SafeMathChainlink.sol";
 
 /**
@@ -21,6 +22,7 @@ contract Operator is
   OperatorInterface,
   WithdrawalInterface
 {
+  using Address for address;
   using SafeMathChainlink for uint256;
 
   struct Commitment {
@@ -373,6 +375,7 @@ contract Operator is
     onlyOwner()
     validateNotToLINK(to)
   {
+    require(to.isContract(), "Must forward to a contract");
     (bool status,) = to.call(data);
     require(status, "Forwarded call failed");
   }

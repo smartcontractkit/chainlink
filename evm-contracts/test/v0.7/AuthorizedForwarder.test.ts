@@ -118,24 +118,24 @@ describe('AuthorizedForwarder', () => {
         })
 
         it('reverts with a minimum senders message', async () => {
-          await matchers.evmRevert(async () => {
-            await forwarder
+          await matchers.evmRevert(
+            forwarder
               .connect(roles.defaultAccount)
               .setAuthorizedSenders(newSenders),
-              'Must have at least 1 authorized sender'
-          })
+            'Must have at least 1 authorized sender',
+          )
         })
       })
     })
 
     describe('when called by a non-owner', () => {
       it('cannot add an authorized node', async () => {
-        await matchers.evmRevert(async () => {
-          await forwarder
+        await matchers.evmRevert(
+          forwarder
             .connect(roles.stranger)
-            .setAuthorizedSenders([roles.stranger.address])
-          ;('Only callable by owner')
-        })
+            .setAuthorizedSenders([roles.stranger.address]),
+          'Cannot set authorized senders',
+        )
       })
     })
   })
@@ -153,9 +153,10 @@ describe('AuthorizedForwarder', () => {
 
     describe('when called by an unauthorized node', () => {
       it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await forwarder.connect(roles.stranger).forward(mock.address, payload)
-        })
+        await matchers.evmRevert(
+          forwarder.connect(roles.stranger).forward(mock.address, payload),
+          'Not authorized sender',
+        )
       })
     })
 
@@ -166,14 +167,26 @@ describe('AuthorizedForwarder', () => {
           .setAuthorizedSenders([roles.defaultAccount.address])
       })
 
+      describe('when sending to a non-contract address', () => {
+        it('reverts', async () => {
+          await matchers.evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .forward(zeroAddress, payload),
+            'Must forward to a contract',
+          )
+        })
+      })
+
       describe('when attempting to forward to the link token', () => {
         it('reverts', async () => {
           const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
-          await matchers.evmRevert(async () => {
-            await forwarder
+          await matchers.evmRevert(
+            forwarder
               .connect(roles.defaultAccount)
-              .forward(link.address, sighash)
-          })
+              .forward(link.address, sighash),
+            'Cannot #forward to Link token',
+          )
         })
       })
 
@@ -207,12 +220,12 @@ describe('AuthorizedForwarder', () => {
 
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await forwarder
+        await matchers.evmRevert(
+          forwarder
             .connect(roles.stranger)
             .transferOwnershipWithMessage(roles.stranger.address, message),
-            'Only callable by owner'
-        })
+          'Only callable by owner',
+        )
       })
     })
 
@@ -266,11 +279,10 @@ describe('AuthorizedForwarder', () => {
 
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await forwarder
-            .connect(roles.stranger)
-            .ownerForward(mock.address, payload)
-        })
+        await matchers.evmRevert(
+          forwarder.connect(roles.stranger).ownerForward(mock.address, payload),
+          'Only callable by owner',
+        )
       })
     })
 
@@ -291,6 +303,15 @@ describe('AuthorizedForwarder', () => {
             .ownerForward(mock.address, payload)
           await tx.wait()
           assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('reverts when sending to a non-contract address', async () => {
+          await matchers.evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .ownerForward(zeroAddress, payload),
+            'Must forward to a contract',
+          )
         })
 
         it('perceives the message is sent by the Operator', async () => {
