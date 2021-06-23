@@ -39,7 +39,7 @@
     "local-storage-fallback": "^4.1.2",
     "lodash": "^4.17.19",
     "moment": "^2.29.1",
-    "normalize-url": "^4.5.0",
+    "normalize-url": "^4.5.1",
     "numeral": "^2.0.6",
     "path-to-regexp": "^3.0.0",
     "promise.prototype.finally": "^3.1.0",
