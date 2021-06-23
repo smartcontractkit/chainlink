@@ -298,3 +298,20 @@ jobs:
       - run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
+
+  build-chainlink:
+    name: Build chainlink image
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    strategy:
+      matrix:
+        dockerfile: [core/chainlink.Dockerfile]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Build image
+        uses: docker/build-push-action@v1
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          tags: githubactions
+          push: false
