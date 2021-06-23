@@ -29,7 +29,7 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result {
+func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 	inputValues, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}
@@ -55,7 +55,9 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, meta JSONSerializable, 
 	}
 
 	var metaMap MapParam
-	switch v := meta.Val.(type) {
+
+	meta, _ := vars.Get("jobRun.meta")
+	switch v := meta.(type) {
 	case map[string]interface{}:
 		metaMap = MapParam(v)
 	case nil:
@@ -125,6 +127,8 @@ func withMeta(request MapParam, meta MapParam) MapParam {
 	for k, v := range request {
 		output[k] = v
 	}
-	output["meta"] = meta
+	if meta != nil {
+		output["meta"] = meta
+	}
 	return output
 }

@@ -685,11 +685,12 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !jb.Type.HasPipelineSpec() {
 		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
-		meta := pipeline.JSONSerializable{
-			Val:  meta,
-			Null: false,
+		vars := map[string]interface{}{
+			"jobRun": map[string]interface{}{
+				"meta": meta,
+			},
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(nil), meta, *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
 	}
 	return runID, err
 }

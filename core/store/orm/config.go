@@ -97,6 +97,10 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		_ = v.BindEnv(name, name)
 	}
 
+	// TODO: Remove when implementing
+	// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
+	_ = v.BindEnv("MINIMUM_CONTRACT_PAYMENT")
+
 	config := &Config{
 		viper:            v,
 		SecretGenerator:  filePersistedSecretGenerator{},
@@ -157,6 +161,12 @@ func (c *Config) Validate() error {
 
 	if c.MinIncomingConfirmations() < 1 {
 		return errors.New("MIN_INCOMING_CONFIRMATIONS must be greater than or equal to 1")
+	}
+
+	// TODO: Remove when implementing
+	// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
+	if c.viper.IsSet("MINIMUM_CONTRACT_PAYMENT") {
+		logger.Warn("MINIMUM_CONTRACT_PAYMENT is now deprecated and will be removed from a future release, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
 	}
 
 	var override time.Duration
@@ -1168,8 +1178,20 @@ func (c Config) MinRequiredOutgoingConfirmations() uint64 {
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
 	minimumContractPayment := chainSpecificConfig(c).MinimumContractPayment
-	if c.viper.IsSet(EnvVarName("MinimumContractPayment")) || minimumContractPayment == nil {
+	if c.viper.IsSet(EnvVarName("MinimumContractPayment")) {
 		return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
+
+		// TODO: Remove when implementing
+		// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
+	} else if c.viper.IsSet("MINIMUM_CONTRACT_PAYMENT") {
+		str := c.viper.GetString("MINIMUM_CONTRACT_PAYMENT")
+		value, ok := new(assets.Link).SetString(str, 10)
+		if ok {
+			return value
+		}
+		logger.Errorw(
+			"Invalid value provided for MINIMUM_CONTRACT_PAYMENT, falling back to default.",
+			"value", str)
 	}
 	return minimumContractPayment
 }

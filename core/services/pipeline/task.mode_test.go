@@ -2,99 +2,111 @@ package pipeline_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func TestMedian(t *testing.T) {
+func TestModeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		inputs        []pipeline.Result
-		allowedFaults string
-		want          pipeline.Result
+		name            string
+		inputs          []pipeline.Result
+		allowedFaults   string
+		wantResults     []interface{}
+		wantOccurrences uint64
+		wantErrorCause  error
 	}{
 		{
-			"odd number of inputs",
-			[]pipeline.Result{{Value: mustDecimal(t, "1")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}},
+			"happy (one winner)",
+			[]pipeline.Result{{Value: "foo"}, {Value: "foo"}, {Value: "bar"}, {Value: true}},
 			"1",
-			pipeline.Result{Value: mustDecimal(t, "2")},
+			[]interface{}{"foo"}, 2, nil,
 		},
 		{
-			"even number of inputs",
-			[]pipeline.Result{{Value: mustDecimal(t, "1")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
-			"2",
-			pipeline.Result{Value: mustDecimal(t, "2.5")},
+			"happy (multiple winners)",
+			[]pipeline.Result{{Value: "foo"}, {Value: "foo"}, {Value: "bar"}, {Value: "bar"}},
+			"1",
+			[]interface{}{"foo", "bar"}, 2, nil,
+		},
+		{
+			"happy (one winner expressed as different types)",
+			[]pipeline.Result{{Value: mustDecimal(t, "1.234")}, {Value: float64(1.234)}, {Value: float32(1.234)}, {Value: "1.234"}},
+			"1",
+			[]interface{}{"1.234"}, 4, nil,
 		},
 		{
 			"one input",
-			[]pipeline.Result{{Value: mustDecimal(t, "1")}},
+			[]pipeline.Result{{Value: common.Address{1}}},
 			"0",
-			pipeline.Result{Value: mustDecimal(t, "1")},
+			[]interface{}{common.Address{1}}, 1, nil,
 		},
 		{
 			"zero inputs",
 			[]pipeline.Result{},
 			"0",
-			pipeline.Result{Error: pipeline.ErrWrongInputCardinality},
+			nil, 0, pipeline.ErrWrongInputCardinality,
 		},
 		{
 			"fewer errors than threshold",
-			[]pipeline.Result{{Error: errors.New("")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
+			[]pipeline.Result{{Error: errors.New("")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "2")}, {Value: []byte("foo bar")}},
 			"2",
-			pipeline.Result{Value: mustDecimal(t, "3")},
+			[]interface{}{mustDecimal(t, "2")}, 2, nil,
 		},
 		{
 			"exactly threshold of errors",
-			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
+			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: []interface{}{1, 2, 3}}, {Value: []interface{}{1, 2, 3}}},
 			"2",
-			pipeline.Result{Value: mustDecimal(t, "3.5")},
+			[]interface{}{[]interface{}{1, 2, 3}}, 2, nil,
 		},
 		{
 			"more errors than threshold",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "4")}},
 			"2",
-			pipeline.Result{Error: pipeline.ErrTooManyErrors},
+			nil, 0, pipeline.ErrTooManyErrors,
 		},
 		{
 			"(unspecified AllowedFaults) fewer errors than threshold",
-			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
+			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: big.NewInt(123)}, {Value: big.NewInt(123)}},
 			"",
-			pipeline.Result{Value: mustDecimal(t, "3.5")},
+			[]interface{}{big.NewInt(123)}, 2, nil,
 		},
 		{
 			"(unspecified AllowedFaults) exactly threshold of errors",
-			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "4")}},
+			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}, {Value: 123}},
 			"",
-			pipeline.Result{Value: mustDecimal(t, "4")},
+			[]interface{}{123}, 1, nil,
 		},
 		{
 			"(unspecified AllowedFaults) more errors than threshold",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}},
 			"",
-			pipeline.Result{Error: pipeline.ErrTooManyErrors},
+			nil, 0, pipeline.ErrTooManyErrors,
 		},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
+			task := pipeline.ModeTask{
+				BaseTask:      pipeline.NewBaseTask(0, "mode", nil, nil, 0),
 				AllowedFaults: test.allowedFaults,
 			}
 			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
 			if output.Error != nil {
-				require.Equal(t, test.want.Error, errors.Cause(output.Error))
+				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
 			} else {
-				require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+				require.Equal(t, map[string]interface{}{
+					"results":     test.wantResults,
+					"occurrences": test.wantOccurrences,
+				}, output.Value)
 				require.NoError(t, output.Error)
 			}
 		})
@@ -116,17 +128,20 @@ func TestMedian(t *testing.T) {
 			vars := pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": map[string]interface{}{"bar": inputs},
 			})
-			task := pipeline.MedianTask{
+			task := pipeline.ModeTask{
 				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Values:        "$(foo.bar)",
 				AllowedFaults: test.allowedFaults,
 			}
 			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
-				require.Equal(t, test.want.Error, errors.Cause(output.Error))
+				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
 			} else {
-				require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+				require.Equal(t, map[string]interface{}{
+					"results":     test.wantResults,
+					"occurrences": test.wantOccurrences,
+				}, output.Value)
 				require.NoError(t, output.Error)
 			}
 		})
@@ -162,47 +177,22 @@ func TestMedian(t *testing.T) {
 				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2], "link": inputs[3]})
 			}
 
-			task := pipeline.MedianTask{
+			task := pipeline.ModeTask{
 				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Values:        valuesParam,
 				AllowedFaults: test.allowedFaults,
 			}
 			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
-				require.Equal(t, test.want.Error, errors.Cause(output.Error))
+				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
 			} else {
-				require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+				require.Equal(t, map[string]interface{}{
+					"results":     test.wantResults,
+					"occurrences": test.wantOccurrences,
+				}, output.Value)
 				require.NoError(t, output.Error)
 			}
 		})
-	}
-}
-
-func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
-	t.Parallel()
-
-	p, err := pipeline.Parse(`
-	// data source 1
-	ds1          [type=bridge name=voter_turnout];
-	ds1_parse    [type=jsonparse path="one,two"];
-	ds1_multiply [type=multiply times=1.23];
-
-	// data source 2
-	ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];
-	ds2_parse    [type=jsonparse path="three,four"];
-	ds2_multiply [type=multiply times=4.56];
-
-	ds1 -> ds1_parse -> ds1_multiply -> answer1;
-	ds2 -> ds2_parse -> ds2_multiply -> answer1;
-
-	answer1 [type=median                      index=0 allowedFaults=10];
-	answer2 [type=bridge name=election_winner index=1];
-`)
-	require.NoError(t, err)
-	for _, task := range p.Tasks {
-		if task.Type() == pipeline.TaskTypeMedian {
-			require.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
-		}
 	}
 }

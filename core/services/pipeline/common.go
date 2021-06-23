@@ -26,7 +26,7 @@ type (
 		Type() TaskType
 		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
+		Run(ctx context.Context, vars Vars, inputs []Result) Result
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task
@@ -227,8 +227,12 @@ func (t TaskType) String() string {
 const (
 	TaskTypeHTTP            TaskType = "http"
 	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMean            TaskType = "mean"
 	TaskTypeMedian          TaskType = "median"
+	TaskTypeMode            TaskType = "mode"
+	TaskTypeSum             TaskType = "sum"
 	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeDivide          TaskType = "divide"
 	TaskTypeJSONParse       TaskType = "jsonparse"
 	TaskTypeCBORParse       TaskType = "cborparse"
 	TaskTypeAny             TaskType = "any"

@@ -2,26 +2,25 @@ package pipeline
 
 import (
 	"context"
-	"sort"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 )
 
-type MedianTask struct {
+type SumTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`
 	AllowedFaults string `json:"allowedFaults"`
 }
 
-var _ Task = (*MedianTask)(nil)
+var _ Task = (*SumTask)(nil)
 
-func (t *MedianTask) Type() TaskType {
-	return TaskTypeMedian
+func (t *SumTask) Type() TaskType {
+	return TaskTypeSum
 }
 
-func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *SumTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam
@@ -45,23 +44,19 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result 
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}
+		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to sum task > number allowed faults %v", faults, allowedFaults)}
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}
+		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}
 	}
 
 	err = decimalValues.UnmarshalPipelineParam(values)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: errors.Wrapf(ErrBadInput, "values: %v", err)}
 	}
 
-	sort.Slice(decimalValues, func(i, j int) bool {
-		return decimalValues[i].LessThan(decimalValues[j])
-	})
-	k := len(decimalValues) / 2
-	if len(decimalValues)%2 == 1 {
-		return Result{Value: decimalValues[k]}
+	sum := decimal.NewFromInt(0)
+	for _, val := range decimalValues {
+		sum = sum.Add(val)
 	}
-	median := decimalValues[k].Add(decimalValues[k-1]).Div(decimal.NewFromInt(2))
-	return Result{Value: median}
+	return Result{Value: sum}
 }

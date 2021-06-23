@@ -14,7 +14,7 @@ func (t *VRFTask) Type() TaskType {
 	return TaskTypeVRF
 }
 
-func (t *VRFTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	// TODO
 	return Result{}
 }

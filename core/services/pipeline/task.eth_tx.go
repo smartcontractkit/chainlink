@@ -46,7 +46,7 @@ func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
 }
 
-func (t *ETHTxTask) Run(_ context.Context, vars Vars, _ JSONSerializable, inputs []Result) (result Result) {
+func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}
