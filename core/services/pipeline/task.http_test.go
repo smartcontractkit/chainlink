@@ -190,6 +190,46 @@ func TestHTTPTask_Variables(t *testing.T) {
 	}
 }
 
+func TestHTTPTask_OverrideURLSafe(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("{}"))
+		require.NoError(t, err)
+	})
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	task := pipeline.HTTPTask{
+		Method:      "POST",
+		URL:         server.URL,
+		RequestData: ethUSDPairing,
+	}
+	task.HelperSetDependencies(config)
+
+	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	require.NoError(t, result.Error)
+
+	task.URL = "$(url)"
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{"url": server.URL})
+	result = task.Run(context.Background(), vars, nil)
+	require.Error(t, result.Error)
+	require.Contains(t, result.Error.Error(), "Connections to local/private and multicast networks are disabled")
+	require.Nil(t, result.Value)
+
+	task.AllowUnrestrictedNetworkAccess = "true"
+
+	result = task.Run(context.Background(), vars, nil)
+	require.NoError(t, result.Error)
+}
+
 func TestHTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
