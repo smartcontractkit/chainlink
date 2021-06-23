@@ -423,6 +423,27 @@ func (_m *Application) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) er
 	return r0
 }
 
+// ResumeJobV2 provides a mock function with given fields: ctx, run
+func (_m *Application) ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error) {
+	ret := _m.Called(ctx, run)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run) bool); ok {
+		r0 = rf(ctx, run)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run) error); ok {
+		r1 = rf(ctx, run)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ResumePendingBridge provides a mock function with given fields: runID, input
 func (_m *Application) ResumePendingBridge(runID uuid.UUID, input models.BridgeRunResult) error {
 	ret := _m.Called(runID, input)
