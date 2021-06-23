@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -266,7 +267,6 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 			return errors.Wrap(ErrBadInput, err.Error())
 		}
 		*u = Uint64Param(n)
-		return nil
 	default:
 		return ErrBadInput
 	}
@@ -278,7 +278,7 @@ type MaybeUint64Param struct {
 	isSet bool
 }
 
-func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
+func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	var n uint64
 	switch v := val.(type) {
 	case uint:
@@ -303,7 +303,7 @@ func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
-			*u = MaybeUint64Param{0, false}
+			*p = MaybeUint64Param{0, false}
 			return nil
 		}
 		var err error
@@ -316,12 +316,78 @@ func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 		return ErrBadInput
 	}
 
-	*u = MaybeUint64Param{n, true}
+	*p = MaybeUint64Param{n, true}
 	return nil
 }
 
-func (u MaybeUint64Param) Uint64() (uint64, bool) {
-	return u.n, u.isSet
+func (p MaybeUint64Param) Uint64() (uint64, bool) {
+	return p.n, p.isSet
+}
+
+type MaybeInt32Param struct {
+	n     int32
+	isSet bool
+}
+
+func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
+	var n int32
+	switch v := val.(type) {
+	case uint:
+		if v > math.MaxInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case uint8:
+		n = int32(v)
+	case uint16:
+		n = int32(v)
+	case uint32:
+		if v > math.MaxInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case uint64:
+		if v > math.MaxInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case int:
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case int8:
+		n = int32(v)
+	case int16:
+		n = int32(v)
+	case int32:
+		n = int32(v)
+	case int64:
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case string:
+		if strings.TrimSpace(v) == "" {
+			*p = MaybeInt32Param{0, false}
+			return nil
+		}
+		i, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+		n = int32(i)
+
+	default:
+		return ErrBadInput
+	}
+
+	*p = MaybeInt32Param{n, true}
+	return nil
+}
+
+func (p MaybeInt32Param) Int32() (int32, bool) {
+	return p.n, p.isSet
 }
 
 type BoolParam bool
