@@ -9,9 +9,11 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gorm.io/gorm"
 )
 
 var (
@@ -24,6 +26,7 @@ type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
 	CreateRun(db *gorm.DB, run *Run) (err error)
 	StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (restart bool, err error)
+	UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
 	InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindRun(id int64) (Run, error)
@@ -103,14 +106,20 @@ func (o *orm) StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (bool,
 			if restart {
 				return nil
 			}
+
+			// suspend the run
+			run.State = RunStatusSuspended
+
+			if _, err := tx.NamedExec(`UPDATE pipeline_runs SET state = :state`, run); err != nil {
+				return err
+			}
 		} else {
 			// simply finish the run, no need to do any sort of locking
 			if run.Outputs.Val == nil || len(run.Errors) == 0 {
 				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 			}
-
 			// TODO: this won't work if CreateRun() hasn't executed before, needs to be an upsert?
-			if _, err := tx.NamedExec(`UPDATE pipeline_runs SET finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`, run); err != nil {
+			if _, err := tx.NamedExec(`UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`, run); err != nil {
 				return err
 			}
 		}
@@ -142,6 +151,49 @@ func (o *orm) StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (bool,
 		return nil
 	})
 	return restart, err
+}
+
+func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
+	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+		sql := `
+		SELECT pipeline_runs.* FROM pipeline_runs, pipeline_task_runs
+		WHERE pipeline_task_runs.run_id = $1
+		FOR UPDATE `
+		if err = tx.Get(&run, sql, taskID); err != nil {
+			return err
+		}
+
+		// Update the task with result
+		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE run_id = $1`
+		if _, err = tx.Exec(sql, taskID, JSONSerializable{Val: result}, time.Now()); err != nil {
+			return err
+		}
+
+		if run.State == RunStatusSuspended {
+			start = true
+			run.State = RunStatusRunning
+
+			// We're going to restart the run, so set it back to "in progress"
+			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
+			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
+				return err
+			}
+
+			// TODO: can't join and preload in a single query unless explicitly listing all the struct fields...
+			// https://snippets.aktagon.com/snippets/757-how-to-join-two-tables-with-jmoiron-sqlx
+			sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
+			if err = tx.Select(&run.PipelineTaskRuns, sql, run.ID); err != nil {
+				return err
+			}
+
+			// TODO: what if the node is killed while a run is in the state of running?
+			// we need to have a init goroutine that will sweep the db for any jobs still stuck on "running" at boot
+			return nil
+		}
+
+		return nil
+	})
+	return run, start, err
 }
 
 // If saveSuccessfulTaskRuns = false, we only save errored runs.
