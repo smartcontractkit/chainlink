@@ -355,7 +355,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	var err error
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryGasOverhead()
+	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
 		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, gasLimit, nil).Once().Return(models.EthTx{
 			FromAddress:    fromAddress,

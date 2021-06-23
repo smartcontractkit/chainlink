@@ -19,7 +19,7 @@ type transmitter interface {
 }
 
 type Delegate struct {
-	config          *orm.Config
+	config          orm.ConfigReader
 	orm             ORM
 	jrm             job.ORM
 	pr              pipeline.Runner

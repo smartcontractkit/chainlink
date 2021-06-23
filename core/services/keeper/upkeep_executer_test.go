@@ -83,7 +83,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		store, ethMock, executer, registry, upkeep, job, jpv2, txm := setup(t)
 
-		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryGasOverhead()
+		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
 			Once().
@@ -113,7 +113,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryGasOverhead()
+		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
 			Once().
 			Return(models.EthTx{}, nil).
@@ -185,7 +185,7 @@ func Test_UpkeepExecuter_ConstructCheckUpkeepCallMsg(t *testing.T) {
 	store, _, executer, registry, upkeep, _, _, _ := setup(t)
 	msg, err := executer.ExportedConstructCheckUpkeepCallMsg(upkeep)
 	require.NoError(t, err)
-	expectedGasLimit := upkeep.ExecuteGas + uint64(registry.CheckGas) + store.Config.KeeperRegistryGasOverhead()
+	expectedGasLimit := upkeep.ExecuteGas + uint64(registry.CheckGas) + store.Config.KeeperRegistryCheckGasOverhead() + store.Config.KeeperRegistryPerformGasOverhead()
 	require.Equal(t, expectedGasLimit, msg.Gas)
 	require.Equal(t, registry.ContractAddress.Address(), *msg.To)
 	require.Equal(t, utils.ZeroAddress, msg.From)

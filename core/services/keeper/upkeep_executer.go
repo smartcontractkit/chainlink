@@ -39,7 +39,7 @@ var _ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 type UpkeepExecuter struct {
 	chStop          chan struct{}
 	ethClient       eth.Client
-	config          *orm.Config
+	config          orm.ConfigReader
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	job             job.Job
@@ -56,7 +56,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	config *orm.Config,
+	config orm.ConfigReader,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
 		chStop:          make(chan struct{}),
@@ -268,7 +268,8 @@ func (executer *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistr
 	}
 
 	to := upkeep.Registry.ContractAddress.Address()
-	gasLimit := executer.config.KeeperRegistryGasOverhead() + uint64(upkeep.Registry.CheckGas) + upkeep.ExecuteGas
+	gasLimit := executer.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
+		executer.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas
 	msg := ethereum.CallMsg{
 		From: utils.ZeroAddress,
 		To:   &to,
