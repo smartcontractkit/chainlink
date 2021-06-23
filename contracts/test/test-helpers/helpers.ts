@@ -1,16 +1,8 @@
-import { BigNumber, Contract, ContractTransaction } from "ethers";
+import { Contract, ContractTransaction } from "ethers";
 import type { providers } from "ethers";
 import { assert } from "chai";
 import { ethers } from "hardhat";
 import cbor from "cbor";
-
-export const constants = {
-  ZERO_ADDRESS: "0x0000000000000000000000000000000000000000",
-  ZERO_BYTES32: "0x0000000000000000000000000000000000000000000000000000000000000000",
-  MAX_UINT256: BigNumber.from("2").pow(BigNumber.from("256")).sub(BigNumber.from("1")),
-  MAX_INT256: BigNumber.from("2").pow(BigNumber.from("255")).sub(BigNumber.from("1")),
-  MIN_INT256: BigNumber.from("2").pow(BigNumber.from("255")).mul(BigNumber.from("-1")),
-};
 
 /**
  * Convert string to hex bytes

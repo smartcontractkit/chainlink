@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
-import { publicAbi, constants } from "../test-helpers/helpers";
+import { publicAbi } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
-import { Signer, Contract } from "ethers";
+import { Signer, Contract, constants } from "ethers";
 import { Users, getUsers } from "../test-helpers/setup";
 
 let users: Users;
@@ -54,14 +54,14 @@ describe("ValidatorProxy", () => {
       const response = await validatorProxy.getAggregators();
       assert.equal(response.current, aggregatorAddress);
       assert.equal(response.hasProposal, false);
-      assert.equal(response.proposed, constants.ZERO_ADDRESS);
+      assert.equal(response.proposed, constants.AddressZero);
     });
 
     it("should set the validator addresses conrrectly", async () => {
       const response = await validatorProxy.getValidators();
       assert.equal(response.current, validatorAddress);
       assert.equal(response.hasProposal, false);
-      assert.equal(response.proposed, constants.ZERO_ADDRESS);
+      assert.equal(response.proposed, constants.AddressZero);
     });
 
     it("should set the owner correctly", async () => {
@@ -113,11 +113,11 @@ describe("ValidatorProxy", () => {
 
       it("should set a zero address and hasProposal is false", async () => {
         await validatorProxy.proposeNewAggregator(newAggregatorAddress);
-        await validatorProxy.proposeNewAggregator(constants.ZERO_ADDRESS);
+        await validatorProxy.proposeNewAggregator(constants.AddressZero);
         const response = await validatorProxy.getAggregators();
         assert.equal(response.current, aggregatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -154,7 +154,7 @@ describe("ValidatorProxy", () => {
         const response = await validatorProxy.getAggregators();
         assert.equal(response.current, newAggregatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -203,11 +203,11 @@ describe("ValidatorProxy", () => {
 
       it("should set a zero address and hasProposal is false", async () => {
         await validatorProxy.proposeNewValidator(newValidatorAddress);
-        await validatorProxy.proposeNewValidator(constants.ZERO_ADDRESS);
+        await validatorProxy.proposeNewValidator(constants.AddressZero);
         const response = await validatorProxy.getValidators();
         assert.equal(response.current, validatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -244,7 +244,7 @@ describe("ValidatorProxy", () => {
         const response = await validatorProxy.getValidators();
         assert.equal(response.current, newValidatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -260,7 +260,7 @@ describe("ValidatorProxy", () => {
 
       it("reverts when there is no validator set", async () => {
         const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
-        validatorProxy = await vpf.deploy(aggregatorAddress, constants.ZERO_ADDRESS);
+        validatorProxy = await vpf.deploy(aggregatorAddress, constants.AddressZero);
         await validatorProxy.deployed();
         await expect(validatorProxy.connect(aggregator).validate(99, 88, 77, 66)).to.be.revertedWith(
           "No validator set",

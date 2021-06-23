@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
 import { assert, expect } from "chai";
-import { Signer, Contract, ContractFactory, BigNumber, BigNumberish, ContractTransaction } from "ethers";
+import { Signer, Contract, ContractFactory, BigNumber, BigNumberish, ContractTransaction, constants } from "ethers";
 import { Personas, getUsers } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
-import { constants, publicAbi, toWei, increaseTimeBy, mineBlock, evmWordToAddress } from "../test-helpers/helpers";
+import { publicAbi, toWei, increaseTimeBy, mineBlock, evmWordToAddress } from "../test-helpers/helpers";
 import { randomBytes } from "@ethersproject/random";
 
 let personas: Personas;
@@ -27,7 +27,7 @@ before(async () => {
   flagsFactory = await ethers.getContractFactory("Flags");
   acFactory = await ethers.getContractFactory("SimpleWriteAccessController");
   gasGuzzlerFactory = await ethers.getContractFactory("GasGuzzler");
-  emptyAddress = constants.ZERO_ADDRESS;
+  emptyAddress = constants.AddressZero;
 });
 
 describe("FluxAggregator", () => {

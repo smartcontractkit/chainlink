@@ -2,9 +2,8 @@
 // Adapted from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/c9630526e24ba53d9647787588a19ffaa3dd65e1/test/math/SignedSafeMath.test.js
 
 import { ethers } from "hardhat";
-import { constants } from "../test-helpers/helpers";
 import { assert } from "chai";
-import { BigNumber, Contract, ContractFactory } from "ethers";
+import { BigNumber, constants, Contract, ContractFactory } from "ethers";
 import { Personas, getUsers } from "../test-helpers/setup";
 import { bigNumEquals } from "../test-helpers/matchers";
 
@@ -16,8 +15,8 @@ before(async () => {
   mathFactory = await ethers.getContractFactory("CheckedMathTestHelper", personas.Default);
 });
 
-const int256Max = constants.MAX_INT256;
-const int256Min = constants.MIN_INT256;
+const int256Max = constants.MaxInt256;
+const int256Min = constants.MinInt256;
 
 describe("CheckedMath", () => {
   let math: Contract;
