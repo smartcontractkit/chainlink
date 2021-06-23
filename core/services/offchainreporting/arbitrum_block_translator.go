@@ -16,8 +16,9 @@ import (
 )
 
 // ArbitrumBlockTranslator uses Arbitrum's special L1BlockNumber to optimise log lookups
-// Performance matters here hence the use of both memo AND cache
-// We don't ever want to do the same work more than once because calling eth_getBlockByNumber a lot is expensive
+// Performance matters here hence aggressive use of the cache
+// We want to minimise fetches because calling eth_getBlockByNumber is
+// relatively expensive
 type ArbitrumBlockTranslator struct {
 	ethClient eth.Client
 	// l2->l1 cache
@@ -54,9 +55,8 @@ func (a *ArbitrumBlockTranslator) NumberToQueryRange(ctx context.Context, change
 // L1 values are likely duplicated so it looks something like
 // [42, 42, 42, 42, 42, 155, 155, 155, 430, 430, 430, 430, 430, ...]
 // Theoretical max difference between L1 values is typically about 5, "worst case" is 6545 but can be arbtrarily high if sequencer is broken
-// The general strategy here is to search in from the left to find the leftmost edge of the L1 we are looking for
-// Then search in from the right to find the rightmost edge
-// The range of L2s encompassed from leftmost thru rightmost represent all possible L2s that correspond to the L1 value we are looking for
+// The returned range of L2s from leftmost thru rightmost represent all possible L2s that correspond to the L1 value we are looking for
+// nil can be returned as a rightmost value if the range has no upper bound
 func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int64) (l2lowerBound *big.Int, l2upperBound *big.Int, err error) {
 	mark := time.Now()
 	var n int
@@ -66,7 +66,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 	}()
 	var h *models.Head
 
-	// l2lower...l2upper is the exclusive range of L2 block numbers in which
+	// l2lower..l2upper is the inclusive range of L2 block numbers in which
 	// transactions that called block.number will return the given L1 block
 	// number
 	var l2lower int64
@@ -97,7 +97,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 
 			a.cachePut(currentL2, currentL1)
 
-			// NOTE: This case shouldn't ever happen but we ought to handle them in the least broken way possible
+			// NOTE: This case shouldn't ever happen but we ought to handle it in the least broken way possible
 			if targetL1 > currentL1 {
 				// real upper must always be nil, we can skip the upper limit part of the binary search
 				logger.Debugf("ArbitrumBlockTranslator#BinarySearch target of %d is above current L1 block number of %d, using nil for upper bound", targetL1, currentL1)
@@ -114,10 +114,11 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 
 	logger.Tracef("ArbitrumBlockTranslator#BinarySearch starting search for L2 range wrapping L1 block number %d between bounds [%d, %d]", targetL1, l2lower, l2upper)
 
-	// LEFT EDGE
-
-	// Expect either left or right search to make an exact match, if they don't something has gone badly wrong
 	var exactMatch bool
+
+	// LEFT EDGE
+	// First, use binary search to find the smallest L2 block number for which L1 >= changedInBlock
+	// This L2 block number represents the lower bound on a range of L2s corresponding to this L1
 	{
 		l2lower, err = search(l2lower, l2upper+1, func(l2 int64) (bool, error) {
 			l1, miss, err2 := a.arbL2ToL1(ctx, l2)
@@ -138,6 +139,9 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 	}
 
 	// RIGHT EDGE
+	// Second, use binary search again to find the smallest L2 block number for which L1 > changedInBlock
+	// Now we can subtract one to get the largest L2 that corresponds to this L1
+	// This can be skipped if we know we are already at the top of the range, and the upper limit will be returned as nil
 	if !skipUpperBound {
 		var r int64
 		r, err = search(l2lower, l2upper+1, func(l2 int64) (bool, error) {
@@ -159,6 +163,8 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 		l2upper = r - 1
 		l2upperBound = big.NewInt(l2upper)
 	}
+
+	// NOTE: We expect either left or right search to make an exact match, if they don't something has gone badly wrong
 	if !exactMatch {
 		return nil, nil, errors.Errorf("target L1 block number %d is not represented by any L2 block", targetL1)
 	}
