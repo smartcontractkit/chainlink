@@ -269,7 +269,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		}, {
 			name:     "previous job run in progress",
 			eligible: true, connected: true, funded: true, answersDeviate: true,
-			hasPreviousRun: true, previousRunStatus: pipeline.RunStatusInProgress,
+			hasPreviousRun: true, previousRunStatus: pipeline.RunStatusRunning,
 			expectedToPoll: false, expectedToSubmit: false,
 		}, {
 			name:     "previous job run errored",

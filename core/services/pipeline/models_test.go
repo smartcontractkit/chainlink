@@ -13,12 +13,12 @@ func TestRunStatus(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, pipeline.RunStatusUnknown.Finished(), false)
-	assert.Equal(t, pipeline.RunStatusInProgress.Finished(), false)
+	assert.Equal(t, pipeline.RunStatusRunning.Finished(), false)
 	assert.Equal(t, pipeline.RunStatusCompleted.Finished(), true)
 	assert.Equal(t, pipeline.RunStatusErrored.Finished(), true)
 
 	assert.Equal(t, pipeline.RunStatusUnknown.Errored(), false)
-	assert.Equal(t, pipeline.RunStatusInProgress.Errored(), false)
+	assert.Equal(t, pipeline.RunStatusRunning.Errored(), false)
 	assert.Equal(t, pipeline.RunStatusCompleted.Errored(), false)
 	assert.Equal(t, pipeline.RunStatusErrored.Errored(), true)
 }
@@ -74,7 +74,7 @@ func TestRun_Status(t *testing.T) {
 				Outputs:    pipeline.JSONSerializable{},
 				FinishedAt: nil,
 			},
-			want: pipeline.RunStatusInProgress,
+			want: pipeline.RunStatusRunning,
 		},
 		{
 			name: "Completed",

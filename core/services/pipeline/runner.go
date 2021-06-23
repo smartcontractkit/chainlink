@@ -27,6 +27,8 @@ import (
 type Runner interface {
 	service.Service
 
+	Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error)
+
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
@@ -154,6 +156,7 @@ func (err ErrRunPanicked) Error() string {
 
 func NewRun(spec Spec, vars Vars) Run {
 	return Run{
+		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
 		Inputs:         JSONSerializable{Val: vars, Null: false},
@@ -254,6 +257,7 @@ func (r *runner) run(
 
 	// if the run is suspended, awaiting resumption
 	run.Pending = scheduler.pending
+	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
 		now := time.Now()
@@ -263,7 +267,6 @@ func (r *runner) run(
 		runTime := run.FinishedAt.Sub(run.CreatedAt)
 		l.Debugw("Finished all tasks for pipeline run", "specID", run.PipelineSpecID, "runTime", runTime)
 		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
-
 	}
 
 	// Update run results
@@ -302,6 +305,12 @@ func (r *runner) run(
 		}
 		run.Errors = errors
 		run.Outputs = JSONSerializable{Val: outputs, Null: false}
+
+		if run.HasErrors() {
+			run.State = RunStatusErrored
+		} else {
+			run.State = RunStatusCompleted
+		}
 	}
 
 	// TODO: drop this once we stop using TaskRunResults

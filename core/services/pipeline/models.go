@@ -48,6 +48,7 @@ type Run struct {
 	CreatedAt        time.Time        `json:"createdAt"`
 	FinishedAt       *time.Time       `json:"finishedAt"`
 	PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
+	State            RunStatus        `json:"state"`
 
 	Async   bool `gorm:"-"`
 	Pending bool `gorm:"-"`
@@ -87,7 +88,7 @@ func (r *Run) Status() RunStatus {
 		return RunStatusCompleted
 	}
 
-	return RunStatusInProgress
+	return RunStatusRunning
 }
 
 func (r *Run) ByDotID(id string) *TaskRun {
@@ -184,17 +185,19 @@ func (tr *TaskRun) IsPending() bool {
 }
 
 // RunStatus represents the status of a run
-type RunStatus int
+type RunStatus string
 
 const (
 	// RunStatusUnknown is the when the run status cannot be determined.
-	RunStatusUnknown RunStatus = iota
-	// RunStatusInProgress is used for when a run is actively being executed.
-	RunStatusInProgress
+	RunStatusUnknown RunStatus = "unknown"
+	// RunStatusRunning is used for when a run is actively being executed.
+	RunStatusRunning RunStatus = "running"
+	// RunStatusSuspended is used when a run is paused and awaiting further results.
+	RunStatusSuspended RunStatus = "suspended"
 	// RunStatusErrored is used for when a run has errored and will not complete.
-	RunStatusErrored
+	RunStatusErrored RunStatus = "errored"
 	// RunStatusCompleted is used for when a run has successfully completed execution.
-	RunStatusCompleted
+	RunStatusCompleted RunStatus = "completed"
 )
 
 // Completed returns true if the status is RunStatusCompleted.

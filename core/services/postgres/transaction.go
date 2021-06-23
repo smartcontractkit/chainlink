@@ -110,8 +110,8 @@ func SqlxTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) erro
 	defer func() {
 		// Make sure to rollback when panic, Block error or Commit error
 		if panicked || err != nil {
-			if err = tx.Rollback(); err != nil {
-				panic(err)
+			if perr := tx.Rollback(); perr != nil {
+				panic(perr)
 			}
 		}
 	}()
