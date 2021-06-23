@@ -62,6 +62,11 @@ type ConfigReader interface {
 	GasUpdaterTransactionPercentile() uint16
 	InsecureSkipVerify() bool
 	JSONConsole() bool
+	KeeperRegistryCheckGasOverhead() uint64
+	KeeperRegistryPerformGasOverhead() uint64
+	KeeperRegistrySyncInterval() time.Duration
+	KeeperMinimumRequiredConfirmations() uint64
+	KeeperMaximumGracePeriod() int64
 	KeyFile() string
 	LinkContractAddress() string
 	LogLevel() LogLevel
