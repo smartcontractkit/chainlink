@@ -40,12 +40,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/wsrpc"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
@@ -115,6 +117,7 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
+	telemetryIngressClient   synchronization.TelemetryIngressClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
 	logger                   *logger.Logger
@@ -145,6 +148,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	scryptParams := utils.GetScryptParams(cfg)
 	keyStore := keystore.New(store.DB, scryptParams)
 
+	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
@@ -152,7 +156,13 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
-	subservices = append(subservices, explorerClient)
+
+	// Use Explorer over TelemetryIngress if both URLs are set
+	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
+		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(), cfg.TelemetryIngressServerPubKey(), wsrpc.Dial, telemPb.NewTelemClient, keyStore.CSA(), cfg.TelemetryIngressLogging())
+		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
+	}
+	subservices = append(subservices, explorerClient, telemetryIngressClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
