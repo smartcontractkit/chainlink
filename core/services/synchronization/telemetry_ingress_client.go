@@ -1,0 +1,228 @@
+package synchronization
+
+import (
+	"context"
+	"errors"
+	"net/url"
+	"sync"
+	"sync/atomic"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
+)
+
+// SendIngressBufferSize is the number of messages to keep in the buffer before dropping additional ones
+const SendIngressBufferSize = 100
+
+// TelemetryIngressClient encapsulates all the functionality needed to
+// send telemetry to the ingress server using wsrpc
+type TelemetryIngressClient interface {
+	service.Service
+	Start() error
+	Close() error
+	Send(TelemPayload)
+}
+
+//go:generate mockery --name NewTelemClient --output ./mocks/ --case=underscore --structname NewTelemClient
+type NewTelemClient func(wsrpc.ClientInterface) telemPb.TelemClient
+
+//go:generate mockery --name WsrpcDial --output ./mocks/ --case=underscore --structname WsrpcDial
+type WsrpcDial func(string, ...wsrpc.DialOption) (*wsrpc.ClientConn, error)
+
+//go:generate mockery --name TelemClient --output ./mocks/ --case=underscore --structname TelemClient
+type TelemClient interface {
+	Telem(ctx context.Context, in *telemPb.TelemRequest) (*telemPb.TelemResponse, error)
+}
+
+type NoopTelemetryIngressClient struct{}
+
+func (NoopTelemetryIngressClient) Start() error      { return nil }
+func (NoopTelemetryIngressClient) Close() error      { return nil }
+func (NoopTelemetryIngressClient) Send(TelemPayload) {}
+func (NoopTelemetryIngressClient) Healthy() error    { return nil }
+func (NoopTelemetryIngressClient) Ready() error      { return nil }
+
+type telemetryIngressClient struct {
+	utils.StartStopOnce
+	url             *url.URL
+	ks              keystore.CSAKeystoreInterface
+	serverPubKeyHex string
+	wsrpcDial       WsrpcDial
+	newTelemClient  NewTelemClient
+
+	wsrpcClient telemPb.TelemClient
+	logging     bool
+
+	mu               *sync.RWMutex
+	isReady          bool
+	wgDone           sync.WaitGroup
+	chDone           chan struct{}
+	dropMessageCount uint32
+	chTelemetry      chan TelemPayload
+}
+
+type TelemPayload struct {
+	Ctx             context.Context
+	Telemetry       []byte
+	ContractAddress common.Address
+}
+
+// NewTelemetryIngressClient returns a client backed by wsrpc that
+// can send telemetry to the telemetry ingress server
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, wsrpcDial WsrpcDial, newTelemClient NewTelemClient, ks keystore.CSAKeystoreInterface, logging bool) TelemetryIngressClient {
+	return &telemetryIngressClient{
+		url:             url,
+		ks:              ks,
+		wsrpcDial:       wsrpcDial,
+		newTelemClient:  newTelemClient,
+		serverPubKeyHex: serverPubKeyHex,
+		logging:         logging,
+		mu:              new(sync.RWMutex),
+		chTelemetry:     make(chan TelemPayload, SendIngressBufferSize),
+		chDone:          make(chan struct{}),
+	}
+}
+
+// Start connects the wsrpc client to the telemetry ingress server
+func (tc *telemetryIngressClient) Start() error {
+	return tc.StartOnce("TelemetryIngressClient", func() error {
+		privkey, err := tc.getCSAPrivateKey()
+		if err != nil {
+			return err
+		}
+
+		tc.connect(privkey)
+
+		return nil
+	})
+}
+
+// Close disconnects the wsrpc client from the ingress server
+func (tc *telemetryIngressClient) Close() error {
+	return tc.StopOnce("TelemetryIngressClient", func() error {
+		close(tc.chDone)
+		tc.wgDone.Wait()
+		return nil
+	})
+}
+
+func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
+	tc.wgDone.Add(1)
+
+	go func() {
+		defer tc.wgDone.Done()
+
+		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
+
+		conn, err := tc.wsrpcDial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		if err != nil {
+			logger.Errorf("Error connecting to telemetry ingress server: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		// Initialize a new wsrpc client caller
+		// This is used to call RPC methods on the server
+		tc.mu.Lock()
+		tc.wsrpcClient = tc.newTelemClient(conn)
+
+		// Start handler for telemetry
+		tc.handleTelemetry()
+
+		tc.isReady = true
+		tc.mu.Unlock()
+
+		// Wait for close
+		<-tc.chDone
+
+	}()
+}
+
+func (tc *telemetryIngressClient) handleTelemetry() {
+	go func() {
+		for {
+			select {
+			case p := <-tc.chTelemetry:
+				// Send telemetry to the ingress server, log any errors
+				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractAddress.String()}
+				_, err := tc.wsrpcClient.Telem(p.Ctx, telemReq)
+				if err != nil {
+					logger.Errorf("Could not send telemetry: %v", err)
+					continue
+				}
+				if tc.logging {
+					logger.Debugw("successfully sent telemetry to ingress server", "contractAddress", p.ContractAddress.String(), "telemetry", p.Telemetry)
+				}
+			case <-tc.chDone:
+				return
+			}
+		}
+	}()
+}
+
+// logBufferFullWithExpBackoff logs messages at
+// 1
+// 2
+// 4
+// 8
+// 16
+// 32
+// 64
+// 100
+// 200
+// 300
+// etc...
+func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPayload) {
+	count := atomic.AddUint32(&tc.dropMessageCount, 1)
+	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
+		logger.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
+	}
+}
+
+// getCSAPrivateKey gets the client's CSA private key
+func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error) {
+	// Fetch the client's public key
+	keys, err := tc.ks.ListCSAKeys()
+	if err != nil {
+		return privkey, err
+	}
+	if len(keys) < 1 {
+		return privkey, errors.New("CSA key does not exist")
+	}
+
+	privkey, err = tc.ks.Unsafe_GetUnlockedPrivateKey(keys[0].PublicKey)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return privkey, nil
+}
+
+// Send sends telemetry to the ingress server using wsrpc if the client is ready.
+// Also stores telemetry in a small buffer in case of backpressure from wsrpc,
+// throwing away messages once buffer is full
+func (tc *telemetryIngressClient) Send(payload TelemPayload) {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+
+	if !tc.isReady {
+		logger.Error("Could not send telemetry, client is not ready")
+		return
+	}
+
+	select {
+	case tc.chTelemetry <- payload:
+		atomic.StoreUint32(&tc.dropMessageCount, 0)
+	case <-payload.Ctx.Done():
+		return
+	default:
+		tc.logBufferFullWithExpBackoff(payload)
+	}
+}
