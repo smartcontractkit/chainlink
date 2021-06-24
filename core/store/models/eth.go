@@ -15,6 +15,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -126,13 +127,14 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
-	ID         uint64
-	Hash       common.Hash
-	Number     int64
-	ParentHash common.Hash
-	Parent     *Head `gorm:"-"`
-	Timestamp  time.Time
-	CreatedAt  time.Time
+	ID            uint64
+	Hash          common.Hash
+	Number        int64
+	L1BlockNumber null.Int64
+	ParentHash    common.Hash
+	Parent        *Head `gorm:"-"`
+	Timestamp     time.Time
+	CreatedAt     time.Time
 }
 
 // NewHead returns a Head instance.
@@ -253,10 +255,11 @@ func (h *Head) NextInt() *big.Int {
 
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
-		Hash       common.Hash    `json:"hash"`
-		Number     *hexutil.Big   `json:"number"`
-		ParentHash common.Hash    `json:"parentHash"`
-		Timestamp  hexutil.Uint64 `json:"timestamp"`
+		Hash          common.Hash    `json:"hash"`
+		Number        *hexutil.Big   `json:"number"`
+		ParentHash    common.Hash    `json:"parentHash"`
+		Timestamp     hexutil.Uint64 `json:"timestamp"`
+		L1BlockNumber *hexutil.Big   `json:"l1BlockNumber"`
 	}
 
 	var jsonHead head
@@ -274,6 +277,9 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
+	if jsonHead.L1BlockNumber != nil {
+		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
+	}
 	return nil
 }
 
@@ -312,7 +318,7 @@ func ReceiptIsUnconfirmed(txr *types.Receipt) bool {
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See
-// ../../evm-contracts/src/v0.6/ChainlinkClient.sol
+// ../../contracts/src/v0.6/ChainlinkClient.sol
 var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 
 // ReceiptIndicatesRunLogFulfillment returns true if this tx receipt is the result of a

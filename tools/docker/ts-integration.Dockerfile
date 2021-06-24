@@ -27,7 +27,7 @@ COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
-COPY evm-contracts evm-contracts
+COPY contracts contracts
 # TODO remove @types import
 # https://www.pivotaltracker.com/story/show/171715396
 COPY operator_ui/@types operator_ui/@types/

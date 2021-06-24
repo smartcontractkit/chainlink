@@ -227,8 +227,12 @@ func (t TaskType) String() string {
 const (
 	TaskTypeHTTP            TaskType = "http"
 	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMean            TaskType = "mean"
 	TaskTypeMedian          TaskType = "median"
+	TaskTypeMode            TaskType = "mode"
+	TaskTypeSum             TaskType = "sum"
 	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeDivide          TaskType = "divide"
 	TaskTypeJSONParse       TaskType = "jsonparse"
 	TaskTypeCBORParse       TaskType = "cborparse"
 	TaskTypeAny             TaskType = "any"
