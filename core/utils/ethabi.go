@@ -222,7 +222,6 @@ func EVMWordAddress(val common.Address) []byte {
 	for i, b := range val.Bytes() {
 		word[start+i] = b
 	}
-	//binary.BigEndian.PutUint64(word[EVMWordByteLen-:], val)
 	return word
 }
 
