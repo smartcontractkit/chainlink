@@ -68,7 +68,8 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, store.DB, nil, jpv2.Jrm, lbMock, syncInterval, 1)
+	orm := keeper.NewORM(store.DB, nil, store.Config)
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1)
 	return store, synchronizer, ethMock, lbMock, j
 }
 
