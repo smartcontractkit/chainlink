@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-yarn test "test/v0.4"
-yarn test "test/v0.5"

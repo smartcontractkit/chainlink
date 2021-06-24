@@ -19,7 +19,7 @@ COPY operator_ui/package.json ./operator_ui/
 COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json ./evm-test-helpers/
-COPY evm-contracts/package.json ./evm-contracts/
+COPY contracts/package.json ./contracts/
 COPY tools/bin/restore-solc-cache ./tools/bin/restore-solc-cache
 RUN make yarndep
 
@@ -28,7 +28,7 @@ COPY operator_ui ./operator_ui
 COPY belt ./belt
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers ./evm-test-helpers
-COPY evm-contracts ./evm-contracts
+COPY contracts ./contracts
 
 # Build operator-ui and the smart contracts
 RUN make contracts-operator-ui-build
@@ -52,7 +52,6 @@ RUN go mod download
 ARG COMMIT_SHA
 ARG ENVIRONMENT
 
-COPY --from=0 /chainlink/evm-contracts/abi ./evm-contracts/abi
 COPY --from=0 /chainlink/operator_ui/dist ./operator_ui/dist
 COPY core core
 COPY packr packr

@@ -39,7 +39,7 @@ COPY .yarn .yarn
 COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json evm-test-helpers/
-COPY evm-contracts/package.json ./evm-contracts/
+COPY contracts/package.json ./contracts/
 COPY integration/package.json integration/
 COPY integration-scripts/package.json integration-scripts/
 
@@ -54,7 +54,7 @@ COPY tools/docker tools/docker/
 COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
-COPY evm-contracts evm-contracts
+COPY contracts contracts
 COPY integration integration
 COPY integration-scripts integration-scripts
 

@@ -29,5 +29,4 @@
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/evm-contracts/ @alexroan @se3000
 /contracts/ @alexroan @se3000 @connorwstein
