@@ -191,8 +191,6 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 
 	wsserver, url, cleanup := newWSServer()
 	config := NewConfigWithWSServer(t, url, wsserver)
-	// Tests almost always want to request to localhost so its easier to set this here
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	// Disable gas updater for application tests
 	config.Set("GAS_UPDATER_ENABLED", false)
 	// Disable tx re-sending for application tests

@@ -12,7 +12,7 @@ jobs:
       matrix:
         cmd: ['go_core_tests']
     name: Core Tests
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -122,7 +122,7 @@ jobs:
 
   solidity-lint:
     name: Solidity Linting
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -152,7 +152,7 @@ jobs:
 
   solidity-v8:
     name: Solidity v0.8 tests
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -181,7 +181,7 @@ jobs:
 
   solidity:
     name: Solidity
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -211,7 +211,7 @@ jobs:
 
   solidity-v6:
     name: Solidity v0.6 tests
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -241,7 +241,7 @@ jobs:
 
   solidity-old:
     name: Solidity old versions
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -271,7 +271,7 @@ jobs:
 
   prepublish_npm:
     name: Prepublish NPM
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -301,52 +301,15 @@ jobs:
 
   build-chainlink:
     name: Build chainlink image
-    runs-on: [self-hosted, sdlc-ghr-prod]
-    strategy:
-      matrix:
-        dockerfile: [core/chainlink.Dockerfile]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: '${{ secrets.GHA_AWS_ACCESS_KEY_ID }}'
-          aws-secret-access-key: '${{ secrets.GHA_AWS_SECRET_ACCESS_KEY }}'
-          aws-region: '${{ secrets.AWS_DEFAULT_REGION }}'
-          role-to-assume: '${{ secrets.GHA_AWS_ROLE_TO_ASSUME }}'
-          role-duration-seconds: 1200
-          role-session-name: 'temp-session'
-          role-skip-session-tagging: true
-      - name: Docker login to ECR
-        uses: aws-actions/amazon-ecr-login@v1
-        id: login-ecr
-      # https://github.com/docker/build-push-action/issues/20
-      - name: Get ecr password
-        id: get-ecr-password
-        run: |
-          aws ecr get-login-password \
-          | {
-            read PASSWORD
-            echo "::add-mask::$PASSWORD"
-            echo "::set-output name=password::$PASSWORD"
-            }
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Build image
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v2
         with:
-          registry: ${{ steps.login-ecr.outputs.registry }}
-          repository: ${{ secrets.ECR_REPO }}
-          username: AWS # temporary
-          password: ${{ steps.get-ecr-password.outputs.password }} # temporary
-          dockerfile: ${{ matrix.dockerfile }}
+          file: core/chainlink.Dockerfile
           build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: githubactions
-          add_git_labels: true
-          tag_with_ref: true
-          tag_with_sha: true
           push: false
