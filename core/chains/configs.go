@@ -173,7 +173,7 @@ func setConfigs() {
 	arbitrumMainnet.LinkContractAddress = ""       // TBD
 	arbitrumMainnet.OCRContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
-	arbitrumRinkeby.LinkContractAddress = "0xf1c3C8C14C31a5f74614572e922cD8F4fC626185"
+	arbitrumRinkeby.LinkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := FallbackConfig

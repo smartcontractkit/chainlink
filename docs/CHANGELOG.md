@@ -15,12 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Matic autoconfig is now enabled for mainnet. Matic nops should remove any custom tweaks they have been running with. In addition, we have better default configs for Optimism, Arbitrum and RSK.
 
-- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge tasks. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge or http tasks. If the URL for the http task is specified as a variable, then set the AllowUnrestrictedNetworkAccess option for this task. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
 
 - Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
 
-- Removed prometheus metrics that were no longer valid after recent changes to head tracking: 
-  `head_tracker_heads_in_queue`, `head_tracker_callback_execution_duration`, 
+- Removed prometheus metrics that were no longer valid after recent changes to head tracking:
+  `head_tracker_heads_in_queue`, `head_tracker_callback_execution_duration`,
   `head_tracker_callback_execution_duration_hist`, `head_tracker_num_heads_dropped`
 
 ### Added
@@ -98,19 +98,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         submit [type=bridge name="substrate-adapter1" requestData=<{ "multiply": 1e8 }>]
     """
     ```
-    
+
 
 - Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
 
-    ``` 
+    ```
     my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
     ```
     ... can now be written as:
-    ``` 
+    ```
     my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
     ```
     Multiline strings are supported with this syntax as well:
-    ``` 
+    ```
     my_bridge [type=bridge
                name="my_bridge"
                requestData=<{
@@ -207,26 +207,26 @@ pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="
 - The VRF keys are now managed remotely through the node only. Example commands:
 ```
 // Starting a node with a vrf key
-chainlink node start -p path/to/passwordfile -vp path/to/vrfpasswordfile 
+chainlink node start -p path/to/passwordfile -vp path/to/vrfpasswordfile
 
 // Remotely managing the vrf keys
 chainlink keys vrf create // Creates a key with path/to/vrfpasswordfile
-chainlink keys vrf list // Lists all keys on the node 
-chainlink keys vrf delete // Lists all keys on the node 
+chainlink keys vrf list // Lists all keys on the node
+chainlink keys vrf delete // Lists all keys on the node
 
-// Archives (soft deletes) vrf key with compressed pub key 0x788.. 
-chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 
+// Archives (soft deletes) vrf key with compressed pub key 0x788..
+chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00
 
-// Hard deletes vrf key with compressed pub key 0x788.. 
-chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 --hard 
+// Hard deletes vrf key with compressed pub key 0x788..
+chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 --hard
 
-// Exports 0x788.. key to file 0x788_exported_key on disk encrypted with path/to/vrfpasswordfile 
+// Exports 0x788.. key to file 0x788_exported_key on disk encrypted with path/to/vrfpasswordfile
 // Note you can re-encrypt it with a different password if you like when exporting.
-chainlink keys vrf export 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 -p path/to/vrfpasswordfile -o 0x788_exported_key  
+chainlink keys vrf export 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 -p path/to/vrfpasswordfile -o 0x788_exported_key
 
 // Import key material in 0x788_exported_key using path/to/vrfpasswordfile to decrypt.
-// Will be re-encrypted with the nodes vrf password file i.e. "-vp" 
-chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key 
+// Will be re-encrypted with the nodes vrf password file i.e. "-vp"
+chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
 ```
 
 
@@ -253,11 +253,11 @@ chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
 
 - Chainlink now automatically cleans up old eth_txes to reduce database size. By default, any eth_txes older than a week are pruned on a regular basis. It is recommended to use the default value, however the default can be overridden by setting the `ETH_TX_REAPER_THRESHOLD` env var e.g. `ETH_TX_REAPER_THRESHOLD=24h`. Reaper can be disabled entirely by setting `ETH_TX_REAPER_THRESHOLD=0`. The reaper will run on startup and again every hour (interval is configurable using `ETH_TX_REAPER_INTERVAL`).
 
-- Heads corresponding to new blocks are now delivered in a sampled way, which is to improve 
-  node performance on fast chains. The frequency is by default 1 second, and can be changed 
+- Heads corresponding to new blocks are now delivered in a sampled way, which is to improve
+  node performance on fast chains. The frequency is by default 1 second, and can be changed
   by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL` env var e.g. `ETH_HEAD_TRACKER_SAMPLING_INTERVAL=5s`.
 
-- Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed 
+- Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed
   to any chosed directory by setting a new configuration value: `DATABASE_BACKUP_DIR`
 
 ## [0.10.6] - 2021-05-10
@@ -266,9 +266,9 @@ chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
 
 - Add `MockOracle.sol` for testing contracts
 
-- Web job types can now be created from the operator UI as a new job. 
+- Web job types can now be created from the operator UI as a new job.
 
-- See example web job spec below: 
+- See example web job spec below:
 
 ```
 type            = "webhook"
@@ -281,8 +281,8 @@ ds -> ds_parse;
 """
 ```
 
-- New CLI command to convert v1 flux monitor jobs (JSON) to 
-v2 flux monitor jobs (TOML). Running it will archive the v1 
+- New CLI command to convert v1 flux monitor jobs (JSON) to
+v2 flux monitor jobs (TOML). Running it will archive the v1
 job and create a new v2 job. Example:
 ```
 // Get v1 job ID:
@@ -325,7 +325,7 @@ ds -> ds_parse;
 ### Changed
 
 - Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
-- Removed support for the env var `JOB_PIPELINE_PARALLELISM`. 
+- Removed support for the env var `JOB_PIPELINE_PARALLELISM`.
 - OCR jobs no longer show `TaskRuns` in success cases. This reduces
 DB load and significantly improves the performance of archiving OCR jobs.
 - Archiving OCR jobs should be 5-10x faster.
@@ -382,7 +382,7 @@ DB load and significantly improves the performance of archiving OCR jobs.
 and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
 to a dotID in the pipeline_spec.dot_dag_source.
 
-- Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
+- Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign".
 
 - Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
 
