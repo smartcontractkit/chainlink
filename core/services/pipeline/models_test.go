@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestRunStatus(t *testing.T) {
@@ -24,7 +25,7 @@ func TestRunStatus(t *testing.T) {
 }
 
 func TestRun_Status(t *testing.T) {
-	now := time.Now()
+	now := null.TimeFrom(time.Now())
 	var success = pipeline.TaskRunResults{
 		{
 			Task: &pipeline.HTTPTask{},
@@ -32,7 +33,7 @@ func TestRun_Status(t *testing.T) {
 				Value: 10,
 				Error: nil,
 			},
-			FinishedAt: &now,
+			FinishedAt: now,
 		},
 		{
 			Task: &pipeline.HTTPTask{},
@@ -40,7 +41,7 @@ func TestRun_Status(t *testing.T) {
 				Value: 10,
 				Error: nil,
 			},
-			FinishedAt: &now,
+			FinishedAt: now,
 		},
 	}
 	var fail = pipeline.TaskRunResults{
@@ -50,7 +51,7 @@ func TestRun_Status(t *testing.T) {
 				Value: nil,
 				Error: errors.New("fail"),
 			},
-			FinishedAt: &now,
+			FinishedAt: now,
 		},
 		{
 			Task: &pipeline.HTTPTask{},
@@ -58,7 +59,7 @@ func TestRun_Status(t *testing.T) {
 				Value: nil,
 				Error: errors.New("fail"),
 			},
-			FinishedAt: &now,
+			FinishedAt: now,
 		},
 	}
 
@@ -72,7 +73,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				Errors:     pipeline.RunErrors{},
 				Outputs:    pipeline.JSONSerializable{},
-				FinishedAt: nil,
+				FinishedAt: null.Time{},
 			},
 			want: pipeline.RunStatusRunning,
 		},
@@ -81,7 +82,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				Errors:     success.FinalResult().ErrorsDB(),
 				Outputs:    success.FinalResult().OutputsDB(),
-				FinishedAt: &now,
+				FinishedAt: now,
 			},
 			want: pipeline.RunStatusCompleted,
 		},
@@ -90,7 +91,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				Outputs:    fail.FinalResult().OutputsDB(),
 				Errors:     fail.FinalResult().ErrorsDB(),
-				FinishedAt: nil,
+				FinishedAt: null.Time{},
 			},
 			want: pipeline.RunStatusErrored,
 		},

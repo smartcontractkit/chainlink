@@ -84,7 +84,7 @@ func (r Run) HasErrors() bool {
 func (r *Run) Status() RunStatus {
 	if r.HasErrors() {
 		return RunStatusErrored
-	} else if !r.FinishedAt.Valid {
+	} else if r.FinishedAt.Valid {
 		return RunStatusCompleted
 	}
 
@@ -142,8 +142,7 @@ type TaskRun struct {
 	DotID         string            `json:"dotId"`
 
 	// Unfortunate, but we need an UUID to pass through to the external adapter
-	RunID uuid.UUID `json:"runId"`
-	// State TaskRunState `json:"state"` // TODO: add state (pending/finished)
+	TaskRunID uuid.UUID `json:"taskRunId"`
 
 	// Used internally for sorting completed results
 	task Task

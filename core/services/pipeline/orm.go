@@ -106,36 +106,31 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 				return nil
 			}
 
-			// suspend the run
+			// Suspend the run
 			run.State = RunStatusSuspended
-
 			if _, err := tx.NamedExec(`UPDATE pipeline_runs SET state = :state`, run); err != nil {
 				return err
 			}
 		} else {
-			// simply finish the run, no need to do any sort of locking
+			// Simply finish the run, no need to do any sort of locking
 			if run.Outputs.Val == nil || len(run.Errors) == 0 {
 				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 			}
-			// TODO: this won't work if CreateRun() hasn't executed before, needs to be an upsert?
-			if _, err := tx.NamedExec(`UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`, run); err != nil {
+			sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`
+			if _, err := tx.NamedExec(sql, run); err != nil {
 				return err
 			}
 		}
 
-		if !saveSuccessfulTaskRuns && !run.HasErrors() && finished {
-			return nil
-		}
-
 		sql := `
-		INSERT INTO pipeline_task_runs (pipeline_run_id, run_id, type, index, output, error, dot_id, created_at, finished_at)
-		VALUES (:pipeline_run_id, :run_id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
+		INSERT INTO pipeline_task_runs (pipeline_run_id, task_run_id, type, index, output, error, dot_id, created_at, finished_at)
+		VALUES (:pipeline_run_id, :task_run_id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 		ON CONFLICT (pipeline_run_id, dot_id) DO UPDATE SET
 		output = EXCLUDED.output, error = EXCLUDED.error, finished_at = EXCLUDED.finished_at
 		RETURNING *;
 		`
 
-		// TODO: can't use Select() to auto scan because we're using NamedQuery,
+		// NOTE: can't use Select() to auto scan because we're using NamedQuery,
 		// sqlx.Named + Select is possible but it's about the same amount of code
 		rows, err := tx.NamedQuery(sql, run.PipelineTaskRuns)
 		if err != nil {
@@ -156,14 +151,14 @@ func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (r
 	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		sql := `
 		SELECT pipeline_runs.* FROM pipeline_runs, pipeline_task_runs
-		WHERE pipeline_task_runs.run_id = $1
+		WHERE pipeline_task_runs.task_run_id = $1
 		FOR UPDATE `
 		if err = tx.Get(&run, sql, taskID); err != nil {
 			return err
 		}
 
 		// Update the task with result
-		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE run_id = $1`
+		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE task_run_id = $1`
 		if _, err = tx.Exec(sql, taskID, JSONSerializable{Val: result}, time.Now()); err != nil {
 			return err
 		}
