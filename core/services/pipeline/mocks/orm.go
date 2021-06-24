@@ -134,6 +134,20 @@ func (_m *ORM) GetAllRuns() ([]pipeline.Run, error) {
 	return r0, r1
 }
 
+// GetUnfinishedRuns provides a mock function with given fields: now, fn
+func (_m *ORM) GetUnfinishedRuns(now time.Time, fn func(pipeline.Run) error) error {
+	ret := _m.Called(now, fn)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(time.Time, func(pipeline.Run) error) error); ok {
+		r0 = rf(now, fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // InsertFinishedRun provides a mock function with given fields: db, run, trrs, saveSuccessfulTaskRuns
 func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
 	ret := _m.Called(db, run, trrs, saveSuccessfulTaskRuns)
@@ -155,20 +169,20 @@ func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.
 	return r0, r1
 }
 
-// StoreRun provides a mock function with given fields: db, run, saveSuccessfulTaskRuns
-func (_m *ORM) StoreRun(db *sql.DB, run *pipeline.Run, saveSuccessfulTaskRuns bool) (bool, error) {
-	ret := _m.Called(db, run, saveSuccessfulTaskRuns)
+// StoreRun provides a mock function with given fields: db, run
+func (_m *ORM) StoreRun(db *sql.DB, run *pipeline.Run) (bool, error) {
+	ret := _m.Called(db, run)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*sql.DB, *pipeline.Run, bool) bool); ok {
-		r0 = rf(db, run, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(0).(func(*sql.DB, *pipeline.Run) bool); ok {
+		r0 = rf(db, run)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*sql.DB, *pipeline.Run, bool) error); ok {
-		r1 = rf(db, run, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(1).(func(*sql.DB, *pipeline.Run) error); ok {
+		r1 = rf(db, run)
 	} else {
 		r1 = ret.Error(1)
 	}
