@@ -46,7 +46,7 @@ type Run struct {
 	// DB example: [1234, {"a": 10}, null]
 	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
 	CreatedAt        time.Time        `json:"createdAt"`
-	FinishedAt       *time.Time       `json:"finishedAt"`
+	FinishedAt       null.Time        `json:"finishedAt"`
 	PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
 	State            RunStatus        `json:"state"`
 
@@ -84,7 +84,7 @@ func (r Run) HasErrors() bool {
 func (r *Run) Status() RunStatus {
 	if r.HasErrors() {
 		return RunStatusErrored
-	} else if r.FinishedAt != nil {
+	} else if !r.FinishedAt.Valid {
 		return RunStatusCompleted
 	}
 
@@ -137,7 +137,7 @@ type TaskRun struct {
 	Output        *JSONSerializable `json:"output" gorm:"type:jsonb"`
 	Error         null.String       `json:"error"`
 	CreatedAt     time.Time         `json:"createdAt"`
-	FinishedAt    *time.Time        `json:"finishedAt"`
+	FinishedAt    null.Time         `json:"finishedAt"`
 	Index         int32             `json:"index"`
 	DotID         string            `json:"dotId"`
 
@@ -181,7 +181,7 @@ func (tr TaskRun) Result() Result {
 }
 
 func (tr *TaskRun) IsPending() bool {
-	return tr.FinishedAt == nil && (tr.Output == nil || tr.Output.Null) && tr.Error.IsZero()
+	return !tr.FinishedAt.Valid && (tr.Output == nil || tr.Output.Null) && tr.Error.IsZero()
 }
 
 // RunStatus represents the status of a run

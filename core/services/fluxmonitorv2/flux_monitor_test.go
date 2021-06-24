@@ -314,7 +314,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 				switch tc.previousRunStatus {
 				case pipeline.RunStatusCompleted:
 					now := time.Now()
-					run.FinishedAt = &now
+					run.FinishedAt = null.TimeFrom(now)
 				case pipeline.RunStatusErrored:
 					run.Errors = []null.String{
 						null.StringFrom("Random: String, foo"),
@@ -793,7 +793,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		}, nil).Once()
 	finishedAt := time.Now()
 	tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
-		FinishedAt: &finishedAt,
+		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
 	require.Eventually(t, func() bool { return len(idleDurationOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
@@ -1286,7 +1286,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil).Once()
 		now := time.Now()
 		tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
-			FinishedAt: &now,
+			FinishedAt: null.TimeFrom(now),
 		}, nil)
 
 		fm.ExportedPollIfEligible(0, 0)

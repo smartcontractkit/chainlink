@@ -70,7 +70,7 @@ func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 
 // StoreRun
 func (o *orm) StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (bool, error) {
-	finished := run.FinishedAt != nil
+	finished := run.FinishedAt.Valid
 	var restart bool
 	err := postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		if !finished {
