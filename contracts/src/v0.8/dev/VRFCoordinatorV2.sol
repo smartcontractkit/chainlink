@@ -232,33 +232,15 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // a warning that the return value of consumerContract.call is unused.)
         (success);
 
-        emit RandomWordsFulfilled(requestId, randomWords, success);
+        uint256[] memory a;
+        emit RandomWordsFulfilled(10, a, true);
         // We want to charge users exactly for how much gas they use in their callback.
         // The gasAfterPaymentCalculation is meant to cover these additional operations where we
         // decrement the subscription balance and increment the oracles withdrawable balance.
-//        uint256 gasWei; // wei/gas i.e. gasPrice
-//        uint256 linkWei; // link/wei i.e. link price in wei.
         (uint256 gasWei, uint256 linkWei) = getFeedData();
-        // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
-        uint256 paymentGasPerLink = 1e18*gasWei/linkWei;
-//        uint256 paymentGasPerLinkBeforeCurrent = ;
-        // Do this in assembly so its easier to price exactly.
-        assembly {
-            let gasAfterPaymentCalculation := and(0xffffffff, sload(s_config.slot))
-            let payment := mul(paymentGasPerLink, sub(add(gasAfterPaymentCalculation, startGas), gas()))
-            // Compute the subId key
-            mstore(0, mload(fp)) // SubId is first element in fp struct
-            mstore(32, s_subscriptions.slot) // slot of subs
-            // Create hash from previously stored num and slot
-            let hash := keccak256(0, 64)
-            // Load mapping value using the just calculated hash
-            sstore(hash, sub(sload(hash), payment))
-        }
-//        uint256 payment = paymentGasPerLink * (s_config.gasAfterPaymentCalculation + startGas - gasleft()); // sload, mstore, sub, gas
-//        uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation);
-//        s_subscriptions[fp.subId].balance -= payment; // sha3, mload + sstore (5k bc will always be set)
-//        s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment; // sha3, sload + sstore (20k worse case first time set)
-        // Total should be approx 2100 + (5000) + (2100+20000) = 29200 + various cheap operations etc.
+        uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation);
+        s_subscriptions[fp.subId].balance -= payment;
+        s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
     }
 
     function calculatePaymentAmount(
@@ -266,6 +248,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         uint256 gasBuffer
     )
     private
+    view
     returns (uint256)
     {
         // Get the amount of gas used for (fulfillment + request)
@@ -382,7 +365,10 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         return currentSubId;
     }
 
-    function allConsumersValid(address[] memory consumers) internal {
+    function allConsumersValid(address[] memory consumers)
+    internal
+    view
+    {
         require(consumers.length <= s_config.maxConsumersPerSubscription, "above max consumers per sub");
         for (uint i = 0; i < consumers.length; i++) {
             require(consumers[i] != address(0), "consumer address must not be zero");

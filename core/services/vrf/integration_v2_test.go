@@ -48,10 +48,11 @@ type coordinatorV2Universe struct {
 	coordinatorABI *abi.ABI
 	consumerABI    *abi.ABI
 	// Cast of participants
-	sergey *bind.TransactOpts // Owns all the LINK initially
-	neil   *bind.TransactOpts // Node operator running VRF service
-	ned    *bind.TransactOpts // Secondary node operator
-	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
+	sergey  *bind.TransactOpts // Owns all the LINK initially
+	neil    *bind.TransactOpts // Node operator running VRF service
+	ned     *bind.TransactOpts // Secondary node operator
+	carol   *bind.TransactOpts // Author of consuming contract which requests randomness
+	nallory *bind.TransactOpts // Author of consuming contract which requests randomness
 }
 
 var (
@@ -115,12 +116,14 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 		uint16(1),        // minRequestConfirmations
 		uint16(1000),     // maxConsumersPerSubscription
 		uint32(60*60*24), // stalenessSeconds
-		// 21000 (transaction) + 5000 (balance update) +
-		// 2100 (balance read) - 15000 (request delete refund)
-		// 6600 (misc arithmetic ops, seems slightly variable +/- 20 gas or so)
-		uint32(21000+5000+2100-15000+6600), // gasAfterPaymentCalculation
-		big.NewInt(100000000000),           // 100 gwei fallbackGasPrice
-		big.NewInt(10000000000000000),      // 0.01 eth per link fallbackLinkPrice
+		// 21000 (transaction)
+		//+ 5000 (subID balance update) + 2100 (sub balance)
+		//+ 20000 (oracle balance update, note first time will be 20k, on mainnet we should set it 5k) + 2*2100 (read oracle address and oracle balance)
+		//- 15000 (request delete refund)
+		//+ 7315 (misc, primarily the argument encoding of the proof, slightly variable +/- 20 gas or so)
+		uint32(21000+5000+2100+20000+2*2100-15000+7315), // gasAfterPaymentCalculation
+		big.NewInt(100000000000),                        // 100 gwei fallbackGasPrice
+		big.NewInt(10000000000000000),                   // 0.01 eth per link fallbackLinkPrice
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -139,6 +142,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 		neil:                    neil,
 		ned:                     ned,
 		carol:                   carol,
+		nallory:                 nallory,
 	}
 }
 
@@ -175,7 +179,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
+		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
 
@@ -188,16 +192,19 @@ func TestIntegrationVRFV2(t *testing.T) {
 		big.NewInt(1000000000000000000), // 1 link
 		big.NewInt(0),                   // 0 link
 	})
+	subFunding := decimal.RequireFromString("100000000000000000")
 	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
-		big.NewInt(100000000000000000))
+		subFunding.BigInt())
 	require.NoError(t, err)
 	uni.backend.Commit()
 	AssertLinkBalances(t, uni.linkContract, []common.Address{
 		uni.consumerContractAddress,
 		uni.rootContractAddress,
+		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
 		big.NewInt(900000000000000000),
 		big.NewInt(100000000000000000),
+		big.NewInt(0),
 	})
 	subId, err := uni.consumerContract.SubId(nil)
 	require.NoError(t, err)
@@ -212,6 +219,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	requestedIncomingConfs := 3
 	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw))
 	require.NoError(t, err)
+
+	// Oracle tries to withdraw before its fullfilled should fail
+	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, big.NewInt(1000))
+	require.Error(t, err)
+
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()
 	}
@@ -259,7 +271,6 @@ func TestIntegrationVRFV2(t *testing.T) {
 	ga, err := uni.consumerContract.GasAvailable(nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, ga.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
-	t.Log(ga)
 
 	// Assert that we were only charged for how much gas we actually used.
 	// We should be charged for the verification + our callbacks execution in link.
@@ -272,14 +283,32 @@ func TestIntegrationVRFV2(t *testing.T) {
 		gwei  = decimal.RequireFromString("1000000000")
 	)
 	t.Log("end balance", end)
-	linkCharged := start.Sub(end).Div(wei)
+	linkWeiCharged := start.Sub(end)
+	linkCharged := linkWeiCharged.Div(wei)
 	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), ethLink.Div(wei))
 	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(ethLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
+	// The expected sub charge should be within 100 gas of the actual gas usage.
+	// We multiply by 10^16/10^9 to get gas because of our 1 gwei and 0.01 eth/link test setting.
+	assert.Less(t, linkCharged.Sub(expected).Mul(decimal.RequireFromString("10000000")).Abs().IntPart(), int64(100))
 
-	// Assert the oracle has been paid.
-	// Assert the new subscription balance.
+	// Oracle tries to withdraw move than it was paid should fail
+	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, linkWeiCharged.Add(decimal.NewFromInt(1)).BigInt())
+	require.Error(t, err)
+
 	// Assert the oracle can withdraw its payment.
+	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, linkWeiCharged.BigInt())
+	require.NoError(t, err)
+	uni.backend.Commit()
+	AssertLinkBalances(t, uni.linkContract, []common.Address{
+		uni.consumerContractAddress,
+		uni.rootContractAddress,
+		uni.nallory.From, // Oracle's own address should have nothing
+	}, []*big.Int{
+		big.NewInt(900000000000000000),
+		subFunding.Sub(linkWeiCharged).BigInt(),
+		linkWeiCharged.BigInt(),
+	})
 }
 
 func TestRequestCost(t *testing.T) {
