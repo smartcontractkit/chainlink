@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -138,9 +137,13 @@ func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
 	result := hga.Perform(input, store, nil)
 	require.NoError(t, result.Error())
 
-	gomega.NewGomegaWithT(t).Eventually(func() int {
-		return len(attempts)
-	}).Should(gomega.Equal(2))
+	for i := 0; i < 2; i++ {
+		select {
+		case <-attempts:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out waiting for attempt %v", i)
+		}
+	}
 }
 
 func TestHTTP_TooLarge(t *testing.T) {
