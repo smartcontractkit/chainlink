@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -83,9 +85,9 @@ func (lsn *listenerV2) Start() error {
 		// per request conf requirements.
 		unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
 
-		// Goroutine 1 receives logs from the log broadcaster and stores them in
-		//
-		go lsn.run([]func(){unsubscribeLogs, unsubscribeHeadBroadcaster}, minConfs)
+		go gracefulpanic.WrapRecover(func() {
+			lsn.run([]func(){unsubscribeLogs, unsubscribeHeadBroadcaster}, minConfs)
+		})
 		return nil
 	})
 }
@@ -234,6 +236,8 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 
 // Compute the gasLimit required for the fulfillment transaction
 // such that the user gets their requested amount of gas.
+// We only estimate the getRandomnessFromProof as opposed to the whole fulfillRandomWords
+// to avoid including the users contract code as part of the estimate for security concerns.
 func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []byte) (uint64, error) {
 	vrfCoordinatorArgs, err := lsn.abi.Methods["getRandomnessFromProof"].Inputs.PackValues(
 		[]interface{}{
@@ -244,18 +248,24 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 		return 0, err
 	}
 	to := lsn.coordinator.Address()
-	variableVerifyGas, err := lsn.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
+	variableFulfillmentCost, err := lsn.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
 		To:   &to,
 		Data: append(lsn.abi.Methods["getRandomnessFromProof"].ID, vrfCoordinatorArgs...),
 	})
 	if err != nil {
 		return 0, err
 	}
-	// Gas for everything other than "getRandomnessFromProof" calls and oracle payments
-	// We will have a hard upper bound on that - worse case is first request etc.
-	// TODO: seems to be variation with the sim and also seems to cost a more than 6k as suggested in v1?
-	staticVerifyGas := uint64(22000)
-	return variableVerifyGas + requestedCallbackGas + staticVerifyGas, nil
+	/* The fulfillment can be summarized as follows:
+		fulfill {
+			1. get and verify randomness (max cost = func(seed))
+		    2. user callback (max cost = requested gas limit)
+		   	3. calculate payment and pay oracles (max cost = deterministic)
+	    }
+		For step 3 - the worst case gas cost is cold account access of the 2 price contracts (2600 * 2)
+		and a first time payment to the oracle (20k).
+	*/
+	staticVerifyGas := uint64(26000)
+	return variableFulfillmentCost + requestedCallbackGas + staticVerifyGas, nil
 }
 
 func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, error) {
@@ -272,7 +282,7 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 		return nil, err
 	}
 	if !bytes.Equal(req.KeyHash[:], kh[:]) {
-		return nil, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:])))
+		return nil, fmt.Errorf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:]))
 	}
 
 	// req.PreSeed is uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
@@ -280,18 +290,16 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	if err != nil {
 		return nil, errors.New("unable to parse preseed")
 	}
-	seed := PreSeedData{
-		PreSeed:   preSeed,
-		BlockHash: req.Raw.BlockHash,
-		BlockNum:  req.Raw.BlockNumber,
-		// V2 only fields
+	seed := PreSeedDataV2{
+		PreSeed:          preSeed,
+		BlockHash:        req.Raw.BlockHash,
+		BlockNum:         req.Raw.BlockNumber,
 		SubId:            req.SubId,
 		CallbackGasLimit: req.CallbackGasLimit,
 		NumWords:         req.NumWords,
 		Sender:           req.Sender,
 	}
-	lsn.l.Infow("generating proof", "pk", lsn.job.VRFSpec.PublicKey.String(), "seed", preSeed, "blockHash", req.Raw.BlockHash.String(), "sender", req.Sender)
-	solidityProof, err := GenerateProofResponse(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
+	solidityProof, err := GenerateProofResponseV2(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: error generating proof", "err", err)
 		return nil, err

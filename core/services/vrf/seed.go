@@ -45,7 +45,12 @@ type PreSeedData struct {
 	PreSeed   Seed        // Seed to be mixed with hash of containing block
 	BlockHash common.Hash // Hash of block containing VRF request
 	BlockNum  uint64      // Cardinal number of block containing VRF request
-	// V2 only fields
+}
+
+type PreSeedDataV2 struct {
+	PreSeed          Seed        // Seed to be mixed with hash of containing block
+	BlockHash        common.Hash // Hash of block containing VRF request
+	BlockNum         uint64      // Cardinal number of block containing VRF request
 	SubId            uint64
 	CallbackGasLimit uint64
 	NumWords         uint64

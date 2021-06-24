@@ -22,16 +22,16 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     event SubscriptionCanceled(uint64 subId);
     uint64 currentSubId;
     struct Subscription {
+        uint256 balance; // Common balance used for all consumer requests.
         address owner; // Owner can fund/withdraw/cancel the sub
         address[] consumers; // List of addresses which can consume using this subscription.
-        uint256 balance; // Common balance used for all consumer requests.
     }
     mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
 
     event NewServiceAgreement(bytes32 keyHash, address oracle);
     mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
     mapping(address /* oracle */ => uint256 /* LINK balance */) private s_withdrawableTokens;
-    mapping(bytes32 => mapping(address /* consumer */ => uint256)) private s_nonces;
+    mapping(bytes32 => mapping(address /* consumer */ => uint256 /* nonce */)) public s_nonces;
 
     event RandomWordsRequested(
         bytes32 indexed keyHash,
@@ -57,13 +57,13 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     bytes4 constant private FULFILL_RANDOM_WORDS_SELECTOR = bytes4(keccak256("fulfillRandomWords(uint256,uint256[])"));
 
     struct Config {
-        uint16 minimumRequestBlockConfirmations;
-        uint16 maxConsumersPerSubscription;
-        uint32 stalenessSeconds;
         // Gas to cover oracle payment + fulfillment log after we calculate the payment.
         // Should be approximately: 5k (change oracle balance) + 5k (change sub balance) + ~1k (log)
         // However we make it configurable in case those operations are repriced.
         uint32 gasAfterPaymentCalculation;
+        uint32 stalenessSeconds;
+        uint16 minimumRequestBlockConfirmations;
+        uint16 maxConsumersPerSubscription;
     }
     Config private s_config;
     int256 private s_fallbackGasPrice;
@@ -185,11 +185,11 @@ contract VRFCoordinatorV2 is VRF, Ownable {
        require(validConsumer, "invalid consumer");
        require(s_serviceAgreements[keyHash] != address(0), "must be a registered key");
        uint256 nonce = s_nonces[keyHash][msg.sender] + 1;
-       s_nonces[keyHash][msg.sender] = nonce;
        uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
        // Min req confirmations not needed as part of fulfillment, leave out of the commitment
        s_callbacks[preSeedAndRequestId] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, callbackGasLimit, numWords, msg.sender));
        emit RandomWordsRequested(keyHash, preSeedAndRequestId, subId, minimumRequestConfirmations, callbackGasLimit, numWords, msg.sender);
+       s_nonces[keyHash][msg.sender] = nonce;
        return preSeedAndRequestId;
     }
 
@@ -232,14 +232,33 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // a warning that the return value of consumerContract.call is unused.)
         (success);
 
-        // We want to charge users exactly for how much gas they use in their callback.
-        // The gasAfterPaymentCalculation is meant to cover these to additional operations where we
-        // decrement the subscription balance and increment the oracles withdrawable balance.
-        uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation);
-
-        s_subscriptions[fp.subId].balance -= payment;
-        s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
         emit RandomWordsFulfilled(requestId, randomWords, success);
+        // We want to charge users exactly for how much gas they use in their callback.
+        // The gasAfterPaymentCalculation is meant to cover these additional operations where we
+        // decrement the subscription balance and increment the oracles withdrawable balance.
+//        uint256 gasWei; // wei/gas i.e. gasPrice
+//        uint256 linkWei; // link/wei i.e. link price in wei.
+        (uint256 gasWei, uint256 linkWei) = getFeedData();
+        // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
+        uint256 paymentGasPerLink = 1e18*gasWei/linkWei;
+//        uint256 paymentGasPerLinkBeforeCurrent = ;
+        // Do this in assembly so its easier to price exactly.
+        assembly {
+            let gasAfterPaymentCalculation := and(0xffffffff, sload(s_config.slot))
+            let payment := mul(paymentGasPerLink, sub(add(gasAfterPaymentCalculation, startGas), gas()))
+            // Compute the subId key
+            mstore(0, mload(fp)) // SubId is first element in fp struct
+            mstore(32, s_subscriptions.slot) // slot of subs
+            // Create hash from previously stored num and slot
+            let hash := keccak256(0, 64)
+            // Load mapping value using the just calculated hash
+            sstore(hash, sub(sload(hash), payment))
+        }
+//        uint256 payment = paymentGasPerLink * (s_config.gasAfterPaymentCalculation + startGas - gasleft()); // sload, mstore, sub, gas
+//        uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation);
+//        s_subscriptions[fp.subId].balance -= payment; // sha3, mload + sstore (5k bc will always be set)
+//        s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment; // sha3, sload + sstore (20k worse case first time set)
+        // Total should be approx 2100 + (5000) + (2100+20000) = 29200 + various cheap operations etc.
     }
 
     function calculatePaymentAmount(
@@ -318,7 +337,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // Fallback to the fallback price if the feed is too stale.
         // Maybe need to optimize to avoid this contract call and used a cached
         // price, say in the case of a large number of fulfillments in short succession?
-        (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData();
+        (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData(); // Worst case 2600 cold read
         if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
             gasWei = s_fallbackGasPrice;
         }

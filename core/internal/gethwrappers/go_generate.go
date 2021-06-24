@@ -8,6 +8,7 @@ package gethwrappers
 // VRF V2
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin VRFCoordinatorV2 vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin VRFConsumerV2 vrf_consumer_v2
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/UnderstandGas.abi ../../../contracts/solc/v0.8/UnderstandGas.bin UnderstandGas understand_gas
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:
