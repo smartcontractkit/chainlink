@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -24,8 +23,7 @@ type MailRoom struct {
 func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
-	db *gorm.DB,
-	txm transmitter,
+	orm ORM,
 	jrm job.ORM,
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
@@ -46,7 +44,7 @@ func NewRegistrySynchronizer(
 		logBroadcaster:   logBroadcaster,
 		mailRoom:         mailRoom,
 		minConfirmations: minConfirmations,
-		orm:              NewORM(db, txm),
+		orm:              orm,
 		StartStopOnce:    utils.StartStopOnce{},
 		wgDone:           sync.WaitGroup{},
 	}
