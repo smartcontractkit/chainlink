@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -32,9 +33,10 @@ var (
 )
 
 type adapterRequest struct {
-	ID   string            `json:"id"`
-	Data pipeline.MapParam `json:"data"`
-	Meta pipeline.MapParam `json:"meta"`
+	ID          string            `json:"id"`
+	Data        pipeline.MapParam `json:"data"`
+	Meta        pipeline.MapParam `json:"meta"`
+	ResponseURL string            `json:"responseURL"`
 }
 
 type adapterResponseData struct {
@@ -126,7 +128,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 	// Insert bridge
 	_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -151,16 +153,23 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, "https://chain.link"))
+
+	id := uuid.NewV4()
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := ioutil.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
+
 		err = json.Unmarshal(payload, &reqBody)
 		require.NoError(t, err)
-		// TODO: assert finding the responseURL
+		require.Equal(t, fmt.Sprintf("https://chain.link/v2/resume/%v", id.String()), reqBody.ResponseURL)
 		w.Header().Set("Content-Type", "application/json")
+
 		// TODO: test that this is rejected if asnyc=true is missing
+
 		// w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{"pending": true}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
@@ -178,7 +187,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		RequestData: ethUSDPairing,
 		Async:       "true",
 	}
-	task.HelperSetDependencies(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB, id)
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -352,7 +361,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 				RequestData:       test.requestData,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(store.Config, store.DB)
+			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -414,7 +423,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t)
 	bridge.URL = *feedWebURL
@@ -458,7 +467,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(store.Config, store.DB)
+			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 			// Insert bridge
 			feedURL, err := url.ParseRequestURI(s1.URL)
@@ -511,7 +520,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -546,7 +555,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -568,7 +577,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB)
+	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Nil(t, result.Value)
