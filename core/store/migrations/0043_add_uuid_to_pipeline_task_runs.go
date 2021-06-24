@@ -6,7 +6,7 @@ import (
 
 const up43 = `
 	CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-	ALTER TABLE pipeline_task_runs ADD COLUMN run_id uuid NOT NULL UNIQUE DEFAULT uuid_generate_v4 ();
+	ALTER TABLE pipeline_task_runs ADD COLUMN task_run_id uuid NOT NULL UNIQUE DEFAULT uuid_generate_v4 ();
 	ALTER TABLE pipeline_runs ADD COLUMN inputs jsonb;
 
 	CREATE TYPE pipeline_runs_state AS ENUM (

@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -274,7 +273,7 @@ func (r *runner) run(
 		output := result.Result.OutputDB()
 		run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
 			PipelineRunID: run.ID,
-			RunID:         result.ID,
+			TaskRunID:     result.ID,
 			Type:          result.Task.Type(),
 			Index:         result.Task.OutputIndex(),
 			Output:        &output,

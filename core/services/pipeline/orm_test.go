@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -113,24 +114,24 @@ answer2 [type=bridge name=election_winner index=1];
 		// pending task
 		{
 			PipelineRunID: run.ID,
-			RunID:         uuid.NewV4(),
+			TaskRunID:     uuid.NewV4(),
 			Type:          "bridge",
 			DotID:         "ds1",
 			CreatedAt:     now,
-			FinishedAt:    nil,
+			FinishedAt:    null.Time{},
 		},
 		// finished task
 		{
 			PipelineRunID: run.ID,
-			RunID:         uuid.NewV4(),
+			TaskRunID:     uuid.NewV4(),
 			Type:          "median",
 			DotID:         "answer2",
 			Output:        &pipeline.JSONSerializable{Val: 1},
 			CreatedAt:     now,
-			FinishedAt:    &now,
+			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err := orm.StoreRun(sdb, run, false)
+	restart, err := orm.StoreRun(sdb, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
@@ -144,7 +145,7 @@ answer2 [type=bridge name=election_winner index=1];
 	require.Equal(t, 2, len(run.PipelineTaskRuns))
 	// and ds1 is not finished
 	require.Equal(t, run.PipelineTaskRuns[0].DotID, "ds1")
-	require.Nil(t, run.PipelineTaskRuns[0].FinishedAt)
+	require.False(t, run.PipelineTaskRuns[0].FinishedAt.Valid)
 
 	// now try setting the ds1 result: call store run again
 
@@ -152,15 +153,15 @@ answer2 [type=bridge name=election_winner index=1];
 		// pending task
 		{
 			PipelineRunID: run.ID,
-			RunID:         uuid.NewV4(),
+			TaskRunID:     uuid.NewV4(),
 			Type:          "bridge",
 			DotID:         "ds1",
 			Output:        &pipeline.JSONSerializable{Val: 2},
 			CreatedAt:     now,
-			FinishedAt:    &now,
+			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err = orm.StoreRun(sdb, run, false)
+	restart, err = orm.StoreRun(sdb, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
@@ -223,42 +224,43 @@ answer2 [type=bridge name=election_winner index=1];
 	sqlxDb := postgres.WrapDbWithSqlx(sdb)
 
 	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
-	sqlxDb.NamedQuery(`
-	INSERT INTO pipeline_task_runs (pipeline_run_id, run_id, type, index, output, error, dot_id, created_at, finished_at)
-	VALUES (:pipeline_run_id, :run_id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
+	_, err = sqlxDb.NamedQuery(`
+	INSERT INTO pipeline_task_runs (pipeline_run_id, task_run_id, type, index, output, error, dot_id, created_at, finished_at)
+	VALUES (:pipeline_run_id, :task_run_id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 	`, pipeline.TaskRun{
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
-		RunID:         ds1_id,
+		TaskRunID:     ds1_id,
 		Output:        &pipeline.JSONSerializable{Val: 2},
 		CreatedAt:     now,
-		FinishedAt:    &now,
+		FinishedAt:    null.TimeFrom(now),
 	})
+	require.NoError(t, err)
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
 			PipelineRunID: run.ID,
-			RunID:         ds1_id,
+			TaskRunID:     ds1_id,
 			Type:          "bridge",
 			DotID:         "ds1",
 			CreatedAt:     now,
-			FinishedAt:    nil,
+			FinishedAt:    null.Time{},
 		},
 		// finished task
 		{
 			PipelineRunID: run.ID,
-			RunID:         uuid.NewV4(),
+			TaskRunID:     uuid.NewV4(),
 			Type:          "median",
 			DotID:         "answer2",
 			Output:        &pipeline.JSONSerializable{Val: 1},
 			CreatedAt:     now,
-			FinishedAt:    &now,
+			FinishedAt:    null.TimeFrom(now),
 		},
 	}
 
-	restart, err := orm.StoreRun(sdb, run, false)
+	restart, err := orm.StoreRun(sdb, run)
 	require.NoError(t, err)
 	// new data available! immediately restart the run
 	require.Equal(t, true, restart)
@@ -300,28 +302,28 @@ func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
 		// pending task
 		{
 			PipelineRunID: run.ID,
-			RunID:         ds1_id,
+			TaskRunID:     ds1_id,
 			Type:          "bridge",
 			DotID:         "ds1",
 			CreatedAt:     now,
-			FinishedAt:    nil,
+			FinishedAt:    null.Time{},
 		},
 		// finished task
 		{
 			PipelineRunID: run.ID,
-			RunID:         uuid.NewV4(),
+			TaskRunID:     uuid.NewV4(),
 			Type:          "median",
 			DotID:         "answer2",
 			Output:        &pipeline.JSONSerializable{Val: 1},
 			CreatedAt:     now,
-			FinishedAt:    &now,
+			FinishedAt:    null.TimeFrom(now),
 		},
 	}
 	// assert that run should be in "running" state
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 
 	// Now store a partial run
-	restart, err := orm.StoreRun(sdb, run, false)
+	restart, err := orm.StoreRun(sdb, run)
 	require.NoError(t, err)
 	require.False(t, restart)
 	// assert that run should be in "paused" state
@@ -338,6 +340,6 @@ func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
 
 	// assert that the task is now updated
 	task := run.ByDotID("ds1")
-	require.NotNil(t, task.FinishedAt)
+	require.True(t, task.FinishedAt.Valid)
 	require.Equal(t, &pipeline.JSONSerializable{Val: "foo"}, task.Output)
 }
