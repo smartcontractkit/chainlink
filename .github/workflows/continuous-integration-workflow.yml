@@ -12,7 +12,7 @@ jobs:
       matrix:
         cmd: ['go_core_tests']
     name: Core Tests
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -122,7 +122,7 @@ jobs:
 
   solidity-lint:
     name: Solidity Linting
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -152,7 +152,7 @@ jobs:
 
   solidity-v8:
     name: Solidity v0.8 tests
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -181,7 +181,7 @@ jobs:
 
   solidity:
     name: Solidity
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -211,7 +211,7 @@ jobs:
 
   solidity-v6:
     name: Solidity v0.6 tests
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -241,7 +241,7 @@ jobs:
 
   solidity-old:
     name: Solidity old versions
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -271,7 +271,7 @@ jobs:
 
   prepublish_npm:
     name: Prepublish NPM
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.37
       credentials:
