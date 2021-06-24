@@ -17,6 +17,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/adapters"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -896,7 +897,7 @@ func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 		State:      pipeline.RunStatusRunning,
 		Outputs:    pipeline.JSONSerializable{Null: true},
 		Errors:     pipeline.RunErrors{},
-		FinishedAt: nil,
+		FinishedAt: null.Time{},
 	}
 	require.NoError(t, db.Create(&run).Error)
 	return run

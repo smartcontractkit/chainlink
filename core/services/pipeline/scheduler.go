@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"gopkg.in/guregu/null.v4"
 )
 
 func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
@@ -153,7 +154,7 @@ Loop:
 						Task:       task,
 						Result:     Result{Error: ErrTimeout},
 						CreatedAt:  now, // TODO: more accurate start time
-						FinishedAt: &now,
+						FinishedAt: null.TimeFrom(now),
 					}
 				}
 			}
@@ -165,8 +166,8 @@ Loop:
 
 		// TODO: this is temporary until task_bridge can return a proper pending result
 		if result.Result.Error != nil && (result.Result.Error.Error() == "pending") {
-			result.Result = Result{} // no output, no error
-			result.FinishedAt = nil  // not finished
+			result.Result = Result{}        // no output, no error
+			result.FinishedAt = null.Time{} // not finished
 		}
 
 		// store task run

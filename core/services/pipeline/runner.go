@@ -242,7 +242,7 @@ func (r *runner) run(
 						ID:         uuid.NewV4(),
 						Task:       taskRun.task,
 						Result:     Result{Error: ErrRunPanicked{err}},
-						FinishedAt: &t,
+						FinishedAt: null.TimeFrom(t),
 						CreatedAt:  t, // TODO: more accurate start time
 					})
 				}
@@ -260,11 +260,10 @@ func (r *runner) run(
 	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
-		now := time.Now()
-		run.FinishedAt = &now
+		run.FinishedAt = null.TimeFrom(time.Now())
 
 		// NOTE: runTime can be very long now because it'll include suspend
-		runTime := run.FinishedAt.Sub(run.CreatedAt)
+		runTime := run.FinishedAt.Time.Sub(run.CreatedAt)
 		l.Debugw("Finished all tasks for pipeline run", "specID", run.PipelineSpecID, "runTime", runTime)
 		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
 	}
@@ -292,7 +291,7 @@ func (r *runner) run(
 	}
 
 	// Update run errors/outputs
-	if run.FinishedAt != nil {
+	if run.FinishedAt.Valid {
 		var errors []null.String
 		var outputs []interface{}
 		for _, result := range run.PipelineTaskRuns {
@@ -367,12 +366,12 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
-		FinishedAt: &now,
+		FinishedAt: null.TimeFrom(now),
 	}
 }
 
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
-	elapsed := trr.FinishedAt.Sub(trr.CreatedAt)
+	elapsed := trr.FinishedAt.Time.Sub(trr.CreatedAt)
 
 	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type())).Set(float64(elapsed))
 	var status string
@@ -463,7 +462,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 		Errors:         RunErrors{null.String{}},
 		Outputs:        JSONSerializable{Val: "queued eth transaction"},
 		CreatedAt:      t,
-		FinishedAt:     &t,
+		FinishedAt:     null.TimeFrom(t),
 	}, nil, false)
 	elapsed := time.Since(t)
 

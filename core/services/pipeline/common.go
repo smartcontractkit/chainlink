@@ -139,11 +139,11 @@ type TaskRunResult struct {
 	TaskRun    TaskRun
 	Result     Result
 	CreatedAt  time.Time
-	FinishedAt *time.Time
+	FinishedAt null.Time
 }
 
 func (result *TaskRunResult) IsPending() bool {
-	return result.FinishedAt == nil && result.Result == Result{}
+	return !result.FinishedAt.Valid && result.Result == Result{}
 }
 
 func (result *TaskRunResult) IsTerminal() bool {

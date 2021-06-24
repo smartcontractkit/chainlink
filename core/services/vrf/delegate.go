@@ -262,7 +262,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 								Val: map[string]interface{}{"eth_tx_id": etx.ID},
 							},
 							CreatedAt:  s,
-							FinishedAt: &f,
+							FinishedAt: null.TimeFrom(f),
 						}, nil, false)
 						if err != nil {
 							return errors.Wrap(err, "VRFListener: failed to insert finished run")
