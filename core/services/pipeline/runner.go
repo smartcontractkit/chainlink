@@ -390,42 +390,21 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
-	if run.Async {
-		if !run.Pending {
-			finalResult = trrs.FinalResult()
-		}
+	if run.Async && run.Pending {
+		// TODO: we can verify run.HasAsync() this on the spec before executing
+		return run.ID, finalResult, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
+	}
 
-		var db *sql.DB
-		db, err = r.orm.DB().DB()
-		if err != nil {
-			return 0, finalResult, errors.Wrap(err, "unable to retrieve sql.DB")
-		}
-
-		var restart bool
-		restart, err = r.orm.StoreRun(db, &run, saveSuccessfulTaskRuns)
-		if err != nil {
-			return run.ID, finalResult, errors.Wrapf(err, "error inserting suspended run for spec ID %v", spec.ID)
-		}
-		if restart {
-			// TODO: handle instant continue
-			panic("unimplemented")
-		}
-	} else {
-		finalResult = trrs.FinalResult()
-		// else we create a new row
-		if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
-			return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
-		}
+	finalResult = trrs.FinalResult()
+	// else we create a new row
+	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
+		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return runID, finalResult, nil
 
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error) {
-	// TODO: ensure this has task runs present
-
-	saveSuccessfulTaskRuns := false
-
 	for {
 		if _, err := r.run(ctx, run, run.Inputs.Val.(Vars), l); err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
@@ -437,7 +416,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete
 		}
 
 		var restart bool
-		restart, err = r.orm.StoreRun(db, run, saveSuccessfulTaskRuns)
+		restart, err = r.orm.StoreRun(db, run)
 		if err != nil {
 			return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 		}

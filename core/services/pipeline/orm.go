@@ -25,7 +25,7 @@ var (
 type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
 	CreateRun(db *gorm.DB, run *Run) (err error)
-	StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (restart bool, err error)
+	StoreRun(db *sql.DB, run *Run) (restart bool, err error)
 	UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
 	InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
@@ -57,7 +57,6 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, ma
 	return spec.ID, errors.WithStack(err)
 }
 
-// InsertRun
 func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 	if run.CreatedAt.IsZero() {
 		return errors.New("run.CreatedAt must be set")
@@ -68,8 +67,8 @@ func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 	return err
 }
 
-// StoreRun
-func (o *orm) StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (bool, error) {
+// StoreRun will persist a partially executed run before suspending, or finish a run.
+func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 	finished := run.FinishedAt.Valid
 	var restart bool
 	err := postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
@@ -86,18 +85,18 @@ func (o *orm) StoreRun(db *sql.DB, run *Run, saveSuccessfulTaskRuns bool) (bool,
 				return err
 			}
 
-			// construct a temporary run so we can use r.ByDotID
+			// Construct a temporary run so we can use r.ByDotID
 			tempRun := Run{PipelineTaskRuns: taskRuns}
 
-			// diff with current state, if updated, swap run.PipelineTaskRuns and early return with restart = true
+			// Diff with current state, if updated, swap run.PipelineTaskRuns and early return with restart = true
 			for i, tr := range run.PipelineTaskRuns {
 				if !tr.IsPending() {
 					continue
 				}
 
-				// look for new data
+				// Look for new data
 				if taskRun := tempRun.ByDotID(tr.DotID); taskRun != nil {
-					// swap in the latest state
+					// Swap in the latest state
 					run.PipelineTaskRuns[i] = *taskRun
 					restart = true
 				}
@@ -179,7 +178,7 @@ func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (r
 				return err
 			}
 
-			// TODO: can't join and preload in a single query unless explicitly listing all the struct fields...
+			// NOTE: can't join and preload in a single query unless explicitly listing all the struct fields...
 			// https://snippets.aktagon.com/snippets/757-how-to-join-two-tables-with-jmoiron-sqlx
 			sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
 			if err = tx.Select(&run.PipelineTaskRuns, sql, run.ID); err != nil {
