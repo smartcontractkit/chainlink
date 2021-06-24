@@ -902,22 +902,32 @@ func (c Config) JobPipelineReaperThreshold() time.Duration {
 	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
 }
 
+// KeeperRegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls
+// to account for the gas consumed by the keeper registry
 func (c Config) KeeperRegistryCheckGasOverhead() uint64 {
 	return c.getWithFallback("KeeperRegistryCheckGasOverhead", parseUint64).(uint64)
 }
 
+// KeeperRegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls
+// to account for the gas consumed by the keeper registry
 func (c Config) KeeperRegistryPerformGasOverhead() uint64 {
 	return c.getWithFallback("KeeperRegistryPerformGasOverhead", parseUint64).(uint64)
 }
 
+// KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
+// sync of the keeper registry contract it is tracking
 func (c Config) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
 }
 
+// KeeperMinimumRequiredConfirmations is the minimum number of confirmations that a keeper registry log
+// needs before it is handled by the RegistrySynchronizer
 func (c Config) KeeperMinimumRequiredConfirmations() uint64 {
 	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
 }
 
+// KeeperMaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing
+// an upkeep before it resumes checking that upkeep
 func (c Config) KeeperMaximumGracePeriod() int64 {
 	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
 }
