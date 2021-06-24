@@ -2,6 +2,7 @@
 ARG BUILDER=smartcontract/builder
 FROM ${BUILDER}:1.0.39
 WORKDIR /chainlink
+
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -21,7 +22,6 @@ COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY contracts/package.json ./contracts/
 COPY tools/bin/restore-solc-cache ./tools/bin/restore-solc-cache
 RUN make yarndep
-
 
 COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY operator_ui ./operator_ui

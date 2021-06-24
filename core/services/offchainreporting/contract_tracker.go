@@ -120,7 +120,7 @@ func NewOCRContractTracker(
 		logger,
 		db,
 		gdb,
-		NewBlockTranslator(chain),
+		NewBlockTranslator(chain, ethClient),
 		chain,
 		headBroadcaster,
 		nil,
@@ -180,7 +180,11 @@ func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
 func (t *OCRContractTracker) OnNewLongestChain(ctx context.Context, h models.Head) {
-	atomic.StoreInt64(&t.latestBlockHeight, h.Number)
+	if h.L1BlockNumber.Valid {
+		atomic.StoreInt64(&t.latestBlockHeight, h.L1BlockNumber.Int64)
+	} else {
+		atomic.StoreInt64(&t.latestBlockHeight, h.Number)
+	}
 }
 
 func (t *OCRContractTracker) processLogs() {
@@ -341,7 +345,7 @@ func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedIn
 
 // ConfigFromLogs queries the eth node for logs for this contract
 func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
-	fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(changedInBlock)
+	fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(ctx, changedInBlock)
 	q := ethereum.FilterQuery{
 		FromBlock: fromBlock,
 		ToBlock:   toBlock,
@@ -376,8 +380,10 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
-	// We skip confirmation checking anyway on L2 so there's no need to look up the blockheight
-	if t.chain.IsL2() {
+	// We skip confirmation checking anyway on Optimism so there's no need to
+	// care about the block height; we have no way of getting the L1 block
+	// height anyway
+	if t.chain.IsOptimism() {
 		return 0, nil
 	}
 	latestBlockHeight := atomic.LoadInt64(&t.latestBlockHeight)
@@ -397,6 +403,10 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	}
 	if h == nil {
 		return 0, errors.New("got nil head")
+	}
+
+	if h.L1BlockNumber.Valid {
+		return uint64(h.L1BlockNumber.Int64), nil
 	}
 
 	return uint64(h.Number), nil
