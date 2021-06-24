@@ -3,6 +3,8 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"path"
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -27,6 +29,8 @@ type BridgeTask struct {
 }
 
 var _ Task = (*BridgeTask)(nil)
+
+var zeroURL = new(url.URL)
 
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
@@ -71,12 +75,19 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 		)
 	}
 
-	// TODO: pass t.id on the meta key? or where?
 	requestData = withMeta(requestData, metaMap)
 	if t.IncludeInputAtKey != "" {
 		if len(inputValues) > 0 {
 			requestData[string(includeInputAtKey)] = inputValues[0]
 		}
+	}
+
+	if t.Async == "true" {
+		responseURL := t.config.BridgeResponseURL()
+		if *responseURL != *zeroURL {
+			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.id.String())
+		}
+		requestData["responseURL"] = responseURL.String()
 	}
 
 	// URL is "safe" because it comes from the node's own database
