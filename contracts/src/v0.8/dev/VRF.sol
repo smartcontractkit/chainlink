@@ -411,7 +411,7 @@ contract VRF {
     internal pure returns (uint256[2] memory) {
         uint256 diff;
         unchecked {
-            diff = cp1Witness[0] - sp2Witness[0];
+            diff = cp1Witness[0] - sp2Witness[0]; // We rely on the wrap around here, because we are checking diff % FIELD_SIZE.
         }
         require((diff) % FIELD_SIZE != 0, "points in sum must be distinct");
         require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");

@@ -10,17 +10,17 @@ describe("VRFCoordinatorV2", () => {
     let owner: Signer;
     let subOwner: Signer;
     let consumer: Signer;
-    let random: Signer;
+    // let random: Signer;
     let oracle: Signer;
     const linkEth = BigNumber.from(300000000);
-    const gasWei = BigNumber.from(100);
+    const gasWei = BigNumber.from(1e9);
 
     beforeEach(async () => {
         let accounts = await ethers.getSigners();
         owner = accounts[0]
         subOwner = accounts[1]
         consumer = accounts[2]
-        random = accounts[3]
+        // random = accounts[3]
         oracle = accounts[4]
         let ltFactory = await ethers.getContractFactory("LinkToken", accounts[0]);
         linkToken = await ltFactory.deploy()
@@ -35,11 +35,23 @@ describe("VRFCoordinatorV2", () => {
         console.log("link balance", await linkToken.balanceOf(await owner.getAddress()))
         await linkToken.transfer(await subOwner.getAddress(), BigNumber.from("1000000000000000000")) // 1 link
         console.log("link balance", await linkToken.balanceOf(await subOwner.getAddress()))
+        //        uint16 minimumRequestBlockConfirmations,
+        //         uint16 maxConsumersPerSubscription,
+        //         uint32 stalenessSeconds,
+        //         uint32 gasAfterPaymentCalculation,
+        //         int256 fallbackGasPrice,
+        //         int256 fallbackLinkPrice
+        await vrfCoordinatorV2.setConfig(1,
+            10,
+            86400,
+            21000+5000+2100+20000+2*2100-15000+7315,
+            BigNumber.from(1e9),
+            BigNumber.from(1e9).mul(BigNumber.from(1e7)))
     });
 
     it("subscription lifecycle", async () => {
         // Create subscription.
-        const response = await vrfCoordinatorV2.owner()
+        // const response = await vrfCoordinatorV2.owner()
         let consumers: string[] = [await consumer.getAddress()]
         const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers)
         const receipt = await tx.wait()
@@ -58,7 +70,7 @@ describe("VRFCoordinatorV2", () => {
     // TODO: request words, check logs, non consumer cannot request
     it("request random words", async () => {
         // Create subscription.
-        const response = await vrfCoordinatorV2.owner()
+        // const response = await vrfCoordinatorV2.owner()
         let consumers: string[] = [await consumer.getAddress()]
         const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers)
         const receipt = await tx.wait()
@@ -85,12 +97,12 @@ describe("VRFCoordinatorV2", () => {
         const reqId = reqReceipt.events[0].args['preSeed']
         console.log(reqId)
         //Should see the callback
-        console.log(await vrfCoordinatorV2.s_callbacks(reqId))
-        // 265747905000000
-        const r = await vrfCoordinatorV2.calculatePaymentAmount(100000000);
-        const rr = await r.wait()
-        const s = rr .events[0].args['seed']
-        console.log("payment", s.integerValue())
+        // console.log(await vrfCoordinatorV2.s_callbacks(reqId))
+        // // 265747905000000
+        // const r = await vrfCoordinatorV2.calculatePaymentAmount(100000000);
+        // const rr = await r.wait()
+        // const s = rr .events[0].args['seed']
+        // console.log("payment", s.integerValue())
         // console.log("payment", r);
     })
 })

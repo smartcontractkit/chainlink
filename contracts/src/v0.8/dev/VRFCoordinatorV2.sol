@@ -237,7 +237,6 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // We want to charge users exactly for how much gas they use in their callback.
         // The gasAfterPaymentCalculation is meant to cover these additional operations where we
         // decrement the subscription balance and increment the oracles withdrawable balance.
-        (uint256 gasWei, uint256 linkWei) = getFeedData();
         uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation);
         s_subscriptions[fp.subId].balance -= payment;
         s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
