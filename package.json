@@ -3,7 +3,6 @@
   "license": "MIT",
   "workspaces": [
     "evm-test-helpers",
-    "evm-contracts",
     "contracts",
     "integration",
     "integration-scripts",
@@ -20,7 +19,7 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
-    "lint:evm": "eslint --ext js,jsx,ts,tsx evm-contracts/ evm-test-helpers/",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx contracts/ evm-test-helpers/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
@@ -41,6 +40,7 @@
     "patch-package": "^6.4.7",
     "postinstall-postinstall": "^2.1.0",
     "prettier": "^2.1.2",
+    "ts-node": "^10.0.0",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.0"
   },
