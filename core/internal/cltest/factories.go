@@ -842,7 +842,7 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *ke
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,
-		CheckGas:          10_000,
+		CheckGas:          150_000,
 		FromAddress:       from,
 		JobID:             job.ID,
 		KeeperIndex:       0,
@@ -855,11 +855,11 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *ke
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
 	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(store.DB, nil).LowestUnsyncedID(ctx, registry)
+	upkeepID, err := keeper.NewORM(store.DB, nil, store.Config).LowestUnsyncedID(ctx, registry)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
-		ExecuteGas: uint64(10_000),
+		ExecuteGas: uint64(150_000),
 		Registry:   registry,
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),

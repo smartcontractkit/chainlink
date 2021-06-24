@@ -63,9 +63,7 @@ jobs:
             go-mod-${{ env.CACHE_VERSION }}
       - name: Download Go vendor packages
         run: go mod download
-      - name: Compile all old contracts
-        run: ./evm-contracts/scripts/native_solc_compile_all
-      - name: Compile all new contracts
+      - name: Compile all contracts
         run: ./contracts/scripts/native_solc_compile_all
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
@@ -101,6 +99,7 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      # Login to dockerhub so that we don't get rate limited
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
@@ -150,35 +149,6 @@ jobs:
       - name: Run solhint
         run: ./tools/ci/solhint
 
-  solidity-v8:
-    name: Solidity v0.8 tests
-    runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.37
-      credentials:
-        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Run tests
-        run: ./tools/ci/solidity_test_hardhat
-
   solidity:
     name: Solidity
     runs-on: ubuntu-latest
@@ -205,69 +175,8 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
-      - run: ./tools/bin/restore-solc-cache
       - name: Run tests
-        run: ./tools/ci/solidity_test v0.7
-
-  solidity-v6:
-    name: Solidity v0.6 tests
-    runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.37
-      credentials:
-        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - run: ./tools/bin/restore-solc-cache
-      - name: Run tests
-        run: ./tools/ci/solidity_test v0.6
-
-  solidity-old:
-    name: Solidity old versions
-    runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.37
-      credentials:
-        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - run: ./tools/bin/restore-solc-cache
-      - name: Run tests
-        run: ./tools/ci/solidity_test_old
+        run: ./tools/ci/solidity_test_hardhat
 
   prepublish_npm:
     name: Prepublish NPM
@@ -307,6 +216,12 @@ jobs:
         uses: actions/checkout@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+      # Login to dockerhub so that we don't get rate limited
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Build image
         uses: docker/build-push-action@v2
         with:

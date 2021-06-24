@@ -5,15 +5,15 @@ package gethwrappers
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/FluxAggregator.abi ../../../evm-contracts/solc/v0.6/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFTestHelper.bin VRFTestHelper solidity_vrf_verifier_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFCoordinator.abi ../../../evm-contracts/solc/v0.6/VRFCoordinator.bin VRFCoordinator solidity_vrf_coordinator_interface
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFConsumer.abi ../../../evm-contracts/solc/v0.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/Flags.abi ../../../evm-contracts/solc/v0.6/Flags.bin Flags flags_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.6/Oracle.abi ../../../evm-contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin Operator operator_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/solc/v0.7/MultiWordConsumer.abi ../../../evm-contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFTestHelper.abi ../../../contracts/solc/v0.6/VRFTestHelper.bin VRFTestHelper solidity_vrf_verifier_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFCoordinator.abi ../../../contracts/solc/v0.6/VRFCoordinator.bin VRFCoordinator solidity_vrf_coordinator_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFConsumer.abi ../../../contracts/solc/v0.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin Flags flags_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 // v0.8 VRFConsumer
@@ -44,7 +44,7 @@ package gethwrappers
 // might be worthwhile to generate the the wrappers using a static container
 // with abigen and solc, which will complete much faster. E.g.
 //
-//   abigen -sol ../../../evm-contracts/src/v0.6/VRFAll.sol -pkg vrf -out solidity_interfaces.go
+//   abigen -sol ../../../contracts/src/v0.6/VRFAll.sol -pkg vrf -out solidity_interfaces.go
 //
 // where VRFAll.sol simply contains `import "contract_path";` instructions for
 // all the contracts you wish to target. This runs in about 0.25 seconds in my
