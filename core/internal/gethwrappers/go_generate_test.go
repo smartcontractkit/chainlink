@@ -21,11 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const compileCommand = "../../../evm-contracts/scripts/native_solc_compile_all"
-const compileCommandv08 = "../../../contracts/scripts/native_solc_compile_all"
+const compileCommand = "../../../contracts/scripts/native_solc_compile_all"
 
 // TestCheckContractHashesFromLastGoGenerate compares the abi and bytecode of the
-// contract artifacts in evm-contracts/solc with the abi and bytecode stored in the
+// contract artifacts in contracts/solc with the abi and bytecode stored in the
 // contract wrapper
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions, err := ReadVersionsDB()
@@ -121,12 +120,6 @@ func init() {
 	// Don't want to run "make go-solidity-wrappers" here, because that would
 	// result in an infinite loop
 	cmd := exec.Command("bash", "-c", compileCommand)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		panic(err)
-	}
-	cmd = exec.Command("bash", "-c", compileCommandv08)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

@@ -1,5 +1,4 @@
-node_modules
-cache
 artifacts
+cache
+node_modules
 solc
-
