@@ -112,12 +112,15 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
-		uint16(1),                     // minRequestConfirmations
-		uint16(1000),                  // maxConsumersPerSubscription
-		uint32(60*60*24),              // stalenessSeconds
-		uint32(29200),                 // gasAfterPaymentCalculation
-		big.NewInt(100000000000),      // 100 gwei fallbackGasPrice
-		big.NewInt(10000000000000000), // 0.01 eth per link fallbackLinkPrice
+		uint16(1),        // minRequestConfirmations
+		uint16(1000),     // maxConsumersPerSubscription
+		uint32(60*60*24), // stalenessSeconds
+		// 21000 (transaction) + 5000 (balance update) +
+		// 2100 (balance read) - 15000 (request delete refund)
+		// 6600 (misc arithmetic ops, seems slightly variable +/- 20 gas or so)
+		uint32(21000+5000+2100-15000+6600), // gasAfterPaymentCalculation
+		big.NewInt(100000000000),           // 100 gwei fallbackGasPrice
+		big.NewInt(10000000000000000),      // 0.01 eth per link fallbackLinkPrice
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -255,7 +258,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// We should have at least as much gas as we requested
 	ga, err := uni.consumerContract.GasAvailable(nil)
 	require.NoError(t, err)
-	//assert.Equal(t, 1, ga.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	assert.Equal(t, 1, ga.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
 	t.Log(ga)
 
 	// Assert that we were only charged for how much gas we actually used.

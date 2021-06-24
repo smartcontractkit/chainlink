@@ -337,7 +337,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // Fallback to the fallback price if the feed is too stale.
         // Maybe need to optimize to avoid this contract call and used a cached
         // price, say in the case of a large number of fulfillments in short succession?
-        (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData(); // Worst case 2600 cold read
+        (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData();
         if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
             gasWei = s_fallbackGasPrice;
         }
