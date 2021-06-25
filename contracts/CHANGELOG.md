@@ -1,5 +1,11 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+Changed:
+
+- Added missing licensees to `KeeperComptibleInterface`'s
+
 ## 0.2.0 (unreleased)
 
 Features:
