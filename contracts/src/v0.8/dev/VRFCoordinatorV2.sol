@@ -91,7 +91,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     onlyOwner()
     {
         bytes32 kh = hashOfKey(publicProvingKey);
-        require(s_serviceAgreements[kh] == address(0), "cannot re-register the same proving key");
+        require(s_serviceAgreements[kh] == address(0), "key already registered");
         s_serviceAgreements[kh] = oracle;
         emit NewServiceAgreement(kh, oracle);
     }
@@ -175,6 +175,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
        //   3) price could fluctuate anyways between request and response, so it could still fail to fulfill
        //   4) if it did fail to fulfill, you could simply top up the subscription and re-try and it would succeed
        require(s_subscriptions[subId].owner != address(0), "invalid subId");
+       require(minimumRequestConfirmations >= s_config.minimumRequestBlockConfirmations, "minconfs too low");
        bool validConsumer;
        for (uint16 i = 0; i < s_subscriptions[subId].consumers.length; i++) {
            if (s_subscriptions[subId].consumers[i] == msg.sender) {
@@ -232,8 +233,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         // a warning that the return value of consumerContract.call is unused.)
         (success);
 
-        uint256[] memory a;
-        emit RandomWordsFulfilled(10, a, true);
+        emit RandomWordsFulfilled(requestId, randomWords, true);
         // We want to charge users exactly for how much gas they use in their callback.
         // The gasAfterPaymentCalculation is meant to cover these additional operations where we
         // decrement the subscription balance and increment the oracles withdrawable balance.
@@ -352,7 +352,6 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     external
     returns (uint64)
     {
-        require(consumers.length <= s_config.maxConsumersPerSubscription, "above max consumers per sub");
         allConsumersValid(consumers);
         currentSubId++;
         s_subscriptions[currentSubId] = Subscription({
@@ -368,9 +367,9 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     internal
     view
     {
-        require(consumers.length <= s_config.maxConsumersPerSubscription, "above max consumers per sub");
+        require(consumers.length <= s_config.maxConsumersPerSubscription, ">max consumers per sub");
         for (uint i = 0; i < consumers.length; i++) {
-            require(consumers[i] != address(0), "consumer address must not be zero");
+            require(consumers[i] != address(0), "consumer add == zero");
         }
     }
 
@@ -380,7 +379,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     )
     external
     {
-        require(msg.sender == s_subscriptions[subId].owner, "only subscription owner can update");
+        require(msg.sender == s_subscriptions[subId].owner, "sub owner must update");
         allConsumersValid(consumers);
         address[] memory oldConsumers = s_subscriptions[subId].consumers;
         s_subscriptions[subId].consumers = consumers;
@@ -394,7 +393,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     external
     {
         require(s_subscriptions[subId].owner != address(0), "subID doesnt exist");
-        require(msg.sender == s_subscriptions[subId].owner, "only subscription owner can fund");
+        require(msg.sender == s_subscriptions[subId].owner, "sub owner must fund");
         uint256 oldBalance = s_subscriptions[subId].balance;
         s_subscriptions[subId].balance += amount;
         LINK.transferFrom(msg.sender, address(this), amount);
@@ -408,7 +407,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     )
     external
     {
-        require(msg.sender == s_subscriptions[subId].owner, "only subscription owner can withdraw");
+        require(msg.sender == s_subscriptions[subId].owner, "sub owner must withdraw");
         require(s_subscriptions[subId].balance >= amount, "insufficient balance");
         uint256 oldBalance = s_subscriptions[subId].balance;
         s_subscriptions[subId].balance -= amount;
@@ -423,8 +422,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     )
     external
     {
-        require(msg.sender == s_subscriptions[subId].owner, "only subscription owner can cancel");
-        require(s_subscriptions[subId].balance == 0, "balance must be zero to cancel");
+        require(msg.sender == s_subscriptions[subId].owner, "sub owner must cancel");
+        require(s_subscriptions[subId].balance == 0, "balance != 0");
         delete s_subscriptions[subId];
         emit SubscriptionCanceled(subId);
     }

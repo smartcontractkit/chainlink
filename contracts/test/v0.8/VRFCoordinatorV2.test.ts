@@ -1,5 +1,6 @@
 import { ethers } from "hardhat";
 import { Signer, Contract, BigNumber } from "ethers";
+import { assert, expect } from "chai";
 
 describe("VRFCoordinatorV2", () => {
   let vrfCoordinatorV2: Contract;
@@ -10,17 +11,26 @@ describe("VRFCoordinatorV2", () => {
   let owner: Signer;
   let subOwner: Signer;
   let consumer: Signer;
-  // let random: Signer;
+  let random: Signer;
   let oracle: Signer;
   const linkEth = BigNumber.from(300000000);
   const gasWei = BigNumber.from(1e9);
+  type config = {
+    minimumRequestBlockConfirmations: number;
+    maxConsumersPerSubscription: number;
+    stalenessSeconds: number;
+    gasAfterPaymentCalculation: number;
+    fallbackGasPrice: BigNumber;
+    fallbackLinkPrice: BigNumber;
+  };
+  let c: config;
 
   beforeEach(async () => {
     let accounts = await ethers.getSigners();
     owner = accounts[0];
     subOwner = accounts[1];
     consumer = accounts[2];
-    // random = accounts[3]
+    random = accounts[3];
     oracle = accounts[4];
     let ltFactory = await ethers.getContractFactory("LinkToken", accounts[0]);
     linkToken = await ltFactory.deploy();
@@ -30,86 +40,136 @@ describe("VRFCoordinatorV2", () => {
     mockGasPrice = await mockAggregatorV3Factory.deploy(0, gasWei);
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth);
     let vrfCoordinatorV2Factory = await ethers.getContractFactory("VRFCoordinatorV2", accounts[0]);
-    console.log("link address", linkToken.address);
     vrfCoordinatorV2 = await vrfCoordinatorV2Factory.deploy(
       linkToken.address,
       blockHashStore.address,
       mockGasPrice.address,
       mockLinkEth.address,
     );
-    console.log("link balance", await linkToken.balanceOf(await owner.getAddress()));
     await linkToken.transfer(await subOwner.getAddress(), BigNumber.from("1000000000000000000")); // 1 link
-    console.log("link balance", await linkToken.balanceOf(await subOwner.getAddress()));
-    //        uint16 minimumRequestBlockConfirmations,
-    //         uint16 maxConsumersPerSubscription,
-    //         uint32 stalenessSeconds,
-    //         uint32 gasAfterPaymentCalculation,
-    //         int256 fallbackGasPrice,
-    //         int256 fallbackLinkPrice
-    await vrfCoordinatorV2.setConfig(
-      1,
-      10,
-      86400,
-      21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
-      BigNumber.from(1e9),
-      BigNumber.from(1e9).mul(BigNumber.from(1e7)),
+    c = {
+      minimumRequestBlockConfirmations: 1,
+      maxConsumersPerSubscription: 10,
+      stalenessSeconds: 86400,
+      gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
+      fallbackGasPrice: BigNumber.from(1e9),
+      fallbackLinkPrice: BigNumber.from(1e9).mul(BigNumber.from(1e7)),
+    };
+    // TODO: confirm only owner
+    await vrfCoordinatorV2
+      .connect(owner)
+      .setConfig(
+        c.minimumRequestBlockConfirmations,
+        c.maxConsumersPerSubscription,
+        c.stalenessSeconds,
+        c.gasAfterPaymentCalculation,
+        c.fallbackGasPrice,
+        c.fallbackLinkPrice,
+      );
+  });
+
+  it("subscription lifecycle", async function () {
+    // Create subscription with more than max consumers should revert.
+    let tooManyConsumers: string[] = new Array(c.maxConsumersPerSubscription + 1).fill(await random.getAddress());
+    await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(tooManyConsumers)).to.be.revertedWith(
+      "" + ">max consumers per sub",
     );
-  });
 
-  it("subscription lifecycle", async () => {
     // Create subscription.
-    // const response = await vrfCoordinatorV2.owner()
     let consumers: string[] = [await consumer.getAddress()];
     const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
     const receipt = await tx.wait();
     const subId = receipt.events[0].args["subId"];
 
+    // Subscription owner cannot fund
+    await expect(
+      vrfCoordinatorV2.connect(random).fundSubscription(subId, BigNumber.from("1000000000000000000")),
+    ).to.be.revertedWith("sub owner must fund");
+
     // Fund the subscription
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
-    const resp = await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
-    console.log(resp);
+    await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
     await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"));
-    // TODO: non-owners cannot fund
-    // TODO: withdraw funds, non-owners cannot
-    // TODO: cancel sub, non-owners cannot
+
+    // Non-owners cannot withdraw
+    await expect(
+      vrfCoordinatorV2
+        .connect(random)
+        .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("1000000000000000000")),
+    ).to.be.revertedWith("sub owner must withdraw");
+
+    // Withdraw from the subscription
+    const withdrawTx = await vrfCoordinatorV2
+      .connect(subOwner)
+      .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("100"));
+    await withdrawTx.wait();
+    const randomBalance = await linkToken.balanceOf(await random.getAddress());
+    assert.equal(randomBalance.toString(), "100");
+
+    // Non-owners cannot cancel
+    await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId)).to.be.revertedWith(
+      "sub owner must cancel",
+    );
+    // Cannot cancel sub with funds
+    await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId)).to.be.revertedWith("balance != 0");
+
+    // Withdraw remaining balance then cancel
+    let sub = await vrfCoordinatorV2.connect(subOwner).getSubscription(subId);
+    const withdraw2Tx = await vrfCoordinatorV2
+      .connect(subOwner)
+      .withdrawFromSubscription(subId, await random.getAddress(), sub.balance);
+    await withdraw2Tx.wait();
+    const random2Balance = await linkToken.balanceOf(await random.getAddress());
+    assert.equal(random2Balance.toString(), "1000000000000000000");
+    await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId);
   });
 
-  // TODO: request words, check logs, non consumer cannot request
   it("request random words", async () => {
-    // Create subscription.
-    // const response = await vrfCoordinatorV2.owner()
+    // Create and fund subscription.
     let consumers: string[] = [await consumer.getAddress()];
     const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
     const receipt = await tx.wait();
     const subId = receipt.events[0].args["subId"];
-
-    // Fund the subscription
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
-    const resp = await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
-    console.log(resp);
+    await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
     await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"));
 
-    // Request random words
-    //        bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
-    //         uint16  minimumRequestConfirmations,
-    //         uint16  callbackGasLimit,
-    //         uint256 subId,   // A data structure for billing
-    //         uint256 numWords  // Desired number of random words
+    // Should fail without a key registered
     const testKey = [BigNumber.from("1"), BigNumber.from("2")];
     let kh = await vrfCoordinatorV2.hashOfKey(testKey);
-    console.log("key hash", kh);
-    await vrfCoordinatorV2.registerProvingKey(await oracle.getAddress(), [1, 2]);
-    const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(kh, 1, 1000, subId, 1);
+    await expect(vrfCoordinatorV2.connect(consumer).requestRandomWords(kh, 1, 1000, subId, 1)).to.be.revertedWith(
+      "must be a registered key",
+    );
+
+    // Non-owner cannot register a proving key
+    await expect(
+      vrfCoordinatorV2.connect(random).registerProvingKey(await oracle.getAddress(), [1, 2]),
+    ).to.be.revertedWith("caller is not the owner");
+
+    // Register a proving key
+    await vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]);
+    // Cannot register the same key twice
+    await expect(
+      vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]),
+    ).to.be.revertedWith("key already registered");
+
+    const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
+      kh, // keyhash
+      1, // minReqConf
+      1000, // callbackGasLimit
+      subId, // subId
+      1, // numWords
+    );
     const reqReceipt = await reqTx.wait();
     const reqId = reqReceipt.events[0].args["preSeed"];
     console.log(reqId);
-    //Should see the callback
-    // console.log(await vrfCoordinatorV2.s_callbacks(reqId))
-    // // 265747905000000
-    // const r = await vrfCoordinatorV2.calculatePaymentAmount(100000000);
-    // const rr = await r.wait()
-    // const s = rr .events[0].args['seed']
-    // console.log("payment", s.integerValue())
-    // console.log("payment", r);
+
+    // TODO: Should see the request event
+    // TODO: Should respect minReqConfs
   });
+
+  /*
+    Note that all the fulfillment testing is done in Go, to make use of the existing go code to produce
+    proofs offchain.
+   */
 });
