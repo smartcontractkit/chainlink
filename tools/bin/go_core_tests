@@ -2,7 +2,7 @@
 set -o pipefail
 set +e
 
-go test -v -p 4 -parallel 4 ./... >./output.txt
+go test -v -p 4 -parallel 4 ./... | tee ./output.txt
 EXITCODE=$?
 grep "\-\-\- FAIL" output.txt
 grep "FAIL	" output.txt
