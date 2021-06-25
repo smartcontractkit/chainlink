@@ -1,5 +1,9 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+- Upgrade solidity v8 compiler version from 0.8.4 to 0.8.6
+
 ## 0.2.0 (unreleased)
 
 Features:
