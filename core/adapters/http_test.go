@@ -110,10 +110,8 @@ func TestHTTPGet_Perform(t *testing.T) {
 }
 
 func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
-	t.Parallel()
-
 	store := leanStore()
-	store.Config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
+	store.Config.Set("DEFAULT_HTTP_TIMEOUT", "80ms")
 	store.Config.Set("MAX_HTTP_ATTEMPTS", "2")
 
 	attempts := make(chan struct{}, 2)
@@ -123,7 +121,7 @@ func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
 		require.NoError(t, err)
 		assert.Greater(t, len(b), 0)
 		attempts <- struct{}{}
-		timeoutOnce.Do(func() { time.Sleep(31 * time.Millisecond) })
+		timeoutOnce.Do(func() { time.Sleep(81 * time.Millisecond) })
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
