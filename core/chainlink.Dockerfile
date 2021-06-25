@@ -1,6 +1,6 @@
 # MAKE ALL CHANGES WITHIN THE DEFAULT WORKDIR FOR YARN AND GO DEP CACHE HITS
 ARG BUILDER=smartcontract/builder
-FROM ${BUILDER}:1.0.39
+FROM ${BUILDER}:1.0.40
 WORKDIR /chainlink
 
 # Have to reintroduce ENV vars from builder image
@@ -35,7 +35,7 @@ RUN make contracts-operator-ui-build
 
 # Build the golang binary
 
-FROM ${BUILDER}:1.0.39
+FROM ${BUILDER}:1.0.40
 WORKDIR /chainlink
 
 # Have to reintroduce ENV vars from builder image
