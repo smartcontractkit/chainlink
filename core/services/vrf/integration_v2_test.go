@@ -340,9 +340,9 @@ func TestRequestCost(t *testing.T) {
 		uni.consumerContractAddress, uni.consumerABI,
 		"testRequestRandomness", vrfkey.MustHash(), subId, uint64(2), uint64(10000), uint64(1))
 	t.Log(estimate)
-	// V2 should be at least (87000-134000)/134000 = 35% cheaper
+	// V2 should be at least (89000-134000)/134000 = 34% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
-	assert.Less(t, estimate, uint64(87000),
+	assert.Less(t, estimate, uint64(89000),
 		"requestRandomness tx gas cost more than expected")
 }
 

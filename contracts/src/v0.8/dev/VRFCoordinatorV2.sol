@@ -57,9 +57,8 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     bytes4 constant private FULFILL_RANDOM_WORDS_SELECTOR = bytes4(keccak256("fulfillRandomWords(uint256,uint256[])"));
 
     struct Config {
-        // Gas to cover oracle payment + fulfillment log after we calculate the payment.
-        // Should be approximately: 5k (change oracle balance) + 5k (change sub balance) + ~1k (log)
-        // However we make it configurable in case those operations are repriced.
+        // Gas to cover oracle payment after we calculate the payment.
+        // We make it configurable in case those operations are repriced.
         uint32 gasAfterPaymentCalculation;
         uint32 stalenessSeconds;
         uint16 minimumRequestBlockConfirmations;
