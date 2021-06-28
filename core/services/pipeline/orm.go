@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	sorm "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 var (
@@ -31,6 +32,7 @@ type ORM interface {
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
+	GetUnfinishedRuns(now time.Time, fn func(run Run) error) error
 	DB() *gorm.DB
 }
 
@@ -179,9 +181,6 @@ func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (r
 			if err = tx.Select(&run.PipelineTaskRuns, sql, run.ID); err != nil {
 				return err
 			}
-
-			// TODO: what if the node is killed while a run is in the state of running?
-			// we need to have a init goroutine that will sweep the db for any jobs still stuck on "running" at boot
 			return nil
 		}
 
@@ -264,6 +263,36 @@ func (o *orm) GetAllRuns() ([]Run, error) {
 				Order("created_at ASC, id ASC")
 		}).Find(&runs).Error
 	return runs, err
+}
+
+func (o *orm) GetUnfinishedRuns(now time.Time, fn func(run Run) error) error {
+	return sorm.Batch(func(offset, limit uint) (count uint, err error) {
+		var runs []Run
+
+		err = o.db.
+			Preload("PipelineSpec").
+			Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+				return db.
+					Order("created_at ASC, id ASC")
+			}).
+			Where(`state = ? AND created_at < ?`, RunStatusRunning, now).
+			Order("created_at ASC, id ASC").
+			Limit(int(limit)).
+			Offset(int(offset)).
+			Find(&runs).Error
+
+		if err != nil {
+			return 0, err
+		}
+
+		for _, run := range runs {
+			if err := fn(run); err != nil {
+				return 0, err
+			}
+		}
+
+		return uint(len(runs)), nil
+	})
 }
 
 func (o *orm) DB() *gorm.DB {

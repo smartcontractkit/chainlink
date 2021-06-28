@@ -102,6 +102,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager
 
 func (r *runner) Start() error {
 	return r.StartOnce("PipelineRunner", func() error {
+		go r.scheduleUnfinishedRuns()
 		go r.runReaperLoop()
 		return nil
 	})
@@ -464,4 +465,21 @@ func (r *runner) runReaper() {
 	if err != nil {
 		logger.Errorw("Pipeline run reaper failed", "error", err)
 	}
+}
+
+// init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
+// We pick up those runs and resume execution.
+func (r *runner) scheduleUnfinishedRuns() error {
+	// limit using a createdAt < now() @ start of run to prevent executing new jobs
+	now := time.Now()
+
+	// immediately run reaper so we don't consider runs that are too old
+	r.runReaper()
+
+	return r.orm.GetUnfinishedRuns(now, func(run Run) error {
+		// SAFETY: ??? is this safe to do concurrently
+		// TODO: handle err here
+		go r.Run(context.TODO(), &run, *logger.Default)
+		return nil
+	})
 }
