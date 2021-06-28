@@ -49,7 +49,7 @@ func TestRunner(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
-	pipelineORM := pipeline.NewORM(db, config)
+	pipelineORM := pipeline.NewORM(db)
 	runner := pipeline.NewRunner(pipelineORM, config, nil, nil)
 	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()

@@ -87,7 +87,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		corestore.Config.DatabaseListenerMinReconnectInterval(),
 		corestore.Config.DatabaseListenerMaxReconnectDuration(),
 	)
-	pipelineORM := pipeline.NewORM(corestore.ORM.DB, corestore.Config)
+	pipelineORM := pipeline.NewORM(corestore.DB)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
