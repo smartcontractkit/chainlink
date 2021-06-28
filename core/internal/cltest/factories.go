@@ -760,7 +760,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	err = store.DB.Create(&pipelineSpec).Error
 	require.NoError(t, err)
 
-	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
+	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store.DB, addr)
 	jb := job.Job{
 		OffchainreportingOracleSpec:   &oracleSpec,
 		OffchainreportingOracleSpecID: &oracleSpec.ID,
@@ -776,7 +776,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
 	pid := p2pkey.PeerID(DefaultP2PPeerID)
@@ -793,7 +793,7 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 		ContractConfigTrackerPollInterval:      0,
 		ContractConfigConfirmations:            0,
 	}
-	require.NoError(t, store.DB.Create(&spec).Error)
+	require.NoError(t, db.Create(&spec).Error)
 	return spec
 }
 
