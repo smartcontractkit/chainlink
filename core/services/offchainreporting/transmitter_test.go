@@ -23,10 +23,11 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	toAddress := cltest.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := new(bptxmmocks.TxManager)
+	strategy := new(bptxmmocks.TxStrategy)
 
-	transmitter := offchainreporting.NewTransmitter(txm, store.DB, fromAddress, gasLimit)
+	transmitter := offchainreporting.NewTransmitter(txm, store.DB, fromAddress, gasLimit, strategy)
 
-	txm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit, nil).Return(models.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit, nil, strategy).Return(models.EthTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(context.Background(), toAddress, payload))
 
 	txm.AssertExpectations(t)
