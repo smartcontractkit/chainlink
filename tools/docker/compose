@@ -3,13 +3,11 @@ set -ex
 
 # Enable buildkit support locally
 if [ -z $CI ]; then
-  DOCKER_COMPOSE_BUILD_OPTS=${DOCKER_COMPOSE_BUILD_OPTS-"--parallel"}
   DOCKER_COMPOSE_RUN_OPTS=${DOCKER_COMPOSE_RUN_OPTS-""}
   export COMPOSE_DOCKER_CLI_BUILD=1
   export DOCKER_BUILDKIT=1
 else
-  DOCKER_COMPOSE_BUILD_OPTS=${DOCKER_COMPOSE_BUILD_OPTS-"--no-cache --compress"}
-  DOCKER_COMPOSE_RUN_OPTS=${DOCKER_COMPOSE_RUN_OPTS-"--remove-orphans --force-recreate"}
+  DOCKER_COMPOSE_RUN_OPTS=${DOCKER_COMPOSE_RUN_OPTS-"--remove-orphans"}
   export COMPOSE_DOCKER_CLI_BUILD=0
 fi
 
