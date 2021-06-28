@@ -2,6 +2,7 @@ package fluxmonitorv2
 
 import (
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -64,10 +65,12 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", spec)
 	}
 
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, d.cfg.FMDefaultTransactionQueueDepth)
+
 	fm, err := NewFromJobSpec(
 		spec,
 		d.db,
-		NewORM(d.db, d.txm),
+		NewORM(d.db, d.txm, strategy),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),
