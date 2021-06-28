@@ -316,7 +316,7 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return pipeline.NewORM(db, config), eventBroadcaster, func() {
+	return pipeline.NewORM(db), eventBroadcaster, func() {
 		eventBroadcaster.Close()
 	}
 }
