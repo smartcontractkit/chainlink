@@ -101,6 +101,9 @@ describe("VRFCoordinatorV2", () => {
     let consumers: string[] = [await consumer.getAddress()];
     const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
     const receipt = await tx.wait();
+    assert(receipt.events[0].event == "SubscriptionCreated")
+    assert(receipt.events[0].args['owner'] == await subOwner.getAddress(), "sub owner");
+    assert(receipt.events[0].args['consumers'][0] == consumers[0], "wrong consumers");
     const subId = receipt.events[0].args["subId"];
 
     // Subscription owner cannot fund
@@ -111,7 +114,11 @@ describe("VRFCoordinatorV2", () => {
     // Fund the subscription
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
     await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
-    await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"));
+    await expect(vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000")))
+        .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded").withArgs(
+            subId,
+            BigNumber.from(0),
+            BigNumber.from("1000000000000000000"));
 
     // Non-owners cannot withdraw
     await expect(
@@ -121,12 +128,21 @@ describe("VRFCoordinatorV2", () => {
     ).to.be.revertedWith("sub owner must withdraw");
 
     // Withdraw from the subscription
-    const withdrawTx = await vrfCoordinatorV2
+    await expect(vrfCoordinatorV2
       .connect(subOwner)
-      .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("100"));
-    await withdrawTx.wait();
+      .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("100")))
+        .to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn").withArgs(
+           subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900")
+        );
     const randomBalance = await linkToken.balanceOf(await random.getAddress());
     assert.equal(randomBalance.toString(), "100");
+
+    // Non-owners cannot change the consumers
+    await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, consumers)).to.be.revertedWith(
+        "sub owner must update",
+    );
+    // Owners can
+    await vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, consumers)
 
     // Non-owners cannot cancel
     await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId)).to.be.revertedWith(
@@ -143,7 +159,9 @@ describe("VRFCoordinatorV2", () => {
     await withdraw2Tx.wait();
     const random2Balance = await linkToken.balanceOf(await random.getAddress());
     assert.equal(random2Balance.toString(), "1000000000000000000");
-    await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId);
+    await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId))
+        .to.emit(vrfCoordinatorV2, "SubscriptionCanceled").withArgs(subId);
+
   });
 
   it("request random words", async () => {

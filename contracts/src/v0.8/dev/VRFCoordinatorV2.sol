@@ -19,7 +19,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
     event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
     event SubscriptionFundsWithdrawn(uint64 subId, uint256 oldBalance, uint256 newBalance);
     event SubscriptionCanceled(uint64 subId);
-    uint64 currentSubId;
+    uint64 private currentSubId;
     struct Subscription {
         uint256 balance; // Common balance used for all consumer requests.
         address owner; // Owner can fund/withdraw/cancel the sub

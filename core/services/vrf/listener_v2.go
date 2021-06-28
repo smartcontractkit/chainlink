@@ -36,12 +36,14 @@ const (
 		20000 + // first time oracle balance update, note first time will be 20k, but 5k subsequently
 		2*2100 - // cold read oracle address and oracle balance
 		15000 // request delete refund
+
 	// Buffer to ensure that the gas received after the call to the consumer contract is
 	// at least the amount they requested. Same argument as
 	// https://github.com/cholladay0816/chainlink/blob/08b6fd1b910b5e9b5d20f834a09204d159a56142/contracts/src/v0.6/VRFCoordinator.sol#L201
 	BufferForConsumerCallback = 6000
-	CallFulfillGasCost        = 21000 + // Base tx cost
-		7315 // misc, primarily the argument encoding of the proof, slightly variable +/- 20 gas or so
+
+	CallFulfillGasCost = 21000 + // Base tx cost
+		7317 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 type pendingRequest struct {
@@ -207,8 +209,7 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 				vrfCoordinatorPayload,
 				gasLimit,
 				&models.EthTxMetaV2{
-					JobID: lsn.job.ID,
-					//RequestID:     req.PreSeed,
+					JobID:         lsn.job.ID,
 					RequestTxHash: lb.RawLog().TxHash,
 				},
 				bulletprooftxmanager.SendEveryStrategy{},

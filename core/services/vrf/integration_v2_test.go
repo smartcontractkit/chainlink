@@ -286,7 +286,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
 	// The expected sub charge should be within 100 gas of the actual gas usage.
 	// We multiply by 10^16/10^9 to get gas because of our 1 gwei and 0.01 eth/link test setting.
-	assert.Less(t, linkCharged.Sub(expected).Mul(decimal.RequireFromString("10000000")).Abs().IntPart(), int64(100))
+	gasDiff := linkCharged.Sub(expected).Mul(decimal.RequireFromString("10000000")).Abs().IntPart()
+	t.Log("gas diff", gasDiff)
+	assert.Less(t, gasDiff, int64(100))
 
 	// Oracle tries to withdraw move than it was paid should fail
 	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, linkWeiCharged.Add(decimal.NewFromInt(1)).BigInt())
