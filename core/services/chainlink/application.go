@@ -303,11 +303,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			ethClient,
 			logBroadcaster,
 			fluxmonitorv2.Config{
-				DefaultHTTPTimeout:       store.Config.DefaultHTTPTimeout().Duration(),
-				FlagsContractAddress:     store.Config.FlagsContractAddress(),
-				MinContractPayment:       store.Config.MinimumContractPayment(),
-				EthGasLimit:              store.Config.EthGasLimitDefault(),
-				EthMaxQueuedTransactions: store.Config.EthMaxQueuedTransactions(),
+				DefaultHTTPTimeout:             store.Config.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:           store.Config.FlagsContractAddress(),
+				MinContractPayment:             store.Config.MinimumContractPayment(),
+				EthGasLimit:                    store.Config.EthGasLimitDefault(),
+				EthMaxQueuedTransactions:       store.Config.EthMaxQueuedTransactions(),
+				FMDefaultTransactionQueueDepth: store.Config.FMDefaultTransactionQueueDepth(),
 			},
 		)
 	}
