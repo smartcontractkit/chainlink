@@ -45,7 +45,7 @@ func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
+	tc.Config.Set("DATABASE_TIMEOUT", "1000ms")
 	delay := tc.DatabaseTimeout()
 	dbURL := tc.DatabaseURL()
 	if dbURL.String() == "" {
