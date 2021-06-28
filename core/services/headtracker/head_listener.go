@@ -117,11 +117,17 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 // This should be safe to run concurrently across multiple nodes connected to the same database
 // Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
 func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header models.Head) error) error {
+	noHeadsAlarm := time.Minute
+	t := time.NewTicker(noHeadsAlarm)
+
 	for {
 		select {
 		case <-hl.chStop:
 			return nil
 		case blockHeader, open := <-hl.headers:
+			// We've received a head, reset the no heads alarm
+			t.Stop()
+			t = time.NewTicker(noHeadsAlarm)
 
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
@@ -139,10 +145,15 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 			} else if err != nil {
 				return err
 			}
+
 		case err, open := <-hl.headSubscription.Err():
 			if open && err != nil {
 				return err
 			}
+
+		case <-t.C:
+			// We haven't received a head on the channel for a long time, log a warning
+			logger.Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarm))
 		}
 	}
 }

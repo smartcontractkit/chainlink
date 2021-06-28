@@ -48,8 +48,8 @@ type ConfigSchema struct {
 	EthGasBumpTxDepth                         uint16          `env:"ETH_GAS_BUMP_TX_DEPTH" default:"10"`
 	EthGasBumpWei                             big.Int         `env:"ETH_GAS_BUMP_WEI"`
 	EthGasLimitDefault                        uint64          `env:"ETH_GAS_LIMIT_DEFAULT"`
-	EthGasLimitTransfer                       uint64          `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EthGasLimitMultiplier                     float32         `env:"ETH_GAS_LIMIT_MULTIPLIER" default:"1.0"`
+	EthGasLimitTransfer                       uint64          `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
@@ -72,6 +72,7 @@ type ConfigSchema struct {
 	ExplorerAccessKey                         string          `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                            string          `env:"EXPLORER_SECRET"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
+	FMDefaultTransactionQueueDepth            uint32          `env:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
 	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"true"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
@@ -93,6 +94,7 @@ type ConfigSchema struct {
 	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
 	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"24h"`
 	JobPipelineResultWriteQueueDepth          uint64          `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
+	KeeperDefaultTransactionQueueDepth        uint32          `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
 	KeeperMaximumGracePeriod                  int64           `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperMinimumRequiredConfirmations        uint64          `env:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS" default:"12"`
 	KeeperRegistryCheckGasOverhead            uint64          `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
@@ -118,6 +120,7 @@ type ConfigSchema struct {
 	OCRContractTransmitterTransmitTimeout     time.Duration   `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
 	OCRDHTLookupInterval                      int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
 	OCRDatabaseTimeout                        time.Duration   `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
+	OCRDefaultTransactionQueueDepth           uint32          `env:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
 	OCRIncomingMessageBufferSize              int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRKeyBundleID                            string          `env:"OCR_KEY_BUNDLE_ID"`
 	OCRMonitoringEndpoint                     string          `env:"OCR_MONITORING_ENDPOINT"`

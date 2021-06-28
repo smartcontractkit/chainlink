@@ -316,7 +316,7 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return pipeline.NewORM(db, config), eventBroadcaster, func() {
+	return pipeline.NewORM(db), eventBroadcaster, func() {
 		eventBroadcaster.Close()
 	}
 }
@@ -524,6 +524,12 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
 	return c, s, assertMocksCalled
