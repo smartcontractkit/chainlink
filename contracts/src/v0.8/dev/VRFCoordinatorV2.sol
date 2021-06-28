@@ -249,7 +249,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
 
     function calculatePaymentAmount(
         uint256 startGas,
-        uint256 gasBuffer
+        uint256 gasAfterPaymentCalculation
     )
     private
     view
@@ -260,7 +260,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
         uint256 linkWei; // link/wei i.e. link price in wei.
         (gasWei, linkWei) = getFeedData();
         // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
-        return 1e18*gasWei*(gasBuffer + startGas - gasleft()) / linkWei;
+        return 1e18*gasWei*(gasAfterPaymentCalculation + startGas - gasleft()) / linkWei;
     }
 
     function getRandomnessFromProof(bytes memory _proof)
