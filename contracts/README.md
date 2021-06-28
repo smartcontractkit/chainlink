@@ -19,7 +19,7 @@ $ npm install @chainlink/contracts --save
 │   ├── v0.6
 │   ├── v0.7
 │   └── v0.8
-└── artifacts/src # ABI json output
+└── abi # ABI json output
     ├── v0.4
     ├── v0.5
     ├── v0.6

@@ -15,7 +15,6 @@
 - Upgrade solidity v8 compiler version from 0.8.4 to 0.8.6
 - Tests converted to Hardhat.
 - Ethers upgraded from v4 to v5.
-- ABI json files are now in `artifacts/src/` instead of `abi/`
 
 ### Removed:
 
