@@ -55,7 +55,6 @@ describe("VRFCoordinatorV2", () => {
       fallbackGasPrice: BigNumber.from(1e9),
       fallbackLinkPrice: BigNumber.from(1e9).mul(BigNumber.from(1e7)),
     };
-    // TODO: confirm only owner
     await vrfCoordinatorV2
       .connect(owner)
       .setConfig(
@@ -66,6 +65,29 @@ describe("VRFCoordinatorV2", () => {
         c.fallbackGasPrice,
         c.fallbackLinkPrice,
       );
+  });
+
+  it("configuration management", async function () {
+    await expect(
+      vrfCoordinatorV2
+        .connect(subOwner)
+        .setConfig(
+          c.minimumRequestBlockConfirmations,
+          c.maxConsumersPerSubscription,
+          c.stalenessSeconds,
+          c.gasAfterPaymentCalculation,
+          c.fallbackGasPrice,
+          c.fallbackLinkPrice,
+        ),
+    ).to.be.revertedWith("Only callable by owner");
+    // Anyone can read the config.
+    const resp = await vrfCoordinatorV2.connect(random).getConfig();
+    assert(resp[0] == c.minimumRequestBlockConfirmations);
+    assert(resp[1] == c.maxConsumersPerSubscription);
+    assert(resp[2] == c.stalenessSeconds);
+    assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString());
+    assert(resp[4].toString() == c.fallbackGasPrice.toString());
+    assert(resp[5].toString() == c.fallbackLinkPrice.toString());
   });
 
   it("subscription lifecycle", async function () {
@@ -144,7 +166,7 @@ describe("VRFCoordinatorV2", () => {
     // Non-owner cannot register a proving key
     await expect(
       vrfCoordinatorV2.connect(random).registerProvingKey(await oracle.getAddress(), [1, 2]),
-    ).to.be.revertedWith("caller is not the owner");
+    ).to.be.revertedWith("Only callable by owner");
 
     // Register a proving key
     await vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]);
@@ -153,19 +175,65 @@ describe("VRFCoordinatorV2", () => {
       vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]),
     ).to.be.revertedWith("key already registered");
 
+    // IMPORTANT: Only registered consumers can use the subscription
+    // Should fail for contract owner, sub owner, random address
+    const invalidConsumers = [owner, subOwner, random];
+    invalidConsumers.forEach(
+      v =>
+        async function () {
+          await expect(
+            vrfCoordinatorV2.connect(v).requestRandomWords(
+              kh, // keyhash
+              subId, // subId
+              1, // minReqConf
+              1000, // callbackGasLimit
+              1, // numWords
+            ),
+          ).to.be.revertedWith("invalid consumer");
+        },
+    );
+
+    // Should respect the minconfs
+    await expect(
+      vrfCoordinatorV2.connect(consumer).requestRandomWords(
+        kh, // keyhash
+        subId, // subId
+        0, // minReqConf
+        1000, // callbackGasLimit
+        1, // numWords
+      ),
+    ).to.be.revertedWith("minconfs too low");
+
+    // SubId must be valid
+    await expect(
+      vrfCoordinatorV2.connect(consumer).requestRandomWords(
+        kh, // keyhash
+        12398, // subId
+        0, // minReqConf
+        1000, // callbackGasLimit
+        1, // numWords
+      ),
+    ).to.be.revertedWith("invalid subId");
+
     const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
       kh, // keyhash
+      subId, // subId
       1, // minReqConf
       1000, // callbackGasLimit
-      subId, // subId
       1, // numWords
     );
     const reqReceipt = await reqTx.wait();
-    const reqId = reqReceipt.events[0].args["preSeed"];
-    console.log(reqId);
-
-    // TODO: Should see the request event
-    // TODO: Should respect minReqConfs
+    assert(reqReceipt.events.length == 1);
+    const reqEvent = reqReceipt.events[0];
+    assert(reqEvent.args["keyHash"] == kh, "wrong key hash");
+    assert(reqEvent.args["subId"].toString() == subId.toString(), "wrong subId");
+    assert(
+      reqEvent.args["minimumRequestConfirmations"].toString() == BigNumber.from(1).toString(),
+      "wrong minRequestConf",
+    );
+    assert(reqEvent.args["callbackGasLimit"] == 1000, "wrong callbackGasLimit");
+    assert(reqEvent.args["numWords"] == 1, "wrong numWords");
+    assert(reqEvent.args["sender"] == (await consumer.getAddress()), "wrong sender address");
   });
 
   /*

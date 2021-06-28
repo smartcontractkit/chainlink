@@ -4,11 +4,10 @@ import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockHashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 
-import "../vendor/Ownable.sol";
-
 import "./VRF.sol";
+import "./ConfirmedOwner.sol";
 
-contract VRFCoordinatorV2 is VRF, Ownable {
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
 
     LinkTokenInterface public immutable LINK;
     AggregatorV3Interface public immutable LINK_ETH_FEED;
@@ -76,7 +75,14 @@ contract VRFCoordinatorV2 is VRF, Ownable {
         int256 fallbackLinkPrice
     );
 
-    constructor(address link, address blockHashStore, address linkEthFeed, address fastGasFeed) {
+    constructor(
+        address link,
+        address blockHashStore,
+        address linkEthFeed,
+        address fastGasFeed
+    )
+        ConfirmedOwner(msg.sender)
+    {
         LINK = LinkTokenInterface(link);
         LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
         FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -333,7 +339,7 @@ contract VRFCoordinatorV2 is VRF, Ownable {
     external
     {
         // Will revert if insufficient funds
-        s_withdrawableTokens[msg.sender] = s_withdrawableTokens[msg.sender] - _amount;
+        s_withdrawableTokens[msg.sender] -= _amount;
         assert(LINK.transfer(_recipient, _amount));
     }
 
