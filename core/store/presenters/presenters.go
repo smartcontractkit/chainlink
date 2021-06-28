@@ -71,11 +71,13 @@ type EnvPrinter struct {
 	FeatureFluxMonitor                    bool            `json:"FEATURE_FLUX_MONITOR"`
 	FeatureOffchainReporting              bool            `json:"FEATURE_OFFCHAIN_REPORTING"`
 	FlagsContractAddress                  string          `json:"FLAGS_CONTRACT_ADDRESS"`
+	FMDefaultTransactionQueueDepth        uint32          `json:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	GasUpdaterBlockDelay                  uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
 	GasUpdaterBlockHistorySize            uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	GasUpdaterEnabled                     bool            `json:"GAS_UPDATER_ENABLED"`
 	GasUpdaterTransactionPercentile       uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	InsecureFastScrypt                    bool            `json:"INSECURE_FAST_SCRYPT"`
+	KeeperDefaultTransactionQueueDepth    uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	TriggerFallbackDBPollInterval         time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 	JobPipelineReaperInterval             time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
 	JobPipelineReaperThreshold            time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
@@ -98,6 +100,7 @@ type EnvPrinter struct {
 	P2PListenPort                         string          `json:"P2P_LISTEN_PORT"`
 	P2PPeerID                             string          `json:"P2P_PEER_ID"`
 	P2PBootstrapPeers                     []string        `json:"P2P_BOOTSTRAP_PEERS"`
+	OCRDefaultTransactionQueueDepth       uint32          `json:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	OCRIncomingMessageBufferSize          int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
 	OCROutgoingMessageBufferSize          int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
 	OCRNewStreamTimeout                   time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
@@ -166,11 +169,13 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			FeatureFluxMonitor:                    config.FeatureFluxMonitor(),
 			FeatureOffchainReporting:              config.FeatureOffchainReporting(),
 			FlagsContractAddress:                  config.FlagsContractAddress(),
+			FMDefaultTransactionQueueDepth:        config.FMDefaultTransactionQueueDepth(),
 			GasUpdaterBlockDelay:                  config.GasUpdaterBlockDelay(),
 			GasUpdaterBlockHistorySize:            config.GasUpdaterBlockHistorySize(),
 			GasUpdaterEnabled:                     config.GasUpdaterEnabled(),
 			GasUpdaterTransactionPercentile:       config.GasUpdaterTransactionPercentile(),
 			InsecureFastScrypt:                    config.InsecureFastScrypt(),
+			KeeperDefaultTransactionQueueDepth:    config.KeeperDefaultTransactionQueueDepth(),
 			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
 			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
 			JobPipelineReaperThreshold:            config.JobPipelineReaperThreshold(),
@@ -189,6 +194,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			OCRBootstrapCheckInterval:             config.OCRBootstrapCheckInterval(),
 			OCRContractTransmitterTransmitTimeout: config.OCRContractTransmitterTransmitTimeout(),
 			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
+			OCRDefaultTransactionQueueDepth:       config.OCRDefaultTransactionQueueDepth(),
 			P2PListenIP:                           config.P2PListenIP().String(),
 			P2PListenPort:                         config.P2PListenPortRaw(),
 			P2PBootstrapPeers:                     p2pBootstrapPeers,

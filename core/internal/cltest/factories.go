@@ -18,6 +18,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -608,9 +609,17 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	return etx
 }
 
-func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address, opts ...interface{}) models.EthTx {
+	var subject uuid.NullUUID
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case uuid.UUID:
+			subject = uuid.NullUUID{UUID: v, Valid: true}
+		}
+	}
 	etx := NewEthTx(t, store, fromAddress)
 	etx.State = models.EthTxUnstarted
+	etx.Subject = subject
 	require.NoError(t, store.DB.Save(&etx).Error)
 	return etx
 }
@@ -855,7 +864,7 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *ke
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
 	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(store.DB, nil, store.Config).LowestUnsyncedID(ctx, registry)
+	upkeepID, err := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{}).LowestUnsyncedID(ctx, registry)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
