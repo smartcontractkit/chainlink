@@ -17,7 +17,8 @@
     "prepublishOnly": "yarn compile"
   },
   "files": [
-    "src/"
+    "src/",
+    "artifacts/src"
   ],
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
