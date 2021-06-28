@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func setup(t *testing.T) (
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)
-	orm := keeper.NewORM(store.DB, txm, store.Config)
+	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, headBroadcaster, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executer.Start()
@@ -85,7 +86,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 		ethTxCreated := cltest.NewAwaiter()
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
+		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
 			Once().
 			Return(models.EthTx{}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -114,7 +115,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 		}
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
+		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
 			Once().
 			Return(models.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
@@ -143,7 +144,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// head 40 triggers a new run
 		head = *cltest.Head(40)
 
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil).
+		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
 			Once().
 			Return(models.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[1].ItHappened() })

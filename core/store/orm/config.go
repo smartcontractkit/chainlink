@@ -442,6 +442,12 @@ func (c Config) FeatureWebhookV2() bool {
 	return c.getWithFallback("FeatureWebhookV2", parseBool).(bool)
 }
 
+// FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor
+// Set to 0 to use SendEvery strategy instead
+func (c Config) FMDefaultTransactionQueueDepth() uint32 {
+	return c.viper.GetUint32(EnvVarName("FMDefaultTransactionQueueDepth"))
+}
+
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() models.Duration {
@@ -914,6 +920,12 @@ func (c Config) KeeperRegistryPerformGasOverhead() uint64 {
 	return c.getWithFallback("KeeperRegistryPerformGasOverhead", parseUint64).(uint64)
 }
 
+// KeeperDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Keeper
+// Set to 0 to use SendEvery strategy instead
+func (c Config) KeeperDefaultTransactionQueueDepth() uint32 {
+	return c.viper.GetUint32(EnvVarName("KeeperDefaultTransactionQueueDepth"))
+}
+
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
 // sync of the keeper registry contract it is tracking
 func (c Config) KeeperRegistrySyncInterval() time.Duration {
@@ -1048,6 +1060,12 @@ func (c Config) OCRMonitoringEndpoint(override string) string {
 		return override
 	}
 	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
+}
+
+// OCRDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in OCR
+// Set to 0 to use SendEvery strategy instead
+func (c Config) OCRDefaultTransactionQueueDepth() uint32 {
+	return c.viper.GetUint32(EnvVarName("OCRDefaultTransactionQueueDepth"))
 }
 
 func (c Config) OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error) {
