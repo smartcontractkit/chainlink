@@ -33,7 +33,7 @@ jobs:
           path: /tmp/chainlink.tar
 
   integration:
-    name: ./compose ${{ matrix.test }} against ${{ matrix.node }}
+    name: compose ${{ matrix.test }} ${{ matrix.node }}
     runs-on: ubuntu-latest
     needs: build-chainlink
     timeout-minutes: 60
@@ -46,10 +46,22 @@ jobs:
       GETH_MODE: ${{ matrix.node == 'geth' }}
       CI: true
       CHAINLINK_DB_NAME: postgres
-      EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }} # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
+      # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
+      EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-single-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-single-buildx
+
       - name: Download artifact from build-chainlink
         uses: actions/download-artifact@v2
         with:
@@ -59,16 +71,26 @@ jobs:
         run: |
           docker load --input /tmp/chainlink.tar
           docker image ls -a
+
       # Login to dockerhub so that we don't get rate limited
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+
       - name: Run tests
         # timeout command here handles a zombie process
         run: timeout --foreground 3600s ./compose ${{ matrix.test }}
         working-directory: ./tools/docker
+
+      # Workaround for quickly growing caches
+      # https://github.com/docker/build-push-action/issues/252
+      # https://github.com/moby/buildkit/issues/1896
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
       - name: Cleanup
         if: always()
         run: ./compose ${{ matrix.test }}:down
