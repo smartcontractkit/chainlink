@@ -121,7 +121,7 @@ func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
 		require.NoError(t, err)
 		assert.Greater(t, len(b), 0)
 		attempts <- struct{}{}
-		timeoutOnce.Do(func() { time.Sleep(81 * time.Millisecond) })
+		timeoutOnce.Do(func() { time.Sleep(100 * time.Millisecond) })
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
