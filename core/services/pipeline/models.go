@@ -180,7 +180,7 @@ func (tr TaskRun) Result() Result {
 }
 
 func (tr *TaskRun) IsPending() bool {
-	return !tr.FinishedAt.Valid && (tr.Output == nil || tr.Output.Null) && tr.Error.IsZero()
+	return !tr.FinishedAt.Valid && tr.Output.Empty() && tr.Error.IsZero()
 }
 
 // RunStatus represents the status of a run

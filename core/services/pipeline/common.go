@@ -224,6 +224,10 @@ func (js JSONSerializable) Value() (driver.Value, error) {
 	return js.MarshalJSON()
 }
 
+func (js *JSONSerializable) Empty() bool {
+	return js == nil || js.Null
+}
+
 type TaskType string
 
 func (t TaskType) String() string {
