@@ -2,6 +2,7 @@ package csakey
 
 import (
 	"crypto/ed25519"
+	"errors"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -44,4 +45,12 @@ func (k *Key) Unlock(password string) error {
 	}
 	k.privateKey = pk
 	return nil
+}
+
+func (k *Key) Unsafe_GetPrivateKey() ([]byte, error) {
+	if k.privateKey == nil {
+		return nil, errors.New("key has not been unlocked")
+	}
+
+	return k.privateKey, nil
 }
