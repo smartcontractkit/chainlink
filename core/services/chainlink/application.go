@@ -257,7 +257,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
+		pipelineORM    = pipeline.NewORM(store.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config, ethClient, txManager)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
