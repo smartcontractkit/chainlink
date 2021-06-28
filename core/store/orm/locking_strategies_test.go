@@ -45,7 +45,7 @@ func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	tc.Config.Set("DATABASE_TIMEOUT", "1000ms")
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	delay := tc.DatabaseTimeout()
 	dbURL := tc.DatabaseURL()
 	if dbURL.String() == "" {
@@ -65,6 +65,7 @@ func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 
 	require.NoError(t, ls.Unlock(delay))
 	require.NoError(t, ls.Unlock(delay))
+
 	require.NoError(t, ls2.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls2.Unlock(delay))
 }
