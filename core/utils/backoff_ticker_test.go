@@ -24,7 +24,12 @@ func assertTick(t *testing.T, ticker *utils.BackoffTicker, doesTick bool, waitDu
 	assert.Equal(t, doesTick, ticked)
 }
 
+// This test can be unreliable due to the timing nature of the tests. It has
+// been skipped, but you may temporarily re-enable this test locally if you wish
+// to verify it is working.
 func TestBackoffTicker(t *testing.T) {
+	t.Skip("inherently unreliable due to timing issues")
+
 	ticker := utils.NewBackoffTicker(50*time.Millisecond, 200*time.Millisecond)
 
 	ticker.Start()

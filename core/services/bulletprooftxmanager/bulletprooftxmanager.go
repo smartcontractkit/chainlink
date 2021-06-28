@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -88,7 +89,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	service.Service
 	Trigger(addr common.Address)
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx models.EthTx, err error)
 }
 
 type BulletproofTxManager struct {
@@ -253,7 +254,7 @@ func (b *BulletproofTxManager) Connect(*models.Head) error {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}) (etx models.EthTx, err error) {
+func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx models.EthTx, err error) {
 	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EthMaxQueuedTransactions())
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
@@ -274,35 +275,46 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, to
 	// refunded and started sending transactions again.
 	// This is because they are not ever deleted if attached to an eth_tx that
 	// is moved into confirmed/fatal_error state
-	res := db.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta)
+	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
+		res := tx.Raw(`
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject)
 (
-SELECT ?,?,?,?,?,'unstarted',NOW(),?
+SELECT ?,?,?,?,?,'unstarted',NOW(),?,?
 WHERE NOT EXISTS (
     SELECT 1 FROM eth_tx_attempts
 	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
 	WHERE eth_txes.from_address = ?
 		AND eth_txes.state = 'unconfirmed'
 		AND eth_tx_attempts.state = 'insufficient_eth'
-)
+	)
 )
 RETURNING "eth_txes".*
-`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, fromAddress).Scan(&etx)
-	err = res.Error
-	if err != nil {
-		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
-	}
+`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, strategy.Subject(), fromAddress).Scan(&etx)
+		err = res.Error
+		if err != nil {
+			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
+		}
 
-	if res.RowsAffected == 0 {
-		err = errors.Errorf("wallet is out of eth: %s", fromAddress.Hex())
-		logger.Warnw(err.Error(),
-			"fromAddress", fromAddress,
-			"toAddress", toAddress,
-			"payload", "0x"+hex.EncodeToString(payload),
-			"value", value,
-			"gasLimit", gasLimit,
-		)
-	}
+		if res.RowsAffected == 0 {
+			err = errors.Errorf("wallet is out of eth: %s", fromAddress.Hex())
+			logger.Warnw(err.Error(),
+				"fromAddress", fromAddress,
+				"toAddress", toAddress,
+				"payload", "0x"+hex.EncodeToString(payload),
+				"value", value,
+				"gasLimit", gasLimit,
+			)
+			return err
+		}
+		pruned, err := strategy.PruneQueue(tx)
+		if err != nil {
+			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
+		}
+		if pruned > 0 {
+			logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
+		}
+		return nil
+	})
 	return
 }
 
@@ -526,7 +538,7 @@ func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
 func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}) (etx models.EthTx, err error) {
+func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx models.EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error { return nil }

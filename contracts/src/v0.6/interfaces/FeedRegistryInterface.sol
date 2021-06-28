@@ -7,8 +7,8 @@ import "./AggregatorV2V3Interface.sol";
 interface FeedRegistryInterface {
   struct Phase {
     uint16 phaseId;
-    uint80 startingAggregatorRoundId; // The latest round id of `aggregator` at phase start
-    uint80 endingAggregatorRoundId; // The latest round of the at phase end
+    uint80 startingAggregatorRoundId;
+    uint80 endingAggregatorRoundId;
   }
 
   event FeedProposed(
