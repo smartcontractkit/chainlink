@@ -30,6 +30,20 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	StaticFulfillExecuteGasCost = 5000 + // subID balance update
+		2100 + // cold subscription balance read
+		20000 + // first time oracle balance update, note first time will be 20k, but 5k subsequently
+		2*2100 - // cold read oracle address and oracle balance
+		15000 // request delete refund
+	// Buffer to ensure that the gas received after the call to the consumer contract is
+	// at least the amount they requested. Same argument as
+	// https://github.com/cholladay0816/chainlink/blob/08b6fd1b910b5e9b5d20f834a09204d159a56142/contracts/src/v0.6/VRFCoordinator.sol#L201
+	BufferForConsumerCallback = 6000
+	CallFulfillGasCost        = 21000 + // Base tx cost
+		7315 // misc, primarily the argument encoding of the proof, slightly variable +/- 20 gas or so
+)
+
 type pendingRequest struct {
 	confirmedAtBlock uint64
 	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
@@ -196,7 +210,9 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 					JobID: lsn.job.ID,
 					//RequestID:     req.PreSeed,
 					RequestTxHash: lb.RawLog().TxHash,
-				})
+				},
+				bulletprooftxmanager.SendEveryStrategy{},
+			)
 			if err != nil {
 				return err
 			}
@@ -257,14 +273,16 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 	}
 	/* The fulfillment can be summarized as follows:
 		fulfill {
-			1. get and verify randomness (max cost = func(seed))
-		    2. user callback (max cost = requested gas limit)
-		   	3. calculate payment and pay oracles (max cost = deterministic)
-	    }
-		For step 3 - the worst case gas cost is cold account access of the 2 price contracts (2600 * 2)
-		and a first time payment to the oracle (20k).
+			   1. get and verify randomness (max cost = func(seed))
+	           2. user callback (max cost = requested gas limit)
+			   3. calculate payment and pay oracles (max cost = deterministic)
+		}
+	   For step 3 see definition of StaticFulfillExecuteGasCost.
+	   Note we do not include CallFulfillGasCost, as that is included as
+	   part of the EstimateGas. It also has the same argument as the outer
+	   fulfillment contract method, so has the same encoding costs.
 	*/
-	staticVerifyGas := uint64(26000)
+	staticVerifyGas := uint64(BufferForConsumerCallback + StaticFulfillExecuteGasCost)
 	return variableFulfillmentCost + requestedCallbackGas + staticVerifyGas, nil
 }
 

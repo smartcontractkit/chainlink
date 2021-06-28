@@ -142,7 +142,9 @@ func (lsn *listenerV1) run(unsubscribeLogs func(), minConfs uint32) {
 								JobID:         lsn.job.ID,
 								RequestID:     req.RequestID,
 								RequestTxHash: lb.RawLog().TxHash,
-							})
+							},
+							bulletprooftxmanager.SendEveryStrategy{},
+						)
 						if err != nil {
 							return err
 						}

@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -11,18 +12,20 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func NewORM(db *gorm.DB, txm transmitter, config *orm.Config) ORM {
+func NewORM(db *gorm.DB, txm transmitter, config orm.ConfigReader, strategy bulletprooftxmanager.TxStrategy) ORM {
 	return ORM{
-		DB:     db,
-		txm:    txm,
-		config: config,
+		DB:       db,
+		txm:      txm,
+		config:   config,
+		strategy: strategy,
 	}
 }
 
 type ORM struct {
-	DB     *gorm.DB
-	txm    transmitter
-	config *orm.Config
+	DB       *gorm.DB
+	txm      transmitter
+	config   orm.ConfigReader
+	strategy bulletprooftxmanager.TxStrategy
 }
 
 func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error) {
@@ -138,5 +141,5 @@ func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistra
 	from := upkeep.Registry.FromAddress.Address()
 	to := upkeep.Registry.ContractAddress.Address()
 	gasLimit := upkeep.ExecuteGas + korm.config.KeeperRegistryPerformGasOverhead()
-	return korm.txm.CreateEthTransaction(tx, from, to, payload, gasLimit, nil)
+	return korm.txm.CreateEthTransaction(tx, from, to, payload, gasLimit, nil, korm.strategy)
 }

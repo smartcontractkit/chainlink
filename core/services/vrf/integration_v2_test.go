@@ -116,14 +116,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 		uint16(1),        // minRequestConfirmations
 		uint16(1000),     // maxConsumersPerSubscription
 		uint32(60*60*24), // stalenessSeconds
-		// 21000 (transaction)
-		//+ 5000 (subID balance update) + 2100 (sub balance)
-		//+ 20000 (oracle balance update, note first time will be 20k, on mainnet we should set it 5k) + 2*2100 (read oracle address and oracle balance)
-		//- 15000 (request delete refund)
-		//+ 7315 (misc, primarily the argument encoding of the proof, slightly variable +/- 20 gas or so)
-		uint32(21000+5000+2100+20000+2*2100-15000+7315), // gasAfterPaymentCalculation
-		big.NewInt(100000000000),                        // 100 gwei fallbackGasPrice
-		big.NewInt(10000000000000000),                   // 0.01 eth per link fallbackLinkPrice
+		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
+		big.NewInt(100000000000),      // 100 gwei fallbackGasPrice
+		big.NewInt(10000000000000000), // 0.01 eth per link fallbackLinkPrice
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -271,6 +266,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	ga, err := uni.consumerContract.GasAvailable(nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, ga.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	t.Log("gas available", ga.String())
 
 	// Assert that we were only charged for how much gas we actually used.
 	// We should be charged for the verification + our callbacks execution in link.
