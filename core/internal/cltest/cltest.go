@@ -529,7 +529,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 		Number: big.NewInt(100),
 	})
 	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
-
+	c.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
 	return c, s, assertMocksCalled
