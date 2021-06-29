@@ -159,7 +159,8 @@ func NewRun(spec Spec, vars Vars) Run {
 		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
-		Inputs:         JSONSerializable{Val: vars, Null: false},
+		Inputs:         JSONSerializable{Val: vars.vars, Null: false},
+		Outputs:        JSONSerializable{Val: nil, Null: true},
 		CreatedAt:      time.Now(),
 	}
 }
@@ -406,7 +407,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error) {
 	for {
-		if _, err := r.run(ctx, run, run.Inputs.Val.(Vars), l); err != nil {
+		if _, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l); err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
