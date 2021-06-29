@@ -170,7 +170,7 @@ func setConfigs() {
 	arbitrumMainnet.EthMinGasPriceWei = *big.NewInt(1000000000000)  // Fix the gas price
 	arbitrumMainnet.GasUpdaterEnabled = false
 	arbitrumMainnet.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on arbitrum
-	arbitrumMainnet.LinkContractAddress = ""       // TBD
+	arbitrumMainnet.LinkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.OCRContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.LinkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"

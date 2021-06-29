@@ -221,9 +221,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	subservices = append(subservices, eventBroadcaster)
 
-	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM)
-
 	var txManager bulletprooftxmanager.TxManager
 	var logBroadcaster log.Broadcaster
 	if config.EthereumDisabled() {
@@ -260,7 +257,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
+		pipelineORM    = pipeline.NewORM(store.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config, ethClient, txManager)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
@@ -350,6 +347,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
+
+	feedsORM := feeds.NewORM(store.DB)
+	feedsService := feeds.NewService(feedsORM, keyStore.CSA())
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
@@ -493,6 +493,10 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
+	if err := app.FeedsService.Start(); err != nil {
+		logger.Infof("[Feeds Service] %v", err)
+	}
+
 	for _, subservice := range app.subservices {
 		logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
@@ -586,6 +590,8 @@ func (app *ChainlinkApplication) stop() error {
 		merr = multierr.Append(merr, app.Store.Close())
 		logger.Debug("Closing HealthChecker...")
 		merr = multierr.Append(merr, app.HealthChecker.Close())
+		logger.Debug("Closing Feeds Service...")
+		merr = multierr.Append(merr, app.FeedsService.Close())
 
 		logger.Info("Exited all services")
 
