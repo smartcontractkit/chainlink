@@ -219,12 +219,13 @@ func (r *runner) run(
 	}
 
 	// avoid an extra db write if there is no async tasks present or if this is a resumed run
-	if pipeline.HasAsync() && run.ID == 0 {
-		if err = r.orm.CreateRun(r.orm.DB(), run); err != nil {
-			return nil, err
-		}
-
+	if pipeline.HasAsync() {
 		run.Async = true
+		if run.ID == 0 {
+			if err = r.orm.CreateRun(r.orm.DB(), run); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	todo := context.TODO()
