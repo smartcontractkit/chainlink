@@ -3,7 +3,7 @@ flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin a38a9f5d1f950be16fdca926578c021c6c9b4be11c71c65a287edf7afa253f5b
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
-operator_wrapper: ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin 747cc316e4944e5ec3edda70fbb190fa24171f777a60645fef14c5355d602740
+operator_wrapper: ../../../contracts/solc/v0.8/Operator.abi ../../../contracts/solc/v0.8/Operator.bin a4905f59c8ba63388eca3ba1837fba2a2c65ebf6f1f3861876bb803a9c8a864c
 oracle_wrapper: ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 solidity_vrf_consumer_interface: ../../../contracts/solc/v0.6/VRFConsumer.abi ../../../contracts/solc/v0.6/VRFConsumer.bin a79da241ca9525f6a96adc5f55651b1f91e1579b85fec7b02a51d06bd6018ee3
 solidity_vrf_consumer_interface_v08: ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin 9c8f269b96f4ac1e1b7302e7c6a914a222b4b133b4e64d8320080ced6df83bb4
