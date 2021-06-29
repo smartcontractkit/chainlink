@@ -190,6 +190,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	run := &pipeline.Run{
 		State:     pipeline.RunStatusRunning,
 		Errors:    nil,
+		Inputs:    pipeline.JSONSerializable{Val: map[string]interface{}{"foo": "bar"}, Null: false},
 		Outputs:   pipeline.JSONSerializable{Null: true},
 		CreatedAt: time.Now(),
 	}
@@ -199,6 +200,10 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	err := orm.CreateRun(db, run)
 	require.NoError(t, err)
+
+	r, err := orm.FindRun(run.ID)
+	require.NoError(t, err)
+	require.Equal(t, run.Inputs, r.Inputs)
 
 	s := `
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]

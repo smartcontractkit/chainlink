@@ -64,7 +64,7 @@ func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 		return errors.New("run.CreatedAt must be set")
 	}
 	if err = db.Create(run).Error; err != nil {
-		return errors.Wrap(err, "error inserting finished pipeline_run")
+		return errors.Wrap(err, "error inserting pipeline_run")
 	}
 	return err
 }

@@ -97,8 +97,10 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 		}
 
 		s.results[task.ID()] = TaskRunResult{
-			Task:   task,
-			Result: result,
+			Task:       task,
+			Result:     result,
+			CreatedAt:  r.CreatedAt,
+			FinishedAt: r.FinishedAt,
 		}
 
 		// store the result in vars
