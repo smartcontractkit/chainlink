@@ -98,7 +98,7 @@ type ConfigSchema struct {
 	KeeperMaximumGracePeriod                  int64           `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperMinimumRequiredConfirmations        uint64          `env:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS" default:"12"`
 	KeeperRegistryCheckGasOverhead            uint64          `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
-	KeeperRegistryPerformGasOverhead          uint64          `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"110000"`
+	KeeperRegistryPerformGasOverhead          uint64          `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval                time.Duration   `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	LinkContractAddress                       string          `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                  LogLevel        `env:"LOG_LEVEL" default:"info"`
