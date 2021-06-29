@@ -238,7 +238,6 @@ describe("Operator", () => {
             .distributeFunds([await roles.oracleNode2.getAddress()], [amountToSend], {
               value: ethSent,
             }),
-          "SafeMath: subtraction overflow",
         );
       });
     });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
 import "./AuthorizedReceiver.sol";
 import "./LinkTokenReceiver.sol";
@@ -9,7 +9,6 @@ import "../interfaces/OperatorInterface.sol";
 import "../interfaces/OwnableInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/Address.sol";
-import "../vendor/SafeMathChainlink.sol";
 
 /**
  * @title The Chainlink Operator contract
@@ -23,7 +22,6 @@ contract Operator is
   WithdrawalInterface
 {
   using Address for address;
-  using SafeMathChainlink for uint256;
 
   struct Commitment {
     bytes31 paramsHash;
@@ -306,7 +304,7 @@ contract Operator is
     public
     validateAuthorizedSenderSetter()
   {
-    TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
+    emit TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
 
     for (uint256 i = 0; i < targets.length; i++) {
       AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
@@ -421,7 +419,7 @@ contract Operator is
     uint256 valueRemaining = msg.value;
     for (uint256 i = 0; i < receivers.length; i++) {
       uint256 sendAmount = amounts[i];
-      valueRemaining = valueRemaining.sub(sendAmount);
+      valueRemaining = valueRemaining - sendAmount;
       receivers[i].transfer(sendAmount);
     }
     require(valueRemaining == 0, "Too much ETH sent");
@@ -515,10 +513,10 @@ contract Operator is
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
-    expiration = block.timestamp.add(getExpiryTime);
+    expiration = block.timestamp + getExpiryTime;
     bytes31 paramsHash = _buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, _safeCastToUint8(dataVersion));
-    s_tokensInEscrow = s_tokensInEscrow.add(payment);
+    s_tokensInEscrow = s_tokensInEscrow + payment;
     return (requestId, expiration);
   }
 
@@ -543,7 +541,7 @@ contract Operator is
     bytes31 paramsHash = _buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     require(s_commitments[requestId].dataVersion <= _safeCastToUint8(dataVersion), "Data versions must match");
-    s_tokensInEscrow = s_tokensInEscrow.sub(payment);
+    s_tokensInEscrow = s_tokensInEscrow - payment;
     delete s_commitments[requestId];
   }
 
@@ -606,8 +604,8 @@ contract Operator is
       uint256
     )
   {
-    uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
-    return linkToken.balanceOf(address(this)).sub(inEscrow);
+    uint256 inEscrow = s_tokensInEscrow - ONE_FOR_CONSISTENT_GAS_COST;
+    return linkToken.balanceOf(address(this)) - inEscrow;
   }
 
   /**
