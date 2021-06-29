@@ -14,10 +14,11 @@
     "compile": "hardhat compile",
     "lint:sol": "solhint -f table ./src/**/**/*.sol",
     "setup": "yarn compile",
-    "prepublishOnly": "yarn compile"
+    "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder"
   },
   "files": [
-    "src/"
+    "src/",
+    "abi/"
   ],
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
