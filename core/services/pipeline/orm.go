@@ -152,9 +152,12 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
 	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		sql := `
-		SELECT pipeline_runs.* FROM pipeline_runs, pipeline_task_runs
+		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
+		FROM pipeline_runs
+		JOIN pipeline_task_runs ON (pipeline_task_runs.pipeline_run_id = pipeline_runs.id)
+		JOIN pipeline_specs ON (pipeline_specs.id = pipeline_runs.pipeline_spec_id)
 		WHERE pipeline_task_runs.task_run_id = $1
-		FOR UPDATE `
+		FOR UPDATE`
 		if err = tx.Get(&run, sql, taskID); err != nil {
 			return err
 		}
