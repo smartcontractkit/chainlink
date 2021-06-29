@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 
-# Enable buildkit support locally
-if [ -z $CI ]; then
-  DOCKER_COMPOSE_RUN_OPTS=${DOCKER_COMPOSE_RUN_OPTS-""}
-  export COMPOSE_DOCKER_CLI_BUILD=1
-  export DOCKER_BUILDKIT=1
-else
-  DOCKER_COMPOSE_RUN_OPTS=${DOCKER_COMPOSE_RUN_OPTS-"--remove-orphans"}
-  export COMPOSE_DOCKER_CLI_BUILD=0
-  export DOCKER_BUILDKIT=1
-fi
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 
 # Export Explorer docker tag to be used in docker-compose files
 if [ -z $EXPLORER_DOCKER_TAG ]; then
@@ -138,8 +130,8 @@ test:dev)
   $dev_integration down -v --remove-orphans
   ;;
 test:ts)
-  $deps up $DOCKER_COMPOSE_RUN_OPTS --exit-code-from wait-db wait-db
-  $deps up $DOCKER_COMPOSE_RUN_OPTS --exit-code-from wait-db-2 wait-db-2
+  $deps up --exit-code-from wait-db wait-db
+  $deps up --exit-code-from wait-db-2 wait-db-2
 
   # Avoiding hanging, because of a bug: https://github.com/docker/compose/issues/3106
   export COMPOSE_INTERACTIVE_NO_CLI=1
