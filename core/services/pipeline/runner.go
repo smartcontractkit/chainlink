@@ -408,24 +408,32 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error) {
 	for {
-		if _, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l); err != nil {
+		trrs, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
+		if err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
-		db, err := r.orm.DB().DB()
-		if err != nil {
-			return false, errors.Wrap(err, "unable to retrieve sql.DB")
-		}
+		if run.Async {
+			db, err := r.orm.DB().DB()
+			if err != nil {
+				return false, errors.Wrap(err, "unable to retrieve sql.DB")
+			}
 
-		var restart bool
-		restart, err = r.orm.StoreRun(db, run)
-		if err != nil {
-			return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
-		}
+			var restart bool
 
-		if restart {
-			// instant restart: new data is already available in the database
-			continue
+			// TODO: if we ran and no async, then this needs to be InsertFinishedRun run instead
+			restart, err = r.orm.StoreRun(db, run)
+			if err != nil {
+				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+			}
+
+			if restart {
+				// instant restart: new data is already available in the database
+				continue
+			}
+		} else {
+			// TODO: assert pending == false, run has completed
+			r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, true)
 		}
 
 		return run.Pending, err
