@@ -6,6 +6,7 @@
 
 - `@chainlink/contracts` package changelog.
 - `KeeperCompatibleInterface` contracts.
+- Feeds Registry contracts: `FeedRegistryInterface` and `Denominations`.
 - v0.8 Consumable contracts (`ChainlinkClient`, `VRFConsumerBase` and aggregator interfaces).
 - Multi-word response handling in v0.7 and v0.8 `ChainlinkClient` contracts.
 
