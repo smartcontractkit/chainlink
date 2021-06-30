@@ -65,8 +65,10 @@ type EthTx struct {
 	ToAddress      common.Address
 	EncodedPayload []byte
 	Value          assets.Eth
-	GasLimit       uint64
-	Error          *string
+	// GasLimit on the EthTx is always the conceptual gas limit, which is not
+	// necessarily the same as the on-chain encoded value (i.e. Optimism)
+	GasLimit uint64
+	Error    *string
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
 	BroadcastAt   *time.Time
@@ -93,10 +95,12 @@ func (e EthTx) GetID() string {
 }
 
 type EthTxAttempt struct {
-	ID                      int64
-	EthTxID                 int64
-	EthTx                   EthTx `gorm:"foreignkey:EthTxID;->"`
-	GasPrice                utils.Big
+	ID       int64
+	EthTxID  int64
+	EthTx    EthTx `gorm:"foreignkey:EthTxID;->"`
+	GasPrice utils.Big
+	// ChainSpecificGasLimit on the EthTxAttempt is always the same as the on-chain encoded value for gas limit
+	ChainSpecificGasLimit   uint64
 	SignedRawTx             []byte
 	Hash                    common.Hash
 	CreatedAt               time.Time

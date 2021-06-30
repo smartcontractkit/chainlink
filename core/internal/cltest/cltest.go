@@ -24,7 +24,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -191,8 +191,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 
 	wsserver, url, cleanup := newWSServer()
 	config := NewConfigWithWSServer(t, url, wsserver)
-	// Disable gas updater for application tests
-	config.Set("GAS_UPDATER_ENABLED", false)
+	// Disable block history estimator for application tests
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
@@ -326,9 +326,15 @@ func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftx
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys), func() {
-		eventBroadcaster.Close()
+	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
+		assert.NoError(t, eventBroadcaster.Close())
 	}
+}
+
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *TestConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
+	t.Helper()
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config))
+	return ec
 }
 
 // TestApplication holds the test application and test servers
@@ -1514,10 +1520,10 @@ func Head(val interface{}) *models.Head {
 }
 
 // TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []gasupdater.Transaction {
-	txs := make([]gasupdater.Transaction, len(gasPrices))
+func TransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
+	txs := make([]gas.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gasupdater.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+		txs[i] = gas.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
 	}
 	return txs
 }

@@ -57,9 +57,9 @@ type ConfigReader interface {
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
 	FeatureOffchainReporting() bool
-	GasUpdaterBlockDelay() uint16
-	GasUpdaterBlockHistorySize() uint16
-	GasUpdaterTransactionPercentile() uint16
+	BlockHistoryEstimatorBlockDelay() uint16
+	BlockHistoryEstimatorBlockHistorySize() uint16
+	BlockHistoryEstimatorTransactionPercentile() uint16
 	InsecureSkipVerify() bool
 	JSONConsole() bool
 	KeeperDefaultTransactionQueueDepth() uint32
@@ -82,7 +82,6 @@ type ConfigReader interface {
 	MinimumServiceDuration() models.Duration
 	OCRTraceLogging() bool
 	OperatorContractAddress() common.Address
-	OptimismGasFees() bool
 	Port() uint16
 	ReaperExpiration() models.Duration
 	RootDir() string
