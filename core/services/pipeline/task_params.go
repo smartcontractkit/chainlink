@@ -475,6 +475,10 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 		*m = nil
 		return nil
 
+	case MapParam:
+		*m = v
+		return nil
+
 	case map[string]interface{}:
 		*m = MapParam(v)
 		return nil

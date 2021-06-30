@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -130,7 +130,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("RawLog").Return(types.Log{
@@ -142,8 +142,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil).
+			Once()
 
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -175,7 +176,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("RawLog").Return(types.Log{
@@ -244,7 +245,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				{},
@@ -273,7 +274,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			RequestId:        uni.spec.ExternalIDEncodeStringToTopic(),
 		}
@@ -289,7 +290,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				{},
@@ -344,7 +345,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(100),
 		}
@@ -395,7 +396,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(99),
 		}

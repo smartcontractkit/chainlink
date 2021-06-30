@@ -1,7 +1,7 @@
 GETH_VERSION: 1.10.4
 flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
-multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin a38a9f5d1f950be16fdca926578c021c6c9b4be11c71c65a287edf7afa253f5b
+multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin e6691a5e22b63a14f044e37383d03d8023de866aa5e69d154025ce603977dfdd
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_wrapper: ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin 747cc316e4944e5ec3edda70fbb190fa24171f777a60645fef14c5355d602740
 oracle_wrapper: ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a

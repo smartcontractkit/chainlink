@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -108,7 +107,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			nil,
 			"",
 			pipeline.ErrBadInput,
-			"into Go value of type uint32",
+			"overflow",
 		},
 		{
 			"string too large for address",
@@ -120,7 +119,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			nil,
 			"",
 			pipeline.ErrBadInput,
-			"want 40 for common.Address",
+			"incorrect length",
 		},
 		{
 			"too many array elements",
@@ -132,7 +131,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			nil,
 			"",
 			pipeline.ErrBadInput,
-			"input array length does not match ABI type",
+			"incorrect length",
 		},
 		{
 			"too many array elements (nested)",
@@ -146,7 +145,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 			nil,
 			"",
 			pipeline.ErrBadInput,
-			"input array length does not match ABI type",
+			"incorrect length",
 		},
 		{
 			"no argument names",
@@ -203,8 +202,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, result.Error)
-				expected := hexutil.MustDecode(test.expected)
-				require.Equal(t, expected, result.Value)
+				require.Equal(t, test.expected, result.Value)
 			}
 		})
 	}
