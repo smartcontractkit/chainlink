@@ -7,7 +7,6 @@ import (
 
 	"github.com/bmizerany/assert"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -55,9 +54,10 @@ func mustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	t.Helper()
 
 	run := pipeline.Run{
+		State:      pipeline.RunStatusRunning,
 		Outputs:    pipeline.JSONSerializable{Null: true},
 		Errors:     pipeline.RunErrors{},
-		FinishedAt: nil,
+		FinishedAt: null.Time{},
 	}
 	require.NoError(t, db.Create(&run).Error)
 	return run
@@ -72,22 +72,8 @@ func setupORM(t *testing.T) (*gorm.DB, pipeline.ORM) {
 	return db, orm
 }
 
-// Tests that inserting run results, then later updating the run results via upsert will work correctly.
-func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
-	db, orm := setupORM(t)
-
-	run := &pipeline.Run{
-		State:     pipeline.RunStatusRunning,
-		Errors:    nil,
-		Outputs:   pipeline.JSONSerializable{Null: true},
-		CreatedAt: time.Now(),
-	}
-
-	// allow inserting without a spec
-	require.NoError(t, db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`).Error)
-
-	err := orm.CreateRun(db, run)
-	require.NoError(t, err)
+func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, db *gorm.DB) *pipeline.Run {
+	t.Helper()
 
 	s := `
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -99,16 +85,38 @@ ds1->ds1_parse->ds1_multiply->answer1;
 answer1 [type=median index=0];
 answer2 [type=bridge name=election_winner index=1];
 `
+
 	p, err := pipeline.Parse(s)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	// spec := pipeline.Spec{DotDagSource: s}
+	maxTaskDuration := models.Interval(1 * time.Minute)
+	specID, err := orm.CreateSpec(context.Background(), db, *p, maxTaskDuration)
+	require.NoError(t, err)
 
-	now := time.Now()
+	run := &pipeline.Run{
+		PipelineSpecID: specID,
+		State:          pipeline.RunStatusRunning,
+		Errors:         nil,
+		Outputs:        pipeline.JSONSerializable{Null: true},
+		CreatedAt:      time.Now(),
+	}
+
+	err = orm.CreateRun(db, run)
+	require.NoError(t, err)
+	return run
+}
+
+// Tests that inserting run results, then later updating the run results via upsert will work correctly.
+func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
+	db, orm := setupORM(t)
+
+	run := mustInsertAsyncRun(t, orm, db)
 
 	sdb, err := orm.DB().DB()
 	require.NoError(t, err)
+
+	now := time.Now()
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
@@ -181,43 +189,13 @@ answer2 [type=bridge name=election_winner index=1];
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
 func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
+	db, orm := setupORM(t)
 
-	orm := pipeline.NewORM(db, store.Config)
-
-	run := &pipeline.Run{
-		State:     pipeline.RunStatusRunning,
-		Errors:    nil,
-		Inputs:    pipeline.JSONSerializable{Val: map[string]interface{}{"foo": "bar"}, Null: false},
-		Outputs:   pipeline.JSONSerializable{Null: true},
-		CreatedAt: time.Now(),
-	}
-
-	// allow inserting without a spec
-	require.NoError(t, db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`).Error)
-
-	err := orm.CreateRun(db, run)
-	require.NoError(t, err)
+	run := mustInsertAsyncRun(t, orm, db)
 
 	r, err := orm.FindRun(run.ID)
 	require.NoError(t, err)
 	require.Equal(t, run.Inputs, r.Inputs)
-
-	s := `
-ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
-ds1_parse [type=jsonparse lax=false  path="data,result"]
-ds1_multiply [type=multiply times=1000000000000000000]
-
-ds1->ds1_parse->ds1_multiply->answer1;
-
-answer1 [type=median index=0];
-answer2 [type=bridge name=election_winner index=1];
-`
-	p, err := pipeline.Parse(s)
-	require.NoError(t, err)
-	require.NotNil(t, p)
 
 	now := time.Now()
 
@@ -277,30 +255,14 @@ answer2 [type=bridge name=election_winner index=1];
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
+	db, orm := setupORM(t)
 
-	orm := pipeline.NewORM(db, store.Config)
+	run := mustInsertAsyncRun(t, orm, db)
 
 	sdb, err := orm.DB().DB()
 	require.NoError(t, err)
 
 	now := time.Now()
-
-	run := &pipeline.Run{
-		State:     pipeline.RunStatusRunning,
-		Errors:    nil,
-		Outputs:   pipeline.JSONSerializable{Null: true},
-		CreatedAt: now,
-	}
-
-	// allow inserting without a spec
-	require.NoError(t, db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`).Error)
-
-	// Create a run with a "running" state
-	err = orm.CreateRun(db, run)
-	require.NoError(t, err)
 
 	ds1_id := uuid.NewV4()
 	run.PipelineTaskRuns = []pipeline.TaskRun{
