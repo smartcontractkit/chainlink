@@ -108,6 +108,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		runID, err := pipelineORM.InsertFinishedRun(
 			corestore.DB,
 			pipeline.Run{
+				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
 				CreatedAt:      time.Now(),

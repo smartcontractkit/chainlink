@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -414,7 +415,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete
 		}
 
 		if run.Async {
-			db, err := r.orm.DB().DB()
+			var db *sql.DB
+			db, err = r.orm.DB().DB()
 			if err != nil {
 				return false, errors.Wrap(err, "unable to retrieve sql.DB")
 			}
@@ -433,7 +435,9 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete
 			}
 		} else {
 			// TODO: assert pending == false, run has completed
-			r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, true)
+			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, true); err != nil {
+				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+			}
 		}
 
 		return run.Pending, err
@@ -447,6 +451,7 @@ func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, sa
 func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
 	t := time.Now()
 	runID, err := r.InsertFinishedRun(db, Run{
+		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},
 		Outputs:        JSONSerializable{Val: "queued eth transaction"},
@@ -479,17 +484,23 @@ func (r *runner) runReaper() {
 
 // init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
 // We pick up those runs and resume execution.
-func (r *runner) scheduleUnfinishedRuns() error {
+func (r *runner) scheduleUnfinishedRuns() {
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
 	now := time.Now()
 
 	// immediately run reaper so we don't consider runs that are too old
 	r.runReaper()
 
-	return r.orm.GetUnfinishedRuns(now, func(run Run) error {
+	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
 		// SAFETY: ??? is this safe to do concurrently
-		// TODO: handle err here
-		go r.Run(context.TODO(), &run, *logger.Default)
+		go func() {
+			if _, err := r.Run(context.TODO(), &run, *logger.Default); err != nil {
+				logger.Errorw("Pipeline run init job resumption failed", "error", err)
+			}
+		}()
 		return nil
 	})
+	if err != nil {
+		logger.Errorw("Pipeline run init job failed", "error", err)
+	}
 }

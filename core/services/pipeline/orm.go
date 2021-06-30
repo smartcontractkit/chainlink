@@ -181,10 +181,7 @@ func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (r
 			// NOTE: can't join and preload in a single query unless explicitly listing all the struct fields...
 			// https://snippets.aktagon.com/snippets/757-how-to-join-two-tables-with-jmoiron-sqlx
 			sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
-			if err = tx.Select(&run.PipelineTaskRuns, sql, run.ID); err != nil {
-				return err
-			}
-			return nil
+			return tx.Select(&run.PipelineTaskRuns, sql, run.ID)
 		}
 
 		return nil
