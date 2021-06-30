@@ -721,7 +721,7 @@ func TestORM_AnyJobWithType(t *testing.T) {
 	defer cleanup()
 
 	js := cltest.NewJobWithWebInitiator()
-	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
+	js.Tasks = []models.TaskSpec{{Type: models.MustNewTaskType("bridgetestname")}}
 	assert.NoError(t, store.CreateJob(&js))
 	found, err := store.AnyJobWithType("bridgetestname")
 	assert.NoError(t, err)
@@ -876,7 +876,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
+	job.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.NoError(t, store.CreateJob(&job))
 
 	unfinishedRun := cltest.NewJobRun(job)
