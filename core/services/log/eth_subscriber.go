@@ -63,11 +63,15 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		}
 
 		if fromBlockOverride.Valid {
-			logger.Infow("LogBroadcaster: Using the override a limit of backfill", "blockNumber", fromBlockOverride.Int64)
 			fromBlock = uint64(fromBlockOverride.Int64)
 		}
 
-		logger.Infow("LogBroadcaster: Backfilling logs from", "blockNumber", fromBlock)
+		if fromBlock <= currentHeight {
+			logger.Infow("LogBroadcaster: Backfilling logs from", "blockNumber", fromBlock, "currentHeight", currentHeight)
+		} else {
+			logger.Infow("LogBroadcaster: Backfilling will be nop because fromBlock is above currentHeight",
+				"blockNumber", fromBlock, "currentHeight", currentHeight)
+		}
 
 		q := ethereum.FilterQuery{
 			FromBlock: big.NewInt(int64(fromBlock)),
