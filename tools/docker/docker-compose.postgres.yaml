@@ -21,8 +21,6 @@ services:
     environment:
       POSTGRES_DB: $CHAINLINK_DB_NAME
       POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
-    ports:
-      - 5432:5432
 
   node-db-2:
     container_name: chainlink-db-2
