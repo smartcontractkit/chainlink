@@ -36,13 +36,13 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	}
 	run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
 	run.TaskRuns = []models.TaskRun{
-		models.TaskRun{
+		{
 			ID:                               task0RunID,
 			Status:                           models.RunStatusPendingIncomingConfirmations,
 			ObservedIncomingConfirmations:    clnull.Uint32From(1),
 			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
 		},
-		models.TaskRun{
+		{
 			ID:                               task1RunID,
 			Status:                           models.RunStatusErrored,
 			Result:                           models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
@@ -183,7 +183,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
 			run.SetStatus(models.RunStatusCompleted)
 			run.TaskRuns = []models.TaskRun{
-				models.TaskRun{
+				{
 					ID:       uuid.NewV4(),
 					TaskSpec: taskSpec,
 					Status:   models.RunStatusPendingIncomingConfirmations,
