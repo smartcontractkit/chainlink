@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -159,15 +158,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
-	var gasUpdater gasupdater.GasUpdater
-	if store.Config.GasUpdaterEnabled() {
-		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater = gasupdater.NewGasUpdater(store.EthClient, store.Config)
-		subservices = append(subservices, gasUpdater)
-	} else {
-		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-	}
-
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
@@ -196,9 +186,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTracker = &headtracker.NullTracker{}
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
-		if gasUpdater != nil {
-			headBroadcaster.Subscribe(gasUpdater)
-		}
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
 	}
 

@@ -8,6 +8,8 @@ import (
 
 	context "context"
 
+	gas "github.com/smartcontractkit/chainlink/core/services/gas"
+
 	gorm "gorm.io/gorm"
 
 	mock "github.com/stretchr/testify/mock"
@@ -67,6 +69,22 @@ func (_m *TxManager) CreateEthTransaction(db *gorm.DB, fromAddress common.Addres
 	}
 
 	return r0, r1
+}
+
+// GetEstimator provides a mock function with given fields:
+func (_m *TxManager) GetEstimator() gas.Estimator {
+	ret := _m.Called()
+
+	var r0 gas.Estimator
+	if rf, ok := ret.Get(0).(func() gas.Estimator); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(gas.Estimator)
+		}
+	}
+
+	return r0
 }
 
 // Healthy provides a mock function with given fields:

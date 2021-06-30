@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -124,7 +124,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	confirmed := int64(23456)
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
 
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
@@ -1185,7 +1185,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	confirmed := int64(23456)
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
 
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
@@ -1317,7 +1317,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	confirmed := int64(23456)
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
 
 	// Prepare new rounds logs subscription to be called by new FM job
 	logs := make(chan<- types.Log, 1)
@@ -1402,7 +1402,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	app.Config.Set(orm.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
 	confirmed := int64(23456)
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
@@ -1973,13 +1973,15 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	require.Empty(t, run.PipelineTaskRuns[2].Error)
 }
 
-func TestIntegration_GasUpdater(t *testing.T) {
+func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	t.Parallel()
+
+	var initialDefaultGasPrice int64 = 5000000000
 
 	c, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	c.Set("ETH_GAS_PRICE_DEFAULT", 5000000000)
-	c.Set("GAS_UPDATER_ENABLED", true)
+	c.Set("ETH_GAS_PRICE_DEFAULT", initialDefaultGasPrice)
+	c.Set("GAS_ESTIMATOR_MODE", "BlockHistory")
 	c.Set("GAS_UPDATER_BLOCK_DELAY", 0)
 	c.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", 2)
 	// Limit the headtracker backfill depth just so we aren't here all week
@@ -1994,17 +1996,17 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	)
 	defer cleanup()
 
-	b41 := gasupdater.Block{
+	b41 := gas.Block{
 		Number:       41,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
-	b42 := gasupdater.Block{
+	b42 := gas.Block{
 		Number:       42,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
-	b43 := gasupdater.Block{
+	b43 := gas.Block{
 		Number:       43,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
@@ -2023,7 +2025,7 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 
-	// GasUpdater boot calls
+	// BlockHistoryEstimator boot calls
 	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
@@ -2047,9 +2049,14 @@ func TestIntegration_GasUpdater(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	assert.Equal(t, "41500000000", app.Config.EthGasPriceDefault().String())
+	estimator := app.TxManager.GetEstimator()
+	gasPrice, gasLimit, err := estimator.EstimateGas(nil, 500000)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(500000), gasLimit)
+	assert.Equal(t, "41500000000", gasPrice.String())
+	assert.Equal(t, initialDefaultGasPrice, app.Config.EthGasPriceDefault().Int64()) // unchanged
 
-	// GasUpdater new blocks
+	// BlockHistoryEstimator new blocks
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
 			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
@@ -2068,7 +2075,9 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	newHeads <- cltest.Head(43)
 
 	gomega.NewGomegaWithT(t).Eventually(func() string {
-		return c.EthGasPriceDefault().String()
+		gasPrice, _, err := estimator.EstimateGas(nil, 500000)
+		require.NoError(t, err)
+		return gasPrice.String()
 	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }
 
