@@ -43,9 +43,12 @@ type (
 		utils.DependentAwaiter
 		service.Service
 		httypes.HeadTrackable
+		Restart(number int64)
+
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		LatestHead() *models.Head
+		LatestHeadNumber() null.Int64
+
 		TrackedAddressesCount() uint32
 		// DB interactions
 		WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error)
@@ -53,10 +56,10 @@ type (
 	}
 
 	broadcaster struct {
-		orm              ORM
-		config           Config
-		connected        *abool.AtomicBool
-		latestHeadFromDb *models.Head
+		orm                   ORM
+		config                Config
+		connected             *abool.AtomicBool
+		requestedBackfillFrom null.Int64
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -72,6 +75,7 @@ type (
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
 		trackedAddressesCount uint32
+		restartFromNumber     int64
 	}
 
 	Config interface {
@@ -109,19 +113,24 @@ var _ Broadcaster = (*broadcaster)(nil)
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
 	chStop := make(chan struct{})
+	var requestedBackfillFrom null.Int64
+	if highestSavedHead != nil {
+		requestedBackfillFrom = null.NewInt64(highestSavedHead.Number, true)
+	}
+
 	return &broadcaster{
-		orm:              orm,
-		config:           config,
-		connected:        abool.New(),
-		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
-		registrations:    newRegistrations(),
-		logPool:          newLogPool(),
-		addSubscriber:    utils.NewMailbox(0),
-		rmSubscriber:     utils.NewMailbox(0),
-		newHeads:         utils.NewMailbox(1),
-		DependentAwaiter: utils.NewDependentAwaiter(),
-		chStop:           chStop,
-		latestHeadFromDb: highestSavedHead,
+		orm:                   orm,
+		config:                config,
+		connected:             abool.New(),
+		ethSubscriber:         newEthSubscriber(ethClient, config, chStop),
+		registrations:         newRegistrations(),
+		logPool:               newLogPool(),
+		addSubscriber:         utils.NewMailbox(0),
+		rmSubscriber:          utils.NewMailbox(0),
+		newHeads:              utils.NewMailbox(1),
+		DependentAwaiter:      utils.NewDependentAwaiter(),
+		chStop:                chStop,
+		requestedBackfillFrom: requestedBackfillFrom,
 	}
 }
 
@@ -133,12 +142,16 @@ func (b *broadcaster) Start() error {
 	})
 }
 
-func (b *broadcaster) LatestHead() *models.Head {
-	return b.latestHeadFromDb
+func (b *broadcaster) LatestHeadNumber() null.Int64 {
+	return b.requestedBackfillFrom
 }
 
 func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return atomic.LoadUint32(&b.trackedAddressesCount)
+}
+
+func (b *broadcaster) Restart(number int64) {
+	atomic.StoreInt64(&b.restartFromNumber, number)
 }
 
 func (b *broadcaster) Close() error {
@@ -223,19 +236,19 @@ func (b *broadcaster) startResubscribeLoop() {
 		}
 
 		var backfillFrom null.Int64
-		if b.latestHeadFromDb != nil {
+		if b.requestedBackfillFrom.Valid {
 			// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
 			// - keeping logs in the in-memory buffers in registration.go
 			//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
 			// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
 			//   (or more heads on fast chains) may be saved but not yet processed by LB
 			//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
-			from := b.latestHeadFromDb.Number -
+			from := b.requestedBackfillFrom.Int64 -
 				int64(b.registrations.highestNumConfirmations) -
 				int64(b.config.BlockBackfillDepth())
 
 			logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
-				"blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash,
+				"blockNumber", b.requestedBackfillFrom.Int64,
 				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
 			)
 
@@ -250,8 +263,7 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		// latestHeadFromDb is only used in the first backfill
-		b.latestHeadFromDb = nil
+		b.requestedBackfillFrom.Valid = false
 
 		// Each time this loop runs, chRawLogs is reconstituted as:
 		// "remaining logs from last subscription <- backfilled logs <- logs from new subscription"
@@ -306,7 +318,12 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			needsResubscribe = b.onRmSubscribers() || needsResubscribe
 
 		case <-debounceResubscribe.C:
-			if needsResubscribe {
+			restartFrom := atomic.LoadInt64(&b.restartFromNumber)
+			if restartFrom != 0 {
+				logger.Debugw("LogBroadcaster: Setting head number to restart from", "number", restartFrom)
+				b.requestedBackfillFrom.SetValid(restartFrom)
+			}
+			if needsResubscribe || restartFrom != 0 {
 				logger.Debug("LogBroadcaster: returning from the event loop to resubscribe")
 				return true, nil
 			}
@@ -441,8 +458,12 @@ func (n *NullBroadcaster) IsConnected() bool { return false }
 func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	return func() {}
 }
-func (n *NullBroadcaster) LatestHead() *models.Head {
-	return nil
+
+func (n *NullBroadcaster) Restart(number int64) {
+}
+
+func (n *NullBroadcaster) LatestHeadNumber() null.Int64 {
+	return null.NewInt64(0, false)
 }
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
