@@ -166,7 +166,7 @@ func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) fu
 }
 
 // Restart provides a mock function with given fields: number
-func (_m *Broadcaster) Restart(number int64) {
+func (_m *Broadcaster) ReplayFrom(number int64) {
 	_m.Called(number)
 }
 

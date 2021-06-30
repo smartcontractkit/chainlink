@@ -43,7 +43,7 @@ type (
 		utils.DependentAwaiter
 		service.Service
 		httypes.HeadTrackable
-		Restart(number int64)
+		ReplayFrom(number int64)
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
@@ -150,7 +150,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return atomic.LoadUint32(&b.trackedAddressesCount)
 }
 
-func (b *broadcaster) Restart(number int64) {
+func (b *broadcaster) ReplayFrom(number int64) {
 	atomic.StoreInt64(&b.restartFromNumber, number)
 }
 
@@ -247,7 +247,7 @@ func (b *broadcaster) startResubscribeLoop() {
 				int64(b.registrations.highestNumConfirmations) -
 				int64(b.config.BlockBackfillDepth())
 
-			logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
+			logger.Debugw("LogBroadcaster: Using an override as a start of the backfill",
 				"blockNumber", b.requestedBackfillFrom.Int64,
 				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
 			)
@@ -320,6 +320,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 		case <-debounceResubscribe.C:
 			restartFrom := atomic.LoadInt64(&b.restartFromNumber)
 			if restartFrom != 0 {
+				atomic.StoreInt64(&b.restartFromNumber, 0)
 				logger.Debugw("LogBroadcaster: Setting head number to restart from", "number", restartFrom)
 				b.requestedBackfillFrom.SetValid(restartFrom)
 			}
@@ -459,7 +460,7 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 	return func() {}
 }
 
-func (n *NullBroadcaster) Restart(number int64) {
+func (n *NullBroadcaster) ReplayFrom(number int64) {
 }
 
 func (n *NullBroadcaster) LatestHeadNumber() null.Int64 {
