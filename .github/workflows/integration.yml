@@ -1,0 +1,109 @@
+name: Integration
+
+on: [push]
+
+jobs:
+  build-chainlink:
+    name: Build chainlink image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+
+      # Login to dockerhub so that we don't get rate limited
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-single-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-single-buildx
+
+      - name: Build and export
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: core/chainlink.Dockerfile
+          build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          tags: smartcontract/chainlink:latest
+          push: false
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          outputs: type=docker,dest=/tmp/chainlink.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: chainlink
+          path: /tmp/chainlink.tar
+
+  integration:
+    name: compose ${{ matrix.test }} ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    needs: build-chainlink
+    timeout-minutes: 60
+    strategy:
+      max-parallel: 2
+      matrix:
+        test: ['test', 'test:ts']
+        node: ['geth', 'parity']
+    env:
+      GETH_MODE: ${{ matrix.node == 'geth' }}
+      CI: true
+      CHAINLINK_DB_NAME: postgres
+      # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
+      EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-single-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-single-buildx
+
+      - name: Download artifact from build-chainlink
+        uses: actions/download-artifact@v2
+        with:
+          name: chainlink
+          path: /tmp
+      - name: Load Chainlink Docker image
+        run: |
+          docker load --input /tmp/chainlink.tar
+          docker image ls -a
+
+      # Login to dockerhub so that we don't get rate limited
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+
+      - name: Run tests
+        # timeout command here handles a zombie process
+        run: timeout --foreground 3600s ./compose ${{ matrix.test }}
+        working-directory: ./tools/docker
+
+      - name: Cleanup
+        if: always()
+        run: ./compose ${{ matrix.test }}:down
+        working-directory: ./tools/docker
+      - name: Store logs artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./tools/docker/logs

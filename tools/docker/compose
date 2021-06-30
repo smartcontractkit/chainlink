@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-set -e
+set -ex
 
-# Command line flags used for 'docker compose build'
-DOCKER_COMPOSE_BUILD_OPTS=${DOCKER_COMPOSE_BUILD_OPTS-"--parallel"}
-
-# Enable buildkit support locally
-if [ -z $CI ]; then
-  export COMPOSE_DOCKER_CLI_BUILD=1
-  export DOCKER_BUILDKIT=1
-fi
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 
 # Export Explorer docker tag to be used in docker-compose files
 if [ -z $EXPLORER_DOCKER_TAG ]; then
@@ -61,7 +55,8 @@ function save_test_logs() {
   $test logs --no-color echo-server &>./logs/echo-server.log
 }
 
-usage="compose -- A helper script for running common docker-compose commands\
+function usage() {
+  echo "compose -- A helper script for running common docker-compose commands\
 
 Commands:
     help                  Displays this help menu
@@ -88,10 +83,11 @@ Commands:
     cl:restart              Reset chainlink database
 
     *                     Run docker-compose with base config"
+}
 
 case "$1" in
 help)
-  echo "$usage"
+  usage
   ;;
 clean)
   clean_docker
@@ -116,14 +112,12 @@ cldo)
   ;;
 
 acceptance)
-  $base build $DOCKER_COMPOSE_BUILD_OPTS
   $base up
   ;;
 
 test)
-  $test build $DOCKER_COMPOSE_BUILD_OPTS
-  $deps up --exit-code-from wait-db wait-db
-  $test up --exit-code-from integration
+  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
+  $test up --abort-on-container-exit --remove-orphans integration
   save_test_logs
   $test down -v --remove-orphans
   ;;
@@ -131,15 +125,13 @@ test:down)
   $test down -v --remove-orphans
   ;;
 test:dev)
-  $deps up --exit-code-from wait-db wait-db
-  $dev_integration up --exit-code-from integration
+  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
+  $dev_integration up --abort-on-container-exit --remove-orphans integration
   $dev_integration down -v --remove-orphans
   ;;
 test:ts)
-  $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
-  $deps up --exit-code-from wait-db wait-db
-  $deps up --exit-code-from wait-db-2 wait-db-2
-  set +e
+  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
+  $deps up --abort-on-container-exit --remove-orphans wait-db-2 wait-db-2
 
   # Avoiding hanging, because of a bug: https://github.com/docker/compose/issues/3106
   export COMPOSE_INTERACTIVE_NO_CLI=1
@@ -157,8 +149,8 @@ test:ts:down)
   $ts_test down -v --remove-orphans
   ;;
 test:ts:dev)
-  $deps up --exit-code-from wait-db wait-db
-  $deps up --exit-code-from wait-db-2 wait-db-2
+  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
+  $deps up --abort-on-container-exit --remove-orphans wait-db-2 wait-db-2
   set +e
   $dev_ts_integration run integration-ts /bin/sh -c \
     "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
@@ -193,7 +185,7 @@ cl:restart)
   $base rm --force --stop node-db
   docker volume rm --force docker_node-db-data
   ./compose eth:restart
-  $deps up --exit-code-from wait-db wait-db
+  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
   $base start node
   ;;
 *)
