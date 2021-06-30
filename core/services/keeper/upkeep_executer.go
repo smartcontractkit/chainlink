@@ -225,6 +225,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		}
 
 		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: executer.job.PipelineSpecID,
 			Meta: pipeline.JSONSerializable{
 				Val: map[string]interface{}{"eth_tx_id": etx.ID},
