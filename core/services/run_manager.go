@@ -178,6 +178,20 @@ func (rm *runManager) CreateErrored(
 	return &run, rm.orm.CreateJobRun(&run)
 }
 
+func (rm *runManager) SeenSameRequestIDAndBlockHashBefore(run *models.JobRun) (bool, error) {
+	var seen bool
+	if err := rm.orm.DB.Raw(`
+SELECT count(*) > 0 FROM job_runs 
+	JOIN run_requests ON job_runs.run_request_id = run_requests.id 
+	JOIN task_runs ON job_runs.id = task_runs.job_run_id
+	JOIN task_specs ON task_runs.task_spec_id = task_specs.id
+	WHERE run_requests.request_id = ? AND task_specs.type = ? AND run_requests.block_hash = ?
+`, run.RunRequest.RequestID, adapters.TaskTypeRandom, run.RunRequest.BlockHash).Scan(&seen).Error; err != nil {
+		return seen, logger.NewErrorw("RunManager: unable to check for duplicate (requestID,blockHash)", "err", err)
+	}
+	return seen, nil
+}
+
 // If we have seen the same runRequest already, then double the required incoming confs.
 func (rm *runManager) MaybeDoubleMinIncomingConfs(run *models.JobRun) error {
 	if run == nil {
@@ -189,6 +203,7 @@ func (rm *runManager) MaybeDoubleMinIncomingConfs(run *models.JobRun) error {
 	if len(run.TaskRuns) == 0 {
 		return logger.NewErrorw("RunManager: expected non-empty task runs")
 	}
+
 	// We want the maximum number of random task minimum_confirmations
 	// of all job runs with the same run_request.request_id
 	var maxConfs uint32
@@ -198,7 +213,7 @@ SELECT coalesce(max(task_runs.minimum_confirmations), 0) FROM job_runs
 	JOIN task_runs ON job_runs.id = task_runs.job_run_id
 	JOIN task_specs ON task_runs.task_spec_id = task_specs.id
 	WHERE run_requests.request_id = ? AND task_specs.type = ?
-`, run.RunRequest.RequestID, adapters.TaskTypeRandom).Scan(&maxConfs).Error; err != nil {
+`, run.RunRequest.RequestID, adapters.TaskTypeRandom, run.RunRequest.BlockHash).Scan(&maxConfs).Error; err != nil {
 		return logger.NewErrorw("RunManager: unable to check for duplicate requests", "err", err)
 	}
 	if maxConfs != 0 {
@@ -257,6 +272,13 @@ func (rm *runManager) Create(
 	ValidateRun(run, runCost)
 
 	if initiator.Type == models.InitiatorRandomnessLog {
+		seenIdentical, err := rm.SeenSameRequestIDAndBlockHashBefore(run)
+		if err != nil {
+			return nil, err
+		}
+		if seenIdentical {
+			return nil, errors.Errorf("skipping duplicate (requestID,blockHash) = (%v, %v)", run.RunRequest.RequestID, run.RunRequest.BlockHash)
+		}
 		err = rm.MaybeDoubleMinIncomingConfs(run)
 		if err != nil {
 			return nil, err

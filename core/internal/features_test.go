@@ -370,7 +370,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
-	// Same requestID log again should result in a doubling of incoming confs
+	// Same requestID log again with different blockhash should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
 	log.BlockHash = cltest.NewHash()
 	log.BlockNumber = 102
@@ -379,7 +379,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
-	// Same requestID log again should result in a doubling of incoming confs
+	// Same requestID log again with different blockhash should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
 	log.BlockHash = cltest.NewHash()
 	log.BlockNumber = 103
@@ -388,11 +388,26 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
+	// Same requestID log again with SAME blockhash should NOT create a run
+	log.TxHash = cltest.NewHash()
+	log.BlockNumber = 103
+	logs <- log
+	runs = cltest.AssertRunsStays(t, jb, app.Store, 3)
+
+	// Same requestID log again with different blockhash should result in a doubling of incoming confs
+	log.TxHash = cltest.NewHash()
+	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 104
+	logs <- log
+	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6)*2*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
 	// New requestID should be back to original
 	randLog.RequestID = cltest.NewHash()
-	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
+	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 105)
 	logs <- newReqLog
-	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 }
