@@ -8,10 +8,9 @@ grep "\-\-\- FAIL" output.txt
 grep "FAIL	" output.txt
 grep "driver: bad connection" output.txt
 echo "Exit code: $EXITCODE"
-if [[ $EXITCODE == 1 ]]; then
+if [[ $EXITCODE != 0 ]]; then
   echo "Encountered test failures."
-  exit 1
 else
   echo "All tests passed!"
-  exit 0
 fi
+exit $EXITCODE
