@@ -187,7 +187,7 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 
 		job, err := store.FindJobSpec(run.JobSpecID)
 		require.NoError(t, err)
-		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: uuid.NewV4(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
+		run.TaskRuns = []models.TaskRun{{ID: uuid.NewV4(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
 
 		require.NoError(t, store.CreateJobRun(&run))
 		err = runManager.ResumeAllPendingConnection()
