@@ -352,6 +352,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	// Fixture values
 	sender := common.HexToAddress("0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7")
 	keyHash := common.HexToHash("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800")
+	t.Log("keyhash", keyHash)
 	jb := cltest.CreateSpecViaWeb(t, app, testspecs.RandomnessJob)
 	logs := <-logsCh
 	fee := assets.Link(*big.NewInt(100)) // Default min link is 100
@@ -388,18 +389,21 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
-	// Same requestID log again with SAME blockhash should NOT create a run
+	// Same requestID log again with SAME blockhash should NOT double
 	log.TxHash = cltest.NewHash()
 	log.BlockNumber = 103
 	logs <- log
-	runs = cltest.AssertRunsStays(t, jb, app.Store, 3)
+	//runs = cltest.AssertRunsStays(t, jb, app.Store, 3)
+	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again with different blockhash should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
 	log.BlockHash = cltest.NewHash()
 	log.BlockNumber = 104
 	logs <- log
-	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6)*2*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
@@ -407,7 +411,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	randLog.RequestID = cltest.NewHash()
 	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 105)
 	logs <- newReqLog
-	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
+	runs = cltest.WaitForRuns(t, jb, app.Store, 6)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
 	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 }
