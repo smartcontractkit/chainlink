@@ -213,7 +213,7 @@ SELECT coalesce(max(task_runs.minimum_confirmations), 0) FROM job_runs
 	JOIN task_runs ON job_runs.id = task_runs.job_run_id
 	JOIN task_specs ON task_runs.task_spec_id = task_specs.id
 	WHERE run_requests.request_id = ? AND task_specs.type = ?
-`, run.RunRequest.RequestID, adapters.TaskTypeRandom, run.RunRequest.BlockHash).Scan(&maxConfs).Error; err != nil {
+`, run.RunRequest.RequestID, adapters.TaskTypeRandom).Scan(&maxConfs).Error; err != nil {
 		return logger.NewErrorw("RunManager: unable to check for duplicate requests", "err", err)
 	}
 	if maxConfs != 0 {
