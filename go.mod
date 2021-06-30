@@ -51,7 +51,7 @@ require (
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20210617175326-472ada9f2eb2
-	github.com/smartcontractkit/wsrpc v0.2.0
+	github.com/smartcontractkit/wsrpc v0.3.0
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
