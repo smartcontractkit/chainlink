@@ -3,15 +3,16 @@ pragma solidity ^0.8.0;
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockHashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
 
 import "./VRF.sol";
 import "./ConfirmedOwner.sol";
+import "./VRFConsumerBaseV2.sol";
 
-contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
     LinkTokenInterface public immutable LINK;
     AggregatorV3Interface public immutable LINK_ETH_FEED;
-    AggregatorV3Interface public immutable FAST_GAS_FEED;
     BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
     event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
@@ -30,7 +31,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
     event NewServiceAgreement(bytes32 keyHash, address oracle);
     mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
     mapping(address /* oracle */ => uint256 /* LINK balance */) private s_withdrawableTokens;
-    mapping(bytes32 => mapping(address /* consumer */ => uint256 /* nonce */)) public s_nonces;
+    mapping(bytes32 /* keyHash */ => mapping(address /* consumer */ => uint256 /* nonce */)) public s_nonces;
 
     event RandomWordsRequested(
         bytes32 indexed keyHash,
@@ -64,28 +65,24 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
         uint16 maxConsumersPerSubscription;
     }
     Config private s_config;
-    int256 private s_fallbackGasPrice;
     int256 private s_fallbackLinkPrice;
     event ConfigSet(
         uint16 minimumRequestBlockConfirmations,
         uint16 maxConsumersPerSubscription,
         uint32 stalenessSeconds,
         uint32 gasAfterPaymentCalculation,
-        int256 fallbackGasPrice,
         int256 fallbackLinkPrice
     );
 
     constructor(
         address link,
         address blockHashStore,
-        address linkEthFeed,
-        address fastGasFeed
+        address linkEthFeed
     )
         ConfirmedOwner(msg.sender)
     {
         LINK = LinkTokenInterface(link);
         LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-        FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
         BLOCKHASH_STORE = BlockHashStoreInterface(blockHashStore);
     }
 
@@ -114,7 +111,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
         uint16 maxConsumersPerSubscription,
         uint32 stalenessSeconds,
         uint32 gasAfterPaymentCalculation,
-        int256 fallbackGasPrice,
         int256 fallbackLinkPrice
     )
     external
@@ -126,13 +122,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
             stalenessSeconds: stalenessSeconds,
             gasAfterPaymentCalculation: gasAfterPaymentCalculation
         });
-        s_fallbackGasPrice = fallbackGasPrice;
         s_fallbackLinkPrice = fallbackLinkPrice;
         emit ConfigSet(minimumRequestBlockConfirmations,
             maxConsumersPerSubscription,
             stalenessSeconds,
             gasAfterPaymentCalculation,
-            fallbackGasPrice,
             fallbackLinkPrice
         );
     }
@@ -148,7 +142,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
         uint16 maxConsumersPerSubscription,
         uint32 stalenessSeconds,
         uint32 gasAfterPaymentCalculation,
-        int256 fallbackGasPrice,
         int256 fallbackLinkPrice
     )
     {
@@ -158,7 +151,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
             config.maxConsumersPerSubscription,
             config.stalenessSeconds,
             config.gasAfterPaymentCalculation,
-            s_fallbackGasPrice,
             s_fallbackLinkPrice
         );
     }
@@ -173,12 +165,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
     external
     returns (uint256 requestId)
     {
-       // One would consider doing a sanity check that the subscription has enough link here,
-       // but:
-       //   1) you'd need to either store a cached price or do a lookup which are both costly
-       //   2) set a fixed min which would be hard to estimate
-       //   3) price could fluctuate anyways between request and response, so it could still fail to fulfill
-       //   4) if it did fail to fulfill, you could simply top up the subscription and re-try and it would succeed
        require(s_subscriptions[subId].owner != address(0), "invalid subId");
        require(minimumRequestConfirmations >= s_config.minimumRequestBlockConfirmations, "minconfs too low");
        bool validConsumer;
@@ -190,16 +176,21 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
        }
        require(validConsumer, "invalid consumer");
        require(s_serviceAgreements[keyHash] != address(0), "must be a registered key");
+
        uint256 nonce = s_nonces[keyHash][msg.sender] + 1;
        uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
+
        // Min req confirmations not needed as part of fulfillment, leave out of the commitment
        s_callbacks[preSeedAndRequestId] = keccak256(abi.encodePacked(preSeedAndRequestId, block.number, subId, callbackGasLimit, numWords, msg.sender));
        emit RandomWordsRequested(keyHash, preSeedAndRequestId, subId, minimumRequestConfirmations, callbackGasLimit, numWords, msg.sender);
        s_nonces[keyHash][msg.sender] = nonce;
+
        return preSeedAndRequestId;
     }
 
-    function getCallback(uint256 requestId)
+    function getCallback(
+        uint256 requestId
+    )
     external
     view
     returns (bytes32){
@@ -231,34 +222,35 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
         // with the same proof because this getRandomnessFromProof will revert because the requestId
         // is gone.
         delete s_callbacks[requestId];
-        bytes memory resp = abi.encodeWithSelector(FULFILL_RANDOM_WORDS_SELECTOR, requestId, randomWords);
+        VRFConsumerBaseV2 v;
+        bytes memory resp = abi.encodeWithSelector(v.fulfillRandomWords.selector, requestId, randomWords);
         require(gasleft() > fp.callbackGasLimit, "not enough gas for consumer");
         (bool success,) = fp.sender.call(resp);
         // Avoid unused-local-variable warning. (success is only present to prevent
         // a warning that the return value of consumerContract.call is unused.)
         (success);
 
-        emit RandomWordsFulfilled(requestId, randomWords, true);
+        emit RandomWordsFulfilled(requestId, randomWords, success);
         // We want to charge users exactly for how much gas they use in their callback.
         // The gasAfterPaymentCalculation is meant to cover these additional operations where we
         // decrement the subscription balance and increment the oracles withdrawable balance.
-        uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation);
+        uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice);
         s_subscriptions[fp.subId].balance -= payment;
         s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
     }
 
     function calculatePaymentAmount(
         uint256 startGas,
-        uint256 gasAfterPaymentCalculation
+        uint256 gasAfterPaymentCalculation,
+        uint256 gasWei
     )
     private
     view
     returns (uint256)
     {
-        // Get the amount of gas used for (fulfillment + request)
-        uint256 gasWei; // wei/gas i.e. gasPrice
+        // Get the amount of gas used for fulfillment
         uint256 linkWei; // link/wei i.e. link price in wei.
-        (gasWei, linkWei) = getFeedData();
+        linkWei = getFeedData();
         // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
         return 1e18*gasWei*(gasAfterPaymentCalculation + startGas - gasleft()) / linkWei;
     }
@@ -312,27 +304,18 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
     private
     view
     returns (
-        uint256,
         uint256
     )
     {
         uint32 stalenessSeconds = s_config.stalenessSeconds;
         bool staleFallback = stalenessSeconds > 0;
         uint256 timestamp;
-        int256 gasWei;
         int256 linkEth;
-        // Fallback to the fallback price if the feed is too stale.
-        // Maybe need to optimize to avoid this contract call and used a cached
-        // price, say in the case of a large number of fulfillments in short succession?
-        (,gasWei,,timestamp,) = FAST_GAS_FEED.latestRoundData();
-        if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
-            gasWei = s_fallbackGasPrice;
-        }
         (,linkEth,,timestamp,) = LINK_ETH_FEED.latestRoundData();
         if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
             linkEth = s_fallbackLinkPrice;
         }
-        return (uint256(gasWei), uint256(linkEth));
+        return uint256(linkEth);
     }
 
     function withdraw(address _recipient, uint256 _amount)
@@ -373,9 +356,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
     view
     {
         require(consumers.length <= s_config.maxConsumersPerSubscription, ">max consumers per sub");
-        for (uint i = 0; i < consumers.length; i++) {
-            require(consumers[i] != address(0), "consumer add == zero");
-        }
     }
 
     function updateSubscription(
@@ -431,5 +411,21 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner {
         require(s_subscriptions[subId].balance == 0, "balance != 0");
         delete s_subscriptions[subId];
         emit SubscriptionCanceled(subId);
+    }
+
+    /**
+     * @notice The type and version of this contract
+     * @return Type and version string
+     */
+    function typeAndVersion()
+    external
+    pure
+    virtual
+    override
+    returns (
+        string memory
+    )
+    {
+        return "VRFCoordinatorV2 1.0.0";
     }
 }

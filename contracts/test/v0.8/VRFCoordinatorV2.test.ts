@@ -6,7 +6,6 @@ describe("VRFCoordinatorV2", () => {
   let vrfCoordinatorV2: Contract;
   let linkToken: Contract;
   let blockHashStore: Contract;
-  let mockGasPrice: Contract;
   let mockLinkEth: Contract;
   let owner: Signer;
   let subOwner: Signer;
@@ -14,13 +13,11 @@ describe("VRFCoordinatorV2", () => {
   let random: Signer;
   let oracle: Signer;
   const linkEth = BigNumber.from(300000000);
-  const gasWei = BigNumber.from(1e9);
   type config = {
     minimumRequestBlockConfirmations: number;
     maxConsumersPerSubscription: number;
     stalenessSeconds: number;
     gasAfterPaymentCalculation: number;
-    fallbackGasPrice: BigNumber;
     fallbackLinkPrice: BigNumber;
   };
   let c: config;
@@ -37,13 +34,11 @@ describe("VRFCoordinatorV2", () => {
     let bhFactory = await ethers.getContractFactory("BlockhashStore", accounts[0]);
     blockHashStore = await bhFactory.deploy();
     let mockAggregatorV3Factory = await ethers.getContractFactory("MockV3Aggregator", accounts[0]);
-    mockGasPrice = await mockAggregatorV3Factory.deploy(0, gasWei);
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth);
     let vrfCoordinatorV2Factory = await ethers.getContractFactory("VRFCoordinatorV2", accounts[0]);
     vrfCoordinatorV2 = await vrfCoordinatorV2Factory.deploy(
       linkToken.address,
       blockHashStore.address,
-      mockGasPrice.address,
       mockLinkEth.address,
     );
     await linkToken.transfer(await subOwner.getAddress(), BigNumber.from("1000000000000000000")); // 1 link
@@ -52,7 +47,6 @@ describe("VRFCoordinatorV2", () => {
       maxConsumersPerSubscription: 10,
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
-      fallbackGasPrice: BigNumber.from(1e9),
       fallbackLinkPrice: BigNumber.from(1e9).mul(BigNumber.from(1e7)),
     };
     await vrfCoordinatorV2
@@ -62,7 +56,6 @@ describe("VRFCoordinatorV2", () => {
         c.maxConsumersPerSubscription,
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
-        c.fallbackGasPrice,
         c.fallbackLinkPrice,
       );
   });
@@ -76,7 +69,6 @@ describe("VRFCoordinatorV2", () => {
           c.maxConsumersPerSubscription,
           c.stalenessSeconds,
           c.gasAfterPaymentCalculation,
-          c.fallbackGasPrice,
           c.fallbackLinkPrice,
         ),
     ).to.be.revertedWith("Only callable by owner");
@@ -86,8 +78,7 @@ describe("VRFCoordinatorV2", () => {
     assert(resp[1] == c.maxConsumersPerSubscription);
     assert(resp[2] == c.stalenessSeconds);
     assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString());
-    assert(resp[4].toString() == c.fallbackGasPrice.toString());
-    assert(resp[5].toString() == c.fallbackLinkPrice.toString());
+    assert(resp[4].toString() == c.fallbackLinkPrice.toString());
   });
 
   it("subscription lifecycle", async function () {

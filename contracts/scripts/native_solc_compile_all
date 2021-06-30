@@ -32,4 +32,5 @@ $SCRIPTPATH/native_solc8_compile tests/VRFRequestIDBaseTestHelper.sol
 
 # VRF V2
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_compile dev/VRFConsumerBaseV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFConsumerV2.sol
