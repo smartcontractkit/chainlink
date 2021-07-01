@@ -183,6 +183,11 @@ func (r *runner) ExecuteRun(
 		return run, nil, err
 	}
 
+	if run.Async && run.Pending {
+		// TODO: we can verify run.HasAsync() this on the spec before executing
+		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
+	}
+
 	finalResult := taskRunResults.FinalResult()
 	if finalResult.HasErrors() {
 		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
@@ -395,13 +400,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
-	if run.Async && run.Pending {
-		// TODO: we can verify run.HasAsync() this on the spec before executing
-		return run.ID, finalResult, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
-	}
-
 	finalResult = trrs.FinalResult()
-	// else we create a new row
 	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
