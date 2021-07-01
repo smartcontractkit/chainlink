@@ -54,8 +54,8 @@ func TestETHABIDecodeTask(t *testing.T) {
 			map[string]interface{}{
 				"a": common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 				"u": [][3]*big.Int{
-					[3]*big.Int{big.NewInt(92), big.NewInt(61), big.NewInt(30)},
-					[3]*big.Int{big.NewInt(33), big.NewInt(66), big.NewInt(99)},
+					{big.NewInt(92), big.NewInt(61), big.NewInt(30)},
+					{big.NewInt(33), big.NewInt(66), big.NewInt(99)},
 				},
 				"b":   hexutil.MustDecode("0x666f6f206261722062617a0a"),
 				"b32": utils.Bytes32FromString("stevetoshi sergamoto"),

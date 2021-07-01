@@ -353,7 +353,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 				Address: sharedAddr,
 				Data:    models.UntrustedBytes(test.data),
 				Topics: []common.Hash{
-					common.Hash{},
+					{},
 					models.IDToTopic(job.ID),
 					cltest.NewAddress().Hash(),
 					common.BigToHash(big.NewInt(0)),
