@@ -116,14 +116,19 @@ func (g *OptimismGasPricesResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (o *optimismEstimator) refreshPrices() *time.Timer {
+func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 	var res OptimismGasPricesResponse
-	o.client.Call(&res, "rollup_gasPrices")
+	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
+
+	if err := o.client.Call(&res, "rollup_gasPrices"); err != nil {
+		logger.Warnf("OptimismEstimator: Failed to refresh prices, got error: %s", err)
+		return
+	}
 
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
 	o.l1GasPrice, o.l2GasPrice = res.L1GasPrice, res.L2GasPrice
-	return time.NewTimer(utils.WithJitter(o.pollPeriod))
+	return
 }
 
 func (o *optimismEstimator) EstimateGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
@@ -160,6 +165,9 @@ func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ models.Head) 
 
 func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSpecificGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	l1GasPrice, l2GasPrice := o.getGasPrices()
+	if l1GasPrice == nil || l2GasPrice == nil {
+		return nil, 0, errors.New("failed to estimate optimism gas; gas prices not set")
+	}
 
 	optimismGasLimitBig := optimismfees.EncodeTxGasLimit(calldata, l1GasPrice, big.NewInt(int64(l2GasLimit)), l2GasPrice)
 	if !optimismGasLimitBig.IsInt64() {

@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/stretchr/testify/assert"
@@ -43,5 +44,18 @@ func Test_OptimismEstimator(t *testing.T) {
 	t.Run("calling BumpGas always returns error", func(t *testing.T) {
 		_, _, err := o.BumpGas(big.NewInt(42), gasLimit)
 		assert.EqualError(t, err, "bump gas is not supported for optimism")
+	})
+
+	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
+		config := new(mocks.Config)
+		client := new(mocks.OptimismRPCClient)
+		o = gas.NewOptimismEstimator(config, client)
+
+		client.On("Call", mock.Anything, "rollup_gasPrices").Return(errors.New("kaboom"))
+
+		require.NoError(t, o.Start())
+
+		_, _, err := o.EstimateGas(calldata, gasLimit)
+		assert.EqualError(t, err, "failed to estimate optimism gas; gas prices not set")
 	})
 }
