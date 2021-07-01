@@ -156,7 +156,7 @@ func (o *optimismEstimator) BumpGas(originalGasPrice *big.Int, originalGasLimit 
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 
-func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ models.Head) { return }
+func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ models.Head) {}
 
 func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSpecificGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	l1GasPrice, l2GasPrice := o.getGasPrices()

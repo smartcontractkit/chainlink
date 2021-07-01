@@ -19,7 +19,7 @@ func NewFixedPriceEstimator(config Config) Estimator {
 
 func (f *fixedPriceEstimator) Start() error                                       { return nil }
 func (f *fixedPriceEstimator) Close() error                                       { return nil }
-func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ models.Head) { return }
+func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ models.Head) {}
 
 func (f *fixedPriceEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice = f.config.EthGasPriceDefault()

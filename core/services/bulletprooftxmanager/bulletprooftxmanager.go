@@ -329,8 +329,6 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 	return b.gasEstimator
 }
 
-const optimismGasPrice int64 = 1e9 // 1 GWei
-
 // SendEther creates a transaction that transfers the given value of ether
 func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit uint64) (etx models.EthTx, err error) {
 	if to == utils.ZeroAddress {
