@@ -8,11 +8,25 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+)
+
+var (
+	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_num_gas_bumps",
+		Help: "Number of gas bumps",
+	})
+
+	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_exceeds_limit",
+		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
+	})
 )
 
 func NewEstimator(ethClient eth.Client, config Config) Estimator {
@@ -31,7 +45,6 @@ func NewEstimator(ethClient eth.Client, config Config) Estimator {
 }
 
 // Estimator provides an interface for estimating gas price and limit
-// TODO: Make it a service
 type Estimator interface {
 	OnNewLongestChain(context.Context, models.Head)
 	Start() error
@@ -171,16 +184,16 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// BumpGasPriceOnly will increase the price and apply multiplier to the gas limit
 func BumpGasPriceOnly(config Config, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice, err = bumpGasPrice(config, originalGasPrice)
 	if err != nil {
 		return nil, 0, err
 	}
-	chainSpecificGasLimit = originalGasLimit
+	chainSpecificGasLimit = applyMultiplier(originalGasLimit, config.EthGasLimitMultiplier())
 	return
 }
 
-// TODO: Move this?
 // bumpGasPrice computes the next gas price to attempt as the largest of:
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
@@ -197,7 +210,7 @@ func bumpGasPrice(config Config, originalGasPrice *big.Int) (*big.Int, error) {
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
-		// promGasBumpExceedsLimit.Inc()
+		promGasBumpExceedsLimit.Inc()
 		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
 			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String(), static.EthNodeConnectivityProblemLabel)
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
@@ -209,7 +222,7 @@ func bumpGasPrice(config Config, originalGasPrice *big.Int) (*big.Int, error) {
 			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
 	}
 	// TODO: Move/fix these
-	// promNumGasBumps.Inc()
+	promNumGasBumps.Inc()
 	return bumpedGasPrice, nil
 }
 

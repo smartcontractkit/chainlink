@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,58 +15,76 @@ func Test_BumpGasPriceOnly(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
-		name             string
-		originalGasPrice *big.Int
-		priceDefault     *big.Int
-		bumpPercent      uint16
-		bumpWei          *big.Int
-		maxGasPriceWei   *big.Int
-		expected         *big.Int
+		name                   string
+		originalGasPrice       *big.Int
+		priceDefault           *big.Int
+		bumpPercent            uint16
+		bumpWei                *big.Int
+		maxGasPriceWei         *big.Int
+		expectedGasPrice       *big.Int
+		originalLimit          uint64
+		limitMultiplierPercent float32
+		expectedLimit          uint64
 	}{
 		{
-			name:             "defaults",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("2e10"), // 20 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("5e9"),    // 0.5 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("3.6e10"), // 36 GWei
+			name:                   "defaults",
+			originalGasPrice:       toBigInt("3e10"), // 30 GWei
+			priceDefault:           toBigInt("2e10"), // 20 GWei
+			bumpPercent:            20,
+			bumpWei:                toBigInt("5e9"),    // 0.5 GWei
+			maxGasPriceWei:         toBigInt("5e11"),   // 0.5 uEther
+			expectedGasPrice:       toBigInt("3.6e10"), // 36 GWei
+			originalLimit:          100000,
+			limitMultiplierPercent: 1.0,
+			expectedLimit:          100000,
 		},
 		{
-			name:             "original + percentage wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("2e10"), // 20 GWei
-			bumpPercent:      30,
-			bumpWei:          toBigInt("5e9"),    // 0.5 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("3.9e10"), // 39 GWei
+			name:                   "original + percentage wins",
+			originalGasPrice:       toBigInt("3e10"), // 30 GWei
+			priceDefault:           toBigInt("2e10"), // 20 GWei
+			bumpPercent:            30,
+			bumpWei:                toBigInt("5e9"),    // 0.5 GWei
+			maxGasPriceWei:         toBigInt("5e11"),   // 0.5 uEther
+			expectedGasPrice:       toBigInt("3.9e10"), // 39 GWei
+			originalLimit:          100000,
+			limitMultiplierPercent: 1.1,
+			expectedLimit:          110000,
 		},
 		{
-			name:             "original + fixed wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("2e10"), // 20 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("8e9"),    // 0.8 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("3.8e10"), // 38 GWei
+			name:                   "original + fixed wins",
+			originalGasPrice:       toBigInt("3e10"), // 30 GWei
+			priceDefault:           toBigInt("2e10"), // 20 GWei
+			bumpPercent:            20,
+			bumpWei:                toBigInt("8e9"),    // 0.8 GWei
+			maxGasPriceWei:         toBigInt("5e11"),   // 0.5 uEther
+			expectedGasPrice:       toBigInt("3.8e10"), // 38 GWei
+			originalLimit:          100000,
+			limitMultiplierPercent: 0.8,
+			expectedLimit:          80000,
 		},
 		{
-			name:             "default + percentage wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("4e10"), // 40 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("5e9"),    // 0.5 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("4.8e10"), // 48 GWei
+			name:                   "default + percentage wins",
+			originalGasPrice:       toBigInt("3e10"), // 30 GWei
+			priceDefault:           toBigInt("4e10"), // 40 GWei
+			bumpPercent:            20,
+			bumpWei:                toBigInt("5e9"),    // 0.5 GWei
+			maxGasPriceWei:         toBigInt("5e11"),   // 0.5 uEther
+			expectedGasPrice:       toBigInt("4.8e10"), // 48 GWei
+			originalLimit:          100000,
+			limitMultiplierPercent: 1.0,
+			expectedLimit:          100000,
 		},
 		{
-			name:             "default + fixed wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("4e10"), // 40 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("9e9"),    // 0.9 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("4.9e10"), // 49 GWei
+			name:                   "default + fixed wins",
+			originalGasPrice:       toBigInt("3e10"), // 30 GWei
+			priceDefault:           toBigInt("4e10"), // 40 GWei
+			bumpPercent:            20,
+			bumpWei:                toBigInt("9e9"),    // 0.9 GWei
+			maxGasPriceWei:         toBigInt("5e11"),   // 0.5 uEther
+			expectedGasPrice:       toBigInt("4.9e10"), // 49 GWei
+			originalLimit:          100000,
+			limitMultiplierPercent: 1.0,
+			expectedLimit:          100000,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -74,12 +93,13 @@ func Test_BumpGasPriceOnly(t *testing.T) {
 			config.Set("ETH_GAS_BUMP_PERCENT", test.bumpPercent)
 			config.Set("ETH_GAS_BUMP_WEI", test.bumpWei)
 			config.Set("ETH_MAX_GAS_PRICE_WEI", test.maxGasPriceWei)
-			actual, limit, err := gas.BumpGasPriceOnly(config, test.originalGasPrice, 42)
+			config.Set("ETH_GAS_LIMIT_MULTIPLIER", test.limitMultiplierPercent)
+			actual, limit, err := gas.BumpGasPriceOnly(config, test.originalGasPrice, test.originalLimit)
 			require.NoError(t, err)
-			require.Equal(t, uint64(42), limit)
-			if actual.Cmp(test.expected) != 0 {
-				t.Fatalf("Expected %s but got %s", test.expected.String(), actual.String())
+			if actual.Cmp(test.expectedGasPrice) != 0 {
+				t.Fatalf("Expected %s but got %s", test.expectedGasPrice.String(), actual.String())
 			}
+			assert.Equal(t, int(test.expectedLimit), int(limit))
 		})
 	}
 }

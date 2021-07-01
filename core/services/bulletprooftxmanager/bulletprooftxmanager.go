@@ -71,16 +71,6 @@ type KeyStore interface {
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 var (
-	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tx_manager_num_gas_bumps",
-		Help: "Number of gas bumps",
-	})
-
-	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tx_manager_gas_bump_exceeds_limit",
-		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
-	})
-
 	promRevertedTxCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain",
@@ -95,7 +85,7 @@ type TxManager interface {
 	service.Service
 	Trigger(addr common.Address)
 	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx models.EthTx, err error)
-	GetEstimator() gas.Estimator
+	GetGasEstimator() gas.Estimator
 }
 
 type BulletproofTxManager struct {
@@ -107,7 +97,7 @@ type BulletproofTxManager struct {
 	keyStore         KeyStore
 	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
-	estimator        gas.Estimator
+	gasEstimator     gas.Estimator
 
 	chHeads chan models.Head
 	trigger chan common.Address
@@ -142,7 +132,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 	} else {
 		logger.Info("EthTxReaper: Disabled")
 	}
-	b.estimator = gas.NewEstimator(ethClient, config)
+	b.gasEstimator = gas.NewEstimator(ethClient, config)
 
 	return &b
 }
@@ -156,8 +146,8 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		logger.Debugw("BulletproofTxManager: booting", "keys", keys)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.estimator)
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.estimator)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
+		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
@@ -165,7 +155,7 @@ func (b *BulletproofTxManager) Start() (merr error) {
 			return errors.Wrap(err, "BulletproofTxManager: EthConfirmer failed to start")
 		}
 
-		if err := b.estimator.Start(); err != nil {
+		if err := b.gasEstimator.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: Estimator failed to start")
 		}
 
@@ -197,7 +187,7 @@ func (b *BulletproofTxManager) Close() (merr error) {
 
 		b.wg.Wait()
 
-		b.estimator.Close()
+		b.gasEstimator.Close()
 
 		return nil
 	})
@@ -229,8 +219,8 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			logger.ErrorIfCalling(eb.Close)
 			logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.estimator)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.estimator)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
+			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
 
 			logger.ErrorIfCalling(eb.Start)
 			logger.ErrorIfCalling(ec.Start)
@@ -244,7 +234,7 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head model
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
 		}
-		b.estimator.OnNewLongestChain(ctx, head)
+		b.gasEstimator.OnNewLongestChain(ctx, head)
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
@@ -334,8 +324,9 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *BulletproofTxManager) GetEstimator() gas.Estimator {
-	return b.estimator
+// GetGasEstimator returns the gas estimator, mostly useful for tests
+func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
+	return b.gasEstimator
 }
 
 const optimismGasPrice int64 = 1e9 // 1 GWei
@@ -357,7 +348,6 @@ func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit 
 	return etx, err
 }
 
-// TODO: Remove gas limit multiplier?
 func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx models.EthTx, gasPrice *big.Int, gasLimit uint64) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
 
@@ -499,6 +489,6 @@ func (n *NullTxManager) Trigger(common.Address)                         { panic(
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx models.EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error              { return nil }
-func (n *NullTxManager) Ready() error                { return nil }
-func (n *NullTxManager) GetEstimator() gas.Estimator { return nil }
+func (n *NullTxManager) Healthy() error                 { return nil }
+func (n *NullTxManager) Ready() error                   { return nil }
+func (n *NullTxManager) GetGasEstimator() gas.Estimator { return nil }

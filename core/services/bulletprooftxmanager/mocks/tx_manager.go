@@ -71,8 +71,8 @@ func (_m *TxManager) CreateEthTransaction(db *gorm.DB, fromAddress common.Addres
 	return r0, r1
 }
 
-// GetEstimator provides a mock function with given fields:
-func (_m *TxManager) GetEstimator() gas.Estimator {
+// GetGasEstimator provides a mock function with given fields:
+func (_m *TxManager) GetGasEstimator() gas.Estimator {
 	ret := _m.Called()
 
 	var r0 gas.Estimator

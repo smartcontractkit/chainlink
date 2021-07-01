@@ -2049,7 +2049,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	estimator := app.TxManager.GetEstimator()
+	estimator := app.TxManager.GetGasEstimator()
 	gasPrice, gasLimit, err := estimator.EstimateGas(nil, 500000)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(500000), gasLimit)

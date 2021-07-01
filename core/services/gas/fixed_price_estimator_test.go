@@ -37,6 +37,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.On("EthGasBumpPercent").Return(uint16(10))
 		config.On("EthGasBumpWei").Return(big.NewInt(150))
 		config.On("EthMaxGasPriceWei").Return(big.NewInt(1000000))
+		config.On("EthGasLimitMultiplier").Return(float32(1.1))
 
 		gasPrice, gasLimit, err := f.BumpGas(big.NewInt(42), 100000)
 		require.NoError(t, err)
