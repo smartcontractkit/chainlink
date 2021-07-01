@@ -21,7 +21,7 @@ func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
 			result Result
 		}
 		inputs := make([]input, 0, len(task.Inputs()))
-		// TODO: we could just allocate via make, then assign directly to run.inputs[i.OutputIndex()]
+		// NOTE: we could just allocate via make, then assign directly to run.inputs[i.OutputIndex()]
 		// if we're confident that indices are within range
 		for _, i := range task.Inputs() {
 			inputs = append(inputs, input{index: int32(i.OutputIndex()), result: s.results[i.ID()].Result})
@@ -101,8 +101,6 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 func (s *scheduler) reconstructResults() {
 	// if there's results already present on Run, then this is a resumption. Loop over them and fill results table
 	for _, r := range s.run.PipelineTaskRuns {
-		result := Result{}
-
 		task := s.pipeline.ByDotID(r.DotID)
 
 		if task == nil {
@@ -112,6 +110,8 @@ func (s *scheduler) reconstructResults() {
 		if r.IsPending() {
 			continue
 		}
+
+		result := Result{}
 
 		if r.Error.Valid {
 			result.Error = errors.New(r.Error.String)
@@ -172,7 +172,7 @@ Loop:
 		s.waiting--
 
 		// TODO: this is temporary until task_bridge can return a proper pending result
-		if result.Result.Error != nil && (result.Result.Error.Error() == "pending") {
+		if result.Result.Error == ErrPending {
 			result.Result = Result{}        // no output, no error
 			result.FinishedAt = null.Time{} // not finished
 		}
