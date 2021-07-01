@@ -346,10 +346,11 @@ func (b *broadcaster) onNewHeads() {
 	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
 	// Some heads may be missed (which is fine for LogBroadcaster logic) but the latest one in a burst will be received
 	if latestHead != nil {
-		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
+		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
+			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
 		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
-		b.registrations.sendLogs(logs, b.orm, *latestHead)
+		b.registrations.sendLogs(logs, *latestHead)
 	}
 }
 

@@ -361,34 +361,3 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
 	return mockEth
 }
-
-type blocks struct {
-	t      *testing.T
-	hashes []common.Hash
-}
-
-func (lb *blocks) logOnBlockNum(i uint64, addr common.Address) types.Log {
-	return cltest.RawNewRoundLog(lb.t, addr, lb.hashes[i], i, 0, false)
-}
-
-func (lb *blocks) logOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
-	return cltest.RawNewRoundLogWithTopics(lb.t, addr, lb.hashes[i], i, logIndex, false, topics)
-}
-
-func (lb *blocks) hashesMap() map[int64]common.Hash {
-	h := make(map[int64]common.Hash)
-	for i := 0; i < len(lb.hashes); i++ {
-		h[int64(i)] = lb.hashes[i]
-	}
-	return h
-}
-func newBlocks(t *testing.T, numHashes int) *blocks {
-	hashes := make([]common.Hash, 0)
-	for i := 0; i < numHashes; i++ {
-		hashes = append(hashes, cltest.NewHash())
-	}
-	return &blocks{
-		t:      t,
-		hashes: hashes,
-	}
-}

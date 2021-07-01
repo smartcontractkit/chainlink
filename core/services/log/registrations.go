@@ -164,10 +164,10 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return exists
 }
 
-func (r *registrations) sendLogs(logs []types.Log, orm ORM, latestHead models.Head) {
+func (r *registrations) sendLogs(logs []types.Log, latestHead models.Head) {
 	updates := make([]listenerMetadataUpdate, 0)
 	for _, log := range logs {
-		r.sendLog(log, orm, latestHead, &updates)
+		r.sendLog(log, latestHead, &updates)
 	}
 	applyListenerInfoUpdates(updates, latestHead)
 }
@@ -190,7 +190,7 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func (r *registrations) sendLog(log types.Log, orm ORM, latestHead models.Head, updates *[]listenerMetadataUpdate) {
+func (r *registrations) sendLog(log types.Log, latestHead models.Head, updates *[]listenerMetadataUpdate) {
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
 	for listener, metadata := range r.registrations[log.Address][log.Topics[0]] {
@@ -210,8 +210,18 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead models.Head, 
 			continue
 		}
 
+		isInCanonical := metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash)
+
+		if !latestHead.IsInChain(log.BlockHash) {
+			logger.Tracew("Skipping because not in canonical ",
+				"chainLen", latestHead.ChainLength(), "blockHash", latestHead.Hash,
+				"logBlockHash", log.BlockHash, "blockNumber", latestHead.Number, "logBlockNumber", log.BlockNumber)
+			// Skipping send because the log is from an outdated chain
+			continue
+		}
+
 		// All logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
-		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
+		if log.BlockNumber < metadata.lowestAllowedBlockNumber && isInCanonical {
 			// Skipping send because the log height is below lowest unprocessed in the currently remembered chain
 			continue
 		}

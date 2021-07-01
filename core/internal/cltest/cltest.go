@@ -1941,44 +1941,19 @@ type SimulateIncomingHeadsArgs struct {
 	Interval             time.Duration
 	Timeout              time.Duration
 	HeadTrackables       []httypes.HeadTrackable
-	Hashes               map[int64]common.Hash
+	Blocks               *Blocks
 }
 
 func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
 	t.Helper()
+	logger.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
 
 	if args.BackfillDepth == 0 {
 		t.Fatal("BackfillDepth must be > 0")
 	}
 
 	// Build the full chain of heads
-	heads := make(map[int64]*models.Head)
-	first := args.StartBlock - args.BackfillDepth
-	if first < 0 {
-		first = 0
-	}
-	last := args.EndBlock
-	if last == 0 {
-		last = args.StartBlock + 300 // If no .EndBlock is provided, assume we want 300 heads
-	}
-	for i := first; i <= last; i++ {
-		// If a particular block should have a particular
-		// hash, use that. Otherwise, generate a random one.
-		var hash common.Hash
-		if args.Hashes != nil {
-			if h, exists := args.Hashes[i]; exists {
-				hash = h
-			}
-		}
-		if hash == (common.Hash{}) {
-			hash = NewHash()
-		}
-		heads[i] = &models.Head{Hash: hash, Number: i}
-		if i > first {
-			heads[i].Parent = heads[i-1]
-		}
-	}
-
+	heads := args.Blocks.Heads
 	if args.Timeout == 0 {
 		args.Timeout = 60 * time.Second
 	}
@@ -1991,7 +1966,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 
 	chDone := make(chan struct{})
 	go func() {
-		current := int64(args.StartBlock)
+		current := args.StartBlock
 		for {
 			select {
 			case <-chDone:
@@ -1999,12 +1974,10 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 			case <-chTimeout:
 				return
 			default:
-				// Trim chain to backfill depth
-				ptr := heads[current]
-				for i := int64(0); i < args.BackfillDepth && ptr.Parent != nil; i++ {
-					ptr = ptr.Parent
+				_, exists := heads[current]
+				if !exists {
+					t.Fatalf("Head %v does not exist", current)
 				}
-				ptr.Parent = nil
 
 				for _, ht := range args.HeadTrackables {
 					ht.OnNewLongestChain(ctx, *heads[current])
@@ -2026,6 +1999,60 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 		})
 	}
 	return cleanup, chDone
+}
+
+type Blocks struct {
+	t       *testing.T
+	Hashes  []common.Hash
+	mHashes map[int64]common.Hash
+	Heads   map[int64]*models.Head
+}
+
+func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, false)
+}
+
+func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
+	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
+}
+
+func (b *Blocks) HashesMap() map[int64]common.Hash {
+	return b.mHashes
+}
+
+//
+//func (b *Blocks) HeadsCopy() map[int64]*models.Head {
+//	models.NewHead()
+//}
+
+func NewBlocks(t *testing.T, numHashes int) *Blocks {
+	hashes := make([]common.Hash, 0)
+	heads := make(map[int64]*models.Head)
+	for i := int64(0); i < int64(numHashes); i++ {
+		hash := NewHash()
+		hashes = append(hashes, hash)
+
+		heads[i] = &models.Head{Hash: hash, Number: i}
+		if i > 0 {
+			parent, exists := heads[i-1]
+			if exists {
+				heads[i].Parent = parent
+				heads[i].ParentHash = parent.Hash
+			}
+		}
+	}
+
+	hashesMap := make(map[int64]common.Hash)
+	for i := 0; i < len(hashes); i++ {
+		hashesMap[int64(i)] = hashes[i]
+	}
+
+	return &Blocks{
+		t:       t,
+		Hashes:  hashes,
+		mHashes: hashesMap,
+		Heads:   heads,
+	}
 }
 
 type HeadTrackableFunc func(context.Context, models.Head)
