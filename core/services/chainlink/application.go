@@ -88,6 +88,9 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
+
+	// ReplayBlocks of blocks
+	ReplayFromBlockNumber(number int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -743,4 +746,16 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
+}
+
+func (app *ChainlinkApplication) ReplayFromBlockNumber(number int64) error {
+
+	err := app.HeadTracker.PruneHeads(number)
+	if err != nil {
+		return errors.Wrap(err, "Failed to prune heads")
+	}
+
+	app.LogBroadcaster.ReplayFrom(number)
+
+	return nil
 }

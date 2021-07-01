@@ -76,3 +76,7 @@ func (ht *HeadSaver) HighestSeenHeadFromDB() (*models.Head, error) {
 func (ht *HeadSaver) Chain(ctx context.Context, hash common.Hash, depth uint) (models.Head, error) {
 	return ht.store.Chain(ctx, hash, depth)
 }
+
+func (ht *HeadSaver) PruneHeads(ctx context.Context, number int64) error {
+	return ht.store.PruneHeads(ctx, number)
+}
