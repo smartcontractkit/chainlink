@@ -130,7 +130,7 @@ func (re RunErrors) HasError() bool {
 }
 
 type TaskRun struct {
-	ID            int64             `json:"-" gorm:"primary_key"`
+	ID            uuid.UUID         `json:"id" gorm:"primary_key"`
 	Type          TaskType          `json:"type"`
 	PipelineRun   Run               `json:"-"`
 	PipelineRunID int64             `json:"-"`
@@ -140,9 +140,6 @@ type TaskRun struct {
 	FinishedAt    null.Time         `json:"finishedAt"`
 	Index         int32             `json:"index"`
 	DotID         string            `json:"dotId"`
-
-	// Unfortunate, but we need an UUID to pass through to the external adapter
-	TaskRunID uuid.UUID `json:"taskRunId"`
 
 	// Used internally for sorting completed results
 	task Task
@@ -157,11 +154,11 @@ func (tr TaskRun) GetID() string {
 }
 
 func (tr *TaskRun) SetID(value string) error {
-	ID, err := strconv.ParseInt(value, 10, 32)
+	ID, err := uuid.FromString(value)
 	if err != nil {
 		return err
 	}
-	tr.ID = int64(ID)
+	tr.ID = ID
 	return nil
 }
 

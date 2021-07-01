@@ -117,6 +117,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
 			}, pipeline.TaskRunResults{
 				{
+					ID:         uuid.NewV4(),
 					Task:       &pipeline.HTTPTask{},
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,

@@ -125,8 +125,8 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 		}
 
 		sql := `
-		INSERT INTO pipeline_task_runs (pipeline_run_id, task_run_id, type, index, output, error, dot_id, created_at, finished_at)
-		VALUES (:pipeline_run_id, :task_run_id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
+		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 		ON CONFLICT (pipeline_run_id, dot_id) DO UPDATE SET
 		output = EXCLUDED.output, error = EXCLUDED.error, finished_at = EXCLUDED.finished_at
 		RETURNING *;
@@ -156,14 +156,14 @@ func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (r
 		FROM pipeline_runs
 		JOIN pipeline_task_runs ON (pipeline_task_runs.pipeline_run_id = pipeline_runs.id)
 		JOIN pipeline_specs ON (pipeline_specs.id = pipeline_runs.pipeline_spec_id)
-		WHERE pipeline_task_runs.task_run_id = $1
+		WHERE pipeline_task_runs.id = $1
 		FOR UPDATE`
 		if err = tx.Get(&run, sql, taskID); err != nil {
 			return err
 		}
 
 		// Update the task with result
-		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE task_run_id = $1`
+		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE id = $1`
 		if _, err = tx.Exec(sql, taskID, JSONSerializable{Val: result}, time.Now()); err != nil {
 			return err
 		}
@@ -216,14 +216,14 @@ func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, save
 		}
 
 		sql := `
-		INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, dot_id, created_at, finished_at)
+		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 		VALUES %s
 		`
 		valueStrings := []string{}
 		valueArgs := []interface{}{}
 		for _, trr := range trrs {
-			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?)")
-			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
+			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?,?)")
+			valueArgs = append(valueArgs, run.ID, trr.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
 		}
 
 		/* #nosec G201 */

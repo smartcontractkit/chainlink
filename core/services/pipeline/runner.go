@@ -283,8 +283,8 @@ func (r *runner) run(
 	for _, result := range scheduler.results {
 		output := result.Result.OutputDB()
 		run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
+			ID:            result.ID,
 			PipelineRunID: run.ID,
-			TaskRunID:     result.ID,
 			Type:          result.Task.Type(),
 			Index:         result.Task.OutputIndex(),
 			Output:        &output,
