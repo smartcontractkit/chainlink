@@ -75,10 +75,35 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 	}
 
 	// if there's results already present on Run, then this is a resumption. Loop over them and fill results table
-	for _, r := range run.PipelineTaskRuns {
+	s.reconstructResults()
+
+	// immediately schedule all doable tasks
+	for id, task := range p.Tasks {
+		// skip tasks that are not ready
+		if s.dependencies[id] != 0 {
+			continue
+		}
+
+		// skip finished tasks
+		if _, exists := s.results[id]; exists {
+			continue
+		}
+
+		run := s.newMemoryTaskRun(task)
+
+		s.taskCh <- run
+		s.waiting++
+	}
+
+	return s
+}
+
+func (s *scheduler) reconstructResults() {
+	// if there's results already present on Run, then this is a resumption. Loop over them and fill results table
+	for _, r := range s.run.PipelineTaskRuns {
 		result := Result{}
 
-		task := p.ByDotID(r.DotID)
+		task := s.pipeline.ByDotID(r.DotID)
 
 		if task == nil {
 			panic("can't find task by dot id")
@@ -116,26 +141,6 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 			s.dependencies[id]--
 		}
 	}
-
-	// immediately schedule all doable tasks
-	for id, task := range p.Tasks {
-		// skip tasks that are not ready
-		if s.dependencies[id] != 0 {
-			continue
-		}
-
-		// skip finished tasks
-		if _, exists := s.results[id]; exists {
-			continue
-		}
-
-		run := s.newMemoryTaskRun(task)
-
-		s.taskCh <- run
-		s.waiting++
-	}
-
-	return s
 }
 
 func (s *scheduler) Run() {
