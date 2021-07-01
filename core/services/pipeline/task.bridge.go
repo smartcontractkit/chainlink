@@ -113,14 +113,14 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 	if t.Async == "true" {
 		// Look for a `pending` flag. This check is case-insensitive because http.Header normalizes header names
 		if _, ok := headers["X-Chainlink-Pending"]; ok {
-			return Result{Error: ErrPending} // TODO: TEMP
+			return Result{Error: ErrPending}
 		}
 
 		var response struct {
 			Pending bool `json:"pending"`
 		}
 		if err := json.Unmarshal(responseBytes, &response); err == nil && response.Pending {
-			return Result{Error: ErrPending} // TODO: TEMP
+			return Result{Error: ErrPending}
 		}
 	}
 

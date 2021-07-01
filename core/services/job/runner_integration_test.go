@@ -17,6 +17,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
+
 	// "github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -834,7 +835,6 @@ func TestRunner_AsyncJob(t *testing.T) {
 
 			require.Equal(t, float64(42), bridgeRequest["value"])
 
-			// TODO: use responseURL
 			responseURL = bridgeRequest["responseURL"].(string)
 
 			w.WriteHeader(http.StatusOK)
