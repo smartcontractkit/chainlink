@@ -5,17 +5,43 @@ import (
 )
 
 const up43 = `
-	CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-	ALTER TABLE pipeline_task_runs ADD COLUMN task_run_id uuid NOT NULL UNIQUE DEFAULT uuid_generate_v4 ();
-	ALTER TABLE pipeline_runs ADD COLUMN inputs jsonb;
+	-- Truncate tables to ease bigint -> UUID migration
+	TRUNCATE TABLE pipeline_runs, pipeline_task_runs, flux_monitor_round_stats_v2;
 
+	-- Migrate pipeline_task_runs to UUID
+	ALTER TABLE pipeline_task_runs DROP CONSTRAINT pipeline_task_runs_pkey; 
+	ALTER TABLE pipeline_task_runs DROP COLUMN id; 
+	ALTER TABLE pipeline_task_runs ADD COLUMN id uuid PRIMARY KEY;
+
+	-- Drop dependent constraints and indices
+	-- DROP INDEX flux_monitor_round_stats_v2_pipeline_run_id_idx;
+	-- DROP INDEX idx_unfinished_pipeline_task_runs;
+	-- DROP INDEX pipeline_task_runs_pipeline_run_id_dot_id_idx;
+	-- DROP CONSTRAINT flux_monitor_round_stats_v2_pipeline_run_id_fkey;
+	-- DROP CONSTRAINT pipeline_task_runs_pipeline_run_id_fkey;
+
+	-- ALTER TABLE pipeline_runs DROP CONSTRAINT pipeline_runs_pkey; 
+	-- ALTER TABLE pipeline_runs DROP COLUMN id; 
+	-- ALTER TABLE pipeline_runs ADD COLUMN id uuid PRIMARY KEY;
+
+	-- CREATE INDEX flux_monitor_round_stats_v2_pipeline_run_id_idx ON public.flux_monitor_round_stats_v2 USING btree (pipeline_run_id)
+	-- CREATE INDEX idx_unfinished_pipeline_task_runs ON public.pipeline_task_runs USING btree (pipeline_run_id) WHERE (finished_at IS NULL);
+	-- CREATE UNIQUE INDEX pipeline_task_runs_pipeline_run_id_dot_id_idx ON public.pipeline_task_runs USING btree (pipeline_run_id, dot_id);
+	-- ALTER TABLE ONLY public.flux_monitor_round_stats_v2
+	--     ADD CONSTRAINT flux_monitor_round_stats_v2_pipeline_run_id_fkey FOREIGN KEY (pipeline_run_id) REFERENCES public.pipeline_runs(id) ON DELETE CASCADE;
+	-- ALTER TABLE ONLY public.pipeline_task_runs
+	--     ADD CONSTRAINT pipeline_task_runs_pipeline_run_id_fkey FOREIGN KEY (pipeline_run_id) REFERENCES public.pipeline_runs(id) ON DELETE CASCADE DEFERRABLE;
+	--     pipeline_run_id on flux_monitor_round_stats_v2, pipeline_task_runs
+
+
+	-- Add state & inputs to pipeline_runs
+	ALTER TABLE pipeline_runs ADD COLUMN inputs jsonb;
 	CREATE TYPE pipeline_runs_state AS ENUM (
 	    'running',
 	    'suspended',
 	    'errored',
 	    'completed'
 	);
-
 	ALTER TABLE pipeline_runs ADD COLUMN state pipeline_runs_state DEFAULT 'completed';
 
 	ALTER TABLE pipeline_runs DROP CONSTRAINT pipeline_runs_check;
@@ -25,8 +51,6 @@ const up43 = `
 		((state IN ('running', 'suspended')) AND num_nulls(finished_at, outputs, errors) = 3)
 	);
 `
-
-// TODO: update the state machine constraint to include state
 
 const down43 = `
 	ALTER TABLE pipeline_runs DROP CONSTRAINT pipeline_runs_check;

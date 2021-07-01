@@ -121,8 +121,8 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
+			ID:            uuid.NewV4(),
 			PipelineRunID: run.ID,
-			TaskRunID:     uuid.NewV4(),
 			Type:          "bridge",
 			DotID:         "ds1",
 			CreatedAt:     now,
@@ -130,8 +130,8 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 		},
 		// finished task
 		{
+			ID:            uuid.NewV4(),
 			PipelineRunID: run.ID,
-			TaskRunID:     uuid.NewV4(),
 			Type:          "median",
 			DotID:         "answer2",
 			Output:        &pipeline.JSONSerializable{Val: 1},
@@ -160,8 +160,8 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
+			ID:            uuid.NewV4(),
 			PipelineRunID: run.ID,
-			TaskRunID:     uuid.NewV4(),
 			Type:          "bridge",
 			DotID:         "ds1",
 			Output:        &pipeline.JSONSerializable{Val: 2},
@@ -208,13 +208,13 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
 	_, err = sqlxDb.NamedQuery(`
-	INSERT INTO pipeline_task_runs (pipeline_run_id, task_run_id, type, index, output, error, dot_id, created_at, finished_at)
-	VALUES (:pipeline_run_id, :task_run_id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
+	INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+	VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 	`, pipeline.TaskRun{
+		ID:            ds1_id,
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
-		TaskRunID:     ds1_id,
 		Output:        &pipeline.JSONSerializable{Val: 2},
 		CreatedAt:     now,
 		FinishedAt:    null.TimeFrom(now),
@@ -224,8 +224,8 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
+			ID:            ds1_id,
 			PipelineRunID: run.ID,
-			TaskRunID:     ds1_id,
 			Type:          "bridge",
 			DotID:         "ds1",
 			CreatedAt:     now,
@@ -233,8 +233,8 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		},
 		// finished task
 		{
+			ID:            uuid.NewV4(),
 			PipelineRunID: run.ID,
-			TaskRunID:     uuid.NewV4(),
 			Type:          "median",
 			DotID:         "answer2",
 			Output:        &pipeline.JSONSerializable{Val: 1},
@@ -268,8 +268,8 @@ func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
+			ID:            ds1_id,
 			PipelineRunID: run.ID,
-			TaskRunID:     ds1_id,
 			Type:          "bridge",
 			DotID:         "ds1",
 			CreatedAt:     now,
@@ -277,8 +277,8 @@ func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
 		},
 		// finished task
 		{
+			ID:            uuid.NewV4(),
 			PipelineRunID: run.ID,
-			TaskRunID:     uuid.NewV4(),
 			Type:          "median",
 			DotID:         "answer2",
 			Output:        &pipeline.JSONSerializable{Val: 1},
