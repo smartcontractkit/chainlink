@@ -152,8 +152,9 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	// this is an incomplete run, so partial results should be present (regardless of saveSuccessfulTaskRuns)
 	require.Equal(t, 2, len(run.PipelineTaskRuns))
 	// and ds1 is not finished
-	require.Equal(t, run.PipelineTaskRuns[0].DotID, "ds1")
-	require.False(t, run.PipelineTaskRuns[0].FinishedAt.Valid)
+	task := run.ByDotID("ds1")
+	require.NotNil(t, task)
+	require.False(t, task.FinishedAt.Valid)
 
 	// now try setting the ds1 result: call store run again
 
@@ -182,8 +183,9 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	// this is an incomplete run, so partial results should be present (regardless of saveSuccessfulTaskRuns)
 	require.Equal(t, 2, len(run.PipelineTaskRuns))
 	// and ds1 is finished
-	require.Equal(t, run.PipelineTaskRuns[0].DotID, "ds1")
-	require.NotNil(t, run.PipelineTaskRuns[0].FinishedAt)
+	task = run.ByDotID("ds1")
+	require.NotNil(t, task)
+	require.NotNil(t, task.FinishedAt)
 }
 
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
