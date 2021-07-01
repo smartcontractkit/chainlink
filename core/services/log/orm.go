@@ -16,6 +16,7 @@ import (
 type ORM interface {
 	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error)
 	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error
+	DeleteNewestBroadcastsUntil(tx *gorm.DB, blockNumber uint64) error
 }
 
 type orm struct {
@@ -82,4 +83,10 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 		return errors.Errorf("cannot mark log broadcast as consumed: does not exist")
 	}
 	return nil
+}
+
+func (o *orm) DeleteNewestBroadcastsUntil(tx *gorm.DB, blockNumber uint64) error {
+	return tx.Exec(`
+        DELETE FROM log_broadcasts WHERE block_number >= blockNumber
+    `, blockNumber).Error
 }

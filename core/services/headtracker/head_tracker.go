@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -140,6 +141,11 @@ func (ht *HeadTracker) Chain(ctx context.Context, hash common.Hash, depth uint) 
 // Connected returns whether or not this HeadTracker is connected.
 func (ht *HeadTracker) Connected() bool {
 	return ht.headListener.Connected()
+}
+
+func (ht *HeadTracker) PruneHeads(number int64) error {
+	ctxQuery, _ := postgres.DefaultQueryCtx()
+	return ht.headSaver.PruneHeads(ctxQuery, number)
 }
 
 func (ht *HeadTracker) handleConnected() {
@@ -315,7 +321,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
+		headWithChain, err := ht.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {
