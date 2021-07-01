@@ -27,6 +27,8 @@ import (
 type Runner interface {
 	service.Service
 
+	// Run is a blocking call that will execute the run until no further progress can be made.
+	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
 	Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error)
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
