@@ -129,6 +129,32 @@ ds1 -> ds1_parse;
 				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
 			},
 		},
+		{
+			name: "async=true should error",
+			toml: `
+type              = "fluxmonitor"
+schemaVersion       = 1
+name                = "example flux monitor spec"
+contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+maxTaskDuration = "1s"
+threshold = 0.5
+absoluteThreshold = 0.0 
+
+idleTimerPeriod = "1s"
+idleTimerDisabled = false
+
+pollTimerPeriod = "500ms"
+pollTimerDisabled = false
+
+observationSource = """
+ds1          [type=bridge async=true name=voter_turnout timeout="10s"];
+"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "async=true tasks are not supported")
+			},
+		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
