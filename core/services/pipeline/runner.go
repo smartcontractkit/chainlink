@@ -184,7 +184,6 @@ func (r *runner) ExecuteRun(
 	}
 
 	if run.Async && run.Pending {
-		// TODO: we can verify run.HasAsync() this on the spec before executing
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
@@ -424,7 +423,6 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete
 
 			var restart bool
 
-			// TODO: if we ran and no async, then this needs to be InsertFinishedRun run instead
 			restart, err = r.orm.StoreRun(db, run)
 			if err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
@@ -435,7 +433,9 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete
 				continue
 			}
 		} else {
-			// TODO: assert pending == false, run has completed
+			if run.Pending {
+				return false, errors.Wrapf(err, "a run without async returned as pending")
+			}
 			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, true); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}

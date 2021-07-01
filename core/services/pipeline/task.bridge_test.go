@@ -168,8 +168,6 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("https://chain.link/v2/resume/%v", id.String()), reqBody.ResponseURL)
 		w.Header().Set("Content-Type", "application/json")
 
-		// TODO: test that this is rejected if asnyc=true is missing
-
 		// w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{"pending": true}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
