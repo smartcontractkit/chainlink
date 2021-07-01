@@ -126,7 +126,7 @@ func SqlxTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) erro
 	panicked = false
 
 	if err == nil {
-		err = tx.Commit()
+		err = errors.WithStack(tx.Commit())
 	}
 
 	return
