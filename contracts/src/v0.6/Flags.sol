@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.6;
+pragma solidity ^0.6.0;
 
 
 import "./SimpleReadAccessController.sol";
@@ -18,6 +18,7 @@ import "./interfaces/FlagsInterface.sol";
 contract Flags is FlagsInterface, SimpleReadAccessController {
 
   AccessControllerInterface public raisingAccessController;
+  AccessControllerInterface public loweringAccessController;
 
   mapping(address => bool) private flags;
 
@@ -31,16 +32,23 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     address indexed previous,
     address indexed current
   );
+  event LoweringAccessControllerUpdated(
+    address indexed previous,
+    address indexed current
+  );
 
   /**
    * @param racAddress address for the raising access controller.
+   * @param lacAddress address for the lowering access controller.
    */
   constructor(
-    address racAddress
+    address racAddress,
+    address lacAddress
   )
     public
   {
     setRaisingAccessController(racAddress);
+    setLoweringAccessController(lacAddress);
   }
 
   /**
@@ -118,8 +126,9 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   function lowerFlags(address[] calldata subjects)
     external
     override
-    onlyOwner()
   {
+    require(allowedToLowerFlags(), "Not allowed to lower flags");
+
     for (uint256 i = 0; i < subjects.length; i++) {
       address subject = subjects[i];
 
@@ -150,6 +159,22 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     }
   }
 
+  function setLoweringAccessController(
+    address lacAddress
+  )
+    public
+    override
+    onlyOwner()
+  {
+    address previous = address(loweringAccessController);
+
+    if (previous != lacAddress) {
+      loweringAccessController = AccessControllerInterface(lacAddress);
+
+      emit LoweringAccessControllerUpdated(previous, lacAddress);
+    }
+  }
+
 
   // PRIVATE
 
@@ -160,6 +185,15 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   {
     return msg.sender == owner ||
       raisingAccessController.hasAccess(msg.sender, msg.data);
+  }
+
+  function allowedToLowerFlags()
+    private
+    view
+    returns (bool)
+  {
+    return msg.sender == owner ||
+      loweringAccessController.hasAccess(msg.sender, msg.data);
   }
 
   function tryToRaiseFlag(address subject)

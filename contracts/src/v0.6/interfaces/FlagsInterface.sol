@@ -8,4 +8,5 @@ interface FlagsInterface {
   function raiseFlags(address[] calldata) external;
   function lowerFlags(address[] calldata) external;
   function setRaisingAccessController(address) external;
+  function setLoweringAccessController(address) external;
 }
