@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 interface VRFCoordinatorV2Interface {
@@ -20,7 +21,7 @@ interface VRFCoordinatorV2Interface {
 
     function fundSubscription(
         uint64 subId,
-        uint256 amount
+        uint96 amount
     )
     external;
 }

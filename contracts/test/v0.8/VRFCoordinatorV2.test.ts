@@ -19,6 +19,7 @@ describe("VRFCoordinatorV2", () => {
     stalenessSeconds: number;
     gasAfterPaymentCalculation: number;
     fallbackLinkPrice: BigNumber;
+    minimumSubscriptionBalance: BigNumber;
   };
   let c: config;
 
@@ -47,7 +48,8 @@ describe("VRFCoordinatorV2", () => {
       maxConsumersPerSubscription: 10,
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
-      fallbackLinkPrice: BigNumber.from(1e9).mul(BigNumber.from(1e7)),
+      fallbackLinkPrice: BigNumber.from("10000000000000000"),
+      minimumSubscriptionBalance: BigNumber.from("1000000000000000000"), // 1 link
     };
     await vrfCoordinatorV2
       .connect(owner)
@@ -57,6 +59,7 @@ describe("VRFCoordinatorV2", () => {
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
         c.fallbackLinkPrice,
+        c.minimumSubscriptionBalance,
       );
   });
 
@@ -70,6 +73,7 @@ describe("VRFCoordinatorV2", () => {
           c.stalenessSeconds,
           c.gasAfterPaymentCalculation,
           c.fallbackLinkPrice,
+          c.minimumSubscriptionBalance,
         ),
     ).to.be.revertedWith("Only callable by owner");
     // Anyone can read the config.

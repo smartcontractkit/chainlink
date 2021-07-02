@@ -43,7 +43,7 @@ const (
 	BufferForConsumerCallback = 6000
 
 	CallFulfillGasCost = 21000 + // Base tx cost
-		7515 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		7922 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 type pendingRequest struct {

@@ -32,7 +32,7 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
     }
 
     function testCreateSubscriptionAndFund(
-        uint256 amount
+        uint96 amount
     )
     external
     {

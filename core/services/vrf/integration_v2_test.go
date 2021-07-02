@@ -120,8 +120,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 		uint16(1000),     // maxConsumersPerSubscription
 		uint32(60*60*24), // stalenessSeconds
 		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
-		//big.NewInt(100000000000),      // 100 gwei fallbackGasPrice
 		big.NewInt(10000000000000000), // 0.01 eth per link fallbackLinkPrice
+		big.NewInt(1000000000000000000), // Minimum subscription balance 0.01 link
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -331,7 +331,7 @@ func TestRequestCost(t *testing.T) {
 	require.NoError(t, err)
 	uni.backend.Commit()
 	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
-		big.NewInt(100000000000000000)) // 0.1 LINK
+		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
 	subId, err := uni.consumerContract.SSubId(nil)
@@ -366,7 +366,7 @@ func TestFulfillmentCost(t *testing.T) {
 	require.NoError(t, err)
 	uni.backend.Commit()
 	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
-		big.NewInt(100000000000000000)) // 0.1 LINK
+		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
 	subId, err := uni.consumerContract.SSubId(nil)

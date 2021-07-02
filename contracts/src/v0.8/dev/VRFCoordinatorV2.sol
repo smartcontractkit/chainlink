@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
@@ -21,7 +22,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidSubscription();
   error MustBeSubOwner();
   struct Subscription {
-    uint256 balance; // Common balance used for all consumer requests.
+    uint96 balance; // Common link balance used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub
     address[] consumers; // List of addresses which can consume using this subscription.
   }
@@ -50,7 +51,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     address sender;
   }
   mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
-  mapping(address /* oracle */ => uint256 /* LINK balance */) private s_withdrawableTokens;
+  mapping(address /* oracle */ => uint96 /* LINK balance */) private s_withdrawableTokens;
   mapping(bytes32 /* keyHash */ => mapping(address /* consumer */ => uint256 /* nonce */)) public s_nonces;
   mapping(uint256 /* requestID */ => bytes32) private s_callbacks;
   event NewServiceAgreement(bytes32 keyHash, address oracle);
@@ -76,6 +77,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 stalenessSeconds;
     uint16 minimumRequestBlockConfirmations;
     uint16 maxConsumersPerSubscription;
+    uint96 minimumSubscriptionBalance;
   }
   Config private s_config;
   int256 private s_fallbackLinkPrice;
@@ -84,7 +86,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint16 maxConsumersPerSubscription,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    int256 fallbackLinkPrice
+    int256 fallbackLinkPrice,
+    uint256 minimumSubscriptionBalance
   );
 
   constructor(
@@ -135,7 +138,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint16 maxConsumersPerSubscription,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    int256 fallbackLinkPrice
+    int256 fallbackLinkPrice,
+    uint96 minimumSubscriptionBalance
   )
     external
     onlyOwner()
@@ -144,14 +148,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       minimumRequestBlockConfirmations: minimumRequestBlockConfirmations,
       maxConsumersPerSubscription: maxConsumersPerSubscription,
       stalenessSeconds: stalenessSeconds,
-      gasAfterPaymentCalculation: gasAfterPaymentCalculation
+      gasAfterPaymentCalculation: gasAfterPaymentCalculation,
+      minimumSubscriptionBalance: minimumSubscriptionBalance
     });
     s_fallbackLinkPrice = fallbackLinkPrice;
     emit ConfigSet(minimumRequestBlockConfirmations,
       maxConsumersPerSubscription,
       stalenessSeconds,
       gasAfterPaymentCalculation,
-      fallbackLinkPrice
+      fallbackLinkPrice,
+      minimumSubscriptionBalance
     );
   }
 
@@ -191,13 +197,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint256 requestId
     )
   {
-
+    // Input validation using the subscription storage.
+    // The cost of this will vary depending on how many consumers are
+    // associated with the subscription. TODO: We could use a
+    // merkle root of the consumer addresses and then provide a merkle
+    // branch upon request time, as then we wouldnt have to read
+    // ~O(num consumers) words from storage?
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
-    }
-
-    if (minimumRequestConfirmations < s_config.minimumRequestBlockConfirmations) {
-      revert RequestBlockConfsTooLow(minimumRequestConfirmations, s_config.minimumRequestBlockConfirmations);
     }
     bool validConsumer;
     for (uint16 i = 0; i < s_subscriptions[subId].consumers.length; i++) {
@@ -208,6 +215,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     if (!validConsumer) {
       revert InvalidConsumer(msg.sender);
+    }
+
+    // Input validation using the config storage word.
+    if (minimumRequestConfirmations < s_config.minimumRequestBlockConfirmations) {
+      revert RequestBlockConfsTooLow(minimumRequestConfirmations, s_config.minimumRequestBlockConfirmations);
+    }
+    if (s_subscriptions[subId].balance < s_config.minimumSubscriptionBalance) {
+      revert InsufficientBalance();
     }
     if (s_serviceAgreements[keyHash] == address(0)) {
       revert UnregisteredKeyHash(keyHash);
@@ -276,7 +291,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.
-    uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice);
+    uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice);
     if (s_subscriptions[fp.subId].balance < payment) {
       revert InsufficientBalance();
     }
@@ -293,7 +308,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     private
     view
     returns (
-      uint256
+      uint96
     )
   {
     uint256 weiPerUnitLink;
@@ -302,7 +317,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InvalidFeedResponse(weiPerUnitLink);
     }
     // (1e18 jules/link) (wei/gas * gas) / (wei/link) = jules
-    return 1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / weiPerUnitLink;
+    return uint96(1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / weiPerUnitLink);
   }
 
   function getRandomnessFromProof(
@@ -387,7 +402,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function withdraw(
     address recipient,
-    uint256 amount
+    uint96 amount
   )
     external
   {
@@ -455,7 +470,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function fundSubscription(
     uint64 subId,
-    uint256 amount
+    uint96 amount
   )
     external
     onlySubOwner(subId)
@@ -472,7 +487,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   function withdrawFromSubscription(
     uint64 subId,
     address to,
-    uint256 amount
+    uint96 amount
   )
     external
     onlySubOwner(subId)
