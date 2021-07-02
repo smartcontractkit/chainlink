@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	sorm "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 var (
@@ -266,7 +265,7 @@ func (o *orm) GetAllRuns() ([]Run, error) {
 }
 
 func (o *orm) GetUnfinishedRuns(now time.Time, fn func(run Run) error) error {
-	return sorm.Batch(func(offset, limit uint) (count uint, err error) {
+	return postgres.Batch(func(offset, limit uint) (count uint, err error) {
 		var runs []Run
 
 		err = o.db.
