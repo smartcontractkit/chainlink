@@ -196,7 +196,7 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
-	config.Set("ETH_FINALITY_DEPTH", 5)
+	config.Set("ETH_FINALITY_DEPTH", 15)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	// Set low sampling interval to remain within test head waiting timeouts
@@ -2018,6 +2018,10 @@ func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Ad
 
 func (b *Blocks) HashesMap() map[int64]common.Hash {
 	return b.mHashes
+}
+
+func (b *Blocks) Head(number uint64) *models.Head {
+	return b.Heads[int64(number)]
 }
 
 //

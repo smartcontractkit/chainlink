@@ -1258,6 +1258,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	)
 	defer cleanup()
 
+	blocks := cltest.NewBlocks(t, 20)
+
 	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
@@ -1269,7 +1271,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// Log backfill
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil).Maybe()
 
 	newHeadsCh := make(chan chan<- *models.Head, 1)
 	ethClientDone := cltest.NewAwaiter()
@@ -1329,7 +1331,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(sub, nil)
 
 	// Log Broadcaster backfills logs
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(1), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(1), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
@@ -1353,6 +1355,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	// Send a NewRound log event to trigger a run.
 	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/new_round_log.json")
 	log.Address = job.Initiators[0].InitiatorParams.Address
+	log.BlockHash = blocks.Head(log.BlockNumber).Hash
 
 	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -1367,12 +1370,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil).Once()
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(uint64(inLongestChain)), nil)
 
 	logs <- log
 
 	newHeads := <-newHeadsCh
-	newHeads <- cltest.Head(log.BlockNumber)
+	newHeads <- blocks.Head(log.BlockNumber)
 
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
@@ -1915,10 +1918,12 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	)
 	defer cleanup()
 
+	blocks := cltest.NewBlocks(t, 12)
+
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(10), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(10), nil)
 
 	var headCh chan<- *models.Head
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().
@@ -1930,7 +1935,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 
 	require.NoError(t, app.StartAndConnect())
@@ -1953,6 +1958,8 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
 	runLog := cltest.NewRunLog(t, job.ExternalIDToTopicHash(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	runLog.BlockHash = blocks.Head(1).Hash
+
 	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
@@ -1962,8 +1969,9 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}, 30*time.Second)
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
-	headCh <- &models.Head{Number: 10}
-	headCh <- &models.Head{Number: 11}
+	for i := 0; i < 12; i++ {
+		headCh <- blocks.Head(uint64(i))
+	}
 
 	httpAwaiter.AwaitOrFail(t)
 
