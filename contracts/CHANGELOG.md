@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## Unreleased
+## 0.2.0 - 2021-07-01
 
 ### Added:
 
