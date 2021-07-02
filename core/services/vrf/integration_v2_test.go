@@ -59,8 +59,8 @@ type coordinatorV2Universe struct {
 
 var (
 	//gasPrice = decimal.RequireFromString("1000000000")
-	gasPrice = decimal.RequireFromString(chains.FallbackConfig.EthGasPriceDefault.String()) // Nodes default
-	ethLink  = decimal.RequireFromString("10000000000000000")
+	gasPrice       = decimal.RequireFromString(chains.FallbackConfig.EthGasPriceDefault.String()) // Nodes default
+	weiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Universe {
@@ -100,7 +100,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	//require.NoError(t, err)
 	linkEthFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			carol, backend, 18, ethLink.BigInt()) // 0.01 eth per link
+			carol, backend, 18, weiPerUnitLink.BigInt()) // 0.01 eth per link
 	require.NoError(t, err)
 	// Deploy coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
@@ -149,7 +149,6 @@ func TestIntegrationVRFV2(t *testing.T) {
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	t.Log(uni)
 	config.Set("ETH_GAS_LIMIT_DEFAULT", "500000")
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
@@ -284,12 +283,13 @@ func TestIntegrationVRFV2(t *testing.T) {
 	t.Log("end balance", end)
 	linkWeiCharged := start.Sub(end)
 	linkCharged := linkWeiCharged.Div(wei)
-	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), ethLink.Div(wei))
-	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(ethLink)
+	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), weiPerUnitLink.Div(wei))
+	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(weiPerUnitLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
 	// The expected sub charge should be within 100 gas of the actual gas usage.
-	gasDiff := linkCharged.Sub(expected).Mul(gasPrice.Div(ethLink)).Abs().IntPart()
-	t.Log("gas diff", gasDiff)
+	// wei/link * link / wei/gas = wei / (wei/gas) = gas
+	gasDiff := linkCharged.Sub(expected).Mul(weiPerUnitLink).Div(gasPrice).Abs().IntPart()
+	t.Log("gasDiff", gasDiff)
 	assert.Less(t, gasDiff, int64(100))
 
 	// Oracle tries to withdraw move than it was paid should fail

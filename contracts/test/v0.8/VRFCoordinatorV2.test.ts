@@ -85,7 +85,7 @@ describe("VRFCoordinatorV2", () => {
     // Create subscription with more than max consumers should revert.
     let tooManyConsumers: string[] = new Array(c.maxConsumersPerSubscription + 1).fill(await random.getAddress());
     await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(tooManyConsumers)).to.be.revertedWith(
-      "" + ">max consumers per sub",
+      "InvalidNumberOfConsumers(11, 10)",
     );
 
     // Create subscription.
@@ -100,7 +100,8 @@ describe("VRFCoordinatorV2", () => {
     // Subscription owner cannot fund
     await expect(
       vrfCoordinatorV2.connect(random).fundSubscription(subId, BigNumber.from("1000000000000000000")),
-    ).to.be.revertedWith("sub owner must fund");
+    ).to.be.revertedWith("MustBeSubOwner()");
+
 
     // Fund the subscription
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
@@ -114,7 +115,7 @@ describe("VRFCoordinatorV2", () => {
       vrfCoordinatorV2
         .connect(random)
         .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("1000000000000000000")),
-    ).to.be.revertedWith("sub owner must withdraw");
+    ).to.be.revertedWith("MustBeSubOwner()");
 
     // Withdraw from the subscription
     await expect(
@@ -129,30 +130,24 @@ describe("VRFCoordinatorV2", () => {
 
     // Non-owners cannot change the consumers
     await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, consumers)).to.be.revertedWith(
-      "sub owner must update",
+      "MustBeSubOwner()",
     );
     // Owners can
     await vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, consumers);
 
     // Non-owners cannot cancel
-    await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId)).to.be.revertedWith(
-      "sub owner must cancel",
+    await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId, await random.getAddress())).to.be.revertedWith(
+      "MustBeSubOwner()",
     );
-    // Cannot cancel sub with funds
-    await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId)).to.be.revertedWith("balance != 0");
 
-    // Withdraw remaining balance then cancel
-    let sub = await vrfCoordinatorV2.connect(subOwner).getSubscription(subId);
-    const withdraw2Tx = await vrfCoordinatorV2
-      .connect(subOwner)
-      .withdrawFromSubscription(subId, await random.getAddress(), sub.balance);
-    await withdraw2Tx.wait();
-    const random2Balance = await linkToken.balanceOf(await random.getAddress());
-    assert.equal(random2Balance.toString(), "1000000000000000000");
-    await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId))
+    const randomAddress = await random.getAddress();
+    await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress))
       .to.emit(vrfCoordinatorV2, "SubscriptionCanceled")
-      .withArgs(subId);
+      .withArgs(subId, randomAddress, BigNumber.from("999999999999999900"));
+    const random2Balance = await linkToken.balanceOf(randomAddress);
+    assert.equal(random2Balance.toString(), "1000000000000000000");
   });
+
 
   it("request random words", async () => {
     // Create and fund subscription.
@@ -168,9 +163,8 @@ describe("VRFCoordinatorV2", () => {
     const testKey = [BigNumber.from("1"), BigNumber.from("2")];
     let kh = await vrfCoordinatorV2.hashOfKey(testKey);
     await expect(vrfCoordinatorV2.connect(consumer).requestRandomWords(kh, 1, 1000, subId, 1)).to.be.revertedWith(
-      "must be a registered key",
+      `UnregisteredKeyHash("${kh.toString()}")`,
     );
-
     // Non-owner cannot register a proving key
     await expect(
       vrfCoordinatorV2.connect(random).registerProvingKey(await oracle.getAddress(), [1, 2]),
@@ -178,10 +172,11 @@ describe("VRFCoordinatorV2", () => {
 
     // Register a proving key
     await vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]);
+    const realkh = await vrfCoordinatorV2.hashOfKey(testKey);
     // Cannot register the same key twice
     await expect(
       vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]),
-    ).to.be.revertedWith("key already registered");
+    ).to.be.revertedWith(`KeyHashAlreadyRegistered("${realkh.toString()}")`);
 
     // IMPORTANT: Only registered consumers can use the subscription
     // Should fail for contract owner, sub owner, random address
@@ -197,7 +192,7 @@ describe("VRFCoordinatorV2", () => {
               1000, // callbackGasLimit
               1, // numWords
             ),
-          ).to.be.revertedWith("invalid consumer");
+          ).to.be.revertedWith(`InvalidConsumer("${v.toString()}")`);
         },
     );
 
@@ -210,7 +205,7 @@ describe("VRFCoordinatorV2", () => {
         1000, // callbackGasLimit
         1, // numWords
       ),
-    ).to.be.revertedWith("minconfs too low");
+    ).to.be.revertedWith("RequestBlockConfsTooLow(0, 1)");
 
     // SubId must be valid
     await expect(
@@ -221,7 +216,7 @@ describe("VRFCoordinatorV2", () => {
         1000, // callbackGasLimit
         1, // numWords
       ),
-    ).to.be.revertedWith("invalid subId");
+    ).to.be.revertedWith("InvalidSubscription()");
 
     const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
       kh, // keyhash

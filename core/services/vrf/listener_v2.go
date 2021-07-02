@@ -43,7 +43,7 @@ const (
 	BufferForConsumerCallback = 6000
 
 	CallFulfillGasCost = 21000 + // Base tx cost
-		7317 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		7515 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 type pendingRequest struct {
@@ -192,7 +192,9 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 	gasLimit, err2 := lsn.computeTxGasLimit(req.CallbackGasLimit, proof)
 	vrfCoordinatorPayload, _, err3 := lsn.ProcessLogV2(proof)
 	err = multierr.Combine(err1, err2, err3)
-	logger.Infow("estimated gas limit for tx", "gasLimit", gasLimit, "callbackLimit", req.CallbackGasLimit)
+	if err != nil {
+		logger.Errorw("error processing random request", "err", err)
+	}
 	f := time.Now()
 	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 		if err == nil {
@@ -284,7 +286,9 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 	   fulfillment contract method, so has the same encoding costs.
 	*/
 	staticVerifyGas := uint64(BufferForConsumerCallback + StaticFulfillExecuteGasCost)
-	return variableFulfillmentCost + requestedCallbackGas + staticVerifyGas, nil
+	totalGas := variableFulfillmentCost + requestedCallbackGas + staticVerifyGas
+	logger.Infow("estimated gas limit for tx", "gasLimit", totalGas, "callbackLimit", requestedCallbackGas)
+	return totalGas, nil
 }
 
 func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, error) {

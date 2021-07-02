@@ -7,7 +7,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
 
 import "./VRF.sol";
 import "./ConfirmedOwner.sol";
-import "./VRFConsumerBaseV2.sol";
+import "../interfaces/VRFConsumerV2Interface.sol";
 
 contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
@@ -15,7 +15,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   BlockHashStoreInterface public immutable BLOCKHASH_STORE;
 
-  error InsufficientSubscriptionBalance();
+  error InsufficientBalance();
   error InvalidConsumer(address consumer);
   error InvalidNumberOfConsumers(uint256 have, uint16 want);
   error InvalidSubscription();
@@ -116,10 +116,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   /**
    * @notice Returns the serviceAgreements key associated with this public key
-   * @param _publicKey the key to return the address for
+   * @param publicKey the key to return the address for
    */
   function hashOfKey(
-    uint256[2] memory _publicKey
+    uint256[2] memory publicKey
   )
     public
     pure
@@ -127,7 +127,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       bytes32
     )
   {
-    return keccak256(abi.encodePacked(_publicKey));
+    return keccak256(abi.encodePacked(publicKey));
   }
 
   function setConfig(
@@ -191,9 +191,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint256 requestId
     )
   {
+
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
+
     if (minimumRequestConfirmations < s_config.minimumRequestBlockConfirmations) {
       revert RequestBlockConfsTooLow(minimumRequestConfirmations, s_config.minimumRequestBlockConfirmations);
     }
@@ -207,7 +209,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (!validConsumer) {
       revert InvalidConsumer(msg.sender);
     }
-    if (s_serviceAgreements[keyHash] != address(0)) {
+    if (s_serviceAgreements[keyHash] == address(0)) {
       revert UnregisteredKeyHash(keyHash);
     }
 
@@ -234,7 +236,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return s_callbacks[requestId];
   }
 
-  // Offsets into fulfillRandomnessRequest's _proof of various values
+  // Offsets into fulfillRandomnessRequest's proof of various values
   //
   // Public key. Skips byte array's length prefix.
   uint256 public constant PUBLIC_KEY_OFFSET = 0x20;
@@ -242,13 +244,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   uint256 public constant PRESEED_OFFSET = 0xe0;
 
   function fulfillRandomWords(
-    bytes memory _proof
+    bytes memory proof
   )
     external
   {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId,
-    uint256 randomness, FulfillmentParams memory fp) = getRandomnessFromProof(_proof);
+    uint256 randomness, FulfillmentParams memory fp) = getRandomnessFromProof(proof);
 
     uint256[] memory randomWords = new uint256[](fp.numWords);
     for (uint256 i = 0; i < fp.numWords; i++) {
@@ -259,10 +261,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // with the same proof because this getRandomnessFromProof will revert because the requestId
     // is gone.
     delete s_callbacks[requestId];
-    VRFConsumerBaseV2 v;
+    VRFConsumerV2Interface v;
     bytes memory resp = abi.encodeWithSelector(v.fulfillRandomWords.selector, requestId, randomWords);
     uint256 gasPreCallback = gasleft();
-    if (gasPreCallback > fp.callbackGasLimit) {
+    if (gasPreCallback < fp.callbackGasLimit) {
       revert InsufficientGasForConsumer(gasPreCallback, fp.callbackGasLimit);
     }
     (bool success,) = fp.sender.call(resp);
@@ -276,7 +278,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // decrement the subscription balance and increment the oracles withdrawable balance.
     uint256 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice);
     if (s_subscriptions[fp.subId].balance < payment) {
-      revert InsufficientSubscriptionBalance();
+      revert InsufficientBalance();
     }
     s_subscriptions[fp.subId].balance -= payment;
     s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
@@ -286,7 +288,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   function calculatePaymentAmount(
       uint256 startGas,
       uint256 gasAfterPaymentCalculation,
-      uint256 gasWei
+      uint256 weiPerUnitGas
   )
     private
     view
@@ -294,17 +296,17 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint256
     )
   {
-    uint256 linkWei; // link/wei i.e. link price in wei.
-    linkWei = getFeedData();
-    if (linkWei < 0) {
-      revert InvalidFeedResponse(linkWei);
+    uint256 weiPerUnitLink;
+    weiPerUnitLink = getFeedData();
+    if (weiPerUnitLink < 0) {
+      revert InvalidFeedResponse(weiPerUnitLink);
     }
-    // (1e18 linkWei/link) (wei/gas * gas) / (wei/link) = linkWei
-    return 1e18*gasWei*(gasAfterPaymentCalculation + startGas - gasleft()) / linkWei;
+    // (1e18 jules/link) (wei/gas * gas) / (wei/link) = jules
+    return 1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / weiPerUnitLink;
   }
 
   function getRandomnessFromProof(
-    bytes memory _proof
+    bytes memory proof
   )
     public 
     view 
@@ -318,24 +320,24 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // blockNum follows proof, which follows length word (only direct-number
     // constants are allowed in assembly, so have to compute this in code)
     uint256 blockNumOffset = 0x20 + PROOF_LENGTH;
-    // Note that _proof.length skips the initial length word.
+    // Note that proof.length skips the initial length word.
     // We expected the total length to be proof + 5 words (blocknum, subId, callbackLimit, nw, sender)
-    if (_proof.length != PROOF_LENGTH + 0x20*5) {
-      revert InvalidProofLength(_proof.length, PROOF_LENGTH + 0x20*5);
+    if (proof.length != PROOF_LENGTH + 0x20*5) {
+      revert InvalidProofLength(proof.length, PROOF_LENGTH + 0x20*5);
     }
     uint256[2] memory publicKey;
     uint256 preSeed;
     uint256 blockNum;
     address sender;
     assembly { // solhint-disable-line no-inline-assembly
-      publicKey := add(_proof, PUBLIC_KEY_OFFSET)
-      preSeed := mload(add(_proof, PRESEED_OFFSET))
-      blockNum := mload(add(_proof, blockNumOffset))
+      publicKey := add(proof, PUBLIC_KEY_OFFSET)
+      preSeed := mload(add(proof, PRESEED_OFFSET))
+      blockNum := mload(add(proof, blockNumOffset))
       // We use a struct to limit local variables to avoid stack depth errors.
-      mstore(fp, mload(add(add(_proof, blockNumOffset), 0x20)))
-      mstore(add(fp, 0x20), mload(add(add(_proof, blockNumOffset), 0x40)))
-      mstore(add(fp, 0x40), mload(add(add(_proof, blockNumOffset), 0x60)))
-      sender := mload(add(add(_proof, blockNumOffset), 0x80))
+      mstore(fp, mload(add(add(proof, blockNumOffset), 0x20)))
+      mstore(add(fp, 0x20), mload(add(add(proof, blockNumOffset), 0x40)))
+      mstore(add(fp, 0x40), mload(add(add(proof, blockNumOffset), 0x60)))
+      sender := mload(add(add(proof, blockNumOffset), 0x80))
     }
     currentKeyHash = hashOfKey(publicKey);
     bytes32 callback = s_callbacks[preSeed];
@@ -343,7 +345,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (callback == 0) {
       revert NoCorrespondingRequest();
     }
-    if (callback == keccak256(abi.encodePacked(requestId, blockNum, fp.subId, fp.callbackGasLimit, fp.numWords, sender))) {
+    if (callback != keccak256(abi.encodePacked(requestId, blockNum, fp.subId, fp.callbackGasLimit, fp.numWords, sender))) {
       revert IncorrectCommitment();
     }
     fp.sender = sender;
@@ -358,11 +360,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // The seed actually used by the VRF machinery, mixing in the blockhash
     uint256 actualSeed = uint256(keccak256(abi.encodePacked(preSeed, blockHash)));
     // solhint-disable-next-line no-inline-assembly
-    assembly { // Construct the actual proof from the remains of _proof
-      mstore(add(_proof, PRESEED_OFFSET), actualSeed)
-      mstore(_proof, PROOF_LENGTH)
+    assembly { // Construct the actual proof from the remains of proof
+      mstore(add(proof, PRESEED_OFFSET), actualSeed)
+      mstore(proof, PROOF_LENGTH)
     }
-    randomness = VRF.randomValueFromVRFProof(_proof); // Reverts on failure
+    randomness = VRF.randomValueFromVRFProof(proof); // Reverts on failure
   }
 
   function getFeedData()
@@ -384,14 +386,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   function withdraw(
-    address _recipient, 
-    uint256 _amount
+    address recipient,
+    uint256 amount
   )
     external
   {
-    // Will revert if insufficient funds
-    s_withdrawableTokens[msg.sender] -= _amount;
-    assert(LINK.transfer(_recipient, _amount));
+    if (s_withdrawableTokens[msg.sender] < amount) {
+      revert InsufficientBalance();
+    }
+    s_withdrawableTokens[msg.sender] -= amount;
+    assert(LINK.transfer(recipient, amount));
   }
 
   function getSubscription(
@@ -474,7 +478,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     onlySubOwner(subId)
   {
     if (s_subscriptions[subId].balance < amount) {
-      revert InsufficientSubscriptionBalance();
+      revert InsufficientBalance();
     }
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance -= amount;

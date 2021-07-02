@@ -1,10 +1,9 @@
 pragma solidity ^0.8.0;
 
-abstract contract VRFConsumerBaseV2 {
+interface VRFConsumerV2Interface {
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] memory randomWords
     )
-    public
-    virtual;
+    external;
 }
