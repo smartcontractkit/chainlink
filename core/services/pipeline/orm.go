@@ -69,20 +69,20 @@ func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 }
 
 // StoreRun will persist a partially executed run before suspending, or finish a run.
-func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
+// If `restart` is true, then new task run data is available and the run should be resumed immediately.
+func (o *orm) StoreRun(db *sql.DB, run *Run) (restart bool, err error) {
 	finished := run.FinishedAt.Valid
-	var restart bool
-	err := postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		if !finished {
 			// Lock the current run. This prevents races with /v2/resume
 			sql := `SELECT id FROM pipeline_runs WHERE id = $1 FOR UPDATE;`
-			if _, err := tx.Exec(sql, run.ID); err != nil {
+			if _, err = tx.Exec(sql, run.ID); err != nil {
 				return err
 			}
 
 			taskRuns := []TaskRun{}
 			// Reload task runs, we want to check for any changes while the run was ongoing
-			if err := tx.Select(&taskRuns, `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`, run.ID); err != nil {
+			if err = tx.Select(&taskRuns, `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`, run.ID); err != nil {
 				return err
 			}
 
@@ -109,7 +109,7 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 
 			// Suspend the run
 			run.State = RunStatusSuspended
-			if _, err := tx.NamedExec(`UPDATE pipeline_runs SET state = :state`, run); err != nil {
+			if _, err = tx.NamedExec(`UPDATE pipeline_runs SET state = :state`, run); err != nil {
 				return err
 			}
 		} else {
@@ -118,7 +118,7 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 			}
 			sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`
-			if _, err := tx.NamedExec(sql, run); err != nil {
+			if _, err = tx.NamedExec(sql, run); err != nil {
 				return err
 			}
 		}
@@ -133,12 +133,13 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (bool, error) {
 
 		// NOTE: can't use Select() to auto scan because we're using NamedQuery,
 		// sqlx.Named + Select is possible but it's about the same amount of code
-		rows, err := tx.NamedQuery(sql, run.PipelineTaskRuns)
+		var rows *sqlx.Rows
+		rows, err = tx.NamedQuery(sql, run.PipelineTaskRuns)
 		if err != nil {
 			return err
 		}
 		taskRuns := []TaskRun{}
-		if err := sqlx.StructScan(rows, &taskRuns); err != nil {
+		if err = sqlx.StructScan(rows, &taskRuns); err != nil {
 			return err
 		}
 		// replace with new task run data
