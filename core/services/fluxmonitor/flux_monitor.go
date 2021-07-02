@@ -277,6 +277,18 @@ func (fm *concreteFluxMonitor) RemoveJob(id models.JobID) {
 	fm.chRemove <- id
 }
 
+// PollRequestType defines which method was used to request a poll
+type PollRequestType string
+
+const (
+	PollRequestTypeInitial     = "initial"
+	PollRequestTypePoll        = "poll"
+	PollRequestTypeIdle        = "idle"
+	PollRequestTypeRound       = "round"
+	PollRequestTypeHibernation = "hibernation"
+	PollRequestTypeAwaken      = "awaken"
+)
+
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
@@ -646,7 +658,7 @@ func (p *PollingDeviationChecker) consume() {
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(DeviationThresholds{
+			p.pollIfEligible(PollRequestTypePoll, DeviationThresholds{
 				Rel: float64(p.initr.Threshold),
 				Abs: float64(p.initr.AbsoluteThreshold),
 			})
@@ -657,7 +669,7 @@ func (p *PollingDeviationChecker) consume() {
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
+			p.pollIfEligible(PollRequestTypeIdle, DeviationThresholds{Rel: 0, Abs: 0})
 
 		case <-p.roundTimer.Ticks():
 			logger.Debugw("Round timeout ticker fired",
@@ -665,13 +677,13 @@ func (p *PollingDeviationChecker) consume() {
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(DeviationThresholds{
+			p.pollIfEligible(PollRequestTypeRound, DeviationThresholds{
 				Rel: float64(p.initr.Threshold),
 				Abs: float64(p.initr.AbsoluteThreshold),
 			})
 
 		case <-p.hibernationTimer.Ticks():
-			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
+			p.pollIfEligible(PollRequestTypeHibernation, DeviationThresholds{Rel: 0, Abs: 0})
 		}
 	}
 }
@@ -724,7 +736,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 
 func (p *PollingDeviationChecker) performInitialPoll() {
 	if p.shouldPerformInitialPoll() {
-		p.pollIfEligible(DeviationThresholds{
+		p.pollIfEligible(PollRequestTypeInitial, DeviationThresholds{
 			Rel: float64(p.initr.Threshold),
 			Abs: float64(p.initr.AbsoluteThreshold),
 		})
@@ -747,7 +759,7 @@ func (p *PollingDeviationChecker) reactivate() {
 	logger.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
 	p.isHibernating = false
 	p.setInitialTickers()
-	p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
+	p.pollIfEligible(PollRequestTypeHibernation, DeviationThresholds{Rel: 0, Abs: 0})
 }
 
 func (p *PollingDeviationChecker) processLogs() {
@@ -1027,12 +1039,13 @@ type DeviationThresholds struct {
 	Abs float64 // Absolute change required, i.e. |new-old| >= Abs
 }
 
-func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds) {
+func (p *PollingDeviationChecker) pollIfEligible(pollReqType PollRequestType, thresholds DeviationThresholds) {
 	l := logger.Default.With(
 		"jobID", p.initr.JobSpecID,
 		"address", p.initr.InitiatorParams.Address,
 		"threshold", thresholds.Rel,
 		"absoluteThreshold", thresholds.Abs,
+		"pollRequestType", pollReqType,
 	)
 
 	if !p.logBroadcaster.IsConnected() {

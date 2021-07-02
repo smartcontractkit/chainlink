@@ -28,8 +28,8 @@ func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 	impl.checkerFactory = fac
 }
 
-func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThreshold float64) {
-	p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
+func (p *PollingDeviationChecker) ExportedPollIfEligible(pollReqType PollRequestType, threshold, absoluteThreshold float64) {
+	p.pollIfEligible(pollReqType, DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
 }
 
 func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound) {

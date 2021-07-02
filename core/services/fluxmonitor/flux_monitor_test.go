@@ -278,7 +278,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			checker.SetOracleAddress()
 
-			checker.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
+			checker.ExportedPollIfEligible(fluxmonitor.PollRequestTypePoll, thresholds.rel, thresholds.abs)
 
 			logBroadcaster.AssertExpectations(t)
 			fluxAggregator.AssertExpectations(t)
@@ -329,7 +329,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 	require.NoError(t, checker.SetOracleAddress())
 
-	checker.ExportedPollIfEligible(1, 1)
+	checker.ExportedPollIfEligible(fluxmonitor.PollRequestTypePoll, 1, 1)
 
 	job, err = store.FindJobWithErrors(job.ID)
 	require.NoError(t, err)
@@ -1679,7 +1679,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:      1,
 			}, nil).
 			Once()
-		checker.ExportedPollIfEligible(0, 0)
+		checker.ExportedPollIfEligible(fluxmonitor.PollRequestTypePoll, 0, 0)
 
 		rm.AssertExpectations(t)
 		fetcher.AssertExpectations(t)
@@ -1753,7 +1753,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		fluxAggregator.On("Address").Return(initr.Address)
 		fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 		checker.SetOracleAddress()
-		checker.ExportedPollIfEligible(0, 0)
+		checker.ExportedPollIfEligible(fluxmonitor.PollRequestTypePoll, 0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
 		checker.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
