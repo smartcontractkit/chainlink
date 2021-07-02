@@ -102,7 +102,6 @@ describe("VRFCoordinatorV2", () => {
       vrfCoordinatorV2.connect(random).fundSubscription(subId, BigNumber.from("1000000000000000000")),
     ).to.be.revertedWith("MustBeSubOwner()");
 
-
     // Fund the subscription
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
     await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
@@ -136,9 +135,9 @@ describe("VRFCoordinatorV2", () => {
     await vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, consumers);
 
     // Non-owners cannot cancel
-    await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId, await random.getAddress())).to.be.revertedWith(
-      "MustBeSubOwner()",
-    );
+    await expect(
+      vrfCoordinatorV2.connect(random).cancelSubscription(subId, await random.getAddress()),
+    ).to.be.revertedWith("MustBeSubOwner()");
 
     const randomAddress = await random.getAddress();
     await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress))
@@ -147,7 +146,6 @@ describe("VRFCoordinatorV2", () => {
     const random2Balance = await linkToken.balanceOf(randomAddress);
     assert.equal(random2Balance.toString(), "1000000000000000000");
   });
-
 
   it("request random words", async () => {
     // Create and fund subscription.
