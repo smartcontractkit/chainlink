@@ -26,42 +26,6 @@ func TestRunStatus(t *testing.T) {
 
 func TestRun_Status(t *testing.T) {
 	now := null.TimeFrom(time.Now())
-	var success = pipeline.TaskRunResults{
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: 10,
-				Error: nil,
-			},
-			FinishedAt: now,
-		},
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: 10,
-				Error: nil,
-			},
-			FinishedAt: now,
-		},
-	}
-	var fail = pipeline.TaskRunResults{
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: nil,
-				Error: errors.New("fail"),
-			},
-			FinishedAt: now,
-		},
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: nil,
-				Error: errors.New("fail"),
-			},
-			FinishedAt: now,
-		},
-	}
 
 	testCases := []struct {
 		name string
@@ -80,8 +44,8 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "Completed",
 			run: &pipeline.Run{
-				Errors:     success.FinalResult().ErrorsDB(),
-				Outputs:    success.FinalResult().OutputsDB(),
+				Errors:     pipeline.RunErrors{},
+				Outputs:    pipeline.JSONSerializable{Val: []interface{}{10, 10}, Null: false},
 				FinishedAt: now,
 			},
 			want: pipeline.RunStatusCompleted,
@@ -89,8 +53,8 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "Error",
 			run: &pipeline.Run{
-				Outputs:    fail.FinalResult().OutputsDB(),
-				Errors:     fail.FinalResult().ErrorsDB(),
+				Outputs:    pipeline.JSONSerializable{},
+				Errors:     pipeline.RunErrors{null.StringFrom(errors.New("fail").Error())},
 				FinishedAt: null.Time{},
 			},
 			want: pipeline.RunStatusErrored,
