@@ -274,10 +274,16 @@ func TestIntegration_RunLog(t *testing.T) {
 				}).
 				Return(sub, nil)
 
+			creationHeight := int64(1)
+			blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
+			minGlobalHeight := creationHeight + blockIncrease
+			firstHead := cltest.Head(minGlobalHeight)
+
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
 			})
 			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(firstHead, nil)
 
 			require.NoError(t, app.StartAndConnect())
 			j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/runlog_noop_job.json")
@@ -285,7 +291,6 @@ func TestIntegration_RunLog(t *testing.T) {
 			initr := j.Initiators[0]
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-			creationHeight := int64(1)
 			runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 			runlog.BlockHash = test.logBlockHash
 			logs := <-logsCh
@@ -299,9 +304,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			require.Len(t, jr.TaskRuns, 1)
 			assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
-			blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
-			minGlobalHeight := creationHeight + blockIncrease
-			newHeads <- cltest.Head(minGlobalHeight)
+			newHeads <- firstHead
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
 			assert.Equal(t, int64(creationHeight+blockIncrease), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
