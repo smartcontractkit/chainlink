@@ -1,16 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0; // Could we use 0.8.0
 
-interface ArbitrumValidator {
-  function setMaximumGasPrice(uint32) external;
-  function validate(
-    uint256 previousRoundId,
-    int256 previousAnswer,
-    uint256 currentRoundId,
-    int256 currentAnswer
-  ) external returns (bool);
-}
-
 import "./interfaces/ArbitrumInboxInterface.sol";
 import "./SimpleWriteAccessController.sol";
 
@@ -21,7 +11,7 @@ contract ArbitrumValidator is SimpleWriteAccessController {
   address s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
 
   address s_billingAccessController;
-  uint32 s_maximumGasPrice;
+  uint256 s_maximumGasPrice;
 
   /**
    * @param aggregatorAddress address of the Aggregator using validate
@@ -35,20 +25,21 @@ contract ArbitrumValidator is SimpleWriteAccessController {
     address inboxAddress, 
     address flagAddress,
     address billingAccessControllerAddress,
-    uint32 maximumGasPrice
+    uint256 maximumGasPrice
   ) 
+    public
   {
     s_arbitrumInbox = inboxAddress;
-    s_flagsAddress = flagAddress;
+    s_flags = flagAddress;
     s_maximumGasPrice = maximumGasPrice;
     s_billingAccessController = billingAccessControllerAddress;
 
-    // Default access. Give access to aggregator
-    addAccess(aggregatorAddress);
+    // TODO: Is it possible to give default access to the aggregator?
+    // addAccess(aggregatorAddress);
   }
 
   function setMaximumGasPrice(
-    uint32 gasPrice
+    uint256 gasPrice
   )
     external
   {
@@ -65,23 +56,24 @@ contract ArbitrumValidator is SimpleWriteAccessController {
     int256 currentAnswer
   ) 
     external 
-    hasAccess() 
+    checkAccess() 
     returns (bool) 
   {
-    bytes data = currentAnswer == 1 ? abi.encodeWithSignature("raiseFlag(address)", arbitrumFlag) : abi.encodeWithSignature("lowerFlags(address[])", [arbitrumFlag]);
+    bytes memory data = currentAnswer == 1 ? abi.encodeWithSignature("raiseFlag(address)", s_arbitrumFlag) : abi.encodeWithSignature("lowerFlags(address[])", [s_arbitrumFlag]);
     IInbox arbitrumInbox = IInbox(s_arbitrumInbox);
     // Validator should be funded in L1 and send some value to pay for the L2 gas
+    // TODO: Use retrayable tickets
     arbitrumInbox.sendL1FundedContractTransaction(
       30000000,
       s_maximumGasPrice,
-      flagsAddress,
+      s_flags,
       data
     );
     return true;
   }
 
   event MaximumGasPriceSet(
-    uint32 maximumGasPrice
+    uint256 maximumGasPrice
   );
 
   function _setMaximumGasPriceInternal(
