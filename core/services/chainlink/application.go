@@ -694,7 +694,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	ctx context.Context,
 	run *pipeline.Run,
 ) (bool, error) {
-	return app.pipelineRunner.Run(ctx, run, *logger.Default)
+	return app.pipelineRunner.Run(ctx, run, *logger.Default, false)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
