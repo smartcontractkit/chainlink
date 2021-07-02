@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -55,7 +56,7 @@ type runner struct {
 
 	utils.StartStopOnce
 	chStop chan struct{}
-	chDone chan struct{}
+	wgDone sync.WaitGroup
 }
 
 var (
@@ -95,7 +96,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager
 		ethClient: ethClient,
 		txManager: txManager,
 		chStop:    make(chan struct{}),
-		chDone:    make(chan struct{}),
+		wgDone:    sync.WaitGroup{},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -114,7 +115,7 @@ func (r *runner) Start() error {
 func (r *runner) Close() error {
 	return r.StopOnce("PipelineRunner", func() error {
 		close(r.chStop)
-		<-r.chDone
+		r.wgDone.Wait()
 		return nil
 	})
 }
@@ -127,7 +128,8 @@ func (r *runner) destroy() {
 }
 
 func (r *runner) runReaperLoop() {
-	defer close(r.chDone)
+	r.wgDone.Add(1)
+	defer r.wgDone.Done()
 	defer r.destroy()
 
 	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
@@ -486,6 +488,9 @@ func (r *runner) runReaper() {
 // init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
 // We pick up those runs and resume execution.
 func (r *runner) scheduleUnfinishedRuns() {
+	r.wgDone.Add(1)
+	defer r.wgDone.Done()
+
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
 	now := time.Now()
 
@@ -493,7 +498,6 @@ func (r *runner) scheduleUnfinishedRuns() {
 	r.runReaper()
 
 	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
-		// SAFETY: ??? is this safe to do concurrently
 		go func() {
 			if _, err := r.Run(context.TODO(), &run, *logger.Default); err != nil {
 				logger.Errorw("Pipeline run init job resumption failed", "error", err)
