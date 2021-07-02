@@ -670,6 +670,12 @@ func (p *PollingDeviationChecker) consume() {
 				"contract", p.initr.Address.Hex(),
 			)
 			p.pollIfEligible(PollRequestTypeIdle, DeviationThresholds{Rel: 0, Abs: 0})
+		case <-p.idleTimer.RetryTicks():
+			logger.Debugw("Idle ticker retry fired",
+				"pollPeriod", p.initr.PollTimer.Period,
+				"contract", p.initr.Address.Hex(),
+			)
+			p.pollIfEligible(PollRequestTypeIdle, DeviationThresholds{Rel: 0, Abs: 0})
 
 		case <-p.roundTimer.Ticks():
 			logger.Debugw("Round timeout ticker fired",
@@ -1084,6 +1090,13 @@ func (p *PollingDeviationChecker) pollIfEligible(pollReqType PollRequestType, th
 	// and the associated JobRun hasn't errored, skip polling
 	if roundStats.NumSubmissions > 0 && !jobRunStatus.Errored() {
 		l.Infow("skipping poll: round already answered, tx unconfirmed")
+
+		// Start the backoff retry for the idle timer to prevent a stall.
+		if pollReqType == PollRequestTypeIdle {
+			l.Infow("starting idle timer retry")
+			p.idleTimer.StartRetry()
+		}
+
 		return
 	}
 

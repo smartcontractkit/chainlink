@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -15,13 +16,15 @@ type IdleTimer struct {
 	latestRoundID        uint64
 	latestRoundStartedAt uint64
 
-	idleTimer utils.ResettableTimer
+	idleTimer   utils.ResettableTimer
+	retryTicker utils.BackoffTicker
 }
 
 func NewIdleTimer(idleDuration time.Duration) *IdleTimer {
 	return &IdleTimer{
 		idleDuration: idleDuration,
 		idleTimer:    utils.NewResettableTimer(),
+		retryTicker:  utils.NewBackoffTicker(1*time.Second, idleDuration),
 	}
 }
 
@@ -70,6 +73,18 @@ func (t *IdleTimer) Reset(roundID uint64, startedAt uint64) bool {
 	return true
 }
 
+// StartRetry enables the exponential backoff retry ticker.
+func (t *IdleTimer) StartRetry() error {
+	// Protect against starting retry if the idle timer is already active.
+	if t.TimeUntilIdleDeadline() > 0 {
+		return errors.New("cannot start retries when an idle timer is already running")
+	}
+
+	t.retryTicker.Start()
+
+	return nil
+}
+
 // Stop
 func (t *IdleTimer) Stop() {
 	t.idleTimer.Stop()
@@ -78,10 +93,13 @@ func (t *IdleTimer) Stop() {
 // reset resets the idle timer to fire after the idle duration.
 func (t *IdleTimer) resetWithIdleDuration() {
 	t.idleTimer.Reset(t.idleDuration)
+	t.retryTicker.Stop()
 }
 
 // reset resets the idle timer to fire when the time until the idle deadline
 // is reached.
+//
+// The retry ticker is stopped if the reset is successful.Zaqw2w4t567890-==654
 //
 // The caller must lock the mutex.
 func (t *IdleTimer) resetWithLatestRound() {
@@ -102,10 +120,16 @@ func (t *IdleTimer) resetWithLatestRound() {
 
 	t.idleTimer.Reset(deadlineDuration)
 	logger.Debugw("resetting idleTimer", loggerFields...)
+
+	t.retryTicker.Stop()
 }
 
 func (t *IdleTimer) Ticks() <-chan time.Time {
 	return t.idleTimer.Ticks()
+}
+
+func (t *IdleTimer) RetryTicks() <-chan time.Time {
+	return t.retryTicker.Ticks()
 }
 
 // TimeUntilIdleDeadline returns the duration of time until the idle deadline.
@@ -122,39 +146,3 @@ func (t *IdleTimer) idleDeadline() time.Time {
 
 	return startedAt.Add(t.idleDuration)
 }
-
-// func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
-// 	if p.isHibernating || p.initr.IdleTimer.Disabled {
-// 		p.idleTimer.Stop()
-// 		return
-// 	} else if roundStartedAtUTC == 0 {
-// 		// There is no active round, so keep using the idleTimer we already have
-// 		return
-// 	}
-
-// 	startedAt := time.Unix(int64(roundStartedAtUTC), 0)
-// 	idleDeadline := startedAt.Add(p.initr.IdleTimer.Duration.Duration())
-// 	timeUntilIdleDeadline := time.Until(idleDeadline)
-// 	loggerFields := p.loggerFields(
-// 		"startedAt", roundStartedAtUTC,
-// 		"timeUntilIdleDeadline", timeUntilIdleDeadline,
-// 	)
-
-// 	if timeUntilIdleDeadline <= 0 {
-// 		logger.Debugw("not resetting idleTimer, negative duration", loggerFields...)
-// 		return
-// 	}
-// 	p.idleTimer.Reset(timeUntilIdleDeadline)
-// 	logger.Debugw("resetting idleTimer", loggerFields...)
-// }
-
-// // Reset stops a ResettableTimer
-// // and resets it with a new duration
-// func (t *ResettableTimer) Reset(duration time.Duration) {
-// 	t.mu.Lock()
-// 	defer t.mu.Unlock()
-// 	if t.timer != nil {
-// 		t.timer.Stop()
-// 	}
-// 	t.timer = time.NewTimer(duration)
-// }
