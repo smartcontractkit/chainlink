@@ -210,8 +210,6 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, updates *
 			continue
 		}
 
-		isInCanonical := metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash)
-
 		if !latestHead.IsInChain(log.BlockHash) {
 			logger.Tracew("Skipping because not in canonical ",
 				"chainLen", latestHead.ChainLength(), "blockHash", latestHead.Hash,
@@ -221,7 +219,7 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, updates *
 		}
 
 		// All logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
-		if log.BlockNumber < metadata.lowestAllowedBlockNumber && isInCanonical {
+		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
 			// Skipping send because the log height is below lowest unprocessed in the currently remembered chain
 			continue
 		}
@@ -288,8 +286,13 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead model
 				"chainHashes", fmt.Sprintf("%v", latestHead.ChainHashes()),
 			)
 
-			// Re-org situation: the chain was changed, so we can't use the number that tracked last unprocessed height of the previous chain
-			update.toUpdate.lowestAllowedBlockNumber = 0
+			// Re-org situation: the chain was changed, so we reset the allowed number to the common ancestor of both chains
+			newLowestAllowed := uint64(0)
+			ancestor := latestHead.CommonAncestor(update.toUpdate.lastSeenChain)
+			if ancestor != nil {
+				newLowestAllowed = uint64(ancestor.Number)
+			}
+			update.toUpdate.lowestAllowedBlockNumber = newLowestAllowed
 		}
 		// Setting as latest head for this listener
 		update.toUpdate.lastSeenChain = &latestHead

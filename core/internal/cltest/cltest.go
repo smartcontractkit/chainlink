@@ -2024,11 +2024,6 @@ func (b *Blocks) Head(number uint64) *models.Head {
 	return b.Heads[int64(number)]
 }
 
-//
-//func (b *Blocks) HeadsCopy() map[int64]*models.Head {
-//	models.NewHead()
-//}
-
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*models.Head)
