@@ -196,7 +196,7 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
-	config.Set("ETH_FINALITY_DEPTH", 1)
+	config.Set("ETH_FINALITY_DEPTH", 5)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	// Set low sampling interval to remain within test head waiting timeouts
@@ -1976,7 +1976,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 			default:
 				_, exists := heads[current]
 				if !exists {
-					t.Fatalf("Head %v does not exist", current)
+					logger.Fatalf("Head %v does not exist", current)
 				}
 
 				for _, ht := range args.HeadTrackables {
