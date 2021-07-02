@@ -49,7 +49,7 @@ describe("VRFCoordinatorV2", () => {
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
       fallbackLinkPrice: BigNumber.from("10000000000000000"),
-      minimumSubscriptionBalance: BigNumber.from("1000000000000000000"), // 1 link
+      minimumSubscriptionBalance: BigNumber.from("100000000000000000"), // 0.1 link
     };
     await vrfCoordinatorV2
       .connect(owner)
@@ -164,7 +164,7 @@ describe("VRFCoordinatorV2", () => {
     // Should fail without a key registered
     const testKey = [BigNumber.from("1"), BigNumber.from("2")];
     let kh = await vrfCoordinatorV2.hashOfKey(testKey);
-    await expect(vrfCoordinatorV2.connect(consumer).requestRandomWords(kh, 1, 1000, subId, 1)).to.be.revertedWith(
+    await expect(vrfCoordinatorV2.connect(consumer).requestRandomWords(kh, 1, 1000, subId, 1, 0)).to.be.revertedWith(
       `UnregisteredKeyHash("${kh.toString()}")`,
     );
     // Non-owner cannot register a proving key
@@ -193,6 +193,7 @@ describe("VRFCoordinatorV2", () => {
               1, // minReqConf
               1000, // callbackGasLimit
               1, // numWords
+              0,
             ),
           ).to.be.revertedWith(`InvalidConsumer("${v.toString()}")`);
         },
@@ -206,6 +207,7 @@ describe("VRFCoordinatorV2", () => {
         0, // minReqConf
         1000, // callbackGasLimit
         1, // numWords
+        0,
       ),
     ).to.be.revertedWith("RequestBlockConfsTooLow(0, 1)");
 
@@ -217,6 +219,7 @@ describe("VRFCoordinatorV2", () => {
         0, // minReqConf
         1000, // callbackGasLimit
         1, // numWords
+        0,
       ),
     ).to.be.revertedWith("InvalidSubscription()");
 
@@ -226,6 +229,7 @@ describe("VRFCoordinatorV2", () => {
       1, // minReqConf
       1000, // callbackGasLimit
       1, // numWords
+      0,
     );
     const reqReceipt = await reqTx.wait();
     assert(reqReceipt.events.length == 1);

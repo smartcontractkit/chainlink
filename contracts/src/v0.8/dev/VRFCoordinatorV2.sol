@@ -190,7 +190,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint64  subId,
     uint64  minimumRequestConfirmations,
     uint64  callbackGasLimit,
-    uint64  numWords  // Desired number of random words
+    uint64  numWords,  // Desired number of random words
+    uint16  consumerID // Index into consumers to avoid SLOADing all the consumers
   )
     external
     returns (
@@ -198,25 +199,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     )
   {
     // Input validation using the subscription storage.
-    // The cost of this will vary depending on how many consumers are
-    // associated with the subscription. TODO: We could use a
-    // merkle root of the consumer addresses and then provide a merkle
-    // branch upon request time, as then we wouldnt have to read
-    // ~O(num consumers) words from storage?
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    bool validConsumer;
-    for (uint16 i = 0; i < s_subscriptions[subId].consumers.length; i++) {
-      if (s_subscriptions[subId].consumers[i] == msg.sender) {
-        validConsumer = true;
-        break;
-      }
-    }
-    if (!validConsumer) {
+    // We use this consumer index to ensure that the cost remains constant no matter
+    // the number of consumers.
+    if (s_subscriptions[subId].consumers[consumerID] != msg.sender) {
       revert InvalidConsumer(msg.sender);
     }
-
     // Input validation using the config storage word.
     if (minimumRequestConfirmations < s_config.minimumRequestBlockConfirmations) {
       revert RequestBlockConfsTooLow(minimumRequestConfirmations, s_config.minimumRequestBlockConfirmations);
@@ -429,11 +419,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     address[] memory consumers // permitted consumers of the subscription
   )
     external
+    validConsumers(consumers)
     returns (
       uint64
     )
   {
-    allConsumersValid(consumers);
     currentSubId++;
     s_subscriptions[currentSubId] = Subscription({
       owner: msg.sender,
@@ -444,25 +434,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return currentSubId;
   }
 
-  function allConsumersValid(
-    address[] memory consumers
-  )
-    internal
-    view
-  {
-    if (consumers.length > s_config.maxConsumersPerSubscription) {
-      revert InvalidNumberOfConsumers(consumers.length, s_config.maxConsumersPerSubscription);
-    }
-  }
-
   function updateSubscription(
     uint64 subId,
     address[] memory consumers // permitted consumers of the subscription
   )
     external
     onlySubOwner(subId)
+    validConsumers(consumers)
   {
-    allConsumersValid(consumers);
     address[] memory oldConsumers = s_subscriptions[subId].consumers;
     s_subscriptions[subId].consumers = consumers;
     emit SubscriptionConsumersUpdated(subId, oldConsumers, consumers);
@@ -519,6 +498,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   modifier onlySubOwner(uint64 subId) {
     if (msg.sender != s_subscriptions[subId].owner) {
       revert MustBeSubOwner();
+    }
+    _;
+  }
+
+  modifier validConsumers(address[] memory consumers) {
+    if (consumers.length > s_config.maxConsumersPerSubscription) {
+      revert InvalidNumberOfConsumers(consumers.length, s_config.maxConsumersPerSubscription);
     }
     _;
   }

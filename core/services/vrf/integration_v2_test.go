@@ -120,8 +120,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 		uint16(1000),     // maxConsumersPerSubscription
 		uint32(60*60*24), // stalenessSeconds
 		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
-		big.NewInt(10000000000000000), // 0.01 eth per link fallbackLinkPrice
-		big.NewInt(1000000000000000000), // Minimum subscription balance 0.01 link
+		big.NewInt(10000000000000000),                                  // 0.01 eth per link fallbackLinkPrice
+		big.NewInt(1000000000000000000),                                // Minimum subscription balance 0.01 link
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -214,7 +214,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw))
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw), 0)
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fullfilled should fail
@@ -336,13 +336,22 @@ func TestRequestCost(t *testing.T) {
 	uni.backend.Commit()
 	subId, err := uni.consumerContract.SSubId(nil)
 	require.NoError(t, err)
+	// Ensure even with large number of consumers its still cheap
+	var addrs []common.Address
+	for i := 0; i < 100; i++ {
+		addrs = append(addrs, cltest.NewAddress())
+	}
+	addrs = append(addrs, uni.consumerContractAddress)
+	_, err = uni.consumerContract.UpdateSubscription(uni.carol,
+		addrs) // 0.1 LINK
+	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.consumerContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.MustHash(), subId, uint64(2), uint64(10000), uint64(1))
+		"testRequestRandomness", vrfkey.MustHash(), subId, uint64(2), uint64(10000), uint64(1), uint16(100))
 	t.Log(estimate)
 	// V2 should be at least (89000-134000)/134000 = 34% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
-	assert.Less(t, estimate, uint64(89000),
+	assert.Less(t, estimate, uint64(90000),
 		"requestRandomness tx gas cost more than expected")
 }
 
@@ -375,7 +384,7 @@ func TestFulfillmentCost(t *testing.T) {
 	gasRequested := 50000
 	nw := 1
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw))
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw), 0)
 	require.NoError(t, err)
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()

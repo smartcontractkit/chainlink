@@ -47,15 +47,21 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
         COORDINATOR.fundSubscription(s_subId, amount);
     }
 
+    function updateSubscription(address[] memory consumers) external {
+        require(s_subId != 0, "subID not set");
+        COORDINATOR.updateSubscription(s_subId, consumers);
+    }
+
     function testRequestRandomness(
         bytes32 keyHash,
         uint64 subId,
         uint64 minReqConfs,
         uint64 callbackGasLimit,
-        uint64 numWords)
+        uint64 numWords,
+        uint16 consumerID)
     external
     returns (uint256)
     {
-        return COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
+        return COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords, consumerID);
     }
 }
