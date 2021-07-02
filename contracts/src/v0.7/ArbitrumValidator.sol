@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.0; // Could we use 0.8.0
+pragma solidity ^0.7.0; // Could we use 0.8.0
 
 import "./interfaces/ArbitrumInboxInterface.sol";
-import "./SimpleWriteAccessController.sol";
+import "./interfaces/AggregatorValidatorInterface.sol";
+import "../v0.6/SimpleWriteAccessController.sol";
 
-contract ArbitrumValidator is SimpleWriteAccessController {
+contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorInterface {
   address s_arbitrumInbox;
   address s_flags;
   // Follows: https://eips.ethereum.org/EIPS/eip-1967
@@ -56,6 +57,7 @@ contract ArbitrumValidator is SimpleWriteAccessController {
     int256 currentAnswer
   ) 
     external 
+    override
     checkAccess() 
     returns (bool) 
   {
