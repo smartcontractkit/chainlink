@@ -91,26 +91,6 @@ type FinalResult struct {
 	Errors []error
 }
 
-// TODO: ErrorsDB and OutputsDB now unused outside of tests
-// OutputsDB dumps a result output for a pipeline_run
-func (result FinalResult) OutputsDB() JSONSerializable {
-	return JSONSerializable{Val: result.Values, Null: false}
-}
-
-// ErrorsDB dumps a result error for a pipeline_run
-func (result FinalResult) ErrorsDB() RunErrors {
-	errStrs := make([]null.String, len(result.Errors))
-	for i, err := range result.Errors {
-		if err == nil {
-			errStrs[i] = null.String{}
-		} else {
-			errStrs[i] = null.StringFrom(err.Error())
-		}
-	}
-
-	return errStrs
-}
-
 // HasErrors returns true if the final result has any errors
 func (result FinalResult) HasErrors() bool {
 	for _, err := range result.Errors {
