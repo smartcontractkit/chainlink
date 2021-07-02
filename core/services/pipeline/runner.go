@@ -30,7 +30,8 @@ type Runner interface {
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
-	Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error)
+	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
+	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error)
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
@@ -409,7 +410,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 
 }
 
-func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete bool, err error) {
+func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error) {
 	for {
 		trrs, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 		if err != nil {
@@ -438,7 +439,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger) (incomplete
 			if run.Pending {
 				return false, errors.Wrapf(err, "a run without async returned as pending")
 			}
-			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, true); err != nil {
+			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, saveSuccessfulTaskRuns); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
@@ -499,7 +500,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 
 	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
 		go func() {
-			if _, err := r.Run(context.TODO(), &run, *logger.Default); err != nil {
+			if _, err := r.Run(context.TODO(), &run, *logger.Default, false); err != nil {
 				logger.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()

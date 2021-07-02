@@ -79,8 +79,7 @@ func (cr *Cron) runPipeline() {
 
 	run := pipeline.NewRun(*cr.jobSpec.PipelineSpec, vars)
 
-	// TODO: saveSuccessfulTaskRuns false
-	_, err := cr.pipelineRunner.Run(ctx, &run, *cr.logger)
+	_, err := cr.pipelineRunner.Run(ctx, &run, *cr.logger, false)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}
