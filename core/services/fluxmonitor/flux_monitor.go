@@ -435,7 +435,7 @@ type PollingDeviationChecker struct {
 	chProcessLogs    chan struct{}
 	pollTicker       utils.PausableTicker
 	hibernationTimer utils.ResettableTimer
-	idleTimer        utils.ResettableTimer
+	idleTimer        *IdleTimer
 	roundTimer       utils.ResettableTimer
 
 	minSubmission, maxSubmission *big.Int
@@ -457,9 +457,9 @@ func NewPollingDeviationChecker(
 	fetcher Fetcher,
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
-	var idleTimer = utils.NewResettableTimer()
+	var idleTimer = NewIdleTimer(initr.IdleTimer.Duration.Duration())
 	if !initr.IdleTimer.Disabled {
-		idleTimer.Reset(initr.IdleTimer.Duration.Duration())
+		idleTimer.Start()
 	}
 	pdc := &PollingDeviationChecker{
 		store:            store,
@@ -889,7 +889,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 	logRoundID := uint32(log.RoundId.Uint64())
 
 	// We always want to reset the idle timer upon receiving a NewRound log, so we do it before any `return` statements.
-	p.resetIdleTimer(log.StartedAt.Uint64())
+	p.resetIdleTimer(log.RoundId.Uint64(), log.StartedAt.Uint64())
 
 	mostRecentRoundID, err := p.store.MostRecentFluxMonitorRoundID(p.initr.Address)
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -1193,7 +1193,7 @@ func (p *PollingDeviationChecker) initialRoundState() flux_aggregator_wrapper.Or
 func (p *PollingDeviationChecker) resetTickers(roundState flux_aggregator_wrapper.OracleRoundState) {
 	p.resetPollTicker()
 	p.resetHibernationTimer()
-	p.resetIdleTimer(roundState.StartedAt)
+	p.resetIdleTimer(uint64(roundState.RoundId), roundState.StartedAt)
 	p.resetRoundTimer(roundStateTimesOutAt(roundState))
 }
 
@@ -1244,7 +1244,7 @@ func (p *PollingDeviationChecker) resetRoundTimer(roundTimesOutAt uint64) {
 	}
 }
 
-func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
+func (p *PollingDeviationChecker) resetIdleTimer(roundID uint64, roundStartedAtUTC uint64) {
 	if p.isHibernating || p.initr.IdleTimer.Disabled {
 		p.idleTimer.Stop()
 		return
@@ -1253,20 +1253,7 @@ func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
 		return
 	}
 
-	startedAt := time.Unix(int64(roundStartedAtUTC), 0)
-	idleDeadline := startedAt.Add(p.initr.IdleTimer.Duration.Duration())
-	timeUntilIdleDeadline := time.Until(idleDeadline)
-	loggerFields := p.loggerFields(
-		"startedAt", roundStartedAtUTC,
-		"timeUntilIdleDeadline", timeUntilIdleDeadline,
-	)
-
-	if timeUntilIdleDeadline <= 0 {
-		logger.Debugw("not resetting idleTimer, negative duration", loggerFields...)
-		return
-	}
-	p.idleTimer.Reset(timeUntilIdleDeadline)
-	logger.Debugw("resetting idleTimer", loggerFields...)
+	p.idleTimer.Reset(roundID, roundStartedAtUTC)
 }
 
 // jobRunRequest is the request used to trigger a Job Run by the Flux Monitor.
