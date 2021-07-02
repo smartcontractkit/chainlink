@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -715,10 +716,10 @@ func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	// Create a task with multiple jobs
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{
-		models.TaskSpec{Type: models.MustNewTaskType("Task1")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task2")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task3")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task4")},
+		{Type: models.MustNewTaskType("Task1")},
+		{Type: models.MustNewTaskType("Task2")},
+		{Type: models.MustNewTaskType("Task3")},
+		{Type: models.MustNewTaskType("Task4")},
 	}
 	assert.NoError(t, app.Store.CreateJob(&j))
 
@@ -800,7 +801,9 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 func TestJobSpecsController_Destroy(t *testing.T) {
 	t.Parallel()
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, s, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
+
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,

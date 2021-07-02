@@ -347,11 +347,11 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		gasupdater.SetRollingBlockHistory(gu, blocks)
 		gu.Recalculate(*cltest.Head(1))
 
-		blocks = []gasupdater.Block{gasupdater.Block{}}
+		blocks = []gasupdater.Block{{}}
 		gasupdater.SetRollingBlockHistory(gu, blocks)
 		gu.Recalculate(*cltest.Head(1))
 
-		blocks = []gasupdater.Block{gasupdater.Block{Transactions: []gasupdater.Transaction{}}}
+		blocks = []gasupdater.Block{{Transactions: []gasupdater.Transaction{}}}
 		gasupdater.SetRollingBlockHistory(gu, blocks)
 		gu.Recalculate(*cltest.Head(1))
 
@@ -372,12 +372,12 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		gu := gasupdater.GasUpdaterToStruct(guIface)
 
 		blocks := []gasupdater.Block{
-			gasupdater.Block{
+			{
 				Number:       0,
 				Hash:         cltest.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(9001),
 			},
-			gasupdater.Block{
+			{
 				Number:       1,
 				Hash:         cltest.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(9002),
@@ -406,12 +406,12 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		gu := gasupdater.GasUpdaterToStruct(guIface)
 
 		blocks := []gasupdater.Block{
-			gasupdater.Block{
+			{
 				Number:       0,
 				Hash:         cltest.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(5),
 			},
-			gasupdater.Block{
+			{
 				Number:       1,
 				Hash:         cltest.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(7),
@@ -443,23 +443,23 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		b2Hash := cltest.NewHash()
 
 		blocks := []gasupdater.Block{
-			gasupdater.Block{
+			{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
 				Transactions: cltest.TransactionsFromGasPrices(50),
 			},
-			gasupdater.Block{
+			{
 				Number:       1,
 				Hash:         b2Hash,
 				ParentHash:   b1Hash,
-				Transactions: []gasupdater.Transaction{gasupdater.Transaction{GasPrice: big.NewInt(70), GasLimit: 42}},
+				Transactions: []gasupdater.Transaction{{GasPrice: big.NewInt(70), GasLimit: 42}},
 			},
-			gasupdater.Block{
+			{
 				Number:       2,
 				Hash:         cltest.NewHash(),
 				ParentHash:   b2Hash,
-				Transactions: []gasupdater.Transaction{gasupdater.Transaction{GasPrice: big.NewInt(90), GasLimit: 0}},
+				Transactions: []gasupdater.Transaction{{GasPrice: big.NewInt(90), GasLimit: 0}},
 			},
 		}
 
@@ -488,7 +488,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		b1Hash := cltest.NewHash()
 
 		blocks := []gasupdater.Block{
-			gasupdater.Block{
+			{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
@@ -520,7 +520,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		b1Hash := cltest.NewHash()
 
 		blocks := []gasupdater.Block{
-			gasupdater.Block{
+			{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
@@ -558,20 +558,20 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		b1Hash := cltest.NewHash()
 
 		blocks := []gasupdater.Block{
-			gasupdater.Block{
+			{
 				Number:     0,
 				Hash:       b1Hash,
 				ParentHash: common.Hash{},
 				Transactions: []gasupdater.Transaction{
-					gasupdater.Transaction{GasPrice: big.NewInt(50), GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gasupdater.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: big.NewInt(50), GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
 				},
 			},
 		}

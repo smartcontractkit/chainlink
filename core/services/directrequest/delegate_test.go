@@ -135,7 +135,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
@@ -180,7 +180,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 			BlockNumber: 0,
@@ -222,7 +222,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		log.On("RawLog").Return(types.Log{
-			Topics: []common.Hash{common.Hash{}, common.Hash{}},
+			Topics: []common.Hash{{}, {}},
 		})
 
 		err := uni.service.Start()
@@ -247,7 +247,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
@@ -279,7 +279,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		runLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
@@ -292,7 +292,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
@@ -350,7 +350,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 		})
@@ -401,7 +401,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
+				{},
 				uni.spec.ExternalIDToTopicHash(),
 			},
 		})

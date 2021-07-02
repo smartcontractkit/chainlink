@@ -204,12 +204,18 @@ SELECT coalesce(max(task_runs.minimum_confirmations), 0) FROM job_runs
 	if maxConfs != 0 {
 		for i := range run.TaskRuns {
 			if run.TaskRuns[i].TaskSpec.Type == adapters.TaskTypeRandom && run.TaskRuns[i].MinRequiredIncomingConfirmations.Valid {
+				// Sanity cap must be less than 256 otherwise the blockhash will not be available directly
+				// We give it 56 blocks as a buffer to still be able to fulfill within that bound.
+				newConfs := maxConfs * 2
+				if newConfs > 200 {
+					newConfs = 200
+				}
 				logger.Warnw("RunManager: duplicate VRF requestID seen, doubling incoming confirmations",
 					"requestID", run.RunRequest.RequestID,
 					"txHash", run.RunRequest.TxHash,
 					"oldConfs", run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32,
-					"newConfs", maxConfs*2)
-				run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32 = maxConfs * 2
+					"newConfs", newConfs)
+				run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32 = newConfs
 			}
 		}
 	}

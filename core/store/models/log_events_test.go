@@ -146,13 +146,13 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				runs, err := app.Store.JobRunsFor(js.ID)
 				require.NoError(t, err)
 				return runs
-			}).Should(gomega.HaveLen(1))
+			}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.HaveLen(1))
 
 			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 				runs, err := app.Store.JobRunsFor(js.ID)
 				require.NoError(t, err)
 				return runs[0].GetStatus()
-			}).Should(gomega.Equal(test.wantStatus))
+			}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(test.wantStatus))
 		})
 	}
 }
