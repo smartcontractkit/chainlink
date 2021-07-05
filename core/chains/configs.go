@@ -216,10 +216,16 @@ func setConfigs() {
 	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 	avalancheFuji.EthFinalityDepth = 1
 	avalancheFuji.GasUpdaterEnabled = false
+	avalancheFuji.EthGasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
+	avalancheFuji.EthMaxGasPriceWei = *big.NewInt(225000000000)
+	avalancheFuji.EthMinGasPriceWei = *big.NewInt(225000000000)
 
 	avalancheMainnet := FallbackConfig
 	avalancheMainnet.EthFinalityDepth = 1
 	avalancheMainnet.GasUpdaterEnabled = false
+	avalancheMainnet.EthGasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
+	avalancheMainnet.EthMaxGasPriceWei = *big.NewInt(225000000000)
+	avalancheMainnet.EthMinGasPriceWei = *big.NewInt(225000000000)
 
 	EthMainnet.config = mainnet
 	EthRinkeby.config = rinkeby
