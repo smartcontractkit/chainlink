@@ -445,6 +445,9 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 			newHeadsCh <- args.Get(1).(chan<- *models.Head)
 		}).
 		Return(sub, nil)
+
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Maybe().Return(cltest.Head(100), nil)
+
 	require.NoError(t, app.Start())
 
 	eaValue := "87698118359"
