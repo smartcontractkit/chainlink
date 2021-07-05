@@ -307,21 +307,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsonHead)
 }
 
-func (h Head) CommonAncestor(another *Head) *Head {
-	headA := &h
-	headB := another
-	for {
-		if headA.Parent == nil || headB.Parent == nil {
-			return nil
-		}
-		if headA.Parent.Hash == headB.Parent.Hash {
-			return headA.Parent
-		}
-		headA = headA.Parent
-		headB = headB.Parent
-	}
-}
-
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 

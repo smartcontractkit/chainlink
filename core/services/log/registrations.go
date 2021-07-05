@@ -286,13 +286,8 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead model
 				"chainHashes", fmt.Sprintf("%v", latestHead.ChainHashes()),
 			)
 
-			// Re-org situation: the chain was changed, so we reset the allowed number to the common ancestor of both chains
-			newLowestAllowed := uint64(0)
-			ancestor := latestHead.CommonAncestor(update.toUpdate.lastSeenChain)
-			if ancestor != nil {
-				newLowestAllowed = uint64(ancestor.Number)
-			}
-			update.toUpdate.lowestAllowedBlockNumber = newLowestAllowed
+			// Re-org situation: the chain was changed, so we can't use the number that tracked last unprocessed height of the previous chain
+			update.toUpdate.lowestAllowedBlockNumber = 0
 		}
 		// Setting as latest head for this listener
 		update.toUpdate.lastSeenChain = &latestHead
