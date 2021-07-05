@@ -215,9 +215,11 @@ func setConfigs() {
 	avalancheFuji := FallbackConfig
 	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 	avalancheFuji.EthFinalityDepth = 1
+	avalancheFuji.GasUpdaterEnabled = false
 
 	avalancheMainnet := FallbackConfig
 	avalancheMainnet.EthFinalityDepth = 1
+	avalancheMainnet.GasUpdaterEnabled = false
 
 	EthMainnet.config = mainnet
 	EthRinkeby.config = rinkeby
