@@ -212,10 +212,12 @@ func setConfigs() {
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
 
 	// Avalanche
-	// TODO: settings pending investigation
-	// See: https://app.clubhouse.io/chainlinklabs/story/8820/add-avalanche-mainnet-chain-config-details
 	avalancheFuji := FallbackConfig
 	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
+	avalancheFuji.EthFinalityDepth = 1
+
+	avalancheMainnet := FallbackConfig
+	avalancheMainnet.EthFinalityDepth = 1
 
 	EthMainnet.config = mainnet
 	EthRinkeby.config = rinkeby
@@ -234,4 +236,5 @@ func setConfigs() {
 	XDaiMainnet.config = xDaiMainnet
 	RSKMainnet.config = rskMainnet
 	AvalancheFuji.config = avalancheFuji
+	AvalancheMainnet.config = avalancheMainnet
 }

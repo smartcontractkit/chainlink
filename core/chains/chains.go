@@ -56,23 +56,24 @@ func (c *Chain) IsL2() bool {
 
 var chains map[int64]*Chain
 var (
-	EthMainnet      = new(Chain)
-	EthRinkeby      = new(Chain)
-	EthGoerli       = new(Chain)
-	EthKovan        = new(Chain)
-	OptimismMainnet = new(Chain)
-	OptimismKovan   = new(Chain)
-	ArbitrumMainnet = new(Chain)
-	ArbitrumRinkeby = new(Chain)
-	BSCMainnet      = new(Chain)
-	HecoMainnet     = new(Chain)
-	FantomMainnet   = new(Chain)
-	FantomTestnet   = new(Chain)
-	PolygonMainnet  = new(Chain)
-	PolygonMumbai   = new(Chain)
-	XDaiMainnet     = new(Chain)
-	RSKMainnet      = new(Chain)
-	AvalancheFuji   = new(Chain)
+	EthMainnet       = new(Chain)
+	EthRinkeby       = new(Chain)
+	EthGoerli        = new(Chain)
+	EthKovan         = new(Chain)
+	OptimismMainnet  = new(Chain)
+	OptimismKovan    = new(Chain)
+	ArbitrumMainnet  = new(Chain)
+	ArbitrumRinkeby  = new(Chain)
+	BSCMainnet       = new(Chain)
+	HecoMainnet      = new(Chain)
+	FantomMainnet    = new(Chain)
+	FantomTestnet    = new(Chain)
+	PolygonMainnet   = new(Chain)
+	PolygonMumbai    = new(Chain)
+	XDaiMainnet      = new(Chain)
+	RSKMainnet       = new(Chain)
+	AvalancheFuji    = new(Chain)
+	AvalancheMainnet = new(Chain)
 )
 
 func init() {
@@ -95,6 +96,7 @@ func init() {
 	chains[100] = XDaiMainnet
 	chains[30] = RSKMainnet
 	chains[43113] = AvalancheFuji
+	chains[43114] = AvalancheMainnet
 
 	for id, chain := range chains {
 		chain.setChainID(id)
