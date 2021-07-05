@@ -1208,7 +1208,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 
 		events = []interface{}{
 			head0, log0,
-			head1, log1,
+			log1, // head1 missing
 			head2, log2,
 			head3,
 			head1R, log1Removed, log2Removed, log1R,
