@@ -1,5 +1,6 @@
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-contract-sizer";
+import "hardhat-abi-exporter";
 
 const COMPILER_SETTINGS = {
   optimizer: {
@@ -15,6 +16,9 @@ const COMPILER_SETTINGS = {
  * @type import('hardhat/config').HardhatUserConfig
  */
 export default {
+  abiExporter: {
+    path: "./abi",
+  },
   paths: {
     artifacts: "./artifacts",
     cache: "./cache",

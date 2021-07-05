@@ -70,9 +70,6 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 
 	requestData = withMeta(requestData, metaMap)
 	if t.IncludeInputAtKey != "" {
-		logger.Warnw(`The "includeInputAtKey" parameter on Bridge tasks is deprecated. Please migrate to variable interpolation syntax as soon as possible (see CHANGELOG).`,
-			"task", t.DotID(),
-		)
 		if len(inputValues) > 0 {
 			requestData[string(includeInputAtKey)] = inputValues[0]
 		}

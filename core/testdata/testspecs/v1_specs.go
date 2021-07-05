@@ -15,7 +15,7 @@ var (
   "tasks": [
     {
       "type": "random",
-      "confirmations": 6,
+      "confirmations": 30,
       "params": {
         "_comment": "Note: the following key is ONLY AN EXAMPLE, and not secure.",
         "_comment2": "Use the public key reported when you ran chainlink local vrf create, instead",
