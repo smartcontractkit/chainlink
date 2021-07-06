@@ -2,10 +2,11 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type ReplayController struct {
@@ -16,16 +17,18 @@ type ReplayController struct {
 // Example:
 //  "<application>/replay_blocks"
 func (bdc *ReplayController) ReplayBlocks(c *gin.Context) {
-	request := &models.ReplayBlocksRequest{}
-	if err := c.ShouldBindJSON(request); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+
+	if c.Query("number") == "" {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))
 		return
 	}
-	if err := models.ValidateReplayRequest(request); err != nil {
+
+	blockNumber, err := strconv.ParseInt(c.Query("number"), 10, 0)
+	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if err := bdc.App.ReplayFromBlockNumber(request.BlockNumber); err != nil {
+	if err := bdc.App.ReplayFromBlockNumber(blockNumber); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

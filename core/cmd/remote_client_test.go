@@ -181,6 +181,18 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
+func TestClient_ReplayBlocks(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{"number"})
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ReplayBlocks(c))
+}
+
 func TestClient_IndexJobRuns(t *testing.T) {
 	t.Parallel()
 
