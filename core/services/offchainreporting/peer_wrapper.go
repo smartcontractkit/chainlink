@@ -3,6 +3,7 @@ package offchainreporting
 import (
 	"strings"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -99,6 +100,11 @@ func (p *SingletonPeerWrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
 		}
+		sqlDB, err := p.db.DB()
+		if err != nil {
+			return err
+		}
+		discovererDB := NewDiscovererDatabase(sqlDB, p2ppeer.ID(p.PeerID))
 
 		// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
 		// Fallback to P2PListenPort if it wasn't made explicit
@@ -112,13 +118,19 @@ func (p *SingletonPeerWrapper) Start() error {
 		peerLogger := NewLogger(logger.Default, p.config.OCRTraceLogging(), func(string) {})
 
 		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
-			PrivKey:      key.PrivKey,
-			ListenIP:     p.config.P2PListenIP(),
-			ListenPort:   listenPort,
-			AnnounceIP:   p.config.P2PAnnounceIP(),
-			AnnouncePort: announcePort,
-			Logger:       peerLogger,
-			Peerstore:    p.pstoreWrapper.Peerstore,
+			NetworkingStack:      p.config.P2PNetworkingStack(),
+			PrivKey:              key.PrivKey,
+			V1ListenIP:           p.config.P2PListenIP(),
+			V1ListenPort:         listenPort,
+			V1AnnounceIP:         p.config.P2PAnnounceIP(),
+			V1AnnouncePort:       announcePort,
+			Logger:               peerLogger,
+			V1Peerstore:          p.pstoreWrapper.Peerstore,
+			V2ListenAddresses:    p.config.P2PV2ListenAddresses(),
+			V2AnnounceAddresses:  p.config.P2PV2AnnounceAddresses(),
+			V2DeltaReconcile:     p.config.P2PV2DeltaReconcile().Duration(),
+			V2DeltaDial:          p.config.P2PV2DeltaDial().Duration(),
+			V2DiscovererDatabase: discovererDB,
 			EndpointConfig: ocrnetworking.EndpointConfig{
 				IncomingMessageBufferSize: p.config.OCRIncomingMessageBufferSize(),
 				OutgoingMessageBufferSize: p.config.OCROutgoingMessageBufferSize(),
@@ -126,7 +138,7 @@ func (p *SingletonPeerWrapper) Start() error {
 				DHTLookupInterval:         p.config.OCRDHTLookupInterval(),
 				BootstrapCheckInterval:    p.config.OCRBootstrapCheckInterval(),
 			},
-			DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
+			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
 		})
 		if err != nil {
 			return errors.Wrap(err, "error calling NewPeer")
