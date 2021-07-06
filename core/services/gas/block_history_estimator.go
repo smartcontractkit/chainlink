@@ -108,7 +108,7 @@ func (b *BlockHistoryEstimator) Start() error {
 
 		ctx, cancel := context.WithTimeout(b.ctx, maxStartTime)
 		defer cancel()
-		latestHead, err := b.ethClient.HeaderByNumber(ctx, nil)
+		latestHead, err := b.ethClient.HeadByNumber(ctx, nil)
 		if err != nil {
 			logger.Warnw("BlockHistoryEstimator: initial check for latest head failed", "err", err)
 		} else {

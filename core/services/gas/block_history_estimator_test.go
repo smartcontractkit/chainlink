@@ -49,7 +49,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		h := &models.Head{Hash: cltest.NewHash(), Number: 42}
-		ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
@@ -83,7 +83,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
 		h := &models.Head{Hash: cltest.NewHash(), Number: 42}
-		ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == int(historySize)
 		})).Return(nil)
@@ -100,7 +100,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
-		ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("something exploded"))
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("something exploded"))
 
 		err := bhe.Start()
 		require.NoError(t, err)

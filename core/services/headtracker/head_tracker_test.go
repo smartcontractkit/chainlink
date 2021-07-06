@@ -125,7 +125,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				Run(func(mock.Arguments) { close(chStarted) }).
 				Return(sub, nil)
 
-			fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
+			fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
 			fnCall.RunFn = func(args mock.Arguments) {
 				num := args.Get(1).(*big.Int)
 				fnCall.ReturnArguments = mock.Arguments{cltest.Head(num.Int64()), nil}
@@ -195,7 +195,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 			chchHeaders <- args.Get(1).(chan<- *models.Head)
 		}).
 		Return(sub, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -320,7 +320,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 		Return(sub, nil)
 
 	latestHeadByNumber := make(map[int64]*models.Head)
-	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
+	fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
 	fnCall.RunFn = func(args mock.Arguments) {
 		num := args.Get(1).(*big.Int)
 		head, exists := latestHeadByNumber[num.Int64()]
@@ -467,7 +467,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	latestHeadByNumber := make(map[int64]*models.Head)
 	latestHeadByNumberMu := new(sync.Mutex)
 
-	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
+	fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
 	fnCall.RunFn = func(args mock.Arguments) {
 		latestHeadByNumberMu.Lock()
 		defer latestHeadByNumberMu.Unlock()
@@ -606,7 +606,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 
 		ht := createHeadTrackerWithNeverSleeper(logger, store)
@@ -646,9 +646,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ht := createHeadTrackerWithNeverSleeper(logger, store)
 
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
 			Return(&head8, nil)
 
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
@@ -697,7 +697,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(0)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
 		ht := createHeadTrackerWithNeverSleeper(logger, store)
@@ -726,10 +726,10 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
 			Once()
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
 			Return(nil, ethereum.NotFound).
 			Once()
 
@@ -759,9 +759,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
-		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
 			Return(nil, context.DeadlineExceeded)
 
 		ht := createHeadTrackerWithNeverSleeper(logger, store)
