@@ -31,7 +31,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5541
 
 		latestBlock := blocks[1000]
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		from, to, err := abt.BinarySearch(ctx, changedInL1Block)
 		require.NoError(t, err)
@@ -49,10 +49,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 42
 
 		latestBlock := blocks[1000]
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		tmp := new(models.Head)
-		client.On("HeaderByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			*tmp = blocks[args[1].(*big.Int).Int64()]
 		})
 
@@ -71,10 +71,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5043
 
 		latestBlock := blocks[1000]
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		tmp := new(models.Head)
-		client.On("HeaderByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			*tmp = blocks[args[1].(*big.Int).Int64()]
 		})
 
@@ -93,10 +93,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5042
 
 		latestBlock := blocks[1000]
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		tmp := new(models.Head)
-		client.On("HeaderByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
 		})
@@ -118,10 +118,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5000
 
 		latestBlock := blocks[1000]
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		tmp := new(models.Head)
-		client.On("HeaderByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
 		})
@@ -143,10 +143,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5540
 
 		latestBlock := blocks[1000]
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		tmp := new(models.Head)
-		client.On("HeaderByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
 		})
@@ -170,10 +170,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 		latestBlock := blocks[1000]
 		// Latest is never cached
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
 		tmp := new(models.Head)
-		client.On("HeaderByNumber", ctx, mock.AnythingOfType("*big.Int")).Times(20+18+14).Return(tmp, nil).Run(func(args mock.Arguments) {
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Times(20+18+14).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
 		})
@@ -218,7 +218,7 @@ func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 		ctx := context.Background()
 		var changedInL1Block uint64 = 5042
 
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(nil, errors.New("something exploded")).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(nil, errors.New("something exploded")).Once()
 
 		from, to := abt.NumberToQueryRange(ctx, changedInL1Block)
 		assert.Equal(t, big.NewInt(0), from)
@@ -231,7 +231,7 @@ func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 		ctx := context.Background()
 		var changedInL1Block uint64 = 5042
 
-		client.On("HeaderByNumber", ctx, (*big.Int)(nil)).Return(nil, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(nil, nil).Once()
 
 		from, to := abt.NumberToQueryRange(ctx, changedInL1Block)
 		assert.Equal(t, big.NewInt(0), from)

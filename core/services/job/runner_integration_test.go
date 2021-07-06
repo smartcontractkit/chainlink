@@ -61,7 +61,7 @@ func TestRunner(t *testing.T) {
 	transmitterAddress := key.Address.Address()
 
 	ethClient, _, _ := cltest.NewEthMocks(t)
-	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
