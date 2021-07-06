@@ -42,10 +42,11 @@ type Client interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
-	// These methods are reimplemented due to a difference in how block header hashes are
-	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
-	// type to capture the correct hash from the RPC response.
-	HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
+	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
+	// difference in how block header hashes are calculated by Parity nodes
+	// running on Kovan.  We have to return our own wrapper type to capture the
+	// correct hash from the RPC response.
+	HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
@@ -63,6 +64,10 @@ type Client interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+
+	// bind.ContractBackend methods
+	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
 // This interface only exists so that we can generate a mock for it.  It is
@@ -199,6 +204,10 @@ func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
 	return client.primary.ChainID(ctx)
 }
 
+func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	return client.primary.HeaderByNumber(ctx, n)
+}
+
 // SendTransaction also uses the secondary HTTP RPC URLs if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	for _, s := range client.secondaries {
@@ -253,7 +262,7 @@ func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*type
 	return client.primary.BlockByNumber(ctx, number)
 }
 
-func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {
+func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {
 	hex := toBlockNumArg(number)
 	err = client.primary.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
 	if err == nil && head == nil {
@@ -322,4 +331,8 @@ func (client *client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.Ba
 		return client.BatchCallContext(ctx, b)
 	}
 	return client.secondaries[rr-1].BatchCallContext(ctx, b)
+}
+
+func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	return client.primary.SuggestGasTipCap(ctx)
 }

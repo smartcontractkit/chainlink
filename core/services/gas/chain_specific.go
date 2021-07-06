@@ -1,4 +1,4 @@
-package gasupdater
+package gas
 
 import "math/big"
 

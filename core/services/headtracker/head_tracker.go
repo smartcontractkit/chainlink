@@ -279,7 +279,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
 	ht.logger().Debugw("HeadTracker: fetching head", "blockHeight", n)
-	head, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
+	head, err := ht.store.EthClient.HeadByNumber(ctx, big.NewInt(n))
 	if ctx.Err() != nil {
 		return models.Head{}, nil
 	} else if err != nil {
