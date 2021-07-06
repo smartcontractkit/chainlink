@@ -273,7 +273,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 
 		rc := ReplayController{app}
-		authv2.POST("/replay_blocks", rc.ReplayBlocks)
+		authv2.POST("/replay_from_block/:number", rc.ReplayBlocks)
 
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)

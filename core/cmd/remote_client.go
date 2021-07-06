@@ -16,6 +16,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -113,6 +114,38 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	return err
 }
 
+// ReplayBlocks replays blocks from the given number
+func (cli *Client) ReplayBlocks(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
+	}
+
+	buf := bytes.NewBufferString("{}")
+
+	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/replay_from_block/%s", c.Args().First()), buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	logger.Warnf("EEERRRR %v", err)
+	logger.Warnf("resp.StatusCode %v", resp.StatusCode)
+	logger.Warnf("resp.Status %v", resp.Status)
+
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.Errorf("Unexpected status code: %v", resp.Status))
+	}
+
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var js presenters.JobSpec
+	err = cli.renderAPIResponse(resp, &js)
+	return err
+}
+
 // ShowJobRun returns the status of the given Jobrun.
 func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
@@ -122,6 +155,11 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.Errorf("Unexpected status code: %v", resp.Status))
+	}
+
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
