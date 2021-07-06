@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "./Chainlink.sol";
-import "../interfaces/ENSInterface.sol";
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/OperatorInterface.sol";
-import "../interfaces/PointerInterface.sol";
-import { ENSResolver as ENSResolver_Chainlink } from "../vendor/ENSResolver.sol";
+import "./interfaces/ENSInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/OperatorInterface.sol";
+import "./interfaces/PointerInterface.sol";
+import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 
 /**
  * @title The ChainlinkClient contract
