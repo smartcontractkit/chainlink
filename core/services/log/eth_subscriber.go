@@ -45,7 +45,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		latestBlock, err := sub.ethClient.HeaderByNumber(ctx, nil)
+		latestBlock, err := sub.ethClient.HeadByNumber(ctx, nil)
 		if err != nil {
 			logger.Errorw("LogBroadcaster: backfill - could not fetch latest block header, will retry", "err", err)
 			return true

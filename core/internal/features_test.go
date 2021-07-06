@@ -130,7 +130,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
@@ -1212,7 +1212,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			})
 		}).
 		Return(nil).Once()
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
 	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
@@ -1275,7 +1275,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// Log backfill
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
 
 	newHeadsCh := make(chan chan<- *models.Head, 1)
 	ethClientDone := cltest.NewAwaiter()
@@ -1335,7 +1335,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(sub, nil)
 
 	// Log Broadcaster backfills logs
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(1), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
@@ -1373,7 +1373,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil).Once()
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 
 	logs <- log
 
@@ -1447,7 +1447,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 			}).Maybe()
 		}).
 		Return(nil).Once()
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
 
 	err := app.StartAndConnect()
 	require.NoError(t, err)
@@ -1544,7 +1544,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	// Fund node account with ETH.
 	n, err := b.NonceAt(context.Background(), user.From, nil)
 	require.NoError(t, err)
-	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := user.Signer(user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
@@ -1582,7 +1582,6 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	_, err = consumerContract.SetSpecID(user, specID)
 	require.NoError(t, err)
 
-	user.GasPrice = big.NewInt(1)
 	user.GasLimit = 1000000
 	_, err = consumerContract.RequestMultipleParameters(user, "", big.NewInt(1000))
 	require.NoError(t, err)
@@ -1676,7 +1675,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	n, err := b.NonceAt(context.Background(), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	tx := types.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
@@ -1924,7 +1923,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(10), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(10), nil)
 
 	var headCh chan<- *models.Head
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().
@@ -1936,7 +1935,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 
 	require.NoError(t, app.StartAndConnect())
@@ -2035,7 +2034,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 
 	// BlockHistoryEstimator boot calls
-	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
 			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
@@ -2077,8 +2076,8 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	// HeadTracker backfill
-	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(42)).Return(&h42, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
+	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(42)).Return(&h42, nil)
+	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
 
 	// Simulate one new head and check the gas price got updated
 	newHeads <- cltest.Head(43)

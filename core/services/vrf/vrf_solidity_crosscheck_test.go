@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -43,7 +44,7 @@ func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHel
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to create root ethereum identity")
 	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
