@@ -38,6 +38,14 @@ func (l *Link) String() string {
 	if l == nil {
 		return "0"
 	}
+	return fmt.Sprintf("%v", (*big.Int)(l))
+}
+
+// Link returns Link formatted as a string, in LINK units
+func (l *Link) Link() string {
+	if l == nil {
+		return "0"
+	}
 	return format((*big.Int)(l), 18)
 }
 

@@ -19,7 +19,8 @@ func StoredVRFKey(t *testing.T, ks *keystore.VRF) *secp256k1.PublicKey {
 	rawPassword, err := ioutil.ReadFile("../../tools/clroot/password.txt")
 	require.NoError(t, err)
 	password := strings.TrimSpace(string(rawPassword))
-	require.NoError(t, ks.Import(keyFile, password))
+	_, err = ks.Import(keyFile, password)
+	require.NoError(t, err)
 	keys, err := ks.Unlock(password) // Extracts public key
 	require.NoError(t, err)
 	require.Len(t, keys, 1)

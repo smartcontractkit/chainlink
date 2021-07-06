@@ -91,7 +91,8 @@ const (
 	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password    = "p4SsW0rD1!@#_"
+	VRFPassword = "testingpassword"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultKeyAddress is the ETH address of the fixture key
@@ -190,8 +191,6 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 
 	wsserver, url, cleanup := newWSServer()
 	config := NewConfigWithWSServer(t, url, wsserver)
-	// Tests almost always want to request to localhost so its easier to set this here
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	// Disable gas updater for application tests
 	config.Set("GAS_UPDATER_ENABLED", false)
 	// Disable tx re-sending for application tests
@@ -229,6 +228,15 @@ func MustJobIDFromString(t *testing.T, s string) models.JobID {
 	return id
 }
 
+func MustBigIntFromString(t *testing.T, s string) *big.Int {
+	t.Helper()
+	x, ok := big.NewInt(0).SetString(s, 10)
+	if !ok {
+		t.Fatalf("could not create *big.Int from string '%v'", s)
+	}
+	return x
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
@@ -256,7 +264,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
-	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
+	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", minimumContractPayment.Text(10))
 	rawConfig.Set("ROOT", rootdir)
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
@@ -290,11 +298,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, tc, db)
 	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config)
+	pr := pipeline.NewRunner(prm, tc.Config, ethClient, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -306,8 +314,9 @@ func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB) JobPipelineV2Te
 func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	return pipeline.NewORM(db, config), eventBroadcaster, func() {
+	err := eventBroadcaster.Start()
+	require.NoError(t, err)
+	return pipeline.NewORM(db), eventBroadcaster, func() {
 		eventBroadcaster.Close()
 	}
 }
@@ -315,7 +324,8 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
+	err := eventBroadcaster.Start()
+	require.NoError(t, err)
 	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys), func() {
 		eventBroadcaster.Close()
 	}
@@ -421,6 +431,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 	}
 	require.NoError(t, app.KeyStore.Eth().Unlock(Password))
+	_, err := app.KeyStore.VRF().Unlock(VRFPassword)
+	require.NoError(t, err)
 
 	return app, cleanup
 }
@@ -482,7 +494,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		ta.StopIfStarted()
+		err := ta.StopIfStarted()
+		require.NoError(t, err)
 	}
 }
 
@@ -511,6 +524,12 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
 	return c, s, assertMocksCalled
@@ -532,9 +551,12 @@ func (ta *TestApplication) Start() error {
 	ta.Started = true
 	// TODO - RYAN - we should have a global keystore.Unlock() function
 	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
+	err := ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
+	if err != nil {
+		return err
+	}
 
-	err := ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start()
 	return err
 }
 
@@ -573,7 +595,10 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	ta.ChainlinkApplication.StopIfStarted()
+	err := ta.ChainlinkApplication.StopIfStarted()
+	if err != nil {
+		return err
+	}
 	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -613,10 +638,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:                       r,
-		Config:                         ta.Config.Config,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
+		Renderer:   r,
+		Config:     ta.Config.Config,
+		AppFactory: seededAppFactory{ta.ChainlinkApplication},
+		KeyStoreAuthenticator: CallbackAuthenticator{
+			Callback: func(*keystore.Eth, string) (string, error) {
+				return Password, nil
+			},
+		},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
@@ -708,7 +737,8 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 			logger.Warn("unable to clear test store:", err)
 		}
 	}()
-	logger.Sync()
+	// Ignore sync errors for testing
+	_ = logger.Sync()
 	require.NoError(t, store.Close())
 }
 
@@ -726,7 +756,8 @@ func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON models.JSONAPIErrors
-	json.Unmarshal(b, &respJSON)
+	err = json.Unmarshal(b, &respJSON)
+	require.NoError(t, err)
 	return &respJSON
 }
 
@@ -1146,7 +1177,6 @@ func SendBlocksUntilComplete(
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
 	start int64,
-	ethClient *mocks.Client,
 ) models.JobRun {
 	t.Helper()
 
@@ -1674,6 +1704,14 @@ type Awaiter chan struct{}
 func NewAwaiter() Awaiter { return make(Awaiter) }
 
 func (a Awaiter) ItHappened() { close(a) }
+
+func (a Awaiter) AssertHappened(t *testing.T) {
+	select {
+	case <-a:
+	default:
+		t.Fatal("It didn't happen")
+	}
+}
 
 func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
 	t.Helper()

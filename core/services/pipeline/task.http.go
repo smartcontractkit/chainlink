@@ -43,18 +43,23 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) Run(ctx context.Context, vars Vars, _ JSONSerializable, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
+	_, err := CheckInputs(inputs, -1, -1, 0)
+	if err != nil {
+		return Result{Error: errors.Wrap(err, "task inputs")}
+	}
+
 	var (
 		method                         StringParam
 		url                            URLParam
 		requestData                    MapParam
 		allowUnrestrictedNetworkAccess BoolParam
 	)
-	err := multierr.Combine(
+	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
-		errors.Wrap(ResolveParam(&url, From(NonemptyString(t.URL))), "url"),
+		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
-		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), t.config.DefaultHTTPAllowUnrestrictedNetworkAccess())), "allowUnrestrictedNetworkAccess"),
+		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
 	)
 	if err != nil {
 		return Result{Error: err}

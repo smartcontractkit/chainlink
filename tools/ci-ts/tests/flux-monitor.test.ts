@@ -15,7 +15,7 @@ const {
   CLIENT_NODE_2_URL,
   EXTERNAL_ADAPTER_URL,
   EXTERNAL_ADAPTER_2_URL,
-  MINIMUM_CONTRACT_PAYMENT,
+  MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
 } = t.getEnvVars([
   'NODE_1_CONTAINER',
   'NODE_2_CONTAINER',
@@ -23,12 +23,12 @@ const {
   'CLIENT_NODE_2_URL',
   'EXTERNAL_ADAPTER_URL',
   'EXTERNAL_ADAPTER_2_URL',
-  'MINIMUM_CONTRACT_PAYMENT',
+  'MINIMUM_CONTRACT_PAYMENT_LINK_JUELS',
 ])
 
 const provider = t.createProvider()
 const carol = ethers.Wallet.createRandom().connect(provider)
-const linkTokenFactory = new contract.LinkToken__factory(carol)
+const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregator__factory(carol)
 const deposit = h.toWei('1000')
 const emptyAddress = '0x0000000000000000000000000000000000000000'
@@ -61,7 +61,7 @@ const clClient2 = new ChainlinkClient(
 // TODO import JobSpecRequest from operator_ui/@types/core/store/models.d.ts
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
-let linkToken: contract.Instance<contract.LinkToken__factory>
+let linkToken: contract.Instance<contract.LinkTokenFactory>
 let fluxAggregator: contract.Instance<FluxAggregator__factory>
 
 let node1Address: string
@@ -138,7 +138,7 @@ beforeEach(async () => {
   const maxSubmissionValue = 1000000000
   const deployingContract = await fluxAggregatorFactory.deploy(
     linkToken.address,
-    MINIMUM_CONTRACT_PAYMENT,
+    MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
     300,
     emptyAddress,
     minSubmissionValue,
@@ -274,7 +274,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     // reduce minAnswers to 1
     await (
       await fluxAggregator.updateFutureRounds(
-        MINIMUM_CONTRACT_PAYMENT,
+        MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
         1,
         2,
         0,
@@ -295,7 +295,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
   it('respects the idle timer duration', async () => {
     await (
       await fluxAggregator.updateFutureRounds(
-        MINIMUM_CONTRACT_PAYMENT,
+        MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
         2,
         2,
         0,

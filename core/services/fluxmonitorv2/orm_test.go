@@ -25,7 +25,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	orm := fluxmonitorv2.NewORM(corestore.DB, nil)
+	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()
 
@@ -87,17 +87,17 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		corestore.Config.DatabaseListenerMinReconnectInterval(),
 		corestore.Config.DatabaseListenerMaxReconnectDuration(),
 	)
-	pipelineORM := pipeline.NewORM(corestore.ORM.DB, corestore.Config)
+	pipelineORM := pipeline.NewORM(corestore.DB)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-	orm := fluxmonitorv2.NewORM(corestore.DB, nil)
+	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
 
 	j := makeJob(t)
-	err := jobORM.CreateJob(context.Background(), j, *pipeline.NewTaskDAG())
+	err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
 	require.NoError(t, err)
 
 	jb, err := jobORM.FindJob(j.ID)
@@ -120,7 +120,6 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,
 					FinishedAt: f,
-					IsTerminal: true,
 				},
 			}, true)
 		require.NoError(t, err)
@@ -143,12 +142,10 @@ func makeJob(t *testing.T) *job.Job {
 		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
-		Pipeline:      *pipeline.NewTaskDAG(),
 		ExternalJobID: uuid.NewV4(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
 			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
-			Precision:         2,
 			Threshold:         0.5,
 			PollTimerPeriod:   1 * time.Second,
 			PollTimerDisabled: false,
@@ -166,9 +163,11 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
+	strategy := new(bptxmmocks.TxStrategy)
+
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(corestore.DB, txm)
+		orm = fluxmonitorv2.NewORM(corestore.DB, txm, strategy)
 
 		key      = cltest.MustInsertRandomKey(t, corestore.DB, 0)
 		from     = key.Address.Address()
@@ -177,7 +176,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil).Return(models.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(models.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
 

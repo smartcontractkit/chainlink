@@ -3,13 +3,13 @@ package web
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -21,11 +21,11 @@ type FeedsManagerController struct {
 // CreateFeedsManagerRequest represents a JSONAPI request for registering a
 // feeds manager
 type CreateFeedsManagerRequest struct {
-	Name      string          `json:"name"`
-	URI       string          `json:"uri"`
-	JobTypes  []string        `json:"jobTypes"`
-	PublicKey feeds.PublicKey `json:"publicKey"`
-	Network   string          `json:"network"`
+	Name      string           `json:"name"`
+	URI       string           `json:"uri"`
+	JobTypes  []string         `json:"jobTypes"`
+	PublicKey crypto.PublicKey `json:"publicKey"`
+	Network   string           `json:"network"`
 }
 
 // Create registers a new feeds manager.
@@ -90,9 +90,8 @@ func (fmc *FeedsManagerController) Show(c *gin.Context) {
 		return
 	}
 
-	ms, err := fmc.App.GetFeedsService().GetManager(int32(id))
+	ms, err := fmc.App.GetFeedsService().GetManager(int64(id))
 	if err != nil {
-		fmt.Println("---->", err)
 		if errors.Is(err, sql.ErrNoRows) {
 			jsonAPIError(c, http.StatusNotFound, errors.New("feeds Manager not found"))
 			return

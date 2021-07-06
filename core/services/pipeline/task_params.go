@@ -1,15 +1,19 @@
 package pipeline
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -209,7 +213,7 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 	}
 }
 
-type BytesParam string
+type BytesParam []byte
 
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
@@ -225,6 +229,8 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 		*b = BytesParam(v)
 	case []byte:
 		*b = BytesParam(v)
+	case nil:
+		*b = BytesParam(nil)
 	default:
 		return ErrBadInput
 	}
@@ -261,7 +267,6 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 			return errors.Wrap(ErrBadInput, err.Error())
 		}
 		*u = Uint64Param(n)
-		return nil
 	default:
 		return ErrBadInput
 	}
@@ -273,7 +278,7 @@ type MaybeUint64Param struct {
 	isSet bool
 }
 
-func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
+func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	var n uint64
 	switch v := val.(type) {
 	case uint:
@@ -298,7 +303,7 @@ func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
-			*u = MaybeUint64Param{0, false}
+			*p = MaybeUint64Param{0, false}
 			return nil
 		}
 		var err error
@@ -311,12 +316,78 @@ func (u *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 		return ErrBadInput
 	}
 
-	*u = MaybeUint64Param{n, true}
+	*p = MaybeUint64Param{n, true}
 	return nil
 }
 
-func (u MaybeUint64Param) Uint64() (uint64, bool) {
-	return u.n, u.isSet
+func (p MaybeUint64Param) Uint64() (uint64, bool) {
+	return p.n, p.isSet
+}
+
+type MaybeInt32Param struct {
+	n     int32
+	isSet bool
+}
+
+func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
+	var n int32
+	switch v := val.(type) {
+	case uint:
+		if v > math.MaxInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case uint8:
+		n = int32(v)
+	case uint16:
+		n = int32(v)
+	case uint32:
+		if v > math.MaxInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case uint64:
+		if v > math.MaxInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case int:
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case int8:
+		n = int32(v)
+	case int16:
+		n = int32(v)
+	case int32:
+		n = int32(v)
+	case int64:
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case string:
+		if strings.TrimSpace(v) == "" {
+			*p = MaybeInt32Param{0, false}
+			return nil
+		}
+		i, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+		n = int32(i)
+
+	default:
+		return ErrBadInput
+	}
+
+	*p = MaybeInt32Param{n, true}
+	return nil
+}
+
+func (p MaybeInt32Param) Int32() (int32, bool) {
+	return p.n, p.isSet
 }
 
 type BoolParam bool
@@ -371,6 +442,29 @@ func (u *URLParam) UnmarshalPipelineParam(val interface{}) error {
 
 func (u *URLParam) String() string {
 	return (*url.URL)(u).String()
+}
+
+type AddressParam common.Address
+
+func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
+	switch v := val.(type) {
+	case string:
+		return a.UnmarshalPipelineParam([]byte(v))
+	case []byte:
+		if bytes.Equal(v[:2], []byte("0x")) && len(v) == 42 {
+			*a = AddressParam(common.HexToAddress(string(v)))
+			return nil
+		} else if len(v) == 20 {
+			copy((*a)[:], v)
+			return nil
+		}
+		return ErrBadInput
+	case common.Address:
+		*a = AddressParam(v)
+	default:
+		return ErrBadInput
+	}
+	return nil
 }
 
 type MapParam map[string]interface{}
@@ -478,10 +572,71 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	return nil
 }
 
-type StringSliceParam []string
+type HashSliceParam []common.Hash
 
-func (p *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
-	var ssp StringSliceParam
+func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
+	var dsp HashSliceParam
+	switch v := val.(type) {
+	case nil:
+		dsp = nil
+	case []common.Hash:
+		dsp = v
+	case string:
+		err := json.Unmarshal([]byte(v), &dsp)
+		if err != nil {
+			return err
+		}
+	case []byte:
+		err := json.Unmarshal(v, &dsp)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.Wrap(ErrBadInput, "HashSliceParam")
+	}
+	*s = dsp
+	return nil
+}
+
+type AddressSliceParam []common.Address
+
+func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
+	var asp AddressSliceParam
+	switch v := val.(type) {
+	case nil:
+		asp = nil
+	case []common.Address:
+		asp = v
+	case string:
+		err := json.Unmarshal([]byte(v), &asp)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+		}
+	case []byte:
+		err := json.Unmarshal(v, &asp)
+		if err != nil {
+			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+		}
+	case []interface{}:
+		for _, a := range v {
+			var addr AddressParam
+			err := addr.UnmarshalPipelineParam(a)
+			if err != nil {
+				return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+			}
+			asp = append(asp, common.Address(addr))
+		}
+	default:
+		return errors.Wrapf(ErrBadInput, "AddressSliceParam: cannot convert %T", val)
+	}
+	*s = asp
+	return nil
+}
+
+type JSONPathParam []string
+
+func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
+	var ssp JSONPathParam
 	switch v := val.(type) {
 	case nil:
 		ssp = nil
