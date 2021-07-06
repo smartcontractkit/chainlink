@@ -1,5 +1,11 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+### Changed
+
+- Bump hardhat from 2.3.3 to 2.4.1
+
 ## 0.2.0 - 2021-07-01
 
 ### Added:
