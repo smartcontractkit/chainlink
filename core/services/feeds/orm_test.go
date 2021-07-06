@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
@@ -20,14 +20,19 @@ var (
 	network   = "mainnet"
 )
 
+func setupORM(t *testing.T) feeds.ORM {
+	t.Helper()
+
+	db := pgtest.NewGormDB(t)
+	orm := feeds.NewORM(db)
+
+	return orm
+}
+
 func Test_ORM_CreateManager(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-
-	orm := feeds.NewORM(store.DB)
-
+	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
 		URI:       uri,
 		Name:      name,
@@ -53,11 +58,7 @@ func Test_ORM_CreateManager(t *testing.T) {
 func Test_ORM_ListManagers(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-
-	orm := feeds.NewORM(store.DB)
-
+	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
 		URI:       uri,
 		Name:      name,
@@ -85,11 +86,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 func Test_ORM_GetManager(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-
-	orm := feeds.NewORM(store.DB)
-
+	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
 		URI:       uri,
 		Name:      name,
@@ -210,11 +207,4 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 	require.NoError(t, err)
 
 	return id
-}
-
-func setupORM(t *testing.T) feeds.ORM {
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-
-	return feeds.NewORM(store.DB)
 }
