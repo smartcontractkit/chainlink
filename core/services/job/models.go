@@ -86,7 +86,7 @@ type Job struct {
 // The external job ID (UUID) can be encoded into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
-func (j Job) ExternalIDToHexTopic() common.Hash {
+func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 	var c [32]byte
 	copy(c[:], strings.Replace(j.ExternalJobID.String(), "-", "", 4))
 	return c
@@ -94,7 +94,7 @@ func (j Job) ExternalIDToHexTopic() common.Hash {
 
 // The external job ID (UUID) can also be encoded into a log topic (32 bytes)
 // by taking the 16 bytes undelying the UUID and right padding it.
-func (j Job) ExternalIDToPaddedBytesTopic() common.Hash {
+func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return common.BytesToHash(common.RightPadBytes(j.ExternalJobID.Bytes(), utils.EVMWordByteLen))
 }
 

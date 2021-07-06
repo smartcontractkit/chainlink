@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		db:                       d.db,
 		pipelineORM:              d.pipelineORM,
 		job:                      job,
-		onChainJobSpecID:         job.ExternalIDToHexTopic(),
+		onChainJobSpecID:         job.ExternalIDEncodeStringToTopic(),
 		mbLogs:                   utils.NewMailbox(50),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
 		chStop:                   make(chan struct{}),
@@ -132,8 +132,8 @@ func (l *listener) Start() error {
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDToPaddedBytesTopic()), log.Topic(l.job.ExternalIDToHexTopic())}},
-				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDToPaddedBytesTopic()), log.Topic(l.job.ExternalIDToHexTopic())}},
+				oracle_wrapper.OracleOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
+				oracle_wrapper.OracleCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
 			},
 			NumConfirmations: l.minIncomingConfirmations,
 		})

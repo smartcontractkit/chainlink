@@ -52,13 +52,13 @@ func TestIntegration_VRFV2(t *testing.T) {
 		PublicKey:          vrfkey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDToHexTopic().Bytes())
+	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
 	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
 
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
 	_, err = cu.rootContract.RegisterProvingKey(
-		cu.neil, big.NewInt(7), cu.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDToHexTopic())
+		cu.neil, big.NewInt(7), cu.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDEncodeStringToTopic())
 	require.NoError(t, err)
 	cu.backend.Commit()
 	_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
