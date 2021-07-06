@@ -255,7 +255,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	defer cleanup()
 
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		assert.Equal(t, uint64(1600), tx.Gas())
+		assert.Equal(t, int(1600), int(tx.Gas()))
 		return true
 	})).Return(nil).Once()
 

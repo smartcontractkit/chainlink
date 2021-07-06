@@ -349,7 +349,16 @@ func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit 
 func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx models.EthTx, gasPrice *big.Int, gasLimit uint64) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
 
-	transaction := gethTypes.NewTransaction(uint64(*etx.Nonce), etx.ToAddress, etx.Value.ToInt(), gasLimit, gasPrice, etx.EncodedPayload)
+	tx := newLegacyTransaction(
+		uint64(*etx.Nonce),
+		etx.ToAddress,
+		etx.Value.ToInt(),
+		gasLimit,
+		gasPrice,
+		etx.EncodedPayload,
+	)
+
+	transaction := gethTypes.NewTx(&tx)
 	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, chainID)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
@@ -362,6 +371,17 @@ func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx models.
 	attempt.Hash = hash
 
 	return attempt, nil
+}
+
+func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) gethTypes.LegacyTx {
+	return gethTypes.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Value:    value,
+		Gas:      gasLimit,
+		GasPrice: gasPrice,
+		Data:     data,
+	}
 }
 
 func signTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
