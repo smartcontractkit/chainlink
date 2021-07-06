@@ -29,14 +29,12 @@ const (
 	AutoMigrate = "auto_migrate"
 )
 
-// Store contains fields for the database, Config, and KeyStore
+// Store contains fields for the database, Config
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config *orm.Config
-	Clock  utils.AfterNower
-	// KeyStore       KeyStoreInterface
-	// VRFKeyStore    *vrf.VRFKeyStore
+	Config         *orm.Config
+	Clock          utils.AfterNower
 	EthClient      eth.Client
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
@@ -62,7 +60,6 @@ func newStore(
 	config *orm.Config,
 	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
-	// keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -74,19 +71,14 @@ func newStore(
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
 
-	// keyStore := keyStoreGenerator(orm.DB, config)
-	// scryptParams := utils.GetScryptParams(config)
-
 	store := &Store{
 		Clock:          utils.Clock{},
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
-		// KeyStore:       keyStore,
-		ORM:       orm,
-		EthClient: ethClient,
-		closeOnce: &sync.Once{},
+		ORM:            orm,
+		EthClient:      ethClient,
+		closeOnce:      &sync.Once{},
 	}
-	// store.VRFKeyStore = vrf.newVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil
 }
 

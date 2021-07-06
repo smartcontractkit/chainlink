@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
@@ -18,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
@@ -26,13 +24,14 @@ import (
 type (
 	Task interface {
 		Type() TaskType
+		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, meta JSONSerializable, inputs []Result) Result
-		OutputTask() Task
-		SetOutputTask(task Task)
+		Run(ctx context.Context, vars Vars, inputs []Result) Result
+		Base() *BaseTask
+		Outputs() []Task
+		Inputs() []Task
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		NumPredecessors() int
 	}
 
 	Config interface {
@@ -43,6 +42,8 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
+		EthGasLimitDefault() uint64
+		EthMaxQueuedTransactions() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -55,21 +56,13 @@ var (
 	ErrBadInput              = errors.New("bad input for task")
 	ErrParameterEmpty        = errors.New("parameter is empty")
 	ErrTooManyErrors         = errors.New("too many errors")
+	ErrTimeout               = errors.New("timeout")
+	ErrTaskRunFailed         = errors.New("task run failed")
 )
 
 const (
 	InputTaskKey = "input"
 )
-
-// Bundled tx and txmutex for multiple goroutines inside the same transaction.
-// This mutex is necessary to work to avoid
-// concurrent database calls inside the same transaction to fail.
-// With the pq driver: `pq: unexpected Parse response 'C'`
-// With the pgx driver: `conn busy`.
-type SafeTx struct {
-	tx   *gorm.DB
-	txMu *sync.Mutex
-}
 
 // Result is the result of a TaskRun
 type Result struct {
@@ -145,7 +138,10 @@ type TaskRunResult struct {
 	Result     Result
 	CreatedAt  time.Time
 	FinishedAt time.Time
-	IsTerminal bool
+}
+
+func (result *TaskRunResult) IsTerminal() bool {
+	return len(result.Task.Outputs()) == 0
 }
 
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
@@ -160,7 +156,7 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
 	})
 	for _, trr := range trrs {
-		if trr.IsTerminal {
+		if trr.IsTerminal() {
 			fr.Values = append(fr.Values, trr.Result.Value)
 			fr.Errors = append(fr.Errors, trr.Result.Error)
 			found = true
@@ -229,13 +225,23 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeAny       TaskType = "any"
-	TaskTypeVRF       TaskType = "vrf"
+	TaskTypeHTTP            TaskType = "http"
+	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMean            TaskType = "mean"
+	TaskTypeMedian          TaskType = "median"
+	TaskTypeMode            TaskType = "mode"
+	TaskTypeSum             TaskType = "sum"
+	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeDivide          TaskType = "divide"
+	TaskTypeJSONParse       TaskType = "jsonparse"
+	TaskTypeCBORParse       TaskType = "cborparse"
+	TaskTypeAny             TaskType = "any"
+	TaskTypeVRF             TaskType = "vrf"
+	TaskTypeETHCall         TaskType = "ethcall"
+	TaskTypeETHTx           TaskType = "ethtx"
+	TaskTypeETHABIEncode    TaskType = "ethabiencode"
+	TaskTypeETHABIDecode    TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -246,7 +252,7 @@ var (
 	int32Type  = reflect.TypeOf(int32(0))
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, numPredecessors int) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
@@ -260,19 +266,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	var task Task
 	switch taskType {
 	case TaskTypePanic:
-		task = &PanicTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &PanicTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeHTTP:
-		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &HTTPTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, safeTx: SafeTx{txdb, txdbMutex}, BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &BridgeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMedian:
-		task = &MedianTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeAny:
-		task = &AnyTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, numPredecessors: numPredecessors}}
+		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeVRF:
+		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHCall:
+		task = &ETHCallTask{BaseTask: BaseTask{dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

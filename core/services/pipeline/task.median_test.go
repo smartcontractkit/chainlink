@@ -4,10 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bmizerany/assert"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -88,10 +86,10 @@ func TestMedian(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask("task", nil, 0, 0),
+				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), pipeline.JSONSerializable{}, test.inputs)
+			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -119,11 +117,11 @@ func TestMedian(t *testing.T) {
 				"foo": map[string]interface{}{"bar": inputs},
 			})
 			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask("task", nil, 0, 0),
+				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Values:        "$(foo.bar)",
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -165,11 +163,11 @@ func TestMedian(t *testing.T) {
 			}
 
 			task := pipeline.MedianTask{
-				BaseTask:      pipeline.NewBaseTask("task", nil, 0, 0),
+				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Values:        valuesParam,
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), vars, pipeline.JSONSerializable{}, nil)
+			output := task.Run(context.Background(), vars, nil)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -184,8 +182,7 @@ func TestMedian(t *testing.T) {
 func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 	t.Parallel()
 
-	var taskDAG pipeline.TaskDAG
-	err := taskDAG.UnmarshalText([]byte(`
+	p, err := pipeline.Parse(`
 	// data source 1
 	ds1          [type=bridge name=voter_turnout];
 	ds1_parse    [type=jsonparse path="one,two"];
@@ -201,13 +198,11 @@ func TestMedian_AllowedFaults_Unmarshal(t *testing.T) {
 
 	answer1 [type=median                      index=0 allowedFaults=10];
 	answer2 [type=bridge name=election_winner index=1];
-`))
+`)
 	require.NoError(t, err)
-	ts, err := taskDAG.TasksInDependencyOrder()
-	require.NoError(t, err)
-	for _, task := range ts {
+	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeMedian {
-			assert.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
+			require.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
 		}
 	}
 }

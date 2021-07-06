@@ -21,20 +21,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateSpec provides a mock function with given fields: ctx, tx, taskDAG, maxTaskTimeout
-func (_m *ORM) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG pipeline.TaskDAG, maxTaskTimeout models.Interval) (int32, error) {
-	ret := _m.Called(ctx, tx, taskDAG, maxTaskTimeout)
+// CreateSpec provides a mock function with given fields: ctx, tx, _a2, maxTaskTimeout
+func (_m *ORM) CreateSpec(ctx context.Context, tx *gorm.DB, _a2 pipeline.Pipeline, maxTaskTimeout models.Interval) (int32, error) {
+	ret := _m.Called(ctx, tx, _a2, maxTaskTimeout)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, pipeline.TaskDAG, models.Interval) int32); ok {
-		r0 = rf(ctx, tx, taskDAG, maxTaskTimeout)
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, pipeline.Pipeline, models.Interval) int32); ok {
+		r0 = rf(ctx, tx, _a2, maxTaskTimeout)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, pipeline.TaskDAG, models.Interval) error); ok {
-		r1 = rf(ctx, tx, taskDAG, maxTaskTimeout)
+	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, pipeline.Pipeline, models.Interval) error); ok {
+		r1 = rf(ctx, tx, _a2, maxTaskTimeout)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -70,27 +70,6 @@ func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
 	}
 
 	return r0
-}
-
-// FindBridge provides a mock function with given fields: name
-func (_m *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
-	ret := _m.Called(name)
-
-	var r0 models.BridgeType
-	if rf, ok := ret.Get(0).(func(models.TaskType) models.BridgeType); ok {
-		r0 = rf(name)
-	} else {
-		r0 = ret.Get(0).(models.BridgeType)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(models.TaskType) error); ok {
-		r1 = rf(name)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // FindRun provides a mock function with given fields: id

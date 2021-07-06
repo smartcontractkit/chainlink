@@ -19,30 +19,28 @@ var (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
+	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
 	InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
-	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
 	DB() *gorm.DB
 }
 
 type orm struct {
-	db     *gorm.DB
-	config Config
+	db *gorm.DB
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, config Config) *orm {
-	return &orm{db, config}
+func NewORM(db *gorm.DB) *orm {
+	return &orm{db}
 }
 
 // The tx argument must be an already started transaction.
-func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxTaskDuration models.Interval) (int32, error) {
+func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskDuration models.Interval) (int32, error) {
 	spec := Spec{
-		DotDagSource:    taskDAG.DOTSource,
+		DotDagSource:    pipeline.Source,
 		MaxTaskDuration: maxTaskDuration,
 	}
 	err := tx.Create(&spec).Error
@@ -98,15 +96,13 @@ func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, save
 }
 
 func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
-	err := o.db.Exec(`DELETE FROM pipeline_runs WHERE finished_at < ?`, time.Now().Add(-threshold)).Error
+	err := o.db.Exec(
+		`DELETE FROM pipeline_runs WHERE finished_at < ?`, time.Now().Add(-threshold),
+	).Error
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
-	return FindBridge(o.db, name)
 }
 
 func (o *orm) FindRun(id int64) (Run, error) {
@@ -129,12 +125,6 @@ func (o *orm) GetAllRuns() ([]Run, error) {
 				Order("created_at ASC, id ASC")
 		}).Find(&runs).Error
 	return runs, err
-}
-
-// FindBridge find a bridge using the given database
-func FindBridge(db *gorm.DB, name models.TaskType) (models.BridgeType, error) {
-	var bt models.BridgeType
-	return bt, errors.Wrapf(db.First(&bt, "name = ?", name.String()).Error, "could not find bridge with name '%s'", name)
 }
 
 func (o *orm) DB() *gorm.DB {

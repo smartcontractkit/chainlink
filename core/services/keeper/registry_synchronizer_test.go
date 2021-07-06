@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -55,7 +56,7 @@ func setupRegistrySync(t *testing.T) (
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
@@ -64,11 +65,12 @@ func setupRegistrySync(t *testing.T) (
 	require.NoError(t, err)
 
 	lbMock.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
-		return opts.Contract.Address() == contractAddress
+		return opts.Contract == contractAddress
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, store.DB, nil, jpv2.Jrm, lbMock, syncInterval, 1)
+	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1)
 	return store, synchronizer, ethMock, lbMock, j
 }
 

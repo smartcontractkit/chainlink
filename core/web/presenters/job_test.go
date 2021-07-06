@@ -110,7 +110,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				FluxMonitorSpec: &job.FluxMonitorSpec{
 					ContractAddress:   contractAddress,
-					Precision:         2,
 					Threshold:         0.5,
 					IdleTimerPeriod:   1 * time.Minute,
 					IdleTimerDisabled: false,
@@ -147,7 +146,6 @@ func TestJob(t *testing.T) {
 						},
 						"fluxMonitorSpec": {
 							"contractAddress": "%s",
-							"precision": 2,
 							"threshold": 0.5,
 							"absoluteThreshold": 0,
 							"idleTimerPeriod": "1m0s",

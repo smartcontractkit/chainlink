@@ -1,4 +1,4 @@
 # folders
 artifacts/
-cache/
+cache/**
 node_modules/

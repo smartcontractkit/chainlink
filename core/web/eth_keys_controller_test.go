@@ -50,12 +50,12 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	first := actualBalances[0]
 	assert.Equal(t, expectedKeys[0].Address.Hex(), first.Address)
 	assert.Equal(t, "0.000000000000000256", first.EthBalance.String())
-	assert.Equal(t, "0.000000000000000256", first.LinkBalance.String())
+	assert.Equal(t, "256", first.LinkBalance.String())
 
 	second := actualBalances[1]
 	assert.Equal(t, expectedKeys[1].Address.Hex(), second.Address)
 	assert.Equal(t, "0.000000000000000001", second.EthBalance.String())
-	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
+	assert.Equal(t, "1", second.LinkBalance.String())
 }
 
 func TestETHKeysController_Index_NotDev(t *testing.T) {
@@ -92,7 +92,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	only := actualBalances[0]
 	assert.Equal(t, expectedKeys[0].Address.Hex(), only.Address)
 	assert.Equal(t, "0.000000000000000256", only.EthBalance.String())
-	assert.Equal(t, "0.000000000000000256", only.LinkBalance.String())
+	assert.Equal(t, "256", only.LinkBalance.String())
 }
 
 func TestETHKeysController_Index_NoAccounts(t *testing.T) {

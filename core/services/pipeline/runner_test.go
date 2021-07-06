@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 
@@ -54,9 +52,8 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	r := pipeline.NewRunner(orm, store.Config)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
 
-	d := pipeline.TaskDAG{}
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
@@ -78,17 +75,15 @@ median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
 `, s2.URL, s4.URL, s5.URL)
-	err = d.UnmarshalText([]byte(s))
-	require.NoError(t, err)
-	ts, err := d.TasksInDependencyOrder()
+	d, err := pipeline.Parse(s)
 	require.NoError(t, err)
 
-	spec := pipeline.Spec{
-		DotDagSource: s,
-	}
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, nil, pipeline.JSONSerializable{}, *logger.Default)
+	spec := pipeline.Spec{DotDagSource: s}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
-	require.Len(t, trrs, len(ts))
+	require.Len(t, trrs, len(d.Tasks))
 
 	finalResults := trrs.FinalResult()
 	require.Len(t, finalResults.Values, 3)
@@ -102,7 +97,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
-		if trr.Result.Error != nil && !trr.IsTerminal {
+		if trr.Result.Error != nil && !trr.IsTerminal() {
 			errorResults = append(errorResults, trr)
 		}
 	}
@@ -114,11 +109,11 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	t.Parallel()
 
 	specTemplate := `
-        ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": $(input.foo)}>]
+        ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": $(foo)}>]
         ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
         ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
 
-        ds2 [type=http method="POST" url="%s" requestData=<{"data": [ $(input.bar), $(input.baz) ]}>]
+        ds2 [type=http method="POST" url="%s" requestData=<{"data": [ $(bar), $(baz) ]}>]
         ds2_parse [type=jsonparse lax=false  path="data" data="$(ds2)"]
         ds2_multiply [type=multiply input="$(ds2_parse.result)" times="$(ds2_parse.times)"]
 
@@ -147,13 +142,13 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		pipelineInput     map[string]interface{}
+		vars              map[string]interface{}
 		meta              map[string]interface{}
 		includeInputAtKey string
 	}{
 		{
 			name: "meta + includeInputAtKey",
-			pipelineInput: map[string]interface{}{
+			vars: map[string]interface{}{
 				"foo": []interface{}{float64(123), "chainlink"},
 				"bar": float64(123.45),
 				"baz": "such oracle",
@@ -163,7 +158,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 		},
 		{
 			name: "includeInputAtKey",
-			pipelineInput: map[string]interface{}{
+			vars: map[string]interface{}{
 				"foo": *mustDecimal(t, "42.1337"),
 				"bar": map[string]interface{}{"steve": "chainlink"},
 				"baz": true,
@@ -172,7 +167,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 		},
 		{
 			name: "meta",
-			pipelineInput: map[string]interface{}{
+			vars: map[string]interface{}{
 				"foo": []interface{}{"asdf", float64(123)},
 				"bar": false,
 				"baz": *mustDecimal(t, "42.1337"),
@@ -188,8 +183,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			expectedRequestDS1 := map[string]interface{}{"data": test.pipelineInput["foo"]}
-			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.pipelineInput["bar"], test.pipelineInput["baz"]}}
+			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
+			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
 			expectedRequestSubmit := map[string]interface{}{
 				"median":        "9650000000000000000000",
 				"fetchedValues": []interface{}{"9700", "9600"},
@@ -198,9 +193,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			if test.meta != nil {
 				expectedRequestDS1["meta"] = test.meta
 				expectedRequestSubmit["meta"] = test.meta
-			} else {
-				expectedRequestDS1["meta"] = nil
-				expectedRequestSubmit["meta"] = nil
+				test.vars["jobRun"] = map[string]interface{}{"meta": test.meta}
 			}
 			if test.includeInputAtKey != "" {
 				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
@@ -236,47 +229,38 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			orm := new(mocks.ORM)
 			orm.On("DB").Return(store.DB)
 
-			runner := pipeline.NewRunner(orm, store.Config)
-			taskDAG := pipeline.TaskDAG{}
+			runner := pipeline.NewRunner(orm, store.Config, nil, nil)
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
-			err := taskDAG.UnmarshalText([]byte(specStr))
-			require.NoError(t, err)
-			tasks, err := taskDAG.TasksInDependencyOrder()
+			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			var meta pipeline.JSONSerializable
-			if test.meta != nil {
-				meta.Val = test.meta
-			} else {
-				meta.Null = true
-			}
-			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, test.pipelineInput, meta, *logger.Default)
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), *logger.Default)
 			require.NoError(t, err)
-			require.Len(t, taskRunResults, len(tasks))
+			require.Len(t, taskRunResults, len(p.Tasks))
 
-			type M = map[string]interface{}
 			expectedResults := map[string]pipeline.Result{
-				"ds1":          pipeline.Result{Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
-				"ds1_parse":    pipeline.Result{Value: M{"result": "9700", "times": "1000000000000000000"}},
-				"ds1_multiply": pipeline.Result{Value: *mustDecimal(t, "9700000000000000000000")},
-				"ds2":          pipeline.Result{Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
-				"ds2_parse":    pipeline.Result{Value: M{"result": "9600", "times": "1000000000000000000"}},
-				"ds2_multiply": pipeline.Result{Value: *mustDecimal(t, "9600000000000000000000")},
-				"ds3":          pipeline.Result{Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
-				"ds3_parse":    pipeline.Result{Error: pipeline.ErrTooManyErrors},
-				"ds3_multiply": pipeline.Result{Error: pipeline.ErrTooManyErrors},
-				"ds4":          pipeline.Result{Value: "some random string"},
-				"median":       pipeline.Result{Value: *mustDecimal(t, "9650000000000000000000")},
-				"submit":       pipeline.Result{Value: `{"ok":true}` + "\n"},
+				"ds1":          {Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
+				"ds1_parse":    {Value: map[string]interface{}{"result": "9700", "times": "1000000000000000000"}},
+				"ds1_multiply": {Value: *mustDecimal(t, "9700000000000000000000")},
+				"ds2":          {Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
+				"ds2_parse":    {Value: map[string]interface{}{"result": "9600", "times": "1000000000000000000"}},
+				"ds2_multiply": {Value: *mustDecimal(t, "9600000000000000000000")},
+				"ds3":          {Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
+				"ds3_parse":    {Error: pipeline.ErrTooManyErrors},
+				"ds3_multiply": {Error: pipeline.ErrTooManyErrors},
+				"ds4":          {Value: "some random string"},
+				"median":       {Value: *mustDecimal(t, "9650000000000000000000")},
+				"submit":       {Value: `{"ok":true}` + "\n"},
 			}
 
 			for _, r := range taskRunResults {
 				expected := expectedResults[r.Task.DotID()]
-				if r.Result.Error != nil {
-					require.Equal(t, expected.Error.Error(), r.Result.Error.Error())
+				if expected.Error != nil {
+					require.Error(t, r.Result.Error)
+					require.Contains(t, r.Result.Error.Error(), expected.Error.Error())
 				} else {
 					if d, is := expected.Value.(decimal.Decimal); is {
 						require.Equal(t, d.String(), r.Result.Value.(decimal.Decimal).String())
@@ -321,21 +305,75 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
 
-	r := pipeline.NewRunner(orm, store.Config)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	spec := pipeline.Spec{
-		DotDagSource: s,
-	}
-	_, trrs, err := r.ExecuteRun(ctx, spec, nil, pipeline.JSONSerializable{}, *logger.Default)
+
+	spec := pipeline.Spec{DotDagSource: s}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
-		if trr.IsTerminal {
+		if trr.IsTerminal() {
 			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.(decimal.Decimal))
 		}
 	}
+}
+
+func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(val)" times=2]
+b1 [type=multiply input="$(a)" times=2]
+b2 [type=multiply input="$(a)" times=3]
+c [type=median values=<[ $(b1), $(b2) ]> index=0]
+a->b1->c;
+a->b2->c;`,
+	}, pipeline.NewVarsFrom(input), *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult().HasErrors())
+
+	// a = 4
+	// (b1 = 8) + (b2 = 12)
+	// c = 20 / 2
+
+	result, err := trrs.FinalResult().SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
+}
+
+func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(val)" times=2]
+b1 [type=multiply input="$(a)" times=2 index=0]
+b2 [type=multiply input="$(a)" times=3 index=1]
+a->b1;
+a->b2;`,
+	}, pipeline.NewVarsFrom(input), *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(trrs))
+	result := trrs.FinalResult()
+	assert.Equal(t, false, result.HasErrors())
+
+	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
+	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
 }
 
 func TestPanicTask_Run(t *testing.T) {
@@ -347,21 +385,21 @@ func TestPanicTask_Run(t *testing.T) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(`{"result":10}`))
 	}))
-	r := pipeline.NewRunner(orm, store.Config)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds1 [type=http url="%s"]
 ds_parse [type=jsonparse path="result"]
 ds_multiply [type=multiply times=10]
 ds_panic [type=panic msg="oh no"]
 ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
-	}, nil, pipeline.JSONSerializable{}, *logger.Default)
+	}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
-	assert.Equal(t, pipeline.ErrRunPanicked.Error(), trrs.FinalResult().Errors[0].Error())
-	for _, trr := range trrs {
-		assert.Equal(t, null.NewString("pipeline run panicked", true), trr.Result.ErrorDB())
-		assert.Equal(t, true, trr.Result.OutputDB().Null)
-	}
+	assert.Equal(t, true, trrs.FinalResult().HasErrors())
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().Errors[0])
 }

@@ -153,7 +153,8 @@ func (lsn *listener) Start() error {
 			minConfs = lsn.job.VRFSpec.Confirmations
 		}
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
-			Contract: lsn.coordinator,
+			Contract: lsn.coordinator.Address(),
+			ParseLog: lsn.coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
 					{
@@ -238,7 +239,9 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 								JobID:         lsn.job.ID,
 								RequestID:     req.RequestID,
 								RequestTxHash: lb.RawLog().TxHash,
-							})
+							},
+							bulletprooftxmanager.SendEveryStrategy{},
+						)
 						if err != nil {
 							return err
 						}
@@ -326,7 +329,7 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 		return inputs, err
 	}
 	if !bytes.Equal(request.KeyHash[:], kh[:]) {
-		return inputs, errors.New(fmt.Sprintf("invalid key hash %v expected %v", hex.EncodeToString(request.KeyHash[:]), hex.EncodeToString(kh[:])))
+		return inputs, fmt.Errorf("invalid key hash %v expected %v", hex.EncodeToString(request.KeyHash[:]), hex.EncodeToString(kh[:]))
 	}
 	preSeed, err := BigToSeed(request.Seed)
 	if err != nil {
@@ -334,7 +337,7 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 	}
 	expectedJobID := jb.ExternalIDToTopicHash()
 	if !bytes.Equal(expectedJobID[:], request.JobID[:]) {
-		return inputs, errors.New(fmt.Sprintf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDToTopicHash().Bytes()))
+		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDToTopicHash().Bytes())
 	}
 	return VRFInputs{
 		pk: jb.VRFSpec.PublicKey,

@@ -1,28 +1,31 @@
 import { ethers } from "hardhat";
-import { publicAbi, constants } from "../helpers";
+import { publicAbi } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
-import { Signer, Contract } from "ethers";
+import { Signer, Contract, constants } from "ethers";
+import { Users, getUsers } from "../test-helpers/setup";
+
+let users: Users;
+
+let owner: Signer;
+let ownerAddress: string;
+let aggregator: Signer;
+let aggregatorAddress: string;
+let validator: Signer;
+let validatorAddress: string;
+let validatorProxy: Contract;
+
+before(async () => {
+  users = await getUsers();
+  owner = users.personas.Default;
+  aggregator = users.contracts.contract1;
+  validator = users.contracts.contract2;
+  ownerAddress = await owner.getAddress();
+  aggregatorAddress = await aggregator.getAddress();
+  validatorAddress = await validator.getAddress();
+});
 
 describe("ValidatorProxy", () => {
-  let accounts: Signer[];
-
-  let owner: Signer;
-  let ownerAddress: string;
-  let aggregator: Signer;
-  let aggregatorAddress: string;
-  let validator: Signer;
-  let validatorAddress: string;
-  let validatorProxy: Contract;
-
   beforeEach(async () => {
-    accounts = await ethers.getSigners();
-    owner = accounts[0];
-    aggregator = accounts[1];
-    validator = accounts[2];
-    ownerAddress = await owner.getAddress();
-    aggregatorAddress = await aggregator.getAddress();
-    validatorAddress = await validator.getAddress();
-
     const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
     validatorProxy = await vpf.deploy(aggregatorAddress, validatorAddress);
     validatorProxy = await validatorProxy.deployed();
@@ -51,14 +54,14 @@ describe("ValidatorProxy", () => {
       const response = await validatorProxy.getAggregators();
       assert.equal(response.current, aggregatorAddress);
       assert.equal(response.hasProposal, false);
-      assert.equal(response.proposed, constants.ZERO_ADDRESS);
+      assert.equal(response.proposed, constants.AddressZero);
     });
 
     it("should set the validator addresses conrrectly", async () => {
       const response = await validatorProxy.getValidators();
       assert.equal(response.current, validatorAddress);
       assert.equal(response.hasProposal, false);
-      assert.equal(response.proposed, constants.ZERO_ADDRESS);
+      assert.equal(response.proposed, constants.AddressZero);
     });
 
     it("should set the owner correctly", async () => {
@@ -71,13 +74,13 @@ describe("ValidatorProxy", () => {
     let newAggregator: Signer;
     let newAggregatorAddress: string;
     beforeEach(async () => {
-      newAggregator = accounts[3];
+      newAggregator = users.contracts.contract3;
       newAggregatorAddress = await newAggregator.getAddress();
     });
 
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).proposeNewAggregator(newAggregatorAddress)).to.be.revertedWith(
           "Only callable by owner",
         );
@@ -110,11 +113,11 @@ describe("ValidatorProxy", () => {
 
       it("should set a zero address and hasProposal is false", async () => {
         await validatorProxy.proposeNewAggregator(newAggregatorAddress);
-        await validatorProxy.proposeNewAggregator(constants.ZERO_ADDRESS);
+        await validatorProxy.proposeNewAggregator(constants.AddressZero);
         const response = await validatorProxy.getAggregators();
         assert.equal(response.current, aggregatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -122,7 +125,7 @@ describe("ValidatorProxy", () => {
   describe("#upgradeAggregator", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).upgradeAggregator()).to.be.revertedWith("Only callable by owner");
       });
 
@@ -135,7 +138,7 @@ describe("ValidatorProxy", () => {
       let newAggregator: Signer;
       let newAggregatorAddress: string;
       beforeEach(async () => {
-        newAggregator = accounts[3];
+        newAggregator = users.contracts.contract3;
         newAggregatorAddress = await newAggregator.getAddress();
         await validatorProxy.proposeNewAggregator(newAggregatorAddress);
       });
@@ -151,7 +154,7 @@ describe("ValidatorProxy", () => {
         const response = await validatorProxy.getAggregators();
         assert.equal(response.current, newAggregatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -161,13 +164,13 @@ describe("ValidatorProxy", () => {
     let newValidatorAddress: string;
 
     beforeEach(async () => {
-      newValidator = accounts[3];
+      newValidator = users.contracts.contract3;
       newValidatorAddress = await newValidator.getAddress();
     });
 
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).proposeNewAggregator(newValidatorAddress)).to.be.revertedWith(
           "Only callable by owner",
         );
@@ -200,11 +203,11 @@ describe("ValidatorProxy", () => {
 
       it("should set a zero address and hasProposal is false", async () => {
         await validatorProxy.proposeNewValidator(newValidatorAddress);
-        await validatorProxy.proposeNewValidator(constants.ZERO_ADDRESS);
+        await validatorProxy.proposeNewValidator(constants.AddressZero);
         const response = await validatorProxy.getValidators();
         assert.equal(response.current, validatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -212,7 +215,7 @@ describe("ValidatorProxy", () => {
   describe("#upgradeValidator", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
-        const stranger = accounts[4];
+        const stranger = users.contracts.contract4;
         await expect(validatorProxy.connect(stranger).upgradeValidator()).to.be.revertedWith("Only callable by owner");
       });
 
@@ -225,7 +228,7 @@ describe("ValidatorProxy", () => {
       let newValidator: Signer;
       let newValidatorAddress: string;
       beforeEach(async () => {
-        newValidator = accounts[3];
+        newValidator = users.contracts.contract3;
         newValidatorAddress = await newValidator.getAddress();
         await validatorProxy.proposeNewValidator(newValidatorAddress);
       });
@@ -241,7 +244,7 @@ describe("ValidatorProxy", () => {
         const response = await validatorProxy.getValidators();
         assert.equal(response.current, newValidatorAddress);
         assert.equal(response.hasProposal, false);
-        assert.equal(response.proposed, constants.ZERO_ADDRESS);
+        assert.equal(response.proposed, constants.AddressZero);
       });
     });
   });
@@ -249,7 +252,7 @@ describe("ValidatorProxy", () => {
   describe("#validate", () => {
     describe("failure", () => {
       it("reverts when not called by aggregator or proposed aggregator", async () => {
-        const stranger = accounts[9];
+        const stranger = users.contracts.contract5;
         await expect(validatorProxy.connect(stranger).validate(99, 88, 77, 66)).to.be.revertedWith(
           "Not a configured aggregator",
         );
@@ -257,7 +260,7 @@ describe("ValidatorProxy", () => {
 
       it("reverts when there is no validator set", async () => {
         const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
-        validatorProxy = await vpf.deploy(aggregatorAddress, constants.ZERO_ADDRESS);
+        validatorProxy = await vpf.deploy(aggregatorAddress, constants.AddressZero);
         await validatorProxy.deployed();
         await expect(validatorProxy.connect(aggregator).validate(99, 88, 77, 66)).to.be.revertedWith(
           "No validator set",
@@ -287,7 +290,7 @@ describe("ValidatorProxy", () => {
           it("uses a specific amount of gas", async () => {
             const resp = await validatorProxy.connect(aggregator).validate(200, 300, 400, 500);
             const receipt = await resp.wait();
-            assert.equal(receipt.gasUsed.toString(), "35371");
+            assert.equal(receipt.gasUsed.toString(), "32406");
           });
         });
 
@@ -316,7 +319,7 @@ describe("ValidatorProxy", () => {
           it("uses a specific amount of gas", async () => {
             const resp = await validatorProxy.connect(aggregator).validate(2000, 3000, 4000, 5000);
             const receipt = await resp.wait();
-            assert.equal(receipt.gasUsed.toString(), "45318");
+            assert.equal(receipt.gasUsed.toString(), "40495");
           });
         });
       });
@@ -325,7 +328,7 @@ describe("ValidatorProxy", () => {
         let newAggregator: Signer;
         let newAggregatorAddress: string;
         beforeEach(async () => {
-          newAggregator = accounts[3];
+          newAggregator = users.contracts.contract3;
           newAggregatorAddress = await newAggregator.getAddress();
           await validatorProxy.connect(owner).proposeNewAggregator(newAggregatorAddress);
         });

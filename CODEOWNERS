@@ -1,4 +1,32 @@
-/core/ @se3000 @RyanRHall @spooktheducks @samsondav @j16r @connorwstein @PiotrTrzpil @archseer
-/evm-contracts/ @alexroan @se3000
-/contracts/ @alexroan @se3000
-/operator-ui/ @DeividasK
+# Services
+/core/services/bulletprooftxmanager @PiotrTrzpil @samsondav
+/core/services/cron @spooktheducks @samsondav
+/core/services/directrequest @PiotrTrzpil @spooktheducks @j16r @connorwstein @samsondav
+/core/services/eth @PiotrTrzpil @spooktheducks @samsondav
+/core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
+/core/services/gasupdater @samsondav @PiotrTrzpil
+/core/services/headtracker @PiotrTrzpil @samsondav
+/core/services/health @archseer @samsondav
+/core/services/job @spooktheducks @connorwstein @archseer
+/core/services/keeper @RyanRHall @samsondav
+/core/services/log @PiotrTrzpil @spooktheducks
+/core/services/offchainreporting @spooktheducks @connorwstein @samsondav
+/core/services/periodicbackup @PiotrTrzpil @samsondav
+/core/services/pipeline @spooktheducks @connorwstein @archseer
+/core/services/postgres
+/core/services/synchronization
+/core/services/telemetry
+/core/services/vrf @connorwstein
+/core/services/webhook @spooktheducks
+
+# API
+/core/web @jkongie
+
+# CLI
+/core/cmd @jkongie
+
+# UI
+/operator-ui/ @DeividasK @jkongie
+
+# Contracts
+/contracts/ @alexroan @se3000 @connorwstein

@@ -10,6 +10,7 @@ type VRFORM interface {
 	ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error
 	DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error
 	FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) ([]*vrfkey.EncryptedVRFKey, error)
+	FindEncryptedSecretVRFKeysIncludingArchived(where ...vrfkey.EncryptedVRFKey) ([]*vrfkey.EncryptedVRFKey, error)
 }
 
 type vrfORM struct {
@@ -47,5 +48,15 @@ func (orm *vrfORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 		c := constraint
 		anonWhere = append(anonWhere, &c)
 	}
-	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
+	return retrieved, orm.db.Find(&retrieved, anonWhere...).Order("created_at DESC").Error
+}
+
+func (orm *vrfORM) FindEncryptedSecretVRFKeysIncludingArchived(where ...vrfkey.EncryptedVRFKey) (
+	retrieved []*vrfkey.EncryptedVRFKey, err error) {
+	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
+	for _, constraint := range where {
+		c := constraint
+		anonWhere = append(anonWhere, &c)
+	}
+	return retrieved, orm.db.Unscoped().Find(&retrieved, anonWhere...).Order("created_at DESC").Error
 }

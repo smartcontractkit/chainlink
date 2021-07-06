@@ -163,13 +163,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	triggerAllKeys(t, app)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	// Do the thing
-	newHeads <- cltest.Head(safe)
-
-	// sending another head to make sure EthTx executes after EthConfirmer is done
-	newHeads <- cltest.Head(safe + 1)
-
-	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, safe)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -334,7 +328,7 @@ func TestIntegration_RunLog(t *testing.T) {
 func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
-	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", 30)
 
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
@@ -374,7 +368,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	logs <- log
 	runs := cltest.WaitForRuns(t, jb, app.Store, 1)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
@@ -383,7 +377,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
 	log.TxHash = cltest.NewHash()
@@ -392,15 +386,24 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+
+	// Should be capped at 200
+	log.TxHash = cltest.NewHash()
+	log.BlockHash = cltest.NewHash()
+	log.BlockNumber = 103
+	logs <- log
+	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
+	assert.Equal(t, uint32(200), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// New requestID should be back to original
 	randLog.RequestID = cltest.NewHash()
 	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
 	logs <- newReqLog
-	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
+	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, runs[0])
-	assert.Equal(t, uint32(6), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 }
 
 func TestIntegration_StartAt(t *testing.T) {
@@ -481,7 +484,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), ethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -1022,7 +1025,6 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 			expectedBridgeRequest := map[string]interface{}{
 				"value": float64(42),
-				"meta":  nil,
 			}
 			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
 
@@ -1050,7 +1052,7 @@ externalInitiatorSpec = """
     %v
 """
 observationSource   = """
-    parse  [type=jsonparse path="result" data="$(input)"]
+    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
     parse -> submit
 """
@@ -1071,7 +1073,7 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.Store.ORM.DB, app.Store.Config)
+		pipelineORM := pipeline.NewORM(app.Store.DB)
 		jobORM := job.NewORM(app.Store.ORM.DB, app.Store.Config, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
@@ -1228,7 +1230,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Check the FM price on completed run output
-	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, ethClient)
+	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe)
 
 	requestParams := jr.RunRequest.RequestParams
 	assert.Equal(t, "102", requestParams.Get("result").String())
@@ -1383,7 +1385,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	triggerAllKeys(t, app)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, ethClient)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
@@ -1944,7 +1946,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
-	pipelineORM := pipeline.NewORM(store.ORM.DB, config)
+	pipelineORM := pipeline.NewORM(store.DB)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))

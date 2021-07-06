@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -22,7 +23,7 @@ var executeGas = uint64(10_000)
 
 func setupKeeperDB(t *testing.T) (*store.Store, keeper.ORM, func()) {
 	store, cleanup := cltest.NewStore(t)
-	orm := keeper.NewORM(store.DB, nil)
+	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	return store, orm, cleanup
 }
 
@@ -339,7 +340,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 	txm := new(bptxmmocks.TxManager)
-	orm := keeper.NewORM(store.DB, txm)
+	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
@@ -348,7 +349,6 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 	payload := common.Hex2Bytes("1234")
-	gasBuffer := uint64(200_000)
 	fromAddress := registry.FromAddress.Address()
 	toAddress := registry.ContractAddress.Address()
 
@@ -356,12 +356,13 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	var err error
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
+	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
-		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, uint64(210000), nil).Once().Return(models.EthTx{
+		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(models.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       uint64(210000),
+			GasLimit:       gasLimit,
 		}, nil)
 		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload)
 		return err
@@ -371,7 +372,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
 	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
 	require.Equal(t, payload, ethTX.EncodedPayload)
-	require.Equal(t, upkeep.ExecuteGas+gasBuffer, ethTX.GasLimit)
+	require.Equal(t, gasLimit, ethTX.GasLimit)
 
 	txm.AssertExpectations(t)
 }
