@@ -1,5 +1,11 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+### Changed:
+
+- Move Solidity version 0.8.x contracts `ChainlinkClient.sol` and `Chainlink.sol` from `./src/v0.8/dev/` to `./src/v0.8/`.
+
 ## 0.2.0 - 2021-07-01
 
 ### Added:
