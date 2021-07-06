@@ -349,7 +349,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, keyStore.CSA())
+	feedsService := feeds.NewService(feedsORM, keyStore.CSA(), keyStore.Eth(), config)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
