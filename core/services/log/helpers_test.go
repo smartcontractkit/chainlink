@@ -337,7 +337,7 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Return(mockEth.sub, nil).
 		Times(expectedCalls.SubscribeFilterLogs)
 
-	mockEth.ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).
+	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
 		Return(&models.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
