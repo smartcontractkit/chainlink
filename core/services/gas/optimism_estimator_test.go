@@ -1,6 +1,7 @@
 package gas_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
@@ -58,4 +59,14 @@ func Test_OptimismEstimator(t *testing.T) {
 		_, _, err := o.EstimateGas(calldata, gasLimit)
 		assert.EqualError(t, err, "failed to estimate optimism gas; gas prices not set")
 	})
+}
+
+func Test_OptimismGasPriceResponse_UnmarshalJSON(t *testing.T) {
+	data := []byte(`{"l1GasPrice":"0x147d35700","l2GasPrice":"0x9"}`)
+
+	g := gas.OptimismGasPricesResponse{}
+
+	err := json.Unmarshal(data, &g)
+	assert.NoError(t, err)
+	assert.Equal(t, gas.OptimismGasPricesResponse{L1GasPrice: big.NewInt(5500000000), L2GasPrice: big.NewInt(9)}, g)
 }

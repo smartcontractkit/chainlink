@@ -105,8 +105,8 @@ type OptimismGasPricesResponse struct {
 func (g *OptimismGasPricesResponse) UnmarshalJSON(b []byte) error {
 	var l1Hex string = gjson.GetBytes(b, "l1GasPrice").Str
 	var l2Hex string = gjson.GetBytes(b, "l2GasPrice").Str
-	var l1 *hexutil.Big
-	var l2 *hexutil.Big
+	l1 := new(hexutil.Big)
+	l2 := new(hexutil.Big)
 	if err := multierr.Combine(l1.UnmarshalText([]byte(l1Hex)), l2.UnmarshalText([]byte(l2Hex))); err != nil {
 		return err
 	}
