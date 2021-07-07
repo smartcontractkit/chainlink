@@ -402,9 +402,8 @@ func TestFulfillmentCost(t *testing.T) {
 		uni.rootContractAddress, uni.coordinatorABI,
 		"fulfillRandomWords", proof[:])
 	t.Log("estimate", estimate)
-	// Note that this is ~200k because we store 3 words in the test contract.
-	// Drops to ~110k if that is removed.
-	assert.Greater(t, estimate, uint64(200000))
+	// Establish very rough bounds on fulfillment cost
+	assert.Greater(t, estimate, uint64(150000))
 	assert.Less(t, estimate, uint64(500000))
 }
 

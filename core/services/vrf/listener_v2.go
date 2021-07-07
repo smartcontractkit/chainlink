@@ -38,7 +38,7 @@ const (
 		2100 + // cold subscription balance read
 		20000 + // first time oracle balance update, note first time will be 20k, but 5k subsequently
 		2*2100 - // cold read oracle address and oracle balance
-		15000 // request delete refund
+		4800 // request delete refund, note pre-london fork was 15k
 	// Buffer to ensure that the gas received after the call to the consumer contract is
 	// at least the amount they requested. Same argument as
 	// https://github.com/cholladay0816/chainlink/blob/08b6fd1b910b5e9b5d20f834a09204d159a56142/contracts/src/v0.6/VRFCoordinator.sol#L201
