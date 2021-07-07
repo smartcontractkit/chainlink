@@ -30,7 +30,7 @@
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.3.0",
     "ethers": "^5.3.1",
-    "hardhat": "^2.3.3",
+    "hardhat": "^2.4.1",
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.0.3",
     "solhint": "^3.3.6",
