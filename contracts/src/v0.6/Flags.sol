@@ -5,6 +5,7 @@ pragma solidity ^0.6.0;
 import "./SimpleReadAccessController.sol";
 import "./interfaces/AccessControllerInterface.sol";
 import "./interfaces/FlagsInterface.sol";
+import "./interfaces/TypeAndVersionInterface.sol";
 
 
 /**
@@ -15,7 +16,7 @@ import "./interfaces/FlagsInterface.sol";
  * to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is FlagsInterface, SimpleReadAccessController {
+contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInterface {
 
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;
@@ -49,6 +50,18 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   {
     setRaisingAccessController(racAddress);
     setLoweringAccessController(lacAddress);
+  }
+
+  function typeAndVersion()
+    external
+    pure
+    virtual
+    override
+    returns (
+      string memory
+    )
+  {
+    return "Flags 2.0.0";
   }
 
   /**
@@ -120,7 +133,27 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   }
 
   /**
+   * @notice allows owner to disable the warning flags for an addresses.
+   * Access is controlled by loweringAccessController, except for owner
+   * who always has access.
+   * @param subject The contract address whose flag is being lowered
+   */
+  function lowerFlag(address subject)
+    external
+    override
+  {
+    require(allowedToLowerFlags(), "Not allowed to lower flags");
+
+    if (flags[subject]) {
+      flags[subject] = false;
+      emit FlagLowered(subject);
+    }
+  }
+
+  /**
    * @notice allows owner to disable the warning flags for multiple addresses.
+   * Access is controlled by loweringAccessController, except for owner
+   * who always has access.
    * @param subjects List of the contract addresses whose flag is being lowered
    */
   function lowerFlags(address[] calldata subjects)
