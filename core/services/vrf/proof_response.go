@@ -73,7 +73,6 @@ func (p *ProofResponse) MarshalForVRFCoordinator() (
 	solidityProof.P.Seed = common.BytesToHash(p.PreSeed[:]).Big()
 	mProof := solidityProof.MarshalForSolidityVerifier()
 	wireBlockNum := utils.EVMWordUint64(p.BlockNum)
-	// V1 fulfillment.
 	rl := copy(response[:], append(mProof[:], wireBlockNum...))
 	if rl != OnChainResponseLength {
 		return MarshaledOnChainResponse{}, errors.Errorf(

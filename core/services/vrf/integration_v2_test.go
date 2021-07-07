@@ -58,7 +58,6 @@ type coordinatorV2Universe struct {
 }
 
 var (
-	//gasPrice = decimal.RequireFromString("1000000000")
 	gasPrice       = decimal.RequireFromString(chains.FallbackConfig.EthGasPriceDefault.String()) // Nodes default
 	weiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
