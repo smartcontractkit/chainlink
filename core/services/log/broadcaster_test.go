@@ -456,7 +456,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(3))
+	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(1))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -1312,7 +1312,7 @@ func requireBroadcastCount(t *testing.T, store *strpkg.Store, expectedCount int)
 		return count.Count
 	}
 
-	g.Eventually(comparisonFunc, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(expectedCount))
+	g.Eventually(comparisonFunc, 5*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(expectedCount))
 	g.Consistently(comparisonFunc).Should(gomega.Equal(expectedCount))
 }
 

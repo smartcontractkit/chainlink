@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -131,10 +130,6 @@ func (ht *HeadTracker) HighestSeenHead() *models.Head {
 
 func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 	return ht.headSaver.HighestSeenHeadFromDB()
-}
-
-func (ht *HeadTracker) Chain(ctx context.Context, hash common.Hash, depth uint) (models.Head, error) {
-	return ht.headSaver.Chain(ctx, hash, depth)
 }
 
 // Connected returns whether or not this HeadTracker is connected.

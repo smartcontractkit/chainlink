@@ -319,8 +319,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 func (b *broadcaster) onNewLog(log types.Log) {
 	if log.Removed {
-		// we don't process removed logs (sent in case of reorgs),
-		// as certain node providers might not be sending them in all cases
+		b.logPool.removeLog(log)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return

@@ -55,6 +55,7 @@ require (
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
+	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.8.1
 	github.com/tidwall/sjson v1.1.7
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
