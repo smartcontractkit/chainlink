@@ -170,7 +170,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 			cltest.NewHash().Bytes()...), // fee
 			reqID.Bytes()...), // requestID
 		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
+		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		Address:     common.Address{},
 		BlockNumber: 0,
 		TxHash:      txHash,
@@ -213,7 +213,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			cltest.NewHash().Bytes()...), // fee
 			cltest.NewHash().Bytes()...), // requestID
 		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
+		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		Address:     common.Address{},
 		BlockNumber: 0,
 		TxHash:      common.Hash{},
