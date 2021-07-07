@@ -210,14 +210,6 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, updates *
 			continue
 		}
 
-		if !latestHead.IsInChain(log.BlockHash) {
-			logger.Tracew("Skipping because not in canonical ",
-				"chainLen", latestHead.ChainLength(), "blockHash", latestHead.Hash,
-				"logBlockHash", log.BlockHash, "blockNumber", latestHead.Number, "logBlockNumber", log.BlockNumber)
-			// Skipping send because the log is from an outdated chain
-			continue
-		}
-
 		// All logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
 		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
 			// Skipping send because the log height is below lowest unprocessed in the currently remembered chain
