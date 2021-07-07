@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -41,7 +42,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 		D:         big.NewInt(1),
 	}
 	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, &key)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	parsed, err := abi.JSON(strings.NewReader(

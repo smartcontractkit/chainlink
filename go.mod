@@ -11,7 +11,8 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/ethereum/go-ethereum v1.10.3
+	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
+	github.com/ethereum/go-ethereum v1.10.4
 	github.com/fatih/color v1.12.0
 	github.com/fxamacker/cbor/v2 v2.3.0
 	github.com/gin-contrib/cors v1.3.1
@@ -50,8 +51,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20210617175326-472ada9f2eb2
-	github.com/smartcontractkit/wsrpc v0.2.0
+	github.com/smartcontractkit/libocr v0.0.0-20210706082215-22f0f4e09528
+	github.com/smartcontractkit/wsrpc v0.3.0
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5

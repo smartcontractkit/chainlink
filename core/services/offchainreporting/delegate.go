@@ -138,6 +138,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, err
 	}
+	v2BootstrapPeers := d.config.P2PV2Bootstrappers()
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
@@ -171,7 +172,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
-			Bootstrappers:         bootstrapPeers,
+			V1Bootstrappers:       bootstrapPeers,
 			ContractConfigTracker: tracker,
 			Database:              ocrdb,
 			LocalConfig:           lc,
@@ -233,7 +234,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
-			Bootstrappers:                bootstrapPeers,
+			V1Bootstrappers:              bootstrapPeers,
+			V2Bootstrappers:              v2BootstrapPeers,
 			MonitoringEndpoint:           d.monitoringEndpoint,
 		})
 		if err != nil {
