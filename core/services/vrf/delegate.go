@@ -158,7 +158,8 @@ func (lsn *listener) Start() error {
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
 					{
-						log.Topic(lsn.job.ExternalIDToTopicHash()),
+						log.Topic(lsn.job.ExternalIDEncodeStringToTopic()),
+						log.Topic(lsn.job.ExternalIDEncodeBytesToTopic()),
 					},
 				},
 			},
@@ -335,9 +336,9 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 	if err != nil {
 		return inputs, errors.New("unable to parse preseed")
 	}
-	expectedJobID := jb.ExternalIDToTopicHash()
+	expectedJobID := jb.ExternalIDEncodeStringToTopic()
 	if !bytes.Equal(expectedJobID[:], request.JobID[:]) {
-		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDToTopicHash().Bytes())
+		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDEncodeStringToTopic().Bytes())
 	}
 	return VRFInputs{
 		pk: jb.VRFSpec.PublicKey,
