@@ -206,6 +206,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(100),
 	})
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(cltest.Head(1), nil)
 	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
