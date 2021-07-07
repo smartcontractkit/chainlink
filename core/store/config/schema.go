@@ -57,6 +57,7 @@ type ConfigSchema struct {
 	EthereumSecondaryURLs                      string                        `env:"ETH_SECONDARY_URLS" default:""`
 	EthereumURL                                string                        `env:"ETH_URL" default:"ws://localhost:8546"`
 	EvmDefaultBatchSize                        uint32                        `env:"ETH_DEFAULT_BATCH_SIZE"`
+	EvmEIP1559DynamicFees                      bool                          `env:"EVM_EIP1559_DYNAMIC_FEES"`
 	EvmFinalityDepth                           uint32                        `env:"ETH_FINALITY_DEPTH"`
 	EvmGasBumpPercent                          uint16                        `env:"ETH_GAS_BUMP_PERCENT"`
 	EvmGasBumpThreshold                        uint64                        `env:"ETH_GAS_BUMP_THRESHOLD"`
@@ -66,6 +67,8 @@ type ConfigSchema struct {
 	EvmGasLimitMultiplier                      float32                       `env:"ETH_GAS_LIMIT_MULTIPLIER"`
 	EvmGasLimitTransfer                        uint64                        `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EvmGasPriceDefault                         *big.Int                      `env:"ETH_GAS_PRICE_DEFAULT"`
+	EvmGasTipCapDefault                        *big.Int                      `env:"EVM_GAS_TIP_CAP_DEFAULT"`
+	EvmGasTipCapMinimum                        *big.Int                      `env:"EVM_GAS_TIP_CAP_MINIMUM"`
 	EvmHeadTrackerHistoryDepth                 uint                          `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
 	EvmHeadTrackerMaxBufferSize                uint                          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
 	EvmHeadTrackerSamplingInterval             time.Duration                 `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`

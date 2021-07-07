@@ -10,6 +10,7 @@ import (
 var RegistryABI = eth.MustGetABI(keeper_registry_wrapper.KeeperRegistryABI)
 
 type Config interface {
+	EvmEIP1559DynamicFees() bool
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64

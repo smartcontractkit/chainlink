@@ -4,18 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+	"github.com/pressly/goose/v3"
+	"github.com/smartcontractkit/sqlx"
+	null "gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	_ "github.com/smartcontractkit/chainlink/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/pressly/goose/v3"
-	null "gopkg.in/guregu/null.v4"
 )
 
 //go:embed migrations/*.sql

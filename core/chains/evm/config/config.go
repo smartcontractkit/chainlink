@@ -29,6 +29,7 @@ type ChainScopedOnlyConfig interface {
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
+	EvmEIP1559DynamicFees() bool
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -38,10 +39,13 @@ type ChainScopedOnlyConfig interface {
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
 	EvmGasBumpWei() *big.Int
+	EvmGasFeeCap() *big.Int
 	EvmGasLimitDefault() uint64
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint64
 	EvmGasPriceDefault() *big.Int
+	EvmGasTipCapDefault() *big.Int
+	EvmGasTipCapMinimum() *big.Int
 	EvmHeadTrackerHistoryDepth() uint32
 	EvmHeadTrackerMaxBufferSize() uint32
 	EvmHeadTrackerSamplingInterval() time.Duration
@@ -845,6 +849,58 @@ func (c *chainScopedConfig) BalanceMonitorEnabled() bool {
 		return val
 	}
 	return c.defaultSet.balanceMonitorEnabled
+}
+
+// EvmEIP1559DynamicFees will send transactions with the 0x2 dynamic fee EIP-2718
+// type and gas fields when enabled
+func (c *chainScopedConfig) EvmEIP1559DynamicFees() bool {
+	val, ok := c.GeneralConfig.GlobalEvmEIP1559DynamicFees()
+	if ok {
+		c.logEnvOverrideOnce("EvmEIP1559DynamicFees", val)
+		return val
+	}
+	if c.persistedCfg.EvmEIP1559DynamicFees.Valid {
+		c.logPersistedOverrideOnce("EvmEIP1559DynamicFees", c.persistedCfg.EvmEIP1559DynamicFees.Bool)
+		return c.persistedCfg.EvmEIP1559DynamicFees.Bool
+	}
+	return c.defaultSet.eip1559DynamicFees
+}
+
+// EvmGasFeeCap is the fixed amount to set the fee cap on DynamicFee transactions
+// The recommended way to use it is to set this value to something very large
+// and control prices using the gas tip cap instead
+func (c *chainScopedConfig) EvmGasFeeCap() *big.Int {
+	return c.EvmMaxGasPriceWei()
+}
+
+// EvmGasTipCapDefault is the default value to use for the gas tip on DynamicFee transactions
+// This is analogous to EthGasPriceDefault except the base fee is excluded
+func (c *chainScopedConfig) EvmGasTipCapDefault() *big.Int {
+	val, ok := c.GeneralConfig.GlobalEvmGasTipCapDefault()
+	if ok {
+		c.logEnvOverrideOnce("EvmGasTipCapDefault", val)
+		return val
+	}
+	if c.persistedCfg.EvmGasTipCapDefault != nil {
+		c.logPersistedOverrideOnce("EvmGasTipCapDefault", c.persistedCfg.EvmGasTipCapDefault)
+		return c.persistedCfg.EvmGasTipCapDefault.ToInt()
+	}
+	return &c.defaultSet.gasTipCapDefault
+}
+
+// EvmGasTipCapMinimum is the minimum allowed value to use for the gas tip on DynamicFee transactions
+// This is analogous to EthMinGasPriceWei except the base fee is excluded
+func (c *chainScopedConfig) EvmGasTipCapMinimum() *big.Int {
+	val, ok := c.GeneralConfig.GlobalEvmGasTipCapMinimum()
+	if ok {
+		c.logEnvOverrideOnce("EvmGasTipCapMinimum", val)
+		return val
+	}
+	if c.persistedCfg.EvmGasTipCapMinimum != nil {
+		c.logPersistedOverrideOnce("EvmGasTipCapMinimum", c.persistedCfg.EvmGasTipCapMinimum)
+		return c.persistedCfg.EvmGasTipCapMinimum.ToInt()
+	}
+	return &c.defaultSet.gasTipCapMinimum
 }
 
 func lookupEnv(k string, parse func(string) (interface{}, error)) (interface{}, bool) {
