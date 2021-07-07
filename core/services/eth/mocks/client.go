@@ -322,8 +322,8 @@ func (_m *Client) GetLINKBalance(linkAddress common.Address, address common.Addr
 	return r0, r1
 }
 
-// HeaderByNumber provides a mock function with given fields: ctx, n
-func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+// HeadByNumber provides a mock function with given fields: ctx, n
+func (_m *Client) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
 	ret := _m.Called(ctx, n)
 
 	var r0 *models.Head
@@ -338,6 +338,29 @@ func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head,
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
 		r1 = rf(ctx, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// HeaderByNumber provides a mock function with given fields: _a0, _a1
+func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Header, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *types.Header
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *types.Header); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Header)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -486,6 +509,29 @@ func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) 
 
 // SuggestGasPrice provides a mock function with given fields: ctx
 func (_m *Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	ret := _m.Called(ctx)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SuggestGasTipCap provides a mock function with given fields: ctx
+func (_m *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
 
 	var r0 *big.Int

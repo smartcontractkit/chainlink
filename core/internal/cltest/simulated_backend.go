@@ -255,7 +255,7 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 	panic("can never reach here")
 }
 
-func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
 	if n == nil {
 		n = c.currentBlockNumber()
 	}
@@ -353,6 +353,10 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	return subscription, err
 }
 
+func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	return c.b.HeaderByNumber(ctx, n)
+}
+
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewEIP155Signer(big.NewInt(int64(c.chainId))), tx)
 	if err != nil {
@@ -421,6 +425,10 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 
 func (c *SimulatedBackendClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return c.BatchCallContext(ctx, b)
+}
+
+func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	return nil, nil
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds

@@ -13,8 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -52,6 +54,7 @@ type EthConfirmer struct {
 	config         Config
 	keystore       KeyStore
 	advisoryLocker postgres.AdvisoryLocker
+	estimator      gas.Estimator
 
 	keys []ethkey.Key
 
@@ -62,7 +65,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.Key) *EthConfirmer {
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.Key, estimator gas.Estimator) *EthConfirmer {
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
 		utils.StartStopOnce{},
@@ -71,6 +74,7 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		config,
 		keystore,
 		advisoryLocker,
+		estimator,
 		keys,
 		utils.NewMailbox(1),
 		context,
@@ -701,7 +705,7 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 		} else {
 			logger.Warnw("EthConfirmer: expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
-		logger.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, EthNodeConnectivityProblemLabel), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
+		logger.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, static.EthNodeConnectivityProblemLabel), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
 
 	seen := make(map[int64]struct{})
@@ -721,7 +725,7 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 	})
 
 	if maxInFlightTransactions > 0 && len(etxs) > int(maxInFlightTransactions) {
-		logger.Warnf("EthConfirmer: %d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, EthMaxInFlightTransactionsWarningLabel)
+		logger.Warnf("EthConfirmer: %d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel)
 		etxs = etxs[:maxInFlightTransactions]
 	}
 
@@ -776,6 +780,7 @@ func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNu
 
 func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx models.EthTx) (attempt models.EthTxAttempt, err error) {
 	var bumpedGasPrice *big.Int
+	var bumpedGasLimit uint64
 	if len(etx.EthTxAttempts) > 0 {
 		previousAttempt := etx.EthTxAttempts[0]
 		if previousAttempt.State == models.EthTxAttemptInsufficientEth {
@@ -783,28 +788,38 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx models.Et
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
 			logger.Debugw("EthConfirmer: rebroadcast InsufficientEth", "ethTxID", etx.ID, "ethTxAttemptID", previousAttempt.ID, "nonce", etx.Nonce, "txHash", previousAttempt.Hash)
 			previousAttempt.State = models.EthTxAttemptInProgress
+			// TODO: Handle optimism case here
 			return previousAttempt, nil
 		}
-		previousGasPrice := previousAttempt.GasPrice
-		bumpedGasPrice, err = BumpGas(ec.config, previousGasPrice.ToInt())
+		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpGas(previousAttempt.GasPrice.ToInt(), etx.GasLimit)
+		logFields := []interface{}{
+			"etxID", etx.ID,
+			"txHash", attempt.Hash,
+			"originalGasPrice", previousAttempt.GasPrice.String(),
+			"gasLimit", etx.GasLimit,
+			"originalChainSpecificGasLimit", previousAttempt.ChainSpecificGasLimit,
+			"maxGasPrice", ec.config.EthMaxGasPriceWei(),
+			"nonce", etx.Nonce,
+			"previousTxHash", previousAttempt.Hash,
+			"previousAttemptID", previousAttempt.ID,
+		}
 		if err != nil {
-			logger.Errorw("Failed to bump gas", "err", err, "etxID", etx.ID, "txHash", attempt.Hash, "originalGasPrice", previousGasPrice.String(), "maxGasPrice", ec.config.EthMaxGasPriceWei())
+			logger.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
 			previousAttempt.BroadcastBeforeBlockNum = nil
 			previousAttempt.State = models.EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
-		logger.Debugw("EthConfirmer: rebroadcast bumping gas",
-			"ethTxID", etx.ID, "nonce", etx.Nonce, "originalGasPrice", previousGasPrice.String(),
-			"bumpedGasPrice", bumpedGasPrice.String(), "previousTxHash", previousAttempt.Hash, "previousAttemptID", previousAttempt.ID)
+		logger.Debugw("EthConfirmer: rebroadcast bumping gas", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
 	} else {
 		logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
 			"Falling back to default gas price instead."+
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 		bumpedGasPrice = ec.config.EthGasPriceDefault()
+		bumpedGasLimit = etx.GasLimit
 	}
-	return newAttempt(ctx, ec.ethClient, ec.keystore, ec.config, etx, bumpedGasPrice)
+	return newAttempt(ec.ethClient, ec.keystore, ec.config.ChainID(), etx, bumpedGasPrice, bumpedGasLimit)
 }
 
 func (ec *EthConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) error {
@@ -827,7 +842,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// already bumped above the required minimum in ethBroadcaster.
 		//
 		// It could conceivably happen if the remote eth node changed its configuration.
-		bumpedGasPrice, err := BumpGas(ec.config, attempt.GasPrice.ToInt())
+		bumpedGasPrice, bumpedGasLimit, err := ec.estimator.BumpGas(attempt.GasPrice.ToInt(), etx.GasLimit)
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
@@ -835,7 +850,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
 			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
-		replacementAttempt, err := newAttempt(ctx, ec.ethClient, ec.keystore, ec.config, etx, bumpedGasPrice)
+		replacementAttempt, err := newAttempt(ec.ethClient, ec.keystore, ec.config.ChainID(), etx, bumpedGasPrice, bumpedGasLimit)
 		if err != nil {
 			return errors.Wrap(err, "newAttempt failed")
 		}
@@ -1154,7 +1169,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := newAttempt(context.TODO(), ec.ethClient, ec.keystore, ec.config, *etx, big.NewInt(int64(gasPriceWei)))
+			attempt, err := newAttempt(ec.ethClient, ec.keystore, ec.config.ChainID(), *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
 			if err != nil {
 				logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
