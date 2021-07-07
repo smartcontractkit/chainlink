@@ -535,6 +535,20 @@ func (_m *ChainScopedConfig) Dev() bool {
 	return r0
 }
 
+// EvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmEIP1559DynamicFees() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // EVMDisabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) EVMDisabled() bool {
 	ret := _m.Called()
@@ -737,6 +751,22 @@ func (_m *ChainScopedConfig) EvmGasBumpWei() *big.Int {
 	return r0
 }
 
+// EvmGasFeeCap provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasFeeCap() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
 // EvmGasLimitDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasLimitDefault() uint64 {
 	ret := _m.Called()
@@ -781,6 +811,38 @@ func (_m *ChainScopedConfig) EvmGasLimitTransfer() uint64 {
 
 // EvmGasPriceDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasPriceDefault() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// EvmGasTipCapDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasTipCapDefault() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// EvmGasTipCapMinimum provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasTipCapMinimum() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -1319,6 +1381,27 @@ func (_m *ChainScopedConfig) GlobalEvmDefaultBatchSize() (uint32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmFinalityDepth provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmFinalityDepth() (uint32, bool) {
 	ret := _m.Called()
@@ -1491,6 +1574,52 @@ func (_m *ChainScopedConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
 
 // GlobalEvmGasPriceDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasTipCapDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasTipCapMinimum provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	ret := _m.Called()
 
 	var r0 *big.Int

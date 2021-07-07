@@ -24,9 +24,9 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 2, from)
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 2, 3, from)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 1, from)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 1, 2, from)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 2, 3, from)
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
 	t.Cleanup(cleanup)
