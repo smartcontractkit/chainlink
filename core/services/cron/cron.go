@@ -33,7 +33,7 @@ func NewCronFromJobSpec(
 	)
 
 	return &Cron{
-		cronRunner:     cron.New(cron.WithSeconds()),
+		cronRunner:     cronRunner(),
 		logger:         cronLogger,
 		jobSpec:        jobSpec,
 		pipelineRunner: pipelineRunner,
@@ -81,4 +81,8 @@ func (cr *Cron) runPipeline() {
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}
+}
+
+func cronRunner() *cron.Cron {
+	return cron.New(cron.WithSeconds())
 }
