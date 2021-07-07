@@ -8,12 +8,4 @@ interface AggregatorValidatorInterface {
     uint256 currentRoundId,
     int256 currentAnswer
   ) external returns (bool);
-  function setGasConfiguration(
-    uint256 maxSubmissionCost,
-    uint32 maximumGasPrice,
-    uint256 gasCostL2,
-    address refundableAddress
-  ) external;
-  function withdrawFunds() external;
-  function withdrawFundsTo(address payable to) external;
 }

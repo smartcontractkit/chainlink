@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0; // Could we use 0.8.0
+pragma solidity ^0.7.0;
 
 import "./interfaces/ArbitrumInboxInterface.sol";
 import "./interfaces/AggregatorValidatorInterface.sol";
@@ -11,11 +11,11 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
   bytes4 constant private RAISE_SELECTOR = FlagsInterface.raiseFlag.selector;
   bytes4 constant private LOWER_SELECTOR = FlagsInterface.lowerFlags.selector;
 
-  address private s_flags;
+  address private s_flagsAddress;
   // Follows: https://eips.ethereum.org/EIPS/eip-1967
   address private s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
 
-  IInbox private s_arbitrumInbox;
+  ArbitrumInboxInterface private s_arbitrumInbox;
   SimpleWriteAccessController private s_gasConfigAccessController;
 
   struct GasConfiguration {
@@ -47,12 +47,10 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     uint32 maximumGasPrice,
     uint256 gasCostL2,
     address refundableAddress
-  ) 
-    public
-  {
-    s_arbitrumInbox = IInbox(s_arbitrumInbox);
+  ) {
+    s_arbitrumInbox = ArbitrumInboxInterface(inboxAddress);
     s_gasConfigAccessController = SimpleWriteAccessController(gasConfigAccessController);
-    s_flags = flagAddress;
+    s_flagsAddress = flagAddress;
     _setGasConfiguration(maxSubmissionCost, maximumGasPrice, gasCostL2, refundableAddress);
 
     SimpleWriteAccessController(address(this)).addAccess(aggregatorAddress);
@@ -62,7 +60,6 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
 
   function withdrawFunds() 
     external 
-    override
     onlyOwner() 
   {
     address payable to = payable(msg.sender);
@@ -73,7 +70,6 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     address payable to
   ) 
     external
-    override
     onlyOwner() 
   {
     to.transfer(address(this).balance);
@@ -86,17 +82,15 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     address refundableAddress
   )
     external
-    override
   {
-    SimpleWriteAccessController access = SimpleWriteAccessController(s_gasConfigAccessController);
-    require(access.hasAccess(msg.sender, msg.data), "Only gas configuration admin can call");
+    require(s_gasConfigAccessController.hasAccess(msg.sender, msg.data), "Only gas configuration admin can call");
     _setGasConfiguration(maxSubmissionCost, maximumGasPrice, gasCostL2, refundableAddress);
   }
 
   function validate(
-    uint256 previousRoundId,
-    int256 previousAnswer,
-    uint256 currentRoundId,
+    uint256 /* previousRoundId */,
+    int256 /* previousAnswer */,
+    uint256 /* currentRoundId */,
     int256 currentAnswer
   ) 
     external 
@@ -105,10 +99,9 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     returns (bool) 
   {
     bytes memory data = currentAnswer == 1 ? abi.encodeWithSelector(RAISE_SELECTOR, s_arbitrumFlag) : abi.encodeWithSelector(LOWER_SELECTOR, [s_arbitrumFlag]);
-    IInbox arbitrumInbox = IInbox(s_arbitrumInbox);
 
-    arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
-      s_flags, 
+    s_arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
+      s_flagsAddress, 
       0, // L2 call value
       s_gasConfig.maximumSubmissionCost, // Max submission cost of sending data length
       s_gasConfig.refundableAddress, // excessFeeRefundAddress
