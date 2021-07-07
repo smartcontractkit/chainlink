@@ -214,7 +214,10 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int,
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
-	gasPrice, _, err := ex.gasEstimator.EstimateGas(performTxData, upkeep.ExecuteGas)
+	if ex.config.EvmEIP1559DynamicFees() {
+		panic("not implemented") // TODO: implement
+	}
+	gasPrice, _, err := ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to estimate gas")
 	}
