@@ -28,6 +28,7 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -1357,6 +1358,71 @@ func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 	return []string{}, nil
 }
 
+// P2PNetworkingStack returns the preferred networking stack for libocr
+func (c Config) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
+	str := c.P2PNetworkingStackRaw()
+	err := n.UnmarshalText([]byte(str))
+	if err != nil {
+		logger.Fatalf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
+	}
+	return n
+}
+
+// P2PNetworkingStackRaw returns the raw string passed as networking stack
+func (c Config) P2PNetworkingStackRaw() string {
+	return c.viper.GetString(EnvVarName("P2PNetworkingStack"))
+}
+
+// P2PV2ListenAddresses contains the addresses the peer will listen to on the network in <host>:<port> form as
+// accepted by net.Listen, but host and port must be fully specified and cannot be empty.
+func (c Config) P2PV2ListenAddresses() []string {
+	return c.viper.GetStringSlice(EnvVarName("P2PV2ListenAddresses"))
+}
+
+// P2PV2AnnounceAddresses contains the addresses the peer will advertise on the network in <host>:<port> form as
+// accepted by net.Dial. The addresses should be reachable by peers of interest.
+func (c Config) P2PV2AnnounceAddresses() []string {
+	if c.viper.IsSet(EnvVarName("P2PV2AnnounceAddresses")) {
+		return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
+	}
+	return c.P2PV2ListenAddresses()
+}
+
+// P2PV2AnnounceAddressesRaw returns the raw value passed in
+func (c Config) P2PV2AnnounceAddressesRaw() []string {
+	return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
+}
+
+// P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
+// networking stack
+func (c Config) P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator) {
+	bootstrappers := c.P2PV2BootstrappersRaw()
+	for _, s := range bootstrappers {
+		var locator ocrtypes.BootstrapperLocator
+		err := locator.UnmarshalText([]byte(s))
+		if err != nil {
+			logger.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
+		}
+		locators = append(locators, locator)
+	}
+	return
+}
+
+// P2PV2BootstrappersRaw returns the raw strings for v2 bootstrap peers
+func (c Config) P2PV2BootstrappersRaw() []string {
+	return c.viper.GetStringSlice(EnvVarName("P2PV2Bootstrappers"))
+}
+
+// P2PV2DeltaDial controls how far apart Dial attempts are
+func (c Config) P2PV2DeltaDial() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaDial", parseDuration).(time.Duration))
+}
+
+// P2PV2DeltaReconcile controls how often a Reconcile message is sent to every peer.
+func (c Config) P2PV2DeltaReconcile() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaReconcile", parseDuration).(time.Duration))
+}
+
 // Port represents the port Chainlink should listen on for client requests.
 func (c Config) Port() uint16 {
 	return c.getWithFallback("Port", parseUint16).(uint16)
@@ -1498,7 +1564,7 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 
 	v, err := parser(defaultValue)
 	if err != nil {
-		log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
+		log.Fatalf(`Invalid default for %s: "%s" (%s)`, name, defaultValue, err)
 	}
 	return v
 }
