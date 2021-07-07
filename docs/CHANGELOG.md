@@ -59,6 +59,21 @@ New gas estimator modes may be added in future.
 
 In addition, a minor annoyance has been fixed whereby previously if you enabled the gas updater, it would overwrite the locally stored value for gas price and continue to use this even if it was disabled after a reboot. This will no longer happen: BlockHistory mode will not clobber the locally stored value for fixed gas price, which can still be adjusted via remote API call or using `chainlink config setgasprice XXX`. In order to use this manually fixed gas price, you must enable FixedPrice estimator mode.
 
+### Added
+
+Added support for latest version of libocr with the V2 networking stack. New env vars to configure this are:
+
+```
+P2P_NETWORKING_STACK
+P2PV2_ANNOUNCE_ADDRESSES
+P2PV2_BOOTSTRAPPERS
+P2PV2_DELTA_DIAL
+P2PV2_DELTA_RECONCILE
+P2PV2_LISTEN_ADDRESSES
+```
+
+All of these are currently optional, by default OCR will continue to use the existing V1 stack. The new env vars will be used internally for OCR testing.
+
 ## [0.10.8] - 2021-06-21
 
 ### Fixed

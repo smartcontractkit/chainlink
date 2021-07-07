@@ -96,12 +96,18 @@ type EnvPrinter struct {
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 	OCRContractTransmitterTransmitTimeout      time.Duration   `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
 	OCRDatabaseTimeout                         time.Duration   `json:"OCR_DATABASE_TIMEOUT"`
-	P2PListenIP                                string          `json:"P2P_LISTEN_IP"`
-	P2PListenPort                              string          `json:"P2P_LISTEN_PORT"`
-	P2PPeerID                                  string          `json:"P2P_PEER_ID"`
-	P2PBootstrapPeers                          []string        `json:"P2P_BOOTSTRAP_PEERS"`
 	OCRDefaultTransactionQueueDepth            uint32          `json:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	OCRIncomingMessageBufferSize               int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
+	P2PBootstrapPeers                          []string        `json:"P2P_BOOTSTRAP_PEERS"`
+	P2PListenIP                                string          `json:"P2P_LISTEN_IP"`
+	P2PListenPort                              string          `json:"P2P_LISTEN_PORT"`
+	P2PNetworkingStack                         string          `json:"P2P_NETWORKING_STACK"`
+	P2PPeerID                                  string          `json:"P2P_PEER_ID"`
+	P2PV2AnnounceAddresses                     []string        `json:"P2PV2_ANNOUNCE_ADDRESSES"`
+	P2PV2Bootstrappers                         []string        `json:"P2PV2_BOOTSTRAPPERS"`
+	P2PV2DeltaDial                             models.Duration `json:"P2PV2_DELTA_DIAL"`
+	P2PV2DeltaReconcile                        models.Duration `json:"P2PV2_DELTA_RECONCILE"`
+	P2PV2ListenAddresses                       []string        `json:"P2PV2_LISTEN_ADDRESSES"`
 	OCROutgoingMessageBufferSize               int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
 	OCRNewStreamTimeout                        time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
 	OCRDHTLookupInterval                       int             `json:"OCR_DHT_LOOKUP_INTERVAL"`
@@ -197,12 +203,18 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			OCRIncomingMessageBufferSize:               config.OCRIncomingMessageBufferSize(),
 			OCRNewStreamTimeout:                        config.OCRNewStreamTimeout(),
 			OCROutgoingMessageBufferSize:               config.OCROutgoingMessageBufferSize(),
+			OCRTraceLogging:                            config.OCRTraceLogging(),
 			P2PBootstrapPeers:                          p2pBootstrapPeers,
 			P2PListenIP:                                config.P2PListenIP().String(),
 			P2PListenPort:                              config.P2PListenPortRaw(),
+			P2PNetworkingStack:                         config.P2PNetworkingStackRaw(),
 			P2PPeerID:                                  config.P2PPeerIDRaw(),
+			P2PV2AnnounceAddresses:                     config.P2PV2AnnounceAddressesRaw(),
+			P2PV2Bootstrappers:                         config.P2PV2BootstrappersRaw(),
+			P2PV2DeltaDial:                             config.P2PV2DeltaDial(),
+			P2PV2DeltaReconcile:                        config.P2PV2DeltaReconcile(),
+			P2PV2ListenAddresses:                       config.P2PV2ListenAddresses(),
 			TriggerFallbackDBPollInterval:              config.TriggerFallbackDBPollInterval(),
-			OCRTraceLogging:                            config.OCRTraceLogging(),
 			OperatorContractAddress:                    config.OperatorContractAddress(),
 			Port:                                       config.Port(),
 			ReaperExpiration:                           config.ReaperExpiration(),
