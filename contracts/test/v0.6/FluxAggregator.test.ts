@@ -1406,7 +1406,7 @@ describe("FluxAggregator", () => {
           updateFutureRounds(aggregator, {
             restartDelay: 3,
           }),
-          "revert delay cannot exceed total",
+          "delay cannot exceed total",
         );
       });
     });
@@ -1532,7 +1532,7 @@ describe("FluxAggregator", () => {
               await personas.Neil.getAddress(),
               paymentAmount.add(BigNumber.from(1)),
             ),
-          "revert insufficient withdrawable funds",
+          "insufficient withdrawable funds",
         );
       });
     });
@@ -1586,7 +1586,7 @@ describe("FluxAggregator", () => {
           aggregator
             .connect(personas.Carol)
             .transferAdmin(await personas.Ned.getAddress(), await personas.Nelly.getAddress()),
-          "revert only callable by admin",
+          "only callable by admin",
         );
       });
     });
@@ -1597,7 +1597,7 @@ describe("FluxAggregator", () => {
           aggregator
             .connect(personas.Ned)
             .transferAdmin(await personas.Ned.getAddress(), await personas.Nelly.getAddress()),
-          "revert only callable by admin",
+          "only callable by admin",
         );
       });
     });
