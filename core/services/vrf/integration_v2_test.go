@@ -93,11 +93,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
-	// Deploy feeds
-	//fastGasFeed, _, _, err :=
-	//	mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-	//		carol, backend, 0, gasPrice.BigInt()) // 1 gwei per unit gas
-	//require.NoError(t, err)
+	// Deploy feed
 	linkEthFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 			carol, backend, 18, weiPerUnitLink.BigInt()) // 0.01 eth per link
@@ -117,7 +113,6 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
 		uint16(1),        // minRequestConfirmations
-		uint16(1000),     // maxConsumersPerSubscription
 		uint32(60*60*24), // stalenessSeconds
 		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),                                  // 0.01 eth per link fallbackLinkPrice
@@ -349,9 +344,9 @@ func TestRequestCost(t *testing.T) {
 		uni.consumerContractAddress, uni.consumerABI,
 		"testRequestRandomness", vrfkey.MustHash(), subId, uint64(2), uint64(10000), uint64(1), uint16(100))
 	t.Log(estimate)
-	// V2 should be at least (89000-134000)/134000 = 34% cheaper
+	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
-	assert.Less(t, estimate, uint64(90000),
+	assert.Less(t, estimate, uint64(87000),
 		"requestRandomness tx gas cost more than expected")
 }
 
@@ -394,20 +389,23 @@ func TestFulfillmentCost(t *testing.T) {
 	s, err := vrf.BigToSeed(requestLog.PreSeedAndRequestId)
 	require.NoError(t, err)
 	proof, err := vrf.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, vrf.PreSeedDataV2{
-		PreSeed:          s,
-		BlockHash:        requestLog.Raw.BlockHash,
-		BlockNum:         requestLog.Raw.BlockNumber,
-		SubId:            subId,
-		CallbackGasLimit: uint64(gasRequested),
-		NumWords:         uint64(nw),
-		Sender:           uni.consumerContractAddress,
+		PreSeed:                     s,
+		BlockHash:                   requestLog.Raw.BlockHash,
+		BlockNum:                    requestLog.Raw.BlockNumber,
+		SubId:                       subId,
+		MinimumRequestConfirmations: requestLog.MinimumRequestConfirmations,
+		CallbackGasLimit:            uint64(gasRequested),
+		NumWords:                    uint64(nw),
+		Sender:                      uni.consumerContractAddress,
 	})
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.rootContractAddress, uni.coordinatorABI,
 		"fulfillRandomWords", proof[:])
 	t.Log("estimate", estimate)
-	//assert.Greater(t, estimate, uint64(190000))
+	// Note that this is ~200k because we store 3 words in the test contract.
+	// Drops to ~110k if that is removed.
+	assert.Greater(t, estimate, uint64(200000))
 	assert.Less(t, estimate, uint64(500000))
 }
 

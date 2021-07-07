@@ -31,19 +31,26 @@ import (
 )
 
 const (
+	// Gas costs associated with executing the fulfillment
+	// aside from the seed-dependent variable costs in
+	// getRandomnessFromProof (for which we use estimateGas).
 	StaticFulfillExecuteGasCost = 5000 + // subID balance update
 		2100 + // cold subscription balance read
 		20000 + // first time oracle balance update, note first time will be 20k, but 5k subsequently
 		2*2100 - // cold read oracle address and oracle balance
 		15000 // request delete refund
-
 	// Buffer to ensure that the gas received after the call to the consumer contract is
 	// at least the amount they requested. Same argument as
 	// https://github.com/cholladay0816/chainlink/blob/08b6fd1b910b5e9b5d20f834a09204d159a56142/contracts/src/v0.6/VRFCoordinator.sol#L201
 	BufferForConsumerCallback = 6000
-
+	// Gas costs associated with making the fulfillment call itself.
 	CallFulfillGasCost = 21000 + // Base tx cost
-		7922 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		8068 // Static costs of argument encoding etc.
+		// note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+	// An sanity upper bound on the gas costs
+	// We error the job if this is reached
+	// We do not check this at request time to keep request costs low.
+	TotalGasLimit = 2000000
 )
 
 type pendingRequest struct {
@@ -53,6 +60,7 @@ type pendingRequest struct {
 }
 
 type listenerV2 struct {
+	utils.StartStopOnce
 	cfg             Config
 	l               logger.Logger
 	abi             abi.ABI
@@ -72,8 +80,10 @@ type listenerV2 struct {
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
 	latestHead      uint64
-	pendingLogs     []pendingRequest
-	utils.StartStopOnce
+	// We can keep these pending logs in memory because we
+	// only mark them confirmed once we send a corresponding fulfillment transaction.
+	// So on node restart in the middle of processing, the lb will resend them.
+	pendingLogs []pendingRequest
 }
 
 func (lsn *listenerV2) Start() error {
@@ -193,7 +203,7 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 	vrfCoordinatorPayload, _, err3 := lsn.ProcessLogV2(proof)
 	err = multierr.Combine(err1, err2, err3)
 	if err != nil {
-		logger.Errorw("error processing random request", "err", err)
+		logger.Errorw("VRFListenerV2: error processing random request", "err", err, "txHash", req.Raw.TxHash)
 	}
 	f := time.Now()
 	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
@@ -287,7 +297,12 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 	*/
 	staticVerifyGas := uint64(BufferForConsumerCallback + StaticFulfillExecuteGasCost)
 	totalGas := variableFulfillmentCost + requestedCallbackGas + staticVerifyGas
-	logger.Infow("estimated gas limit for tx", "gasLimit", totalGas, "callbackLimit", requestedCallbackGas)
+	logger.Infow("VRFListenerV2: estimated gas limit for tx", "gasLimit", totalGas, "callbackLimit", requestedCallbackGas)
+
+	// Sanity check total gas
+	if totalGas > TotalGasLimit {
+		return totalGas, errors.Errorf("total gas limit exceeded %v > %v", totalGas, TotalGasLimit)
+	}
 	return totalGas, nil
 }
 
@@ -314,13 +329,14 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 		return nil, errors.New("unable to parse preseed")
 	}
 	seed := PreSeedDataV2{
-		PreSeed:          preSeed,
-		BlockHash:        req.Raw.BlockHash,
-		BlockNum:         req.Raw.BlockNumber,
-		SubId:            req.SubId,
-		CallbackGasLimit: req.CallbackGasLimit,
-		NumWords:         req.NumWords,
-		Sender:           req.Sender,
+		PreSeed:                     preSeed,
+		BlockHash:                   req.Raw.BlockHash,
+		BlockNum:                    req.Raw.BlockNumber,
+		SubId:                       req.SubId,
+		MinimumRequestConfirmations: req.MinimumRequestConfirmations,
+		CallbackGasLimit:            req.CallbackGasLimit,
+		NumWords:                    req.NumWords,
+		Sender:                      req.Sender,
 	}
 	solidityProof, err := GenerateProofResponseV2(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
