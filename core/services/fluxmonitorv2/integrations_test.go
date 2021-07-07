@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
@@ -116,10 +117,10 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.ned = newIdentity(t)
 	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
-		f.sergey.From:  {Balance: oneEth},
-		f.neil.From:    {Balance: oneEth},
-		f.ned.From:     {Balance: oneEth},
-		f.nallory.From: {Balance: oneEth},
+		f.sergey.From:  {Balance: assets.Ether(1000)},
+		f.neil.From:    {Balance: assets.Ether(1000)},
+		f.ned.From:     {Balance: assets.Ether(1000)},
+		f.nallory.From: {Balance: assets.Ether(1000)},
 	}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
@@ -419,53 +420,66 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	fa := setupFluxAggregatorUniverse(t)
+	tests := []struct {
+		name    string
+		eip1559 bool
+	}{
+		{"legacy mode", false},
+		{"eip1559 mode", true},
+	}
 
-	// - add oracles
-	oracleList := []common.Address{fa.nallory.From}
-	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 1, 0)
-	assert.NoError(t, err, "failed to add oracles to aggregator")
-	fa.backend.Commit()
-	checkOraclesAdded(t, fa, oracleList)
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			g := gomega.NewGomegaWithT(t)
+			fa := setupFluxAggregatorUniverse(t)
 
-	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
-		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
-		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-	})
+			// - add oracles
+			oracleList := []common.Address{fa.nallory.From}
+			_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 1, 0)
+			assert.NoError(t, err, "failed to add oracles to aggregator")
+			fa.backend.Commit()
+			checkOraclesAdded(t, fa, oracleList)
 
-	type k struct{ latestAnswer, updatedAt string }
-	expectedMeta := map[k]int{}
+			// Set up chainlink app
+			app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
+				cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
+				cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
+				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
+			})
 
-	reportPrice := atomic.NewInt64(100)
-	mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
-		generatePriceResponseFn(reportPrice),
-		func(r *http.Request) {
-			b, err1 := ioutil.ReadAll(r.Body)
-			require.NoError(t, err1)
-			var m bridges.BridgeMetaDataJSON
-			require.NoError(t, json.Unmarshal(b, &m))
-			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-				key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
-				expectedMeta[key] = expectedMeta[key] + 1
-			}
-		},
-	)
-	t.Cleanup(mockServer.Close)
-	u, _ := url.Parse(mockServer.URL)
-	app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
-		Name: "bridge",
-		URL:  models.WebURL(*u),
-	})
+			type k struct{ latestAnswer, updatedAt string }
+			expectedMeta := map[k]int{}
 
-	// When event appears on submissionReceived, flux monitor job run is complete
-	submissionReceived := fa.WatchSubmissionReceived(t,
-		[]common.Address{fa.nallory.From},
-	)
+			reportPrice := atomic.NewInt64(100)
+			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
+				generatePriceResponseFn(reportPrice),
+				func(r *http.Request) {
+					b, err1 := ioutil.ReadAll(r.Body)
+					require.NoError(t, err1)
+					var m bridges.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal(b, &m))
+					if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+						key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
+						expectedMeta[key] = expectedMeta[key] + 1
+					}
+				},
+			)
+			t.Cleanup(mockServer.Close)
+			u, _ := url.Parse(mockServer.URL)
+			app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				Name: "bridge",
+				URL:  models.WebURL(*u),
+			})
 
-	// Create the job
-	s := `
+			// When event appears on submissionReceived, flux monitor job run is complete
+			submissionReceived := fa.WatchSubmissionReceived(t,
+				[]common.Address{fa.nallory.From},
+			)
+
+			// Create the job
+			s := `
 	type              = "fluxmonitor"
 	schemaVersion     = 1
 	name              = "integration test"
@@ -487,96 +501,98 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	"""
 		`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, 2*time.Second)
+			s = fmt.Sprintf(s, fa.aggregatorContractAddress, 2*time.Second)
 
-	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
-	})
-	assert.NoError(t, err)
+			requestBody, err := json.Marshal(web.CreateJobRequest{
+				TOML: string(s),
+			})
+			assert.NoError(t, err)
 
-	initialBalance := currentBalance(t, &fa).Int64()
+			initialBalance := currentBalance(t, &fa).Int64()
 
-	jobResponse := cltest.CreateJobViaWeb2(t, app, string(requestBody))
-	jobId, err := strconv.Atoi(jobResponse.ID)
-	require.NoError(t, err)
+			jobResponse := cltest.CreateJobViaWeb2(t, app, string(requestBody))
+			jobId, err := strconv.Atoi(jobResponse.ID)
+			require.NoError(t, err)
 
-	// Waiting for flux monitor to finish Register process in log broadcaster
-	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	g.Eventually(func() uint32 {
-		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+			// Waiting for flux monitor to finish Register process in log broadcaster
+			// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+			g.Eventually(func() uint32 {
+				lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
+				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
+			}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
-	// Initial Poll
-	receiptBlock, answer := awaitSubmission(t, submissionReceived)
+			// Initial Poll
+			receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
-	logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
+			logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
-	assert.Equal(t, reportPrice.Load(), answer,
-		"failed to report correct price to contract")
+			assert.Equal(t, reportPrice.Load(), answer,
+				"failed to report correct price to contract")
 
-	checkSubmission(t,
-		answerParams{
-			fa:              &fa,
-			roundId:         1,
-			answer:          int64(100),
-			from:            fa.nallory,
-			isNewRound:      true,
-			completesAnswer: true,
-		},
-		initialBalance,
-		receiptBlock,
-	)
-	assertPipelineRunCreated(t, app.GetDB(), 1, float64(100))
+			checkSubmission(t,
+				answerParams{
+					fa:              &fa,
+					roundId:         1,
+					answer:          int64(100),
+					from:            fa.nallory,
+					isNewRound:      true,
+					completesAnswer: true,
+				},
+				initialBalance,
+				receiptBlock,
+			)
+			assertPipelineRunCreated(t, app.GetDB(), 1, float64(100))
 
-	// make sure the log is sent from LogBroadcaster
-	fa.backend.Commit()
-	fa.backend.Commit()
+			// make sure the log is sent from LogBroadcaster
+			fa.backend.Commit()
+			fa.backend.Commit()
 
-	// Need to wait until NewRound log is consumed - otherwise there is a chance
-	// it will arrive after the next answer is submitted, and cause
-	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 5)
+			// Need to wait until NewRound log is consumed - otherwise there is a chance
+			// it will arrive after the next answer is submitted, and cause
+			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
+			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 5)
 
-	logger.Info("Updating price to 103")
-	// Change reported price to a value outside the deviation
-	reportPrice.Store(103)
-	receiptBlock, answer = awaitSubmission(t, submissionReceived)
+			logger.Info("Updating price to 103")
+			// Change reported price to a value outside the deviation
+			reportPrice.Store(103)
+			receiptBlock, answer = awaitSubmission(t, submissionReceived)
 
-	logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
+			logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
-	assert.Equal(t, reportPrice.Load(), answer,
-		"failed to report correct price to contract")
+			assert.Equal(t, reportPrice.Load(), answer,
+				"failed to report correct price to contract")
 
-	checkSubmission(t,
-		answerParams{
-			fa:              &fa,
-			roundId:         2,
-			answer:          int64(103),
-			from:            fa.nallory,
-			isNewRound:      true,
-			completesAnswer: true,
-		},
-		initialBalance-fee,
-		receiptBlock,
-	)
-	assertPipelineRunCreated(t, app.GetDB(), 2, float64(103))
+			checkSubmission(t,
+				answerParams{
+					fa:              &fa,
+					roundId:         2,
+					answer:          int64(103),
+					from:            fa.nallory,
+					isNewRound:      true,
+					completesAnswer: true,
+				},
+				initialBalance-fee,
+				receiptBlock,
+			)
+			assertPipelineRunCreated(t, app.GetDB(), 2, float64(103))
 
-	stopMining := cltest.Mine(fa.backend, time.Second)
-	defer stopMining()
+			stopMining := cltest.Mine(fa.backend, time.Second)
+			defer stopMining()
 
-	// Need to wait until NewRound log is consumed - otherwise there is a chance
-	// it will arrive after the next answer is submitted, and cause
-	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 8)
+			// Need to wait until NewRound log is consumed - otherwise there is a chance
+			// it will arrive after the next answer is submitted, and cause
+			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
+			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 8)
 
-	// Should not received a submission as it is inside the deviation
-	reportPrice.Store(104)
-	assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
+			// Should not received a submission as it is inside the deviation
+			reportPrice.Store(104)
+			assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
 
-	assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
-	assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
-	assert.Greater(t, expectedMeta[k{"103", "80"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
+			assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
+			assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta[k{"103", "80"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
+		})
+	}
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
