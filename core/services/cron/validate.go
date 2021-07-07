@@ -44,7 +44,7 @@ func ValidatedCronSpec(tomlString string) (job.Job, error) {
 		return jb, errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@hourly'")
 	}
 
-	if _, err := cron.New().AddFunc(spec.CronSchedule, func() {}); err != nil {
+	if _, err := cron.New(cron.WithSeconds()).AddFunc(spec.CronSchedule, func() {}); err != nil {
 		return jb, errors.Errorf("error parsing cron schedule: %v", err)
 	}
 

@@ -1,6 +1,8 @@
 package cron
 
 import (
+	"fmt"
+
 	"github.com/robfig/cron/v3"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,7 +47,7 @@ func (cr *Cron) Start() error {
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
-		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobSpec.ID, err)
+		cr.logger.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "error", err, "schedule", cr.jobSpec.CronSpec.CronSchedule, "jobID", cr.jobSpec.ID)
 		return err
 	}
 	cr.cronRunner.Start()
