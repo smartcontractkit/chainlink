@@ -416,6 +416,8 @@ func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
