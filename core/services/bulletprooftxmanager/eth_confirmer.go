@@ -326,7 +326,7 @@ func (ec *EthConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []Eth
 	err = ec.db.
 		Joins("EthTx"). // Joins("EthTx") is needed for the query to actually return data from eth_txes table as well.
 		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND eth_txes.evm_chain_id = ?", ec.chainID.String()).
-		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC").
+		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC").
 		Where("eth_tx_attempts.state != 'insufficient_eth'").
 		Find(&attempts).Error
 
@@ -652,7 +652,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
 
-		ec.logger.Debugw("EthConfirmer: Rebroadcasting transaction", "ethTxID", etx.ID, "nonce", etx.Nonce, "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice)
+		ec.logger.Debugw("EthConfirmer: Rebroadcasting transaction", "ethTxID", etx.ID, "nonce", etx.Nonce, "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
 		if err := ec.saveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
@@ -765,7 +765,7 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address gethCommon.Address, chainID big.Int) (etxs []EthTx, err error) {
 	err = db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("eth_tx_attempts.gas_price DESC")
+			return db.Order("eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC")
 		}).
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'").
 		Where("eth_txes.from_address = ? AND eth_txes.state = 'unconfirmed' AND eth_txes.evm_chain_id = ?", address, chainID.String()).
@@ -789,7 +789,7 @@ func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNu
 	}
 	q := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("eth_tx_attempts.gas_price DESC")
+			return db.Order("eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC")
 		}).
 		Joins("LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id "+
 			"AND (broadcast_before_block_num > ? OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')", blockNum-gasBumpThreshold).
@@ -806,34 +806,20 @@ func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNu
 }
 
 func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (attempt EthTxAttempt, err error) {
-	var bumpedGasPrice *big.Int
-	var bumpedGasLimit uint64
 	if len(etx.EthTxAttempts) > 0 {
 		previousAttempt := etx.EthTxAttempts[0]
+		previousAttempt.EthTx = etx
+		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 		if previousAttempt.State == EthTxAttemptInsufficientEth {
 			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
-			ec.logger.Debugw("EthConfirmer: rebroadcast InsufficientEth", "ethTxID", etx.ID, "ethTxAttemptID", previousAttempt.ID, "nonce", etx.Nonce, "txHash", previousAttempt.Hash)
+			ec.logger.Debugw("EthConfirmer: rebroadcast InsufficientEth", logFields...)
 			previousAttempt.State = EthTxAttemptInProgress
-			// TODO: Handle optimism case here
 			return previousAttempt, nil
 		}
-		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpGas(previousAttempt.GasPrice.ToInt(), etx.GasLimit)
-		logFields := []interface{}{
-			"etxID", etx.ID,
-			"txHash", attempt.Hash,
-			"originalGasPrice", previousAttempt.GasPrice.String(),
-			"gasLimit", etx.GasLimit,
-			"originalChainSpecificGasLimit", previousAttempt.ChainSpecificGasLimit,
-			"maxGasPrice", ec.config.EvmMaxGasPriceWei(),
-			"nonce", etx.Nonce,
-			"previousTxHash", previousAttempt.Hash,
-			"previousAttemptID", previousAttempt.ID,
-		}
-		if err != nil {
-			if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
-				promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
-			}
+		attempt, err = ec.bumpGas(previousAttempt)
+
+		if gas.IsBumpErr(err) {
 			ec.logger.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
@@ -841,16 +827,58 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 			previousAttempt.State = EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
-		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		ec.logger.Debugw("EthConfirmer: rebroadcast bumping gas", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
-	} else {
-		ec.logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
-			"Falling back to default gas price instead."+
-			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
-		bumpedGasPrice = ec.config.EvmGasPriceDefault()
-		bumpedGasLimit = etx.GasLimit
+		return attempt, err
 	}
-	return NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
+	return attempt, errors.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
+		"Falling back to default gas price instead."+
+		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
+}
+
+func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interface{} {
+	etx := attempt.EthTx
+	return []interface{}{
+		"etxID", etx.ID,
+		"txHash", attempt.Hash,
+		"previousAttempt", attempt,
+		"gasLimit", etx.GasLimit,
+		"maxGasPrice", ec.config.EvmMaxGasPriceWei(),
+		"nonce", etx.Nonce,
+	}
+}
+
+func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
+	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
+	switch previousAttempt.TxType {
+	case 0x0:
+		var bumpedGasPrice *big.Int
+		var bumpedGasLimit uint64
+		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit)
+		if err == nil {
+			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+			ec.logger.Debugw("EthConfirmer: rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
+			return NewLegacyAttempt(ec.config, ec.keystore, &ec.chainID, previousAttempt.EthTx, bumpedGasPrice, bumpedGasLimit)
+		}
+	case 0x2:
+		// BumpDynamicFee(original DynamicFee, gasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
+		var bumpedFee gas.DynamicFee
+		var bumpedGasLimit uint64
+		original := previousAttempt.DynamicFee()
+		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit)
+		if err == nil {
+			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+			ec.logger.Debugw("EthConfirmer: rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
+			return NewDynamicFeeAttempt(ec.config, ec.keystore, &ec.chainID, previousAttempt.EthTx, bumpedFee, bumpedGasLimit)
+		}
+	default:
+		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
+			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
+	}
+
+	if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
+		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
+	}
+
+	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
 }
 
 func (ec *EthConfirmer) saveInProgressAttempt(attempt *EthTxAttempt) error {
@@ -873,22 +901,15 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// already bumped above the required minimum in ethBroadcaster.
 		//
 		// It could conceivably happen if the remote eth node changed its configuration.
-		bumpedGasPrice, bumpedGasLimit, err := ec.estimator.BumpGas(attempt.GasPrice.ToInt(), etx.GasLimit)
+		replacementAttempt, err := ec.bumpGas(attempt)
 		if err != nil {
-			if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
-				promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
-			}
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		ec.logger.Errorf("gas price %v wei was rejected by the eth node for being too low. "+
-			"Eth node returned: '%s'. "+
-			"Bumping to %v wei and retrying. "+
-			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
-		replacementAttempt, err := NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
-		if err != nil {
-			return errors.Wrap(err, "NewAttempt failed")
-		}
+		ec.logger.Errorw(
+			fmt.Sprintf("gas price %v wei was rejected by the eth node for being too low. Eth node returned: '%s'",
+				attempt.GasPrice.String(), sendError.Error()),
+			"previousAttempt", attempt, "replacementAttempt", replacementAttempt)
 
 		if err := saveReplacementInProgressAttempt(ec.db, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
@@ -903,7 +924,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// In that case, the safest thing to do is to pretend the transaction
 		// was accepted and continue the normal gas bumping cycle until we can
 		// get it into the mempool
-		ec.logger.Infow("EthConfirmer: Transaction temporarily underpriced", "ethTxID", etx.ID, "attemptID", attempt.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
+		ec.logger.Infow("EthConfirmer: Transaction temporarily underpriced", "ethTxID", etx.ID, "attemptID", attempt.ID, "err", sendError.Error(), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		sendError = nil
 	}
 
@@ -1091,7 +1112,7 @@ func findTransactionsConfirmedInBlockRange(db *gorm.DB, highBlockNumber, lowBloc
 	var etxs []EthTx
 	err := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("eth_tx_attempts.gas_price DESC")
+			return db.Order("eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC")
 		}).
 		Preload("EthTxAttempts.EthReceipts").
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'broadcast'").
@@ -1207,7 +1228,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
+			attempt, err := NewLegacyAttempt(ec.config, ec.keystore, &ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
 			if err != nil {
 				ec.logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
@@ -1243,7 +1264,7 @@ func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint)
 	etx := EthTx{}
 	err := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("eth_tx_attempts.gas_price DESC")
+			return db.Order("eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC")
 		}).
 		First(&etx, "from_address = ? AND nonce = ? AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')", fromAddress, nonce).
 		Error

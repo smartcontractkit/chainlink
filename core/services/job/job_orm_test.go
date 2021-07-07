@@ -170,7 +170,7 @@ func TestORM(t *testing.T) {
 
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
-	config := cltest.NewTestGeneralConfig(t)
+	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewGormDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)

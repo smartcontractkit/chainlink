@@ -250,13 +250,25 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		gasPrice, gasLimit, err := eb.estimator.EstimateGas(etx.EncodedPayload, etx.GasLimit)
-		if err != nil {
-			return errors.Wrap(err, "failed to estimate gas")
-		}
-		a, err := NewAttempt(eb.config, eb.ethClient, eb.keystore, eb.chainID, *etx, gasPrice, gasLimit)
-		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+		var a EthTxAttempt
+		if eb.config.EIP1559DynamicFees() {
+			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit)
+			if err != nil {
+				return errors.Wrap(err, "failed to get dynamic gas fee")
+			}
+			a, err = NewDynamicFeeAttempt(eb.config, eb.keystore, &eb.chainID, *etx, fee, gasLimit)
+			if err != nil {
+				return errors.Wrap(err, "processUnstartedEthTxs failed")
+			}
+		} else {
+			gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit)
+			if err != nil {
+				return errors.Wrap(err, "failed to estimate gas")
+			}
+			a, err = NewLegacyAttempt(eb.config, eb.keystore, &eb.chainID, *etx, gasPrice, gasLimit)
+			if err != nil {
+				return errors.Wrap(err, "processUnstartedEthTxs failed")
+			}
 		}
 
 		if err := eb.saveInProgressTransaction(etx, &a); errors.Is(err, errEthTxRemoved) {
@@ -504,7 +516,8 @@ func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, NewAttemptState 
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpGas(attempt.GasPrice.ToInt(), etx.GasLimit)
+	// TODO: handle eip1559 attempts
+	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
@@ -519,7 +532,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	gasPrice, gasLimit, err := eb.estimator.EstimateGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
+	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}
@@ -529,7 +542,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
-	replacementAttempt, err := NewAttempt(eb.config, eb.ethClient, eb.keystore, eb.chainID, etx, newGasPrice, newGasLimit)
+	replacementAttempt, err := NewLegacyAttempt(eb.config, eb.keystore, &eb.chainID, etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}

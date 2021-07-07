@@ -24,12 +24,12 @@ func Test_OptimismEstimator(t *testing.T) {
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	var gasLimit uint64 = 80000
 
-	t.Run("calling EstimateGas on unstarted estimator returns error", func(t *testing.T) {
-		_, _, err := o.EstimateGas(calldata, gasLimit)
+	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
+		_, _, err := o.GetLegacyGas(calldata, gasLimit)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
-	t.Run("calling EstimateGas on started estimator returns prices", func(t *testing.T) {
+	t.Run("calling GetLegacyGas on started estimator returns prices", func(t *testing.T) {
 		client.On("Call", mock.Anything, "rollup_gasPrices").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(0).(*gas.OptimismGasPricesResponse)
 			res.L1GasPrice = big.NewInt(42)
@@ -37,18 +37,18 @@ func Test_OptimismEstimator(t *testing.T) {
 		})
 
 		require.NoError(t, o.Start())
-		gasPrice, chainSpecificGasLimit, err := o.EstimateGas(calldata, gasLimit)
+		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15000000), gasPrice)
 		assert.Equal(t, 10008, int(chainSpecificGasLimit))
 	})
 
-	t.Run("calling BumpGas always returns error", func(t *testing.T) {
-		_, _, err := o.BumpGas(big.NewInt(42), gasLimit)
+	t.Run("calling BumpLegacyGas always returns error", func(t *testing.T) {
+		_, _, err := o.BumpLegacyGas(big.NewInt(42), gasLimit)
 		assert.EqualError(t, err, "bump gas is not supported for optimism")
 	})
 
-	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
+	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.OptimismRPCClient)
 		o = gas.NewOptimismEstimator(logger.Default, config, client)
@@ -57,7 +57,7 @@ func Test_OptimismEstimator(t *testing.T) {
 
 		require.NoError(t, o.Start())
 
-		_, _, err := o.EstimateGas(calldata, gasLimit)
+		_, _, err := o.GetLegacyGas(calldata, gasLimit)
 		assert.EqualError(t, err, "failed to estimate optimism gas; gas prices not set")
 	})
 }

@@ -11,6 +11,7 @@ var (
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(100000000000000) // 0.0001 LINK
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
+	DefaultGasTip                        = assets.GWei(0)
 )
 
 type (
@@ -23,6 +24,7 @@ type (
 		blockHistoryEstimatorBlockDelay            uint16
 		blockHistoryEstimatorBlockHistorySize      uint16
 		blockHistoryEstimatorTransactionPercentile uint16
+		eip1559DynamicFees                         bool
 		ethTxReaperInterval                        time.Duration
 		ethTxReaperThreshold                       time.Duration
 		ethTxResendAfterThreshold                  time.Duration
@@ -37,6 +39,8 @@ type (
 		gasLimitMultiplier                         float32
 		gasLimitTransfer                           uint64
 		gasPriceDefault                            big.Int
+		gasTipCapDefault                           big.Int
+		gasTipCapMinimum                           big.Int
 		headTrackerHistoryDepth                    uint32
 		headTrackerMaxBufferSize                   uint32
 		headTrackerSamplingInterval                time.Duration
@@ -85,6 +89,7 @@ func setChainSpecificConfigDefaultSets() {
 		blockHistoryEstimatorBlockDelay:            1,
 		blockHistoryEstimatorBlockHistorySize:      24,
 		blockHistoryEstimatorTransactionPercentile: 60,
+		eip1559DynamicFees:                         false,
 		ethTxReaperInterval:                        1 * time.Hour,
 		ethTxReaperThreshold:                       168 * time.Hour,
 		ethTxResendAfterThreshold:                  1 * time.Minute,
@@ -98,6 +103,8 @@ func setChainSpecificConfigDefaultSets() {
 		gasLimitMultiplier:                         1.0,
 		gasLimitTransfer:                           21000,
 		gasPriceDefault:                            *DefaultGasPrice,
+		gasTipCapDefault:                           *DefaultGasTip,
+		gasTipCapMinimum:                           *big.NewInt(0),
 		headTrackerHistoryDepth:                    100,
 		headTrackerMaxBufferSize:                   3,
 		headTrackerSamplingInterval:                1 * time.Second,

@@ -746,17 +746,17 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	b41 := gas.Block{
 		Number:       41,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(41000000000, 41500000000),
 	}
 	b42 := gas.Block{
 		Number:       42,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(44000000000, 45000000000),
 	}
 	b43 := gas.Block{
 		Number:       43,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
 	h40 := eth.Head{Hash: utils.NewHash(), Number: 40}
@@ -798,7 +798,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
 	estimator := chain.TxManager().GetGasEstimator()
-	gasPrice, gasLimit, err := estimator.EstimateGas(nil, 500000)
+	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
@@ -823,7 +823,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	newHeads <- cltest.Head(43)
 
 	gomega.NewGomegaWithT(t).Eventually(func() string {
-		gasPrice, _, err := estimator.EstimateGas(nil, 500000)
+		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
 		require.NoError(t, err)
 		return gasPrice.String()
 	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
