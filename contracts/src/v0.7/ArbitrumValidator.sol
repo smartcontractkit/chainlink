@@ -3,73 +3,94 @@ pragma solidity ^0.7.0; // Could we use 0.8.0
 
 import "./interfaces/ArbitrumInboxInterface.sol";
 import "./interfaces/AggregatorValidatorInterface.sol";
+import "./interfaces/FlagsInterface.sol";
 import "../v0.6/SimpleWriteAccessController.sol";
 
 contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorInterface {
-  address s_arbitrumInbox;
-  address s_flags;
+
+  bytes4 constant private RAISE_SELECTOR = FlagsInterface.raiseFlag.selector;
+  bytes4 constant private LOWER_SELECTOR = FlagsInterface.lowerFlags.selector;
+
+  address private s_flags;
   // Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
-  address s_gasConfigAccessController;
-  address s_refundableAddress;
+  address private s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
+
+  IInbox private s_arbitrumInbox;
+  SimpleWriteAccessController private s_gasConfigAccessController;
 
   struct GasConfiguration {
+    uint256 maximumSubmissionCost;
     uint32 maximumGasPrice;
     uint256 gasCostL2;
+    address refundableAddress;
   }
-  GasConfiguration internal s_gasConfig;
+  GasConfiguration private s_gasConfig;
+  uint32 constant private s_L2GasLimit = 30000000;
+  uint32 constant private s_maxSubmissionCostIncreaseRatio = 13;
 
   /**
+   * @param aggregatorAddress default aggregator with access to validate
    * @param inboxAddress address of the Arbitrum Inbox L1 contract
    * @param flagAddress address of the Chainlink L2 Flags contract
    * @param gasConfigAccessController address of the access controller for managing gas price on Arbitrum
+   * @param maxSubmissionCost maximum cost willing to pay on L2
    * @param maximumGasPrice maximum gas price to pay on L2
    * @param gasCostL2 value to send to L2 to cover gas fee
    * @param refundableAddress address where gas excess on L2 will be sent
    */
   constructor(
-    address inboxAddress, 
+    address aggregatorAddress,
+    address inboxAddress,
     address flagAddress,
     address gasConfigAccessController,
+    uint256 maxSubmissionCost,
     uint32 maximumGasPrice,
     uint256 gasCostL2,
     address refundableAddress
   ) 
     public
   {
-    s_arbitrumInbox = inboxAddress;
+    s_arbitrumInbox = IInbox(s_arbitrumInbox);
+    s_gasConfigAccessController = SimpleWriteAccessController(gasConfigAccessController);
     s_flags = flagAddress;
-    s_gasConfigAccessController = gasConfigAccessController;
-    s_refundableAddress = refundableAddress;
-    // TODO: Is it possible to give default access to the aggregator?
-    // addAccess(aggregatorAddress);
-    _setGasConfigurationInternal(maximumGasPrice, gasCostL2);
+    _setGasConfiguration(maxSubmissionCost, maximumGasPrice, gasCostL2, refundableAddress);
+
+    SimpleWriteAccessController(address(this)).addAccess(aggregatorAddress);
   }
   
-  // Accept ETH funds
   fallback() external payable {}
 
+  function withdrawFunds() 
+    external 
+    override
+    onlyOwner() 
+  {
+    address payable to = payable(msg.sender);
+    to.transfer(address(this).balance);
+  }
+
+  function withdrawFundsTo(
+    address payable to
+  ) 
+    external
+    override
+    onlyOwner() 
+  {
+    to.transfer(address(this).balance);
+  }
 
   function setGasConfiguration(
+    uint256 maxSubmissionCost,
     uint32 maximumGasPrice,
-    uint256 gasCostL2
+    uint256 gasCostL2,
+    address refundableAddress
   )
     external
     override
   {
     SimpleWriteAccessController access = SimpleWriteAccessController(s_gasConfigAccessController);
-    require(access.hasAccess(msg.sender, msg.data), "Only billing admin can call");
-    _setGasConfigurationInternal(maximumGasPrice, gasCostL2);
-  }
-  
-  function setRefundableAddress(
-    address refundableAddress
-  ) 
-    external 
-    override
-    checkAccess()
-  {
-    s_refundableAddress = refundableAddress;
+    require(access.hasAccess(msg.sender, msg.data), "Only gas configuration admin can call");
+    _setGasConfiguration(maxSubmissionCost, maximumGasPrice, gasCostL2, refundableAddress);
   }
 
   function validate(
@@ -83,17 +104,16 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     checkAccess() 
     returns (bool) 
   {
-    bytes memory data = currentAnswer == 1 ? abi.encodeWithSignature("raiseFlag(address)", s_arbitrumFlag) : abi.encodeWithSignature("lowerFlags(address[])", [s_arbitrumFlag]);
+    bytes memory data = currentAnswer == 1 ? abi.encodeWithSelector(RAISE_SELECTOR, s_arbitrumFlag) : abi.encodeWithSelector(LOWER_SELECTOR, [s_arbitrumFlag]);
     IInbox arbitrumInbox = IInbox(s_arbitrumInbox);
-    // Validator should be funded in L1 and send some value to pay for the L2 gas
-    // uint256 minL2Cost = maxSubmissionCost + (s_gasConfig.maximumGasPrice*gasLimit);
+
     arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
       s_flags, 
       0, // L2 call value
-      13700320797, // Max submission cost of sending data length
-      s_refundableAddress, // excessFeeRefundAddress
-      s_refundableAddress, // callValueRefundAddress
-      30000000, // L2 gas limit
+      s_gasConfig.maximumSubmissionCost, // Max submission cost of sending data length
+      s_gasConfig.refundableAddress, // excessFeeRefundAddress
+      s_gasConfig.refundableAddress, // callValueRefundAddress
+      s_L2GasLimit,
       s_gasConfig.maximumGasPrice, 
       data
     );
@@ -101,16 +121,21 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
   }
   
   event GasConfigurationSet(
+    uint256 maximumSubmissionCost,
     uint32 maximumGasPrice,
-    uint256 gasCostL2
+    uint256 gasCostL2,
+    address refundableAddress
   );
-
   
-  function _setGasConfigurationInternal(
+  function _setGasConfiguration(
+    uint256 _maximumSubmissionCost,
     uint32 _maximumGasPrice,
-    uint256 _gasCostL2
+    uint256 _gasCostL2,
+    address _refundableAddress
   ) internal {
-      s_gasConfig = GasConfiguration(_maximumGasPrice, _gasCostL2);
-      emit GasConfigurationSet(_maximumGasPrice, _gasCostL2);
+    uint256 minGasCostValue = _maximumSubmissionCost * s_maxSubmissionCostIncreaseRatio + s_L2GasLimit * _maximumGasPrice;
+    require(_gasCostL2 >= minGasCostValue, "The gas cost value provided is too low to cover the L2 transactions");
+    s_gasConfig = GasConfiguration(_maximumSubmissionCost, _maximumGasPrice, _gasCostL2, _refundableAddress);
+    emit GasConfigurationSet(_maximumSubmissionCost, _maximumGasPrice, _gasCostL2, _refundableAddress);
   }
 }
