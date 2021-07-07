@@ -397,7 +397,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
 	defer cancel()
 
-	h, err := t.ethClient.HeaderByNumber(ctx, nil)
+	h, err := t.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
 	}

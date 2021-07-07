@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { CBORChainlink } from "../vendor/CBORChainlink.sol";
-import { BufferChainlink } from "../vendor/BufferChainlink.sol";
+import { CBORChainlink } from "./vendor/CBORChainlink.sol";
+import { BufferChainlink } from "./vendor/BufferChainlink.sol";
 
 /**
  * @title Library for common Chainlink functions
