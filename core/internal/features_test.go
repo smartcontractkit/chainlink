@@ -284,6 +284,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			})
 			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(firstHead, nil)
+			ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(firstHead, nil)
 
 			require.NoError(t, app.StartAndConnect())
 			j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/runlog_noop_job.json")

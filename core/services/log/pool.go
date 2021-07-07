@@ -1,11 +1,8 @@
 package log
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	heaps "github.com/theodesp/go-heaps"
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
@@ -31,8 +28,6 @@ func (pool *logPool) addLog(log types.Log) {
 	pool.hashesByBlockNumbers[log.BlockNumber] = append(pool.hashesByBlockNumbers[log.BlockNumber], log.BlockHash)
 	pool.logsByBlockHash[log.BlockHash] = append(pool.logsByBlockHash[log.BlockHash], log)
 	pool.heap.Insert(Uint64(log.BlockNumber))
-
-	logger.Tracew(fmt.Sprintf("LogBroadcaster: ADDED LOG NUM %v %v", log.BlockNumber, log.BlockHash))
 }
 
 func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uint64, finalityDepth uint64) []types.Log {
@@ -48,11 +43,6 @@ func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uin
 	if keptDepth < 0 {
 		keptDepth = 0
 	}
-	logger.Tracew(fmt.Sprintf("LogBroadcaster: keptDepth %v latestBlockNum: %v", keptDepth, latestBlockNum),
-		"latestBlockNum", latestBlockNum,
-		"highestNumConfirmations", highestNumConfirmations,
-		"finalityDepth", finalityDepth,
-	)
 
 	minBlockNumToSendItem := pool.heap.FindMin()
 	if minBlockNumToSendItem == nil {
@@ -62,18 +52,7 @@ func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uin
 
 	for i := minBlockNumToSend; i <= int64(latestBlockNum); i++ {
 		num := i
-
-		logger.Tracew(fmt.Sprintf("LogBroadcaster: BLOCK NUM %v - num hashes: %v", num, len(pool.hashesByBlockNumbers[uint64(num)])),
-			"latestBlockNum", latestBlockNum,
-			"highestNumConfirmations", highestNumConfirmations,
-			"finalityDepth", finalityDepth,
-		)
 		for _, hash := range pool.hashesByBlockNumbers[uint64(num)] {
-			logger.Tracew(fmt.Sprintf("LogBroadcaster: ADDING %v %v", num, hash),
-				"latestBlockNum", latestBlockNum,
-				"highestNumConfirmations", highestNumConfirmations,
-				"finalityDepth", finalityDepth,
-			)
 			logsToReturn = append(logsToReturn, pool.logsByBlockHash[hash]...)
 		}
 	}
@@ -91,23 +70,11 @@ func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uin
 		pool.heap.DeleteMin()
 
 		for _, hash := range pool.hashesByBlockNumbers[blockNum] {
-			logger.Tracew(fmt.Sprintf("LogBroadcaster: Will delete %v logs for block hash %v", len(pool.logsByBlockHash[hash]), hash),
-				"latestBlockNum", latestBlockNum,
-				"highestNumConfirmations", highestNumConfirmations,
-				"finalityDepth", finalityDepth,
-			)
 			delete(pool.logsByBlockHash, hash)
 		}
 		delete(pool.hashesByBlockNumbers, blockNum)
 	}
 
-	if len(logsToReturn) > 0 {
-		logger.Tracew(fmt.Sprintf("LogBroadcaster: Will return %v logs", len(logsToReturn)),
-			"latestBlockNum", latestBlockNum,
-			"highestNumConfirmations", highestNumConfirmations,
-			"finalityDepth", finalityDepth,
-		)
-	}
 	return logsToReturn
 }
 
