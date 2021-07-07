@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
+	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -119,6 +120,7 @@ var (
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	storeCounter                uint64
 	minimumContractPayment      = assets.NewLink(100)
+	source                      rand.Source
 )
 
 func init() {
@@ -153,6 +155,9 @@ func init() {
 	seed := time.Now().UTC().UnixNano()
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
+
+	// Also seed the local source
+	source = rand.NewSource(seed)
 
 	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
 	if err != nil {
@@ -2119,4 +2124,13 @@ func MustSendingKeys(t *testing.T, ethKeyStore *keystore.Eth) (keys []ethkey.Key
 	keys, err = ethKeyStore.SendingKeys()
 	require.NoError(t, err)
 	return keys
+}
+
+func MustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
+	reader := rand.New(source)
+	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(reader)
+	require.NoError(t, err)
+	id, err := p2ppeer.IDFromPrivateKey(p2pPrivkey)
+	require.NoError(t, err)
+	return id
 }
