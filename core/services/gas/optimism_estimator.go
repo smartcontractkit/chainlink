@@ -134,7 +134,7 @@ func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 	return
 }
 
-func (o *optimismEstimator) EstimateGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *optimismEstimator) GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
 		for _, opt := range opts {
@@ -160,11 +160,19 @@ func (o *optimismEstimator) EstimateGas(calldata []byte, gasLimit uint64, opts .
 	return
 }
 
-func (o *optimismEstimator) BumpGas(originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, gasLimit uint64, err error) {
+func (o *optimismEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, gasLimit uint64, err error) {
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 
 func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ eth.Head) {}
+
+func (*optimismEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (o *optimismEstimator) BumpDynamicFee(original DynamicFee, gasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+	panic("not implemented") // TODO: Implement
+}
 
 func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSpecificGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	l1GasPrice, l2GasPrice := o.getGasPrices()

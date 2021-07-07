@@ -316,7 +316,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore.DB, 7, 42, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, connectedStore.DB, 7, 42, fromAddress)
 
 	// Use the same config as the connectedStore so that the advisory
 	// lock ID is the same. We set the config to be Postgres Without
@@ -398,7 +398,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore.DB, int64(test.nonce), 42, fromAddress)
+			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, connectedStore.DB, int64(test.nonce), 42, fromAddress)
 
 			// Use the same config as the connectedStore so that the advisory
 			// lock ID is the same. We set the config to be Postgres Without

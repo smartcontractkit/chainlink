@@ -3,18 +3,18 @@ package eth
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Head represents a BlockNumber, BlockHash.
@@ -28,6 +28,7 @@ type Head struct {
 	EVMChainID    *utils.Big `gorm:"column:evm_chain_id"`
 	Timestamp     time.Time
 	CreatedAt     time.Time
+	BaseFeePerGas *utils.Big
 }
 
 // NewHead returns a Head instance.
@@ -154,6 +155,7 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 		ParentHash    common.Hash    `json:"parentHash"`
 		Timestamp     hexutil.Uint64 `json:"timestamp"`
 		L1BlockNumber *hexutil.Big   `json:"l1BlockNumber"`
+		BaseFeePerGas *hexutil.Big   `json:"baseFeePerGas"`
 	}
 
 	var jsonHead head
@@ -171,6 +173,7 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
+	h.BaseFeePerGas = (*utils.Big)(jsonHead.BaseFeePerGas)
 	if jsonHead.L1BlockNumber != nil {
 		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
 	}
