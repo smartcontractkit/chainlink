@@ -1177,44 +1177,29 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	var (
-		blockHash0  = cltest.NewHash()
-		blockHash1  = cltest.NewHash()
-		blockHash2  = cltest.NewHash()
-		blockHash3  = cltest.NewHash()
-		blockHash1R = cltest.NewHash()
-		blockHash2R = cltest.NewHash()
-		blockHash3R = cltest.NewHash()
-		blockHash4R = cltest.NewHash()
+	blocks := cltest.NewBlocks(t, 10)
+	blocksForked := blocks.ForkAt(t, 1, 5)
 
+	var (
 		addr = cltest.NewAddress()
 
-		log0        = cltest.RawNewRoundLog(t, addr, blockHash0, 0, 0, false)
-		log1        = cltest.RawNewRoundLog(t, addr, blockHash1, 1, 0, false)
-		log2        = cltest.RawNewRoundLog(t, addr, blockHash2, 2, 0, false)
-		log1Removed = cltest.RawNewRoundLog(t, addr, blockHash1, 1, 0, true)
-		log2Removed = cltest.RawNewRoundLog(t, addr, blockHash2, 2, 0, true)
-		log1R       = cltest.RawNewRoundLog(t, addr, blockHash1R, 1, 0, false)
-		log2R       = cltest.RawNewRoundLog(t, addr, blockHash2R, 2, 0, false)
-
-		head0  = models.Head{Hash: blockHash0, Number: 0}
-		head1  = models.Head{Hash: blockHash1, Number: 1, Parent: &head0}
-		head2  = models.Head{Hash: blockHash2, Number: 2, Parent: &head1}
-		head3  = models.Head{Hash: blockHash3, Number: 3, Parent: &head2}
-		head1R = models.Head{Hash: blockHash1R, Number: 1, Parent: &head0}
-		head2R = models.Head{Hash: blockHash2R, Number: 2, Parent: &head1R}
-		head3R = models.Head{Hash: blockHash3R, Number: 3, Parent: &head2R}
-		head4R = models.Head{Hash: blockHash4R, Number: 4, Parent: &head3R}
+		log0        = blocks.LogOnBlockNum(0, addr)
+		log1        = blocks.LogOnBlockNum(1, addr)
+		log2        = blocks.LogOnBlockNum(2, addr)
+		log1Removed = blocks.LogOnBlockNumRemoved(1, addr)
+		log2Removed = blocks.LogOnBlockNumRemoved(2, addr)
+		log1R       = blocksForked.LogOnBlockNum(1, addr)
+		log2R       = blocksForked.LogOnBlockNum(2, addr)
 
 		events = []interface{}{
-			head0, log0,
+			blocks.Head(0), log0,
 			log1, // head1 missing
-			head2, log2,
-			head3,
-			head1R, log1Removed, log2Removed, log1R,
-			head2R, log2R,
-			head3R,
-			head4R,
+			blocks.Head(2), log2,
+			blocks.Head(3),
+			blocksForked.Head(1), log1Removed, log2Removed, log1R,
+			blocksForked.Head(2), log2R,
+			blocksForked.Head(3),
+			blocksForked.Head(4),
 		}
 
 		expectedA = []types.Log{log0, log1, log2, log1R, log2R}
@@ -1235,8 +1220,8 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	go func() {
 		for _, event := range events {
 			switch x := event.(type) {
-			case models.Head:
-				(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(context.Background(), x)
+			case *models.Head:
+				(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(context.Background(), *x)
 			case types.Log:
 				chRawLogs <- x
 			}

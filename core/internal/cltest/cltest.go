@@ -2023,6 +2023,10 @@ func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
 	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, false)
 }
 
+func (b *Blocks) LogOnBlockNumRemoved(i uint64, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, true)
+}
+
 func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
 	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
 }
@@ -2035,6 +2039,16 @@ func (b *Blocks) Head(number uint64) *models.Head {
 	return b.Heads[int64(number)]
 }
 
+func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
+	blocks2 := NewBlocks(t, len(b.Heads)+numHashes)
+
+	if _, exists := blocks2.Heads[blockNum]; !exists {
+		logger.Fatalf("Not enough length for block num: %v", blockNum)
+	}
+	blocks2.Heads[blockNum].Parent = b.Heads[blockNum].Parent
+	return blocks2
+}
+
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*models.Head)
@@ -2044,11 +2058,9 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 
 		heads[i] = &models.Head{Hash: hash, Number: i}
 		if i > 0 {
-			parent, exists := heads[i-1]
-			if exists {
-				heads[i].Parent = parent
-				heads[i].ParentHash = parent.Hash
-			}
+			parent := heads[i-1]
+			heads[i].Parent = parent
+			heads[i].ParentHash = parent.Hash
 		}
 	}
 
