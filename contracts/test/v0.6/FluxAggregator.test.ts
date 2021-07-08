@@ -24,8 +24,8 @@ before(async () => {
   validatorMockFactory = await ethers.getContractFactory("AggregatorValidatorMock");
   testHelperFactory = await ethers.getContractFactory("FluxAggregatorTestHelper");
   validatorFactory = await ethers.getContractFactory("DeviationFlaggingValidator");
-  flagsFactory = await ethers.getContractFactory("Flags");
-  acFactory = await ethers.getContractFactory("SimpleWriteAccessController");
+  flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags");
+  acFactory = await ethers.getContractFactory("src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController");
   gasGuzzlerFactory = await ethers.getContractFactory("GasGuzzler");
   emptyAddress = constants.AddressZero;
 });

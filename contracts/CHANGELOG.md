@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added:
+
+- v0.8 Access Controlled contracts (`SimpleWriteAccessController`, `SimpleReadAccessController` and `Owned`).
+- v0.8 Flags contracts (`Flags`).
+
 ### Changed:
 
 - Bump hardhat from 2.3.3 to 2.4.1
