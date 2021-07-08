@@ -38,7 +38,7 @@ func Test_OptimismEstimator(t *testing.T) {
 		require.NoError(t, o.Start())
 		gasPrice, chainSpecificGasLimit, err := o.EstimateGas(calldata, gasLimit)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(15000000000), gasPrice)
+		assert.Equal(t, big.NewInt(15000000), gasPrice)
 		assert.Equal(t, 10008, int(chainSpecificGasLimit))
 	})
 
