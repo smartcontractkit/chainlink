@@ -14,6 +14,7 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore --structname ORM --filename orm.go
 
 type ORM interface {
+	FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]logBroadcast, error)
 	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error)
 	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error
 }
@@ -58,6 +59,31 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 		return false, nil
 	}
 	return consumed, err
+}
+
+func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]logBroadcast, error) {
+	broadcasts := make([]logBroadcast, 0)
+
+	query := `
+		SELECT block_hash, log_index, job_id, job_id_v2 FROM log_broadcasts
+		WHERE block_number >= ?
+		AND block_number <= ?
+		AND consumed = true
+	`
+
+	err := o.db.Raw(query, fromBlockNum, toBlockNum).Find(&broadcasts).Error
+	if err == sql.ErrNoRows {
+		return broadcasts, nil
+	}
+	return broadcasts, err
+}
+
+type logBroadcast struct {
+	blockHash common.Hash
+	logIndex  uint
+
+	jobIdV1 models.JobID
+	jobIdV2 int32
 }
 
 func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {

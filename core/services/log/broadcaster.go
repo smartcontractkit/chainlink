@@ -350,8 +350,20 @@ func (b *broadcaster) onNewHeads() {
 		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
 			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
-		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
-		b.registrations.sendLogs(logs, *latestHead)
+		logs, minBlockNum, maxBlockNum, keptDepth := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
+
+		if len(logs) > 0 {
+			broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, maxBlockNum)
+			if err != nil {
+				logger.Errorf("Failed to query for log broadcasts, %v", err)
+				return
+			}
+
+			b.registrations.sendLogs(logs, *latestHead, broadcasts)
+		}
+
+		b.logPool.deleteOlderLogs(uint64(keptDepth))
+
 	}
 }
 

@@ -30,7 +30,7 @@ func (pool *logPool) addLog(log types.Log) {
 	pool.heap.Insert(Uint64(log.BlockNumber))
 }
 
-func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uint64, finalityDepth uint64) []types.Log {
+func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uint64, finalityDepth uint64) ([]types.Log, int64, int64, int64) {
 	latestBlockNum := uint64(head.Number)
 	logsToReturn := make([]types.Log, 0)
 
@@ -47,17 +47,20 @@ func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uin
 	// gathering logs to return - from min block number kept, to latestBlockNum
 	minBlockNumToSendItem := pool.heap.FindMin()
 	if minBlockNumToSendItem == nil {
-		return logsToReturn
+		return logsToReturn, 0, 0, 0
 	}
 	minBlockNumToSend := int64(minBlockNumToSendItem.(Uint64))
 
-	for i := minBlockNumToSend; i <= int64(latestBlockNum); i++ {
-		num := i
+	for num := minBlockNumToSend; num <= int64(latestBlockNum); num++ {
+
 		for _, hash := range pool.hashesByBlockNumbers[uint64(num)] {
 			logsToReturn = append(logsToReturn, pool.logsByBlockHash[hash]...)
 		}
 	}
+	return logsToReturn, minBlockNumToSend, int64(latestBlockNum), keptDepth
+}
 
+func (pool *logPool) deleteOlderLogs(keptDepth uint64) {
 	// deleting all logs for block numbers under 'keptDepth'
 	for {
 		item := pool.heap.FindMin()
@@ -66,7 +69,7 @@ func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uin
 		}
 
 		blockNum := uint64(item.(Uint64))
-		if blockNum >= uint64(keptDepth) {
+		if blockNum >= keptDepth {
 			break
 		}
 		pool.heap.DeleteMin()
@@ -76,8 +79,6 @@ func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uin
 		}
 		delete(pool.hashesByBlockNumbers, blockNum)
 	}
-
-	return logsToReturn
 }
 
 func (pool *logPool) removeLog(log types.Log) {
