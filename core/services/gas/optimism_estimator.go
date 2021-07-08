@@ -18,7 +18,7 @@ import (
 
 // It's always 0.015 GWei
 // See: https://www.notion.so/How-to-pay-Fees-in-Optimistic-Ethereum-f706f4e5b13e460fa5671af48ce9a695
-const optimisml1GasPrice = 15000000000
+const optimisml1GasPrice = 15000000
 
 var _ Estimator = &optimismEstimator{}
 
@@ -124,6 +124,8 @@ func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 		return
 	}
 
+	logger.Debugw("OptimismEstimator#refreshPrices", "l1GasPrice", res.L1GasPrice, "l2GasPrice", res.L2GasPrice)
+
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
 	o.l1GasPrice, o.l2GasPrice = res.L1GasPrice, res.L2GasPrice
@@ -182,6 +184,7 @@ func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSp
 	}
 	chainSpecificGasLimit = uint64(optimismGasLimitBig.Int64())
 
+	logger.Debugw("OptimismEstimator#EstimateGas", "l1GasPrice", l1GasPrice, "l2GasPrice", l2GasPrice, "l2GasLimit", l2GasLimit, "chainSpecificGasLimit", chainSpecificGasLimit, "optimisml1GasPrice", optimisml1GasPrice)
 	return big.NewInt(optimisml1GasPrice), chainSpecificGasLimit, nil
 }
 
