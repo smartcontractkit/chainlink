@@ -45,7 +45,7 @@ const (
 	BufferForConsumerCallback = 6000
 	// Gas costs associated with making the fulfillment call itself.
 	CallFulfillGasCost = 21000 + // Base tx cost
-		8068 // Static costs of argument encoding etc.
+		7958 // Static costs of argument encoding etc.
 		// note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 	// An sanity upper bound on the gas costs
 	// We error the job if this is reached
@@ -329,14 +329,13 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 		return nil, errors.New("unable to parse preseed")
 	}
 	seed := PreSeedDataV2{
-		PreSeed:                     preSeed,
-		BlockHash:                   req.Raw.BlockHash,
-		BlockNum:                    req.Raw.BlockNumber,
-		SubId:                       req.SubId,
-		MinimumRequestConfirmations: req.MinimumRequestConfirmations,
-		CallbackGasLimit:            req.CallbackGasLimit,
-		NumWords:                    req.NumWords,
-		Sender:                      req.Sender,
+		PreSeed:          preSeed,
+		BlockHash:        req.Raw.BlockHash,
+		BlockNum:         req.Raw.BlockNumber,
+		SubId:            req.SubId,
+		CallbackGasLimit: req.CallbackGasLimit,
+		NumWords:         req.NumWords,
+		Sender:           req.Sender,
 	}
 	solidityProof, err := GenerateProofResponseV2(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {

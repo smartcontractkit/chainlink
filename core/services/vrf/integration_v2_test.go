@@ -388,14 +388,13 @@ func TestFulfillmentCost(t *testing.T) {
 	s, err := vrf.BigToSeed(requestLog.PreSeedAndRequestId)
 	require.NoError(t, err)
 	proof, err := vrf.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, vrf.PreSeedDataV2{
-		PreSeed:                     s,
-		BlockHash:                   requestLog.Raw.BlockHash,
-		BlockNum:                    requestLog.Raw.BlockNumber,
-		SubId:                       subId,
-		MinimumRequestConfirmations: requestLog.MinimumRequestConfirmations,
-		CallbackGasLimit:            uint64(gasRequested),
-		NumWords:                    uint64(nw),
-		Sender:                      uni.consumerContractAddress,
+		PreSeed:          s,
+		BlockHash:        requestLog.Raw.BlockHash,
+		BlockNum:         requestLog.Raw.BlockNumber,
+		SubId:            subId,
+		CallbackGasLimit: uint64(gasRequested),
+		NumWords:         uint64(nw),
+		Sender:           uni.consumerContractAddress,
 	})
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},

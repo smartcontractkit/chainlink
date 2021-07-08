@@ -39,13 +39,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error InvalidProofLength(uint256 have, uint256 want);
   error NoCorrespondingRequest();
-  error InsufficientRequestConfirmations(uint256 have, uint256 want);
   error IncorrectCommitment();
   error BlockHashNotInStore(uint256 blockNum);
   // Just to relieve stack pressure
   struct FulfillmentParams {
     uint64 subId;
-    uint64 minimumRequestConfirmations;
     uint64 callbackGasLimit;
     uint64 numWords;
     address sender;
@@ -219,7 +217,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         preSeedAndRequestId,
         block.number,
         subId,
-        minimumRequestConfirmations,
         callbackGasLimit,
         numWords,
         msg.sender));
@@ -324,9 +321,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint256 blockNumOffset = 0x20 + PROOF_LENGTH;
     // Note that proof.length skips the initial length word.
     // We expect the total length to be proof + 6 words
-    // (blocknum, subId, minReqConfs, callbackLimit, nw, sender)
-    if (proof.length != PROOF_LENGTH + 0x20*6) {
-      revert InvalidProofLength(proof.length, PROOF_LENGTH + 0x20*6);
+    // (blocknum, subId, callbackLimit, nw, sender)
+    if (proof.length != PROOF_LENGTH + 0x20*5) {
+      revert InvalidProofLength(proof.length, PROOF_LENGTH + 0x20*5);
     }
     uint256[2] memory publicKey;
     uint256 preSeed;
@@ -338,17 +335,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       blockNum := mload(add(proof, blockNumOffset))
       // We use a struct to limit local variables to avoid stack depth errors.
       mstore(fp, mload(add(add(proof, blockNumOffset), 0x20))) // subId
-      mstore(add(fp, 0x20), mload(add(add(proof, blockNumOffset), 0x40))) // minimumRequestConfirmations
-      mstore(add(fp, 0x40), mload(add(add(proof, blockNumOffset), 0x60))) // callbackGasLimit
-      mstore(add(fp, 0x60), mload(add(add(proof, blockNumOffset), 0x80))) // numWords
-      sender := mload(add(add(proof, blockNumOffset), 0xA0))
+      mstore(add(fp, 0x20), mload(add(add(proof, blockNumOffset), 0x40))) // callbackGasLimit
+      mstore(add(fp, 0x40), mload(add(add(proof, blockNumOffset), 0x60))) // numWords
+      sender := mload(add(add(proof, blockNumOffset), 0x80))
     }
     currentKeyHash = hashOfKey(publicKey);
     bytes32 callback = s_callbacks[preSeed];
     requestId = preSeed;
-    if (block.number < (blockNum+fp.minimumRequestConfirmations)) {
-      revert InsufficientRequestConfirmations(block.number, blockNum+fp.minimumRequestConfirmations);
-    }
     if (callback == 0) {
       revert NoCorrespondingRequest();
     }
@@ -356,7 +349,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         requestId,
         blockNum,
         fp.subId,
-        fp.minimumRequestConfirmations,
         fp.callbackGasLimit,
         fp.numWords,
         sender)))

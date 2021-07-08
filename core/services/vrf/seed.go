@@ -48,14 +48,13 @@ type PreSeedData struct {
 }
 
 type PreSeedDataV2 struct {
-	PreSeed                     Seed        // Seed to be mixed with hash of containing block
-	BlockHash                   common.Hash // Hash of block containing VRF request
-	BlockNum                    uint64      // Cardinal number of block containing VRF request
-	SubId                       uint64
-	MinimumRequestConfirmations uint64
-	CallbackGasLimit            uint64
-	NumWords                    uint64
-	Sender                      common.Address
+	PreSeed          Seed        // Seed to be mixed with hash of containing block
+	BlockHash        common.Hash // Hash of block containing VRF request
+	BlockNum         uint64      // Cardinal number of block containing VRF request
+	SubId            uint64
+	CallbackGasLimit uint64
+	NumWords         uint64
+	Sender           common.Address
 }
 
 // FinalSeed is the seed which is actually passed to the VRF proof generator,

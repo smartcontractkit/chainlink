@@ -47,7 +47,6 @@ const OnChainResponseLength = ProofLength +
 const OnChainResponseLengthV2 = ProofLength +
 	32 + // blocknum
 	32 + // subID
-	32 + // minReqConfs
 	32 + // gaslimit
 	32 + // numWords
 	32 // sender
@@ -92,12 +91,11 @@ func (p *ProofResponseV2) MarshalForVRFCoordinator() (
 	mProof := solidityProof.MarshalForSolidityVerifier()
 	wireBlockNum := utils.EVMWordUint64(p.BlockNum)
 	subId := utils.EVMWordUint64(p.SubId)
-	minReqConfs := utils.EVMWordUint64(p.MinimumRequestConfirmations)
 	callbackLimit := utils.EVMWordUint64(p.CallbackGasLimit)
 	numWords := utils.EVMWordUint64(p.NumWords)
 	sender := utils.EVMWordAddress(p.Sender)
 
-	rl := copy(response[:], bytes.Join([][]byte{mProof[:], wireBlockNum, subId, minReqConfs, callbackLimit, numWords, sender}, []byte{}))
+	rl := copy(response[:], bytes.Join([][]byte{mProof[:], wireBlockNum, subId, callbackLimit, numWords, sender}, []byte{}))
 	if rl != OnChainResponseLengthV2 {
 		return MarshaledOnChainResponseV2{}, errors.Errorf(
 			"wrong length for response to VRFCoordinatorV2")
@@ -156,13 +154,12 @@ func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s Pr
 
 func generateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) (MarshaledOnChainResponseV2, error) {
 	p := ProofResponseV2{P: proof,
-		PreSeed:                     s.PreSeed,
-		BlockNum:                    s.BlockNum,
-		SubId:                       s.SubId,
-		MinimumRequestConfirmations: s.MinimumRequestConfirmations,
-		CallbackGasLimit:            s.CallbackGasLimit,
-		NumWords:                    s.NumWords,
-		Sender:                      s.Sender,
+		PreSeed:          s.PreSeed,
+		BlockNum:         s.BlockNum,
+		SubId:            s.SubId,
+		CallbackGasLimit: s.CallbackGasLimit,
+		NumWords:         s.NumWords,
+		Sender:           s.Sender,
 	}
 	rv, err := p.MarshalForVRFCoordinator()
 	if err != nil {
