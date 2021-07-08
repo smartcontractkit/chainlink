@@ -12,18 +12,18 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -34,6 +34,10 @@ import (
 // Unless otherwise specified, these should support changing at runtime
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
+	BlockHistoryEstimatorBatchSize() uint32
+	BlockHistoryEstimatorBlockDelay() uint16
+	BlockHistoryEstimatorBlockHistorySize() uint16
+	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
 	EthFinalityDepth() uint
 	EthGasBumpPercent() uint16
@@ -44,15 +48,16 @@ type Config interface {
 	EthGasLimitMultiplier() float32
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthMaxInFlightTransactions() uint32
 	EthMaxQueuedTransactions() uint64
+	EthMinGasPriceWei() *big.Int
 	EthNonceAutoSync() bool
 	EthRPCDefaultBatchSize() uint32
-	EthTxReaperThreshold() time.Duration
 	EthTxReaperInterval() time.Duration
+	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
+	GasEstimatorMode() string
 	TriggerFallbackDBPollInterval() time.Duration
-	EthMaxInFlightTransactions() uint32
-	OptimismGasFees() bool
 }
 
 // KeyStore encompasses the subset of keystore used by bulletprooftxmanager
@@ -66,16 +71,6 @@ type KeyStore interface {
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 var (
-	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tx_manager_num_gas_bumps",
-		Help: "Number of gas bumps",
-	})
-
-	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tx_manager_gas_bump_exceeds_limit",
-		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
-	})
-
 	promRevertedTxCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain",
@@ -90,6 +85,7 @@ type TxManager interface {
 	service.Service
 	Trigger(addr common.Address)
 	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx models.EthTx, err error)
+	GetGasEstimator() gas.Estimator
 }
 
 type BulletproofTxManager struct {
@@ -101,6 +97,7 @@ type BulletproofTxManager struct {
 	keyStore         KeyStore
 	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
+	gasEstimator     gas.Estimator
 
 	chHeads chan models.Head
 	trigger chan common.Address
@@ -135,6 +132,8 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 	} else {
 		logger.Info("EthTxReaper: Disabled")
 	}
+	b.gasEstimator = gas.NewEstimator(ethClient, config)
+
 	return &b
 }
 
@@ -147,13 +146,17 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		logger.Debugw("BulletproofTxManager: booting", "keys", keys)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys)
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
+		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
 		if err := ec.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthConfirmer failed to start")
+		}
+
+		if err := b.gasEstimator.Start(); err != nil {
+			return errors.Wrap(err, "BulletproofTxManager: Estimator failed to start")
 		}
 
 		b.wg.Add(1)
@@ -183,6 +186,8 @@ func (b *BulletproofTxManager) Close() (merr error) {
 		}
 
 		b.wg.Wait()
+
+		b.gasEstimator.Close()
 
 		return nil
 	})
@@ -214,8 +219,8 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			logger.ErrorIfCalling(eb.Close)
 			logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
+			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
 
 			logger.ErrorIfCalling(eb.Start)
 			logger.ErrorIfCalling(ec.Start)
@@ -229,6 +234,7 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head model
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
 		}
+		b.gasEstimator.OnNewLongestChain(ctx, head)
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
@@ -318,7 +324,10 @@ RETURNING "eth_txes".*
 	return
 }
 
-const optimismGasPrice int64 = 1e9 // 1 GWei
+// GetGasEstimator returns the gas estimator, mostly useful for tests
+func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
+	return b.gasEstimator
+}
 
 // SendEther creates a transaction that transfers the given value of ether
 func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit uint64) (etx models.EthTx, err error) {
@@ -337,30 +346,20 @@ func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit 
 	return etx, err
 }
 
-func newAttempt(ctx context.Context, ethClient eth.Client, ks KeyStore, config Config, etx models.EthTx, suggestedGasPrice *big.Int) (models.EthTxAttempt, error) {
+func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx models.EthTx, gasPrice *big.Int, gasLimit uint64) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
 
-	gasPrice := config.EthGasPriceDefault()
-	if suggestedGasPrice != nil {
-		gasPrice = suggestedGasPrice
-	}
+	tx := newLegacyTransaction(
+		uint64(*etx.Nonce),
+		etx.ToAddress,
+		etx.Value.ToInt(),
+		gasLimit,
+		gasPrice,
+		etx.EncodedPayload,
+	)
 
-	if config.OptimismGasFees() {
-		// Optimism requires special handling, it assumes that clients always call EstimateGas
-		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
-		gasLimit, estimateGasErr := ethClient.EstimateGas(ctx, callMsg)
-		if estimateGasErr != nil {
-			return attempt, errors.Wrapf(estimateGasErr, "error getting gas price for new transaction %v", etx.ID)
-		}
-		etx.GasLimit = gasLimit
-		gasPrice = big.NewInt(optimismGasPrice)
-	}
-
-	gasLimit := decimal.NewFromBigInt(big.NewInt(0).SetUint64(etx.GasLimit), 0).Mul(decimal.NewFromFloat32(config.EthGasLimitMultiplier())).IntPart()
-	etx.GasLimit = (uint64)(gasLimit)
-
-	transaction := gethTypes.NewTransaction(uint64(*etx.Nonce), etx.ToAddress, etx.Value.ToInt(), etx.GasLimit, gasPrice, etx.EncodedPayload)
-	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, config.ChainID())
+	transaction := gethTypes.NewTx(&tx)
+	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, chainID)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -372,6 +371,17 @@ func newAttempt(ctx context.Context, ethClient eth.Client, ks KeyStore, config C
 	attempt.Hash = hash
 
 	return attempt, nil
+}
+
+func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) gethTypes.LegacyTx {
+	return gethTypes.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Value:    value,
+		Gas:      gasLimit,
+		GasPrice: gasPrice,
+		Data:     data,
+	}
 }
 
 func signTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
@@ -456,44 +466,6 @@ func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt models.EthTxAttemp
 	})
 }
 
-// BumpGas computes the next gas price to attempt as the largest of:
-// - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
-// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
-// The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func BumpGas(config Config, originalGasPrice *big.Int) (*big.Int, error) {
-	baselinePrice := max(originalGasPrice, config.EthGasPriceDefault())
-
-	var priceByPercentage = new(big.Int)
-	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EthGasBumpPercent())))
-	priceByPercentage.Div(priceByPercentage, big.NewInt(100))
-
-	var priceByIncrement = new(big.Int)
-	priceByIncrement.Add(baselinePrice, config.EthGasBumpWei())
-
-	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
-	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
-		promGasBumpExceedsLimit.Inc()
-		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
-			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String(), EthNodeConnectivityProblemLabel)
-	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
-		// NOTE: This really shouldn't happen since we enforce minimums for
-		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
-		// but it's here anyway for a "belts and braces" approach
-		return bumpedGasPrice, errors.Errorf("bumped gas price of %s is equal to original gas price of %s."+
-			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
-	}
-	promNumGasBumps.Inc()
-	return bumpedGasPrice, nil
-}
-
-func max(a, b *big.Int) *big.Int {
-	if a.Cmp(b) >= 0 {
-		return a
-	}
-	return b
-}
-
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (count uint32, err error) {
 	ctx, cancel := postgres.DefaultQueryCtx()
@@ -501,12 +473,6 @@ func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (coun
 	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unconfirmed'`, fromAddress).Scan(&count).Error
 	return
 }
-
-const EthMaxInFlightTransactionsWarningLabel = `WARNING: You may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck`
-
-const EthMaxQueuedTransactionsLabel = `WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse`
-
-const EthNodeConnectivityProblemLabel = `WARNING: If this keeps happening it may be a sign that your eth node has a connectivity problem, and your transactions are not making it to any miners`
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
@@ -522,7 +488,7 @@ func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedT
 	}
 
 	if count >= maxQueuedTransactions {
-		err = errors.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, EthMaxQueuedTransactionsLabel)
+		err = errors.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, static.EthMaxQueuedTransactionsLabel)
 	}
 	return
 }
@@ -541,5 +507,6 @@ func (n *NullTxManager) Trigger(common.Address)                         { panic(
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx models.EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error { return nil }
-func (n *NullTxManager) Ready() error   { return nil }
+func (n *NullTxManager) Healthy() error                 { return nil }
+func (n *NullTxManager) Ready() error                   { return nil }
+func (n *NullTxManager) GetGasEstimator() gas.Estimator { return nil }

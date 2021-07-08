@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -42,7 +43,7 @@ func TestMarshaledProof(t *testing.T) {
 	ethereumKey, _ := crypto.GenerateKey()
 	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
 	require.NoError(t, err)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)

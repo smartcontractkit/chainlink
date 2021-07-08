@@ -3,7 +3,10 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -80,10 +83,17 @@ type Job struct {
 	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
-func (j Job) ExternalIDToTopicHash() common.Hash {
-	var h common.Hash
-	copy(h[:], j.ExternalJobID.Bytes())
-	return h
+// The external job ID (UUID) can be encoded into a log topic (32 bytes)
+// by taking the string representation of the UUID, removing the dashes
+// so that its 32 characters long and then encoding those characters to bytes.
+func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
+	return common.BytesToHash([]byte(strings.Replace(j.ExternalJobID.String(), "-", "", 4)))
+}
+
+// The external job ID (UUID) can also be encoded into a log topic (32 bytes)
+// by taking the 16 bytes undelying the UUID and right padding it.
+func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
+	return common.BytesToHash(common.RightPadBytes(j.ExternalJobID.Bytes(), utils.EVMWordByteLen))
 }
 
 func (j Job) TableName() string {
