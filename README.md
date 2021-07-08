@@ -51,6 +51,7 @@ regarding Chainlink social accounts, news, and networking.
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
    - If you got any errors regarding locked yarn package, try running `yarn install` before this step
+   - If `yarn install` throws a network connection error, try increasing the network timeout by running `yarn install --network-timeout 150000` before this step
 6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
