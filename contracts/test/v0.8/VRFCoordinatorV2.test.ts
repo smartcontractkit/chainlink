@@ -15,6 +15,7 @@ describe("VRFCoordinatorV2", () => {
   const linkEth = BigNumber.from(300000000);
   type config = {
     minimumRequestBlockConfirmations: number;
+    maxGasLimit: number;
     stalenessSeconds: number;
     gasAfterPaymentCalculation: number;
     fallbackLinkPrice: BigNumber;
@@ -44,6 +45,7 @@ describe("VRFCoordinatorV2", () => {
     await linkToken.transfer(await subOwner.getAddress(), BigNumber.from("1000000000000000000")); // 1 link
     c = {
       minimumRequestBlockConfirmations: 1,
+      maxGasLimit: 1000000,
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
       fallbackLinkPrice: BigNumber.from("10000000000000000"),
@@ -53,6 +55,7 @@ describe("VRFCoordinatorV2", () => {
       .connect(owner)
       .setConfig(
         c.minimumRequestBlockConfirmations,
+        c.maxGasLimit,
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
         c.fallbackLinkPrice,
@@ -66,6 +69,7 @@ describe("VRFCoordinatorV2", () => {
         .connect(subOwner)
         .setConfig(
           c.minimumRequestBlockConfirmations,
+          c.maxGasLimit,
           c.stalenessSeconds,
           c.gasAfterPaymentCalculation,
           c.fallbackLinkPrice,
@@ -75,9 +79,10 @@ describe("VRFCoordinatorV2", () => {
     // Anyone can read the config.
     const resp = await vrfCoordinatorV2.connect(random).getConfig();
     assert(resp[0] == c.minimumRequestBlockConfirmations);
-    assert(resp[1] == c.stalenessSeconds);
-    assert(resp[2].toString() == c.gasAfterPaymentCalculation.toString());
-    assert(resp[3].toString() == c.fallbackLinkPrice.toString());
+    assert(resp[1] == c.maxGasLimit);
+    assert(resp[2] == c.stalenessSeconds);
+    assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString());
+    assert(resp[4].toString() == c.fallbackLinkPrice.toString());
   });
 
   it("subscription lifecycle", async function () {
