@@ -48,10 +48,8 @@ type (
 
 	// metadata structure maintained per listener, used to avoid double-sends of logs
 	listenerMetadata struct {
-		opts                     ListenerOpts
-		filters                  [][]Topic
-		lowestAllowedBlockNumber uint64
-		lastSeenChain            *models.Head
+		opts    ListenerOpts
+		filters [][]Topic
 	}
 )
 
@@ -81,9 +79,8 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 		}
 
 		r.registrations[addr][topic][reg.listener] = &listenerMetadata{
-			opts:                     reg.opts,
-			filters:                  topicValueFilters,
-			lowestAllowedBlockNumber: uint64(0),
+			opts:    reg.opts,
+			filters: topicValueFilters,
 		}
 	}
 
@@ -157,10 +154,11 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return exists
 }
 
-func (r *registrations) sendLogs(logs []types.Log, latestHead models.Head, broadcasts []logBroadcast) {
-	broadcastsExisting := make(map[logBroadcast]struct{})
+func (r *registrations) sendLogs(logs []types.Log, latestHead models.Head, broadcasts []LogBroadcast) {
+	broadcastsExisting := make(map[LogBroadcastAsKey]struct{})
 	for _, b := range broadcasts {
-		broadcastsExisting[b] = struct{}{}
+
+		broadcastsExisting[b.AsKey()] = struct{}{}
 	}
 
 	for _, log := range logs {
@@ -190,7 +188,7 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcasts map[logBroadcast]struct{}) {
+func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcasts map[LogBroadcastAsKey]struct{}) {
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
 	for listener, metadata := range r.registrations[log.Address][log.Topics[0]] {
@@ -210,21 +208,9 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcast
 			continue
 		}
 
-		current := logBroadcast{
-			blockHash: log.BlockHash,
-			logIndex:  log.Index,
-			jobIdV1:   listener.JobID(),
-			jobIdV2:   listener.JobIDV2(),
-		}
-
-		_, exists := broadcasts[current]
+		currentBroadcast := NewLogBroadcastAsKey(log, listener)
+		_, exists := broadcasts[currentBroadcast]
 		if exists {
-			continue
-		}
-
-		// All logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
-		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
-			// Skipping send because the log height is below lowest unprocessed in the currently remembered chain
 			continue
 		}
 
@@ -255,9 +241,7 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcast
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
 				decodedLog:        decodedLog,
-				jobID:             listener.JobID(),
-				jobIDV2:           listener.JobIDV2(),
-				isV2:              listener.IsV2Job(),
+				jobID:             NewJobIdFromListener(listener),
 			})
 		}()
 	}

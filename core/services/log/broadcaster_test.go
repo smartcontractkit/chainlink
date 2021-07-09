@@ -1212,9 +1212,9 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	require.NoError(t, err)
 
 	listenerA := helper.newLogListener("listenerA")
-	listener2 := helper.newLogListener("listenerB")
+	listenerB := helper.newLogListenerWithJobV2("listenerB")
 	helper.register(listenerA, contract, 1)
-	helper.register(listener2, contract, 3)
+	helper.register(listenerB, contract, 3)
 
 	chRawLogs := <-helper.chchRawLogs
 	go func() {
@@ -1236,7 +1236,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	helper.unsubscribeAll()
 
 	require.Equal(t, expectedA, listenerA.getUniqueLogs())
-	require.Equal(t, expectedB, listener2.getUniqueLogs())
+	require.Equal(t, expectedB, listenerB.getUniqueLogs())
 
 	helper.mockEth.ethClient.AssertExpectations(t)
 }
