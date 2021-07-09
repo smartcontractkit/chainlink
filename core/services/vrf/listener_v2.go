@@ -175,7 +175,7 @@ func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 					return
 				}
 				lsn.pendingLogs = append(lsn.pendingLogs, pendingRequest{
-					confirmedAtBlock: req.Raw.BlockNumber + req.MinimumRequestConfirmations,
+					confirmedAtBlock: req.Raw.BlockNumber + uint64(req.MinimumRequestConfirmations),
 					req:              req,
 					lb:               lb,
 				})
@@ -199,7 +199,7 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 
 	s := time.Now()
 	proof, err1 := lsn.LogToProof(req, lb)
-	gasLimit, err2 := lsn.computeTxGasLimit(req.CallbackGasLimit, proof)
+	gasLimit, err2 := lsn.computeTxGasLimit(uint64(req.CallbackGasLimit), proof)
 	vrfCoordinatorPayload, _, err3 := lsn.ProcessLogV2(proof)
 	err = multierr.Combine(err1, err2, err3)
 	if err != nil {

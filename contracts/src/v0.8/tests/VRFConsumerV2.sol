@@ -55,10 +55,10 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
     function testRequestRandomness(
         bytes32 keyHash,
         uint64 subId,
-        uint64 minReqConfs,
-        uint64 callbackGasLimit,
-        uint64 numWords,
-        uint16 consumerID)
+        uint16 minReqConfs,
+        uint32 callbackGasLimit,
+        uint32 numWords,
+        uint32 consumerID)
     external
     returns (uint256)
     {

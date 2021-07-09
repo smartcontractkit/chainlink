@@ -111,7 +111,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
-		uint16(1),        // minRequestConfirmations
+		uint16(1), // minRequestConfirmations
+		uint32(1000000),
 		uint32(60*60*24), // stalenessSeconds
 		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),                                  // 0.01 eth per link fallbackLinkPrice
@@ -208,7 +209,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw), 0)
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw), 0)
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fullfilled should fail
@@ -341,7 +342,7 @@ func TestRequestCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.consumerContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.MustHash(), subId, uint64(2), uint64(10000), uint64(1), uint16(100))
+		"testRequestRandomness", vrfkey.MustHash(), subId, uint16(2), uint32(10000), uint32(1), uint32(100))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
@@ -378,7 +379,7 @@ func TestFulfillmentCost(t *testing.T) {
 	gasRequested := 50000
 	nw := 1
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint64(requestedIncomingConfs), uint64(gasRequested), uint64(nw), 0)
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw), 0)
 	require.NoError(t, err)
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()
@@ -392,8 +393,8 @@ func TestFulfillmentCost(t *testing.T) {
 		BlockHash:        requestLog.Raw.BlockHash,
 		BlockNum:         requestLog.Raw.BlockNumber,
 		SubId:            subId,
-		CallbackGasLimit: uint64(gasRequested),
-		NumWords:         uint64(nw),
+		CallbackGasLimit: uint32(gasRequested),
+		NumWords:         uint32(nw),
 		Sender:           uni.consumerContractAddress,
 	})
 	require.NoError(t, err)

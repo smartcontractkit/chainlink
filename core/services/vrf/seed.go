@@ -52,8 +52,8 @@ type PreSeedDataV2 struct {
 	BlockHash        common.Hash // Hash of block containing VRF request
 	BlockNum         uint64      // Cardinal number of block containing VRF request
 	SubId            uint64
-	CallbackGasLimit uint64
-	NumWords         uint64
+	CallbackGasLimit uint32
+	NumWords         uint32
 	Sender           common.Address
 }
 

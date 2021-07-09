@@ -30,11 +30,10 @@ type ProofResponseV2 struct {
 	PreSeed  Seed
 	BlockNum uint64
 	// V2 Only fields
-	SubId                       uint64         // Subscription ID to be charged for fulfillment
-	MinimumRequestConfirmations uint64         // Minimum confirmations on the request before we respond
-	CallbackGasLimit            uint64         // Gas limit for consumer callback
-	NumWords                    uint64         // Number of random words to expand to
-	Sender                      common.Address // VRF consumer address
+	SubId            uint64         // Subscription ID to be charged for fulfillment
+	CallbackGasLimit uint32         // Gas limit for consumer callback
+	NumWords         uint32         // Number of random words to expand to
+	Sender           common.Address // VRF consumer address
 }
 
 // OnChainResponseLength is the length of the MarshaledOnChainResponse. The
@@ -91,8 +90,8 @@ func (p *ProofResponseV2) MarshalForVRFCoordinator() (
 	mProof := solidityProof.MarshalForSolidityVerifier()
 	wireBlockNum := utils.EVMWordUint64(p.BlockNum)
 	subId := utils.EVMWordUint64(p.SubId)
-	callbackLimit := utils.EVMWordUint64(p.CallbackGasLimit)
-	numWords := utils.EVMWordUint64(p.NumWords)
+	callbackLimit := utils.EVMWordUint32(p.CallbackGasLimit)
+	numWords := utils.EVMWordUint32(p.NumWords)
 	sender := utils.EVMWordAddress(p.Sender)
 
 	rl := copy(response[:], bytes.Join([][]byte{mProof[:], wireBlockNum, subId, callbackLimit, numWords, sender}, []byte{}))

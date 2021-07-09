@@ -6,10 +6,10 @@ interface VRFCoordinatorV2Interface {
     function requestRandomWords(
         bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
         uint64  subId,   // A data structure for billing
-        uint64  minimumRequestConfirmations,
-        uint64  callbackGasLimit,
-        uint64  numWords,  // Desired number of random words
-        uint16 consumerID
+        uint16  minimumRequestConfirmations,
+        uint32  callbackGasLimit,
+        uint32  numWords,  // Desired number of random words
+        uint32 consumerID
     )
     external
     returns (uint256 requestId);

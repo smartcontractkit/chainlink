@@ -34,6 +34,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   event SubscriptionCanceled(uint64 subId, address to, uint256 amount);
 
   error RequestBlockConfsTooLow(uint64 have, uint64 want);
+  error GasLimitTooBig(uint32 have, uint32 want);
   error KeyHashAlreadyRegistered(bytes32 keyHash);
   error InvalidFeedResponse(int256 linkWei);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
@@ -44,8 +45,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // Just to relieve stack pressure
   struct FulfillmentParams {
     uint64 subId;
-    uint64 callbackGasLimit;
-    uint64 numWords;
+    uint32 callbackGasLimit;
+    uint32 numWords;
     address sender;
   }
   mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
@@ -57,9 +58,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 indexed keyHash,
     uint256 preSeedAndRequestId,
     uint64 subId,
-    uint64 minimumRequestConfirmations,
-    uint64 callbackGasLimit,
-    uint64 numWords,
+    uint16 minimumRequestConfirmations,
+    uint32 callbackGasLimit,
+    uint32 numWords,
     address sender
   );
   event RandomWordsFulfilled(
@@ -71,19 +72,21 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   struct Config {
     // Gas to cover oracle payment after we calculate the payment.
     // We make it configurable in case those operations are repriced.
-    uint32 gasAfterPaymentCalculation;
-    uint32 stalenessSeconds;
     uint16 minimumRequestBlockConfirmations;
+    uint32 maxGasLimit;
+    uint32 stalenessSeconds;
+    uint32 gasAfterPaymentCalculation;
     uint96 minimumSubscriptionBalance;
+    int256 fallbackLinkPrice;
   }
   Config private s_config;
-  int256 private s_fallbackLinkPrice;
   event ConfigSet(
     uint16 minimumRequestBlockConfirmations,
+    uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    int256 fallbackLinkPrice,
-    uint256 minimumSubscriptionBalance
+    uint96 minimumSubscriptionBalance,
+    int256 fallbackLinkPrice
   );
 
   constructor(
@@ -131,26 +134,30 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function setConfig(
     uint16 minimumRequestBlockConfirmations,
+    uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    int256 fallbackLinkPrice,
-    uint96 minimumSubscriptionBalance
+    uint96 minimumSubscriptionBalance,
+    int256 fallbackLinkPrice
   )
     external
     onlyOwner()
   {
     s_config = Config({
       minimumRequestBlockConfirmations: minimumRequestBlockConfirmations,
+      maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      minimumSubscriptionBalance: minimumSubscriptionBalance
+      minimumSubscriptionBalance: minimumSubscriptionBalance,
+      fallbackLinkPrice: fallbackLinkPrice
     });
-    s_fallbackLinkPrice = fallbackLinkPrice;
-    emit ConfigSet(minimumRequestBlockConfirmations,
+    emit ConfigSet(
+      minimumRequestBlockConfirmations,
+      maxGasLimit,
       stalenessSeconds,
       gasAfterPaymentCalculation,
-      fallbackLinkPrice,
-      minimumSubscriptionBalance
+      minimumSubscriptionBalance,
+      fallbackLinkPrice
     );
   }
 
@@ -162,27 +169,34 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     view
     returns (
       uint16 minimumRequestBlockConfirmations,
+      uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation,
+      uint96 minimumSubscriptionBalance,
       int256 fallbackLinkPrice
     )
   {
     Config memory config = s_config;
     return (
       config.minimumRequestBlockConfirmations,
+      config.maxGasLimit,
       config.stalenessSeconds,
       config.gasAfterPaymentCalculation,
-      s_fallbackLinkPrice
+      config.minimumSubscriptionBalance,
+      config.fallbackLinkPrice
     );
   }
 
+  // Want to ensure these arguments can fit inside of 2 words
+  // so in the worse case where the consuming contract has to read all of them
+  // from storage, it only has to read 2 words.
   function requestRandomWords(
     bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
     uint64  subId,
-    uint64  minimumRequestConfirmations,
-    uint64  callbackGasLimit,
-    uint64  numWords,  // Desired number of random words
-    uint16  consumerID // Index into consumers to avoid SLOADing all the consumers
+    uint16  minimumRequestConfirmations,
+    uint32  callbackGasLimit,
+    uint32  numWords,  // Desired number of random words
+    uint32  consumerId // Index into consumers to avoid SLOADing all the consumers
   )
     external
     returns (
@@ -197,7 +211,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // the number of consumers.
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
-    if (s_subscriptions[subId].consumers[consumerID] != msg.sender) {
+    if (s_subscriptions[subId].consumers[consumerId] != msg.sender) {
       revert InvalidConsumer(msg.sender);
     }
     // Input validation using the config storage word.
@@ -206,6 +220,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     if (s_subscriptions[subId].balance < s_config.minimumSubscriptionBalance) {
       revert InsufficientBalance();
+    }
+    if (callbackGasLimit > s_config.maxGasLimit) {
+      revert GasLimitTooBig(callbackGasLimit, s_config.maxGasLimit);
     }
     // We could additionally check s_serviceAgreements[keyHash] != address(0)
     // but that would require reading another word of storage. To save gas
@@ -253,6 +270,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId,
     uint256 randomness, FulfillmentParams memory fp) = getRandomnessFromProof(proof);
+
 
     uint256[] memory randomWords = new uint256[](fp.numWords);
     for (uint256 i = 0; i < fp.numWords; i++) {
@@ -387,7 +405,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     int256 linkEth;
     (,linkEth,,timestamp,) = LINK_ETH_FEED.latestRoundData();
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
-      linkEth = s_fallbackLinkPrice;
+      linkEth = s_config.fallbackLinkPrice;
     }
     return linkEth;
   }

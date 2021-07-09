@@ -232,6 +232,12 @@ func EVMWordUint64(val uint64) []byte {
 	return word
 }
 
+func EVMWordUint32(val uint32) []byte {
+	word := make([]byte, EVMWordByteLen)
+	binary.BigEndian.PutUint32(word[EVMWordByteLen-4:], val)
+	return word
+}
+
 // EVMWordUint128 returns a uint128 as an EVM word byte array.
 func EVMWordUint128(val *big.Int) ([]byte, error) {
 	bytes := val.Bytes()
