@@ -40,7 +40,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 			"changes", wd)))
 
 	for _, contractVersionInfo := range versions.ContractVersions {
-		if isOCRContract(contractVersionInfo.AbiPath) {
+		if isOCRContract(contractVersionInfo.AbiPath) || isVRFV2Contract(contractVersionInfo.AbiPath) {
 			continue
 		}
 		compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
@@ -55,6 +55,12 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 
 func isOCRContract(fullpath string) bool {
 	return strings.Contains(fullpath, "OffchainAggregator")
+}
+
+// VRFv2 currently uses revert error types which are not supported by abigen
+// and so we have to manually modify the abi to remove them.
+func isVRFV2Contract(fullpath string) bool {
+	return strings.Contains(fullpath, "VRFCoordinatorV2")
 }
 
 // rootDir is the local chainlink root working directory
