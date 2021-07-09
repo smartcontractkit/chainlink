@@ -74,6 +74,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We make it configurable in case those operations are repriced.
     uint16 minimumRequestBlockConfirmations;
     uint32 maxGasLimit;
+    // stalenessSeconds is how long before we consider the feed price to be stale
+    // and fallback to fallbackLinkPrice.
     uint32 stalenessSeconds;
     uint32 gasAfterPaymentCalculation;
     uint96 minimumSubscriptionBalance;
