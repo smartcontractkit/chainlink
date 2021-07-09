@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix inability to create jobs with a cron schedule.
+
 ## [0.10.9] - 2021-07-05
 
 ### Changed

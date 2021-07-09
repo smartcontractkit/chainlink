@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+### Added:
+
+- v0.8 Access Controlled contracts (`SimpleWriteAccessController` and `SimpleReadAccessController`).
+- v0.8 Flags contracts (`Flags`).
+
 ### Changed:
 
 - Bump hardhat from 2.3.3 to 2.4.1
-- Move Solidity version 0.8.x contracts `ChainlinkClient.sol` and `Chainlink.sol` from `./src/v0.8/dev/` to `./src/v0.8/`.
+- Move Solidity version 0.8.x contracts `ChainlinkClient.sol`, `Chainlink.sol`, `VRFConsumerBase.sol` and `VRFRequestIDBase.sol` from `./src/v0.8/dev/` to `./src/v0.8/`.
+- Updated `FeedRegistryInterface` to use `base` and `quote` parameter names.
+- Move `Denominations` from `./src/<version>/dev/` to `./src/<version>`
 
 ## 0.2.0 - 2021-07-01
 
