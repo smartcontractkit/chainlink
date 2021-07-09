@@ -13,7 +13,8 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
 
   address private s_flagsAddress;
   // Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address private s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
+  address constant private s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
+  int256 private s_lastChangedAnswer;
 
   ArbitrumInboxInterface private s_arbitrumInbox;
   SimpleWriteAccessController private s_gasConfigAccessController;
@@ -98,6 +99,11 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     checkAccess() 
     returns (bool) 
   {
+    // Avoids resending to L2 the same tx on every call
+    if (s_lastChangedAnswer == currentAnswer) {
+      return true;
+    }
+    s_lastChangedAnswer == currentAnswer;
     bytes memory data = currentAnswer == 1 ? abi.encodeWithSelector(RAISE_SELECTOR, s_arbitrumFlag) : abi.encodeWithSelector(LOWER_SELECTOR, [s_arbitrumFlag]);
 
     s_arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
