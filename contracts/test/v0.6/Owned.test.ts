@@ -18,7 +18,7 @@ before(async () => {
   owner = personas.Carol;
   nonOwner = personas.Neil;
   newOwner = personas.Ned;
-  ownedFactory = await ethers.getContractFactory("Owned", owner);
+  ownedFactory = await ethers.getContractFactory("src/v0.6/Owned.sol:Owned", owner);
 });
 
 describe("Owned", () => {
