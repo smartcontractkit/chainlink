@@ -756,6 +756,74 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 	helper.mockEth.assertExpectations(t)
 }
 
+func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 0
+	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(2))
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := cltest.NewBlocks(t, 12)
+	addr1SentLogs := []types.Log{
+		blocks.LogOnBlockNum(1, contract1.Address()),
+		blocks.LogOnBlockNum(2, contract1.Address()),
+		blocks.LogOnBlockNum(3, contract1.Address()),
+	}
+
+	listener1 := helper.newLogListener("listener 1")
+	helper.register(listener1, contract1, 1)
+
+	chRawLogs := <-helper.chchRawLogs
+
+	cleanup, headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       6,
+		BackfillDepth:  10,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	<-headsDone
+
+	for _, log := range addr1SentLogs {
+		chRawLogs <- log
+	}
+
+	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     7,
+		EndBlock:       8,
+		BackfillDepth:  1,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	<-headsDone
+
+	requireBroadcastCount(t, helper.store, 3)
+	helper.stop()
+
+	requireEqualLogs(t,
+		addr1SentLogs,
+		listener1.received.uniqueLogs,
+	)
+
+	// unique sends should be equal to sends overall
+	requireEqualLogs(t,
+		listener1.received.uniqueLogs,
+		listener1.received.logs,
+	)
+
+	helper.mockEth.assertExpectations(t)
+}
+
 func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
 	t.Parallel()
 
@@ -1010,7 +1078,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			})
 
 			requireBroadcastCount(t, helper.store, len(test.batch1))
-			expectedA := newReceived(pickLogs(t, logsA, test.batch1))
+			expectedA := newReceived(pickLogs(logsA, test.batch1))
 			logListenerA.requireAllReceived(t, expectedA)
 
 			<-headsDone
@@ -1018,7 +1086,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: test.blockHeight2}, nil).Once()
 
-			combinedLogs := append(pickLogs(t, logsA, test.backfillableLogs), pickLogs(t, logsB, test.backfillableLogs)...)
+			combinedLogs := append(pickLogs(logsA, test.backfillableLogs), pickLogs(logsB, test.backfillableLogs)...)
 			call := helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(combinedLogs, nil).Once()
 			call.Run(func(args mock.Arguments) {
 				// Validate that the ethereum.FilterQuery is specified correctly for the backfill that we expect
@@ -1060,8 +1128,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			})
 			defer cleanup()
 
-			expectedA = newReceived(pickLogs(t, logsA, test.expectedFilteredA))
-			expectedB := newReceived(pickLogs(t, logsB, test.expectedFilteredB))
+			expectedA = newReceived(pickLogs(logsA, test.expectedFilteredA))
+			expectedB := newReceived(pickLogs(logsB, test.expectedFilteredB))
 			logListenerA.requireAllReceived(t, expectedA)
 			logListenerB.requireAllReceived(t, expectedB)
 			requireBroadcastCount(t, helper.store, len(test.expectedFilteredA)+len(test.expectedFilteredB))
@@ -1278,7 +1346,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	helper.unsubscribeAll()
 }
 
-func pickLogs(t *testing.T, allLogs map[uint]types.Log, indices []uint) []types.Log {
+func pickLogs(allLogs map[uint]types.Log, indices []uint) []types.Log {
 	var picked []types.Log
 	for _, idx := range indices {
 		picked = append(picked, allLogs[idx])
