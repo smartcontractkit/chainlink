@@ -5,7 +5,6 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -44,7 +43,7 @@ func ValidatedCronSpec(tomlString string) (job.Job, error) {
 		return jb, errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@hourly'")
 	}
 
-	if _, err := cron.New().AddFunc(spec.CronSchedule, func() {}); err != nil {
+	if _, err := cronRunner().AddFunc(spec.CronSchedule, func() {}); err != nil {
 		return jb, errors.Errorf("error parsing cron schedule: %v", err)
 	}
 
