@@ -4,7 +4,7 @@
 
 ### Added:
 
-- v0.8 Access Controlled contracts (`SimpleWriteAccessController`, `SimpleReadAccessController` and `Owned`).
+- v0.8 Access Controlled contracts (`SimpleWriteAccessController` and `SimpleReadAccessController`).
 - v0.8 Flags contracts (`Flags`).
 
 ### Changed:
