@@ -265,6 +265,17 @@ func (listener simpleLogListener) getUniqueLogs() []types.Log {
 	return listener.received.uniqueLogs
 }
 
+func (listener simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
+	var blockNums []uint64
+	for _, uniqueLog := range listener.received.uniqueLogs {
+		blockNums = append(blockNums, uniqueLog.BlockNumber)
+	}
+	return blockNums
+}
+
+func (listener simpleLogListener) getLogs() []types.Log {
+	return listener.received.logs
+}
 func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
 	received := listener.received
 	require.Eventually(t, func() bool {

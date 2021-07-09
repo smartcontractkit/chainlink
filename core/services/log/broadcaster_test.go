@@ -1321,6 +1321,13 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		log2Removed = blocks.LogOnBlockNumRemoved(2, addr)
 		log1R       = blocksForked.LogOnBlockNum(1, addr)
 		log2R       = blocksForked.LogOnBlockNum(2, addr)
+		log3R1      = blocksForked.LogOnBlockNumWithIndex(3, 0, addr)
+		log3R2      = blocksForked.LogOnBlockNumWithIndex(3, 1, addr) // second log on the same block
+
+		log1RRemoved  = blocksForked.LogOnBlockNumRemoved(1, addr)
+		log2RRemoved  = blocksForked.LogOnBlockNumRemoved(2, addr)
+		log3R1Removed = blocksForked.LogOnBlockNumWithIndexRemoved(3, 0, addr)
+		log3R2Removed = blocksForked.LogOnBlockNumWithIndexRemoved(3, 1, addr)
 
 		events = []interface{}{
 			blocks.Head(0), log0,
@@ -1329,14 +1336,19 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 			blocks.Head(3),
 			blocksForked.Head(1), log1Removed, log2Removed, log1R,
 			blocksForked.Head(2), log2R,
-			blocksForked.Head(3),
+			log3R1, blocksForked.Head(3), log3R2,
 			blocksForked.Head(4),
+			log1RRemoved, log0, log1, blocks.Head(4), log2, log2RRemoved, log3R1Removed, log3R2Removed, // a reorg back to the previous chain
+			blocks.Head(5),
+			blocks.Head(6),
+			blocks.Head(7),
 		}
 
-		expectedA = []types.Log{log0, log1, log2, log1R, log2R}
+		expectedA = []types.Log{log0, log1, log2, log1R, log2R, log3R1, log3R2}
 
-		// listenerB needs 3 confirmations, so log2 is not sent to it as it was reorged on head1R
-		expectedB = []types.Log{log0, log1, log1R, log2R}
+		// listenerB needs 3 confirmations, so log2 is not sent to after the first reorg,
+		// but is later - after the second reorg (back to the previous chain)
+		expectedB = []types.Log{log0, log1, log1R, log2R, log2}
 	)
 
 	contract, err := flux_aggregator_wrapper.NewFluxAggregator(addr, nil)
@@ -1360,10 +1372,11 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		}
 	}()
 
-	g.Eventually(func() int { return len(listenerA.getUniqueLogs()) }, cltest.DBWaitTimeout, cltest.DBPollingInterval).
-		Should(gomega.Equal(5))
+	g.Eventually(func() []uint64 { return listenerA.getUniqueLogsBlockNumbers() }, 8*time.Second, cltest.DBPollingInterval).
+		Should(gomega.Equal([]uint64{0, 1, 2, 1, 2, 3, 3}))
+	g.Eventually(func() []uint64 { return listenerB.getUniqueLogsBlockNumbers() }, 8*time.Second, cltest.DBPollingInterval).
+		Should(gomega.Equal([]uint64{0, 1, 1, 2, 2}))
 
-	requireBroadcastCount(t, helper.store, 9)
 	helper.unsubscribeAll()
 
 	require.Equal(t, expectedA, listenerA.getUniqueLogs())
