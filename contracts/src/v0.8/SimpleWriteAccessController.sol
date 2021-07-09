@@ -21,7 +21,9 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
   event CheckAccessEnabled();
   event CheckAccessDisabled();
 
-  constructor() ConfirmedOwner(msg.sender) {
+  constructor() 
+    ConfirmedOwner(msg.sender) 
+  {
     checkEnabled = true;
   }
 
