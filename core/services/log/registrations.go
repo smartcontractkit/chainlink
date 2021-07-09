@@ -166,10 +166,6 @@ func (r *registrations) sendLogs(logs []types.Log, latestHead models.Head, broad
 	}
 }
 
-type Key struct {
-	X, Y int
-}
-
 // Returns true if there is at least one filter value (or no filters) that matches an actual received value for every index i, or false otherwise
 func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	for i := 0; i < len(topicValues) && i < len(filters); i++ {

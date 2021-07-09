@@ -96,6 +96,7 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 	return nil
 }
 
+// LogBroadcast - gorm-compatible receive data from log_broadcasts table columns
 type LogBroadcast struct {
 	BlockHash common.Hash
 	LogIndex  uint
@@ -119,6 +120,7 @@ func (b LogBroadcast) AsKey() LogBroadcastAsKey {
 	}
 }
 
+// LogBroadcastAsKey - used as key in a map to filter out already consumed logs
 type LogBroadcastAsKey struct {
 	BlockHash common.Hash
 	LogIndex  uint
