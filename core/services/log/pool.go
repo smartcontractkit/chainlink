@@ -3,7 +3,6 @@ package log
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	heaps "github.com/theodesp/go-heaps"
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 )
@@ -30,38 +29,27 @@ func (pool *logPool) addLog(log types.Log) {
 	pool.heap.Insert(Uint64(log.BlockNumber))
 }
 
-func (pool *logPool) getLogsToSend(head models.Head, highestNumConfirmations uint64, finalityDepth uint64) ([]types.Log, int64, int64, int64) {
-	latestBlockNum := uint64(head.Number)
+func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]types.Log, int64) {
 	logsToReturn := make([]types.Log, 0)
-
-	keptLogsDepth := finalityDepth
-	if highestNumConfirmations > keptLogsDepth {
-		keptLogsDepth = highestNumConfirmations
-	}
-
-	keptDepth := int64(latestBlockNum) - int64(keptLogsDepth)
-	if keptDepth < 0 {
-		keptDepth = 0
-	}
 
 	// gathering logs to return - from min block number kept, to latestBlockNum
 	minBlockNumToSendItem := pool.heap.FindMin()
 	if minBlockNumToSendItem == nil {
-		return logsToReturn, 0, 0, 0
+		return logsToReturn, 0
 	}
 	minBlockNumToSend := int64(minBlockNumToSendItem.(Uint64))
 
-	for num := minBlockNumToSend; num <= int64(latestBlockNum); num++ {
+	for num := minBlockNumToSend; num <= latestBlockNum; num++ {
 
 		for _, hash := range pool.hashesByBlockNumbers[uint64(num)] {
 			logsToReturn = append(logsToReturn, pool.logsByBlockHash[hash]...)
 		}
 	}
-	return logsToReturn, minBlockNumToSend, int64(latestBlockNum), keptDepth
+	return logsToReturn, minBlockNumToSend
 }
 
+// deleteOlderLogs - deleting all logs for block numbers under 'keptDepth'
 func (pool *logPool) deleteOlderLogs(keptDepth uint64) {
-	// deleting all logs for block numbers under 'keptDepth'
 	for {
 		item := pool.heap.FindMin()
 		if item == nil {
