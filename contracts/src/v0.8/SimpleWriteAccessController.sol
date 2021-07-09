@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Owned.sol";
+import "./dev/ConfirmedOwner.sol";
 import "./interfaces/AccessControllerInterface.sol";
 
 /**
@@ -11,7 +11,7 @@ import "./interfaces/AccessControllerInterface.sol";
  * @dev does not make any special permissions for externally, see
  * SimpleReadAccessController for that.
  */
-contract SimpleWriteAccessController is AccessControllerInterface, Owned {
+contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwner {
 
   bool public checkEnabled;
   mapping(address => bool) internal accessList;
