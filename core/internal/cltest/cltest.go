@@ -2027,6 +2027,10 @@ func (b *Blocks) LogOnBlockNumRemoved(i uint64, addr common.Address) types.Log {
 	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, true)
 }
 
+func (b *Blocks) LogOnBlockNumWithIndex(i uint64, logIndex uint, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, false)
+}
+
 func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
 	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
 }

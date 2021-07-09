@@ -703,6 +703,69 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	helper.stop()
 }
 
+func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 0
+	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(2))
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := cltest.NewBlocks(t, 12)
+	addr1SentLogs := []types.Log{
+		blocks.LogOnBlockNum(1, contract1.Address()),
+		blocks.LogOnBlockNum(2, contract1.Address()),
+		blocks.LogOnBlockNum(3, contract1.Address()),
+
+		// this log will arrive after head with block number 3 and a previous log for it were already processed
+		blocks.LogOnBlockNumWithIndex(3, 1, contract1.Address()),
+	}
+
+	listener1 := helper.newLogListener("listener 1")
+	helper.register(listener1, contract1, 1)
+
+	chRawLogs := <-helper.chchRawLogs
+
+	chRawLogs <- addr1SentLogs[0]
+	chRawLogs <- addr1SentLogs[1]
+	chRawLogs <- addr1SentLogs[2]
+
+	cleanup, headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       3,
+		BackfillDepth:  10,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	<-headsDone
+
+	logger.Warn("HEADS DONE")
+	chRawLogs <- addr1SentLogs[3]
+
+	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     4,
+		EndBlock:       8,
+		BackfillDepth:  1,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	<-headsDone
+
+	requireBroadcastCount(t, helper.store, 4)
+	helper.stop()
+
+	helper.mockEth.assertExpectations(t)
+}
+
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testing.T) {
 	t.Parallel()
 
