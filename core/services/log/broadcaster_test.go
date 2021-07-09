@@ -745,7 +745,6 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	<-headsDone
 
-	logger.Warn("HEADS DONE")
 	chRawLogs <- addr1SentLogs[3]
 
 	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
