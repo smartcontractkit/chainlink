@@ -1,4 +1,4 @@
-import { partialAsFull } from '@chainlink/ts-helpers'
+import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import * as models from 'core/store/models'
 import { bindActionCreators, Middleware } from 'redux'
 import configureStore from 'redux-mock-store'
@@ -9,6 +9,7 @@ import jsonApiJobSpecFactory from '../support/factories/jsonApiJobSpec'
 import jsonApiJobSpecRunFactory from '../support/factories/jsonApiJobSpecRun'
 import globPath from '../support/test-helpers/globPath'
 import isoDate, { MINUTE_MS } from '../support/test-helpers/isoDate'
+import { RunStatus } from 'core/store/models'
 
 describe('fetchJob', () => {
   it('maintains dashed keys', (done) => {
@@ -66,7 +67,7 @@ describe('fetchJobRun', () => {
     })
     const taskRunA = partialAsFull<models.TaskRun>({
       id: 'taskRunA',
-      status: 'completed',
+      status: 'completed' as RunStatus.COMPLETED,
       task: expectedTask,
     })
     const runResponse = jsonApiJobSpecRunFactory({

@@ -1,4 +1,4 @@
-import { PaddedCard } from '@chainlink/styleguide'
+import { PaddedCard } from 'components/PaddedCard'
 import Divider from '@material-ui/core/Divider'
 import Grid from '@material-ui/core/Grid'
 import Slide from '@material-ui/core/Slide'

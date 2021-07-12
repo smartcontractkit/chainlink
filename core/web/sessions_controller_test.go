@@ -20,9 +20,13 @@ import (
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
+	app.Start()
 
 	config := app.Store.Config
 	client := http.Client{}
@@ -76,9 +80,13 @@ func TestSessionsController_Create(t *testing.T) {
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
+	app.Start()
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
@@ -106,7 +114,11 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	require.NoError(t, app.Start())
 
 	correctSession := models.NewSession()
@@ -148,7 +160,11 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	client := http.Client{}
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

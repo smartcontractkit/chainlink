@@ -1,27 +1,23 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Radio from '@material-ui/core/Radio'
 import {
   JobSpecFormats,
   JobSpecFormat,
   getJobSpecFormat,
-  stringifyJobSpec,
   isJson,
   isToml,
+  getTaskList,
 } from './utils'
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse, BadRequestError } from 'utils/json-api-client'
 import Button from 'components/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
-import {
-  OcrJobSpecRequest,
-  OcrJobSpec,
-  JobSpecRequest,
-} from 'core/store/models'
+import { JobSpecV2Request, JobSpecV2, JobSpecRequest } from 'core/store/models'
 import { JobSpec } from 'core/store/presenters'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
-import * as storage from '@chainlink/local-storage'
+import * as storage from 'utils/local-storage'
 import Content from 'components/Content'
 import {
   TextField,
@@ -32,9 +28,9 @@ import {
   FormControl,
   FormLabel,
   RadioGroup,
-  Divider,
   CardHeader,
   CircularProgress,
+  Typography,
 } from '@material-ui/core'
 import {
   createStyles,
@@ -43,19 +39,23 @@ import {
   Theme,
 } from '@material-ui/core/styles'
 import { useLocation, useHistory } from 'react-router-dom'
-import { setPersistJobSpec, getPersistJobSpec } from 'utils/storage'
+import { TaskSpec } from 'core/store/models'
+import TaskListDag from './TaskListDag'
+import TaskList from 'components/Jobs/TaskList'
+import { Stratify } from './parseDot'
 
 const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
-export const SELECTED_FORMAT = 'persistSpecFormat'
+
+export const SELECTED_FORMAT = 'persistSpec.format'
+export const PERSIST_SPEC = 'persistSpec.'
 
 const styles = (theme: Theme) =>
   createStyles({
-    card: {
-      padding: theme.spacing.unit,
-      marginBottom: theme.spacing.unit * 3,
-    },
     loader: {
       position: 'absolute',
+    },
+    emptyTasks: {
+      padding: theme.spacing.unit * 3,
     },
   })
 
@@ -92,15 +92,15 @@ function apiCall({
 }: {
   format: JobSpecFormats
   value: string
-}): Promise<ApiResponse<JobSpec | OcrJobSpec>> {
+}): Promise<ApiResponse<JobSpec | JobSpecV2>> {
   if (format === JobSpecFormats.JSON) {
     const definition: JobSpecRequest = JSON.parse(value)
     return api.v2.specs.createJobSpec(definition)
   }
 
   if (format === JobSpecFormats.TOML) {
-    const definition: OcrJobSpecRequest = { toml: value }
-    return api.v2.ocrSpecs.createJobSpec(definition)
+    const definition: JobSpecV2Request = { toml: value }
+    return api.v2.jobs.createJobSpec(definition)
   }
 
   return Promise.reject('Invalid format')
@@ -112,19 +112,31 @@ function getInitialValues({
   query: string
 }): { jobSpec: string; format: JobSpecFormats } {
   const params = new URLSearchParams(query)
-  const jobSpec = (params.get('definition') as string) || getPersistJobSpec()
-
-  const format =
+  const queryJobSpec = params.get('definition') as string
+  const queryJobSpecFormat =
     getJobSpecFormat({
-      value: jobSpec,
-    }) ||
+      value: queryJobSpec,
+    }) || JobSpecFormats.JSON
+
+  if (queryJobSpec) {
+    storage.set(`${PERSIST_SPEC}${queryJobSpecFormat}`, queryJobSpec)
+    return {
+      jobSpec: queryJobSpec,
+      format: queryJobSpecFormat,
+    }
+  }
+
+  const lastOpenedFormat =
     JobSpecFormats[params.get('format')?.toUpperCase() as JobSpecFormat] ||
-    (storage.get(SELECTED_FORMAT) as JobSpecFormat) ||
+    storage.get(SELECTED_FORMAT) ||
     JobSpecFormats.JSON
 
+  const lastOpenedJobSpec =
+    storage.get(`${PERSIST_SPEC}${lastOpenedFormat}`) || ''
+
   return {
-    jobSpec: stringifyJobSpec({ value: jobSpec, format }),
-    format,
+    jobSpec: lastOpenedJobSpec,
+    format: lastOpenedFormat,
   }
 }
 
@@ -133,34 +145,56 @@ export const New = ({
 }: {
   classes: WithStyles<typeof styles>['classes']
 }) => {
+  const dispatch = useDispatch()
+  const history = useHistory()
   const location = useLocation()
-  const [initialValues] = React.useState(
+  const [initialValues] = useState(() =>
     getInitialValues({
       query: location.search,
     }),
   )
-
-  const [format, setFormat] = React.useState<JobSpecFormats>(
-    initialValues.format,
+  const [format, setFormat] = useState<JobSpecFormats>(initialValues.format)
+  const [value, setValue] = useState<string>(initialValues.jobSpec)
+  const [valid, setValid] = useState<boolean>(true)
+  const [valueErrorMsg, setValueErrorMsg] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
+  const [tasks, setTasks] = useState(() =>
+    getTaskList({ value: initialValues.jobSpec }),
   )
-  const [value, setValue] = React.useState<string>(initialValues.jobSpec)
-  const [valid, setValid] = React.useState<boolean>(true)
-  const [loading, setLoading] = React.useState<boolean>(false)
-  const dispatch = useDispatch()
-  const history = useHistory()
 
-  React.useEffect(() => {
-    setPersistJobSpec(value)
-    setValid(true)
-  }, [value])
+  // Extract the tasks from the job spec to display in the preview
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setValueErrorMsg('')
+      const taskList = getTaskList({ value })
+      if (taskList.error) {
+        setValid(false)
+        setValueErrorMsg(taskList.error)
+      } else {
+        setTasks(taskList)
+      }
+    }, 500)
 
-  React.useEffect(() => {
+    return () => clearTimeout(timeout)
+  }, [value, setTasks])
+
+  // Change the form to use either JSON or TOML format
+  function handleFormatChange(_event: React.ChangeEvent<{}>, format: string) {
+    setValue(storage.get(`${PERSIST_SPEC}${format}`) || '')
+    setFormat(format as JobSpecFormats)
     storage.set(SELECTED_FORMAT, format)
     setValid(true)
     history.replace({
       search: `?format=${format}`,
     })
-  }, [format, history])
+  }
+
+  // Update the job spec value
+  function handleValueChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    setValue(event.target.value)
+    storage.set(`${PERSIST_SPEC}${format}`, event.target.value)
+    setValid(true)
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -179,6 +213,12 @@ export const New = ({
         })
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
+          if (error instanceof BadRequestError) {
+            setValueErrorMsg('Invalid JSON')
+          } else {
+            setValueErrorMsg(error.toString())
+          }
+
           setValid(false)
         })
         .finally(() => {
@@ -190,10 +230,9 @@ export const New = ({
   return (
     <Content>
       <Grid container spacing={40}>
-        <Grid item xs={12} md={11} lg={9}>
-          <Card className={classes.card}>
+        <Grid item xs={12} lg={8}>
+          <Card>
             <CardHeader title="New Job" />
-            <Divider />
             <CardContent>
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
@@ -203,9 +242,7 @@ export const New = ({
                       <RadioGroup
                         name="select-format"
                         value={format}
-                        onChange={(event: any) =>
-                          setFormat(event.target.value as JobSpecFormats)
-                        }
+                        onChange={handleFormatChange}
                         row
                       >
                         {jobSpecFormatList.map((format) => (
@@ -224,10 +261,8 @@ export const New = ({
                     <TextField
                       error={!valid}
                       value={value}
-                      onChange={(
-                        event: React.ChangeEvent<HTMLTextAreaElement>,
-                      ) => setValue(event.target.value)}
-                      helperText={!valid && `Invalid ${format}`}
+                      onChange={handleValueChange}
+                      helperText={!valid && valueErrorMsg}
                       autoComplete="off"
                       label={`${format} blob`}
                       rows={10}
@@ -247,7 +282,7 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading}
+                      disabled={loading || Boolean(valueErrorMsg)}
                     >
                       Create Job
                       {loading && (
@@ -262,6 +297,27 @@ export const New = ({
                 </Grid>
               </form>
             </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} lg={4}>
+          <Card style={{ overflow: 'visible' }}>
+            <CardHeader title="Task list preview" />
+            {tasks.format === JobSpecFormats.JSON && tasks.list && (
+              <TaskList tasks={tasks.list as TaskSpec[]} />
+            )}
+            {tasks.format === JobSpecFormats.TOML && tasks.list && (
+              <TaskListDag stratify={tasks.list as Stratify[]} />
+            )}
+            {!tasks.list && (
+              <Typography
+                className={classes.emptyTasks}
+                variant="body1"
+                color="textSecondary"
+              >
+                Tasks not found
+              </Typography>
+            )}
           </Card>
         </Grid>
       </Grid>

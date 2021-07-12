@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -ex
 
@@ -14,6 +14,9 @@ set -ex
 # Key assumption: local version of smartcontract/chainlink:circleci is the image
 # to work with.
 #
+
+# Our registry, hosted on Public ECR.
+AWS_ECR_URL=public.ecr.aws/z0b1w9r9
 
 if [ -z "$DOCKERHUB_PASS" ]; then
   echo "Cannot push to dockerhub, credentials are missing."
@@ -33,10 +36,12 @@ tag_and_push() {
   (
     set -x
     docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG}
+    docker tag smartcontract/chainlink:circleci-nonroot "smartcontract/chainlink:${DOCKER_TAG}-nonroot"
   )
   (
     set -x
     docker tag smartcontract/chainlink:circleci "${AWS_ECR_URL}/chainlink:${DOCKER_TAG}"
+    docker tag smartcontract/chainlink:circleci-nonroot "${AWS_ECR_URL}/chainlink:${DOCKER_TAG}-nonroot"
   )
   make dockerpush
 }

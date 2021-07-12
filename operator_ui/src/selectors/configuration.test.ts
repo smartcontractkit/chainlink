@@ -6,15 +6,15 @@ describe('selectors - configs', () => {
     const state: Pick<AppState, 'configuration'> = {
       configuration: {
         data: {
-          camelCased: 'value',
-          key: 'value',
+          KEY_1: 'value',
+          KEY_2: 'value',
         },
       },
     }
 
     const expectation = [
-      ['CAMEL_CASED', 'value'],
-      ['KEY', 'value'],
+      ['KEY_1', 'value'],
+      ['KEY_2', 'value'],
     ]
     expect(configurationSelector(state)).toEqual(expectation)
   })

@@ -2,36 +2,43 @@ package offchainreporting
 
 import (
 	"context"
-	"database/sql"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gorm.io/gorm"
 )
 
+type txManager interface {
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx models.EthTx, err error)
+}
+
 type transmitter struct {
-	db          *sql.DB
-	fromAddress gethCommon.Address
+	txm         txManager
+	db          *gorm.DB
+	fromAddress common.Address
 	gasLimit    uint64
+	strategy    bulletprooftxmanager.TxStrategy
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(sqldb *sql.DB, fromAddress gethCommon.Address, gasLimit uint64) Transmitter {
+func NewTransmitter(txm txManager, db *gorm.DB, fromAddress common.Address, gasLimit uint64, strategy bulletprooftxmanager.TxStrategy) Transmitter {
 	return &transmitter{
-		db:          sqldb,
+		txm:         txm,
+		db:          db,
 		fromAddress: fromAddress,
 		gasLimit:    gasLimit,
+		strategy:    strategy,
 	}
 }
 
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error {
-	_, err := t.db.ExecContext(ctx, `
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
-VALUES ($1,$2,$3,$4,$5,'unstarted',NOW())
-`, t.fromAddress, toAddress, payload, 0, t.gasLimit)
-
-	return errors.Wrap(err, "failed to create eth_tx")
+func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+	db := t.db.WithContext(ctx)
+	_, err := t.txm.CreateEthTransaction(db, t.fromAddress, toAddress, payload, t.gasLimit, nil, t.strategy)
+	return errors.Wrap(err, "Skipped OCR transmission")
 }
 
-func (t *transmitter) FromAddress() gethCommon.Address {
+func (t *transmitter) FromAddress() common.Address {
 	return t.fromAddress
 }

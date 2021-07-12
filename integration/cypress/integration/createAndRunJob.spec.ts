@@ -13,8 +13,10 @@ context('End to end', function () {
 
     // Run Job
     cy.get('#created-job').click()
-    cy.contains('Job spec detail')
+    cy.contains('job spec detail')
     cy.clickButton('Run')
+    cy.contains('Pipeline input')
+    cy.clickButton('Run job')
     cy.contains('p', 'Successfully created job run')
       .children('a')
       .click()
@@ -23,7 +25,7 @@ context('End to end', function () {
     cy.contains('a > p', 'JSON').click()
 
     // Wait for job run to complete
-    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 500 })
+    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 1500 })
     cy.contains('h5', 'Completed').should('exist')
 
     // Navigate to transactions page
@@ -31,7 +33,7 @@ context('End to end', function () {
     cy.contains('h4', 'Transactions').should('exist')
 
     // Navigate to Explorer
-    const url = Cypress.env('EXPLORER_URL') || 'http://localhost:3001'
+    const url = Cypress.env('EXPLORER_URL') || 'http://localhost:8080'
     cy.forceVisit(url)
     cy.get('@runId').then((runId) => {
       cy.get('input[name=search]').type(runId)

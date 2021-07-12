@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/service"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -26,9 +27,9 @@ var (
 
 // RunQueue safely handles coordinating job runs.
 type RunQueue interface {
-	Start() error
-	Stop()
-	Run(*models.JobRun)
+	service.Service
+
+	Run(uuid.UUID)
 
 	WorkerCount() int
 }
@@ -55,12 +56,21 @@ func (rq *runQueue) Start() error {
 	return nil
 }
 
-// Stop closes all open worker channels.
-func (rq *runQueue) Stop() {
+// Close closes all open worker channels.
+func (rq *runQueue) Close() error {
 	rq.workersMutex.Lock()
 	rq.stopRequested = true
 	rq.workersMutex.Unlock()
 	rq.workersWg.Wait()
+	return nil
+}
+
+func (rq *runQueue) Ready() error {
+	return nil
+}
+
+func (rq *runQueue) Healthy() error {
+	return nil
 }
 
 func (rq *runQueue) incrementQueue(runID string) bool {
@@ -89,7 +99,7 @@ func (rq *runQueue) decrementQueue(runID string) bool {
 }
 
 // Run tells the job runner to start executing a job
-func (rq *runQueue) Run(run *models.JobRun) {
+func (rq *runQueue) Run(runID uuid.UUID) {
 	rq.workersMutex.Lock()
 	if rq.stopRequested {
 		rq.workersMutex.Unlock()
@@ -97,8 +107,8 @@ func (rq *runQueue) Run(run *models.JobRun) {
 	}
 	rq.workersMutex.Unlock()
 
-	runID := run.ID.String()
-	if !rq.incrementQueue(runID) {
+	id := runID.String()
+	if !rq.incrementQueue(id) {
 		return
 	}
 
@@ -107,11 +117,11 @@ func (rq *runQueue) Run(run *models.JobRun) {
 		defer rq.workersWg.Done()
 
 		for {
-			if err := rq.runExecutor.Execute(run.ID); err != nil {
-				logger.Errorw(fmt.Sprint("Error executing run ", runID), "error", err)
+			if err := rq.runExecutor.Execute(runID); err != nil {
+				logger.Errorw(fmt.Sprint("Error executing run ", id), "error", err)
 			}
 
-			if rq.decrementQueue(runID) {
+			if rq.decrementQueue(id) {
 				return
 			}
 		}
@@ -124,4 +134,18 @@ func (rq *runQueue) WorkerCount() int {
 	defer rq.workersMutex.RUnlock()
 
 	return len(rq.workers)
+}
+
+// NullRunQueue implements Null pattern for RunQueue interface
+type NullRunQueue struct{}
+
+func (NullRunQueue) Start() error   { return nil }
+func (NullRunQueue) Close() error   { return nil }
+func (NullRunQueue) Ready() error   { return nil }
+func (NullRunQueue) Healthy() error { return nil }
+func (NullRunQueue) Run(uuid.UUID) {
+	panic("NullRunQueue#Run should never be called")
+}
+func (NullRunQueue) WorkerCount() int {
+	panic("NullRunQueue#WorkerCount should never be called")
 }

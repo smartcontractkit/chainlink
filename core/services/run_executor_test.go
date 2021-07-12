@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -25,11 +26,12 @@ func TestRunExecutor_Execute(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, pusher)
+	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -62,11 +64,12 @@ func TestRunExecutor_Execute_PendingOutgoing(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, pusher)
+	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -100,13 +103,14 @@ func TestRunExecutor_Execute_RunNotFoundError(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, pusher)
+	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
 
-	err := runExecutor.Execute(models.NewID())
+	err := runExecutor.Execute(uuid.NewV4())
 	require.Error(t, err)
 }
 
@@ -115,6 +119,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 	// It will never be triggered, so sleep tasks will run forever (or until
 	// cancelled)
 	clock := cltest.NewTriggerClock(t)
@@ -123,7 +128,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, pusher)
+	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -169,11 +174,12 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, pusher)
+	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
 
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "noop")}
@@ -200,11 +206,12 @@ func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, pusher)
+	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
 	requestBase := 2
 	requestParameter := 10
 	specParameter := 100

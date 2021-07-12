@@ -42,7 +42,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
-1. [Install Go 1.14](https://golang.org/doc/install?download=go1.14.9.darwin-amd64.pkg), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.15](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS 12.18](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 12.18 && nvm use 12.18`
@@ -51,6 +51,7 @@ regarding Chainlink social accounts, news, and networking.
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
    - If you got any errors regarding locked yarn package, try running `yarn install` before this step
+   - If `yarn install` throws a network connection error, try increasing the network timeout by running `yarn install --network-timeout 150000` before this step
 6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
@@ -77,13 +78,14 @@ By default this will start on port 6688, where it exposes a [REST API](https://g
 Once your node has started, you can view your current jobs with:
 
 ```bash
-chainlink jobs list
+chainlink job_specs list # v1 jobs
+chainlink jobs list # v2 jobs
 ```
 
 View details of a specific job with:
 
 ```bash
-chainlink jobs show "$JOB_ID"
+chainlink job_specs show "$JOB_ID # v1 jobs"
 ```
 
 To find out more about the Chainlink CLI, you can always run `chainlink help`.
@@ -92,16 +94,16 @@ Check out the [docs'](https://docs.chain.link/) pages on [Adapters](https://docs
 
 ## Configure
 
-You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the docs](https://docs.chain.link/docs/configuration-variables).
+You can configure your node's behavior by setting environment variables. All the environment variables can be found in the `ConfigSchema` struct of `schema.go`. You can also read the [official documentation](https://docs.chain.link/docs/configuration-variables) to learn the most up to date information on each of them. For every variable, default values get used if no corresponding environment variable is found.
 
 ## Project Structure
 
-Chainlink is a monorepo containing several logicaly separatable and relatable
+Chainlink is a monorepo containing several logically separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
 - [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
-- [@chainlink/contracts](./evm-contracts) - smart contracts
+- [@chainlink/contracts](./contracts) - smart contracts
 - [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
 - [tools](./tools) - Chainlink tools
@@ -146,7 +148,7 @@ yarn setup:contracts
 
 ```bash
 go generate ./...
-go run ./packr/main.go ./core/eth/
+go run ./packr/main.go ./core/services/eth/
 ```
 
 5. Prepare your development environment:
@@ -172,23 +174,70 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
+> Note: `evm-contracts/` directory houses Solidity versions <=0.7. New contracts, using v0.8, are being developed in the `contracts/` directory, using hardhat.
+
+Inside the `evm-contracts/` directory:
+
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 2. Install the dependencies:
 
 ```bash
-cd evm
-yarn install
+yarn
+yarn setup
 ```
 
 3. Run tests:
 
+   i. Solidity versions `0.4.x` to `0.7.x`:
+
+   ```bash
+   yarn test
+   ```
+
+#### Solidity >=v0.8
+
+Inside the `contracts/` directory:
+1. Install dependencies:
+
 ```bash
-yarn run test-sol
+yarn
+```
+
+2. Run tests:
+
+```bash
+yarn test
 ```
 
 ### Use of Go Generate
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+
+### Nix Flake
+
+A [flake](https://nixos.wiki/wiki/Flakes) is provided for use with the [Nix
+package manager](https://nixos.org/). It defines a declarative, reproducible
+development environment.
+
+To use it:
+
+1. [Nix has to be installed with flake support](https://nixos.wiki/wiki/Flakes#Installing_flakes).
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
+   Alternatively, a `direnv` integration exists to automatically change the
+   environment when `cd`-ing into the folder.
+3. Create a local postgres database:
+
+```
+cd $PGDATA/
+initdb
+pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start
+createdb chainlink_test -h localhost
+createuser --superuser --no-password chainlink -h localhost
+```
+
+4. Start postgres, `pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start`
+
+Now you can run tests or compile code as usual.
 
 ### Development Tips
 

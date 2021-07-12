@@ -25,7 +25,7 @@ describe('components/Jobs/RecentlyCreated', () => {
     }
 
     const wrapper = renderComponent([jobB, jobA])
-    expect(wrapper.text()).toContain('job_bCreated a minute ago')
+    expect(wrapper.text()).toContain('job_bCreated 1 minute ago')
     expect(wrapper.text()).toContain('job_aCreated 2 minutes ago')
   })
 

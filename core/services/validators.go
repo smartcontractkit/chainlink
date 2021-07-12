@@ -8,28 +8,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
-
-	"github.com/multiformats/go-multiaddr"
-
-	"github.com/BurntSushi/toml"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jinzhu/gorm"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
+	"gorm.io/gorm"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
 // application logic errors.
-func ValidateJob(j models.JobSpec, store *store.Store) error {
+func ValidateJob(j models.JobSpec, store *store.Store, keyStore *keystore.Master) error {
 	fe := models.NewJSONAPIErrors()
 	if j.StartAt.Valid && j.EndAt.Valid && j.StartAt.Time.After(j.EndAt.Time) {
 		fe.Add("StartAt cannot be before EndAt")
@@ -43,7 +37,7 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 		}
 	}
 	for _, task := range j.Tasks {
-		if err := validateTask(task, store); err != nil {
+		if err := validateTask(task, store, keyStore); err != nil {
 			fe.Merge(err)
 		}
 	}
@@ -250,16 +244,6 @@ func validateRunLogInitiator(i models.Initiator, j models.JobSpec, s *store.Stor
 					fe.Add("Cannot set EthTx Task's function selector parameter with a RunLog Initiator")
 				} else if key == "address" {
 					fe.Add("Cannot set EthTx Task's address parameter with a RunLog Initiator")
-				} else if key == "fromaddress" {
-					address, err := hexutil.Decode(v.String())
-					if err != nil {
-						fe.Add(fmt.Sprintf("Cannot set EthTx Task's fromAddress parameter: %s", err.Error()))
-					} else {
-						exists, err := s.KeyExists(address)
-						if err != nil || !exists {
-							fe.Add("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database")
-						}
-					}
 				}
 				return true
 			})
@@ -316,7 +300,7 @@ func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error 
 	return fe.CoerceEmptyToNil()
 }
 
-func validateTask(task models.TaskSpec, store *store.Store) error {
+func validateTask(task models.TaskSpec, store *store.Store, keyStore *keystore.Master) error {
 	adapter, err := adapters.For(task, store.Config, store.ORM)
 	if err != nil {
 		return err
@@ -326,11 +310,44 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
 	}
+	switch adapter.TaskType() {
+	case adapters.TaskTypeEthTx:
+		return validateTaskTypeEthTx(task, store, keyStore)
+	case adapters.TaskTypeRandom:
+		return validateTaskTypeRandom(task)
+	}
+	return nil
+}
+
+func validateTaskTypeEthTx(task models.TaskSpec, store *store.Store, keyStore *keystore.Master) error {
+	if task.Params.Get("fromAddress").Exists() {
+		fromAddress := task.Params.Get("fromAddress").String()
+		if !common.IsHexAddress(fromAddress) {
+			return errors.Errorf("cannot set EthTx Task's fromAddress parameter invalid address %v", fromAddress)
+		}
+		key, err := keyStore.Eth().KeyByAddress(common.HexToAddress(fromAddress))
+		if err != nil {
+			return errors.Errorf("error %v finding key for address %s", err, fromAddress)
+		}
+		if key.IsFunding {
+			return errors.Errorf("address %s is a funding address, cannot use it to send transactions", fromAddress)
+		}
+	}
+	return nil
+}
+
+func validateTaskTypeRandom(task models.TaskSpec) error {
+	if task.MinRequiredIncomingConfirmations.Uint32 == 0 {
+		return errors.Errorf("confirmations is a required field for random tasks")
+	}
+	if !task.Params.Get("publicKey").Exists() {
+		return errors.Errorf("publicKey is a required field for random tasks")
+	}
 	return nil
 }
 
 // ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.
-func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) error {
+func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store, keyStore *keystore.Master) error {
 	fe := models.NewJSONAPIErrors()
 	config := store.Config
 
@@ -344,14 +361,13 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Expiration is below minimum %v", config.MinimumRequestExpiration()))
 	}
 
-	account, err := store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return err // 500
-	}
-
 	found := false
 	for _, oracle := range sa.Encumbrance.Oracles {
-		if oracle.Address() == account.Address {
+		has, err := keyStore.Eth().HasSendingKeyWithAddress(oracle.Address())
+		if err != nil {
+			return err
+		}
+		if has {
 			found = true
 		}
 	}
@@ -359,7 +375,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 		fe.Add("Service agreement encumbrance error: This node must be listed in the participating oracles")
 	}
 
-	if err := ValidateJob(sa.JobSpec, store); err != nil {
+	if err := ValidateJob(sa.JobSpec, store, keyStore); err != nil {
 		fe.Add(fmt.Sprintf("Service agreement job spec error: Job spec validation: %v", err))
 	}
 
@@ -378,156 +394,4 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	}
 
 	return fe.CoerceEmptyToNil()
-}
-
-// ValidatedOracleSpec validates an oracle spec that came from TOML
-func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error) {
-	var m toml.MetaData
-
-	// Sane defaults
-	spec := offchainreporting.OracleSpec{
-		OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
-			P2PBootstrapPeers:                      pq.StringArray{},
-			ObservationTimeout:                     models.Interval(10 * time.Second),
-			BlockchainTimeout:                      models.Interval(20 * time.Second),
-			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-			ContractConfigConfirmations:            uint16(3), // TODO: why a uint16? just forcing casting everywhere
-		},
-	}
-	m, err := toml.Decode(tomlString, &spec)
-	if err != nil {
-		return spec, err
-	}
-	if spec.Type != "offchainreporting" {
-		return spec, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", spec.Type)
-	}
-	if spec.SchemaVersion != uint32(1) {
-		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
-	}
-	for _, k := range m.Undecoded() {
-		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
-	}
-	if !m.IsDefined("isBootstrapPeer") {
-		return spec, errors.New("isBootstrapPeer is not defined")
-	}
-	if spec.IsBootstrapPeer {
-		if err := validateBootstrapSpec(m, spec); err != nil {
-			return spec, err
-		}
-	} else if err := validateNonBootstrapSpec(m, spec); err != nil {
-		return spec, err
-	}
-	if err := validateTimingParameters(spec); err != nil {
-		return spec, err
-	}
-	return spec, nil
-}
-
-// Parameters that must be explicitly set by the operator.
-var (
-	// Common to both bootstrap and non-boostrap
-	params = map[string]struct{}{
-		"type":              {},
-		"schemaVersion":     {},
-		"contractAddress":   {},
-		"isBootstrapPeer":   {},
-		"p2pPeerID":         {},
-		"p2pBootstrapPeers": {},
-	}
-	// Boostrap and non-bootstrap parameters
-	// are mutually exclusive.
-	bootstrapParams    = map[string]struct{}{}
-	nonBootstrapParams = map[string]struct{}{
-		"monitoringEndpoint": {},
-		"observationSource":  {},
-		"observationTimeout": {},
-		"keyBundleID":        {},
-		"transmitterAddress": {},
-	}
-)
-
-func cloneSet(in map[string]struct{}) map[string]struct{} {
-	out := make(map[string]struct{})
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
-}
-
-func validateTimingParameters(spec offchainreporting.OracleSpec) error {
-	// TODO: expose these various constants from libocr so they are defined in one place.
-	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return errors.Errorf("require 1ms <= observation timeout <= 20s")
-	}
-	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
-		return errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
-		return errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
-	}
-	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
-		return errors.Errorf("require 2 <= contract config confirmations <= 10 ")
-	}
-	return nil
-}
-
-func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
-	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
-	for k := range bootstrapParams {
-		expected[k] = struct{}{}
-	}
-	if err := validateExplicitlySetKeys(m, expected, notExpected, "bootstrap"); err != nil {
-		return err
-	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
-		}
-	}
-	return nil
-}
-
-func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
-	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
-	for k := range nonBootstrapParams {
-		expected[k] = struct{}{}
-	}
-	if err := validateExplicitlySetKeys(m, expected, notExpected, "non-bootstrap"); err != nil {
-		return err
-	}
-	if spec.Pipeline.DOTSource == "" {
-		return errors.New("no pipeline specified")
-	}
-	if len(spec.P2PBootstrapPeers) < 1 {
-		return errors.New("must specify at least one bootstrap peer")
-	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
-		}
-	}
-	return nil
-}
-
-func validateExplicitlySetKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
-	var err error
-	for _, ks := range m.Keys() {
-		if len(ks) > 1 {
-			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for %s peer: %s", peerType, ks))
-		}
-		k := ks[0]
-
-		if _, ok := notExpected[k]; ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
-		}
-		delete(expected, k)
-	}
-	for missing := range expected {
-		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
-	}
-	return err
 }

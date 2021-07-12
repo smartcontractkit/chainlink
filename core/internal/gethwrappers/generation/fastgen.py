@@ -23,7 +23,7 @@ This runs on the FluxAggregator contract in 0.4s, whereas the canonical way,
 
 '''
 
-import os, sys
+import os, pathlib, sys
 
 thisdir = os.path.abspath(os.path.dirname(sys.argv[0]))
 godir = os.path.dirname(thisdir)
@@ -43,9 +43,10 @@ for line in open(gogenpath):
                                    os.path.basename(srcpath))
         if not os.path.exists(srcpath):
             srcpath = srcpath.replace('/dev/', '/tests/')
-        assert os.path.exists(srcpath), 'could not find ' + \
-            os.path.basename(srcpath)
-        pkg_to_src[pkgname] = srcpath
+        if os.path.basename(srcpath) != 'OffchainAggregator.sol':
+            assert os.path.exists(srcpath), 'could not find ' + \
+                os.path.basename(srcpath)
+            pkg_to_src[pkgname] = srcpath
 
 args = sys.argv[1:]
 
@@ -67,6 +68,7 @@ for pkgname in args:
     solidity_path = pkg_to_src[pkgname]
     outpath = os.path.abspath(os.path.join(godir, 'generated', pkgname,
                                            pkgname + '.go'))
+    pathlib.Path(os.path.dirname(outpath)).mkdir(exist_ok=True)
     # assert not os.system(
     #     f'abigen -sol {solidity_path} -pkg {pkgname} -out {outpath}')
     cmd = f'abigen -sol {solidity_path} -pkg {pkgname} -out {outpath}'

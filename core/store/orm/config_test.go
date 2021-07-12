@@ -1,166 +1,103 @@
-package orm
+package orm_test
 
 import (
 	"math/big"
-	"net/url"
 	"os"
-	"path"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/viper"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
-func TestStore_ConfigDefaults(t *testing.T) {
-	config := NewConfig()
-	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
-	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
-	assert.Equal(t, big.NewInt(1), config.ChainID())
-	assert.Equal(t, false, config.EthereumDisabled())
-	assert.Equal(t, big.NewInt(20000000000), config.EthGasPriceDefault())
-	assert.Equal(t, false, config.FeatureExternalInitiators())
-	assert.Equal(t, "0x514910771AF9Ca656af840dff83E8264EcF986CA", common.HexToAddress(config.LinkContractAddress()).String())
-	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
-	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
+func TestConfig_SetEthGasPriceDefault(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	t.Cleanup(cleanup)
+	config := store.Config
+
+	config.Set("ETH_MAX_GAS_PRICE_WEI", 1500000000000)
+
+	t.Run("sets the gas price", func(t *testing.T) {
+		assert.Equal(t, big.NewInt(20000000000), config.EthGasPriceDefault())
+
+		err := config.SetEthGasPriceDefault(big.NewInt(42000000000))
+		assert.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(42000000000), config.EthGasPriceDefault())
+	})
+	t.Run("is not allowed to set gas price to below EthMinGasPriceWei", func(t *testing.T) {
+		assert.Equal(t, big.NewInt(1000000000), config.EthMinGasPriceWei())
+
+		err := config.SetEthGasPriceDefault(big.NewInt(1))
+		assert.EqualError(t, err, "cannot set default gas price to 1, it is below the minimum allowed value of 1000000000")
+
+		assert.Equal(t, big.NewInt(42000000000), config.EthGasPriceDefault())
+	})
+	t.Run("is not allowed to set gas price to above EthMaxGasPriceWei", func(t *testing.T) {
+		assert.Equal(t, big.NewInt(1500000000000), config.EthMaxGasPriceWei())
+
+		err := config.SetEthGasPriceDefault(big.NewInt(999999999999999))
+		assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 1500000000000")
+
+		assert.Equal(t, big.NewInt(42000000000), config.EthGasPriceDefault())
+	})
 }
 
-func TestConfig_sessionSecret(t *testing.T) {
-	t.Parallel()
-	config := NewConfig()
-	config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
-	err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
-	require.NoError(t, err)
-	defer os.RemoveAll(config.RootDir())
+func TestConfig_Profiles(t *testing.T) {
+	config := orm.NewConfig()
 
-	initial, err := config.SessionSecret()
-	require.NoError(t, err)
-	require.NotEqual(t, "", initial)
-	require.NotEqual(t, "clsession_test_secret", initial)
-
-	second, err := config.SessionSecret()
-	require.NoError(t, err)
-	require.Equal(t, initial, second)
-}
-
-func TestConfig_sessionOptions(t *testing.T) {
-	t.Parallel()
-	config := NewConfig()
-
-	config.Set("SECURE_COOKIES", false)
-	opts := config.SessionOptions()
-	require.False(t, opts.Secure)
-
-	config.Set("SECURE_COOKIES", true)
-	opts = config.SessionOptions()
-	require.True(t, opts.Secure)
-}
-
-func TestConfig_readFromFile(t *testing.T) {
-	v := viper.New()
-	v.Set("ROOT", "../../../tools/clroot/")
-
-	config := newConfigWithViper(v)
-	assert.Equal(t, config.RootDir(), "../../../tools/clroot/")
-	assert.Equal(t, config.MinRequiredOutgoingConfirmations(), uint64(2))
-	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
-	assert.Equal(t, config.Dev(), true)
-	assert.Equal(t, config.TLSPort(), uint16(0))
-}
-
-func TestStore_addressParser(t *testing.T) {
-	zero := &common.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	fifteen := &common.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15}
-
-	val, err := parseAddress("")
-	assert.NoError(t, err)
-	assert.Equal(t, nil, val)
-
-	val, err = parseAddress("0x000000000000000000000000000000000000000F")
-	assert.NoError(t, err)
-	assert.Equal(t, fifteen, val)
-
-	val, err = parseAddress("0X000000000000000000000000000000000000000F")
-	assert.NoError(t, err)
-	assert.Equal(t, fifteen, val)
-
-	val, err = parseAddress("0")
-	assert.NoError(t, err)
-	assert.Equal(t, zero, val)
-
-	val, err = parseAddress("15")
-	assert.NoError(t, err)
-	assert.Equal(t, fifteen, val)
-
-	val, err = parseAddress("0x0")
-	assert.Error(t, err)
-	assert.Nil(t, val)
-
-	val, err = parseAddress("x")
-	assert.Error(t, err)
-	assert.Nil(t, val)
-}
-
-func TestStore_bigIntParser(t *testing.T) {
-	val, err := parseBigInt("0")
-	assert.NoError(t, err)
-	assert.Equal(t, new(big.Int).SetInt64(0), val)
-
-	val, err = parseBigInt("15")
-	assert.NoError(t, err)
-	assert.Equal(t, new(big.Int).SetInt64(15), val)
-
-	val, err = parseBigInt("x")
-	assert.Error(t, err)
-	assert.Nil(t, val)
-
-	val, err = parseBigInt("")
-	assert.Error(t, err)
-	assert.Nil(t, val)
-}
-
-func TestStore_levelParser(t *testing.T) {
-	val, err := parseLogLevel("ERROR")
-	assert.NoError(t, err)
-	assert.Equal(t, LogLevel{zapcore.ErrorLevel}, val)
-
-	val, err = parseLogLevel("")
-	assert.NoError(t, err)
-	assert.Equal(t, LogLevel{zapcore.InfoLevel}, val)
-
-	val, err = parseLogLevel("primus sucks")
-	assert.Error(t, err)
-	assert.Equal(t, val, LogLevel{})
-}
-
-func TestStore_urlParser(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantError bool
+		name                           string
+		chainID                        string
+		expectedGasLimitDefault        uint64
+		expectedMinimumContractPayment int64
 	}{
-		{"valid URL", "http://localhost:3000", false},
-		{"invalid URL", ":", true},
-		{"empty URL", "", false},
+		{"default", "", 500000, 1000000000000000000},
+		{"mainnet", "1", 500000, 1000000000000000000},
+		{"kovan", "42", 500000, 1000000000000000000},
+
+		{"optimism", "10", 500000, 100000000000000},
+		{"optimism", "69", 500000, 100000000000000},
+		{"optimism", "420", 500000, 100000000000000},
+
+		{"bscMainnet", "56", 500000, 100000000000000},
+		{"hecoMainnet", "128", 500000, 100000000000000},
+		{"fantomMainnet", "250", 500000, 100000000000000},
+		{"fantomTestnet", "4002", 500000, 100000000000000},
+		{"polygonMatic", "800001", 500000, 100000000000000},
+
+		{"xDai", "100", 500000, 100000000000000},
 	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			i, err := parseURL(test.input)
-
-			if test.wantError {
-				assert.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				w, ok := i.(*url.URL)
-				require.True(t, ok)
-				assert.Equal(t, test.input, w.String())
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config.Set("ETH_CHAIN_ID", tt.chainID)
+			assert.Equal(t, tt.expectedGasLimitDefault, config.EthGasLimitDefault())
+			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment), config.MinimumContractPayment())
 		})
 	}
+}
+
+func TestConfig_MinimumContractPayment(t *testing.T) {
+	originalJuels := os.Getenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS")
+	originalLink := os.Getenv("MINIMUM_CONTRACT_PAYMENT")
+	defer func() {
+		os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", originalJuels)
+		os.Setenv("MINIMUM_CONTRACT_PAYMENT", originalLink)
+	}()
+
+	config := orm.NewConfig()
+	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
+
+	os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", "5987")
+	config = orm.NewConfig()
+	assert.Equal(t, assets.NewLink(5987), config.MinimumContractPayment())
+
+	os.Setenv("MINIMUM_CONTRACT_PAYMENT", "4937")
+	config = orm.NewConfig()
+	assert.Equal(t, assets.NewLink(5987), config.MinimumContractPayment())
+
+	os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", "")
+	config = orm.NewConfig()
+	assert.Equal(t, assets.NewLink(4937), config.MinimumContractPayment())
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -46,7 +47,7 @@ func (q *Quotient) UnmarshalJSON(buf []byte) error {
 //
 // For example, if input value is "2.5", and the adapter's "dividend" value
 // is "1", the result's value will be "0.4".
-func (q *Quotient) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (q *Quotient) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	val := input.Result()
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
@@ -58,5 +59,5 @@ func (q *Quotient) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 	if q.Dividend != nil {
 		i = new(big.Float).Quo(q.Dividend, i)
 	}
-	return models.NewRunOutputCompleteWithResult(i.String())
+	return models.NewRunOutputCompleteWithResult(i.String(), input.ResultCollection())
 }

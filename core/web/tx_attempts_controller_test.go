@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -16,27 +16,26 @@ import (
 func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 
-	from := cltest.GetAccountAddress(t, store)
+	key := cltest.MustInsertRandomKey(t, store.DB, 0)
+	from := key.Address.Address()
+
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from)
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 3, from)
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
-	var attempts []presenters.EthTx
+	var attempts []presenters.EthTxResource
 	body := cltest.ParseResponseBody(t, resp)
 
 	require.NoError(t, web.ParsePaginatedResponse(body, &attempts, &links))
@@ -50,15 +49,12 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 func TestTxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
 }

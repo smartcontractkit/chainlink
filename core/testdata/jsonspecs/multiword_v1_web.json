@@ -1,0 +1,21 @@
+{
+  "initiators": [{"type": "web"}],
+  "tasks": [
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "https://bitstamp.net/api/ticker/"}},
+    {"type": "jsonparse", "params": {"path": ["bid"]}},
+    {"type": "ethbytes32"},
+    {"type": "resultcollect"},
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "https://bitstamp.net/api/ticker/"}},
+    {"type": "jsonparse", "params": {"path": ["ask"]}},
+    {"type": "ethbytes32"},
+    {"type": "resultcollect"},
+    {
+      "type": "ethtx",
+      "confirmations": 0,
+      "params": {
+        "dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "abiEncoding": ["bytes32", "bytes32", "bytes32"]
+      }
+    }
+  ]
+}

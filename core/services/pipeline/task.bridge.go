@@ -2,11 +2,11 @@ package pipeline
 
 import (
 	"context"
-	"fmt"
-	"net/url"
+	"encoding/json"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -15,10 +15,11 @@ import (
 type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
-	Name        string          `json:"name"`
-	RequestData HttpRequestData `json:"requestData"`
+	Name              string `json:"name"`
+	RequestData       string `json:"requestData"`
+	IncludeInputAtKey string `json:"includeInputAtKey"`
 
-	txdb   *gorm.DB
+	db     *gorm.DB
 	config Config
 }
 
@@ -28,62 +29,103 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) (result Result) {
-	if len(inputs) > 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
+func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
+	inputValues, err := CheckInputs(inputs, -1, -1, 0)
+	if err != nil {
+		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
-	url, err := t.getBridgeURLFromName()
+	var (
+		name              StringParam
+		requestData       MapParam
+		includeInputAtKey StringParam
+	)
+	err = multierr.Combine(
+		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
+		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
+	)
 	if err != nil {
 		return Result{Error: err}
 	}
 
-	var meta map[string]interface{}
-	switch v := taskRun.PipelineRun.Meta.Val.(type) {
+	url, err := t.getBridgeURLFromName(name)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	var metaMap MapParam
+
+	meta, _ := vars.Get("jobRun.meta")
+	switch v := meta.(type) {
 	case map[string]interface{}:
-		meta = v
+		metaMap = MapParam(v)
 	case nil:
 	default:
 		logger.Warnw(`"meta" field on task run is malformed, discarding`,
-			"jobID", taskRun.PipelineRun.PipelineSpecID,
-			"taskRunID", taskRun.ID,
-			"task", taskRun.PipelineTaskSpec.DotID,
-			"meta", taskRun.PipelineRun.Meta.Val,
+			"task", t.DotID(),
+			"meta", meta,
 		)
 	}
 
-	result = (&HTTPTask{
-		URL:         models.WebURL(url),
-		Method:      "POST",
-		RequestData: withIDAndMeta(t.RequestData, taskRun.PipelineRunID, meta),
-		config:      t.config,
-	}).Run(ctx, taskRun, inputs)
-	if result.Error != nil {
-		return result
+	requestData = withMeta(requestData, metaMap)
+	if t.IncludeInputAtKey != "" {
+		if len(inputValues) > 0 {
+			requestData[string(includeInputAtKey)] = inputValues[0]
+		}
 	}
-	logger.Debugw("Bridge task: fetched answer",
-		"answer", string(result.Value.([]byte)),
+
+	// URL is "safe" because it comes from the node's own database
+	// Some node operators may run external adapters on their own hardware
+	allowUnrestrictedNetworkAccess := BoolParam(true)
+
+	requestDataJSON, err := json.Marshal(requestData)
+	if err != nil {
+		return Result{Error: err}
+	}
+	logger.Debugw("Bridge task: sending request",
+		"requestData", string(requestDataJSON),
 		"url", url.String(),
+	)
+
+	responseBytes, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	// NOTE: We always stringify the response since this is required for all current jobs.
+	// If a binary response is required we might consider adding an adapter
+	// flag such as  "BinaryMode: true" which passes through raw binary as the
+	// value instead.
+	result := Result{Value: string(responseBytes)}
+
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
+
+	logger.Debugw("Bridge task: fetched answer",
+		"answer", result.Value,
+		"url", url.String(),
+		"dotID", t.DotID(),
 	)
 	return result
 }
 
-func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
-	task := models.TaskType(t.Name)
-	bridge, err := FindBridge(t.txdb, task)
+func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
+	var bt models.BridgeType
+	err := t.db.First(&bt, "name = ?", string(name)).Error
 	if err != nil {
-		return url.URL{}, err
+		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
-	bridgeURL := url.URL(bridge.URL)
-	return bridgeURL, nil
+	return URLParam(bt.URL), nil
 }
 
-func withIDAndMeta(request HttpRequestData, runID int64, meta HttpRequestData) HttpRequestData {
-	output := make(HttpRequestData)
+func withMeta(request MapParam, meta MapParam) MapParam {
+	output := make(MapParam)
 	for k, v := range request {
 		output[k] = v
 	}
-	output["id"] = fmt.Sprintf("%d", runID)
-	output["meta"] = meta
+	if meta != nil {
+		output["meta"] = meta
+	}
 	return output
 }

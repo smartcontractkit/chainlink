@@ -1,0 +1,28 @@
+type              = "fluxmonitor"
+schemaVersion     = 1
+name              = "example flux monitor spec"
+contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+externalJobID     = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F48"
+threshold = 0.5
+absoluteThreshold = 0.0 # optional
+
+idleTimerPeriod = "1s"
+idleTimerDisabled = false
+
+pollTimerPeriod = "1m"
+pollTimerDisabled = false
+
+observationSource = """
+// data source 1
+ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
+ds1_parse [type=jsonparse path="latest"];
+
+// data source 2
+ds2 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
+ds2_parse [type=jsonparse path="latest"];
+
+ds1 -> ds1_parse -> answer1;
+ds2 -> ds2_parse -> answer1;
+
+answer1 [type=median index=0];
+"""

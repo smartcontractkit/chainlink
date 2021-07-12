@@ -7,7 +7,10 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
-    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    # Note that the keystore import allows us to submit transactions
+    # immediately because addresses are specified when starting the
+    # parity/geth node to be prefunded with eth.
+    entrypoint: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
       - ETH_CHAIN_ID
@@ -16,7 +19,7 @@ services:
       - ETH_URL
       - MIN_OUTGOING_CONFIRMATIONS
       - MIN_INCOMING_CONFIRMATIONS
-      - MINIMUM_CONTRACT_PAYMENT
+      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
       - DEFAULT_HTTP_TIMEOUT
       - CHAINLINK_DEV
       - EXPLORER_URL
@@ -33,6 +36,8 @@ services:
       - node_password
       - apicredentials
       - keystore
+    depends_on:
+      - explorer
 
   node-2:
     container_name: chainlink-node-2
@@ -40,7 +45,7 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
-    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    entrypoint: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
       - ETH_CHAIN_ID
@@ -49,7 +54,7 @@ services:
       - ETH_URL
       - MIN_OUTGOING_CONFIRMATIONS
       - MIN_INCOMING_CONFIRMATIONS
-      - MINIMUM_CONTRACT_PAYMENT
+      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
       - DEFAULT_HTTP_TIMEOUT
       - CHAINLINK_DEV
       - SECURE_COOKIES

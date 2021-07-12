@@ -1,6 +1,6 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
+import { FluxAggregator__factory } from '@chainlink/contracts/ethers/v0.6/factories/FluxAggregator__factory'
 import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
 import ChainlinkClient from '../test-helpers/chainlinkClient'
 import fluxMonitorJobTemplate from '../fixtures/flux-monitor-job'
@@ -15,7 +15,7 @@ const {
   CLIENT_NODE_2_URL,
   EXTERNAL_ADAPTER_URL,
   EXTERNAL_ADAPTER_2_URL,
-  MINIMUM_CONTRACT_PAYMENT,
+  MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
 } = t.getEnvVars([
   'NODE_1_CONTAINER',
   'NODE_2_CONTAINER',
@@ -23,13 +23,13 @@ const {
   'CLIENT_NODE_2_URL',
   'EXTERNAL_ADAPTER_URL',
   'EXTERNAL_ADAPTER_2_URL',
-  'MINIMUM_CONTRACT_PAYMENT',
+  'MINIMUM_CONTRACT_PAYMENT_LINK_JUELS',
 ])
 
 const provider = t.createProvider()
 const carol = ethers.Wallet.createRandom().connect(provider)
 const linkTokenFactory = new contract.LinkTokenFactory(carol)
-const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
+const fluxAggregatorFactory = new FluxAggregator__factory(carol)
 const deposit = h.toWei('1000')
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
@@ -62,7 +62,7 @@ const clClient2 = new ChainlinkClient(
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
-let fluxAggregator: contract.Instance<FluxAggregatorFactory>
+let fluxAggregator: contract.Instance<FluxAggregator__factory>
 
 let node1Address: string
 let node2Address: string
@@ -109,8 +109,9 @@ beforeAll(async () => {
 
   clClient1.login()
   clClient2.login()
-  node1Address = clClient1.getAdminInfo()[0].address
-  node2Address = clClient2.getAdminInfo()[0].address
+  node1Address = clClient1.newEthKey().address
+  node2Address = clClient2.newEthKey().address
+  console.log('new eth keys', node1Address, node2Address)
 
   await t.fundAddress(carol.address)
   await t.fundAddress(node1Address)
@@ -137,7 +138,7 @@ beforeEach(async () => {
   const maxSubmissionValue = 1000000000
   const deployingContract = await fluxAggregatorFactory.deploy(
     linkToken.address,
-    MINIMUM_CONTRACT_PAYMENT,
+    MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
     300,
     emptyAddress,
     minSubmissionValue,
@@ -187,6 +188,7 @@ describe('FluxMonitor / FluxAggregator integration with one node', () => {
     // create FM job
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node1Address
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
     assert.equal(clClient1.getJobs().length, initialJobCount + 1)
 
@@ -215,6 +217,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
     await fluxAggregator.updateAvailableFunds().then(t.txWait)
 
+    console.log(await fluxAggregator.getOracles())
     await fluxAggregator
       .changeOracles(
         [],
@@ -243,8 +246,11 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
 
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node1Address
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_2_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node2Address
+    console.log(`using keys`, node1Address, node2Address)
     clClient2.createJob(JSON.stringify(fluxMonitorJob))
 
     // initial job run
@@ -268,7 +274,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     // reduce minAnswers to 1
     await (
       await fluxAggregator.updateFutureRounds(
-        MINIMUM_CONTRACT_PAYMENT,
+        MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
         1,
         2,
         0,
@@ -289,7 +295,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
   it('respects the idle timer duration', async () => {
     await (
       await fluxAggregator.updateFutureRounds(
-        MINIMUM_CONTRACT_PAYMENT,
+        MINIMUM_CONTRACT_PAYMENT_LINK_JUELS,
         2,
         2,
         0,
@@ -306,7 +312,9 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     fluxMonitorJob.initiators[0].params.pollTimer.period = '0'
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node1Address
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
+    fluxMonitorJob.tasks[2].params.fromAddress = node2Address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_2_URL]
     clClient2.createJob(JSON.stringify(fluxMonitorJob))
 

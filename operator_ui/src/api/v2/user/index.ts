@@ -1,4 +1,4 @@
-import { Api } from '@chainlink/json-api-client'
+import { Api } from 'utils/json-api-client'
 import { Balances } from './balances'
 
 export class User {

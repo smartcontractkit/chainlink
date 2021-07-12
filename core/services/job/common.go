@@ -1,33 +1,19 @@
 package job
 
 import (
+	"net/url"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-//go:generate mockery --name Spec --output ./mocks/ --case=underscore
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
 
-type (
-	Type string
+type Service interface {
+	Start() error
+	Close() error
+}
 
-	Spec interface {
-		JobID() int32
-		JobType() Type
-		TaskDAG() pipeline.TaskDAG
-		TableName() string
-	}
-
-	Service interface {
-		Start() error
-		Close() error
-	}
-
-	Config interface {
-		DatabaseMaximumTxDuration() time.Duration
-		DatabaseURL() string
-		JobPipelineDBPollInterval() time.Duration
-		JobPipelineParallelism() uint8
-	}
-)
+type Config interface {
+	DatabaseMaximumTxDuration() time.Duration
+	DatabaseURL() url.URL
+	TriggerFallbackDBPollInterval() time.Duration
+}

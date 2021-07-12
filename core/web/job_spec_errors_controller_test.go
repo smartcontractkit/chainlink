@@ -5,16 +5,20 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestJobSpecErrorsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -40,7 +44,11 @@ func TestJobSpecErrorsController_Delete(t *testing.T) {
 
 func TestJobSpecErrorsController_Delete_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -54,7 +62,11 @@ func TestJobSpecErrorsController_Delete_NotFound(t *testing.T) {
 
 func TestJobSpecErrorsController_Delete_InvalidUuid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -67,10 +79,13 @@ func TestJobSpecErrorsController_Delete_InvalidUuid(t *testing.T) {
 
 func TestJobSpecErrorsController_Delete_Unauthenticated(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	require.NoError(t, app.Start())
-
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	resp, err := http.Get(app.Server.URL + "/v2/specs/garbage")
 	assert.NoError(t, err)

@@ -1,4 +1,5 @@
 import Card from '@material-ui/core/Card'
+import { withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
@@ -6,6 +7,7 @@ import TableHead from '@material-ui/core/TableHead'
 import TablePagination from '@material-ui/core/TablePagination'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import { tableStyles } from 'components/Table'
 import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import React, { useState, useEffect } from 'react'
@@ -27,23 +29,38 @@ const renderError = (error: string) => (
   </TableRow>
 )
 
-const renderBridges = (bridges: any[]) =>
-  bridges.map((bridge) => (
-    <TableRow key={bridge.name}>
-      <TableCell scope="row" component="th">
-        <Link href={`/bridges/${bridge.name}`}>{bridge.name}</Link>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body1">{bridge.url}</Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body1">{bridge.confirmations}</Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body1">{bridge.minimumContractPayment}</Typography>
-      </TableCell>
-    </TableRow>
-  ))
+interface BridgeRowsProps extends WithStyles<typeof tableStyles> {
+  bridges: any[]
+}
+
+const BridgeRows = withStyles(tableStyles)(
+  ({ bridges, classes }: BridgeRowsProps) => {
+    return (
+      <>
+        {bridges.map((bridge) => (
+          <TableRow className={classes.row} key={bridge.name} hover>
+            <TableCell scope="row" component="th">
+              <Link className={classes.link} href={`/bridges/${bridge.name}`}>
+                {bridge.name}
+              </Link>
+            </TableCell>
+            <TableCell>
+              <Typography variant="body1">{bridge.url}</Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant="body1">{bridge.confirmations}</Typography>
+            </TableCell>
+            <TableCell>
+              <Typography variant="body1">
+                {bridge.minimumContractPayment}
+              </Typography>
+            </TableCell>
+          </TableRow>
+        ))}
+      </>
+    )
+  },
+)
 
 const renderBody = (bridges: any[], fetching: boolean, error: string) => {
   if (fetching) {
@@ -51,7 +68,7 @@ const renderBody = (bridges: any[], fetching: boolean, error: string) => {
   } else if (error) {
     return renderError(error)
   } else {
-    return renderBridges(bridges)
+    return <BridgeRows bridges={bridges} />
   }
 }
 

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,12 +17,12 @@ import (
 // a pointer to the store and a started field to indicate if the Scheduler
 // has started or not.
 type Scheduler struct {
-	Recurring    *Recurring
-	OneTime      *OneTime
-	store        *store.Store
-	runManager   RunManager
-	startedMutex sync.RWMutex
-	started      bool
+	Recurring  *Recurring
+	OneTime    *OneTime
+	store      *store.Store
+	runManager RunManager
+
+	utils.StartStopOnce
 }
 
 // NewScheduler initializes the Scheduler instances with both Recurring
@@ -46,35 +45,29 @@ func NewScheduler(store *store.Store, runManager RunManager) *Scheduler {
 // sets the started field to true, and adds jobs relevant to its
 // initiator ("cron" and "runat").
 func (s *Scheduler) Start() error {
-	s.startedMutex.Lock()
-	defer s.startedMutex.Unlock()
-	if s.started {
-		return errors.New("Scheduler already started")
-	}
-	if err := s.OneTime.Start(); err != nil {
-		return err
-	}
-	if err := s.Recurring.Start(); err != nil {
-		return err
-	}
-	s.started = true
+	return s.StartOnce("Scheduler", func() error {
+		if err := s.OneTime.Start(); err != nil {
+			return err
+		}
+		if err := s.Recurring.Start(); err != nil {
+			return err
+		}
 
-	return s.store.Jobs(func(j *models.JobSpec) bool {
-		s.addJob(j)
-		return true
-	}, models.InitiatorCron, models.InitiatorRunAt)
+		return s.store.Jobs(func(j *models.JobSpec) bool {
+			s.addJob(j)
+			return true
+		}, models.InitiatorCron, models.InitiatorRunAt)
+	})
 }
 
 // Stop is the governing function for both Recurring and OneTime
 // Stop function. Sets the started field to false.
-func (s *Scheduler) Stop() {
-	s.startedMutex.Lock()
-	defer s.startedMutex.Unlock()
-	if s.started {
+func (s *Scheduler) Stop() error {
+	return s.StopOnce("Scheduler", func() error {
 		s.Recurring.Stop()
 		s.OneTime.Stop()
-		s.started = false
-	}
+		return nil
+	})
 }
 
 func (s *Scheduler) addJob(job *models.JobSpec) {
@@ -83,14 +76,11 @@ func (s *Scheduler) addJob(job *models.JobSpec) {
 }
 
 // AddJob is the governing function for Recurring and OneTime,
-// and will only execute if the Scheduler has not already started.
+// and will only execute if the Scheduler has started.
 func (s *Scheduler) AddJob(job models.JobSpec) {
-	s.startedMutex.RLock()
-	defer s.startedMutex.RUnlock()
-	if !s.started {
-		return
-	}
-	s.addJob(&job)
+	s.IfStarted(func() {
+		s.addJob(&job)
+	})
 }
 
 // Recurring is used for runs that need to execute on a schedule,
@@ -127,14 +117,15 @@ func (r *Recurring) Stop() {
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
 func (r *Recurring) AddJob(job models.JobSpec) {
-	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
-		_, err := r.Cron.AddFunc(string(initr.Schedule), func() {
+	initrs := job.InitiatorsFor(models.InitiatorCron)
+	for i := range initrs {
+		_, err := r.Cron.AddFunc(string(initrs[i].Schedule), func() {
 			now := time.Now()
 			if !job.Started(now) || job.Ended(now) {
 				return
 			}
 
-			_, err := r.runManager.Create(job.ID, &initr, nil, &models.RunRequest{})
+			_, err := r.runManager.Create(job.ID, &initrs[i], nil, &models.RunRequest{})
 			if err != nil && !ExpectedRecurringScheduleJobError(err) {
 				logger.Errorw(err.Error())
 			}

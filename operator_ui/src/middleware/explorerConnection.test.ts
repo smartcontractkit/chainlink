@@ -15,7 +15,10 @@ describe('middleware/explorerConnection', () => {
       createExplorerConnectionMiddleware(WS_ERROR_COOKIE),
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action: MatchRouteAction = { type: RouterActionType.MATCH_ROUTE }
+    const action: MatchRouteAction = {
+      type: RouterActionType.MATCH_ROUTE,
+      pathname: '/',
+    }
 
     store.dispatch(action)
     const state: AppState = store.getState()
@@ -31,7 +34,10 @@ describe('middleware/explorerConnection', () => {
       createExplorerConnectionMiddleware(PARSE_ERROR_COOKIE),
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action: MatchRouteAction = { type: RouterActionType.MATCH_ROUTE }
+    const action: MatchRouteAction = {
+      type: RouterActionType.MATCH_ROUTE,
+      pathname: '/',
+    }
 
     store.dispatch(action)
     const state: AppState = store.getState()
@@ -45,7 +51,10 @@ describe('middleware/explorerConnection', () => {
       createExplorerConnectionMiddleware(HTTP_ERROR_COOKIE),
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action: MatchRouteAction = { type: RouterActionType.MATCH_ROUTE }
+    const action: MatchRouteAction = {
+      type: RouterActionType.MATCH_ROUTE,
+      pathname: '/',
+    }
 
     store.dispatch(action)
     const state: AppState = store.getState()
@@ -63,7 +72,7 @@ describe('middleware/explorerConnection', () => {
     const store = createStore(reducer, applyMiddleware(...middleware))
     const action: MatchRouteAction = {
       type: RouterActionType.MATCH_ROUTE,
-      match: { url: '/signin' },
+      pathname: '/signin',
     }
 
     store.dispatch(action)

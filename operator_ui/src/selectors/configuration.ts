@@ -1,4 +1,3 @@
-import { constantCase } from 'change-case'
 import { AppState } from 'reducers'
 
 export default ({ configuration }: Pick<AppState, 'configuration'>) => {
@@ -6,5 +5,5 @@ export default ({ configuration }: Pick<AppState, 'configuration'>) => {
 
   return Object.keys(data)
     .sort()
-    .map((key) => [constantCase(key), data[key]])
+    .map((key) => [key, data[key]])
 }

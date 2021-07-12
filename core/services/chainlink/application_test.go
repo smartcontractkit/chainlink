@@ -15,13 +15,12 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-	app, appCleanUp := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
 	)
-	defer appCleanUp()
-
+	defer cleanup()
 	completed := abool.New()
 	app.Exiter = func(code int) {
 		completed.Set()
@@ -36,10 +35,10 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
 	defer cleanup()
 	store := app.Store
@@ -54,10 +53,10 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
 	defer cleanup()
 	store := app.Store

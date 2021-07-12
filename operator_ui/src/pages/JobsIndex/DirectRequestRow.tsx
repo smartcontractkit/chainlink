@@ -1,48 +1,36 @@
 import React from 'react'
 import { TableCell, TableRow, Typography } from '@material-ui/core'
-import { TimeAgo } from '@chainlink/styleguide'
-import { useHistory } from 'react-router-dom'
+import { TimeAgo } from 'components/TimeAgo'
+import Link from 'components/Link'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequest } from './JobsIndex'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
+import { withStyles, WithStyles } from '@material-ui/core/styles'
+import { tableStyles } from 'components/Table'
 
-const styles = (theme: Theme) =>
-  createStyles({
-    cell: {
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2,
-    },
-  })
-
-interface Props extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof tableStyles> {
   job: DirectRequest
 }
 
-export const DirectRequestRow = withStyles(styles)(
+export const DirectRequestRow = withStyles(tableStyles)(
   ({ job, classes }: Props) => {
-    const history = useHistory()
-
     return (
-      <TableRow hover onClick={() => history.push(`/jobs/${job.id}`)}>
+      <TableRow className={classes.row} hover>
         <TableCell className={classes.cell} component="th" scope="row">
-          {job.attributes.name || job.id}
-          {job.attributes.name && (
-            <>
-              <br />
-              <Typography
-                variant="subtitle2"
-                color="textSecondary"
-                component="span"
-              >
-                {job.id}
-              </Typography>
-            </>
-          )}
+          <Link className={classes.link} href={`/jobs/${job.id}`}>
+            {job.attributes.name || job.id}
+            {job.attributes.name && (
+              <>
+                <br />
+                <Typography
+                  variant="subtitle2"
+                  color="textSecondary"
+                  component="span"
+                >
+                  {job.id}
+                </Typography>
+              </>
+            )}
+          </Link>
         </TableCell>
         <TableCell>
           <Typography variant="body1">

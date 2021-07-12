@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -20,10 +20,10 @@ type TransactionsController struct {
 // Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
 	txs, count, err := tc.App.GetStore().EthTransactionsWithAttempts(offset, size)
-	ptxs := make([]presenters.EthTx, len(txs))
+	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
 		tx.EthTxAttempts[0].EthTx = tx
-		ptxs[i] = presenters.NewEthTxFromAttempt(tx.EthTxAttempts[0])
+		ptxs[i] = presenters.NewEthTxResourceFromAttempt(tx.EthTxAttempts[0])
 	}
 	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }
@@ -44,5 +44,5 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewEthTxFromAttempt(*ethTxAttempt), "transaction")
+	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(*ethTxAttempt), "transaction")
 }

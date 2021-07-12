@@ -7,11 +7,11 @@ core/
 **/build/**
 **/fixtures/**
 **/lib/**
-evm-contracts/ethers
-evm-contracts/truffle
 truffle-config.js
 truffle.js
 gethload.js
 craco.config.js
 solc_bin/**
 integration/apocalypse/**
+contracts/
+tools/ci-ts/tests/ethers/**

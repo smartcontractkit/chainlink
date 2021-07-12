@@ -10,6 +10,14 @@ declare module 'core/store/models' {
 
   //#region job_spec.go
 
+  export interface JobSpecError {
+    id: string
+    description: string
+    occurrences: number
+    createdAt: time.Time
+    updatedAt: time.Time
+  }
+
   /**
    * JobSpecRequest represents a schema for the incoming job spec request as used by the API.
    */
@@ -53,7 +61,7 @@ declare module 'core/store/models' {
     endAt: nullable.Time
     name: string
     earnings: number | null
-    errors: JobSpecErrors[]
+    errors: JobSpecError[]
     updatedAt: time.time
   }
 
@@ -94,11 +102,11 @@ declare module 'core/store/models' {
    * to a parent JobID.
    */
   export interface Initiator {
-    id: number
-    jobSpecId: string
+    id?: number
+    jobSpecId?: string
     type: InitiatorType
     // FIXME - missing json struct tag
-    CreatedAt: time.Time
+    CreatedAt?: time.Time
     params?: InitiatorParams
   }
 
@@ -119,11 +127,10 @@ declare module 'core/store/models' {
    * Type will be an adapter, and the Params will contain any
    * additional information that adapter would need to operate.
    */
-  export interface TaskSpec<T extends JSONValue = JSONValue>
-    extends gorm.Model {
+  export interface TaskSpec extends gorm.Model {
     type: TaskType
-    confirmations: number
-    params: T
+    confirmations: number | null
+    params: { [key: string]: JSONValue | undefined }
   }
 
   /**
@@ -161,11 +168,13 @@ declare module 'core/store/models' {
    */
   export interface TaskRun {
     id: string
-    result: RunResult
+    result:
+      | { data: { result: string }; error: null }
+      | { data: {}; error: string }
     status: RunStatus
     task: TaskSpec
-    minimumConfirmations: clnull.Uint32
-    confirmations: clnull.Uint32
+    minimumConfirmations?: number | null
+    confirmations?: number | null
   }
 
   /**
@@ -225,13 +234,6 @@ declare module 'core/store/models' {
     address: common.Address
     from: common.Address
     amount: Pointer<assets.Eth>
-  }
-
-  /**
-   * CreateKeyRequest represents a request to add an ethereum key.
-   */
-  export interface CreateKeyRequest {
-    current_password: string // FIXME -- camelcase
   }
 
   /**
@@ -455,13 +457,66 @@ declare module 'core/store/models' {
   //#endregion p2pKey/p2p_key.go
 
   /**
-   * OcrJobSpecRequest represents a schema for the incoming ocr job spec request as used by the API.
+   * JobSpecV2Request represents a schema for the incoming job spec v2 request as used by the API.
    */
-  export interface OcrJobSpecRequest {
+  export interface JobSpecV2Request {
     toml: string
   }
 
-  export interface OcrJobSpec {
+  export type PipelineTaskOutput = string | null
+  export type PipelineTaskError = string | null
+
+  interface BaseJobSpecV2 {
+    name: string | null
+    errors: JobSpecError[]
+    maxTaskDuration: string
+    pipelineSpec: {
+      dotDagSource: string
+    }
+    schemaVersion: number
+    externalJobID: string
+  }
+
+  export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
+    type: 'directrequest'
+    directRequestSpec: {
+      initiator: 'runlog'
+      contractAddress: common.Address
+      minIncomingConfirmations: number | null
+      createdAt: time.Time
+    }
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+    keeperSpec: null
+    cronSpec: null
+    webhookSpec: null
+    vrfSpec: null
+  }
+
+  export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
+    type: 'fluxmonitor'
+    fluxMonitorSpec: {
+      contractAddress: common.Address
+      precision: number
+      threshold: number
+      absoluteThreshold: number
+      idleTimerDisabled: false
+      idleTimerPeriod: string
+      pollTimerDisabled: false
+      pollTimerPeriod: string
+      minPayment: number | null
+      createdAt: time.Time
+    }
+    cronSpec: null
+    webhookSpec: null
+    directRequestSpec: null
+    offChainReportingOracleSpec: null
+    keeperSpec: null
+    vrfSpec: null
+  }
+
+  export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
+    type: 'offchainreporting'
     offChainReportingOracleSpec: {
       contractAddress: common.Address
       p2pPeerID: string
@@ -477,7 +532,117 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
-      name?: string // Upcoming field
+    }
+    cronSpec: null
+    webhookSpec: null
+    vrfSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    keeperSpec: null
+  }
+
+  export type KeeperV2Spec = BaseJobSpecV2 & {
+    type: 'keeper'
+    keeperSpec: {
+      contractAddress: common.Address
+      fromAddress: common.Address
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    cronSpec: null
+    webhookSpec: null
+    vrfSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type CronV2Spec = BaseJobSpecV2 & {
+    type: 'cron'
+    keeperSpec: null
+    cronSpec: {
+      schedule: string
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    webhookSpec: null
+    directRequestSpec: null
+    vrfSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type WebhookV2Spec = BaseJobSpecV2 & {
+    type: 'webhook'
+    keeperSpec: null
+    webhookSpec: {
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    cronSpec: null
+    vrfSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type VRFV2Spec = BaseJobSpecV2 & {
+    type: 'vrf'
+    keeperSpec: null
+    vrfSpec: {
+      confirmations: number
+      publicKey: string
+      coordinatorAddress: common.Address,
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    cronSpec: null
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    webhookSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type JobSpecV2 =
+    | DirectRequestJobV2Spec
+    | FluxMonitorJobV2Spec
+    | OffChainReportingOracleJobV2Spec
+    | KeeperV2Spec
+    | CronV2Spec
+    | WebhookV2Spec
+    | VRFV2Spec
+
+  export interface OcrJobRun {
+    outputs: PipelineTaskOutput[]
+    errors: PipelineTaskError[]
+    taskRuns: PipelineTaskRun[]
+    createdAt: time.Time
+    finishedAt: nullable.Time
+    pipelineSpec: {
+      ID: number
+      CreatedAt: time.Time
+      dotDagSource: string
     }
   }
+
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+
+  export interface LogConfig {
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }
+
+  export interface LogConfigRequest {
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }
+}
+
+export interface PipelineTaskRun {
+  createdAt: time.Time
+  error: PipelineTaskError
+  finishedAt: nullable.Time
+  output: PipelineTaskOutput
+  dotId: string
+  type: string
 }

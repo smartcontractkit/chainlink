@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -37,7 +38,7 @@ func (jpa *JSONParse) TaskType() models.TaskType {
 //   }
 //
 // Then ["0","last"] would be the path, and "1111" would be the returned value
-func (jpa *JSONParse) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (jpa *JSONParse) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	var val string
 	var err error
 
@@ -62,7 +63,7 @@ func (jpa *JSONParse) Perform(input models.RunInput, _ *store.Store) models.RunO
 		return moldErrorOutput(js, jpa.Path, input)
 	}
 
-	return models.NewRunOutputCompleteWithResult(last.Interface())
+	return models.NewRunOutputCompleteWithResult(last.Interface(), input.ResultCollection())
 }
 
 func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
@@ -86,7 +87,7 @@ func moldErrorOutput(js *simplejson.Json, path []string, input models.RunInput) 
 	if _, err := getEarlyPath(js, path); err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return models.NewRunOutputCompleteWithResult(nil)
+	return models.NewRunOutputCompleteWithResult(nil, input.ResultCollection())
 }
 
 func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {

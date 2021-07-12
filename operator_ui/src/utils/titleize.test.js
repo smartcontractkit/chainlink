@@ -18,4 +18,10 @@ describe('Titleizes strings', () => {
       brokenCaseWithUnderscoresCorrect,
     )
   })
+  it('Does not converts non string values ', () => {
+    const date = new Date()
+    expect(titleize(1)).toEqual(1)
+    expect(titleize(undefined)).toEqual(undefined)
+    expect(titleize(date)).toEqual(date)
+  })
 })

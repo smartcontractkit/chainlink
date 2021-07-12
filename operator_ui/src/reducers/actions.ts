@@ -1,6 +1,6 @@
 import React from 'react'
 import { Action } from 'redux'
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 
 export interface InitialStateAction extends Action<'INITIAL_STATE'> {}
 
@@ -22,9 +22,7 @@ export interface RedirectAction extends Action<RouterActionType.REDIRECT> {
  */
 
 export interface MatchRouteAction extends Action<RouterActionType.MATCH_ROUTE> {
-  match?: {
-    url: string
-  }
+  pathname: string
 }
 
 export enum NotifyActionType {
@@ -79,7 +77,6 @@ export enum AuthActionType {
   RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS',
   RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL',
   RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR',
-  REQUEST_SIGNOUT = 'REQUEST_SIGNOUT',
   RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS',
   RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR',
 }
@@ -115,13 +112,6 @@ export interface ReceiveSigninErrorAction
   extends Action<AuthActionType.RECEIVE_SIGNIN_ERROR> {
   errors: any[]
 }
-
-/**
- * REQUEST_SIGNOUT
- */
-
-export interface RequestSignoutAction
-  extends Action<AuthActionType.REQUEST_SIGNOUT> {}
 
 /**
  * RECEIVE_SIGNOUT_SUCCESS
@@ -399,7 +389,6 @@ export type Actions =
   | ReceiveSigninSuccessAction
   | ReceiveSigninFailAction
   | ReceiveSigninErrorAction
-  | RequestSignoutAction
   | ReceiveSignoutSuccessAction
   | ReceiveSignoutErrorAction
   | RequestCreateAction

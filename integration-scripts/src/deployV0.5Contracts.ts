@@ -1,5 +1,5 @@
-import { CoordinatorFactory } from '@chainlink/contracts/ethers/v0.5/CoordinatorFactory'
-import { MeanAggregatorFactory } from '@chainlink/contracts/ethers/v0.5/MeanAggregatorFactory'
+import { Coordinator__factory } from '@chainlink/contracts/ethers/v0.5/factories/Coordinator__factory'
+import { MeanAggregator__factory } from '@chainlink/contracts/ethers/v0.5/factories/MeanAggregator__factory'
 import {
   createProvider,
   deployContract,
@@ -21,12 +21,12 @@ export async function deployContracts() {
   const linkToken = await deployLinkTokenContract()
 
   const coordinator = await deployContract(
-    { Factory: CoordinatorFactory, signer, name: 'Coordinator' },
+    { Factory: Coordinator__factory, signer, name: 'Coordinator' },
     linkToken.address,
   )
 
   const meanAggregator = await deployContract({
-    Factory: MeanAggregatorFactory,
+    Factory: MeanAggregator__factory,
     signer,
     name: 'MeanAggregator',
   })

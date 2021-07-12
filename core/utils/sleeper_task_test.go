@@ -42,15 +42,13 @@ func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(0))
 }
 
-func TestSleeperTask_CallingStopTwicePanics(t *testing.T) {
+func TestSleeperTask_CallingStopTwiceFails(t *testing.T) {
 	t.Parallel()
 
 	worker := &countingWorker{}
 	sleeper := utils.NewSleeperTask(worker)
 	require.NoError(t, sleeper.Stop())
-	require.Panics(t, func() {
-		require.NoError(t, sleeper.Stop())
-	})
+	require.Error(t, sleeper.Stop())
 }
 
 func TestSleeperTask_WakeupPerformsWork(t *testing.T) {

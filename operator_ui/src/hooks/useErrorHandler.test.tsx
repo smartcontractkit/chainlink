@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { AuthenticationError } from '@chainlink/json-api-client'
+import { AuthenticationError } from 'utils/json-api-client'
 import { getAuthentication } from 'utils/storage'
 
 import { useErrorHandler } from './useErrorHandler'

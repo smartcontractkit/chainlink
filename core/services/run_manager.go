@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jinzhu/gorm"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 )
@@ -34,18 +35,18 @@ func (err RecurringScheduleJobError) Error() string {
 // the RunQueue
 type RunManager interface {
 	Create(
-		jobSpecID *models.ID,
+		jobSpecID models.JobID,
 		initiator *models.Initiator,
 		creationHeight *big.Int,
 		runRequest *models.RunRequest) (*models.JobRun, error)
 	CreateErrored(
-		jobSpecID *models.ID,
+		jobSpecID models.JobID,
 		initiator models.Initiator,
 		err error) (*models.JobRun, error)
 	ResumePendingBridge(
-		runID *models.ID,
+		runID uuid.UUID,
 		input models.BridgeRunResult) error
-	Cancel(runID *models.ID) (*models.JobRun, error)
+	Cancel(runID uuid.UUID) (*models.JobRun, error)
 
 	ResumeAllInProgress() error
 	ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error
@@ -155,17 +156,17 @@ func NewRunManager(
 // special case where this job cannot run but we want to create the run record
 // so the error is more visible to the node operator.
 func (rm *runManager) CreateErrored(
-	jobSpecID *models.ID,
+	jobSpecID models.JobID,
 	initiator models.Initiator,
 	runErr error) (*models.JobRun, error) {
-	job, err := rm.orm.Unscoped().FindJob(jobSpecID)
+	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
 
 	now := time.Now()
 	run := models.JobRun{
-		ID:          models.NewID(),
+		ID:          uuid.NewV4(),
 		JobSpecID:   job.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -177,20 +178,59 @@ func (rm *runManager) CreateErrored(
 	return &run, rm.orm.CreateJobRun(&run)
 }
 
+// If we have seen the same runRequest already, then double the required incoming confs.
+func (rm *runManager) MaybeDoubleMinIncomingConfs(run *models.JobRun) error {
+	if run == nil {
+		return logger.NewErrorw("RunManager: expected non-nil run")
+	}
+	if run.RunRequest.RequestID == nil {
+		return logger.NewErrorw("RunManager: expected non-nil run request ID")
+	}
+	if len(run.TaskRuns) == 0 {
+		return logger.NewErrorw("RunManager: expected non-empty task runs")
+	}
+	// We want the maximum number of random task minimum_confirmations
+	// of all job runs with the same run_request.request_id
+	var maxConfs uint32
+	if err := rm.orm.DB.Raw(`
+SELECT coalesce(max(task_runs.minimum_confirmations), 0) FROM job_runs 
+	JOIN run_requests ON job_runs.run_request_id = run_requests.id 
+	JOIN task_runs ON job_runs.id = task_runs.job_run_id
+	JOIN task_specs ON task_runs.task_spec_id = task_specs.id
+	WHERE run_requests.request_id = ? AND task_specs.type = ?
+`, run.RunRequest.RequestID, adapters.TaskTypeRandom).Scan(&maxConfs).Error; err != nil {
+		return logger.NewErrorw("RunManager: unable to check for duplicate requests", "err", err)
+	}
+	if maxConfs != 0 {
+		for i := range run.TaskRuns {
+			if run.TaskRuns[i].TaskSpec.Type == adapters.TaskTypeRandom && run.TaskRuns[i].MinRequiredIncomingConfirmations.Valid {
+				// Sanity cap must be less than 256 otherwise the blockhash will not be available directly
+				// We give it 56 blocks as a buffer to still be able to fulfill within that bound.
+				newConfs := maxConfs * 2
+				if newConfs > 200 {
+					newConfs = 200
+				}
+				logger.Warnw("RunManager: duplicate VRF requestID seen, doubling incoming confirmations",
+					"requestID", run.RunRequest.RequestID,
+					"txHash", run.RunRequest.TxHash,
+					"oldConfs", run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32,
+					"newConfs", newConfs)
+				run.TaskRuns[i].MinRequiredIncomingConfirmations.Uint32 = newConfs
+			}
+		}
+	}
+	return nil
+}
+
 // Create immediately persists a JobRun and sends it to the RunQueue for
 // execution.
 func (rm *runManager) Create(
-	jobSpecID *models.ID,
+	jobSpecID models.JobID,
 	initiator *models.Initiator,
 	creationHeight *big.Int,
 	runRequest *models.RunRequest,
 ) (*models.JobRun, error) {
-	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
-		"job", jobSpecID.String(),
-		"creation_height", creationHeight.String(),
-	)
-
-	job, err := rm.orm.Unscoped().FindJob(jobSpecID)
+	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
@@ -222,6 +262,17 @@ func (rm *runManager) Create(
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
 
+	if initiator.Type == models.InitiatorRandomnessLog {
+		err = rm.MaybeDoubleMinIncomingConfs(run)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	logger.Debugw(
+		fmt.Sprintf("RunManager: creating new job run initiated by %s", run.Initiator.Type),
+		run.ForLogger()...,
+	)
 	if err := rm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
@@ -229,10 +280,10 @@ func (rm *runManager) Create(
 
 	if run.GetStatus().Runnable() {
 		logger.Debugw(
-			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+			fmt.Sprintf("RunManager: executing run initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
-		rm.runQueue.Run(run)
+		rm.runQueue.Run(run.ID)
 	}
 	return run, nil
 }
@@ -254,7 +305,7 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 		models.RunStatusPendingOutgoingConfirmations,
 		models.RunStatusPendingIncomingConfirmations,
 	}
-	runIDs := []*models.ID{}
+	runIDs := []uuid.UUID{}
 
 	err := rm.orm.Transaction(func(tx *gorm.DB) error {
 		updateTaskRunsQuery := `
@@ -285,7 +336,7 @@ RETURNING id;`
 		if result.Error != nil {
 			return result.Error
 		}
-		return result.Pluck("id", &runIDs).Error
+		return result.Scan(&runIDs).Error
 	})
 
 	if err != nil {
@@ -293,8 +344,7 @@ RETURNING id;`
 	}
 
 	for _, runID := range runIDs {
-		// FIXME: this is safe, but probably better to change Run to just take an ID here
-		rm.runQueue.Run(&models.JobRun{ID: runID})
+		rm.runQueue.Run(runID)
 	}
 	rm.statsPusher.PushNow()
 	return nil
@@ -325,7 +375,7 @@ func (rm *runManager) ResumeAllPendingConnection() error {
 
 // ResumePendingBridgeTask wakes up a task that required a response from a bridge adapter.
 func (rm *runManager) ResumePendingBridge(
-	runID *models.ID,
+	runID uuid.UUID,
 	input models.BridgeRunResult,
 ) error {
 	run, err := rm.orm.Unscoped().FindJobRun(runID)
@@ -366,11 +416,12 @@ func (rm *runManager) ResumePendingBridge(
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
 func (rm *runManager) ResumeAllInProgress() error {
-	return rm.orm.UnscopedJobRunsWithStatus(rm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
+	queueRun := func(run *models.JobRun) { rm.runQueue.Run(run.ID) }
+	return rm.orm.UnscopedJobRunsWithStatus(queueRun, models.RunStatusInProgress, models.RunStatusPendingSleep)
 }
 
 // Cancel suspends a running task.
-func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
+func (rm *runManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
 	run, err := rm.orm.FindJobRun(runID)
 	if err != nil {
 		return nil, err
@@ -405,7 +456,38 @@ func (rm *runManager) saveAndResumeIfInProgress(run *models.JobRun) error {
 	}
 	rm.statsPusher.PushNow()
 	if run.GetStatus() == models.RunStatusInProgress {
-		rm.runQueue.Run(run)
+		rm.runQueue.Run(run.ID)
 	}
 	return nil
+}
+
+// NullRunManager implements Null pattern for RunManager interface
+type NullRunManager struct{}
+
+func (NullRunManager) Create(jobSpecID models.JobID, initiator *models.Initiator, creationHeight *big.Int, runRequest *models.RunRequest) (*models.JobRun, error) {
+	return nil, errors.New("NullRunManager#Create should never be called")
+}
+
+func (NullRunManager) CreateErrored(jobSpecID models.JobID, initiator models.Initiator, err error) (*models.JobRun, error) {
+	return nil, errors.New("NullJobSubscriber#CreateErrored should never be called")
+}
+
+func (NullRunManager) ResumePendingBridge(runID uuid.UUID, input models.BridgeRunResult) error {
+	return errors.New("NullRunManager#ResumePendingBridge should never be called")
+}
+
+func (NullRunManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
+	return nil, errors.New("NullJobSubscriber#Cancel should never be called")
+}
+
+func (NullRunManager) ResumeAllInProgress() error {
+	return errors.New("NullRunManager#ResumeAllInProgress should never be called")
+}
+
+func (NullRunManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
+	return errors.New("NullRunManager#ResumeAllPendingNextBlock should never be called")
+}
+
+func (NullRunManager) ResumeAllPendingConnection() error {
+	return errors.New("NullRunManager#ResumeAllPendingConnection should never be called")
 }

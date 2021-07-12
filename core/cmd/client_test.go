@@ -44,11 +44,10 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBlockByNumber,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -95,28 +94,28 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	defer cleanup()
 	config := tc.Config
 
-	tests := []struct {
-		name      string
-		rootDir   string
-		wantError bool
-	}{
-		{"missing", config.RootDir(), true},
-		{"correct fixture", "../internal/fixtures", false},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config.Set("ROOT", test.rootDir)
-			store := cmd.DiskCookieStore{Config: config}
-			cookie, err := store.Retrieve()
-			if test.wantError {
-				assert.Error(t, err)
-				assert.Nil(t, cookie)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, cookie)
-			}
-		})
-	}
+	t.Run("missing cookie file", func(t *testing.T) {
+		store := cmd.DiskCookieStore{Config: config}
+		cookie, err := store.Retrieve()
+		assert.NoError(t, err)
+		assert.Nil(t, cookie)
+	})
+
+	t.Run("invalid cookie file", func(t *testing.T) {
+		config.Set("ROOT", "../internal/fixtures/badcookie")
+		store := cmd.DiskCookieStore{Config: config}
+		cookie, err := store.Retrieve()
+		assert.Error(t, err)
+		assert.Nil(t, cookie)
+	})
+
+	t.Run("valid cookie file", func(t *testing.T) {
+		config.Set("ROOT", "../internal/fixtures")
+		store := cmd.DiskCookieStore{Config: config}
+		cookie, err := store.Retrieve()
+		assert.NoError(t, err)
+		assert.NotNil(t, cookie)
+	})
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
@@ -128,9 +127,9 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		isTerminal     bool
 		isError        bool
 	}{
-		{"correct", []string{"good@email.com", "password"}, true, false},
-		{"incorrect pwd then correct", []string{"good@email.com", "", "good@email.com", "password"}, true, false},
-		{"incorrect email then correct", []string{"", "password", "good@email.com", "password"}, true, false},
+		{"correct", []string{"good@email.com", "p4SsW0rD1!@#_"}, true, false},
+		{"bad pwd then correct", []string{"good@email.com", "p4SsW0r", "good@email.com", "p4SsW0rD1!@#_"}, true, false},
+		{"bad email then correct", []string{"", "p4SsW0rD1!@#_", "good@email.com", "p4SsW0rD1!@#_"}, true, false},
 		{"not a terminal", []string{}, false, true},
 	}
 	for _, test := range tests {
@@ -142,7 +141,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			// Remove fixture user
-			_, err := store.DeleteUser()
+			err := store.DeleteUser()
 			require.NoError(t, err)
 
 			user, err := tai.Initialize(store)

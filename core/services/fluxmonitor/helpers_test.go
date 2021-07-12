@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,12 +10,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,11 +32,11 @@ func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThre
 	p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
+func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound) {
 	p.respondToNewRoundLog(*log)
 }
 
-func (p *PollingDeviationChecker) ExportedSufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+func (p *PollingDeviationChecker) ExportedSufficientFunds(state flux_aggregator_wrapper.OracleRoundState) bool {
 	return p.sufficientFunds(state)
 }
 
@@ -48,15 +52,19 @@ func (p *PollingDeviationChecker) ExportedBacklog() *utils.BoundedPriorityQueue 
 	return p.backlog
 }
 
-func (p *PollingDeviationChecker) ExportedFluxAggregator() contracts.FluxAggregator {
+func (p *PollingDeviationChecker) ExportedFluxAggregator() flux_aggregator_wrapper.FluxAggregatorInterface {
 	return p.fluxAggregator
+}
+
+func (p *PollingDeviationChecker) ExportedLogBroadcaster() *logmocks.Broadcaster {
+	return p.logBroadcaster.(*logmocks.Broadcaster)
 }
 
 func (p *PollingDeviationChecker) ExportedRoundState() {
 	p.roundState(0)
 }
 
-func (p *PollingDeviationChecker) ExportedSetFluxAggregator(fa contracts.FluxAggregator) {
+func (p *PollingDeviationChecker) ExportedSetFluxAggregator(fa flux_aggregator_wrapper.FluxAggregatorInterface) {
 	p.fluxAggregator = fa
 }
 
@@ -76,7 +84,7 @@ func newFixedPricedFetcher(price decimal.Decimal) *fixedFetcher {
 	return &fixedFetcher{price: price}
 }
 
-func (ps *fixedFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
+func (ps *fixedFetcher) Fetch(context.Context, map[string]interface{}, logger.Logger) (decimal.Decimal, error) {
 	return ps.price, nil
 }
 
@@ -86,7 +94,7 @@ func newErroringPricedFetcher() *erroringFetcher {
 	return &erroringFetcher{}
 }
 
-func (*erroringFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
+func (*erroringFetcher) Fetch(context.Context, map[string]interface{}, logger.Logger) (decimal.Decimal, error) {
 	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 
@@ -130,8 +138,8 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 // CreateJob is used in TestFluxMonitorAntiSpamLogic to create a
 // job with a specific answer and round, for testing nodes with malicious
 // behavior
-func (fm *concreteFluxMonitor) CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error {
-	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)
+func (fm *concreteFluxMonitor) CreateJob(t *testing.T, jobSpecId models.JobID, polledAnswer decimal.Decimal, nextRound *big.Int) error {
+	jobSpec, err := fm.store.ORM.FindJobSpec(jobSpecId)
 	require.NoError(t, err, "could not find job spec with that ID")
 
 	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager, fm.store.ORM, models.MustMakeDuration(100*time.Second))

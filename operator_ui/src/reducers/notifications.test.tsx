@@ -1,5 +1,5 @@
 import * as React from 'react'
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import reducer, { INITIAL_STATE } from '../../src/reducers'
 import {
   AuthActionType,
@@ -119,12 +119,9 @@ describe('reducers/notifications', () => {
   })
 
   describe('MATCH_ROUTE', () => {
-    const sameUrlAction: MatchRouteAction = {
-      type: RouterActionType.MATCH_ROUTE,
-    }
     const changeUrlAction: MatchRouteAction = {
       type: RouterActionType.MATCH_ROUTE,
-      match: { url: '/to' },
+      pathname: '/to',
     }
 
     it('clears errors when currentUrl changes', () => {
@@ -133,7 +130,6 @@ describe('reducers/notifications', () => {
       }
 
       let state = reducer(INITIAL_STATE, errorAction)
-      state = reducer(state, sameUrlAction)
       expect(state.notifications.errors.length).toEqual(1)
       expect(state.notifications.successes.length).toEqual(0)
       expect(state.notifications.currentUrl).toBeUndefined()
@@ -152,7 +148,6 @@ describe('reducers/notifications', () => {
       }
 
       let state = reducer(INITIAL_STATE, successAction)
-      state = reducer(state, sameUrlAction)
       expect(state.notifications.successes.length).toEqual(1)
       expect(state.notifications.currentUrl).toBeUndefined()
 

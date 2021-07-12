@@ -3,15 +3,21 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -37,7 +43,11 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 func TestJobSpecsController_Index_noSort(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -86,7 +96,11 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -162,13 +176,17 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_job.json")))
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_job.json")))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -196,7 +214,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	// Check ORM
 	orm := app.GetStore().ORM
-	j, err = orm.FindJob(j.ID)
+	j, err = orm.FindJobSpec(j.ID)
 	require.NoError(t, err)
 	require.Len(t, j.Initiators, 1)
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
@@ -209,13 +227,17 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 func TestJobSpecsController_Create_CustomName(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	fixtureBytes := cltest.MustReadFile(t, "testdata/hello_world_job.json")
+	fixtureBytes := cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_job.json")
 	jsr := cltest.JSONFromBytes(t, fixtureBytes)
 	jsr, err := jsr.MultiAdd(map[string]interface{}{"name": "CustomJobName"})
 	require.NoError(t, err)
@@ -232,49 +254,16 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 		require.NoError(t, err)
 
 		orm := app.GetStore().ORM
-		j, err = orm.FindJob(j.ID)
+		j, err = orm.FindJobSpec(j.ID)
 		require.NoError(t, err)
 		assert.Equal(t, j.Name, "CustomJobName")
-	})
-
-	t.Run("it replaces a blank name with a generated one", func(t *testing.T) {
-		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": ""})
-		require.NoError(t, err)
-		requestBody, err = json.Marshal(jsr)
-		require.NoError(t, err)
-
-		client = app.NewHTTPClient()
-		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-		var j models.JobSpec
-		err = cltest.ParseJSONAPIResponse(t, resp, &j)
-		require.NoError(t, err)
-
-		orm := app.GetStore().ORM
-		j, err = orm.FindJob(j.ID)
-		require.NoError(t, err)
-		assert.NotEmpty(t, j.Name)
-		assert.NotEqual(t, j.Name, "CustomJobName")
-	})
-
-	t.Run("it rejects an already taken name", func(t *testing.T) {
-		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": "CustomJobName"})
-		require.NoError(t, err)
-		requestBody, err = json.Marshal(jsr)
-		require.NoError(t, err)
-
-		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusConflict)
 	})
 }
 
 func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
 
-	var eiReceived web.JobSpecNotice
+	var eiReceived webhook.JobSpecNotice
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
 			err := json.Unmarshal([]byte(body), &eiReceived)
@@ -283,7 +272,12 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	)
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+		cltest.UseRealExternalInitiatorManager,
+	)
 	defer cleanup()
 	app.Start()
 
@@ -298,8 +292,8 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	err = app.GetStore().CreateExternalInitiator(ei)
 	require.NoError(t, err)
 
-	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
-	expected := web.JobSpecNotice{
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./../testdata/jsonspecs/external_initiator_job.json")
+	expected := webhook.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
@@ -312,11 +306,15 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/caseinsensitive_hello_world_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/caseinsensitive_hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
@@ -339,13 +337,17 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 
 func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/nonexistent_task_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/nonexistent_task_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -360,15 +362,20 @@ func TestJobSpecsController_Create_FluxMonitor_disabled(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "FALSE")
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
+		ethClient,
+	)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -382,15 +389,34 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
+		ethClient,
+	)
 	defer cleanup()
+
+	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "getOracles").
+		Return(getOraclesResult, nil)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(nil, errors.New("first round"))
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Maybe()
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -401,9 +427,28 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
+		ethClient,
+	)
 	defer cleanup()
+
+	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "getOracles").
+		Return(getOraclesResult, nil)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(nil, errors.New("first round"))
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Maybe()
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
 
@@ -415,7 +460,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	}
 	require.NoError(t, app.Store.CreateBridgeType(bridge))
 
-	jsonStr := cltest.MustReadFile(t, "testdata/flux_monitor_bridge_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job_noop.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -426,15 +471,20 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
+		ethClient,
+	)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/flux_monitor_bridge_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job_noop.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -443,13 +493,17 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/run_at_wo_time_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/run_at_wo_time_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -462,13 +516,17 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/invalid_cron.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/invalid_cron.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -481,13 +539,17 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/initiator_only_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/initiator_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -500,13 +562,17 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "testdata/task_only_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/task_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -515,6 +581,48 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
 	body := string(cltest.ParseResponseBody(t, resp))
 	assert.Equal(t, expected, strings.TrimSpace(body))
+}
+
+func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	t.Cleanup(cleanup)
+	app.Config.Set("ETH_DISABLED", true)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	t.Run("VRF", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "./../testdata/jsonspecs/randomness_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 1)
+	})
+
+	t.Run("runlog", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_noop_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 2)
+	})
+
+	t.Run("ethlog", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/runlog_noop_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 3)
+	})
 }
 
 func BenchmarkJobSpecsController_Show(b *testing.B) {
@@ -535,7 +643,11 @@ func BenchmarkJobSpecsController_Show(b *testing.B) {
 func TestJobSpecsController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -558,7 +670,11 @@ func TestJobSpecsController_Show(t *testing.T) {
 func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -587,7 +703,11 @@ func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
 func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -596,10 +716,10 @@ func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	// Create a task with multiple jobs
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{
-		models.TaskSpec{Type: models.MustNewTaskType("Task1")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task2")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task3")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task4")},
+		{Type: models.MustNewTaskType("Task1")},
+		{Type: models.MustNewTaskType("Task2")},
+		{Type: models.MustNewTaskType("Task3")},
+		{Type: models.MustNewTaskType("Task4")},
 	}
 	assert.NoError(t, app.Store.CreateJob(&j))
 
@@ -632,7 +752,11 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 
 func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -645,7 +769,11 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 
 func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -658,10 +786,13 @@ func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	require.NoError(t, app.Start())
-
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	resp, err := http.Get(app.Server.URL + "/v2/specs/garbage")
 	assert.NoError(t, err)
@@ -670,7 +801,13 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 func TestJobSpecsController_Destroy(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, s, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
+
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -681,13 +818,49 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+}
+
+func TestJobSpecsController_DestroyAdd(t *testing.T) {
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+	job := cltest.NewJobWithLogInitiator()
+	job.Name = "testjob"
+	require.NoError(t, app.Store.CreateJob(&job))
+
+	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+
+	job = cltest.NewJobWithLogInitiator()
+	job.Name = "testjob"
+	require.NoError(t, app.Store.CreateJob(&job))
+
+	// Can delete this new job
+	resp, cleanup = client.Delete("/v2/specs/" + job.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
 
 func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -700,12 +873,12 @@ func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/specs/" + job1.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job1.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job1.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 
 	resp, cleanup = client.Delete("/v2/specs/" + job2.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job2.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job2.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }

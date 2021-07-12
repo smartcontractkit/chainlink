@@ -1,11 +1,14 @@
 package models
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -46,11 +49,12 @@ var (
 	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	OracleFulfillmentFunctionID2020                = utils.MustHash("fulfillOracleRequest2(bytes32,uint256,address,bytes4,uint256,bytes)").Hex()[:10]
 )
 
 type logRequestParser interface {
-	parseJSON(Log) (JSON, error)
-	parseRequestID(Log) (common.Hash, error)
+	parseJSON(types.Log) (JSON, error)
+	parseRequestID(types.Log) (common.Hash, error)
 }
 
 // topicFactoryMap maps the log topic to a factory method that returns an
@@ -66,7 +70,7 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 // (InitiatorFluxMonitor kicks off work, but not a user-specified job.)
 var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog, InitiatorRandomnessLog}
 
-// topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
+// TopicsForInitiatorsWhichRequireJobSpecIDTopic are the log topics which kick off
 // a user job with the given type of initiator. If chainlink has any jobs with
 // these initiators, it subscribes on startup to logs which match both these
 // topics and some representation of the job spec ID.
@@ -82,9 +86,9 @@ func initiationRequiresJobSpecID(initiatorType string) bool {
 	return ok
 }
 
-// jobSpecIDTopics lists the ways jsID could be represented as a log topic. This
+// JobSpecIDTopics lists the ways jsID could be represented as a log topic. This
 // allows log subscriptions to respond to all possible representations.
-func JobSpecIDTopics(jsID *ID) []common.Hash {
+func JobSpecIDTopics(jsID JobID) []common.Hash {
 	return []common.Hash{
 		// The job to be initiated can be encoded in a log topic in two ways:
 		IDToTopic(jsID),    // 16 full-range bytes, left padded to 32 bytes,
@@ -117,9 +121,15 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
 	case initiationRequiresJobSpecID(i.Type):
+		jobIDFilters := JobSpecIDTopics(i.JobSpecID)
+
+		if !utils.IsEmpty(i.InitiatorParams.JobIDTopicFilter.UUID().Bytes()) {
+			jobIDFilters = append(jobIDFilters, JobSpecIDTopics(i.InitiatorParams.JobIDTopicFilter)...)
+		}
+
 		q.Topics = [][]common.Hash{
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
-			JobSpecIDTopics(i.JobSpecID),
+			jobIDFilters,
 		}
 	default:
 		return ethereum.FilterQuery{},
@@ -132,8 +142,8 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 // types of LogEvents.
 // i.e. EthLogEvent, RunLogEvent, OracleLogEvent
 type LogRequest interface {
-	GetLog() Log
-	GetJobSpecID() *ID
+	GetLog() types.Log
+	GetJobSpecID() JobID
 	GetInitiator() Initiator
 
 	Validate() bool
@@ -148,7 +158,7 @@ type LogRequest interface {
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
 // InitiatorSubscription, and acts as a base struct for other log-initiated events
 type InitiatorLogEvent struct {
-	Log       Log
+	Log       types.Log
 	Initiator Initiator
 }
 
@@ -170,12 +180,12 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 }
 
 // GetLog returns the log.
-func (le InitiatorLogEvent) GetLog() Log {
+func (le InitiatorLogEvent) GetLog() types.Log {
 	return le.Log
 }
 
 // GetJobSpecID returns the associated JobSpecID
-func (le InitiatorLogEvent) GetJobSpecID() *ID {
+func (le InitiatorLogEvent) GetJobSpecID() JobID {
 	return le.Initiator.JobSpecID
 }
 
@@ -189,7 +199,12 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Initiator.JobSpecID.String(),
-		"log", le.Log.BlockNumber,
+		"blockNum", le.Log.BlockNumber,
+		"blockHash", le.Log.BlockHash.Hex(),
+		"txHash", le.Log.TxHash.Hex(),
+		"txIndex", le.Log.TxIndex,
+		"logIndex", le.Log.Index,
+		"removed", le.Log.Removed,
 		"initiator", le.Initiator,
 	}
 	for index, topic := range le.Log.Topics {
@@ -272,7 +287,7 @@ func (le RunLogEvent) Validate() bool {
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func contractPayment(log Log) (*assets.Link, error) {
+func contractPayment(log types.Log) (*assets.Link, error) {
 	var encodedAmount common.Hash
 	paymentStart := requesterSize + idSize
 	paymentData, err := UntrustedBytes(log.Data).SafeByteSlice(paymentStart, paymentStart+paymentSize)
@@ -358,7 +373,7 @@ func (le RunLogEvent) JSON() (JSON, error) {
 	return ParseRunLog(le.Log)
 }
 
-func parserFromLog(log Log) (logRequestParser, error) {
+func parserFromLog(log types.Log) (logRequestParser, error) {
 	if len(log.Topics) == 0 {
 		return nil, errors.New("log has no topics")
 	}
@@ -371,7 +386,7 @@ func parserFromLog(log Log) (logRequestParser, error) {
 }
 
 // ParseRunLog decodes the CBOR in the ABI of the log event.
-func ParseRunLog(log Log) (JSON, error) {
+func ParseRunLog(log types.Log) (JSON, error) {
 	parser, err := parserFromLog(log)
 	if err != nil {
 		return JSON{}, err
@@ -386,7 +401,7 @@ func ParseRunLog(log Log) (JSON, error) {
 // payment amount, callback, expiration, and data.
 type parseRunLog20190207withoutIndexes struct{}
 
-func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
+func (parseRunLog20190207withoutIndexes) parseJSON(log types.Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
@@ -423,14 +438,35 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 		return JSON{}, err
 	}
 
+	// The operator contract restricts us to 256 versions, so
+	// 8 bytes worth of data versions is plenty.
+	dataVersionBytes, err := UntrustedBytes(data).SafeByteSlice(expirationEnd+versionSize-8, expirationEnd+versionSize)
+	if err != nil {
+		return JSON{}, err
+	}
+	b := bytes.NewBuffer(dataVersionBytes)
+	var dataVersion uint64
+	err = binary.Read(b, binary.BigEndian, &dataVersion)
+	if err != nil {
+		return JSON{}, err
+	}
+	var fnSelector string
+	switch dataVersion {
+	case 1:
+		fnSelector = OracleFulfillmentFunctionID20190128withoutCast
+	case 2:
+		fnSelector = OracleFulfillmentFunctionID2020
+	default:
+		return JSON{}, errors.Errorf("unsupported data version %d", dataVersion)
+	}
 	return js.MultiAdd(KV{
 		"address":          log.Address.String(),
 		"dataPrefix":       bytesToHex(dataPrefixBytes),
-		"functionSelector": OracleFulfillmentFunctionID20190128withoutCast,
+		"functionSelector": fnSelector,
 	})
 }
 
-func (parseRunLog20190207withoutIndexes) parseRequestID(log Log) (common.Hash, error) {
+func (parseRunLog20190207withoutIndexes) parseRequestID(log types.Log) (common.Hash, error) {
 	start := requesterSize
 	requestIDBytes, err := UntrustedBytes(log.Data).SafeByteSlice(start, start+idSize)
 	if err != nil {
@@ -443,14 +479,14 @@ func bytesToHex(data []byte) string {
 	return utils.AddHexPrefix(hex.EncodeToString(data))
 }
 
-// IDToTopic encodes the bytes representation of the ID padded to fit into a
+// IDToTopic encodes the bytes representation of the JobID padded to fit into a
 // bytes32
-func IDToTopic(id *ID) common.Hash {
-	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
+func IDToTopic(id JobID) common.Hash {
+	return common.BytesToHash(common.RightPadBytes(id.UUID().Bytes(), utils.EVMWordByteLen))
 }
 
-// IDToHexTopic encodes the string representation of the ID
-func IDToHexTopic(id *ID) common.Hash {
+// IDToHexTopic encodes the string representation of the JobID
+func IDToHexTopic(id JobID) common.Hash {
 	return common.BytesToHash([]byte(id.String()))
 }
 

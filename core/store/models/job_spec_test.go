@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -14,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestNewInitiatorFromRequest(t *testing.T) {
@@ -116,6 +117,7 @@ func TestInitiatorParams(t *testing.T) {
 			FromBlock:         big,
 			ToBlock:           big,
 			Topics:            topics,
+			JobIDTopicFilter:  models.JobID(uuid.NewV4()),
 			RequestData:       json,
 			Feeds:             json,
 			Threshold:         42.42,
@@ -175,13 +177,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	j2 := models.NewJobFromRequest(jsr)
 	require.NoError(t, store.CreateJob(&j2))
 
-	fetched1, err := store.FindJob(j1.ID)
+	fetched1, err := store.FindJobSpec(j1.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
 	assert.Nil(t, fetched1.MinPayment)
 
-	fetched2, err := store.FindJob(j2.ID)
+	fetched2, err := store.FindJobSpec(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
@@ -206,7 +208,7 @@ func TestJobSpec_Save(t *testing.T) {
 
 	initr := j1.Initiators[0]
 
-	j2, err := store.FindJob(j1.ID)
+	j2, err := store.FindJobSpec(j1.ID)
 	require.NoError(t, err)
 	require.Len(t, j2.Initiators, 1)
 	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)
@@ -245,7 +247,7 @@ func TestJobEnded(t *testing.T) {
 		current time.Time
 		want    bool
 	}{
-		{"no end at", null.Time{Valid: false}, endAt.Time, false},
+		{"no end at", null.TimeFromPtr(nil), endAt.Time, false},
 		{"before end at", endAt, endAt.Time.Add(-time.Nanosecond), false},
 		{"at end at", endAt, endAt.Time, false},
 		{"after end at", endAt, endAt.Time.Add(time.Nanosecond), true},
@@ -272,7 +274,7 @@ func TestJobSpec_Started(t *testing.T) {
 		current time.Time
 		want    bool
 	}{
-		{"no start at", null.Time{Valid: false}, startAt.Time, true},
+		{"no start at", null.TimeFromPtr(nil), startAt.Time, true},
 		{"before start at", startAt, startAt.Time.Add(-time.Nanosecond), false},
 		{"at start at", startAt, startAt.Time, true},
 		{"after start at", startAt, startAt.Time.Add(time.Nanosecond), true},

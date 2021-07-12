@@ -15,21 +15,23 @@ import (
 // EventWebSocketServer is a web socket server designed specifically for testing
 type EventWebSocketServer struct {
 	*httptest.Server
-	mutex       *sync.RWMutex // shared mutex for safe access to arrays/maps.
-	t           *testing.T
-	connections []*websocket.Conn
-	Connected   chan struct{}
-	Received    chan string
-	URL         *url.URL
+	mutex          *sync.RWMutex // shared mutex for safe access to arrays/maps.
+	t              *testing.T
+	connections    []*websocket.Conn
+	Connected      chan struct{}
+	ReceivedText   chan string
+	ReceivedBinary chan []byte
+	URL            *url.URL
 }
 
 // NewEventWebSocketServer returns a new EventWebSocketServer
 func NewEventWebSocketServer(t *testing.T) (*EventWebSocketServer, func()) {
 	server := &EventWebSocketServer{
-		mutex:     &sync.RWMutex{},
-		t:         t,
-		Connected: make(chan struct{}, 1), // have buffer of one for easier assertions after the event
-		Received:  make(chan string, 100),
+		mutex:          &sync.RWMutex{},
+		t:              t,
+		Connected:      make(chan struct{}, 1), // have buffer of one for easier assertions after the event
+		ReceivedText:   make(chan string, 100),
+		ReceivedBinary: make(chan []byte, 100),
 	}
 
 	server.Server = httptest.NewServer(http.HandlerFunc(server.handler))
@@ -92,7 +94,7 @@ func (wss *EventWebSocketServer) handler(w http.ResponseWriter, r *http.Request)
 
 	wss.addConnection(conn)
 	for {
-		_, payload, err := conn.ReadMessage() // we only read
+		messageType, payload, err := conn.ReadMessage() // we only read
 		if websocket.IsCloseError(err, closeCodes...) {
 			wss.removeConnection(conn)
 			return
@@ -101,9 +103,18 @@ func (wss *EventWebSocketServer) handler(w http.ResponseWriter, r *http.Request)
 			wss.t.Fatal("EventWebSocketServer ReadMessage: ", err)
 		}
 
-		select {
-		case wss.Received <- string(payload):
-		default:
+		if messageType == websocket.TextMessage {
+			select {
+			case wss.ReceivedText <- string(payload):
+			default:
+			}
+		} else if messageType == websocket.BinaryMessage {
+			select {
+			case wss.ReceivedBinary <- payload:
+			default:
+			}
+		} else {
+			wss.t.Fatal("EventWebSocketServer UnsupportedMessageType: ", messageType)
 		}
 	}
 }

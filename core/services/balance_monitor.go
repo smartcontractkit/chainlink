@@ -8,6 +8,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -18,13 +22,14 @@ import (
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
-		store.HeadTrackable
+		httypes.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
-		Stop() error
+		service.Service
 	}
 
 	balanceMonitor struct {
 		store          *store.Store
+		ethKeyStore    *keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -34,9 +39,10 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(store *store.Store) BalanceMonitor {
+func NewBalanceMonitor(store *store.Store, ethKeyStore *keystore.Eth) BalanceMonitor {
 	bm := &balanceMonitor{
 		store:          store,
+		ethKeyStore:    ethKeyStore,
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
 	}
@@ -51,9 +57,21 @@ func (bm *balanceMonitor) Connect(_ *models.Head) error {
 	return nil
 }
 
-// Stop shuts down the BalanceMonitor, should not be used after this
-func (bm *balanceMonitor) Stop() error {
+func (bm *balanceMonitor) Start() error {
+	return nil
+}
+
+// Close shuts down the BalanceMonitor, should not be used after this
+func (bm *balanceMonitor) Close() error {
 	return bm.sleeperTask.Stop()
+}
+
+func (bm *balanceMonitor) Ready() error {
+	return nil
+}
+
+func (bm *balanceMonitor) Healthy() error {
+	return nil
 }
 
 // Disconnect complies with HeadTrackable
@@ -105,7 +123,7 @@ type worker struct {
 }
 
 func (w *worker) Work() {
-	keys, err := w.bm.store.SendKeys()
+	keys, err := w.bm.ethKeyStore.SendingKeys()
 	if err != nil {
 		logger.Error("BalanceMonitor: error getting keys", err)
 	}
@@ -114,7 +132,7 @@ func (w *worker) Work() {
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k models.Key) {
+		go func(k ethkey.Key) {
 			w.checkAccountBalance(k)
 			wg.Done()
 		}(key)
@@ -125,7 +143,7 @@ func (w *worker) Work() {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(k models.Key) {
+func (w *worker) checkAccountBalance(k ethkey.Key) {
 	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
 	defer cancel()
 
@@ -149,9 +167,10 @@ func (w *worker) checkAccountBalance(k models.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Stop() error {
-	return nil
-}
+func (*NullBalanceMonitor) Start() error   { return nil }
+func (*NullBalanceMonitor) Close() error   { return nil }
+func (*NullBalanceMonitor) Ready() error   { return nil }
+func (*NullBalanceMonitor) Healthy() error { return nil }
 func (*NullBalanceMonitor) Connect(head *models.Head) error {
 	return nil
 }

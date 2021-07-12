@@ -2,7 +2,9 @@ package models
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -36,60 +38,26 @@ func (bt *BridgeTypeRequest) SetID(value string) error {
 
 // BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
 type BridgeTypeAuthentication struct {
-	Name                   TaskType     `json:"name"`
-	URL                    WebURL       `json:"url"`
-	Confirmations          uint32       `json:"confirmations"`
-	IncomingToken          string       `json:"incomingToken"`
-	OutgoingToken          string       `json:"outgoingToken"`
-	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeTypeAuthentication) GetID() string {
-	return bt.Name.String()
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeTypeAuthentication) GetName() string {
-	return "bridges"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (bt *BridgeTypeAuthentication) SetID(value string) error {
-	name, err := NewTaskType(value)
-	bt.Name = name
-	return err
+	Name                   TaskType
+	URL                    WebURL
+	Confirmations          uint32
+	IncomingToken          string
+	OutgoingToken          string
+	MinimumContractPayment *assets.Link
 }
 
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType     `json:"name" gorm:"primary_key"`
-	URL                    WebURL       `json:"url"`
-	Confirmations          uint32       `json:"confirmations"`
-	IncomingTokenHash      string       `json:"-"`
-	Salt                   string       `json:"-"`
-	OutgoingToken          string       `json:"outgoingToken"`
-	MinimumContractPayment *assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
-	CreatedAt              time.Time    `json:"-"`
-	UpdatedAt              time.Time    `json:"-"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeType) GetID() string {
-	return bt.Name.String()
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeType) GetName() string {
-	return "bridges"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (bt *BridgeType) SetID(value string) error {
-	name, err := NewTaskType(value)
-	bt.Name = name
-	return err
+	Name                   TaskType `gorm:"primary_key"`
+	URL                    WebURL
+	Confirmations          uint32
+	IncomingTokenHash      string
+	Salt                   string
+	OutgoingToken          string
+	MinimumContractPayment *assets.Link `gorm:"type:varchar(255)"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 // NewBridgeType returns a bridge bridge type authentication (with plaintext
@@ -140,4 +108,30 @@ func incomingTokenHash(token, salt string) (string, error) {
 		return "", err
 	}
 	return hash, nil
+}
+
+// NOTE: latestAnswer and updatedAt is the only metadata used.
+// Currently market closer adapter and outlier detection depend latestAnswer.
+// https://github.com/smartcontractkit/external-adapters-js/tree/f474bd2e2de13ebe5c9dc3df36ebb7018817005e/composite/market-closure
+// https://github.com/smartcontractkit/external-adapters-js/tree/5abb8e5ec2024f724fd39122897baa63c3cd0167/composite/outlier-detection
+type BridgeMetaData struct {
+	LatestAnswer *big.Int `json:"latestAnswer"`
+	UpdatedAt    *big.Int `json:"updatedAt"` // A unix timestamp
+}
+
+type BridgeMetaDataJSON struct {
+	Meta BridgeMetaData
+}
+
+func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]interface{}, error) {
+	b, err := json.Marshal(&BridgeMetaData{LatestAnswer: latestAnswer, UpdatedAt: updatedAt})
+	if err != nil {
+		return nil, err
+	}
+	var mp map[string]interface{}
+	err = json.Unmarshal(b, &mp)
+	if err != nil {
+		return nil, err
+	}
+	return mp, nil
 }

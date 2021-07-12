@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import Index from 'pages/Dashboards/Index'
-import accountBalanceFactory from 'factories/accountBalance'
+import { accountBalances } from 'factories/accountBalance'
 import React from 'react'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
@@ -60,11 +60,13 @@ describe('pages/Dashboards/Index', () => {
     }
     global.fetch.getOnce(globPath('/v2/specs'), recentlyCreatedJobsResponse)
 
-    const accountBalanceResponse = accountBalanceFactory(
-      '10123456000000000000000',
-      '7467870000000000000000',
-    )
-    global.fetch.getOnce(globPath('/v2/user/balances'), accountBalanceResponse)
+    const accountBalanceResponse = accountBalances([
+      {
+        ethBalance: '10123456000000000000000',
+        linkBalance: '7467870000000000000000',
+      },
+    ])
+    global.fetch.getOnce(globPath('/v2/keys/eth'), accountBalanceResponse)
 
     const wrapper = mountIndex()
 

@@ -2,6 +2,8 @@
 
 ENVIRONMENT ?= release
 
+GOPATH ?= $(HOME)/go
+BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
@@ -10,6 +12,7 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
+CHAINLINK_USER ?= root
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 ECR_REPO := "$(AWS_ECR_URL)/chainlink:$(DOCKER_TAG)"
@@ -40,6 +43,7 @@ yarndep: ## Ensure all yarn dependencies are installed
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
+	mkdir -p $(GOBIN)
 	cp $< $(GOBIN)/chainlink
 
 chainlink: operator-ui ## Build the chainlink binary.
@@ -69,8 +73,8 @@ abigen:
 	./tools/bin/build_abigen
 
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
-	yarn workspace @chainlink/contracts compile:clean
+go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and their go wrappers
+	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
 	go run ./packr/main.go ./core/services/eth/
 
@@ -89,15 +93,21 @@ presubmit:
 docker: ## Build the docker image.
 		docker build \
 		-f $(DOCKERFILE) \
-		--build-arg "BUILDER=$(AWS_ECR_URL)/builder" \
+		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+		--build-arg CHAINLINK_USER=$(CHAINLINK_USER) \
 		-t $(TAGGED_REPO) \
 		.
 
 .PHONY: dockerpush
 dockerpush: ## Push the docker image to ecr
 	docker push $(ECR_REPO)
+	docker push $(ECR_REPO)-nonroot
+
+.PHONY: mockery
+mockery: $(mockery)
+	go install github.com/vektra/mockery/v2@v2.8.0
 
 help:
 	@echo ""

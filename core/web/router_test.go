@@ -16,7 +16,11 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -31,7 +35,11 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -47,7 +55,11 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -80,7 +92,11 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -113,7 +129,11 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -142,7 +162,11 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -162,7 +186,11 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

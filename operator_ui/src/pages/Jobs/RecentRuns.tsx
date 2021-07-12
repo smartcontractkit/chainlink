@@ -1,151 +1,170 @@
-import { CardTitle, KeyValueList } from '@chainlink/styleguide'
+import { CardTitle } from 'components/CardTitle'
+import { KeyValueList } from 'components/KeyValueList'
 import {
-  createStyles,
+  Card,
+  Grid,
   Theme,
   Typography,
   WithStyles,
+  createStyles,
   withStyles,
-  Card,
-  Grid,
 } from '@material-ui/core'
+import Button from 'components/Button'
+import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
-import JobRunsList from 'components/JobRuns/List'
+import JobRunsList from './JobRunsList'
+import TaskListDag from './TaskListDag'
 import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
-import { JobData } from './sharedTypes'
+import { DirectRequestJob, JobData } from './sharedTypes'
+import { parseDot } from './parseDot'
 
-const totalLinkEarned = (job: NonNullable<JobData['jobSpec']>) => {
+const totalLinkEarned = (job: DirectRequestJob) => {
   const zero = '0.000000'
-  const unformatted =
-    job.attributes.earnings &&
-    (job.attributes.earnings / GWEI_PER_TOKEN).toString()
+  const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
   const formatted =
     unformatted &&
     (unformatted.length >= 3 ? unformatted : (unformatted + '.').padEnd(8, '0'))
   return formatted || zero
 }
 
-const chartCardStyles = (theme: Theme) =>
+const chartCardStyles = ({ spacing, palette }: Theme) =>
   createStyles({
     wrapper: {
-      marginLeft: theme.spacing.unit * 3,
-      marginTop: theme.spacing.unit * 2,
-      marginBottom: theme.spacing.unit * 2,
+      marginLeft: spacing.unit * 3,
+      marginTop: spacing.unit * 2,
+      marginBottom: spacing.unit * 2,
     },
     paymentText: {
-      color: theme.palette.secondary.main,
+      color: palette.secondary.main,
       fontWeight: 450,
     },
     earnedText: {
-      color: theme.palette.text.secondary,
-      fontSize: theme.spacing.unit * 2,
+      color: palette.text.secondary,
+      fontSize: spacing.unit * 2,
+    },
+    runDetails: {
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2,
     },
   })
 
-interface ChartProps extends WithStyles<typeof chartCardStyles> {
-  jobSpec: NonNullable<JobData['jobSpec']>
-}
-
-const ChartArea = withStyles(chartCardStyles)(
-  ({ classes, jobSpec }: ChartProps) => (
-    <Card>
-      <Grid item className={classes.wrapper}>
-        <Typography className={classes.paymentText} variant="h5">
-          Link Payment
-        </Typography>
-        <Typography className={classes.earnedText}>
-          {totalLinkEarned(jobSpec)}
-        </Typography>
-      </Grid>
-    </Card>
-  ),
-)
-
-export const RecentRuns = ({
-  ErrorComponent,
-  LoadingPlaceholder,
-  error,
-  getJobSpecRuns,
-  jobSpec,
-  recentRuns,
-  recentRunsCount,
-  showJobRunsCount = 5,
-}: {
+interface Props extends WithStyles<typeof chartCardStyles> {
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   error: unknown
-  getJobSpecRuns: () => Promise<void>
-  jobSpec?: JobData['jobSpec']
+  getJobSpecRuns: (props?: { page?: number; size?: number }) => Promise<void>
+  job?: JobData['job']
   recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
   showJobRunsCount?: number
-}) => {
-  React.useEffect(() => {
-    document.title =
-      jobSpec && jobSpec.attributes.name
-        ? `${jobSpec.attributes.name} | Job spec details`
+}
+
+export const RecentRuns = withStyles(chartCardStyles)(
+  ({
+    classes,
+    ErrorComponent,
+    LoadingPlaceholder,
+    error,
+    getJobSpecRuns,
+    job,
+    recentRuns,
+    recentRunsCount,
+    showJobRunsCount = 5,
+  }: Props) => {
+    React.useEffect(() => {
+      document.title = job?.name
+        ? `${job.name} | Job spec details`
         : 'Job spec details'
-  }, [jobSpec])
+    }, [job])
 
-  React.useEffect(() => {
-    getJobSpecRuns()
-  }, [getJobSpecRuns])
+    React.useEffect(() => {
+      getJobSpecRuns()
+    }, [getJobSpecRuns])
 
-  return (
-    <Content>
-      <ErrorComponent />
-      <LoadingPlaceholder />
-      {!error && jobSpec && (
-        <Grid container spacing={24}>
-          <Grid item xs={8}>
-            <Card>
-              <CardTitle divider>Recent Job Runs</CardTitle>
+    return (
+      <Content>
+        <ErrorComponent />
+        <LoadingPlaceholder />
+        {!error && job && (
+          <Grid container spacing={40}>
+            <Grid item xs={8}>
+              <Card>
+                <CardTitle divider>Recent job runs</CardTitle>
 
-              {recentRuns && (
-                <JobRunsList
-                  jobSpecId={jobSpec.id}
-                  runs={recentRuns.map((jobRun) => ({
-                    ...jobRun,
-                    ...jobRun.attributes,
-                  }))}
-                  count={recentRunsCount}
-                  showJobRunsCount={showJobRunsCount}
-                />
+                {recentRuns && (
+                  <>
+                    <JobRunsList runs={recentRuns} />
+                    {recentRunsCount > showJobRunsCount && (
+                      <div className={classes.runDetails}>
+                        <Button
+                          href={`/jobs/${job.id}/runs`}
+                          component={BaseLink}
+                        >
+                          View more
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </Card>
+            </Grid>
+            <Grid item xs={4}>
+              {job?.type === 'v2' && job.dotDagSource !== '' && (
+                <Grid item xs>
+                  <Card style={{ overflow: 'visible' }}>
+                    <CardTitle divider>Task list</CardTitle>
+                    <TaskListDag
+                      stratify={parseDot(`digraph {${job.dotDagSource}}`)}
+                    />
+                  </Card>
+                </Grid>
               )}
-            </Card>
-          </Grid>
-          <Grid item xs={4}>
-            <Grid container direction="column">
-              <Grid item xs>
-                <ChartArea jobSpec={jobSpec} />
-              </Grid>
-              <Grid item xs>
-                <Card>
-                  <CardTitle divider>Task List</CardTitle>
-                  <TaskList tasks={jobSpec.attributes.tasks} />
-                </Card>
-              </Grid>
-              <Grid item xs>
-                <KeyValueList
-                  showHead={false}
-                  entries={Object.entries({
-                    runCount: recentRunsCount,
-                    initiator: formatInitiators(jobSpec.attributes.initiators),
-                    minimumPayment: `${
-                      formatMinPayment(Number(jobSpec.attributes.minPayment)) ||
-                      0
-                    } Link`,
-                  })}
-                  titleize
-                />
-              </Grid>
+              {job?.type === 'Direct request' && (
+                <Grid container direction="column">
+                  <Grid item xs>
+                    <Card>
+                      <Grid item className={classes.wrapper}>
+                        <Typography
+                          className={classes.paymentText}
+                          variant="h5"
+                        >
+                          Link Payment
+                        </Typography>
+                        <Typography className={classes.earnedText}>
+                          {totalLinkEarned(job)}
+                        </Typography>
+                      </Grid>
+                    </Card>
+                  </Grid>
+                  <Grid item xs>
+                    <Card>
+                      <CardTitle divider>Task list</CardTitle>
+                      <TaskList tasks={job.tasks} />
+                    </Card>
+                  </Grid>
+                  <Grid item xs>
+                    <KeyValueList
+                      showHead={false}
+                      entries={Object.entries({
+                        initiator: formatInitiators(job.initiators),
+                        minimumPayment: `${
+                          formatMinPayment(Number(job.minPayment)) || 0
+                        } Link`,
+                      })}
+                      titleize
+                    />
+                  </Grid>
+                </Grid>
+              )}
             </Grid>
           </Grid>
-        </Grid>
-      )}
-    </Content>
-  )
-}
+        )}
+      </Content>
+    )
+  },
+)

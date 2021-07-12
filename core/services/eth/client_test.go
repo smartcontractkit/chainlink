@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	"math/big"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -29,7 +31,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	txHash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
 
 	t.Run("happy path", func(t *testing.T) {
-		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
+		response := cltest.MustReadFile(t, "../../testdata/jsonrpc/getTransactionReceipt.json")
 		_, wsUrl, wsCleanup := cltest.NewWSServer(string(response), func(data []byte) {
 			resp := cltest.ParseJSON(t, bytes.NewReader(data))
 			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
@@ -38,7 +40,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient, err := eth.NewClient(wsUrl)
+		ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{})
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -51,7 +53,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	})
 
 	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
-		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt_notFound.json")
+		response := cltest.MustReadFile(t, "../../testdata/jsonrpc/getTransactionReceipt_notFound.json")
 		_, wsUrl, wsCleanup := cltest.NewWSServer(string(response), func(data []byte) {
 			resp := cltest.ParseJSON(t, bytes.NewReader(data))
 			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
@@ -60,7 +62,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient, err := eth.NewClient(wsUrl)
+		ethClient, err := eth.NewClient(wsUrl, nil, nil)
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -89,7 +91,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient, err := eth.NewClient(url)
+	ethClient, err := eth.NewClient(url, nil, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -99,34 +101,6 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 
 	var expected uint64 = 256
 	require.Equal(t, result, expected)
-}
-
-func TestEthClient_SendRawTx(t *testing.T) {
-	t.Parallel()
-
-	txData := "0xdeadbeef"
-
-	returnedHash := cltest.NewHash()
-	_, url, cleanup := cltest.NewWSServer(`{
-      "id": 1,
-      "jsonrpc": "2.0",
-      "result": "`+returnedHash.Hex()+`"
-    }`, func(data []byte) {
-		resp := cltest.ParseJSON(t, bytes.NewReader(data))
-		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
-		require.True(t, resp.Get("params").IsArray())
-		require.Equal(t, txData, resp.Get("params").Get("0").String())
-	})
-	defer cleanup()
-
-	ethClient, err := eth.NewClient(url)
-	require.NoError(t, err)
-	err = ethClient.Dial(context.Background())
-	require.NoError(t, err)
-
-	result, err := ethClient.SendRawTx(hexutil.MustDecode(txData))
-	assert.NoError(t, err)
-	assert.Equal(t, result, returnedHash)
 }
 
 func TestEthClient_BalanceAt(t *testing.T) {
@@ -158,7 +132,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url)
+			ethClient, err := eth.NewClient(url, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -209,7 +183,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url)
+			ethClient, err := eth.NewClient(url, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -276,13 +250,13 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url)
+			ethClient, err := eth.NewClient(url, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
 			defer ethClient.Close()
 
-			result, err := ethClient.HeaderByNumber(context.Background(), expectedBlockNum)
+			result, err := ethClient.HeadByNumber(context.Background(), expectedBlockNum)
 			if test.error != nil {
 				require.Equal(t, test.error, errors.Cause(err))
 			} else {
@@ -310,7 +284,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient, err := eth.NewClient(url)
+	ethClient, err := eth.NewClient(url, nil, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -319,7 +293,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestEthClient_SendTransaction_WithSecondaryURL(t *testing.T) {
+func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
 	tx := types.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -330,26 +304,32 @@ func TestEthClient_SendTransaction_WithSecondaryURL(t *testing.T) {
   "result": "` + tx.Hash().Hex() + `"
 }`
 
-	_, url, cleanup := cltest.NewWSServer(response, func(data []byte) {
+	_, wsUrl, cleanup := cltest.NewWSServer(response, func(data []byte) {
 		resp := cltest.ParseJSON(t, bytes.NewReader(data))
 		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
 		require.True(t, resp.Get("params").IsArray())
 	})
 	defer cleanup()
 
+	requests := make(chan struct{}, 2)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(response))
 		require.NoError(t, err)
-
+		requests <- struct{}{}
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	ethClient, err := eth.NewClient(url, server.URL)
+	secondaryUrl := *cltest.MustParseURL(server.URL)
+	ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{secondaryUrl, secondaryUrl})
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
 
 	err = ethClient.SendTransaction(context.Background(), tx)
 	assert.NoError(t, err)
+
+	gomega.NewGomegaWithT(t).Eventually(func() int {
+		return len(requests)
+	}).Should(gomega.Equal(2))
 }

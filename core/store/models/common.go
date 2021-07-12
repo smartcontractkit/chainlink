@@ -9,7 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"gorm.io/gorm/schema"
+
+	"gorm.io/gorm"
+
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -137,10 +140,28 @@ func (s *RunStatus) Scan(value interface{}) error {
 	return nil
 }
 
+const (
+	ResultKey           = "result"
+	ResultCollectionKey = "__chainlink_result_collection__"
+)
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
+}
+
+func (JSON) GormDataType() string {
+	return "json"
+}
+
+// GormDBDataType gorm db data type
+func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "postgres":
+		return "JSONB"
+	}
+	return ""
 }
 
 // Value returns this instance serialized for database storage.
@@ -163,6 +184,18 @@ func (j *JSON) Scan(value interface{}) error {
 		return fmt.Errorf("unable to convert %v of %T to JSON", value, value)
 	}
 	return nil
+}
+
+func MustParseJSON(b []byte) JSON {
+	var j JSON
+	str := string(b)
+	if len(str) == 0 {
+		panic("empty byte array")
+	}
+	if err := json.Unmarshal([]byte(str), &j); err != nil {
+		panic(err)
+	}
+	return j
 }
 
 // ParseJSON attempts to coerce the input byte array into valid JSON
@@ -203,21 +236,16 @@ func (j *JSON) UnmarshalTOML(val interface{}) error {
 	case []byte:
 		bs = v
 	}
-	var unmarshaled interface{}
-	err := toml.Unmarshal(bs, &unmarshaled)
-	if err != nil {
-		return err
-	}
-	bs, err = json.Marshal(unmarshaled)
-	if err != nil {
-		return err
-	}
+	var err error
 	*j, err = ParseJSON(bs)
 	return err
 }
 
 // Bytes returns the raw JSON.
 func (j JSON) Bytes() []byte {
+	if len(j.String()) == 0 {
+		return nil
+	}
 	return []byte(j.String())
 }
 
@@ -248,6 +276,16 @@ func mapToJSON(m map[string]interface{}) (JSON, error) {
 // Add returns a new instance of JSON with the new value added.
 func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
 	return j.MultiAdd(KV{insertKey: insertValue})
+}
+
+func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
+	curr := j.Get(insertKey).Array()
+	updated := make([]interface{}, 0)
+	updated = append(updated, insertValue)
+	for _, c := range curr {
+		updated = append(updated, c.Value())
+	}
+	return j.Add(insertKey, updated)
 }
 
 // KV represents a key/value pair to be added to a JSON object
@@ -576,6 +614,10 @@ func (i *Interval) UnmarshalText(input []byte) error {
 }
 
 func (i *Interval) Scan(v interface{}) error {
+	if v == nil {
+		*i = Interval(time.Duration(0))
+		return nil
+	}
 	asInt64, is := v.(int64)
 	if !is {
 		return errors.Errorf("models.Interval#Scan() wanted int64, got %T", v)
@@ -586,6 +628,10 @@ func (i *Interval) Scan(v interface{}) error {
 
 func (i Interval) Value() (driver.Value, error) {
 	return time.Duration(i).Nanoseconds(), nil
+}
+
+func (i Interval) IsZero() bool {
+	return time.Duration(i) == time.Duration(0)
 }
 
 // WithdrawalRequest request to withdraw LINK.
@@ -600,16 +646,6 @@ type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
-}
-
-// CreateKeyRequest represents a request to add an ethereum key.
-type CreateKeyRequest struct {
-	CurrentPassword string `json:"current_password"`
-}
-
-// CreateOCRJobSpecRequest represents a request to create and start and OCR job spec.
-type CreateOCRJobSpecRequest struct {
-	TOML string `json:"toml"`
 }
 
 // AddressCollection is an array of common.Address
@@ -659,10 +695,11 @@ type Configuration struct {
 	Value     string `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt *time.Time
+	DeletedAt *gorm.DeletedAt
 }
 
-// Merge returns a new map with all keys merged from right to left
+// Merge returns a new map with all keys merged from left to right
+// On conflicting keys, rightmost inputs will clobber leftmost inputs
 func Merge(inputs ...JSON) (JSON, error) {
 	output := make(map[string]interface{})
 
@@ -670,6 +707,38 @@ func Merge(inputs ...JSON) (JSON, error) {
 		switch v := input.Result.Value().(type) {
 		case map[string]interface{}:
 			for key, value := range v {
+				output[key] = value
+			}
+		case nil:
+		default:
+			return JSON{}, errors.New("can only merge JSON objects")
+		}
+	}
+
+	bytes, err := json.Marshal(output)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
+}
+
+// MergeExceptResult does a merge, but will never clobber the field called "result"
+// On conflicting keys, rightmost inputs will clobber leftmost inputs EXCEPT if the field is named "result", in which case the leftmost result wins
+// This is needed to work around idiosyncrasies in the V1 job pipeline where "result" has special meaning
+func MergeExceptResult(inputs ...JSON) (JSON, error) {
+	output := make(map[string]interface{})
+
+	for _, input := range inputs {
+		switch v := input.Result.Value().(type) {
+		case map[string]interface{}:
+			for key, value := range v {
+				if key == "result" {
+					if _, exists := output["result"]; exists {
+						// Do not overwrite result field
+						continue
+					}
+				}
 				output[key] = value
 			}
 		case nil:

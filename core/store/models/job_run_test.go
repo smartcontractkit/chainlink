@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestJobRun_RetrievingFromDBWithError(t *testing.T) {
@@ -63,7 +63,7 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := synchronization.NoopExplorerClient{}
-	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
+	pusher := synchronization.NewStatsPusher(store.DB, explorerClient)
 	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 
@@ -76,7 +76,7 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	var events []models.SyncEvent
-	err = store.AllSyncEvents(func(event models.SyncEvent) error {
+	err = pusher.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -102,7 +102,7 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "")
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -116,11 +116,7 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	assert.NoError(t, err)
 
 	var events []models.SyncEvent
-	err = store.AllSyncEvents(func(event models.SyncEvent) error {
-		events = append(events, event)
-		return nil
-	})
-	require.NoError(t, err)
+	require.NoError(t, store.DB.Find(&events).Error)
 	require.Len(t, events, 0)
 }
 
@@ -140,9 +136,9 @@ func TestJobRun_ForLogger(t *testing.T) {
 	jr.Payment = linkReward
 	logsBeforeCompletion := jr.ForLogger()
 	require.Len(t, logsBeforeCompletion, 8)
-	assert.Equal(t, logsBeforeCompletion[0], "job")
+	assert.Equal(t, logsBeforeCompletion[0], "jobID")
 	assert.Equal(t, logsBeforeCompletion[1], jr.JobSpecID.String())
-	assert.Equal(t, logsBeforeCompletion[2], "run")
+	assert.Equal(t, logsBeforeCompletion[2], "runID")
 	assert.Equal(t, logsBeforeCompletion[3], jr.ID.String())
 	assert.Equal(t, logsBeforeCompletion[4], "status")
 	assert.Equal(t, logsBeforeCompletion[5], jr.GetStatus())
@@ -178,7 +174,7 @@ func TestJobRun_ApplyOutput_CompletedWithNoTasksRemaining(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := cltest.NewJobRun(job)
-	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{}}
+	jobRun.TaskRuns = []models.TaskRun{{}}
 
 	result := models.NewRunOutputComplete(models.JSON{})
 	jobRun.TaskRuns[0].ApplyOutput(result)

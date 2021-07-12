@@ -10,14 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,50 +77,6 @@ func TestHead_NextInt(t *testing.T) {
 	}
 }
 
-func TestTx_PresenterMatchesHex(t *testing.T) {
-	t.Parallel()
-
-	nonce := int64(32776)
-	broadcast := int64(1745)
-	value, err := assets.NewEthValueS("777")
-	require.NoError(t, err)
-
-	txAttempt := models.EthTxAttempt{
-		GasPrice:                *utils.NewBig(big.NewInt(333)),
-		SignedRawTx:             hexutil.MustDecode("0xcafe"),
-		Hash:                    common.HexToHash("0x0"),
-		BroadcastBeforeBlockNum: &broadcast,
-	}
-	createdTx := models.EthTx{
-		FromAddress:    common.HexToAddress("0xf208"),
-		ToAddress:      common.HexToAddress("0x70"),
-		EncodedPayload: []byte(`{"data": "is wilding out"}`),
-		Nonce:          &nonce,
-		Value:          value,
-		GasLimit:       1999,
-		State:          models.EthTxConfirmed,
-		EthTxAttempts:  []models.EthTxAttempt{txAttempt},
-	}
-	txAttempt.EthTx = createdTx
-
-	ptx := presenters.NewEthTxFromAttempt(txAttempt)
-	bytes, err := json.Marshal(ptx)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{`+
-		`"data":"0x7b2264617461223a202269732077696c64696e67206f7574227d",`+
-		`"from":"0x000000000000000000000000000000000000f208",`+
-		`"gasLimit":"1999",`+
-		`"gasPrice":"333",`+
-		`"hash":"0x0000000000000000000000000000000000000000000000000000000000000000",`+
-		`"rawHex":"0xcafe",`+
-		`"nonce":"32776",`+
-		`"sentAt":"1745",`+
-		`"state":"confirmed",`+
-		`"to":"0x0000000000000000000000000000000000000070",`+
-		`"value":"777.000000000000000000"`+
-		`}`, string(bytes))
-}
-
 func TestEthTx_GetID(t *testing.T) {
 	tx := models.EthTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
@@ -132,20 +85,14 @@ func TestEthTx_GetID(t *testing.T) {
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	// Use the real KeyStore loaded from database fixtures
-	store.KeyStore.Unlock(cltest.Password)
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	ethKeyStore.Unlock(cltest.Password)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-
-	keys, err := store.SendKeys()
-	require.NoError(t, err)
-	key := keys[0]
-	fromAddress := key.Address.Address()
-	account, err := store.KeyStore.GetAccountByAddress(fromAddress)
-	require.NoError(t, err)
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := store.KeyStore.SignTx(account, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
 	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)
@@ -268,15 +215,40 @@ func TestHead_EarliestInChain(t *testing.T) {
 	assert.Equal(t, int64(1), head.EarliestInChain().Number)
 }
 
+func TestHead_IsInChain(t *testing.T) {
+	hash1 := cltest.NewHash()
+	hash2 := cltest.NewHash()
+	hash3 := cltest.NewHash()
+
+	head := models.Head{
+		Number: 3,
+		Hash:   hash3,
+		Parent: &models.Head{
+			Hash:   hash2,
+			Number: 2,
+			Parent: &models.Head{
+				Hash:   hash1,
+				Number: 1,
+			},
+		},
+	}
+
+	assert.True(t, head.IsInChain(hash1))
+	assert.True(t, head.IsInChain(hash2))
+	assert.True(t, head.IsInChain(hash3))
+	assert.False(t, head.IsInChain(cltest.NewHash()))
+	assert.False(t, head.IsInChain(common.Hash{}))
+}
+
 func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
 	tests := []struct {
 		name string
 		path string
 		want bool
 	}{
-		{"basic", "../../services/eth/testdata/getTransactionReceipt.json", false},
-		{"runlog request", "../../services/eth/testdata/runlogReceipt.json", false},
-		{"runlog response", "../../services/eth/testdata/responseReceipt.json", true},
+		{"basic", "../../testdata/jsonrpc/getTransactionReceipt.json", false},
+		{"runlog request", "../../testdata/jsonrpc/runlogReceipt.json", false},
+		{"runlog response", "../../testdata/jsonrpc/responseReceipt.json", true},
 	}
 
 	for _, test := range tests {
@@ -312,6 +284,16 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 				Timestamp:  time.Unix(0x58318da2, 0).UTC(),
 			},
 		},
+		{"arbitrum",
+			`{"number":"0x15156","hash":"0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871","parentHash":"0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","receiptsRoot":"0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504","miner":"0x0000000000000000000000000000000000000000","difficulty":"0x0","totalDifficulty":"0x0","extraData":"0x","size":"0x0","gasLimit":"0x11278208","gasUsed":"0x3d1fe9","timestamp":"0x60d0952d","transactions":["0xa1ea93556b93ed3b45cb24f21c8deb584e6a9049c35209242651bf3533c23b98","0xfc6593c45ba92351d17173aa1381e84734d252ab0169887783039212c4a41024","0x85ee9d04fd0ebb5f62191eeb53cb45d9c0945d43eba444c3548de2ac8421682f","0x50d120936473e5b75f6e04829ad4eeca7a1df7d3c5026ebb5d34af936a39b29c"],"uncles":[],"l1BlockNumber":"0x8652f9"}`,
+			models.Head{
+				Hash:          common.HexToHash("0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871"),
+				Number:        0x15156,
+				ParentHash:    common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
+				Timestamp:     time.Unix(0x60d0952d, 0).UTC(),
+				L1BlockNumber: null.Int64From(0x8652f9),
+			},
+		},
 		{"not found",
 			`null`,
 			models.Head{},
@@ -324,10 +306,11 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 			var head models.Head
 			err := head.UnmarshalJSON([]byte(test.json))
 			require.NoError(t, err)
-			require.Equal(t, test.expected.Hash, head.Hash)
-			require.Equal(t, test.expected.Number, head.Number)
-			require.Equal(t, test.expected.ParentHash, head.ParentHash)
-			require.Equal(t, test.expected.Timestamp.UTC().Unix(), head.Timestamp.UTC().Unix())
+			assert.Equal(t, test.expected.Hash, head.Hash)
+			assert.Equal(t, test.expected.Number, head.Number)
+			assert.Equal(t, test.expected.ParentHash, head.ParentHash)
+			assert.Equal(t, test.expected.Timestamp.UTC().Unix(), head.Timestamp.UTC().Unix())
+			assert.Equal(t, test.expected.L1BlockNumber, head.L1BlockNumber)
 		})
 	}
 }

@@ -3,95 +3,162 @@ package cmd_test
 import (
 	"context"
 	"flag"
-	"io/ioutil"
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/BurntSushi/toml"
-	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
+	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
-func TestClient_ListETHKeys(t *testing.T) {
-	t.Parallel()
+var (
+	nilContext = cli.NewContext(nil, nil, nil)
+)
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	app.EthMock.Register("eth_call", "0x0100")
+type startOptions struct {
+	// Set the config options
+	Config map[string]interface{}
+	// Use to set up mocks on the app
+	FlagsAndDeps []interface{}
+	// Add a key on start up
+	WithKey bool
+	// Use app.StartAndConnect instead of app.Start
+	StartAndConnect bool
+}
 
-	require.NoError(t, app.Start())
+func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltest.TestApplication {
+	t.Helper()
 
-	client, r := app.NewClientAndRenderer()
+	sopts := &startOptions{
+		Config:       map[string]interface{}{},
+		FlagsAndDeps: []interface{}{},
+	}
+	for _, fn := range setup {
+		fn(sopts)
+	}
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
-	from := cltest.GetAccountAddress(t, app.GetStore())
-	balances := *r.Renders[0].(*[]presenters.ETHKey)
-	assert.Equal(t, from.Hex(), balances[0].Address)
+	// Setup config
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
+	config.Set("MAX_HTTP_ATTEMPTS", "1")
+
+	for k, v := range sopts.Config {
+		config.Set(k, v)
+	}
+
+	var app *cltest.TestApplication
+	var cleanup func()
+	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
+	t.Cleanup(cleanup)
+	app.Logger = app.Config.CreateProductionLogger()
+	app.Logger.SetDB(app.GetStore().DB)
+
+	if sopts.StartAndConnect {
+		require.NoError(t, app.StartAndConnect())
+	} else {
+		require.NoError(t, app.Start())
+	}
+
+	return app
+}
+
+// withConfig is a function option which sets config on the app
+func withConfig(cfgs map[string]interface{}) func(opts *startOptions) {
+	return func(opts *startOptions) {
+		for k, v := range cfgs {
+			opts.Config[k] = v
+		}
+	}
+}
+
+func withMocks(mks ...interface{}) func(opts *startOptions) {
+	return func(opts *startOptions) {
+		opts.FlagsAndDeps = mks
+	}
+}
+
+func withKey() func(opts *startOptions) {
+	return func(opts *startOptions) {
+		opts.WithKey = true
+	}
+}
+
+func startAndConnect() func(opts *startOptions) {
+	return func(opts *startOptions) {
+		opts.StartAndConnect = true
+	}
+}
+
+func newEthMock(t *testing.T) *mocks.Client {
+	t.Helper()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Cleanup(assertMocksCalled)
+
+	return ethClient
+}
+
+func keyNameForTest(t *testing.T) string {
+	return fmt.Sprintf("%s_test_key.json", t.Name())
+}
+
+func deleteKeyExportFile(t *testing.T) {
+	keyName := keyNameForTest(t)
+	err := os.Remove(keyName)
+	if err == nil || os.IsNotExist(err) {
+		return
+	} else {
+		require.NoError(t, err)
+	}
 }
 
 func TestClient_IndexJobSpecs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
+	client, r := app.NewClientAndRenderer()
 
 	j1 := cltest.NewJob()
 	app.Store.CreateJob(&j1)
 	j2 := cltest.NewJob()
 	app.Store.CreateJob(&j2)
 
-	client, r := app.NewClientAndRenderer()
-
 	require.Nil(t, client.IndexJobSpecs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
-	assert.Equal(t, 2, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
 }
 
 func TestClient_ShowJobRun_Exists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
+	client, r := app.NewClientAndRenderer()
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
-
-	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{jr.ID.String()})
@@ -104,14 +171,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
+	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -124,13 +184,8 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 func TestClient_IndexJobRuns(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
+	client, r := app.NewClientAndRenderer()
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
@@ -141,8 +196,6 @@ func TestClient_IndexJobRuns(t *testing.T) {
 	jr1 := cltest.NewJobRun(j)
 	jr1.Result.Data = cltest.JSONFromString(t, `{"x":"y"}`)
 	require.NoError(t, app.Store.CreateJobRun(&jr1))
-
-	client, r := app.NewClientAndRenderer()
 
 	require.Nil(t, client.IndexJobRuns(cltest.EmptyCLIContext()))
 	runs := *r.Renders[0].(*[]presenters.JobRun)
@@ -156,18 +209,11 @@ func TestClient_IndexJobRuns(t *testing.T) {
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
+	client, r := app.NewClientAndRenderer()
 
 	job := cltest.NewJob()
 	app.Store.CreateJob(&job)
-
-	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{job.ID.String()})
@@ -180,14 +226,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
+	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -195,58 +234,6 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.Error(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
-}
-
-var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
-
-func TestClient_CreateServiceAgreement(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client, _ := app.NewClientAndRenderer()
-
-	sa := cltest.MustHelloWorldAgreement(t)
-	endAtISO8601 := EndAt.Format(time.RFC3339)
-	sa = strings.Replace(sa, "2019-10-19T22:17:19Z", endAtISO8601, 1)
-	tmpFile, err := ioutil.TempFile("", "sa.*.json")
-	require.NoError(t, err, "while opening temp file for modified service agreement")
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(sa)
-
-	tests := []struct {
-		name        string
-		input       string
-		jobsCreated bool
-		errored     bool
-	}{
-		{"invalid json", "{bad son}", false, true},
-		{"bad file path", "bad/filepath/", false, true},
-		{"valid service agreement", string(sa), true, false},
-		{"service agreement specified as path", tmpFile.Name(), true, false},
-	}
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-
-			set := flag.NewFlagSet("create", 0)
-			assert.NoError(t, set.Parse([]string{test.input}))
-			c := cli.NewContext(nil, set, nil)
-
-			err := client.CreateServiceAgreement(c)
-
-			cltest.AssertError(t, test.errored, err)
-			jobs := cltest.AllJobs(t, app.Store)
-			if test.jobsCreated {
-				assert.True(t, len(jobs) > 0)
-			} else {
-				assert.Equal(t, 0, len(jobs))
-			}
-		})
-	}
 }
 
 func TestClient_CreateExternalInitiator(t *testing.T) {
@@ -264,10 +251,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-			defer cleanup()
-			require.NoError(t, app.Start())
-
+			app := startNewApplication(t)
 			client, _ := app.NewClientAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
@@ -275,10 +259,10 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateExternalInitiator(c)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			var exi models.ExternalInitiator
-			err = app.Store.RawDB(func(db *gorm.DB) error {
+			err = app.Store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 				return db.Where("name = ?", test.args[0]).Find(&exi).Error
 			})
 			require.NoError(t, err)
@@ -305,10 +289,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-			defer cleanup()
-			require.NoError(t, app.Start())
-
+			app := startNewApplication(t)
 			client, _ := app.NewClientAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
@@ -327,13 +308,8 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 func TestClient_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
+	client, r := app.NewClientAndRenderer()
 
 	token := auth.NewToken()
 	exi, err := models.NewExternalInitiator(token,
@@ -342,8 +318,6 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 	require.NoError(t, err)
 	err = app.Store.CreateExternalInitiator(exi)
 	require.NoError(t, err)
-
-	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{exi.Name})
@@ -355,14 +329,7 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
+	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -375,13 +342,7 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestClient_CreateJobSpec(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -393,7 +354,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		{"bad filepath", "bad/filepath/", 0, true},
 		{"web", `{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
 		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"3000-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
-		{"file", "../internal/fixtures/web/end_at_job.json", 3, false},
+		{"file", "../testdata/jsonspecs/end_at_job.json", 3, false},
 	}
 
 	for _, test := range tests {
@@ -414,22 +375,20 @@ func TestClient_CreateJobSpec(t *testing.T) {
 func TestClient_ArchiveJobSpec(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	eim := new(webhookmocks.ExternalInitiatorManager)
+	app := startNewApplication(t, withMocks(eim))
+	client, _ := app.NewClientAndRenderer()
 
 	job := cltest.NewJob()
 	require.NoError(t, app.Store.CreateJob(&job))
 
-	client, _ := app.NewClientAndRenderer()
-
 	set := flag.NewFlagSet("archive", 0)
 	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
+
+	eim.On("DeleteJob", mock.MatchedBy(func(id models.JobID) bool {
+		return id.String() == job.ID.String()
+	})).Once().Return(nil)
 
 	require.NoError(t, client.ArchiveJobSpec(c))
 
@@ -440,14 +399,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("create", 0)
@@ -462,14 +414,7 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 func TestClient_CreateJobRun(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -512,150 +457,12 @@ func TestClient_CreateJobRun(t *testing.T) {
 	}
 }
 
-func TestClient_CreateBridge(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client, _ := app.NewClientAndRenderer()
-
-	tests := []struct {
-		name    string
-		param   string
-		errored bool
-	}{
-		{"EmptyString", "", true},
-		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
-		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
-		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true},
-		{"ValidPath", "testdata/create_random_number_bridge_type.json", false},
-		{"InvalidPath", "bad/filepath/", true},
-	}
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-
-			set := flag.NewFlagSet("bridge", 0)
-			set.Parse([]string{test.param})
-			c := cli.NewContext(nil, set, nil)
-			if test.errored {
-				assert.Error(t, client.CreateBridge(c))
-			} else {
-				assert.Nil(t, client.CreateBridge(c))
-			}
-		})
-	}
-}
-
-func TestClient_IndexBridges(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	bt1 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	err := app.GetStore().CreateBridgeType(bt1)
-	require.NoError(t, err)
-
-	bt2 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges2"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	err = app.GetStore().CreateBridgeType(bt2)
-	require.NoError(t, err)
-
-	client, r := app.NewClientAndRenderer()
-
-	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
-	bridges := *r.Renders[0].(*[]models.BridgeType)
-	require.Equal(t, 2, len(bridges))
-	assert.Equal(t, bt1.Name, bridges[0].Name)
-}
-
-func TestClient_ShowBridge(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
-
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	require.NoError(t, app.GetStore().CreateBridgeType(bt))
-
-	client, r := app.NewClientAndRenderer()
-
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.ShowBridge(c))
-	require.Len(t, r.Renders, 1)
-	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
-}
-
-func TestClient_RemoveBridge(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	err := app.GetStore().CreateBridgeType(bt)
-	require.NoError(t, err)
-
-	client, r := app.NewClientAndRenderer()
-
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.RemoveBridge(c))
-	require.Len(t, r.Renders, 1)
-	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
-}
-
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t, withConfig(map[string]interface{}{
+		"ADMIN_CREDENTIALS_FILE": "",
+	}))
 
 	tests := []struct {
 		name, file string
@@ -688,57 +495,10 @@ func TestClient_RemoteLogin(t *testing.T) {
 	}
 }
 
-func setupWithdrawalsApplication(t *testing.T, config *cltest.TestConfig) (*cltest.TestApplication, func()) {
-	oca := common.HexToAddress("0xDEADB3333333F")
-	config.Set("OPERATOR_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	return app, cleanup
-}
-
-func TestClient_SendEther_From_BPTXM(t *testing.T) {
-	t.Parallel()
-
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, cleanup := setupWithdrawalsApplication(t, config)
-	defer cleanup()
-	s := app.GetStore()
-
-	require.NoError(t, app.StartAndConnect())
-
-	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("sendether", 0)
-	amount := "100.5"
-	from := cltest.GetDefaultFromAddress(t, s)
-	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
-	set.Parse([]string{amount, from.Hex(), to})
-
-	cliapp := cli.NewApp()
-	c := cli.NewContext(cliapp, set, nil)
-
-	assert.NoError(t, client.SendEther(c))
-
-	etx := models.EthTx{}
-	require.NoError(t, s.DB.First(&etx).Error)
-	require.Equal(t, "100.500000000000000000", etx.Value.String())
-	require.Equal(t, from, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.Hex())
-}
-
 func TestClient_ChangePassword(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
 
 	enteredStrings := []string{cltest.APIEmail, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
@@ -756,9 +516,9 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.NoError(t, err)
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
-		ChangePasswordRequest: models.ChangePasswordRequest{
+		UpdatePasswordRequest: web.UpdatePasswordRequest{
 			OldPassword: cltest.Password,
-			NewPassword: "password",
+			NewPassword: "_p4SsW0rD1!@#",
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
@@ -766,141 +526,25 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	// otherClient should now be logged out
 	err = otherClient.IndexBridges(c)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "401 Unauthorized")
-}
-
-func TestClient_IndexTransactions(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	store := app.GetStore()
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
-
-	client, r := app.NewClientAndRenderer()
-
-	// page 1
-	set := flag.NewFlagSet("test transactions", 0)
-	set.Int("page", 1, "doc")
-	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.IndexTransactions(c))
-
-	renderedTxs := *r.Renders[0].(*[]presenters.EthTx)
-	assert.Equal(t, 1, len(renderedTxs))
-	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
-
-	// page 2 which doesn't exist
-	set = flag.NewFlagSet("test txattempts", 0)
-	set.Int("page", 2, "doc")
-	c = cli.NewContext(nil, set, nil)
-	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.IndexTransactions(c))
-
-	renderedTxs = *r.Renders[1].(*[]presenters.EthTx)
-	assert.Equal(t, 0, len(renderedTxs))
-}
-
-func TestClient_ShowTransaction(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	store := app.GetStore()
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
-
-	client, r := app.NewClientAndRenderer()
-
-	set := flag.NewFlagSet("test get tx", 0)
-	set.Parse([]string{attempt.Hash.Hex()})
-	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ShowTransaction(c))
-
-	renderedTx := *r.Renders[0].(*presenters.EthTx)
-	assert.Equal(t, &tx.FromAddress, renderedTx.From)
-}
-
-func TestClient_IndexTxAttempts(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	store := app.GetStore()
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-
-	client, r := app.NewClientAndRenderer()
-
-	// page 1
-	set := flag.NewFlagSet("test txattempts", 0)
-	set.Int("page", 1, "doc")
-	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.IndexTxAttempts(c))
-
-	renderedAttempts := *r.Renders[0].(*[]presenters.EthTx)
-	require.Len(t, tx.EthTxAttempts, 1)
-	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
-
-	// page 2 which doesn't exist
-	set = flag.NewFlagSet("test transactions", 0)
-	set.Int("page", 2, "doc")
-	c = cli.NewContext(nil, set, nil)
-	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.IndexTxAttempts(c))
-
-	renderedAttempts = *r.Renders[1].(*[]presenters.EthTx)
-	assert.Equal(t, 0, len(renderedAttempts))
-}
-
-func TestClient_CreateExtraKey(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	kst := app.Store.KeyStore.(*mocks.KeyStoreInterface)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client, _ := app.NewClientAndRenderer()
-
-	set := flag.NewFlagSet("test", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-	err := client.RemoteLogin(c)
-	assert.NoError(t, err)
-
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
-
-	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
-	assert.NoError(t, client.CreateExtraKey(c))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Unauthorized")
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, cleanup := setupWithdrawalsApplication(t, config)
-	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
-
+	// Setup Withdrawals application
+	oca := common.HexToAddress("0xDEADB3333333F")
+	app := startNewApplication(t,
+		withKey(),
+		withConfig(map[string]interface{}{
+			"OPERATOR_CONTRACT_ADDRESS": &oca,
+		}),
+		withMocks(newEthMock(t)),
+		startAndConnect(),
+	)
 	client, _ := app.NewClientAndRenderer()
+
 	set := flag.NewFlagSet("setgasprice", 0)
 	set.Parse([]string{"8616460799"})
 
@@ -923,11 +567,9 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 func TestClient_GetConfiguration(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
+	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
+
 	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 
@@ -948,20 +590,13 @@ func TestClient_GetConfiguration(t *testing.T) {
 func TestClient_CancelJobRun(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
 	run := cltest.NewJobRun(job)
 	require.NoError(t, app.Store.CreateJobRun(&run))
-
-	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("cancel", 0)
 	set.Parse([]string{run.ID.String()})
@@ -975,190 +610,56 @@ func TestClient_CancelJobRun(t *testing.T) {
 	assert.NotNil(t, runs[0].FinishedAt)
 }
 
-func TestClient_P2P_CreateKey(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	client, _ := app.NewClientAndRenderer()
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	set := flag.NewFlagSet("test", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.RemoteLogin(c))
-	require.NoError(t, client.CreateP2PKey(c))
-
-	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-
-	// Created + fixture key
-	require.Len(t, keys, 2)
-
-	for _, e := range keys {
-		_, err = e.Decrypt(cltest.Password)
-		require.NoError(t, err)
-	}
-}
-
-func TestClient_P2P_DeleteKey(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	client, _ := app.NewClientAndRenderer()
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	key, err := p2pkey.CreateKey()
-	require.NoError(t, err)
-	encKey, err := key.ToEncryptedP2PKey(cltest.Password, utils.FastScryptParams)
-	require.NoError(t, err)
-	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
-	require.NoError(t, err)
-
-	keys, err := app.Store.OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-	// Created  + fixture key
-	require.Len(t, keys, 2)
-
-	set := flag.NewFlagSet("test", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-
-	err = client.RemoteLogin(c)
-	assert.NoError(t, err)
-
-	set = flag.NewFlagSet("test", 0)
-	set.Bool("yes", true, "")
-	strID := strconv.FormatInt(int64(encKey.ID), 10)
-	set.Parse([]string{strID})
-	c = cli.NewContext(nil, set, nil)
-	err = client.DeleteP2PKey(c)
-	require.NoError(t, err)
-
-	keys, err = app.Store.OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-	// fixture key only
-	require.Len(t, keys, 1)
-}
-
-func TestClient_CreateOCRKeyBundle(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	client, _ := app.NewClientAndRenderer()
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	set := flag.NewFlagSet("test", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.RemoteLogin(c))
-	require.NoError(t, client.CreateOCRKeyBundle(c))
-
-	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
-	require.NoError(t, err)
-
-	// Created key + fixture key
-	require.Len(t, keys, 2)
-
-	for _, e := range keys {
-		_, err = e.Decrypt(cltest.Password)
-		require.NoError(t, err)
-	}
-}
-
-func TestClient_DeleteOCRKeyBundle(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	client, _ := app.NewClientAndRenderer()
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	key, err := ocrkey.NewKeyBundle()
-	require.NoError(t, err)
-	encKey, err := key.Encrypt(cltest.Password, utils.FastScryptParams)
-	require.NoError(t, err)
-	err = app.Store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
-	require.NoError(t, err)
-
-	keys, err := app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
-	require.NoError(t, err)
-	// Created key + fixture key
-	require.Len(t, keys, 2)
-
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{key.ID.String()})
-	set.String("file", "internal/fixtures/apicredentials", "")
-	set.Bool("yes", true, "")
-	c := cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.RemoteLogin(c))
-	require.NoError(t, client.DeleteOCRKeyBundle(c))
-
-	keys, err = app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
-	require.NoError(t, err)
-	// Only fixture key remains
-	require.Len(t, keys, 1)
-}
-
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
+
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
-	var ocrJobSpecFromFile offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
+	var ocrJobSpecFromFile job.Job
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
+	require.NoError(t, err)
+	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	require.NoError(t, err)
+	var ocrSpec job.OffchainReportingOracleSpec
+	err = tree.Unmarshal(&ocrSpec)
+	require.NoError(t, err)
+	ocrJobSpecFromFile.OffchainreportingOracleSpec = &ocrSpec
+	key := cltest.MustInsertRandomKey(t, app.Store.DB)
+	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
+
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	require.NoError(t, client.TriggerOCRJobRun(c))
+	require.NoError(t, client.TriggerPipelineRun(c))
 }
 
 func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
+
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerOCRJobRun(c), "Must pass the job id to trigger a run")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "Must pass the job id to trigger a run")
 }
 
 func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
+
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
@@ -1166,5 +667,86 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerOCRJobRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; job ID 1: record not found")
+}
+
+func TestClient_AutoLogin(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
+
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+
+	// Expire the session and then try again
+	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
+	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+}
+
+func TestClient_SetLogConfig(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	logLevel := "warn"
+	set := flag.NewFlagSet("loglevel", 0)
+	set.String("level", logLevel, "")
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.SetLogLevel(c)
+	require.NoError(t, err)
+	assert.Equal(t, logLevel, app.Config.LogLevel().String())
+
+	sqlEnabled := true
+	set = flag.NewFlagSet("logsql", 0)
+	set.Bool("enable", sqlEnabled, "")
+	c = cli.NewContext(nil, set, nil)
+
+	err = client.SetLogSQL(c)
+	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+
+	sqlEnabled = false
+	set = flag.NewFlagSet("logsql", 0)
+	set.Bool("disable", true, "")
+	c = cli.NewContext(nil, set, nil)
+
+	err = client.SetLogSQL(c)
+	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+}
+
+func TestClient_SetPkgLogLevel(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	logPkg := logger.HeadTracker
+	logLevel := "warn"
+	set := flag.NewFlagSet("logpkg", 0)
+	set.String("pkg", logPkg, "")
+	set.String("level", logLevel, "")
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.SetLogPkg(c)
+	require.NoError(t, err)
+
+	level, err := app.Logger.ServiceLogLevel(logPkg)
+	require.NoError(t, err)
+	assert.Equal(t, logLevel, level)
 }

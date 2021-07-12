@@ -17,10 +17,12 @@ import (
 // ContractVersion records information about the solidity compiler artifact a
 // golang contract wrapper package depends on.
 type ContractVersion struct {
-	// path to compiler artifact used by generate.sh to create wrapper package
-	CompilerArtifactPath string
 	// Hash of the artifact at the timem the wrapper was last generated
 	Hash string
+	// Path to compiled abi file
+	AbiPath string
+	// Path to compiled bin file (if exists, this can be empty)
+	BinaryPath string
 }
 
 // IntegratedVersion carries the full versioning information checked in this test
@@ -78,10 +80,10 @@ func ReadVersionsDB() (*IntegratedVersion, error) {
 				return nil, errors.Errorf("more than one geth version")
 			}
 			rv.GethVersion = line[1]
-		} else { // It's a wrapper from a json compiler artifact
-			if len(line) != 3 {
-				return nil, errors.Errorf(`"%s" should have three elements `+
-					`"<pkgname>: <compiler-artifact-path> <compiler-artifact-hash>"`,
+		} else { // It's a wrapper from a compiler artifact
+			if len(line) != 4 {
+				return nil, errors.Errorf(`"%s" should have four elements `+
+					`"<pkgname>: <abi-path> <bin-path> <hash>"`,
 					db.Text())
 			}
 			_, alreadyExists := rv.ContractVersions[topic]
@@ -89,7 +91,7 @@ func ReadVersionsDB() (*IntegratedVersion, error) {
 				return nil, errors.Errorf(`topic "%s" already mentioned!`, topic)
 			}
 			rv.ContractVersions[topic] = ContractVersion{
-				CompilerArtifactPath: line[1], Hash: line[2],
+				AbiPath: line[1], BinaryPath: line[2], Hash: line[3],
 			}
 		}
 	}
@@ -123,8 +125,8 @@ func WriteVersionsDB(db *IntegratedVersion) error {
 	sort.Strings(pkgNames)
 	for _, name := range pkgNames {
 		vinfo := db.ContractVersions[name]
-		versionLine := fmt.Sprintf("%s: %s %s\n", name, vinfo.CompilerArtifactPath,
-			vinfo.Hash)
+		versionLine := fmt.Sprintf("%s: %s %s %s\n", name,
+			vinfo.AbiPath, vinfo.BinaryPath, vinfo.Hash)
 		n, err = f.WriteString(versionLine)
 		if err != nil {
 			return errors.Wrapf(err, "while recording %s version line", name)

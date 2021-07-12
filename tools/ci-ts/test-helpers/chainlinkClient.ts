@@ -15,6 +15,7 @@ interface KeyInfo {
   address: string
   ethBalance: ethers.utils.BigNumber
   linkBalance: ethers.utils.BigNumber
+  isFunding: boolean
 }
 
 export default class ChainlinkClient {
@@ -51,7 +52,7 @@ export default class ChainlinkClient {
   }
 
   public getJobs(): JobSpec[] {
-    return this.execute('jobs list') as JobSpec[]
+    return this.execute('job_specs list') as JobSpec[]
   }
 
   public getJobRuns(): JobRun[] {
@@ -59,15 +60,19 @@ export default class ChainlinkClient {
   }
 
   public createJob(jobSpec: string): JobSpec {
-    return this.execute(`jobs create ${jobSpec}`) as JobSpec
+    return this.execute(`job_specs create ${jobSpec}`) as JobSpec
   }
 
   public archiveJob(jobId: string): void {
-    this.execute(`jobs archive ${jobId}`)
+    this.execute(`job_specs archive ${jobId}`)
   }
 
   public getAdminInfo(): KeyInfo[] {
     return this.execute('keys eth list') as KeyInfo[]
+  }
+
+  public newEthKey(): KeyInfo {
+    return this.execute('keys eth create') as KeyInfo
   }
 
   /**

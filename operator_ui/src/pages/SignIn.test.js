@@ -69,7 +69,7 @@ describe('pages/SignIn', () => {
     expect(newState.notifications).toEqual({
       errors: ['Your email or password is incorrect. Please try again'],
       successes: [],
-      currentUrl: '/signin',
+      currentUrl: undefined,
     })
     expect(newState.authentication.allowed).toEqual(false)
     expect(wrapper.text()).toContain(

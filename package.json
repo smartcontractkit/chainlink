@@ -3,7 +3,7 @@
   "license": "MIT",
   "workspaces": [
     "evm-test-helpers",
-    "evm-contracts",
+    "contracts",
     "integration",
     "integration-scripts",
     "operator_ui",
@@ -19,6 +19,7 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx contracts/ evm-test-helpers/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
@@ -29,18 +30,19 @@
     "postinstall": "patch-package"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^2.15.0",
+    "@typescript-eslint/eslint-plugin": "^2.34.0",
     "@typescript-eslint/parser": "^2.34.0",
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.15.0",
-    "eslint-plugin-prettier": "^3.1.4",
-    "eslint-plugin-react": "^7.19.0",
+    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-react": "^7.23.2",
     "eslint-plugin-react-hooks": "^4.0.0",
-    "patch-package": "^6.2.1",
-    "postinstall-postinstall": "^2.0.0",
+    "patch-package": "^6.4.7",
+    "postinstall-postinstall": "^2.1.0",
     "prettier": "^2.1.2",
+    "ts-node": "^10.0.0",
     "typescript": "^3.7.4",
-    "wsrun": "^5.2.0"
+    "wsrun": "^5.2.4"
   },
   "resolutions": {
     "**/decompress": "^4.2.1 ",
@@ -54,7 +56,9 @@
     "**/sha3": "^2.0.7",
     "**/solc": "^0.6.4",
     "**/source-map-support": "0.5.16",
-    "**/yargs-parser": "^15.0.1"
+    "**/yargs-parser": "^15.0.1",
+    "**/bl": "^3.0.1",
+    "**/y18n": "^5.0.5"
   },
   "dependencies": {
     "tslib": "^1.11.1"

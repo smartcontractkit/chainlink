@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -15,6 +16,7 @@ type Compare struct {
 	Value    string `json:"value"`
 }
 
+// Defining errors to use if the Compare operations fail
 var (
 	ErrResultNotNumber      = errors.New("the result was not a number")
 	ErrValueNotNumber       = errors.New("the value was not a number")
@@ -29,7 +31,7 @@ func (c *Compare) TaskType() models.TaskType {
 
 // Perform uses the Operator to check the run's result against the
 // specified Value.
-func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (c *Compare) Perform(input models.RunInput, _ *store.Store, _ *keystore.Master) models.RunOutput {
 	prevResult := input.Result().String()
 
 	if c.Value == "" {
@@ -38,33 +40,33 @@ func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 
 	switch c.Operator {
 	case "eq":
-		return models.NewRunOutputCompleteWithResult(c.Value == prevResult)
+		return models.NewRunOutputCompleteWithResult(c.Value == prevResult, input.ResultCollection())
 	case "neq":
-		return models.NewRunOutputCompleteWithResult(c.Value != prevResult)
+		return models.NewRunOutputCompleteWithResult(c.Value != prevResult, input.ResultCollection())
 	case "gt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired < value)
+		return models.NewRunOutputCompleteWithResult(desired < value, input.ResultCollection())
 	case "gte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired <= value)
+		return models.NewRunOutputCompleteWithResult(desired <= value, input.ResultCollection())
 	case "lt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired > value)
+		return models.NewRunOutputCompleteWithResult(desired > value, input.ResultCollection())
 	case "lte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired >= value)
+		return models.NewRunOutputCompleteWithResult(desired >= value, input.ResultCollection())
 	default:
 		return models.NewRunOutputError(ErrOperatorNotSpecified)
 	}

@@ -5,6 +5,9 @@ import (
 	"math/big"
 	"time"
 
+	"gorm.io/gorm"
+
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -12,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 var (
@@ -27,29 +30,29 @@ var (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             *ID          `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      *ID          `json:"jobId"`
-	Result         RunResult    `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
-	ResultID       clnull.Int64 `json:"-"`
-	RunRequest     RunRequest   `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
-	RunRequestID   clnull.Int64 `json:"-"`
-	Status         RunStatus    `json:"status" gorm:"default:'unstarted'"`
-	TaskRuns       []TaskRun    `json:"taskRuns"`
-	CreatedAt      time.Time    `json:"createdAt"`
-	FinishedAt     null.Time    `json:"finishedAt"`
-	UpdatedAt      time.Time    `json:"updatedAt"`
-	Initiator      Initiator    `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    int64        `json:"-"`
-	CreationHeight *utils.Big   `json:"creationHeight"`
-	ObservedHeight *utils.Big   `json:"observedHeight"`
-	DeletedAt      null.Time    `json:"-"`
-	Payment        *assets.Link `json:"payment,omitempty"`
+	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobSpecID      JobID          `json:"jobId" gorm:"type:uuid"`
+	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID"`
+	ResultID       clnull.Int64   `json:"-"`
+	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID"`
+	RunRequestID   clnull.Int64   `json:"-"`
+	Status         RunStatus      `json:"status" gorm:"default:'unstarted'"`
+	TaskRuns       []TaskRun      `json:"taskRuns" gorm:"foreignKey:JobRunID"`
+	CreatedAt      time.Time      `json:"createdAt"`
+	FinishedAt     null.Time      `json:"finishedAt"`
+	UpdatedAt      time.Time      `json:"updatedAt"`
+	Initiator      Initiator      `json:"initiator" gorm:"foreignkey:InitiatorID;->"`
+	InitiatorID    int64          `json:"-"`
+	CreationHeight *utils.Big     `json:"creationHeight"`
+	ObservedHeight *utils.Big     `json:"observedHeight"`
+	DeletedAt      gorm.DeletedAt `json:"-"`
+	Payment        *assets.Link   `json:"payment,omitempty"`
 }
 
 // MakeJobRun returns a new JobRun copy
 func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight *big.Int, runRequest *RunRequest) JobRun {
 	run := JobRun{
-		ID:          NewID(),
+		ID:          uuid.NewV4(),
 		JobSpecID:   job.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -65,10 +68,11 @@ func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight
 	}
 	for i, task := range job.Tasks {
 		run.TaskRuns[i] = TaskRun{
-			ID:       NewID(),
-			JobRunID: run.ID,
-			TaskSpec: task,
-			Status:   RunStatusUnstarted,
+			ID:         uuid.NewV4(),
+			JobRunID:   run.ID,
+			TaskSpec:   task,
+			TaskSpecID: task.ID,
+			Status:     RunStatusUnstarted,
 		}
 	}
 	run.SetStatus(RunStatusInProgress)
@@ -110,8 +114,8 @@ func (jr *JobRun) SetID(value string) error {
 // ForLogger formats the JobRun for a common formatting in the log.
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", jr.JobSpecID.String(),
-		"run", jr.ID.String(),
+		"jobID", jr.JobSpecID.String(),
+		"runID", jr.ID.String(),
 		"status", jr.Status,
 	}
 
@@ -134,7 +138,15 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	if jr.RunRequest.RequestID != nil {
-		output = append(output, "external_id", jr.RunRequest.RequestID)
+		output = append(output, "requestID", jr.RunRequest.RequestID)
+	}
+
+	if jr.RunRequest.TxHash != nil {
+		output = append(output, "txHash", jr.RunRequest.TxHash)
+	}
+
+	if jr.RunRequest.BlockHash != nil {
+		output = append(output, "blockHash", jr.RunRequest.BlockHash)
 	}
 
 	return append(kvs, output...)
@@ -228,7 +240,7 @@ type RunRequest struct {
 	Requester     *common.Address
 	CreatedAt     time.Time
 	Payment       *assets.Link
-	RequestParams JSON `gorm:"default: '{}';not null"`
+	RequestParams JSON `gorm:"type:jsonb;default:'{}'"`
 }
 
 // NewRunRequest returns a new RunRequest instance.
@@ -239,12 +251,12 @@ func NewRunRequest(requestParams JSON) *RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                               *ID           `json:"id" gorm:"primary_key;not null"`
-	JobRunID                         *ID           `json:"-"`
+	ID                               uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobRunID                         uuid.UUID     `json:"-" gorm:"type:uuid"`
 	Result                           RunResult     `json:"result"`
-	ResultID                         clnull.Uint32 `json:"-"`
+	ResultID                         clnull.Int64  `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskSpec                         TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
+	TaskSpec                         TaskSpec      `json:"task" gorm:"->"`
 	TaskSpecID                       int64         `json:"-"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
 	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
@@ -286,7 +298,7 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 // Data and ErrorMessage.
 type RunResult struct {
 	ID           int64       `json:"-" gorm:"primary_key;auto_increment"`
-	Data         JSON        `json:"data" gorm:"type:text"`
+	Data         JSON        `json:"data"`
 	ErrorMessage null.String `json:"error"`
 	CreatedAt    time.Time   `json:"-"`
 	UpdatedAt    time.Time   `json:"-"`

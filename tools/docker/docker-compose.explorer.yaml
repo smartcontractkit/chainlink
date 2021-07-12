@@ -7,7 +7,7 @@ services:
     entrypoint: yarn workspace @chainlink/explorer dev:compose
     restart: always
     ports:
-      - 8080:3001
+      - 3001
     depends_on:
       - explorer-db
     environment:

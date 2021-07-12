@@ -1,4 +1,4 @@
-import { TimeAgo } from '@chainlink/styleguide'
+import { TimeAgo } from 'components/TimeAgo'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Grid from '@material-ui/core/Grid'
@@ -18,7 +18,7 @@ import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import BaseLink from '../BaseLink'
 import Button from '../Button'
-import StatusIcon from '../JobRuns/StatusIcon'
+import StatusIcon from 'components/StatusIcon'
 import Link from '../Link'
 import NoContentLogo from '../Logos/NoContent'
 
@@ -141,7 +141,7 @@ const Activity = ({ classes, runs, count, pageSize }: Props) => {
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+                        <Link href={`/jobs/${r.jobId}/runs/${r.id}`}>
                           <Typography
                             variant="subtitle1"
                             color="textSecondary"

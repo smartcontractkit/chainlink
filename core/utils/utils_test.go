@@ -2,7 +2,6 @@ package utils_test
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -101,66 +100,6 @@ func TestUtils_DurationFromNow(t *testing.T) {
 	future := time.Now().Add(time.Second)
 	duration := utils.DurationFromNow(future)
 	assert.True(t, 0 < duration)
-}
-
-func TestCoerceInterfaceMapToStringMap(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		input     interface{}
-		want      interface{}
-		wantError bool
-	}{
-		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}, false},
-		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}, false},
-		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}, false},
-		{"error map", map[interface{}]interface{}{1: "value"}, map[int]interface{}{}, true},
-		{
-			"nested string map map",
-			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
-			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
-			false,
-		},
-		{
-			"nested map map",
-			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
-			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
-			false,
-		},
-		{
-			"nested map array",
-			map[interface{}]interface{}{"key": []interface{}{1, "value"}},
-			map[string]interface{}{"key": []interface{}{1, "value"}},
-			false,
-		},
-		{"empty array", []interface{}{}, []interface{}{}, false},
-		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}, false},
-		{
-			"error array",
-			[]interface{}{map[interface{}]interface{}{1: "value"}},
-			[]interface{}{},
-			true,
-		},
-		{
-			"nested array map",
-			[]interface{}{map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}}},
-			[]interface{}{map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}}},
-			false,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			decoded, err := utils.CoerceInterfaceMapToStringMap(test.input)
-			if test.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.True(t, reflect.DeepEqual(test.want, decoded))
-			}
-		})
-	}
 }
 
 func TestKeccak256(t *testing.T) {
@@ -519,4 +458,88 @@ func TestCombinedContext(t *testing.T) {
 		case <-time.After(5 * time.Second):
 		}
 	})
+}
+
+func Test_WithJitter(t *testing.T) {
+	d := 10 * time.Second
+
+	for i := 0; i < 32; i++ {
+		r := utils.WithJitter(d)
+		require.GreaterOrEqual(t, int(r), int(9*time.Second))
+		require.LessOrEqual(t, int(r), int(11*time.Second))
+	}
+}
+
+func Test_StartStopOnce_StopWaitsForStartToFinish(t *testing.T) {
+	t.Parallel()
+
+	once := utils.StartStopOnce{}
+
+	ch := make(chan int, 3)
+
+	ready := make(chan bool)
+
+	go func() {
+		once.StartOnce("slow service", func() (err error) {
+			ch <- 1
+			ready <- true
+			<-time.After(time.Millisecond * 500) // wait for StopOnce to happen
+			ch <- 2
+
+			return nil
+		})
+
+	}()
+
+	go func() {
+		<-ready // try stopping halfway through startup
+		once.StopOnce("slow service", func() (err error) {
+			ch <- 3
+
+			return nil
+		})
+	}()
+
+	require.Equal(t, 1, <-ch)
+	require.Equal(t, 2, <-ch)
+	require.Equal(t, 3, <-ch)
+}
+
+func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
+	t.Parallel()
+
+	once := utils.StartStopOnce{}
+
+	ch := make(chan int, 3)
+
+	ready := make(chan bool)
+	next := make(chan bool)
+
+	go func() {
+		ch <- 1
+		once.StartOnce("slow service", func() (err error) {
+			ready <- true
+			<-next // continue after the other StartOnce call fails
+
+			return nil
+		})
+		<-next
+		ch <- 2
+
+	}()
+
+	go func() {
+		<-ready // try starting halfway through startup
+		once.StartOnce("slow service", func() (err error) {
+			return nil
+		})
+		next <- true
+		ch <- 3
+		next <- true
+
+	}()
+
+	require.Equal(t, 1, <-ch)
+	require.Equal(t, 3, <-ch) // 3 arrives before 2 because it returns immediately
+	require.Equal(t, 2, <-ch)
 }

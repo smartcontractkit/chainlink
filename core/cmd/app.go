@@ -5,7 +5,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
 )
 
@@ -24,7 +24,7 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 func NewApp(client *Client) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
-	app.Version = fmt.Sprintf("%v@%v", store.Version, store.Sha)
+	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
@@ -44,7 +44,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "chpass",
-					Usage:  "Change your account password remotely",
+					Usage:  "Change your API password remotely",
 					Action: client.ChangePassword,
 				},
 				{
@@ -61,7 +61,7 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
-		cli.Command{
+		{
 			Name:    "agreements",
 			Aliases: []string{"agree"},
 			Usage:   "Commands for handling service agreements",
@@ -75,11 +75,10 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
-		cli.Command{
+		{
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
-			Hidden:  !client.Config.Dev(),
 			Subcommands: []cli.Command{
 				{
 					Name:   "list",
@@ -148,23 +147,54 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:   "loglevel",
+					Usage:  "Set log level",
+					Action: client.SetLogLevel,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "level",
+							Usage: "set log level for node (debug||info||warn||error)",
+						},
+					},
+				},
+				{
+					Name:   "logpkg",
+					Usage:  "Set package specific logging",
+					Action: client.SetLogPkg,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "pkg",
+							Usage: "set log filter for package specific logging",
+						},
+						cli.StringFlag{
+							Name:  "level",
+							Usage: "set log level for specified pkg",
+						},
+					},
+				},
+				{
+					Name:   "logsql",
+					Usage:  "Enable/disable sql statement logging",
+					Action: client.SetLogSQL,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "enable",
+							Usage: "enable sql logging",
+						},
+						cli.BoolFlag{
+							Name:  "disable",
+							Usage: "disable sql logging",
+						},
+					},
+				},
 			},
 		},
 
 		{
-			Name:  "jobs",
-			Usage: "Commands for managing Jobs",
+			Name:  "job_specs",
+			Usage: "Commands for managing Job Specs (jobs V1)",
 			Subcommands: []cli.Command{
-				{
-					Name:   "archive",
-					Usage:  "Archive a Job and all its associated Runs",
-					Action: client.ArchiveJobSpec,
-				},
-				{
-					Name:   "create",
-					Usage:  "Create Job from a Job Specification JSON",
-					Action: client.CreateJobSpec,
-				},
 				{
 					Name:   "list",
 					Usage:  "List all jobs",
@@ -182,60 +212,128 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ShowJobSpec,
 				},
 				{
-					Name:   "createocr",
-					Usage:  "Create an off-chain reporting job",
-					Action: client.CreateOCRJobSpec,
+					Name:   "create",
+					Usage:  "Create Job from a Job Specification JSON",
+					Action: client.CreateJobSpec,
 				},
 				{
-					Name:   "deletev2",
-					Usage:  "Delete a v2 job",
+					Name:   "archive",
+					Usage:  "Archive a Job and all its associated Runs",
+					Action: client.ArchiveJobSpec,
+				},
+			},
+		},
+		{
+			Name:  "jobs",
+			Usage: "Commands for managing Jobs (V2)",
+			Subcommands: []cli.Command{
+				{
+					Name:   "list",
+					Usage:  "List all V2 jobs",
+					Action: client.ListJobsV2,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
+				},
+				{
+					Name:   "create",
+					Usage:  "Create a V2 job",
+					Action: client.CreateJobV2,
+				},
+				{
+					Name:   "delete",
+					Usage:  "Delete a V2 job",
 					Action: client.DeleteJobV2,
 				},
 				{
 					Name:   "run",
-					Usage:  "Trigger an off-chain reporting job run",
-					Action: client.TriggerOCRJobRun,
+					Usage:  "Trigger a V2 job run",
+					Action: client.TriggerPipelineRun,
+				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
+					Action: client.Migrate,
 				},
 			},
 		},
-
 		{
 			Name:  "keys",
 			Usage: "Commands for managing various types of keys used by the Chainlink node",
 			Subcommands: []cli.Command{
-				cli.Command{
-					Name:   "eth",
-					Usage:  "Local commands for administering the node's Ethereum keys",
-					Hidden: !client.Config.Dev(),
+				{
+					Name:  "eth",
+					Usage: "Remote commands for administering the node's Ethereum keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
-							Hidden: !client.Config.Dev(),
-							Action: client.CreateExtraKey,
+							Action: client.CreateETHKey,
 						},
 						{
 							Name:   "list",
-							Usage:  "Display the Account's address with its ETH & LINK balances",
+							Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
 							Action: client.ListETHKeys,
+						},
+						{
+							Name:  "delete",
+							Usage: format(`Delete the ETH key by address`),
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteETHKey,
+						},
+						{
+							Name:  "import",
+							Usage: format(`Import an ETH key from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportETHKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an ETH key to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "Path where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportETHKey,
 						},
 					},
 				},
-				cli.Command{
-					Name:   "p2p",
-					Usage:  "Remote commands for administering the node's p2p keys",
-					Hidden: !client.Config.Dev(),
+
+				{
+					Name:  "p2p",
+					Usage: "Remote commands for administering the node's p2p keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create a p2p key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  format(`Create a p2p key, encrypted with password from the password file, and store it in the database.`),
 							Action: client.CreateP2PKey,
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Deletes the encrypted P2P key matching the given ID`),
+							Usage: format(`Delete the encrypted P2P key by id`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
@@ -253,18 +351,59 @@ func NewApp(client *Client) *cli.App {
 							Usage:  format(`List available P2P keys`),
 							Action: client.ListP2PKeys,
 						},
+						{
+							Name:  "import",
+							Usage: format(`Imports a P2P key from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportP2PKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports a P2P key to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportP2PKey,
+						},
 					},
 				},
-				cli.Command{
-					Name:   "ocr",
-					Usage:  "Remote commands for administering the node's off chain reporting keys",
-					Hidden: !client.Config.Dev(),
+
+				{
+					Name:  "csa",
+					Usage: "Remote commands for administering the node's CSA keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create an OCR key bundle, encrypted with password from the
-               password file, and store it in the database`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  format(`Create a CSA key, encrypted with password from the password file, and store it in the database.`),
+							Action: client.CreateCSAKey,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available CSA keys`),
+							Action: client.ListCSAKeys,
+						},
+					},
+				},
+
+				{
+					Name:  "ocr",
+					Usage: "Remote commands for administering the node's off chain reporting keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  format(`Create an OCR key bundle, encrypted with password from the password file, and store it in the database`),
 							Action: client.CreateOCRKeyBundle,
 						},
 						{
@@ -287,37 +426,74 @@ func NewApp(client *Client) *cli.App {
 							Usage:  format(`List available OCR key bundles`),
 							Action: client.ListOCRKeyBundles,
 						},
+						{
+							Name:  "import",
+							Usage: format(`Imports an OCR key bundle from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportOCRKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an OCR key bundle to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportOCRKey,
+						},
 					},
 				},
-				cli.Command{
-					Name: "vrf",
-					Usage: format(`Local commands for administering the database of VRF proof
-           keys. These commands will not affect the extant in-memory keys of
-           any live node.`),
-					Hidden: !client.Config.Dev(),
+
+				{
+					Name:  "vrf",
+					Usage: "Remote commands for administering the node's vrf keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create a VRF key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  "Create a VRF key",
 							Action: client.CreateVRFKey,
 						},
 						{
-							Name:   "import",
-							Usage:  "Import key from keyfile.",
-							Flags:  append(flags("password, p"), flags("file, f")...),
+							Name:  "import",
+							Usage: "Import VRF key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
 							Action: client.ImportVRFKey,
 						},
 						{
-							Name:   "export",
-							Usage:  "Export key to keyfile.",
-							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
+							Name:  "export",
+							Usage: "Export VRF key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
 							Action: client.ExportVRFKey,
 						},
 						{
-							Name:  "delete",
-							Usage: "Remove key from database, if present",
+							Name: "delete",
+							Usage: "Archive or delete VRF key from memory and the database, if present. " +
+								"Note that V2 jobs referencing the removed key will also be removed.",
 							Flags: []cli.Flag{
 								cli.StringFlag{Name: "publicKey, pk"},
 								cli.BoolFlag{
@@ -332,11 +508,8 @@ func NewApp(client *Client) *cli.App {
 							Action: client.DeleteVRFKey,
 						},
 						{
-							Name: "list", Usage: "List the public keys in the db",
-							Action: client.ListKeys,
-						},
-						{
-							Name: "",
+							Name: "list", Usage: "List the VRF keys",
+							Action: client.ListVRFKeys,
 						},
 						{
 							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
@@ -355,7 +528,6 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
-
 		{
 			Name:        "node",
 			Aliases:     []string{"local"},
@@ -456,17 +628,27 @@ func NewApp(client *Client) *cli.App {
 					Flags:  []cli.Flag{},
 				},
 				{
+					Name:   "status",
+					Usage:  "Displays the health of various services running inside the node.",
+					Action: client.Status,
+					Flags:  []cli.Flag{},
+				},
+				{
 					Name:        "db",
 					Usage:       "Commands for managing the database.",
-					Description: "Potentially destructive commands for managing the database, only intended for dev/testing purposes.",
-					Hidden:      !client.Config.Dev(),
+					Description: "Potentially destructive commands for managing the database.",
 					Subcommands: []cli.Command{
 						{
 							Name:   "reset",
 							Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
 							Hidden: !client.Config.Dev(),
 							Action: client.ResetDatabase,
-							Flags:  []cli.Flag{},
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "dangerWillRobinson",
+									Usage: "set to true to enable dropping non-test databases",
+								},
+							},
 						},
 						{
 							Name:   "preparetest",
@@ -475,12 +657,24 @@ func NewApp(client *Client) *cli.App {
 							Action: client.PrepareTestDatabase,
 							Flags:  []cli.Flag{},
 						},
+						{
+							Name:   "version",
+							Usage:  "Display the current database version.",
+							Action: client.VersionDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "migrate",
+							Usage:  "Migrate the database to the latest version.",
+							Action: client.MigrateDatabase,
+							Flags:  []cli.Flag{},
+						},
 					},
 				},
 			},
 		},
 
-		cli.Command{
+		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
 			Hidden: !client.Config.Dev() && !client.Config.FeatureExternalInitiators(),

@@ -22,11 +22,21 @@ func NewRunOutputError(err error) RunOutput {
 }
 
 // NewRunOutputCompleteWithResult returns a new RunOutput that is complete and
-// contains a result
-func NewRunOutputCompleteWithResult(resultVal interface{}) RunOutput {
-	data, err := JSON{}.Add("result", resultVal)
+// contains a result and preserves the resultCollection.
+func NewRunOutputCompleteWithResult(resultVal interface{}, resultCollection gjson.Result) RunOutput {
+	data, err := JSON{}.Add(ResultKey, resultVal)
 	if err != nil {
 		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
+	}
+	if resultCollection.String() != "" {
+		collectionCopy := make([]interface{}, 0)
+		for _, k := range resultCollection.Array() {
+			collectionCopy = append(collectionCopy, k.Value())
+		}
+		data, err = data.Add(ResultCollectionKey, collectionCopy)
+		if err != nil {
+			return NewRunOutputError(err)
+		}
 	}
 	return NewRunOutputComplete(data)
 }
@@ -74,9 +84,13 @@ func (ro RunOutput) HasError() bool {
 	return ro.status == RunStatusErrored
 }
 
+func (ro RunOutput) ResultCollection() gjson.Result {
+	return ro.data.Get(ResultCollectionKey)
+}
+
 // Result returns the result as a gjson object
 func (ro RunOutput) Result() gjson.Result {
-	return ro.data.Get("result")
+	return ro.data.Get(ResultKey)
 }
 
 // Get searches for and returns the JSON at the given path.

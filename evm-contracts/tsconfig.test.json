@@ -1,8 +1,0 @@
-{
-  "extends": "../tsconfig.cjs.json",
-  "include": ["test", "ethers"],
-  "compilerOptions": {
-    "noEmit": true
-  },
-  "references": [{ "path": "../evm-test-helpers" }]
-}

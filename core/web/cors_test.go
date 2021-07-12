@@ -14,8 +14,13 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
-	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.LenientEthMock)
-	defer appCleanup()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t,
+		config,
+		ethClient,
+	)
+	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -58,8 +63,13 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			config, _ := cltest.NewConfig(t)
 			config.Set("ALLOW_ORIGINS", test.allow)
 
-			app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.LenientEthMock)
-			defer appCleanup()
+			ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+			defer assertMocksCalled()
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t,
+				config,
+				ethClient,
+			)
+			defer cleanup()
 			require.NoError(t, app.Start())
 
 			client := app.NewHTTPClient()

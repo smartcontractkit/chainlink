@@ -2,396 +2,404 @@ package pipeline_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
-func TestRunner(t *testing.T) {
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
-	defer cleanupDB()
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
-	db := oldORM.DB
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
 
-	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
-	runner := pipeline.NewRunner(pipelineORM, config)
-	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-	defer jobORM.Close()
+	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
-	runner.Start()
-	defer runner.Stop()
+	// 1. Setup bridge
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
+	defer s1.Close()
 
-	t.Run("gets the election result winner", func(t *testing.T) {
-		var httpURL string
+	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
+
+	_, bridge := cltest.NewBridgeType(t, "example-bridge")
+	bridge.URL = *bridgeFeedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+
+	// 2. Setup success HTTP
+	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
+	defer s2.Close()
+
+	s4 := httptest.NewServer(fakeStringResponder(t, "foo-index-1"))
+	defer s4.Close()
+	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
+	defer s5.Close()
+
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+
+	s := fmt.Sprintf(`
+ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1_parse [type=jsonparse lax=false  path="data,result"]
+ds1_multiply [type=multiply times=1000000000000000000]
+
+ds2 [type=http method="GET" url="%s" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds2_parse [type=jsonparse lax=false  path="data,result"]
+ds2_multiply [type=multiply times=1000000000000000000]
+
+ds3 [type=http method="GET" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds3_parse [type=jsonparse lax=false  path="data,result"]
+ds3_multiply [type=multiply times=1000000000000000000]
+
+ds1->ds1_parse->ds1_multiply->median;
+ds2->ds2_parse->ds2_multiply->median;
+ds3->ds3_parse->ds3_multiply->median;
+
+median [type=median index=0]
+ds4 [type=http method="GET" url="%s" index=1]
+ds5 [type=http method="GET" url="%s" index=2]
+`, s2.URL, s4.URL, s5.URL)
+	d, err := pipeline.Parse(s)
+	require.NoError(t, err)
+
+	spec := pipeline.Spec{DotDagSource: s}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	require.NoError(t, err)
+	require.Len(t, trrs, len(d.Tasks))
+
+	finalResults := trrs.FinalResult()
+	require.Len(t, finalResults.Values, 3)
+	require.Len(t, finalResults.Errors, 3)
+	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
+	assert.Nil(t, finalResults.Errors[0])
+	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
+	assert.Nil(t, finalResults.Errors[1])
+	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
+	assert.Nil(t, finalResults.Errors[2])
+
+	var errorResults []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		if trr.Result.Error != nil && !trr.IsTerminal() {
+			errorResults = append(errorResults, trr)
+		}
+	}
+	// There are three tasks in the erroring pipeline
+	require.Len(t, errorResults, 3)
+}
+
+func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
+	t.Parallel()
+
+	specTemplate := `
+        ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": $(foo)}>]
+        ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
+        ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
+
+        ds2 [type=http method="POST" url="%s" requestData=<{"data": [ $(bar), $(baz) ]}>]
+        ds2_parse [type=jsonparse lax=false  path="data" data="$(ds2)"]
+        ds2_multiply [type=multiply input="$(ds2_parse.result)" times="$(ds2_parse.times)"]
+
+        ds3 [type=http method="POST" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+        ds3_parse [type=jsonparse lax=false  path="data,result" data="$(ds3)"]
+        ds3_multiply [type=multiply input="$(ds3_parse.value)" times="$(ds3_parse.times)"]
+
+        ds1->ds1_parse->ds1_multiply->median;
+        ds2->ds2_parse->ds2_multiply->median;
+        ds3->ds3_parse->ds3_multiply->median;
+
+        median [type=median values=<[ $(ds1_multiply), $(ds2_multiply), $(ds3_multiply) ]> index=0]
+        ds4 [type=http method="GET" url="%s" index=1]
+
+        submit [type=bridge name="submit"
+                includeInputAtKey="%s"
+                requestData=<{
+                    "median": $(median),
+                    "fetchedValues": [ $(ds1_parse.result), $(ds2_parse.result) ],
+                    "someString": $(ds4)
+                }>]
+
+        median -> submit;
+        ds4 -> submit;
+    `
+
+	tests := []struct {
+		name              string
+		vars              map[string]interface{}
+		meta              map[string]interface{}
+		includeInputAtKey string
+	}{
 		{
-			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`)
-			defer cleanupElectionWinner()
-			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`)
-			defer cleanupVoterTurnout()
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
-			defer cleanupHTTP()
+			name: "meta + includeInputAtKey",
+			vars: map[string]interface{}{
+				"foo": []interface{}{float64(123), "chainlink"},
+				"bar": float64(123.45),
+				"baz": "such oracle",
+			},
+			meta:              map[string]interface{}{"roundID": float64(456), "latestAnswer": float64(654)},
+			includeInputAtKey: "sergey",
+		},
+		{
+			name: "includeInputAtKey",
+			vars: map[string]interface{}{
+				"foo": *mustDecimal(t, "42.1337"),
+				"bar": map[string]interface{}{"steve": "chainlink"},
+				"baz": true,
+			},
+			includeInputAtKey: "best oracles",
+		},
+		{
+			name: "meta",
+			vars: map[string]interface{}{
+				"foo": []interface{}{"asdf", float64(123)},
+				"bar": false,
+				"baz": *mustDecimal(t, "42.1337"),
+			},
+		},
+	}
 
-			_, bridgeER := cltest.NewBridgeType(t, "election_winner", mockElectionWinner.URL)
-			err := db.Create(bridgeER).Error
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
+			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
+			expectedRequestSubmit := map[string]interface{}{
+				"median":        "9650000000000000000000",
+				"fetchedValues": []interface{}{"9700", "9600"},
+				"someString":    "some random string",
+			}
+			if test.meta != nil {
+				expectedRequestDS1["meta"] = test.meta
+				expectedRequestSubmit["meta"] = test.meta
+				test.vars["jobRun"] = map[string]interface{}{"meta": test.meta}
+			}
+			if test.includeInputAtKey != "" {
+				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
+			}
+
+			// 1. Setup bridge
+			ds1 := makeBridge(t, store, "example-bridge", expectedRequestDS1, map[string]interface{}{
+				"data": map[string]interface{}{
+					"result": map[string]interface{}{
+						"result": decimal.NewFromInt(9700),
+						"times":  "1000000000000000000",
+					},
+				},
+			})
+			defer ds1.Close()
+
+			// 2. Setup success HTTP
+			ds2 := httptest.NewServer(fakeExternalAdapter(t, expectedRequestDS2, map[string]interface{}{
+				"data": map[string]interface{}{
+					"result": decimal.NewFromInt(9600),
+					"times":  "1000000000000000000",
+				},
+			}))
+			defer ds2.Close()
+
+			ds4 := httptest.NewServer(fakeStringResponder(t, "some random string"))
+			defer ds4.Close()
+
+			// 3. Setup final bridge task
+			submit := makeBridge(t, store, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
+			defer submit.Close()
+
+			orm := new(mocks.ORM)
+			orm.On("DB").Return(store.DB)
+
+			runner := pipeline.NewRunner(orm, store.Config, nil, nil)
+			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
+			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
-			_, bridgeVT := cltest.NewBridgeType(t, "voter_turnout", mockVoterTurnout.URL)
-			err = db.Create(bridgeVT).Error
+			spec := pipeline.Spec{
+				DotDagSource: specStr,
+			}
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), *logger.Default)
 			require.NoError(t, err)
+			require.Len(t, taskRunResults, len(p.Tasks))
 
-			httpURL = mockHTTP.URL
-		}
-
-		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, httpURL)
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
-		require.NoError(t, err)
-
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.NoError(t, err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 2)
-		assert.NoError(t, results[0].Error)
-		assert.NoError(t, results[1].Error)
-		assert.Equal(t, "6225.6", results[0].Value)
-		assert.Equal(t, "Hal Finney", results[1].Value)
-
-		// Verify individual task results
-		var runs []pipeline.TaskRun
-		err = db.
-			Preload("PipelineTaskSpec").
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
-		assert.NoError(t, err)
-		assert.Len(t, runs, 9)
-
-		for _, run := range runs {
-			if run.DotID() == "answer2" {
-				assert.Equal(t, "Hal Finney", run.Output.Val)
-			} else if run.DotID() == "ds2" {
-				assert.Equal(t, `{"turnout": 61.942}`, run.Output.Val)
-			} else if run.DotID() == "ds2_parse" {
-				assert.Equal(t, float64(61.942), run.Output.Val)
-			} else if run.DotID() == "ds2_multiply" {
-				assert.Equal(t, "6194.2", run.Output.Val)
-			} else if run.DotID() == "ds1" {
-				assert.Equal(t, `{"data": {"result": 62.57}}`, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
-				assert.Equal(t, float64(62.57), run.Output.Val)
-			} else if run.DotID() == "ds1_multiply" {
-				assert.Equal(t, "6257", run.Output.Val)
-			} else if run.DotID() == "answer1" {
-				assert.Equal(t, "6225.6", run.Output.Val)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{"6225.6", "Hal Finney"}, run.Output.Val)
-			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+			expectedResults := map[string]pipeline.Result{
+				"ds1":          {Value: `{"data":{"result":{"result":"9700","times":"1000000000000000000"}}}` + "\n"},
+				"ds1_parse":    {Value: map[string]interface{}{"result": "9700", "times": "1000000000000000000"}},
+				"ds1_multiply": {Value: *mustDecimal(t, "9700000000000000000000")},
+				"ds2":          {Value: `{"data":{"result":"9600","times":"1000000000000000000"}}` + "\n"},
+				"ds2_parse":    {Value: map[string]interface{}{"result": "9600", "times": "1000000000000000000"}},
+				"ds2_multiply": {Value: *mustDecimal(t, "9600000000000000000000")},
+				"ds3":          {Error: errors.New(`error making http request: Post "blah://test.invalid": unsupported protocol scheme "blah"`)},
+				"ds3_parse":    {Error: pipeline.ErrTooManyErrors},
+				"ds3_multiply": {Error: pipeline.ErrTooManyErrors},
+				"ds4":          {Value: "some random string"},
+				"median":       {Value: *mustDecimal(t, "9650000000000000000000")},
+				"submit":       {Value: `{"ok":true}` + "\n"},
 			}
-		}
-	})
 
-	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
-		var httpURL string
-		resp := `{"USD": null}`
-		{
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
-			httpURL = mockHTTP.URL
-		}
-
-		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
-		require.NoError(t, err)
-
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.NoError(t, err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "type <nil> cannot be converted to decimal.Decimal")
-		assert.Nil(t, results[0].Value)
-
-		// Verify individual task results
-		var runs []pipeline.TaskRun
-		err = db.
-			Preload("PipelineTaskSpec").
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
-		assert.NoError(t, err)
-		require.Len(t, runs, 4)
-
-		for _, run := range runs {
-			if run.DotID() == "ds1" {
-				assert.True(t, run.Error.IsZero())
-				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
-				assert.True(t, run.Error.IsZero())
-				// FIXME: Shouldn't it be the Val that is null?
-				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
-				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
-			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+			for _, r := range taskRunResults {
+				expected := expectedResults[r.Task.DotID()]
+				if expected.Error != nil {
+					require.Error(t, r.Result.Error)
+					require.Contains(t, r.Result.Error.Error(), expected.Error.Error())
+				} else {
+					if d, is := expected.Value.(decimal.Decimal); is {
+						require.Equal(t, d.String(), r.Result.Value.(decimal.Decimal).String())
+					} else {
+						require.Equal(t, expected.Value, r.Result.Value)
+					}
+				}
 			}
+		})
+	}
+}
+
+func Test_PipelineRunner_HandleFaults(t *testing.T) {
+	// We want to test the scenario where one or multiple APIs time out,
+	// but a sufficient number of them still complete within the desired time frame
+	// and so we can still obtain a median.
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte(`{"result":10}`))
+	}))
+	m2 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte(`{"result":11}`))
+	}))
+	s := fmt.Sprintf(`
+ds1          [type=http url="%s"];
+ds1_parse    [type=jsonparse path="result"];
+ds1_multiply [type=multiply times=100];
+
+ds2          [type=http url="%s"];
+ds2_parse    [type=jsonparse path="result"];
+ds2_multiply [type=multiply times=100];
+
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+answer1 [type=median                      index=0];
+`, m1.URL, m2.URL)
+
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+
+	// If we cancel before an API is finished, we should still get a median.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	spec := pipeline.Spec{DotDagSource: s}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars, *logger.Default)
+	require.NoError(t, err)
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.(decimal.Decimal))
 		}
-	})
+	}
+}
 
-	t.Run("handles the case where the jsonparse lookup path is missing from the http response", func(t *testing.T) {
-		var httpURL string
-		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
-		{
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
-			httpURL = mockHTTP.URL
-		}
+func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(val)" times=2]
+b1 [type=multiply input="$(a)" times=2]
+b2 [type=multiply input="$(a)" times=3]
+c [type=median values=<[ $(b1), $(b2) ]> index=0]
+a->b1->c;
+a->b2->c;`,
+	}, pipeline.NewVarsFrom(input), *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult().HasErrors())
 
-		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
-		require.NoError(t, err)
+	// a = 4
+	// (b1 = 8) + (b2 = 12)
+	// c = 20 / 2
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.NoError(t, err)
+	result, err := trrs.FinalResult().SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
+}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	input := map[string]interface{}{"val": 2}
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=multiply input="$(val)" times=2]
+b1 [type=multiply input="$(a)" times=2 index=0]
+b2 [type=multiply input="$(a)" times=3 index=1]
+a->b1;
+a->b2;`,
+	}, pipeline.NewVarsFrom(input), *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(trrs))
+	result := trrs.FinalResult()
+	assert.Equal(t, false, result.HasErrors())
 
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
+	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
+	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
+}
 
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
+func TestPanicTask_Run(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte(`{"result":10}`))
+	}))
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	spec := pipeline.Spec{
+		DotDagSource: fmt.Sprintf(`
+ds1 [type=http url="%s"]
+ds_parse [type=jsonparse path="result"]
+ds_multiply [type=multiply times=10]
+ds_panic [type=panic msg="oh no"]
+ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
+	}
+	vars := pipeline.NewVarsFrom(nil)
 
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
-		assert.Nil(t, results[0].Value)
-
-		// Verify individual task results
-		var runs []pipeline.TaskRun
-		err = db.
-			Preload("PipelineTaskSpec").
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
-		assert.NoError(t, err)
-		require.Len(t, runs, 4)
-
-		for _, run := range runs {
-			if run.DotID() == "ds1" {
-				assert.True(t, run.Error.IsZero())
-				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
-				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
-				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"could not resolve path [\\\"USD\\\"] in {\\\"Response\\\":\\\"Error\\\",\\\"Message\\\":\\\"You are over your rate limit please upgrade your account!\\\",\\\"HasWarning\\\":false,\\\"Type\\\":99,\\\"RateLimit\\\":{\\\"calls_made\\\":{\\\"second\\\":5,\\\"minute\\\":5,\\\"hour\\\":955,\\\"day\\\":10004,\\\"month\\\":15146,\\\"total_calls\\\":15152},\\\"max_calls\\\":{\\\"second\\\":20,\\\"minute\\\":300,\\\"hour\\\":3000,\\\"day\\\":10000,\\\"month\\\":75000}},\\\"Data\\\":{}}\"]", run.Error.ValueOrZero())
-			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
-			}
-		}
-	})
-
-	t.Run("handles the case where the jsonparse lookup path is missing from the http response and lax is enabled", func(t *testing.T) {
-		var httpURL string
-		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
-		{
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
-			httpURL = mockHTTP.URL
-		}
-
-		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, true)
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
-		require.NoError(t, err)
-
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.NoError(t, err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "type <nil> cannot be converted to decimal.Decimal")
-		assert.Nil(t, results[0].Value)
-
-		// Verify individual task results
-		var runs []pipeline.TaskRun
-		err = db.
-			Preload("PipelineTaskSpec").
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
-		assert.NoError(t, err)
-		require.Len(t, runs, 4)
-
-		for _, run := range runs {
-			if run.DotID() == "ds1" {
-				assert.True(t, run.Error.IsZero())
-				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
-				assert.True(t, run.Error.IsZero())
-				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
-				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
-			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
-			}
-		}
-	})
-
-	t.Run("test job spec error is created", func(t *testing.T) {
-		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
-		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
-		require.NoError(t, err)
-		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, cltest.DefaultKey, fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
-		ocrspec, dbSpec := makeOCRJobSpecWithHTTPURL(t, db, spec)
-
-		// Create an OCR job
-		err = jobORM.CreateJob(context.Background(), dbSpec, ocrspec.TaskDAG())
-		require.NoError(t, err)
-		var jb models.JobSpecV2
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
-		require.NoError(t, err)
-
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
-		sd := offchainreporting.NewJobSpawnerDelegate(
-			db,
-			jobORM,
-			config.Config,
-			keyStore,
-			nil,
-			nil,
-			nil)
-		service, err := sd.ServicesForSpec(sd.FromDBRow(jb))
-		require.NoError(t, err)
-
-		// Start and stop the service to generate errors.
-		// We expect a database timeout and a context cancellation
-		// error to show up as pipeline_spec_errors.
-		err = service[0].Start()
-		require.NoError(t, err)
-		err = service[0].Close()
-		require.NoError(t, err)
-
-		var se []models.JobSpecErrorV2
-		err = db.Find(&se).Error
-		require.NoError(t, err)
-		require.Len(t, se, 2)
-		assert.Equal(t, uint(1), se[0].Occurrences)
-		assert.Equal(t, uint(1), se[1].Occurrences)
-
-		// Ensure we can delete an errored job.
-		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
-		require.NoError(t, err)
-		err = jobORM.DeleteJob(context.Background(), jb.ID)
-		require.NoError(t, err)
-		err = db.Find(&se).Error
-		require.NoError(t, err)
-		require.Len(t, se, 0)
-	})
-
-	t.Run("deleting jobs", func(t *testing.T) {
-		var httpURL string
-		{
-			resp := `{"USD": 42.42}`
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
-			httpURL = mockHTTP.URL
-		}
-
-		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
-		require.NoError(t, err)
-
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.NoError(t, err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.Nil(t, results[0].Error)
-		assert.Equal(t, "4242", results[0].Value)
-
-		// Delete the job
-		err = jobORM.DeleteJob(ctx, dbSpec.ID)
-		require.NoError(t, err)
-
-		// Create another run
-		_, err = runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.EqualError(t, err, fmt.Sprintf("no job found with id %v (most likely it was deleted)", dbSpec.ID))
-
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.EqualError(t, err, fmt.Sprintf("could not determine if run is finished (run ID: %v): record not found", runID))
-	})
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(trrs))
+	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
+	assert.Equal(t, true, trrs.FinalResult().HasErrors())
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().Errors[0])
 }

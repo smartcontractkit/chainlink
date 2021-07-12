@@ -20,13 +20,11 @@ describe('pages/Jobs/Definition', () => {
     const wrapper = mountWithProviders(
       <Route path="/jobs/:jobSpecId" component={JobsShow} />,
       {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}/json`],
+        initialEntries: [`/jobs/${JOB_SPEC_ID}/definition`],
       },
     )
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain(
-      'Definition{  "initiators": [    {      "id": 1,      "type": "web",      "jobSpecId": "c60b9927eeae43168ddbe92584937b1b"    }  ],  "tasks": [    {      "confirmations": 0,      "type": "httpget",      "params": {        "get": "https://bitstamp.net/api/ticker/"      }    }  ],  "startAt": "2020-09-22T11:49:50.410Z",  "endAt": "2020-09-22T11:59:50.410Z"}',
-    )
+    expect(wrapper.find('PrettyJson').text()).toMatchSnapshot()
   })
 })

@@ -1,0 +1,4 @@
+{
+  "initiators": [{"type": "ethLog"}],
+  "tasks": [{"type": "NoOp","confirmations": 100}]
+}

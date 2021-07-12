@@ -6,48 +6,46 @@ import (
 	"encoding/json"
 	"net/url"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 )
 
-//go:generate mockery --name Task --output ./mocks/ --case=underscore
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
 		Type() TaskType
+		ID() int
 		DotID() string
-		Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result
-		OutputTask() Task
-		SetOutputTask(task Task)
+		Run(ctx context.Context, vars Vars, inputs []Result) Result
+		Base() *BaseTask
+		Outputs() []Task
+		Inputs() []Task
 		OutputIndex() int32
-	}
-
-	Result struct {
-		Value interface{}
-		Error error
+		TaskTimeout() (time.Duration, bool)
 	}
 
 	Config interface {
 		BridgeResponseURL() *url.URL
 		DatabaseMaximumTxDuration() time.Duration
-		DatabaseURL() string
+		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		JobPipelineDBPollInterval() time.Duration
-		JobPipelineMaxTaskDuration() time.Duration
-		JobPipelineParallelism() uint8
+		EthGasLimitDefault() uint64
+		EthMaxQueuedTransactions() uint64
+		TriggerFallbackDBPollInterval() time.Duration
+		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
 		JobPipelineReaperThreshold() time.Duration
 	}
@@ -56,21 +54,130 @@ type (
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
+	ErrParameterEmpty        = errors.New("parameter is empty")
+	ErrTooManyErrors         = errors.New("too many errors")
+	ErrTimeout               = errors.New("timeout")
+	ErrTaskRunFailed         = errors.New("task run failed")
 )
 
-type BaseTask struct {
-	outputTask Task
-	dotID      string `mapstructure:"-"`
-	Index      int32  `mapstructure:"index" json:"-" `
+const (
+	InputTaskKey = "input"
+)
+
+// Result is the result of a TaskRun
+type Result struct {
+	Value interface{}
+	Error error
 }
 
-func (t BaseTask) DotID() string                  { return t.dotID }
-func (t BaseTask) OutputIndex() int32             { return t.Index }
-func (t BaseTask) OutputTask() Task               { return t.outputTask }
-func (t *BaseTask) SetOutputTask(outputTask Task) { t.outputTask = outputTask }
+// OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
+func (result Result) OutputDB() JSONSerializable {
+	return JSONSerializable{Val: result.Value, Null: result.Value == nil}
+}
+
+// ErrorDB dumps a single result error for a pipeline_task_run
+func (result Result) ErrorDB() null.String {
+	var errString null.String
+	if result.Error != nil {
+		errString = null.StringFrom(result.Error.Error())
+	}
+	return errString
+}
+
+// FinalResult is the result of a Run
+type FinalResult struct {
+	Values []interface{}
+	Errors []error
+}
+
+// OutputsDB dumps a result output for a pipeline_run
+func (result FinalResult) OutputsDB() JSONSerializable {
+	return JSONSerializable{Val: result.Values, Null: false}
+}
+
+// ErrorsDB dumps a result error for a pipeline_run
+func (result FinalResult) ErrorsDB() RunErrors {
+	errStrs := make([]null.String, len(result.Errors))
+	for i, err := range result.Errors {
+		if err == nil {
+			errStrs[i] = null.String{}
+		} else {
+			errStrs[i] = null.StringFrom(err.Error())
+		}
+	}
+
+	return errStrs
+}
+
+// HasErrors returns true if the final result has any errors
+func (result FinalResult) HasErrors() bool {
+	for _, err := range result.Errors {
+		if err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// SingularResult returns a single result if the FinalResult only has one set of outputs/errors
+func (result FinalResult) SingularResult() (Result, error) {
+	if len(result.Errors) != 1 || len(result.Values) != 1 {
+		return Result{}, errors.Errorf("cannot cast FinalResult to singular result; it does not have exactly 1 error and exactly 1 output: %#v", result)
+	}
+	return Result{Error: result.Errors[0], Value: result.Values[0]}, nil
+}
+
+// TaskRunResult describes the result of a task run, suitable for database
+// update or insert.
+// ID might be zero if the TaskRun has not been inserted yet
+// TaskSpecID will always be non-zero
+type TaskRunResult struct {
+	ID         int64
+	Task       Task
+	TaskRun    TaskRun
+	Result     Result
+	CreatedAt  time.Time
+	FinishedAt time.Time
+}
+
+func (result *TaskRunResult) IsTerminal() bool {
+	return len(result.Task.Outputs()) == 0
+}
+
+// TaskRunResults represents a collection of results for all task runs for one pipeline run
+type TaskRunResults []TaskRunResult
+
+// FinalResult pulls the FinalResult for the pipeline_run from the task runs
+// It needs to respect the output index of each task
+func (trrs TaskRunResults) FinalResult() FinalResult {
+	var found bool
+	var fr FinalResult
+	sort.Slice(trrs, func(i, j int) bool {
+		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
+	})
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			fr.Values = append(fr.Values, trr.Result.Value)
+			fr.Errors = append(fr.Errors, trr.Result.Error)
+			found = true
+		}
+	}
+
+	if !found {
+		logger.Errorw("expected at least one task to be final", "tasks", trrs)
+		panic("expected at least one task to be final")
+	}
+	return fr
+}
+
+type RunWithResults struct {
+	Run            Run
+	TaskRunResults TaskRunResults
+}
 
 type JSONSerializable struct {
-	Val interface{}
+	Val  interface{}
+	Null bool
 }
 
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
@@ -90,6 +197,10 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 }
 
 func (js *JSONSerializable) Scan(value interface{}) error {
+	if value == nil {
+		*js = JSONSerializable{Null: true}
+		return nil
+	}
 	bytes, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("JSONSerializable#Scan received a value of type %T", value)
@@ -101,28 +212,52 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 }
 
 func (js JSONSerializable) Value() (driver.Value, error) {
+	if js.Null {
+		return nil, nil
+	}
 	return js.MarshalJSON()
 }
 
 type TaskType string
 
+func (t TaskType) String() string {
+	return string(t)
+}
+
 const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeResult    TaskType = "result"
+	TaskTypeHTTP            TaskType = "http"
+	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMean            TaskType = "mean"
+	TaskTypeMedian          TaskType = "median"
+	TaskTypeMode            TaskType = "mode"
+	TaskTypeSum             TaskType = "sum"
+	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeDivide          TaskType = "divide"
+	TaskTypeJSONParse       TaskType = "jsonparse"
+	TaskTypeCBORParse       TaskType = "cborparse"
+	TaskTypeAny             TaskType = "any"
+	TaskTypeVRF             TaskType = "vrf"
+	TaskTypeETHCall         TaskType = "ethcall"
+	TaskTypeETHTx           TaskType = "ethtx"
+	TaskTypeETHABIEncode    TaskType = "ethabiencode"
+	TaskTypeETHABIDecode    TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
+
+	// Testing only.
+	TaskTypePanic TaskType = "panic"
 )
 
-const ResultTaskDotID = "__result__"
+var (
+	stringType = reflect.TypeOf("")
+	int32Type  = reflect.TypeOf(int32(0))
+)
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
 	default:
-		return nil, errors.New("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
+		return nil, errors.Errorf("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
 	case map[string]interface{}, map[string]string:
 	}
 
@@ -130,18 +265,24 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 
 	var task Task
 	switch taskType {
+	case TaskTypePanic:
+		task = &PanicTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeHTTP:
-		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
+		task = &HTTPTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, txdb: txdb, BaseTask: BaseTask{dotID: dotID}}
+		task = &BridgeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMedian:
-		task = &MedianTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeAny:
+		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID}}
-	case TaskTypeResult:
-		task = &ResultTask{BaseTask: BaseTask{dotID: ResultTaskDotID}}
+		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeVRF:
+		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHCall:
+		task = &ETHCallTask{BaseTask: BaseTask{dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -149,32 +290,14 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result: task,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToSliceHookFunc(","),
-			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-				switch f {
-				case reflect.TypeOf(""):
-					switch t {
-					case reflect.TypeOf(models.WebURL{}):
-						u, err2 := url.Parse(data.(string))
-						if err2 != nil {
-							return nil, err2
-						}
-						return models.WebURL(*u), nil
-
-					case reflect.TypeOf(HttpRequestData{}):
-						var m map[string]interface{}
-						err2 := json.Unmarshal([]byte(data.(string)), &m)
-						return HttpRequestData(m), err2
-
-					case reflect.TypeOf(decimal.Decimal{}):
-						return decimal.NewFromString(data.(string))
-
-					case reflect.TypeOf(int32(0)):
+			mapstructure.StringToTimeDurationHookFunc(),
+			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+				switch from {
+				case stringType:
+					switch to {
+					case int32Type:
 						i, err2 := strconv.ParseInt(data.(string), 10, 32)
 						return int32(i), err2
-					case reflect.TypeOf(true):
-						b, err2 := strconv.ParseBool(data.(string))
-						return b, err2
 					}
 				}
 				return data, nil
@@ -192,15 +315,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	return task, nil
 }
 
-func WrapResultIfError(result *Result, msg string, args ...interface{}) {
-	if result.Error != nil {
-		logger.Errorf(msg+": %+v", append(args, result.Error)...)
-		result.Error = errors.Wrapf(result.Error, msg, args...)
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+	if minLen >= 0 && len(inputs) < minLen {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+	} else if maxLen >= 0 && len(inputs) > maxLen {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	}
+	var vals []interface{}
+	var errs int
+	for _, input := range inputs {
+		if input.Error != nil {
+			errs++
+			continue
+		}
+		vals = append(vals, input.Value)
+	}
+	if maxErrors >= 0 && errs > maxErrors {
+		return nil, ErrTooManyErrors
+	}
+	return vals, nil
 }
-
-type HttpRequestData map[string]interface{}
-
-func (h *HttpRequestData) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), h) }
-func (h HttpRequestData) Value() (driver.Value, error)  { return json.Marshal(h) }
-func (h HttpRequestData) AsMap() map[string]interface{} { return h }

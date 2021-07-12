@@ -83,6 +83,12 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	Default.Errorw(msg, keysAndValues...)
 }
 
+// Logs and returns a new error
+func NewErrorw(msg string, keysAndValues ...interface{}) error {
+	Default.Errorw(msg, keysAndValues...)
+	return errors.New(msg)
+}
+
 // Infof formats and then logs the message.
 func Infof(format string, values ...interface{}) {
 	Default.Info(fmt.Sprintf(format, values...))
@@ -158,6 +164,11 @@ func Errorf(format string, values ...interface{}) {
 // Fatalf logs a message at the fatal level using Sprintf.
 func Fatalf(format string, values ...interface{}) {
 	Fatal(fmt.Sprintf(format, values...))
+}
+
+// Fatalw logs a message and exits the application
+func Fatalw(msg string, keysAndValues ...interface{}) {
+	Default.Fatalw(msg, keysAndValues...)
 }
 
 // Panic logs a panic message then panics.

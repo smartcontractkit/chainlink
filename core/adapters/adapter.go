@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -47,13 +48,15 @@ var (
 	TaskTypeCompare = models.MustNewTaskType("compare")
 	// TaskTypeQuotient is the identifier for the Quotient adapter.
 	TaskTypeQuotient = models.MustNewTaskType("quotient")
+	// TaskTypeResultCollect is the identifier for the ResultCollect adapter.
+	TaskTypeResultCollect = models.MustNewTaskType("resultcollect")
 )
 
 // BaseAdapter is the minimum interface required to create an adapter. Only core
 // adapters have this minimum requirement.
 type BaseAdapter interface {
 	TaskType() models.TaskType
-	Perform(models.RunInput, *store.Store) models.RunOutput
+	Perform(models.RunInput, *store.Store, *keystore.Master) models.RunOutput
 }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
@@ -145,6 +148,8 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 		return &Compare{}
 	case TaskTypeQuotient:
 		return &Quotient{}
+	case TaskTypeResultCollect:
+		return &ResultCollect{}
 	default:
 		return nil
 	}

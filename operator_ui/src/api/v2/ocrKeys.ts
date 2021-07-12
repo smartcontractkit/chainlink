@@ -1,24 +1,24 @@
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 /**
  * Create adds validates, saves a new OcrKey.
  *
- * @example "POST <application>/off_chain_reporting_keys"
+ * @example "POST <application>/keys/ocr"
  */
-export const ENDPOINT = '/v2/off_chain_reporting_keys'
+export const ENDPOINT = '/v2/keys/ocr'
 
 /**
  * Index lists OcrKeys.
  *
- * @example "GET <application>/off_chain_reporting_keys"
+ * @example "GET <application>/keys/ocr"
  */
 export const INDEX_ENDPOINT = ENDPOINT
 
 /**
  * Destroy deletes a OcrKey.
  *
- * @example "DELETE <application>/off_chain_reporting_keys/:keyId"
+ * @example "DELETE <application>/keys/ocr/:keyId"
  */
 interface DestroyPathParams {
   keyId: string

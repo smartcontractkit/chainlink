@@ -4,7 +4,7 @@ import { jsonApiP2PKeys, P2PKeyBundle } from 'factories/jsonApiP2PKeys'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { partialAsFull } from '@chainlink/ts-helpers'
+import { partialAsFull } from 'support/test-helpers/partialAsFull'
 
 import {
   ENDPOINT as P2P_ENDPOINT,

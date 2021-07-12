@@ -3,21 +3,22 @@ package models
 import (
 	"fmt"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/tidwall/gjson"
 )
 
 // RunInput represents the input for performing a Task
 type RunInput struct {
-	jobRunID  ID
-	taskRunID ID
+	jobRun    JobRun
+	taskRunID uuid.UUID
 	data      JSON
 	status    RunStatus
 }
 
 // NewRunInput creates a new RunInput with arbitrary data
-func NewRunInput(jobRunID *ID, taskRunID ID, data JSON, status RunStatus) *RunInput {
+func NewRunInput(jobRun JobRun, taskRunID uuid.UUID, data JSON, status RunStatus) *RunInput {
 	return &RunInput{
-		jobRunID:  *jobRunID,
+		jobRun:    jobRun,
 		taskRunID: taskRunID,
 		data:      data,
 		status:    status,
@@ -25,22 +26,26 @@ func NewRunInput(jobRunID *ID, taskRunID ID, data JSON, status RunStatus) *RunIn
 }
 
 // NewRunInputWithResult creates a new RunInput with a value in the "result" field
-func NewRunInputWithResult(jobRunID *ID, taskRunID ID, value interface{}, status RunStatus) *RunInput {
-	data, err := JSON{}.Add("result", value)
+func NewRunInputWithResult(jobRun JobRun, taskRunID uuid.UUID, value interface{}, status RunStatus) *RunInput {
+	data, err := JSON{}.Add(ResultKey, value)
 	if err != nil {
 		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
 	}
 	return &RunInput{
-		jobRunID:  *jobRunID,
+		jobRun:    jobRun,
 		taskRunID: taskRunID,
 		data:      data,
 		status:    status,
 	}
 }
 
+func (ri RunInput) ResultCollection() gjson.Result {
+	return ri.data.Get(ResultCollectionKey)
+}
+
 // Result returns the result as a gjson object
 func (ri RunInput) Result() gjson.Result {
-	return ri.data.Get("result")
+	return ri.data.Get(ResultKey)
 }
 
 // ResultString returns the string result of the Data JSON field.
@@ -63,12 +68,16 @@ func (ri RunInput) Data() JSON {
 }
 
 // JobRunID returns this RunInput's JobRunID
-func (ri RunInput) JobRunID() *ID {
-	return &ri.jobRunID
+func (ri RunInput) JobRunID() uuid.UUID {
+	return ri.jobRun.ID
+}
+
+func (ri RunInput) JobRun() JobRun {
+	return ri.jobRun
 }
 
 // TaskRunID returns this RunInput's TaskRunID
-func (ri RunInput) TaskRunID() ID {
+func (ri RunInput) TaskRunID() uuid.UUID {
 	return ri.taskRunID
 }
 

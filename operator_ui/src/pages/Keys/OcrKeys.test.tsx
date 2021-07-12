@@ -3,7 +3,7 @@ import { jsonApiOcrKeys, OcrKeyBundle } from 'factories/jsonApiOcrKeys'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { partialAsFull } from '@chainlink/ts-helpers'
+import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import {
   ENDPOINT as OCR_ENDPOINT,
   INDEX_ENDPOINT as OCR_INDEX_ENDPOINT,

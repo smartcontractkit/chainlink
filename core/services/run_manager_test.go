@@ -2,18 +2,19 @@ package services_test
 
 import (
 	"fmt"
-
 	"math/big"
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v3"
 )
 
 func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSpec) models.JobRun {
@@ -184,9 +184,9 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingConnection)
 
-		job, err := store.FindJob(run.JobSpecID)
+		job, err := store.FindJobSpec(run.JobSpecID)
 		require.NoError(t, err)
-		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
+		run.TaskRuns = []models.TaskRun{{ID: uuid.NewV4(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
 
 		require.NoError(t, store.CreateJobRun(&run))
 		err = runManager.ResumeAllPendingConnection()
@@ -200,9 +200,14 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 
 func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing.T) {
 	t.Parallel()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+
+	sub := new(mocks.Subscription)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(sub, nil)
+
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
 	defer cleanup()
 
@@ -229,9 +234,10 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
 	defer cleanup()
 
@@ -256,9 +262,10 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
 	defer cleanup()
 
@@ -277,7 +284,7 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	require.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, store, *jr)
 
-	retrievedJob, err := store.FindJob(job.ID)
+	retrievedJob, err := store.FindJobSpec(job.ID)
 	require.NoError(t, err)
 	require.Len(t, job.Tasks, 1)
 	require.Len(t, retrievedJob.Tasks, 1)
@@ -319,21 +326,20 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 
-			gethClient := new(mocks.GethClient)
-			rpcClient := new(mocks.RPCClient)
+			ethClient := new(mocks.Client)
+
 			sub := new(mocks.Subscription)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config,
-				eth.NewClientWith(rpcClient, gethClient),
+				ethClient,
 			)
-			gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
-			gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil)
-			gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(sub, nil)
-			rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(sub, nil)
+			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			kst := new(mocks.KeyStoreInterface)
-			app.Store.KeyStore = kst
 			defer cleanup()
 
 			app.StartAndConnect()
@@ -357,7 +363,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.TaskRuns[0].Status)
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
 
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(&types.Receipt{
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(&types.Receipt{
 				TxHash:      initiatingTxHash,
 				BlockHash:   test.receiptBlockHash,
 				BlockNumber: big.NewInt(3),
@@ -371,10 +377,6 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.True(t, run.TaskRuns[0].MinRequiredIncomingConfirmations.Valid)
 			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].ObservedIncomingConfirmations.Uint32, "task run should track its current confirmations")
 			assert.True(t, run.TaskRuns[0].ObservedIncomingConfirmations.Valid)
-
-			assert.True(t, app.EthMock.AllCalled(), app.EthMock.Remaining())
-
-			kst.AssertExpectations(t)
 		})
 	}
 }
@@ -569,9 +571,9 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			config, configCleanup := cltest.NewConfig(t)
 			defer configCleanup()
 			config.Set("DATABASE_TIMEOUT", "10s") // Lots of parallelized tests
-			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
+			config.Set("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", test.configMinimumPayment)
 
-			store, storeCleanup := cltest.NewStoreWithConfig(config)
+			store, storeCleanup := cltest.NewStoreWithConfig(t, config)
 			defer storeCleanup()
 
 			bt := &models.BridgeType{
@@ -622,12 +624,11 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	defer cfgCleanup()
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		ethClient,
 	)
-	kst := new(mocks.KeyStoreInterface)
-	app.Store.KeyStore = kst
 	defer cleanup()
 
 	require.NoError(t, app.StartAndConnect())
@@ -658,8 +659,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	updatedJR := cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, *jr)
 	assert.True(t, updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
-
-	kst.AssertExpectations(t)
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
@@ -752,7 +751,7 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			run := cltest.NewJobRun(job)
 			run.SetStatus(test.status)
-			run.DeletedAt = null.TimeFrom(time.Now())
+			run.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 			require.NoError(t, store.CreateJobRun(&run))
 
 			pusher := new(mocks.StatsPusher)
@@ -829,7 +828,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			run := cltest.NewJobRun(job)
 			run.SetStatus(test.status)
-			run.DeletedAt = null.TimeFrom(time.Now())
+			run.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 			require.NoError(t, store.CreateJobRun(&run))
 
 			pusher := new(mocks.StatsPusher)
@@ -847,7 +846,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 
 func TestRunManager_ValidateRun_PaymentAboveThreshold(t *testing.T) {
 	jobSpecID := cltest.NewJob().ID
-	run := &models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID, Payment: assets.NewLink(2)}
+	run := &models.JobRun{ID: uuid.NewV4(), JobSpecID: jobSpecID, Payment: assets.NewLink(2)}
 	contractCost := assets.NewLink(1)
 
 	services.ValidateRun(run, contractCost)
@@ -857,7 +856,7 @@ func TestRunManager_ValidateRun_PaymentAboveThreshold(t *testing.T) {
 
 func TestRunManager_ValidateRun_PaymentBelowThreshold(t *testing.T) {
 	jobSpecID := cltest.NewJob().ID
-	run := &models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID, Payment: assets.NewLink(1)}
+	run := &models.JobRun{ID: uuid.NewV4(), JobSpecID: jobSpecID, Payment: assets.NewLink(1)}
 	contractCost := assets.NewLink(2)
 
 	services.ValidateRun(run, contractCost)

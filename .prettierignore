@@ -26,11 +26,10 @@ belt/tmp
 belt/node_modules
 belt/testfs
 
-# evm-contracts
-evm-contracts/dist/**/*
-evm-contracts/abi/**/*
-evm-contracts/ethers/**/*
-evm-contracts/truffle/**/*
-
 # solc_bin
 solc_bin
+
+docs/
+venv/
+
+*.md

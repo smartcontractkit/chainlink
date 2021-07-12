@@ -8,7 +8,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchJobRuns } from 'actionCreators'
 import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
-import List from 'components/JobRuns/List'
+import List from '../Jobs/JobRunsList'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'

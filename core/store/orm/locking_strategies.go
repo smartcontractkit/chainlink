@@ -4,9 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"sync"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
@@ -15,7 +21,7 @@ import (
 // to ensure exlusive access to the orm.
 func NewLockingStrategy(ct Connection) (LockingStrategy, error) {
 	switch ct.name {
-	case DialectPostgres, DialectPostgresWithoutLock, DialectTransactionWrappedPostgres:
+	case dialects.Postgres, dialects.PostgresWithoutLock, dialects.TransactionWrappedPostgres:
 		return NewPostgresLockingStrategy(ct)
 	}
 
@@ -60,7 +66,12 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.conn == nil {
-		db, err := sql.Open(string(DialectPostgres), s.config.uri)
+		uri, err := url.Parse(s.config.uri)
+		if err != nil {
+			return err
+		}
+		static.SetConsumerName(uri, "PostgresLockingStrategy")
+		db, err := sql.Open(string(dialects.Postgres), uri.String())
 		if err != nil {
 			return err
 		}
@@ -76,12 +87,62 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.config.locking {
-		_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.config.advisoryLockID)
+		err := s.waitForLock(ctx)
 		if err != nil {
 			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.config.advisoryLockID)
 		}
 	}
 	return nil
+}
+
+func (s *PostgresLockingStrategy) waitForLock(ctx context.Context) error {
+	ticker := time.NewTicker(s.config.lockRetryInterval)
+	defer ticker.Stop()
+	retryCount := 0
+	for {
+		rows, err := s.conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID)
+		if err != nil {
+			return err
+		}
+		var gotLock bool
+		for rows.Next() {
+			err := rows.Scan(&gotLock)
+			if err != nil {
+				return multierr.Combine(err, rows.Close())
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if gotLock {
+			return nil
+		}
+
+		select {
+		case <-ticker.C:
+			retryCount++
+			logRetry(retryCount)
+			continue
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
+		}
+	}
+}
+
+// logRetry logs messages at
+// 1
+// 2
+// 4
+// 8
+// 16
+// 32
+/// ... etc, then every 1000
+func logRetry(count int) {
+	if count == 1 {
+		logger.Infow("Could not get lock, retrying...", "failCount", count)
+	} else if count%1000 == 0 || count&(count-1) == 0 {
+		logger.Infow("Still waiting for lock...", "failCount", count)
+	}
 }
 
 // Unlock unlocks the locked postgres advisory lock.

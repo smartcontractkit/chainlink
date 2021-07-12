@@ -6,7 +6,10 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -28,11 +31,11 @@ var (
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
-	store.HeadTrackable
+	httypes.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
-	RemoveJob(ID *models.ID) error
+	RemoveJob(ID models.JobID) error
 	Jobs() []models.JobSpec
-	Stop() error
+	service.Service
 }
 
 // jobSubscriber implementation
@@ -85,8 +88,38 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 	return js
 }
 
-func (js *jobSubscriber) Stop() error {
+func (js *jobSubscriber) Start() error {
+	return nil
+}
+
+// Called on node shutdown, unsubscribe from everything
+// and remove the subscriptions.
+func (js *jobSubscriber) Close() error {
+	js.jobsMutex.Lock()
+	defer js.jobsMutex.Unlock()
+
+	for _, sub := range js.jobSubscriptions {
+		sub.Unsubscribe()
+	}
+	js.jobSubscriptions = map[string]JobSubscription{}
 	return js.jobResumer.Stop()
+}
+
+func (js *jobSubscriber) Ready() error {
+	return nil
+}
+
+func (js *jobSubscriber) Healthy() error {
+	return nil
+}
+
+func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
+	js.jobsMutex.RLock()
+	defer js.jobsMutex.RUnlock()
+	if _, exists := js.jobSubscriptions[jobID.String()]; exists {
+		return true
+	}
+	return false
 }
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
@@ -95,7 +128,15 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	if !job.IsLogInitiated() {
 		return nil
 	}
+	if js.store.Config.EthereumDisabled() {
+		logger.Errorw(fmt.Sprintf("ACTION REQUIRED: Attempted to add job with name '%s' but Ethereum was disabled. This job is NOT running.", job.Name), "job", job)
+		return nil
+	}
 
+	if js.alreadySubscribed(job.ID) {
+		return nil
+	}
+	// Create a new subscription for this job
 	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {
 		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
@@ -106,7 +147,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 }
 
 // RemoveJob unsubscribes the job from a log subscription to trigger runs.
-func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
+func (js *jobSubscriber) RemoveJob(ID models.JobID) error {
 	js.jobsMutex.Lock()
 	sub, ok := js.jobSubscriptions[ID.String()]
 	delete(js.jobSubscriptions, ID.String())
@@ -142,9 +183,12 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
 func (js *jobSubscriber) Connect(bn *models.Head) error {
+	logger.Debugw("JobSubscriber connect", "head", bn)
+
 	var merr error
 	err := js.store.Jobs(
 		func(j *models.JobSpec) bool {
+			logger.Debugw("JobSubscriber adding job", "jobSpecID", j.ID)
 			merr = multierr.Append(merr, js.AddJob(*j, bn))
 			return true
 		},
@@ -155,20 +199,25 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	return multierr.Append(merr, err)
 }
 
-// Disconnect disconnects all subscriptions associated with jobs belonging to
-// this listener.
-func (js *jobSubscriber) Disconnect() {
-	js.jobsMutex.Lock()
-	defer js.jobsMutex.Unlock()
-
-	for _, sub := range js.jobSubscriptions {
-		sub.Unsubscribe()
-	}
-	js.jobSubscriptions = map[string]JobSubscription{}
-}
-
 // OnNewLongestChain resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
 	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
 }
+
+// NullJobSubscriber implements Null pattern for JobSubscriber interface
+type NullJobSubscriber struct{}
+
+func (NullJobSubscriber) Connect(head *models.Head) error                         { return nil }
+func (NullJobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {}
+func (NullJobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
+	return errors.New("NullJobSubscriber#AddJob should never be called")
+}
+func (NullJobSubscriber) RemoveJob(ID models.JobID) error {
+	return errors.New("NullJobSubscriber#RemoveJob should never be called")
+}
+func (NullJobSubscriber) Jobs() (j []models.JobSpec) { return }
+func (NullJobSubscriber) Start() error               { return nil }
+func (NullJobSubscriber) Close() error               { return nil }
+func (NullJobSubscriber) Ready() error               { return nil }
+func (NullJobSubscriber) Healthy() error             { return nil }

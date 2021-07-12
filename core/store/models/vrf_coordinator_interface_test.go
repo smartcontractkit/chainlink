@@ -4,12 +4,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,7 +46,7 @@ func TestVRFParseRandomnessRequestLog(t *testing.T) {
 	rawLog, err := r.RawData()
 	require.NoError(t, err)
 	assert.Equal(t, rawLog, raw.Raw.Data)
-	nR, err := models.ParseRandomnessRequestLog(models.Log{
+	nR, err := models.ParseRandomnessRequestLog(types.Log{
 		Data:   rawLog,
 		Topics: []common.Hash{{}, jobID},
 	})

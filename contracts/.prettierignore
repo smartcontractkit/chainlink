@@ -1,0 +1,5 @@
+# folders
+artifacts/
+abi/
+cache/**
+node_modules/

@@ -1,0 +1,30 @@
+{
+  "initiators": [
+    {
+      "type": "external",
+      "params": {
+        "name": "somecoin",
+        "body": {
+          "foo": "bar"
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "multiply",
+      "params": {
+        "times": 100000000
+      }
+    },
+    {
+      "type": "httppostwithunrestrictednetworkaccess",
+      "params": {
+        "post": "https://example.com"
+      }
+    },
+    {
+        "type": "custombridge"
+    }
+  ]
+}

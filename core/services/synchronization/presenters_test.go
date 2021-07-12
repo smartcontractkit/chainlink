@@ -12,10 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
@@ -23,10 +24,10 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
-	task0RunID := models.NewID()
-	task1RunID := models.NewID()
+	task0RunID := uuid.NewV4()
+	task1RunID := uuid.NewV4()
 
-	job := models.JobSpec{ID: models.NewID()}
+	job := models.JobSpec{ID: models.NewJobID()}
 	runRequest := models.RunRequest{
 		Payment:   assets.NewLink(2),
 		RequestID: &requestID,
@@ -35,13 +36,13 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	}
 	run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
 	run.TaskRuns = []models.TaskRun{
-		models.TaskRun{
+		{
 			ID:                               task0RunID,
 			Status:                           models.RunStatusPendingIncomingConfirmations,
 			ObservedIncomingConfirmations:    clnull.Uint32From(1),
 			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
 		},
-		models.TaskRun{
+		{
 			ID:                               task1RunID,
 			Status:                           models.RunStatusErrored,
 			Result:                           models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
@@ -121,8 +122,8 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.initrType, func(t *testing.T) {
 			jobRun := models.JobRun{
-				ID:         models.NewID(),
-				JobSpecID:  models.NewID(),
+				ID:         uuid.NewV4(),
+				JobSpecID:  models.NewJobID(),
 				Initiator:  models.Initiator{Type: test.initrType},
 				RunRequest: test.rr,
 			}
@@ -158,9 +159,9 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 		path string
 		want string
 	}{
-		{"confirmed", "testdata/confirmedEthTxData.json", ""},
-		{"safe fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunLog"},
-		{"safe not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
+		{"confirmed", "../../testdata/apiresponses/confirmedEthTxData.json", ""},
+		{"safe fulfilled", "../../testdata/apiresponses/fulfilledReceiptResponse.json", "fulfilledRunLog"},
+		{"safe not fulfilled", "../../testdata/apiresponses/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -173,7 +174,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			taskSpec := models.TaskSpec{
 				Type: "ethtx",
 			}
-			job := models.JobSpec{ID: models.NewID()}
+			job := models.JobSpec{ID: models.NewJobID()}
 			runRequest := models.RunRequest{
 				RequestID: &requestID,
 				TxHash:    &requestTxHash,
@@ -182,8 +183,8 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
 			run.SetStatus(models.RunStatusCompleted)
 			run.TaskRuns = []models.TaskRun{
-				models.TaskRun{
-					ID:       models.NewID(),
+				{
+					ID:       uuid.NewV4(),
 					TaskSpec: taskSpec,
 					Status:   models.RunStatusPendingIncomingConfirmations,
 					Result:   models.RunResult{Data: dataJSON},

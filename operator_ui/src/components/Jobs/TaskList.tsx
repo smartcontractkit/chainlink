@@ -43,7 +43,7 @@ const TaskList = ({ tasks, classes }: Props) => {
       {tasks &&
         tasks.map((task, idx) => {
           return (
-            <li key={idx} className={classes.item}>
+            <li key={idx} className={classes.item} data-testid="task-list-item">
               <ListIcon width={40} className={classes.status} />
               <Typography variant="body1" inline>
                 {titleize(task.type)}

@@ -23,6 +23,7 @@ module.exports = {
         usePrettierrc: true,
       },
     ],
+    '@typescript-eslint/camelcase': 'off',
     '@typescript-eslint/no-empty-function': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-empty-interface': 'off',

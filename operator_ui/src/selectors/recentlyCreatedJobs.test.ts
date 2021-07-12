@@ -1,4 +1,4 @@
-import { partialAsFull } from '@chainlink/ts-helpers'
+import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import { INITIAL_STATE, AppState } from '../../src/reducers'
 import recentlyCreatedJobsSelector from '../../src/selectors/recentlyCreatedJobs'
 

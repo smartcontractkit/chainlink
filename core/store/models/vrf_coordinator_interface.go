@@ -31,7 +31,7 @@ type RandomnessRequestLog struct {
 var dummyCoordinator, _ = solidity_vrf_coordinator_interface.NewVRFCoordinator(
 	common.Address{}, nil)
 
-func toGethLog(log Log) types.Log {
+func toGethLog(log types.Log) types.Log {
 	return types.Log{
 		Address:     log.Address,
 		Topics:      log.Topics,
@@ -47,7 +47,7 @@ func toGethLog(log Log) types.Log {
 
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
-func ParseRandomnessRequestLog(log Log) (*RandomnessRequestLog, error) {
+func ParseRandomnessRequestLog(log types.Log) (*RandomnessRequestLog, error) {
 	rawLog, err := dummyCoordinator.ParseRandomnessRequest(toGethLog(log))
 	if err != nil {
 		return nil, errors.Wrapf(err,

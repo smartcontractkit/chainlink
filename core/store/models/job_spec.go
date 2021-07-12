@@ -8,13 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	null "gopkg.in/guregu/null.v3"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	null "gopkg.in/guregu/null.v4"
 )
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
@@ -44,17 +45,17 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         *ID            `json:"id,omitempty" gorm:"primary_key;not null"`
-	Name       string         `json:"name" gorm:"index;unique;not null"`
+	ID         JobID          `json:"id,omitempty" gorm:"primary_key;not null"`
+	Name       string         `json:"name"`
 	CreatedAt  time.Time      `json:"createdAt" gorm:"index"`
 	Initiators []Initiator    `json:"initiators"`
-	MinPayment *assets.Link   `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	MinPayment *assets.Link   `json:"minPayment,omitempty"`
 	Tasks      []TaskSpec     `json:"tasks"`
 	StartAt    null.Time      `json:"startAt" gorm:"index"`
 	EndAt      null.Time      `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time      `json:"-" gorm:"index"`
+	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 	UpdatedAt  time.Time      `json:"-"`
-	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;association_autoupdate:false;association_autocreate:false"`
+	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;->"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -75,10 +76,8 @@ func (j *JobSpec) SetID(value string) error {
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
-	id := NewID()
 	return JobSpec{
-		ID:        id,
-		Name:      fmt.Sprintf("Job%s", id),
+		ID:        NewJobID(),
 		CreatedAt: time.Now(),
 	}
 }
@@ -199,30 +198,43 @@ const (
 // to a parent JobID.
 type Initiator struct {
 	ID        int64 `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID   `json:"jobSpecId"`
+	JobSpecID JobID `json:"jobSpecId"`
 
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
 	CreatedAt       time.Time `json:"createdAt" gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
-	DeletedAt       null.Time `json:"-" gorm:"index"`
-	UpdatedAt       time.Time `json:"-"`
+	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
+	UpdatedAt       time.Time      `json:"-"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
-	Schedule   Cron              `json:"schedule,omitempty"`
-	Time       AnyTime           `json:"time,omitempty"`
-	Ran        bool              `json:"ran,omitempty"`
-	Address    common.Address    `json:"address,omitempty" gorm:"index"`
+	// Common parameters
+	Address common.Address `json:"address,omitempty" gorm:"index"`
+	Name    string         `json:"name,omitempty"`
+
+	// Cron parameters
+	Schedule Cron `json:"schedule,omitempty"`
+
+	// RunAt parameters.
+	Time AnyTime `json:"time,omitempty"`
+	Ran  bool    `json:"ran,omitempty"`
+
+	// External initiator job parameters.
+	Body *JSON `json:"body,omitempty" gorm:"column:params"`
+
+	// Log specific job parameters.
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
-	Name       string            `json:"name,omitempty"`
-	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty"`
+	// JobIDTopicFilter, if present, is used in addition to the job's actual ID when filtering
+	// initiator logs
+	JobIDTopicFilter JobID `json:"jobIDTopicFilter,omitempty"`
 
+	// Flux monitior specific parameters.
 	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
 	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
@@ -361,13 +373,13 @@ type Feeds = JSON
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	ID                               int64         `gorm:"primary_key"`
-	JobSpecID                        *ID           `json:"-"`
+	JobSpecID                        JobID         `json:"jobSpecId"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`
 	CreatedAt                        time.Time
 	UpdatedAt                        time.Time
-	DeletedAt                        *time.Time
+	DeletedAt                        gorm.DeletedAt
 }
 
 // TaskType defines what Adapter a TaskSpec will use.

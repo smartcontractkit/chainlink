@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,11 +29,11 @@ func (tc *TransfersController) Create(c *gin.Context) {
 
 	store := tc.App.GetStore()
 
-	etx, err := bulletprooftxmanager.SendEther(store, tr.FromAddress, tr.DestinationAddress, tr.Amount)
+	etx, err := bulletprooftxmanager.SendEther(store.DB, tr.FromAddress, tr.DestinationAddress, tr.Amount, store.Config.EthGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return
 	}
 
-	jsonAPIResponse(c, etx, "eth_tx")
+	jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
 }

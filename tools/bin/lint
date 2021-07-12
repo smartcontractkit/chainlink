@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -16,5 +16,5 @@ echo "errcheck"
 errcheck -ignoretests -asserts -ignoregenerated ./...
 echo "gosec"
 gosec -exclude=G101,G104,G204,G304 -./...
-echo "golint"
-golint -min_confidence 1 ./...
+echo "revive"
+revive -config ../revive.toml -formatter friendly ./...

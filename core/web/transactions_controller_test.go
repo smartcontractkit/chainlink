@@ -8,9 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -20,16 +20,14 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
+
 	store := app.GetStore()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 2, from) // tx2
@@ -49,11 +47,11 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	size := 2
 	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d", size))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
-	var txs []presenters.EthTx
+	var txs []presenters.EthTxResource
 	body := cltest.ParseResponseBody(t, resp)
 	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
 	assert.NotEmpty(t, links["next"].Href)
@@ -67,34 +65,26 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
 }
 
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
-	})
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
@@ -102,12 +92,12 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	attempt.EthTx = tx
 
 	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.Hex())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	ptx := presenters.EthTx{}
+	ptx := presenters.EthTxResource{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
-	txp := presenters.NewEthTxFromAttempt(attempt)
+	txp := presenters.NewEthTxResourceFromAttempt(attempt)
 
 	assert.Equal(t, txp.State, ptx.State)
 	assert.Equal(t, txp.Data, ptx.Data)
@@ -122,21 +112,18 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 
 	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }

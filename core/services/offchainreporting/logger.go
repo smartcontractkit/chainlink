@@ -1,10 +1,9 @@
 package offchainreporting
 
 import (
-	"fmt"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"go.uber.org/zap"
 )
 
 var _ ocrtypes.Logger = &ocrLogger{}
@@ -15,7 +14,8 @@ type ocrLogger struct {
 	saveError func(string)
 }
 
-func NewLogger(internal *logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
+func NewLogger(l *logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
+	internal := logger.CreateLogger(l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar())
 	return &ocrLogger{
 		internal:  internal,
 		trace:     trace,
@@ -43,18 +43,12 @@ func (ol *ocrLogger) Warn(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Warnw(msg, toKeysAndValues(fields)...)
 }
 
+// Note that the structured fields may contain dynamic data (timestamps etc.)
+// So when saving the error, we only save the top level string, details
+// are included in the log.
 func (ol *ocrLogger) Error(msg string, fields ocrtypes.LogFields) {
-	ol.saveError(msg + toString(fields))
+	ol.saveError(msg)
 	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
-}
-
-// Helpers
-func toString(fields ocrtypes.LogFields) string {
-	res := ""
-	for key, val := range fields {
-		res += fmt.Sprintf("%s: %v", key, val)
-	}
-	return res
 }
 
 func toKeysAndValues(fields ocrtypes.LogFields) []interface{} {

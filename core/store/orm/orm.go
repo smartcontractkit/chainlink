@@ -2,32 +2,47 @@ package orm
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
+	"gorm.io/gorm/clause"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	"github.com/lib/pq"
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
+
+	// We've specified a later version in go.mod than is currently used by gorm
+	// to get this fix in https://github.com/jackc/pgx/pull/975.
+	// As soon as pgx releases a 4.12 and gorm [https://github.com/go-gorm/postgres/blob/master/go.mod#L6]
+	// bumps their version to 4.12, we can remove this.
+	_ "github.com/jackc/pgx/v4"
 )
 
 var (
@@ -53,8 +68,8 @@ type ORM struct {
 }
 
 // NewORM initializes the orm with the configured uri
-func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
-	ct, err := NewConnection(dialect, uri, advisoryLockID)
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect dialects.DialectName, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (*ORM, error) {
+	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval, maxOpenConns, maxIdleConns)
 	if err != nil {
 		return nil, err
 	}
@@ -64,13 +79,11 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
 
-	logger.Infof("Locking %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
 	orm := &ORM{
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
 		shutdownSignal:      shutdownSignal,
 	}
-	orm.MustEnsureAdvisoryLock()
 
 	db, err := ct.initializeDatabase()
 	if err != nil {
@@ -81,14 +94,24 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 	return orm, nil
 }
 
+func (orm *ORM) MustSQLDB() *sql.DB {
+	d, err := orm.DB.DB()
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
 // MustEnsureAdvisoryLock sends a shutdown signal to the ORM if it an advisory
 // lock cannot be acquired.
-func (orm *ORM) MustEnsureAdvisoryLock() {
+func (orm *ORM) MustEnsureAdvisoryLock() error {
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
 		logger.Errorf("unable to lock ORM: %v", err)
 		orm.shutdownSignal.Panic()
+		return err
 	}
+	return nil
 }
 
 func displayTimeout(timeout models.Duration) string {
@@ -98,27 +121,18 @@ func displayTimeout(timeout models.Duration) string {
 	return timeout.String()
 }
 
-func ignoreRecordNotFound(db *gorm.DB) error {
-	var merr error
-	for _, e := range db.GetErrors() {
-		if e != gorm.ErrRecordNotFound {
-			merr = multierr.Append(merr, e)
-		}
-	}
-	return merr
-}
-
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.LogMode(enabled)
+	orm.DB.Logger = newOrmLogWrapper(logger.Default, enabled, time.Second)
 }
 
 // Close closes the underlying database connection.
 func (orm *ORM) Close() error {
 	var err error
+	db, _ := orm.DB.DB()
 	orm.closeOnce.Do(func() {
 		err = multierr.Combine(
-			orm.DB.Close(),
+			db.Close(),
 			orm.lockingStrategy.Unlock(orm.advisoryLockTimeout),
 		)
 	})
@@ -133,16 +147,53 @@ func (orm *ORM) Unscoped() *ORM {
 	}
 }
 
+// UpsertNodeVersion inserts a new NodeVersion
+func (orm *ORM) UpsertNodeVersion(version models.NodeVersion) error {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+
+	return orm.Transaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.OnConflict{
+			DoNothing: true,
+		}).Create(&version).Error
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// FindLatestNodeVersion looks up the latest node version
+func (orm *ORM) FindLatestNodeVersion() (*models.NodeVersion, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
+	var nodeVersion models.NodeVersion
+	err := orm.DB.Order("created_at DESC").First(&nodeVersion).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil && strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+		logger.Default.Debug("Failed to find any node version in the DB, the node_versions table does not exist yet.")
+		return nil, nil
+	}
+	return &nodeVersion, err
+}
+
 // FindBridge looks up a Bridge by its Name.
-func (orm *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
-	orm.MustEnsureAdvisoryLock()
-	var bt models.BridgeType
+func (orm *ORM) FindBridge(name models.TaskType) (bt models.BridgeType, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return bt, err
+	}
 	return bt, orm.DB.First(&bt, "name = ?", name.String()).Error
 }
 
 // FindBridgesByNames finds multiple bridges by their names.
 func (orm *ORM) FindBridgesByNames(names []string) ([]models.BridgeType, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
 	var bt []models.BridgeType
 	if err := orm.DB.Where("name IN (?)", names).Find(&bt).Error; err != nil {
 		return nil, err
@@ -155,8 +206,10 @@ func (orm *ORM) FindBridgesByNames(names []string) ([]models.BridgeType, error) 
 
 // PendingBridgeType returns the bridge type of the current pending task,
 // or error if not pending bridge.
-func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
-	orm.MustEnsureAdvisoryLock()
+func (orm *ORM) PendingBridgeType(jr models.JobRun) (bt models.BridgeType, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return bt, err
+	}
 	nextTask := jr.NextTaskRun()
 	if nextTask == nil {
 		return models.BridgeType{}, errors.New("Cannot find the pending bridge type of a job run with no unfinished tasks")
@@ -164,15 +217,23 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 	return orm.FindBridge(nextTask.TaskSpec.Type)
 }
 
-// FindJob looks up a Job by its ID.
-func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
-	orm.MustEnsureAdvisoryLock()
-	var job models.JobSpec
+// FindJob looks up a JobSpec by its ID.
+func (orm *ORM) FindJobSpec(id models.JobID) (job models.JobSpec, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return job, err
+	}
+	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
+}
+
+func (orm *ORM) FindJobSpecUnscoped(id models.JobID) (job models.JobSpec, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return job, err
+	}
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
 
 // FindJobWithErrors looks up a Job by its ID and preloads JobSpecErrors.
-func (orm *ORM) FindJobWithErrors(id *models.ID) (models.JobSpec, error) {
+func (orm *ORM) FindJobWithErrors(id models.JobID) (models.JobSpec, error) {
 	var job models.JobSpec
 	err := orm.
 		preloadJobs().
@@ -184,11 +245,12 @@ func (orm *ORM) FindJobWithErrors(id *models.ID) (models.JobSpec, error) {
 }
 
 // FindInitiator returns the single initiator defined by the passed ID.
-func (orm *ORM) FindInitiator(ID int64) (models.Initiator, error) {
-	orm.MustEnsureAdvisoryLock()
-	initr := models.Initiator{}
+func (orm *ORM) FindInitiator(ID int64) (initr models.Initiator, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return initr, err
+	}
 	return initr, orm.DB.
-		Set("gorm:auto_preload", true).
+		Preload(clause.Associations).
 		First(&initr, "id = ?", ID).Error
 }
 
@@ -222,63 +284,41 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 		Preload("Result")
 }
 
+func (orm *ORM) preloadJobRunsUnscoped() *gorm.DB {
+	return preloadJobRunsUnscoped(orm.DB)
+}
+
+func preloadJobRunsUnscoped(db *gorm.DB) *gorm.DB {
+	return db.Unscoped().
+		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Preload("RunRequest").
+		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
+			return preloadTaskRuns(db).Order("task_spec_id asc")
+		}).
+		Preload("Result")
+}
+
 // FindJobRun looks up a JobRun by its ID.
-func (orm *ORM) FindJobRun(id *models.ID) (models.JobRun, error) {
-	orm.MustEnsureAdvisoryLock()
-	var jr models.JobRun
-	err := orm.preloadJobRuns().First(&jr, "id = ?", id).Error
+func (orm *ORM) FindJobRun(id uuid.UUID) (jr models.JobRun, err error) {
+	if err = orm.MustEnsureAdvisoryLock(); err != nil {
+		return jr, err
+	}
+	err = orm.preloadJobRuns().First(&jr, "id = ?", id).Error
 	return jr, err
 }
 
-// AllSyncEvents returns all sync events
-func (orm *ORM) AllSyncEvents(cb func(models.SyncEvent) error) error {
-	orm.MustEnsureAdvisoryLock()
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		var events []models.SyncEvent
-		err := orm.DB.
-			Limit(limit).
-			Offset(offset).
-			Order("id, created_at asc").
-			Find(&events).Error
-		if err != nil {
-			return 0, err
-		}
-
-		for _, event := range events {
-			err = cb(event)
-			if err != nil {
-				return 0, err
-			}
-		}
-
-		return uint(len(events)), err
-	})
+func (orm *ORM) FindJobRunIncludingArchived(id uuid.UUID) (jr models.JobRun, err error) {
+	if err = orm.MustEnsureAdvisoryLock(); err != nil {
+		return jr, err
+	}
+	err = orm.preloadJobRunsUnscoped().First(&jr, "id = ?", id).Error
+	return jr, err
 }
 
-// NOTE: Copied verbatim from gorm master
-// Transaction start a transaction as a block,
-// return error will rollback, otherwise to commit.
 func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
-	tx := orm.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.Errorf("%s", r)
-			tx.Rollback()
-			return
-		}
-	}()
-
-	err = fc(tx)
-
-	if err == nil {
-		err = errors.WithStack(tx.Commit().Error)
-	}
-
-	// Makesure rollback when Block error or Commit error
-	if err != nil {
-		tx.Rollback()
-	}
-	return
+	return orm.convenientTransaction(fc)
 }
 
 // convenientTransaction handles setup and teardown for a gorm database
@@ -287,48 +327,189 @@ func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
 // into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
 // in a database transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.Transaction(callback)
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	return postgres.GormTransactionWithDefaultContext(orm.DB, callback)
 }
 
-// SaveJobRun updates UpdatedAt for a JobRun and saves it
+// SaveJobRun updates UpdatedAt for a JobRun and updates its status, finished
+// at and run results.
+// It auto-inserts run results if none are existing already for the given
+// jobrun/taskruns.
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		result := dbtx.Unscoped().
-			Model(run).
-			Where("updated_at = ?", run.UpdatedAt).
-			Omit("deleted_at").
-			Save(run)
+	if run.ID == uuid.Nil {
+		return errors.New("job run did not have an ID set")
+	}
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	err := postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
+		result := dbtx.Exec(`
+UPDATE job_runs SET "status"=?, "finished_at"=?, "updated_at"=NOW(), "creation_height"=?, "observed_height"=?, "payment"=?
+WHERE updated_at = ? AND "id" = ?`,
+			run.Status, run.FinishedAt, run.CreationHeight, run.ObservedHeight, run.Payment,
+			run.UpdatedAt, run.ID,
+		)
 		if result.Error != nil {
-			return result.Error
+			return errors.Wrap(result.Error, "failed to update job run")
 		}
 		if result.RowsAffected == 0 {
 			return ErrOptimisticUpdateConflict
 		}
-		return nil
+
+		// NOTE: uRunResultStrs/uRunResultArgs handles updating the run_results
+		// for both the job_run and task_runs, if any
+		uRunResultStrs := []string{}
+		uRunResultArgs := []interface{}{}
+		if run.Result.ID > 0 {
+			uRunResultStrs = append(uRunResultStrs, "(?::bigint, ?::jsonb, ?::text)")
+			uRunResultArgs = append(uRunResultArgs, run.ResultID, run.Result.Data, run.Result.ErrorMessage)
+		} else {
+			if run.ResultID.Valid {
+				return errors.Errorf("got valid ResultID %v for job run %s but Result.ID was 0; expected JobRun.Result to be preloaded", run.ResultID.Int64, run.ID)
+			}
+			// Insert the run result for the job run
+			err := dbtx.Exec(`
+WITH run_result AS (
+	INSERT INTO run_results (data, error_message, created_at, updated_at) VALUES(?, ?, NOW(), NOW()) RETURNING id
+)
+UPDATE job_runs
+SET result_id = run_result.id
+FROM run_result
+WHERE job_runs.id = ?
+`, run.Result.Data, run.Result.ErrorMessage, run.ID).Error
+			if err != nil {
+				return errors.Wrap(err, "error inserting run result for job_run")
+			}
+		}
+
+		uTaskRunStrs := []string{}
+		uTaskRunArgs := []interface{}{}
+		for _, tr := range run.TaskRuns {
+			uTaskRunStrs = append(uTaskRunStrs, "(?::uuid, ?::run_status)")
+			uTaskRunArgs = append(uTaskRunArgs, tr.ID, tr.Status)
+			if tr.Result.ID > 0 {
+				uRunResultStrs = append(uRunResultStrs, "(?::bigint, ?::jsonb, ?::text)")
+				uRunResultArgs = append(uRunResultArgs, tr.ResultID, tr.Result.Data, tr.Result.ErrorMessage)
+			} else {
+				if tr.ResultID.Valid {
+					return errors.Errorf("got valid ResultID %v for task run %s but Result.ID was 0; expected TaskRun.Result to be preloaded", tr.ResultID.Int64, tr.ID)
+				}
+				// Insert the run result for the task run
+				res := dbtx.Exec(`
+WITH run_result AS (
+	INSERT INTO run_results (data, error_message, created_at, updated_at) VALUES(?, ?, NOW(), NOW()) RETURNING id
+)
+UPDATE task_runs
+SET result_id = run_result.id
+FROM run_result
+WHERE task_runs.id = ?
+`, tr.Result.Data, tr.Result.ErrorMessage, tr.ID)
+				if res.Error != nil {
+					return errors.Wrap(res.Error, "error inserting run result for job_run")
+				}
+				if res.RowsAffected == 0 {
+					return errors.Errorf("failed to insert run_result; task run with id %v was missing", tr.ID)
+				}
+			}
+		}
+
+		if len(uTaskRunStrs) > 0 {
+			updateTaskRunsSQL := `
+UPDATE task_runs SET status=updates.status, updated_at=NOW()
+FROM (VALUES
+%s
+) AS updates(id, status)
+WHERE task_runs.id = updates.id
+`
+			/* #nosec G201 */
+			stmt := fmt.Sprintf(updateTaskRunsSQL, strings.Join(uTaskRunStrs, ","))
+			err := dbtx.Exec(stmt, uTaskRunArgs...).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to update task runs")
+			}
+		}
+
+		if len(uRunResultStrs) > 0 {
+			updateRunResultsSQL := `
+UPDATE run_results SET data=updates.data, error_message=updates.error_message, updated_at=NOW()
+FROM (VALUES
+%s
+) AS updates(id, data, error_message)
+WHERE run_results.id = updates.id
+`
+			/* #nosec G201 */
+			stmt := fmt.Sprintf(updateRunResultsSQL, strings.Join(uRunResultStrs, ","))
+			err := dbtx.Exec(stmt, uRunResultArgs...).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to update task run results")
+			}
+		}
+
+		// Preload the lot again, it's the easiest way to make sure our
+		// returned model is in sync with the database
+		err := preloadJobRunsUnscoped(dbtx).First(run, "id = ?", run.ID).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to reload job run after update")
+		}
+
+		// Insert sync_event
+		return errors.Wrap(synchronization.InsertSyncEventForJobRun(dbtx, run), "failed to insert sync_event for updated run")
 	})
+
+	return errors.Wrap(err, "SaveJobRun failed")
 }
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Create(run).Error
+	return orm.convenientTransaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&run.RunRequest).Error
+		if err != nil {
+			return err
+		}
+
+		err = tx.Create(&run.Result).Error
+		if err != nil {
+			return err
+		}
+
+		run.RunRequestID = clnull.Int64From(run.RunRequest.ID)
+		run.ResultID = clnull.Int64From(run.Result.ID)
+		err = tx.Create(run).Error
+		if err != nil {
+			return err
+		}
+
+		for i := range run.TaskRuns {
+			err = tx.Create(&run.TaskRuns[i].Result).Error
+			if err != nil {
+				return err
+			}
+
+			run.TaskRuns[i].JobRunID = run.ID
+			run.TaskRuns[i].ResultID = clnull.Int64From(run.TaskRuns[i].Result.ID)
+			err = tx.Create(&run.TaskRuns[i]).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // LinkEarnedFor shows the total link earnings for a job
 func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
 	var earned *assets.Link
 	query := orm.DB.Table("job_runs").
 		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
 		Where("job_specs.id = ? AND job_runs.status = ? AND job_runs.finished_at IS NOT NULL", spec.ID, models.RunStatusCompleted)
 
-	if dbutil.IsPostgres(orm.DB) {
-		query = query.Select("SUM(payment)")
-	} else {
-		query = query.Select("CAST(SUM(CAST(SUBSTR(payment, 1, 10) as BIGINT)) as varchar(255))")
-	}
+	query = query.Select("SUM(payment)")
 
 	err := query.Row().Scan(&earned)
 	if err != nil {
@@ -339,14 +520,16 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 
 // UpsertErrorFor upserts a JobSpecError record, incrementing the occurrences counter by 1
 // if the record is found
-func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
+func (orm *ORM) UpsertErrorFor(jobID models.JobID, description string) {
 	jse := models.NewJobSpecError(jobID, description)
 	err := orm.DB.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (job_spec_id, description)
-			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1, updated_at = excluded.updated_at`,
-		).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "job_spec_id"}, {Name: "description"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"occurrences": gorm.Expr("job_spec_errors.occurrences + 1"),
+				"updated_at":  gorm.Expr("excluded.updated_at"),
+			}),
+		}).
 		Create(&jse).
 		Error
 
@@ -354,7 +537,7 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 }
 
 // FindJobSpecError looks for a JobSpecError record with the given jobID and description
-func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.JobSpecError, error) {
+func (orm *ORM) FindJobSpecError(jobID models.JobID, description string) (*models.JobSpecError, error) {
 	jobSpecErr := &models.JobSpecError{}
 	err := orm.DB.
 		Where("job_spec_id = ? AND description = ?", jobID, description).
@@ -375,15 +558,19 @@ func (orm *ORM) DeleteJobSpecError(ID int64) error {
 
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	err := orm.DB.Create(externalInitiator).Error
 	return err
 }
 
 // DeleteExternalInitiator removes an external initiator
 func (orm *ORM) DeleteExternalInitiator(name string) error {
-	orm.MustEnsureAdvisoryLock()
-	err := orm.DB.Delete(&models.ExternalInitiator{Name: name}).Error
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	err := orm.DB.Exec("DELETE FROM external_initiators WHERE name = ?", name).Error
 	return err
 }
 
@@ -391,9 +578,11 @@ func (orm *ORM) DeleteExternalInitiator(name string) error {
 func (orm *ORM) FindExternalInitiator(
 	eia *auth.Token,
 ) (*models.ExternalInitiator, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
 	initiator := &models.ExternalInitiator{}
-	err := orm.DB.Where("access_key = ?", eia.AccessKey).Find(initiator).Error
+	err := orm.DB.Where("access_key = ?", eia.AccessKey).First(initiator).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "error finding external initiator")
 	}
@@ -402,34 +591,34 @@ func (orm *ORM) FindExternalInitiator(
 }
 
 // FindExternalInitiatorByName finds an external initiator given an authentication request
-func (orm *ORM) FindExternalInitiatorByName(iname string) (models.ExternalInitiator, error) {
-	orm.MustEnsureAdvisoryLock()
-	var exi models.ExternalInitiator
+func (orm *ORM) FindExternalInitiatorByName(iname string) (exi models.ExternalInitiator, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return exi, err
+	}
 	return exi, orm.DB.First(&exi, "lower(name) = lower(?)", iname).Error
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
-func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
-	orm.MustEnsureAdvisoryLock()
-	var sa models.ServiceAgreement
-	return sa, orm.DB.Set("gorm:auto_preload", true).First(&sa, "id = ?", id).Error
+func (orm *ORM) FindServiceAgreement(id string) (sa models.ServiceAgreement, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return sa, err
+	}
+	return sa, orm.DB.Preload(clause.Associations).First(&sa, "id = ?", id).Error
 }
 
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error {
-	orm.MustEnsureAdvisoryLock()
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		scope := orm.DB.Limit(limit).Offset(offset)
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	return Batch(func(offset, limit uint) (uint, error) {
+		scope := orm.DB.Order("job_specs.id asc").Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
-			if dbutil.IsPostgres(orm.DB) {
-				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
-			} else {
-				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id")
-			}
+			scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 		}
 		var ids []string
-		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
+		err := scope.Table("job_specs").Distinct("job_specs.id").Pluck("job_specs.id", &ids).Error
 		if err != nil {
 			return 0, err
 		}
@@ -459,8 +648,10 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
 // sorted by their created at time.
-func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun, error) {
-	orm.MustEnsureAdvisoryLock()
+func (orm *ORM) JobRunsFor(jobSpecID models.JobID, limit ...int) ([]models.JobRun, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
 	runs := []models.JobRun{}
 	var lim int
 	if len(limit) == 0 {
@@ -470,29 +661,42 @@ func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun,
 	}
 	err := orm.preloadJobRuns().
 		Limit(lim).
-		Where("job_spec_id = ?", jobSpecID).
+		Where("job_spec_id = ?", jobSpecID.UUID()).
 		Order("created_at desc").
 		Find(&runs).Error
 	return runs, err
 }
 
 // JobRunsCountFor returns the current number of runs for the job
-func (orm *ORM) JobRunsCountFor(jobSpecID *models.ID) (int, error) {
-	orm.MustEnsureAdvisoryLock()
-	var count int
+func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
+	var count int64
 	err := orm.DB.
 		Model(&models.JobRun{}).
 		Where("job_spec_id = ?", jobSpecID).
 		Count(&count).Error
-	return count, err
+	return int(count), err
+}
+
+func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string) (int, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
+	var count int64
+	err := orm.DB.
+		Model(&models.JobRun{}).
+		Where("job_spec_id = ?", jobSpecID).
+		Where("status = ?", status).
+		Count(&count).Error
+	return int(count), err
 }
 
 // Sessions returns all sessions limited by the parameters.
 func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
-	orm.MustEnsureAdvisoryLock()
 	var sessions []models.Session
 	err := orm.DB.
-		Set("gorm:auto_preload", true).
 		Limit(limit).
 		Offset(offset).
 		Find(&sessions).Error
@@ -501,7 +705,6 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 
 // GetConfigValue returns the value for a named configuration entry
 func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
-	orm.MustEnsureAdvisoryLock()
 	name := EnvVarName(field)
 	config := models.Configuration{}
 	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
@@ -510,9 +713,22 @@ func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) err
 	return value.UnmarshalText([]byte(config.Value))
 }
 
+// GetConfigBoolValue returns a boolean value for a named configuration entry
+func (orm *ORM) GetConfigBoolValue(field string) (*bool, error) {
+	name := EnvVarName(field)
+	config := models.Configuration{}
+	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
+		return nil, err
+	}
+	value, err := strconv.ParseBool(config.Value)
+	if err != nil {
+		return nil, err
+	}
+	return &value, nil
+}
+
 // SetConfigValue returns the value for a named configuration entry
 func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
-	orm.MustEnsureAdvisoryLock()
 	name := EnvVarName(field)
 	textValue, err := value.MarshalText()
 	if err != nil {
@@ -523,37 +739,59 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 		FirstOrCreate(&models.Configuration{}).Error
 }
 
+// SetConfigValue returns the value for a named configuration entry
+func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value string) error {
+	name := EnvVarName(field)
+	return orm.DB.WithContext(ctx).Where(models.Configuration{Name: name}).
+		Assign(models.Configuration{Name: name, Value: value}).
+		FirstOrCreate(&models.Configuration{}).Error
+}
+
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
-	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return orm.createJob(dbtx, job)
+		return orm.createJob(orm.DB, job)
 	})
 }
 
 func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
-	orm.MustEnsureAdvisoryLock()
-	for i := range job.Initiators {
-		job.Initiators[i].JobSpecID = job.ID
-	}
-
-	return tx.Create(job).Error
-}
-
-// ArchiveJob soft deletes the job, job_runs and its initiator.
-func (orm *ORM) ArchiveJob(ID *models.ID) error {
-	orm.MustEnsureAdvisoryLock()
-	j, err := orm.FindJob(ID)
-	if err != nil {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
 
+	err := tx.Create(job).Error
+	if err != nil {
+		return nil
+	}
+
+	for i := range job.Tasks {
+		job.Tasks[i].JobSpecID = job.ID
+		err := tx.Create(&job.Tasks[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := range job.Initiators {
+		job.Initiators[i].JobSpecID = job.ID
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job.Initiators[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ArchiveJob soft deletes the job, job_runs and its initiator.
+// It is idempotent, subsequent runs will do nothing and return no error
+func (orm *ORM) ArchiveJob(ID models.JobID) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return multierr.Combine(
-			dbtx.Exec("UPDATE initiators SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
-			dbtx.Exec("UPDATE task_specs SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
-			dbtx.Exec("UPDATE job_runs SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
-			dbtx.Delete(&j).Error,
+			dbtx.Exec("UPDATE initiators SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
+			dbtx.Exec("UPDATE task_specs SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
+			dbtx.Exec("UPDATE job_runs SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
+			dbtx.Exec("UPDATE job_specs SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL", ID).Error,
 		)
 	})
 }
@@ -561,13 +799,18 @@ func (orm *ORM) ArchiveJob(ID *models.ID) error {
 // CreateServiceAgreement saves a Service Agreement, its JobSpec and its
 // associations to the database.
 func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
-	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := orm.createJob(dbtx, &sa.JobSpec)
 		if err != nil {
 			return errors.Wrap(err, "Failed to create job for SA")
 		}
 
+		err = dbtx.Create(&sa.Encumbrance).Error
+		if err != nil {
+			return errors.Wrap(err, "Failed to create Encumberance for SA")
+		}
+
+		sa.EncumbranceID = sa.Encumbrance.ID
 		return dbtx.Create(sa).Error
 	})
 }
@@ -575,18 +818,20 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 // UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
 // including those that were soft deleted.
 func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...models.RunStatus) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	var runIDs []string
 	err := orm.DB.Unscoped().
 		Table("job_runs").
 		Where("status IN (?)", statuses).
 		Order("created_at asc").
-		Pluck("ID", &runIDs).Error
+		Pluck("id", &runIDs).Error
 	if err != nil {
 		return errors.Wrap(err, "finding job ids")
 	}
 
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
+	return Batch(func(offset, limit uint) (uint, error) {
 		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
 		var runs []models.JobRun
 		err := orm.Unscoped().
@@ -608,17 +853,52 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 // AnyJobWithType returns true if there is at least one job associated with
 // the type name specified and false otherwise
 func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return false, err
+	}
 	db := orm.DB
 	var taskSpec models.TaskSpec
-	rval := db.Where("type = ?", taskTypeName).First(&taskSpec)
-	found := !rval.RecordNotFound()
-	return found, ignoreRecordNotFound(rval)
+	err := db.Where("type = ?", taskTypeName).First(&taskSpec).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Wrapf(err, "error looking for job of type %s", taskTypeName)
+	}
+	return true, nil
+}
+
+func (orm *ORM) FindJobIDsWithBridge(bridgeName string) ([]models.JobID, error) {
+	// Non-FM jobs specify bridges in task specs.
+	var bridgeJobIDs []models.JobID
+	err := orm.DB.Raw(`SELECT job_spec_id FROM task_specs WHERE type = ? AND deleted_at IS NULL`, bridgeName).Find(&bridgeJobIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	var fmInitiators []models.Initiator
+	err = orm.DB.Raw(`SELECT * FROM initiators WHERE type = ? AND deleted_at IS NULL`, models.InitiatorFluxMonitor).Find(&fmInitiators).Error
+	if err != nil {
+		return nil, err
+	}
+	// FM jobs specify bridges in the initiator.
+	for _, fmi := range fmInitiators {
+		if fmi.Feeds.IsArray() && len(fmi.Feeds.Array()) == 1 {
+			bn := fmi.Feeds.Array()[0].Get("bridge")
+			if bn.String() == bridgeName {
+				bridgeJobIDs = append(bridgeJobIDs, fmi.JobSpecID)
+			}
+		}
+	}
+	return bridgeJobIDs, nil
 }
 
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
-func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+func (orm *ORM) IdempotentInsertEthTaskRunTx(meta models.EthTxMeta, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+	metaBytes, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
 	etx := models.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
@@ -626,24 +906,22 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 		Value:          assets.NewEthValue(0),
 		GasLimit:       gasLimit,
 		State:          models.EthTxUnstarted,
+		Meta:           gormpostgrestypes.Jsonb{RawMessage: metaBytes},
 	}
 	ethTaskRunTransaction := models.EthTaskRunTx{
-		TaskRunID: taskRunID.UUID(),
+		TaskRunID: meta.TaskRunID,
 	}
-	err := orm.Transaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Save(&etx).Error; err != nil {
+	err = orm.DB.Transaction(func(dbtx *gorm.DB) error {
+		if err = dbtx.Create(&etx).Error; err != nil {
 			return err
 		}
 		ethTaskRunTransaction.EthTxID = etx.ID
-		if err := dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
-			return err
-		}
-		return nil
+		return dbtx.Create(&ethTaskRunTransaction).Error
 	})
 	switch v := err.(type) {
-	case *pq.Error:
-		if v.Constraint == "idx_eth_task_run_txes_task_run_id" {
-			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+	case *pgconn.PgError:
+		if v.ConstraintName == "idx_eth_task_run_txes_task_run_id" {
+			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(meta.TaskRunID)
 			if e != nil {
 				return e
 			}
@@ -653,7 +931,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 					"transaction already exists for task run ID %s but it has different parameters\n"+
 						"New parameters: toAddress: %s, encodedPayload: 0x%s"+
 						"Existing record has: toAddress: %s, encodedPayload: 0x%s",
-					taskRunID.String(),
+					meta.TaskRunID.String(),
 					toAddress.String(), hex.EncodeToString(encodedPayload),
 					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload),
 				)
@@ -671,10 +949,9 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, int, error) {
 	ethTXIDs := orm.DB.
 		Select("DISTINCT eth_tx_id").
-		Table("eth_tx_attempts").
-		QueryExpr()
+		Table("eth_tx_attempts")
 
-	var count int
+	var count int64
 	err := orm.DB.
 		Table("eth_txes").
 		Where("id IN (?)", ethTXIDs).
@@ -692,14 +969,14 @@ func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, 
 		Order("id desc").Limit(limit).Offset(offset).
 		Find(&txs).Error
 
-	return txs, count, err
+	return txs, int(count), err
 }
 
 // FindEthTaskRunTxByTaskRunID finds the EthTaskRunTx with its EthTxes and EthTxAttempts preloaded
 func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTaskRunTx, error) {
 	etrt := &models.EthTaskRunTx{}
 	err := orm.DB.Preload("EthTx").First(etrt, "task_run_id = ?", &taskRunID).Error
-	if err != nil && gorm.IsRecordNotFoundError(err) {
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return etrt, err
@@ -708,7 +985,9 @@ func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTas
 // FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
 func (orm *ORM) FindEthTxWithAttempts(etxID int64) (models.EthTx, error) {
 	etx := models.EthTx{}
-	err := orm.DB.Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
+	err := orm.DB.Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+		return db.Order("gas_price asc, id asc")
+	}).Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
 	return etx, err
 }
 
@@ -732,7 +1011,9 @@ func (orm *ORM) EthTxAttempts(offset, limit int) ([]models.EthTxAttempt, int, er
 
 // FindEthTxAttempt returns an individual EthTxAttempt
 func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
 	ethTxAttempt := &models.EthTxAttempt{}
 	if err := orm.DB.Preload("EthTx").First(ethTxAttempt, "hash = ?", hash).Error; err != nil {
 		return nil, errors.Wrap(err, "FindEthTxAttempt First(ethTxAttempt) failed")
@@ -740,22 +1021,8 @@ func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error)
 	return ethTxAttempt, nil
 }
 
-// GetLastNonce retrieves the last known nonce in the database for an account
-func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
-	orm.MustEnsureAdvisoryLock()
-	var transaction models.EthTx
-	err := orm.DB.Order("nonce desc").Where(`"from_address" = ?`, address).First(&transaction).Error
-	if err == gorm.ErrRecordNotFound {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-	return uint64(*transaction.Nonce), nil
-}
-
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
-	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		var newi models.Initiator
 		if err := dbtx.Select("ran").First(&newi, "ID = ?", i.ID).Error; err != nil {
@@ -766,29 +1033,22 @@ func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
 			return fmt.Errorf("initiator %v for job spec %s has already been run", i.ID, i.JobSpecID.String())
 		}
 
-		if err := dbtx.Model(i).UpdateColumn("ran", ran).Error; err != nil {
-			return err
-		}
-
-		return nil
+		return dbtx.Model(i).UpdateColumn("ran", ran).Error
 	})
 }
 
 // FindUser will return the one API user, or an error.
 func (orm *ORM) FindUser() (models.User, error) {
-	orm.MustEnsureAdvisoryLock()
-	user := models.User{}
-	err := orm.DB.
-		Set("gorm:auto_preload", true).
-		Order("created_at desc").
-		First(&user).Error
-	return user, err
+	return findUser(orm.DB)
+}
+
+func findUser(db *gorm.DB) (user models.User, err error) {
+	return user, db.Preload(clause.Associations).Order("created_at desc").First(&user).Error
 }
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (models.User, error) {
-	orm.MustEnsureAdvisoryLock()
 	if len(sessionID) == 0 {
 		return models.User{}, errors.New("Session ID cannot be empty")
 	}
@@ -810,42 +1070,37 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 }
 
 // DeleteUser will delete the API User in the db.
-func (orm *ORM) DeleteUser() (models.User, error) {
-	orm.MustEnsureAdvisoryLock()
-	user, err := orm.FindUser()
-	if err != nil {
-		return user, err
-	}
-
-	return user, orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Delete(&user).Error; err != nil {
+func (orm *ORM) DeleteUser() error {
+	return postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
+		user, err := findUser(dbtx)
+		if err != nil {
 			return err
 		}
 
-		if err := dbtx.Delete(models.Session{}).Error; err != nil {
+		if err = dbtx.Delete(&user).Error; err != nil {
 			return err
 		}
 
-		return nil
+		return dbtx.Exec("DELETE FROM sessions").Error
 	})
 }
 
 // DeleteUserSession will erase the session ID for the sole API User.
 func (orm *ORM) DeleteUserSession(sessionID string) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Where("id = ?", sessionID).Delete(models.Session{}).Error
+	return orm.DB.Delete(models.Session{ID: sessionID}).Error
 }
 
 // DeleteBridgeType removes the bridge type
 func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return orm.DB.Delete(bt).Error
 }
 
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
 func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
-	orm.MustEnsureAdvisoryLock()
 	user, err := orm.FindUser()
 	if err != nil {
 		return "", err
@@ -875,20 +1130,20 @@ func constantTimeEmailCompare(left, right string) bool {
 
 // ClearSessions removes all sessions.
 func (orm *ORM) ClearSessions() error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Delete(models.Session{}).Error
+	return orm.DB.Exec("DELETE FROM sessions").Error
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Where("id <> ?", sessionID).Delete(models.Session{}).Error
+	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
 }
 
 // JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering
 // to the passed parameters.
 func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSpec, int, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, 0, err
+	}
 	count, err := orm.CountOf(&models.JobSpec{})
 	if err != nil {
 		return nil, 0, err
@@ -900,70 +1155,11 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 	return jobs, count, err
 }
 
-// OffChainReportingJobs returns OCR job specs
-func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
-	orm.MustEnsureAdvisoryLock()
-	var jobs []models.JobSpecV2
-	err := orm.DB.
-		Preload("OffchainreportingOracleSpec").
-		Preload("JobSpecErrors").
-		Find(&jobs).
-		Error
-	return jobs, err
-}
-
-// FindOffChainReportingJob returns OCR job spec by ID
-func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
-	orm.MustEnsureAdvisoryLock()
-	var job models.JobSpecV2
-	err := orm.DB.
-		Preload("OffchainreportingOracleSpec").
-		Preload("JobSpecErrors").
-		First(&job, "jobs.id = ?", id).
-		Error
-	return job, err
-}
-
-// OffChainReportingJobRuns returns OCR job runs
-func (orm *ORM) OffChainReportingJobRuns(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
-	orm.MustEnsureAdvisoryLock()
-
-	var pipelineRuns []pipeline.Run
-	var count int
-
-	err := orm.DB.
-		Model(pipeline.Run{}).
-		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
-		Where("jobs.id = ?", jobID).
-		Count(&count).
-		Error
-
-	if err != nil {
-		return pipelineRuns, 0, err
-	}
-
-	err = orm.DB.
-		Preload("PipelineSpec").
-		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Where(`pipeline_task_runs.type != 'result'`).
-				Order("created_at ASC, id ASC")
-		}).
-		Preload("PipelineTaskRuns.PipelineTaskSpec").
-		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
-		Where("jobs.id = ?", jobID).
-		Limit(size).
-		Offset(offset).
-		Order("created_at ASC, id ASC").
-		Find(&pipelineRuns).
-		Error
-
-	return pipelineRuns, count, err
-}
-
 // JobRunsSorted returns job runs ordered and filtered by the passed params.
 func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.JobRun, int, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, 0, err
+	}
 	count, err := orm.CountOf(&models.JobRun{})
 	if err != nil {
 		return nil, 0, err
@@ -977,13 +1173,22 @@ func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.Jo
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
-	orm.MustEnsureAdvisoryLock()
+func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, limit int) ([]models.JobRun, int, int, int, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, 0, 0, 0, err
+	}
 	count, err := orm.JobRunsCountFor(id)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
-
+	completedCount, err := orm.JobRunsCountForGivenStatus(id, "completed")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	erroredCount, err := orm.JobRunsCountForGivenStatus(id, "errored")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
 	var runs []models.JobRun
 	err = orm.preloadJobRuns().
 		Where("job_spec_id = ?", id).
@@ -991,13 +1196,15 @@ func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limi
 		Limit(limit).
 		Offset(offset).
 		Find(&runs).Error
-	return runs, count, err
+	return runs, count, completedCount, erroredCount, err
 }
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
 func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, 0, err
+	}
 	count, err := orm.CountOf(&models.BridgeType{})
 	if err != nil {
 		return nil, 0, err
@@ -1010,25 +1217,30 @@ func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, er
 
 // SaveUser saves the user.
 func (orm *ORM) SaveUser(user *models.User) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return orm.DB.Save(user).Error
 }
 
 // SaveSession saves the session.
 func (orm *ORM) SaveSession(session *models.Session) error {
-	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Save(session).Error
 }
 
 // CreateBridgeType saves the bridge type.
 func (orm *ORM) CreateBridgeType(bt *models.BridgeType) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return orm.DB.Create(bt).Error
 }
 
 // UpdateBridgeType updates the bridge type.
 func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRequest) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	bt.URL = btr.URL
 	bt.Confirmations = btr.Confirmations
 	bt.MinimumContractPayment = btr.MinimumContractPayment
@@ -1037,21 +1249,22 @@ func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRe
 
 // CreateInitiator saves the initiator.
 func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
-	orm.MustEnsureAdvisoryLock()
-	if initr.JobSpecID == nil {
-		// NOTE: This hangs forever if we don't check this here and the
-		// supplied initiator does not have a JobSpecID set.
-		// I do not know why. Seems to be something going wrong inside gorm
-		logger.Error("cannot create initiator without job spec ID")
-		return errors.New("requires job spec ID")
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
 	}
 	return orm.DB.Create(initr).Error
 }
 
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 // No advisory lock required because this is thread safe.
-func (orm *ORM) IdempotentInsertHead(h models.Head) error {
-	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (hash) DO NOTHING").Create(&h).Error
+func (orm *ORM) IdempotentInsertHead(ctx context.Context, h models.Head) error {
+	err := orm.DB.
+		WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "hash"}},
+			DoNothing: true,
+		}).Create(&h).Error
+
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		return nil
 	}
@@ -1059,8 +1272,8 @@ func (orm *ORM) IdempotentInsertHead(h models.Head) error {
 }
 
 // TrimOldHeads deletes heads such that only the top N block numbers remain
-func (orm *ORM) TrimOldHeads(n uint) (err error) {
-	return orm.DB.Exec(`
+func (orm *ORM) TrimOldHeads(ctx context.Context, n uint) (err error) {
+	return orm.DB.WithContext(ctx).Exec(`
 	DELETE FROM heads
 	WHERE number < (
 		SELECT min(number) FROM (
@@ -1072,10 +1285,10 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 	)`, n).Error
 }
 
-// Chain returns the chain of heads starting at hash and up to lookback parents
+// Chain return the chain of heads starting at hash and up to lookback parents
 // Returns RecordNotFound if no head with the given hash exists
-func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
-	rows, err := orm.DB.Raw(`
+func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (models.Head, error) {
+	rows, err := orm.DB.WithContext(ctx).Raw(`
 	WITH RECURSIVE chain AS (
 		SELECT * FROM heads WHERE hash = ?
 	UNION
@@ -1108,9 +1321,9 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 }
 
 // HeadByHash fetches the head with the given hash from the db, returns nil if none exists
-func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
+func (orm *ORM) HeadByHash(ctx context.Context, hash common.Hash) (*models.Head, error) {
 	head := &models.Head{}
-	err := orm.DB.Where("hash = ?", hash).First(head).Error
+	err := orm.DB.WithContext(ctx).Where("hash = ?", hash).First(head).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -1119,9 +1332,9 @@ func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
 
 // LastHead returns the head with the highest number. In the case of ties (e.g.
 // due to re-org) it returns the most recently seen head entry.
-func (orm *ORM) LastHead() (*models.Head, error) {
+func (orm *ORM) LastHead(ctx context.Context) (*models.Head, error) {
 	number := &models.Head{}
-	err := orm.DB.Order("number DESC, created_at DESC, id DESC").First(number).Error
+	err := orm.DB.WithContext(ctx).Order("number DESC, created_at DESC, id DESC").First(number).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -1130,8 +1343,7 @@ func (orm *ORM) LastHead() (*models.Head, error) {
 
 // DeleteStaleSessions deletes all sessions before the passed time.
 func (orm *ORM) DeleteStaleSessions(before time.Time) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
+	return orm.DB.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }
 
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
@@ -1142,200 +1354,58 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 //
 // TaskRuns are removed by ON DELETE CASCADE when the JobRuns and RunResults
 // are deleted.
-func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		err := dbtx.Exec(`
-			WITH deleted_job_runs AS (
-				DELETE FROM job_runs WHERE status IN (?) AND updated_at < ? RETURNING result_id, run_request_id
-			),
-			deleted_run_results AS (
-				DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
-			)
-			DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)`,
-			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-		if err != nil {
-			return errors.Wrap(err, "error deleting JobRuns")
-		}
+func BulkDeleteRuns(db *gorm.DB, bulkQuery *models.BulkDeleteRunRequest) error {
+	return Batch(func(_, limit uint) (count uint, err error) {
+		res := db.Exec(`
+WITH job_runs_to_delete AS (
+	SELECT id FROM job_runs jr
+	WHERE jr.status IN (?) AND jr.updated_at < ?
+	ORDER BY jr.id ASC
+	LIMIT ?
+),
+deleted_task_runs AS (
+	DELETE FROM task_runs as tr
+	WHERE tr.job_run_id IN (SELECT id FROM job_runs_to_delete)
+	RETURNING tr.result_id
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_task_runs)
+),
+deleted_job_runs AS (
+	DELETE FROM job_runs as jr
+	WHERE jr.id IN (SELECT id FROM job_runs_to_delete)
+	RETURNING jr.result_id, jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
+)
+DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)
+;
+		`, bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore, limit)
 
-		return nil
+		if res.Error != nil {
+			return count, res.Error
+		}
+		return uint(res.RowsAffected), res.Error
 	})
-}
-
-// AllKeys returns all of the keys recorded in the database including the funding key.
-// This method is deprecated! You should use SendKeys() to retrieve all but the funding keys.
-func (orm *ORM) AllKeys() ([]models.Key, error) {
-	var keys []models.Key
-	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
-}
-
-// SendKeys will return only the keys that are not is_funding=true.
-func (orm *ORM) SendKeys() ([]models.Key, error) {
-	var keys []models.Key
-	err := orm.DB.Where("is_funding != TRUE").Order("created_at ASC, address ASC").Find(&keys).Error
-	return keys, err
-}
-
-// KeyByAddress returns the key matching provided address
-func (orm *ORM) KeyByAddress(address common.Address) (models.Key, error) {
-	var key models.Key
-	err := orm.DB.Where("address = ?", address).First(&key).Error
-	return key, err
-}
-
-// KeyExists returns true if a key exists in the database for this address
-func (orm *ORM) KeyExists(address []byte) (bool, error) {
-	var key models.Key
-	err := orm.DB.Where("address = ?", address).First(&key).Error
-	if gorm.IsRecordNotFoundError(err) {
-		return false, nil
-	}
-	return true, err
-}
-
-// ArchiveKey soft-deletes a key whose address matches the supplied bytes.
-func (orm *ORM) ArchiveKey(address []byte) error {
-	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
-}
-
-// DeleteKey deletes a key whose address matches the supplied bytes.
-func (orm *ORM) DeleteKey(address []byte) error {
-	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
-}
-
-// CreateKeyIfNotExists inserts a key if a key with that address doesn't exist already
-// If a key with this address exists, it does nothing
-func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
-	orm.MustEnsureAdvisoryLock()
-	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (address) DO NOTHING").Create(&k).Error
-	if err == nil || err.Error() == "sql: no rows in result set" {
-		return nil
-	}
-	return err
-}
-
-// FirstOrCreateEncryptedVRFKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.FirstOrCreate(k).Error
-}
-
-// ArchiveEncryptedVRFKey soft-deletes k from the encrypted keys table, or errors
-func (orm *ORM) ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Delete(k).Error
-}
-
-// DeleteEncryptedVRFKey deletes k from the encrypted keys table, or errors
-func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Unscoped().Delete(k).Error
-}
-
-// FindEncryptedVRFKeys retrieves matches to where from the encrypted keys table, or errors
-func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
-	retrieved []*vrfkey.EncryptedVRFKey, err error) {
-	orm.MustEnsureAdvisoryLock()
-	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
-	for _, constraint := range where {
-		c := constraint
-		anonWhere = append(anonWhere, &c)
-	}
-	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
-}
-
-// GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
-// This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
-// addresses in the database.
-// NOTE: We can add more advanced logic here later such as sorting by priority
-// etc
-func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	err = orm.Transaction(func(tx *gorm.DB) error {
-		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
-		q = q.Where("is_funding = FALSE")
-		if len(addresses) > 0 {
-			q = q.Where("address in (?)", addresses)
-		}
-		keys := make([]models.Key, 0)
-		err = q.Find(&keys).Error
-		if err != nil {
-			return err
-		}
-		if len(keys) == 0 {
-			return errors.New("no keys available")
-		}
-		leastRecentlyUsedKey := keys[0]
-		address = leastRecentlyUsedKey.Address.Address()
-		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
-	})
-	if err != nil {
-		return address, err
-	}
-	return address, nil
-}
-
-// HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error) {
-	query := "SELECT exists (" +
-		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=$1 " +
-		"AND log_index=$2 " +
-		"AND job_id=$3" +
-		")"
-
-	var exists bool
-	err := orm.DB.DB().
-		QueryRow(query, blockHash, logIndex, jobID).
-		Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
-		return false, err
-	}
-	return exists, nil
-}
-
-// HasConsumedLogV2 reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
-	query := "SELECT exists (" +
-		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=$1 " +
-		"AND log_index=$2 " +
-		"AND job_id_v2=$3" +
-		")"
-
-	var exists bool
-	err := orm.DB.DB().
-		QueryRow(query, blockHash, logIndex, jobID).
-		Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
-		return false, err
-	}
-	return exists, nil
-}
-
-// MarkLogConsumed creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
-	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, nil, blockNumber)
-	return orm.DB.Create(&lc).Error
-}
-
-// MarkLogConsumedV2 creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
-	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
-	return orm.DB.Create(&lc).Error
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
 // it if no record exists
-func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
-	orm.MustEnsureAdvisoryLock()
-	var stats models.FluxMonitorRoundStats
-	err := orm.DB.FirstOrCreate(&stats, models.FluxMonitorRoundStats{Aggregator: aggregator, RoundID: roundID}).Error
+func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (stats models.FluxMonitorRoundStats, err error) {
+	if err = orm.MustEnsureAdvisoryLock(); err != nil {
+		return stats, err
+	}
+	err = orm.DB.FirstOrCreate(&stats, models.FluxMonitorRoundStats{Aggregator: aggregator, RoundID: roundID}).Error
 	return stats, err
 }
 
 // DeleteFluxMonitorRoundsBackThrough deletes all the RoundStat records for a given oracle address
 // starting from the most recent round back through the given round
 func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return orm.DB.Exec(`
         DELETE FROM flux_monitor_round_stats
         WHERE aggregator = ?
@@ -1346,7 +1416,9 @@ func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, ro
 // MostRecentFluxMonitorRoundID finds roundID of the most recent round that the provided oracle
 // address submitted to
 func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error) {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
 	var stats models.FluxMonitorRoundStats
 	err := orm.DB.Order("round_id DESC").First(&stats, "aggregator = ?", aggregator).Error
 	if err != nil {
@@ -1357,8 +1429,10 @@ func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32,
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, jobRunID *models.ID) error {
-	orm.MustEnsureAdvisoryLock()
+func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, jobRunID uuid.UUID) error {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return orm.DB.Exec(`
         INSERT INTO flux_monitor_round_stats (
             aggregator, round_id, job_run_id, num_new_round_logs, num_submissions
@@ -1371,165 +1445,162 @@ func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID u
     `, aggregator, roundID, jobRunID).Error
 }
 
-// ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
-// the keys folder on disk, deleting anything there prior.
-func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
-	if err := os.RemoveAll(keysDir); err != nil {
-		return err
-	}
-
-	if err := utils.EnsureDirAndMaxPerms(keysDir, 0700); err != nil {
-		return err
-	}
-
-	keys, err := orm.AllKeys()
-	if err != nil {
-		return err
-	}
-
-	var merr error
-	for _, k := range keys {
-		merr = multierr.Append(
-			k.WriteToDisk(filepath.Join(keysDir, keyFileName(k.Address, k.CreatedAt))),
-			merr)
-	}
-	return merr
-}
-
-// Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
-func keyFileName(keyAddr models.EIP55Address, createdAt time.Time) string {
-	return fmt.Sprintf("UTC--%s--%s", toISO8601(createdAt), keyAddr[2:])
-}
-
-// Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
-func toISO8601(t time.Time) string {
-	var tz string
-	name, offset := t.Zone()
-	if name == "UTC" {
-		tz = "Z"
-	} else {
-		tz = fmt.Sprintf("%03d00", offset/3600)
-	}
-	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s",
-		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
-}
-
-// These two queries trigger cascading deletes in the following tables:
-// (run_requests) --> (job_runs) --> (task_runs)
-// (eth_txes) --> (eth_tx_attempts) --> (eth_receipts)
 const removeUnstartedJobRunsQuery = `
-DELETE FROM run_requests
-WHERE id IN (
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs as jr
+	USING
+		task_runs as tr
+	WHERE
+		jr.status = 'unstarted' AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
 	SELECT run_request_id
 	FROM job_runs
-	WHERE status = 'unstarted'
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
 )
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
+
 const removeUnstartedTransactionsQuery = `
-DELETE FROM eth_txes
-WHERE state = 'unstarted'
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs AS jr
+	USING
+		task_runs AS tr,
+		eth_txes AS tx,
+		eth_task_run_txes AS tx_tr
+	WHERE
+		tx.state = 'unstarted' AND
+		tx_tr.eth_tx_id = tx.id AND
+		tx_tr.task_run_id = tr.id AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
+	SELECT run_request_id
+	FROM job_runs
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
+)
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
 
 func (orm *ORM) RemoveUnstartedTransactions() error {
 	return orm.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(removeUnstartedJobRunsQuery).Error; err != nil {
+		if err := tx.Exec(removeUnstartedTransactionsQuery).Error; err != nil {
 			return err
 		}
-		return tx.Exec(removeUnstartedTransactionsQuery).Error
+		return tx.Exec(removeUnstartedJobRunsQuery).Error
 	})
 }
 
 func (orm *ORM) CountOf(t interface{}) (int, error) {
-	orm.MustEnsureAdvisoryLock()
-	var count int
-	return count, orm.DB.Model(t).Count(&count).Error
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
+	var count int64
+	return int(count), orm.DB.Model(t).Count(&count).Error
 }
 
 func (orm *ORM) getRecords(collection interface{}, order string, offset, limit int) error {
-	orm.MustEnsureAdvisoryLock()
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return orm.DB.
-		Set("gorm:auto_preload", true).
+		Preload(clause.Associations).
 		Order(order).Limit(limit).Offset(offset).
 		Find(collection).Error
 }
 
-func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
-	orm.MustEnsureAdvisoryLock()
+func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 	return fn(orm.DB)
 }
 
-// DialectName is a compiler enforced type used that maps to gorm's dialect
-// names.
-type DialectName string
-
-const (
-	// DialectPostgres represents the postgres dialect.
-	DialectPostgres DialectName = "postgres"
-	// DialectTransactionWrappedPostgres is useful for tests.
-	// When the connection is opened, it starts a transaction and all
-	// operations performed on the DB will be within that transaction.
-	//
-	// HACK: This must be the string 'cloudsqlpostgres' because of an absolutely
-	// horrible design in gorm. We need gorm to enable postgres-specific
-	// features for the txdb driver, but it can only do that if the dialect is
-	// called "postgres" or "cloudsqlpostgres".
-	//
-	// Since "postgres" is already taken, "cloudsqlpostgres" is our only
-	// remaining option
-	//
-	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
-	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
-	// DialectPostgresWithoutLock represents the postgres dialect but it does not
-	// wait for a lock to connect. Intended to be used for read only access.
-	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
-)
-
 // Connection manages all of the possible database connection setup and config.
 type Connection struct {
-	name               DialectName
+	name               dialects.DialectName
 	uri                string
-	dialect            DialectName
+	dialect            dialects.DialectName
 	locking            bool
 	advisoryLockID     int64
+	lockRetryInterval  time.Duration
 	transactionWrapped bool
+	maxOpenConns       int
+	maxIdleConns       int
 }
 
 // NewConnection returns a Connection which holds all of the configuration
 // necessary for managing the database connection.
-func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Connection, error) {
+func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
 	switch dialect {
-	case DialectPostgres:
+	case dialects.Postgres:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
-			dialect:            DialectPostgres,
+			dialect:            dialects.Postgres,
 			locking:            true,
 			name:               dialect,
 			transactionWrapped: false,
 			uri:                uri,
+			lockRetryInterval:  lockRetryInterval,
+			maxOpenConns:       maxOpenConns,
+			maxIdleConns:       maxIdleConns,
 		}, nil
-	case DialectPostgresWithoutLock:
+	case dialects.PostgresWithoutLock:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
-			dialect:            DialectPostgres,
+			dialect:            dialects.Postgres,
 			locking:            false,
 			name:               dialect,
 			transactionWrapped: false,
 			uri:                uri,
+			maxOpenConns:       maxOpenConns,
+			maxIdleConns:       maxIdleConns,
 		}, nil
-	case DialectTransactionWrappedPostgres:
+	case dialects.TransactionWrappedPostgres:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
-			dialect:            DialectTransactionWrappedPostgres,
+			dialect:            dialects.TransactionWrappedPostgres,
 			locking:            true,
 			name:               dialect,
 			transactionWrapped: true,
 			uri:                uri,
+			lockRetryInterval:  lockRetryInterval,
+			maxOpenConns:       maxOpenConns,
+			maxIdleConns:       maxIdleConns,
 		}, nil
 	}
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
 }
 
-func (ct Connection) initializeDatabase() (*gorm.DB, error) {
+func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
+	originalURI := ct.uri
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
@@ -1538,32 +1609,54 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		// We can happily throw away the original uri here because if we are using
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
-		ct.uri = models.NewID().String()
+		ct.uri = uuid.NewV4().String()
+	} else {
+		uri, err := url.Parse(ct.uri)
+		if err != nil {
+			return nil, err
+		}
+		static.SetConsumerName(uri, "ORM")
+		ct.uri = uri.String()
 	}
 
-	db, err := gorm.Open(string(ct.dialect), ct.uri)
+	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
+
+	// Use the underlying connection with the unique uri for txdb.
+	d, err := sql.Open(string(ct.dialect), ct.uri)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
-	}
-
-	db.SetLogger(newOrmLogWrapper(logger.Default))
-
-	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err
 	}
+	if d == nil {
+		return nil, errors.Errorf("unable to open %s received a nil connection", ct.uri)
+	}
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		Conn: d,
+		DSN:  originalURI,
+	}), &gorm.Config{Logger: newLogger})
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB conn %v", ct.uri, d)
+	}
+	db = db.Omit(clause.Associations).Session(&gorm.Session{})
+
+	if err = db.Exec(`SET TIME ZONE 'UTC'`).Error; err != nil {
+		return nil, err
+	}
+	d.SetMaxOpenConns(ct.maxOpenConns)
+	d.SetMaxIdleConns(ct.maxIdleConns)
 
 	return db, nil
 }
 
-// BatchSize is the safe number of records to cache during Batch calls for
-// SQLite without causing load problems.
-// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
-const BatchSize = 100
+// BatchSize is the default number of DB records to access in one batch
+const BatchSize uint = 1000
 
-// Batch is an iterator _like_ for batches of records
-func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+// BatchFunc is the function to execute on each batch of records, should return the count of records affected
+type BatchFunc func(offset, limit uint) (count uint, err error)
+
+// Batch is an iterator for batches of records
+func Batch(cb BatchFunc) error {
 	offset := uint(0)
-	limit := uint(1000)
+	limit := BatchSize
 
 	for {
 		count, err := cb(offset, limit)

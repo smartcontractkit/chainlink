@@ -1,4 +1,4 @@
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
@@ -10,9 +10,7 @@ import { AppState } from './reducers'
 import {
   AuthActionType,
   NotifyActionType,
-  RedirectAction,
   ResourceActionType,
-  RouterActionType,
 } from './reducers/actions'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
@@ -26,6 +24,7 @@ type Errors =
   | jsonapi.BadRequestError
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
+  | jsonapi.ConflictError
 
 type RestAction = 'UPSERT' | 'DELETE'
 
@@ -34,16 +33,11 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const REDIRECT_TO_SIGNOUT_ACTION: RedirectAction = {
-  type: RouterActionType.REDIRECT,
-  to: '/signout',
-}
-
 const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   error: Error,
 ) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    dispatch(REDIRECT_TO_SIGNOUT_ACTION)
+    sendSignOut(dispatch)
   } else {
     dispatch(createErrorAction(error, type))
   }
@@ -115,14 +109,11 @@ export const receiveSignoutSuccess = () => ({
   authenticated: false,
 })
 
-function sendSignOut() {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
-    return api.sessions
-      .destroySession()
-      .then(() => dispatch(receiveSignoutSuccess()))
-      .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
-  }
+function sendSignOut(dispatch: Dispatch) {
+  return api.sessions
+    .destroySession()
+    .then(() => dispatch(receiveSignoutSuccess()))
+    .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
 }
 
 const RECEIVE_CREATE_SUCCESS_ACTION = {
@@ -141,17 +132,20 @@ const receiveUpdateSuccess = (response: Response) => ({
 
 export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
-export const submitSignOut = () => sendSignOut()
+export const submitSignOut = () => sendSignOut
 
 export const deleteJobSpec = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
+  jobType: 'Off-chain reporting' | 'Direct request',
 ) => {
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    return api.v2.specs
+    const endpoint = jobType === 'Direct request' ? api.v2.specs : api.v2.jobs
+
+    return endpoint
       .destroyJobSpec(id)
       .then((doc) => {
         dispatch(receiveDeleteSuccess(id))
@@ -177,6 +171,31 @@ export const createJobRun = (
 
     return api.v2.runs
       .createJobSpecRun(id)
+      .then((doc) => {
+        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
+        dispatch(notifySuccess(successCallback, doc))
+      })
+      .catch((error: Errors) => {
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_CREATE_ERROR,
+        )(error)
+        dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
+export const createJobRunV2 = (
+  id: string,
+  pipelineInput: string,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode,
+): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
+  return (dispatch: Dispatch) => {
+    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+
+    return api.v2.jobs
+      .createJobRunV2(id, pipelineInput)
       .then((doc) => {
         dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))
@@ -247,7 +266,7 @@ export const updateBridge = (
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    dispatch(REDIRECT_TO_SIGNOUT_ACTION)
+    dispatch(receiveSignoutSuccess())
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }
@@ -370,7 +389,7 @@ export type NormalizedAccountBalance = GetNormalizedData<
 export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
-  normalize,
+  (json) => normalize(json, { camelizeKeys: false }),
 )
 
 export const fetchBridges = requestFetch(
