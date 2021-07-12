@@ -190,8 +190,8 @@ func (_m *ORM) StoreRun(db *sql.DB, run *pipeline.Run) (bool, error) {
 	return r0, r1
 }
 
-// UpdateTaskRun provides a mock function with given fields: db, taskID, result
-func (_m *ORM) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (pipeline.Run, bool, error) {
+// UpdateTaskRunResult provides a mock function with given fields: db, taskID, result
+func (_m *ORM) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (pipeline.Run, bool, error) {
 	ret := _m.Called(db, taskID, result)
 
 	var r0 pipeline.Run

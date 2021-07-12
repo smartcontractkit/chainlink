@@ -133,7 +133,7 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
-	run, start, err := prc.App.PipelineORM().UpdateTaskRun(sqlDB, taskID, bodyBytes)
+	run, start, err := prc.App.PipelineORM().UpdateTaskRunResult(sqlDB, taskID, bodyBytes)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
