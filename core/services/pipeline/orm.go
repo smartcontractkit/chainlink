@@ -26,7 +26,7 @@ type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
 	CreateRun(db *gorm.DB, run *Run) (err error)
 	StoreRun(db *sql.DB, run *Run) (restart bool, err error)
-	UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
+	UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
 	InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindRun(id int64) (Run, error)
@@ -149,7 +149,7 @@ func (o *orm) StoreRun(db *sql.DB, run *Run) (restart bool, err error) {
 	return restart, err
 }
 
-func (o *orm) UpdateTaskRun(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
+func (o *orm) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
 	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"

@@ -256,7 +256,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 }
 
-func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
+func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	db, orm := setupORM(t)
 
 	run := mustInsertAsyncRun(t, orm, db)
@@ -298,7 +298,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRun(t *testing.T) {
 	// assert that run should be in "paused" state
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, start, err := orm.UpdateTaskRun(sdb, ds1_id, "foo")
+	r, start, err := orm.UpdateTaskRunResult(sdb, ds1_id, "foo")
 	run = &r
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 2)
