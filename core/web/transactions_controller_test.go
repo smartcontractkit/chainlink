@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -36,7 +36,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	// add second tx attempt for tx2
 	blockNum := int64(3)
 	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
-	attempt.State = models.EthTxAttemptBroadcast
+	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, store.DB.Create(&attempt).Error)

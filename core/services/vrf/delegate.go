@@ -225,7 +225,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 				err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 					if err == nil {
 						// No errors processing the log, submit a transaction
-						var etx models.EthTx
+						var etx bulletprooftxmanager.EthTx
 						var from common.Address
 						from, err = lsn.gethks.GetRoundRobinAddress()
 						if err != nil {
