@@ -4,7 +4,7 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-
+	log "github.com/smartcontractkit/chainlink/core/services/log"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -32,16 +32,14 @@ func (_m *Broadcast) DecodedLog() interface{} {
 }
 
 // JobID provides a mock function with given fields:
-func (_m *Broadcast) JobID() interface{} {
+func (_m *Broadcast) JobID() log.JobIdSelect {
 	ret := _m.Called()
 
-	var r0 interface{}
-	if rf, ok := ret.Get(0).(func() interface{}); ok {
+	var r0 log.JobIdSelect
+	if rf, ok := ret.Get(0).(func() log.JobIdSelect); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(interface{})
-		}
+		r0 = ret.Get(0).(log.JobIdSelect)
 	}
 
 	return r0

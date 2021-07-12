@@ -24,7 +24,6 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -63,13 +62,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	t.Run("eth_txes exist for a different from address", func(t *testing.T) {
 		_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    otherAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -80,7 +79,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		nonce := int64(342)
 		errStr := "some error"
 
-		etxUnconfirmed := models.EthTx{
+		etxUnconfirmed := bulletprooftxmanager.EthTx{
 			Nonce:          &nonce,
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -89,9 +88,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			BroadcastAt:    &timeNow,
 			Error:          nil,
-			State:          models.EthTxUnconfirmed,
+			State:          bulletprooftxmanager.EthTxUnconfirmed,
 		}
-		etxWithError := models.EthTx{
+		etxWithError := bulletprooftxmanager.EthTx{
 			Nonce:          nil,
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -99,7 +98,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          value,
 			GasLimit:       gasLimit,
 			Error:          &errStr,
-			State:          models.EthTxFatalError,
+			State:          bulletprooftxmanager.EthTxFatalError,
 		}
 
 		require.NoError(t, store.DB.Save(&etxUnconfirmed).Error)
@@ -110,14 +109,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
 		// Higher value
-		expensiveEthTx := models.EthTx{
+		expensiveEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: []byte{42, 42, 0},
 			Value:          assets.NewEthValue(242),
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 0),
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(2) && tx.Value().Cmp(big.NewInt(242)) == 0
@@ -128,14 +127,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		tr := uuid.NewV4()
 		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr, RunRequestID: &h, RunRequestTxHash: &h})
 		require.NoError(t, err)
-		earlierEthTx := models.EthTx{
+		earlierEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: []byte{42, 42, 0},
 			Value:          value,
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 			Meta:           gormpostgrestypes.Jsonb{RawMessage: b},
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -152,14 +151,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Later
-		laterEthTx := models.EthTx{
+		laterEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: []byte{42, 42, 1},
 			Value:          value,
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(1, 0),
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			if tx.Nonce() != uint64(1) {
@@ -207,7 +206,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
-		assert.Equal(t, models.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.EthReceipts, 0)
 
 		// Check laterEthTx and it's attempt
@@ -229,57 +228,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
-		assert.Equal(t, models.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.EthReceipts, 0)
 
 		ethClient.AssertExpectations(t)
 	})
-}
-
-func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-	ethKeyStore.Unlock(cltest.Password)
-
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
-	config.Set("OPTIMISM_GAS_FEES", "true")
-
-	ethClient := new(mocks.Client)
-	store.EthClient = ethClient
-
-	eb, cleanup := cltest.NewEthBroadcaster(t, store, ethKeyStore, config, key)
-	defer cleanup()
-
-	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
-
-	estimatedGas := uint64(9007199254740993)
-
-	tx := models.EthTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: []byte{42, 42, 0},
-		Value:          assets.NewEthValue(242),
-		GasLimit:       estimatedGas,
-		CreatedAt:      time.Unix(0, 0),
-		State:          models.EthTxUnstarted,
-	}
-	ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
-	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		assert.Equal(t, big.NewInt(1000000000), tx.GasPrice())
-		assert.Equal(t, estimatedGas, tx.Gas())
-		return true
-	})).Return(nil).Once()
-
-	require.NoError(t, store.DB.Save(&tx).Error)
-
-	// Do the thing
-	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
-	ethClient.AssertExpectations(t)
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {
@@ -301,18 +254,18 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	defer cleanup()
 
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		assert.Equal(t, uint64(1600), tx.Gas())
+		assert.Equal(t, int(1600), int(tx.Gas()))
 		return true
 	})).Return(nil).Once()
 
-	tx := models.EthTx{
+	tx := bulletprooftxmanager.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411"),
 		EncodedPayload: []byte{42, 42, 0},
 		Value:          assets.NewEthValue(242),
 		GasLimit:       1231,
 		CreatedAt:      time.Unix(0, 0),
-		State:          models.EthTxUnstarted,
+		State:          bulletprooftxmanager.EthTxUnstarted,
 	}
 	require.NoError(t, store.DB.Save(&tx).Error)
 
@@ -422,7 +375,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, nextNonce)
 
-		firstInProgress := models.EthTx{
+		firstInProgress := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			Nonce:          &firstNonce,
 			ToAddress:      toAddress,
@@ -431,10 +384,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			GasLimit:       gasLimit,
 			BroadcastAt:    nil,
 			Error:          nil,
-			State:          models.EthTxInProgress,
+			State:          bulletprooftxmanager.EthTxInProgress,
 		}
 
-		secondInProgress := models.EthTx{
+		secondInProgress := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			Nonce:          &secondNonce,
 			ToAddress:      toAddress,
@@ -443,7 +396,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			GasLimit:       gasLimit,
 			BroadcastAt:    nil,
 			Error:          nil,
-			State:          models.EthTxInProgress,
+			State:          bulletprooftxmanager.EthTxInProgress,
 		}
 
 		require.NoError(t, store.DB.Create(&firstInProgress).Error)
@@ -487,7 +440,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		assert.NotNil(t, etx.BroadcastAt)
 		assert.Nil(t, etx.Error)
 		assert.Len(t, etx.EthTxAttempts, 1)
-		assert.Equal(t, models.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -703,7 +656,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		s, err := attempt.GetSignedTx()
 		require.NoError(t, err)
 		assert.Equal(t, int64(342), s.GasPrice().Int64())
-		assert.Equal(t, models.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -742,13 +695,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	defer cleanup()
 
 	t.Run("if external wallet sent a transaction from the account and now the nonce is one higher than it should be and we got replacement underpriced then we assume a previous transaction of ours was the one that succeeded, and hand off to EthConfirmer", func(t *testing.T) {
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
@@ -768,7 +721,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check that the transaction was saved correctly with its attempt
 		// We assume success and hand off to eth confirmer to eventually mark it as failed
 		var latestID int64
-		var etx1 models.EthTx
+		var etx1 bulletprooftxmanager.EthTx
 		require.NoError(t, store.DB.Raw("SELECT max(id) FROM eth_txes").Row().Scan(&latestID))
 		etx1, err = store.FindEthTxWithAttempts(latestID)
 		require.NoError(t, err)
@@ -791,13 +744,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		fatalErrorExample := "exceeds block gas limit"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -832,13 +785,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -872,13 +825,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		retryableErrorExample := "geth shit the bed again"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -898,10 +851,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.Nil(t, etx.Error)
-		assert.Equal(t, models.EthTxInProgress, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, models.EthTxAttemptInProgress, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInProgress, attempt.State)
 
 		ethClient.AssertExpectations(t)
 
@@ -919,10 +872,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotNil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.Nil(t, etx.Error)
-		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, models.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -934,13 +887,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		underpricedError := "transaction underpriced"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -976,13 +929,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, big.NewInt(30000000000).String(), attempt.GasPrice.String())
 	})
 
-	etxUnfinished := models.EthTx{
+	etxUnfinished := bulletprooftxmanager.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: encodedPayload,
 		Value:          value,
 		GasLimit:       gasLimit,
-		State:          models.EthTxUnstarted,
+		State:          bulletprooftxmanager.EthTxUnstarted,
 	}
 	require.NoError(t, store.DB.Save(&etxUnfinished).Error)
 
@@ -1006,9 +959,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, etx.BroadcastAt)
 		assert.NotNil(t, etx.Nonce)
 		assert.Nil(t, etx.Error)
-		assert.Equal(t, models.EthTxInProgress, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
-		assert.Equal(t, models.EthTxAttemptInProgress, etx.EthTxAttempts[0].State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInProgress, etx.EthTxAttempts[0].State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -1054,13 +1007,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		config.Set("ETH_GAS_BUMP_WEI", "0")
 		config.Set("ETH_GAS_BUMP_PERCENT", "0")
 
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -1083,13 +1036,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	t.Run("eth node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -1107,10 +1060,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotNil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.Nil(t, etx.Error)
-		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, models.EthTxAttemptInsufficientEth, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInsufficientEth, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 
 		ethClient.AssertExpectations(t)
@@ -1142,13 +1095,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	defer cleanup()
 
 	t.Run("tx signing fails", func(t *testing.T) {
-		etx := models.EthTx{
+		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
+			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 
@@ -1169,7 +1122,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		etx, err = store.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, models.EthTxUnstarted, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnstarted, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		// Check that the key did not have its nonce incremented
@@ -1197,7 +1150,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, ethKeyStore, advisoryLocker1, &postgres.NullEventBroadcaster{}, []ethkey.Key{key})
+	eb := bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, ethKeyStore, advisoryLocker1, &postgres.NullEventBroadcaster{}, []ethkey.Key{key}, nil)
 
 	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 

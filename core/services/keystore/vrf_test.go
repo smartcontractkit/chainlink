@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -29,7 +30,7 @@ import (
 func vrfVerifier(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	ethereumKey, _ := crypto.GenerateKey()
 	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, ethereumKey)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)

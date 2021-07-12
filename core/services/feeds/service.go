@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -14,6 +15,7 @@ import (
 )
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
+//go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 type Service interface {
 	Start() error
@@ -24,6 +26,7 @@ type Service interface {
 	GetManager(id int64) (*FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
 	RegisterManager(ms *FeedsManager) (int64, error)
+	SyncNodeInfo(id int64) error
 }
 
 type service struct {
@@ -33,17 +36,34 @@ type service struct {
 	chDone chan struct{}
 	wgDone sync.WaitGroup
 
-	orm       ORM
-	ks        keystore.CSAKeystoreInterface
-	fmsClient pb.FeedsManagerClient
+	// connCtx allows us to cancel any connections which are currently blocking
+	// while waiting to establish a connection to FMS.
+	connCtx       context.Context
+	connCtxCancel context.CancelFunc
+
+	orm         ORM
+	csaKeyStore keystore.CSAKeystoreInterface
+	ethKeyStore keystore.EthKeyStoreInterface
+	fmsClient   pb.FeedsManagerClient
+	cfg         Config
 }
 
 // NewService constructs a new feeds service
-func NewService(orm ORM, ks keystore.CSAKeystoreInterface) Service {
+func NewService(
+	orm ORM,
+	csaKeyStore keystore.CSAKeystoreInterface,
+	ethKeyStore keystore.EthKeyStoreInterface,
+	cfg Config,
+) *service {
+	ctx, cancel := context.WithCancel(context.Background())
 	svc := &service{
-		chDone: make(chan struct{}),
-		orm:    orm,
-		ks:     ks,
+		chDone:        make(chan struct{}),
+		connCtx:       ctx,
+		connCtxCancel: cancel,
+		orm:           orm,
+		csaKeyStore:   csaKeyStore,
+		ethKeyStore:   ethKeyStore,
+		cfg:           cfg,
 	}
 
 	return svc
@@ -76,6 +96,52 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 	s.connect(mgr.URI, privkey, mgr.PublicKey, id)
 
 	return id, nil
+}
+
+// SyncNodeInfo syncs the node's information with FMS
+func (s *service) SyncNodeInfo(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	mgr, err := s.GetManager(id)
+	if err != nil {
+		return err
+	}
+
+	jobtypes := []pb.JobType{}
+	for _, jt := range mgr.JobTypes {
+
+		switch jt {
+		case JobTypeFluxMonitor:
+			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_FLUX_MONITOR)
+		case JobTypeOffchainReporting:
+			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_OCR)
+		default:
+			// NOOP
+		}
+	}
+
+	keys, err := s.ethKeyStore.FundingKeys()
+	if err != nil {
+		return err
+	}
+
+	addresses := []string{}
+	for _, k := range keys {
+		addresses = append(addresses, k.Address.String())
+	}
+
+	// Make the remote call to FMS
+	_, err = s.fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
+		JobTypes:         jobtypes,
+		ChainId:          s.cfg.ChainID().Int64(),
+		FundingAddresses: addresses,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ListManagerServices lists all the manager services.
@@ -123,7 +189,11 @@ func (s *service) Start() error {
 
 func (s *service) Close() error {
 	return s.StopOnce("FeedsService", func() error {
+		// Close any blocking dials
+		s.connCtxCancel()
+		// Close any active connections
 		close(s.chDone)
+
 		s.wgDone.Wait()
 		return nil
 	})
@@ -131,23 +201,34 @@ func (s *service) Close() error {
 
 // Connect attempts to establish a connection to the Feeds Manager.
 //
-// In the future we will connect to multiple Feeds Managers
+// In the future we will connect to multiple Feeds Managers. Each `connect` call
+// will run in a separate goroutine. Closing the feeds service will shutdown
+// each goroutine.
 func (s *service) connect(uri string, privkey []byte, pubkey []byte, feedsManagerID int64) {
 	s.wgDone.Add(1)
 
-	go func() {
+	go gracefulpanic.WrapRecover(func() {
 		defer s.wgDone.Done()
 
-		conn, err := wsrpc.Dial(uri,
+		// Clean up context
+		defer s.connCtxCancel()
+
+		conn, err := wsrpc.DialWithContext(s.connCtx, uri,
 			wsrpc.WithTransportCreds(privkey, ed25519.PublicKey(pubkey)),
+			wsrpc.WithBlock(),
 		)
 		if err != nil {
-			logger.Infof("Error connecting to Feeds Manager server: %v", err)
+			// We only want to log if there was an error that did not occur
+			// from a context cancel.
+			if s.connCtx.Err() == nil {
+				logger.Infof("Error connecting to Feeds Manager server: %v", err)
+			}
+
 			return
 		}
 		defer conn.Close()
 
-		logger.Infow("[Feeds Manager] Connected to Feeds Manager", "feedsManagerID", feedsManagerID)
+		logger.Infow("[Feeds] Connected to Feeds Manager", "feedsManagerID", feedsManagerID)
 
 		// Initialize a new wsrpc client to make RPC calls
 		s.mu.Lock()
@@ -160,15 +241,21 @@ func (s *service) connect(uri string, privkey []byte, pubkey []byte, feedsManage
 			svc:            s,
 		})
 
+		// Sync the node's information with FMS once connected
+		err = s.SyncNodeInfo(feedsManagerID)
+		if err != nil {
+			logger.Infof("[Feeds] Error syncing node info: %v", err)
+		}
+
 		// Wait for close
 		<-s.chDone
-	}()
+	})
 }
 
 // getCSAPrivateKey gets the server's CSA private key
 func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	// Fetch the server's public key
-	keys, err := s.ks.ListCSAKeys()
+	keys, err := s.csaKeyStore.ListCSAKeys()
 	if err != nil {
 		return privkey, err
 	}
@@ -176,7 +263,7 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 		return privkey, errors.New("CSA key does not exist")
 	}
 
-	privkey, err = s.ks.Unsafe_GetUnlockedPrivateKey(keys[0].PublicKey)
+	privkey, err = s.csaKeyStore.Unsafe_GetUnlockedPrivateKey(keys[0].PublicKey)
 	if err != nil {
 		return []byte{}, err
 	}

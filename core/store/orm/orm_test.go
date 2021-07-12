@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -721,7 +723,7 @@ func TestORM_AnyJobWithType(t *testing.T) {
 	defer cleanup()
 
 	js := cltest.NewJobWithWebInitiator()
-	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: models.MustNewTaskType("bridgetestname")}}
+	js.Tasks = []models.TaskSpec{{Type: models.MustNewTaskType("bridgetestname")}}
 	assert.NoError(t, store.CreateJob(&js))
 	found, err := store.AnyJobWithType("bridgetestname")
 	assert.NoError(t, err)
@@ -876,7 +878,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
+	job.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.NoError(t, store.CreateJob(&job))
 
 	unfinishedRun := cltest.NewJobRun(job)
@@ -1139,7 +1141,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		require.NoError(t, err)
 		db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-		err = orm.BulkDeleteRuns(store.DB, &models.BulkDeleteRunRequest{
+		err = postgres.BulkDeleteRuns(store.DB, &models.BulkDeleteRunRequest{
 			Status:        []models.RunStatus{models.RunStatusCompleted},
 			UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
 		})
@@ -1210,11 +1212,11 @@ func TestORM_RemoveUnstartedTransaction_RemoveByEthTx(t *testing.T) {
 	require.NoError(t, store.DB.Find(&runRequests).Error)
 	assert.Len(t, runRequests, 1, "expected only one RunRequests to be left in the db")
 
-	ethTxes := []models.EthTx{}
+	ethTxes := []bulletprooftxmanager.EthTx{}
 	require.NoError(t, store.DB.Find(&ethTxes).Error)
 	assert.Len(t, ethTxes, 1, "expected only one EthTx to be left in the db")
 
-	ethTxAttempts := []models.EthTxAttempt{}
+	ethTxAttempts := []bulletprooftxmanager.EthTxAttempt{}
 	require.NoError(t, store.DB.Find(&ethTxAttempts).Error)
 	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
 }
@@ -1271,18 +1273,18 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
 	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
-	attempt.State = models.EthTxAttemptBroadcast
+	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, store.DB.Create(&attempt).Error)
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, store, from)
-	tx3.State = models.EthTxUnstarted
+	tx3.State = bulletprooftxmanager.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, store.DB.Save(&tx3).Error)
 
-	count, err := store.CountOf(models.EthTx{})
+	count, err := store.CountOf(bulletprooftxmanager.EthTx{})
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
@@ -1393,7 +1395,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}
-	jobNumber := int(orm.BatchSize*2 + 1)
+	jobNumber := int(postgres.BatchSize*2 + 1)
 	for i := 0; i < jobNumber; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))
@@ -1549,7 +1551,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
 		assert.Equal(t, encodedPayload, etrt.EthTx.EncodedPayload)
 		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
-		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnstarted, etrt.EthTx.State)
 
 		// Do it again to test idempotence
 		err = store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: sharedTaskRunID}, fromAddress, toAddress, encodedPayload, gasLimit)
