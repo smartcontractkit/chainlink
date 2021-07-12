@@ -36,6 +36,9 @@ func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
+	if jb.Pipeline.HasAsync() {
+		return jb, errors.Errorf("async=true tasks are not supported for %v", jb.Type)
+	}
 
 	// Find the smallest of all the timeouts
 	// and ensure the polling period is greater than that.

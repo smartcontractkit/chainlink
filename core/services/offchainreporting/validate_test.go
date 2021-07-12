@@ -280,6 +280,30 @@ ds1          [type=bridge name=voter_turnout timeout="30s"];
 			},
 		},
 		{
+			name: "async=true should error",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
+observationTimeout = "30s"
+observationSource = """
+ds1          [type=bridge async=true name=voter_turnout timeout="10s"];
+"""
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "async=true tasks are not supported")
+			},
+		},
+		{
 			name: "toml parse doesn't panic",
 			toml: string(hexutil.MustDecode("0x2222220d5c22223b22225c0d21222222")),
 			assertion: func(t *testing.T, os job.Job, err error) {

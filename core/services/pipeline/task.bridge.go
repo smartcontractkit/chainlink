@@ -3,8 +3,11 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"path"
 
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
@@ -18,16 +21,22 @@ type BridgeTask struct {
 	Name              string `json:"name"`
 	RequestData       string `json:"requestData"`
 	IncludeInputAtKey string `json:"includeInputAtKey"`
+	Async             string `json:"async"`
 
 	db     *gorm.DB
 	config Config
+	id     uuid.UUID
 }
 
 var _ Task = (*BridgeTask)(nil)
 
+var zeroURL = new(url.URL)
+
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
+
+var ErrPending = errors.New("pending")
 
 func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 	inputValues, err := CheckInputs(inputs, -1, -1, 0)
@@ -75,6 +84,14 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 		}
 	}
 
+	if t.Async == "true" {
+		responseURL := t.config.BridgeResponseURL()
+		if *responseURL != *zeroURL {
+			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.id.String())
+		}
+		requestData["responseURL"] = responseURL.String()
+	}
+
 	// URL is "safe" because it comes from the node's own database
 	// Some node operators may run external adapters on their own hardware
 	allowUnrestrictedNetworkAccess := BoolParam(true)
@@ -88,9 +105,23 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 		"url", url.String(),
 	)
 
-	responseBytes, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, headers, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
 		return Result{Error: err}
+	}
+
+	if t.Async == "true" {
+		// Look for a `pending` flag. This check is case-insensitive because http.Header normalizes header names
+		if _, ok := headers["X-Chainlink-Pending"]; ok {
+			return Result{Error: ErrPending}
+		}
+
+		var response struct {
+			Pending bool `json:"pending"`
+		}
+		if err := json.Unmarshal(responseBytes, &response); err == nil && response.Pending {
+			return Result{Error: ErrPending}
+		}
 	}
 
 	// NOTE: We always stringify the response since this is required for all current jobs.

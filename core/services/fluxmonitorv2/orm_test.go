@@ -108,18 +108,20 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		runID, err := pipelineORM.InsertFinishedRun(
 			corestore.DB,
 			pipeline.Run{
+				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
 				CreatedAt:      time.Now(),
-				FinishedAt:     &f,
+				FinishedAt:     null.TimeFrom(f),
 				Errors:         pipeline.RunErrors{null.String{}},
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
 			}, pipeline.TaskRunResults{
 				{
+					ID:         uuid.NewV4(),
 					Task:       &pipeline.HTTPTask{},
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,
-					FinishedAt: f,
+					FinishedAt: null.TimeFrom(f),
 				},
 			}, true)
 		require.NoError(t, err)
