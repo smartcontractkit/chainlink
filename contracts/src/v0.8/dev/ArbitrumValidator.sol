@@ -39,7 +39,7 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
    * @param refundableAddress address where gas excess on L2 will be sent
    */
   constructor(
-    address aggregatorAddress,
+    address /* aggregatorAddress */,
     address inboxAddress,
     address flagAddress,
     address gasConfigAccessController,
@@ -54,7 +54,7 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     s_flagsAddress = flagAddress;
     _setGasConfiguration(maxSubmissionCost, maximumGasPrice, gasCostL2, refundableAddress);
 
-    SimpleWriteAccessController(address(this)).addAccess(aggregatorAddress);
+    // SimpleWriteAccessController(address(this)).addAccess(aggregatorAddress);
   }
   
   fallback() external payable {}
@@ -74,6 +74,14 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     onlyOwner() 
   {
     to.transfer(address(this).balance);
+  }
+
+  function getBalance() 
+    public 
+    view 
+    returns (uint256) 
+  {
+    return address(this).balance;
   }
 
   function setGasConfiguration(
@@ -103,7 +111,7 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     if (s_lastChangedAnswer == currentAnswer) {
       return true;
     }
-    s_lastChangedAnswer == currentAnswer;
+    s_lastChangedAnswer = currentAnswer;
     bytes memory data = currentAnswer == 1 ? abi.encodeWithSelector(RAISE_SELECTOR, s_arbitrumFlag) : abi.encodeWithSelector(LOWER_SELECTOR, [s_arbitrumFlag]);
 
     s_arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
@@ -132,8 +140,6 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     uint256 _gasCostL2,
     address _refundableAddress
   ) internal {
-    uint256 minGasCostValue = _maximumSubmissionCost + s_L2GasLimit * _maximumGasPrice;
-    require(_gasCostL2 >= minGasCostValue, "The gas cost value provided is too low to cover the L2 transactions");
     s_gasConfig = GasConfiguration(_maximumSubmissionCost, _maximumGasPrice, _gasCostL2, _refundableAddress);
     emit GasConfigurationSet(_maximumSubmissionCost, _maximumGasPrice, _gasCostL2, _refundableAddress);
   }
