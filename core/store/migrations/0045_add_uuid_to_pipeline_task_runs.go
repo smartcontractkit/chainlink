@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up43 = `
+const up45 = `
 	-- Truncate tables to ease bigint -> UUID migration
 	TRUNCATE TABLE pipeline_runs, pipeline_task_runs, flux_monitor_round_stats_v2;
 
@@ -31,7 +31,7 @@ const up43 = `
 	);
 `
 
-const down43 = `
+const down45 = `
 	ALTER TABLE pipeline_runs DROP CONSTRAINT pipeline_runs_check;
 	ALTER TABLE pipeline_runs ADD CONSTRAINT pipeline_runs_check CHECK (
 		(((outputs IS NULL) AND (errors IS NULL) AND (finished_at IS NULL))
@@ -45,12 +45,12 @@ const down43 = `
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0043_add_uuid_to_pipeline_task_runs",
+		ID: "0045_add_uuid_to_pipeline_task_runs",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up43).Error
+			return db.Exec(up45).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down43).Error
+			return db.Exec(down45).Error
 		},
 	})
 }
