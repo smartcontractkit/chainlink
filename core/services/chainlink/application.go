@@ -89,7 +89,7 @@ type Application interface {
 	GetFeedsService() feeds.Service
 
 	// ReplayBlocks of blocks
-	ReplayFromBlockNumber(number int64) error
+	ReplayFromBlockNumber(number uint64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -735,14 +735,14 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
 }
 
-func (app *ChainlinkApplication) ReplayFromBlockNumber(number int64) error {
+func (app *ChainlinkApplication) ReplayFromBlockNumber(number uint64) error {
 
-	err := app.HeadTracker.PruneHeads(number)
+	err := app.LogBroadcaster.DeleteBroadcastsSince(number)
 	if err != nil {
-		return errors.Wrap(err, "Failed to prune heads")
+		return errors.Wrapf(err, "Failed to delete broadcasts since block number %v", number)
 	}
 
-	app.LogBroadcaster.ReplayFrom(number)
+	app.LogBroadcaster.ReplayFrom(int64(number))
 
 	return nil
 }

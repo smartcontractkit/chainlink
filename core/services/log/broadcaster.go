@@ -53,6 +53,7 @@ type (
 		// DB interactions
 		WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error)
 		MarkConsumed(db *gorm.DB, lb Broadcast) error
+		DeleteBroadcastsSince(blockNumber uint64) error
 	}
 
 	broadcaster struct {
@@ -151,6 +152,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 }
 
 func (b *broadcaster) ReplayFrom(number int64) {
+	logger.Infof("LogBroadcaster: Replay requested from block number: %v", number)
 	atomic.StoreInt64(&b.restartFromNumber, number)
 }
 
@@ -280,7 +282,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
-			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
+			logger.Warnw("LogBroadcaster: Error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
 			continue
 		} else if !shouldResubscribe {
@@ -297,7 +299,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
-	logger.Debug("LogBroadcaster: starting the event loop")
+	logger.Debug("LogBroadcaster: Starting the event loop")
 	for {
 		select {
 		case rawLog := <-chRawLogs:
@@ -325,7 +327,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 				b.requestedBackfillFrom.SetValid(restartFrom)
 			}
 			if needsResubscribe || restartFrom != 0 {
-				logger.Debug("LogBroadcaster: returning from the event loop to resubscribe")
+				logger.Debug("LogBroadcaster: Returning from the event loop to resubscribe")
 				return true, nil
 			}
 
@@ -384,7 +386,7 @@ func (b *broadcaster) onNewHeads() {
 		if len(logs) > 0 {
 			broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
 			if err != nil {
-				logger.Errorf("Failed to query for log broadcasts, %v", err)
+				logger.Errorf("LogBroadcaster: Failed to query for log broadcasts, %v", err)
 				return
 			}
 
@@ -476,6 +478,11 @@ func (b *broadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
 	return b.orm.MarkBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
 
+// DeleteBroadcastsSince removes already consumed broadcasts so that they can be reprocessed
+func (b *broadcaster) DeleteBroadcastsSince(blockNumber uint64) error {
+	return b.orm.DeleteBroadcastsSince(blockNumber)
+}
+
 type NullBroadcaster struct{ ErrMsg string }
 
 func (n *NullBroadcaster) IsConnected() bool { return false }
@@ -498,6 +505,11 @@ func (n *NullBroadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, e
 func (n *NullBroadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
 	return errors.New(n.ErrMsg)
 }
+
+func (n *NullBroadcaster) DeleteBroadcastsSince(blockNumber uint64) error {
+	return errors.New(n.ErrMsg)
+}
+
 func (n *NullBroadcaster) AddDependents(int) {}
 func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	ch := make(chan struct{})

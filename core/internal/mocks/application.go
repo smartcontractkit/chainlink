@@ -382,11 +382,11 @@ func (_m *Application) PipelineORM() pipeline.ORM {
 }
 
 // ReplayFromBlockNumber provides a mock function with given fields: number
-func (_m *Application) ReplayFromBlockNumber(number int64) error {
+func (_m *Application) ReplayFromBlockNumber(number uint64) error {
 	ret := _m.Called(number)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64) error); ok {
+	if rf, ok := ret.Get(0).(func(uint64) error); ok {
 		r0 = rf(number)
 	} else {
 		r0 = ret.Error(0)

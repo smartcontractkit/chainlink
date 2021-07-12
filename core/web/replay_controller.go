@@ -28,7 +28,11 @@ func (bdc *ReplayController) ReplayBlocks(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if err := bdc.App.ReplayFromBlockNumber(blockNumber); err != nil {
+	if blockNumber < 0 {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("block number cannot be negative: %v", blockNumber))
+		return
+	}
+	if err := bdc.App.ReplayFromBlockNumber(uint64(blockNumber)); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
