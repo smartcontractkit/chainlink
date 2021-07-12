@@ -43,7 +43,7 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 			models.JobSpec{
 				ID: models.NewJobID(),
 				Initiators: []models.Initiator{
-					models.Initiator{
+					{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
 							Name: "somecoin",
@@ -65,13 +65,13 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 			models.JobSpec{
 				ID: models.NewJobID(),
 				Initiators: []models.Initiator{
-					models.Initiator{
+					{
 						Type: models.InitiatorCron,
 					},
-					models.Initiator{
+					{
 						Type: models.InitiatorWeb,
 					},
-					models.Initiator{
+					{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
 							Name: "somecoin",
@@ -156,10 +156,10 @@ func TestNotifyExternalInitiator_NotNotified(t *testing.T) {
 			models.JobSpec{
 				ID: models.NewJobID(),
 				Initiators: []models.Initiator{
-					models.Initiator{
+					{
 						Type: models.InitiatorCron,
 					},
-					models.Initiator{
+					{
 						Type: models.InitiatorWeb,
 					},
 				},
@@ -213,7 +213,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 			models.JobSpec{
 				ID: models.NewJobID(),
 				Initiators: []models.Initiator{
-					models.Initiator{
+					{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
 							Name: "somecoin",
@@ -231,13 +231,13 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 			models.JobSpec{
 				ID: models.NewJobID(),
 				Initiators: []models.Initiator{
-					models.Initiator{
+					{
 						Type: models.InitiatorCron,
 					},
-					models.Initiator{
+					{
 						Type: models.InitiatorWeb,
 					},
-					models.Initiator{
+					{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
 							Name: "somecoin",

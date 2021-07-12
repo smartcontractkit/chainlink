@@ -1,7 +1,6 @@
 package models
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -10,41 +9,14 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jinzhu/gorm/dialects/postgres"
-
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
-
-type EthTxState string
-type EthTxAttemptState string
-
-const (
-	EthTxUnstarted               = EthTxState("unstarted")
-	EthTxInProgress              = EthTxState("in_progress")
-	EthTxFatalError              = EthTxState("fatal_error")
-	EthTxUnconfirmed             = EthTxState("unconfirmed")
-	EthTxConfirmed               = EthTxState("confirmed")
-	EthTxConfirmedMissingReceipt = EthTxState("confirmed_missing_receipt")
-
-	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
-	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
-	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
-)
-
-type EthTaskRunTx struct {
-	TaskRunID uuid.UUID
-	EthTxID   int64
-	EthTx     EthTx
-}
 
 type EthTxMeta struct {
 	TaskRunID        uuid.UUID
@@ -56,74 +28,6 @@ type EthTxMetaV2 struct {
 	JobID         int32
 	RequestID     common.Hash
 	RequestTxHash common.Hash
-}
-
-type EthTx struct {
-	ID             int64
-	Nonce          *int64
-	FromAddress    common.Address
-	ToAddress      common.Address
-	EncodedPayload []byte
-	Value          assets.Eth
-	GasLimit       uint64
-	Error          *string
-	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
-	// In almost all cases it will be within a second or so of the actual send time.
-	BroadcastAt   *time.Time
-	CreatedAt     time.Time
-	State         EthTxState
-	EthTxAttempts []EthTxAttempt `gorm:"->"`
-	// Marshalled EthTxMeta
-	// Used for additional context around transactions which you want to log
-	// at send time.
-	Meta    postgres.Jsonb
-	Subject uuid.NullUUID
-}
-
-func (e EthTx) GetError() error {
-	if e.Error == nil {
-		return nil
-	}
-	return errors.New(*e.Error)
-}
-
-// GetID allows EthTx to be used as jsonapi.MarshalIdentifier
-func (e EthTx) GetID() string {
-	return fmt.Sprintf("%d", e.ID)
-}
-
-type EthTxAttempt struct {
-	ID                      int64
-	EthTxID                 int64
-	EthTx                   EthTx `gorm:"foreignkey:EthTxID;->"`
-	GasPrice                utils.Big
-	SignedRawTx             []byte
-	Hash                    common.Hash
-	CreatedAt               time.Time
-	BroadcastBeforeBlockNum *int64
-	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;->"`
-}
-
-type EthReceipt struct {
-	ID               int64
-	TxHash           common.Hash
-	BlockHash        common.Hash
-	BlockNumber      int64
-	TransactionIndex uint
-	Receipt          []byte
-	CreatedAt        time.Time
-}
-
-// GetSignedTx decodes the SignedRawTx into a types.Transaction struct
-func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
-	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)
-	signedTx := new(types.Transaction)
-	if err := signedTx.DecodeRLP(s); err != nil {
-		logger.Error("could not decode RLP")
-		return nil, err
-	}
-	return signedTx, nil
 }
 
 // Head represents a BlockNumber, BlockHash.

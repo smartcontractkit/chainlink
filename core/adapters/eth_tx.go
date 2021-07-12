@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -87,12 +88,12 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store, keyStore *ke
 	return e.insertEthTx(m, input, store, keyStore)
 }
 
-func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
+func (e *EthTx) checkForConfirmation(trtx bulletprooftxmanager.EthTaskRunTx,
 	input models.RunInput, store *strpkg.Store) models.RunOutput {
 	switch trtx.EthTx.State {
-	case models.EthTxConfirmed:
+	case bulletprooftxmanager.EthTxConfirmed:
 		return e.checkEthTxForReceipt(trtx.EthTx.ID, input, store)
-	case models.EthTxFatalError:
+	case bulletprooftxmanager.EthTxFatalError:
 		return models.NewRunOutputError(trtx.EthTx.GetError())
 	default:
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
@@ -175,7 +176,7 @@ func (e *EthTx) insertEthTx(
 	}
 
 	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(store.DB, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
-		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", bulletprooftxmanager.EthMaxQueuedTransactionsLabel)
+		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", static.EthMaxQueuedTransactionsLabel)
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}
@@ -231,8 +232,8 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 	return models.NewRunOutputComplete(output)
 }
 
-func getConfirmedReceipt(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmations uint64) (*models.EthReceipt, error) {
-	receipt := models.EthReceipt{}
+func getConfirmedReceipt(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmations uint64) (*bulletprooftxmanager.EthReceipt, error) {
+	receipt := bulletprooftxmanager.EthReceipt{}
 	err := db.
 		Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", ethTxID).
 		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed'").

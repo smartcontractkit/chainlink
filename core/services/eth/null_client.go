@@ -58,8 +58,8 @@ func (nc *NullClient) CallContext(ctx context.Context, result interface{}, metho
 	return nil
 }
 
-func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
-	logger.Debug("NullClient#HeaderByNumber")
+func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+	logger.Debug("NullClient#HeadByNumber")
 	return &models.Head{}, nil
 }
 
@@ -91,6 +91,11 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 func (nc *NullClient) ChainID(ctx context.Context) (*big.Int, error) {
 	logger.Debug("NullClient#ChainID")
 	return big.NewInt(NullClientChainID), nil
+}
+
+func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	logger.Debug("NullClient#HeaderByNumber")
+	return nil, nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
@@ -159,4 +164,8 @@ func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 
 func (nc *NullClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return nil
+}
+
+func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	return nil, nil
 }

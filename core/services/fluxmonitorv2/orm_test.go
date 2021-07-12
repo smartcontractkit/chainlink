@@ -10,12 +10,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
 )
 
@@ -176,7 +176,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(models.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
 

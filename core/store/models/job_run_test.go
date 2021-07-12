@@ -174,7 +174,7 @@ func TestJobRun_ApplyOutput_CompletedWithNoTasksRemaining(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := cltest.NewJobRun(job)
-	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{}}
+	jobRun.TaskRuns = []models.TaskRun{{}}
 
 	result := models.NewRunOutputComplete(models.JSON{})
 	jobRun.TaskRuns[0].ApplyOutput(result)
