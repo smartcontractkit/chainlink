@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -90,7 +91,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.Len(t, jr.TaskRuns, 2)
 	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
-	cltest.WaitForCount(t, app.Store, models.EthTx{}, 1)
+	cltest.WaitForCount(t, app.Store, bulletprooftxmanager.EthTx{}, 1)
 	app.TxManager.Trigger(app.Key.Address.Address())
 	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 	require.Len(t, attempts, 1)
@@ -210,5 +211,5 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	defer stopMining()
 
 	cltest.WaitForJobRunStatus(t, app.Store, jobRun, models.RunStatusErrored)
-	cltest.AssertCount(t, app.Store, models.EthTxAttempt{}, 0)
+	cltest.AssertCount(t, app.Store, bulletprooftxmanager.EthTxAttempt{}, 0)
 }

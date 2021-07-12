@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gopkg.in/guregu/null.v4"
@@ -206,7 +207,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
 	}
 
-	var etx models.EthTx
+	var etx bulletprooftxmanager.EthTx
 	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {

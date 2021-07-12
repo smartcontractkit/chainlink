@@ -8,13 +8,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -152,7 +152,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 	// Linked to  requestID
 	vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
 		return meta.JobID > 0 && meta.RequestID == reqID && meta.RequestTxHash == txHash
-	}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(models.EthTx{}, nil)
+	}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
 
 	// Send a valid log
 	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
@@ -225,7 +225,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	require.Equal(t, len(runs), 0)
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []models.EthTx
+	var ethTxes []bulletprooftxmanager.EthTx
 	err = vuni.jpv2.Prm.DB().Find(&ethTxes).Error
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
