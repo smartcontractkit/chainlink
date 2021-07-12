@@ -339,6 +339,10 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(1),
+			})
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 
 			defer cleanup()
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -108,4 +109,45 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	}
 
 	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))
+}
+
+// Resume finishes a task and resumes the pipeline run.
+// Example:
+// "PATCH <application>/jobs/:ID/runs/:runID"
+func (prc *PipelineRunsController) Resume(c *gin.Context) {
+	taskID, err := uuid.FromString(c.Param("runID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	sqlDB, err := prc.App.PipelineORM().DB().DB()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	run, start, err := prc.App.PipelineORM().UpdateTaskRunResult(sqlDB, taskID, bodyBytes)
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	if start {
+		// start the runner again
+		go func() {
+			if _, err := prc.App.ResumeJobV2(context.Background(), &run); err != nil {
+				logger.Errorw("/v2/resume:", "err", err)
+			}
+		}()
+	}
+
+	c.Status(http.StatusOK)
 }

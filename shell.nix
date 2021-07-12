@@ -22,6 +22,7 @@ pkgs.mkShell {
     goimports
     gopls
     delve
+    golangci-lint
 
     # gofuzz
   ];

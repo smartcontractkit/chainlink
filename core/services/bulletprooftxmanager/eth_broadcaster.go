@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -273,13 +272,13 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(fromAddress gethCommon.Addres
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func getInProgressEthTx(db *gorm.DB, fromAddress gethCommon.Address) (*models.EthTx, error) {
-	etx := &models.EthTx{}
+func getInProgressEthTx(db *gorm.DB, fromAddress gethCommon.Address) (*EthTx, error) {
+	etx := &EthTx{}
 	err := db.Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != models.EthTxAttemptInProgress {
+	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
 		return nil, errors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
 			"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", etx.ID)
 	}
@@ -288,8 +287,8 @@ func getInProgressEthTx(db *gorm.DB, fromAddress gethCommon.Address) (*models.Et
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *EthBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
-	if etx.State != models.EthTxInProgress {
+func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+	if etx.State != EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
@@ -378,11 +377,11 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
 		), "ethTxID", etx.ID, "err", sendError)
-		return saveAttempt(eb.db, &etx, attempt, models.EthTxAttemptInsufficientEth)
+		return saveAttempt(eb.db, &etx, attempt, EthTxAttemptInsufficientEth)
 	}
 
 	if sendError == nil {
-		return saveAttempt(eb.db, &etx, attempt, models.EthTxAttemptBroadcast)
+		return saveAttempt(eb.db, &etx, attempt, EthTxAttemptBroadcast)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -393,8 +392,8 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
 // Returns nil if no transactions are in queue
-func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*models.EthTx, error) {
-	etx := &models.EthTx{}
+func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*EthTx, error) {
+	etx := &EthTx{}
 	if err := findNextUnstartedTransactionFromAddress(eb.db, etx, fromAddress); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Finish. No more transactions left to process. Hoorah!
@@ -411,14 +410,14 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 	return etx, nil
 }
 
-func (eb *EthBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *models.EthTxAttempt) error {
-	if etx.State != models.EthTxUnstarted {
+func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAttempt) error {
+	if etx.State != EthTxUnstarted {
 		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
-	if attempt.State != models.EthTxAttemptInProgress {
+	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
-	etx.State = models.EthTxInProgress
+	etx.State = EthTxInProgress
 	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
 		if err := tx.Create(attempt).Error; err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
@@ -428,7 +427,7 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *models.EthTx, fromAddress gethCommon.Address) error {
+func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *EthTx, fromAddress gethCommon.Address) error {
 	return db.
 		Where("from_address = ? AND state = 'unstarted'", fromAddress).
 		Order("value ASC, created_at ASC, id ASC").
@@ -436,17 +435,17 @@ func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *models.EthTx, fro
 		Error
 }
 
-func saveAttempt(db *gorm.DB, etx *models.EthTx, attempt models.EthTxAttempt, newAttemptState models.EthTxAttemptState, callbacks ...func(tx *gorm.DB) error) error {
-	if etx.State != models.EthTxInProgress {
+func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, newAttemptState EthTxAttemptState, callbacks ...func(tx *gorm.DB) error) error {
+	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
-	if attempt.State != models.EthTxAttemptInProgress {
+	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	if !(newAttemptState == models.EthTxAttemptBroadcast || newAttemptState == models.EthTxAttemptInsufficientEth) {
+	if !(newAttemptState == EthTxAttemptBroadcast || newAttemptState == EthTxAttemptInsufficientEth) {
 		return errors.Errorf("new attempt state must be broadcast or insufficient_eth, got: %s", newAttemptState)
 	}
-	etx.State = models.EthTxUnconfirmed
+	etx.State = EthTxUnconfirmed
 	attempt.State = newAttemptState
 	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
@@ -467,7 +466,7 @@ func saveAttempt(db *gorm.DB, etx *models.EthTx, attempt models.EthTxAttempt, ne
 	})
 }
 
-func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
 	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpGas(attempt.GasPrice.ToInt(), etx.GasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
@@ -482,7 +481,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx model
 	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, bumpedGasPrice, bumpedGasLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
 	gasPrice, gasLimit, err := eb.estimator.EstimateGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
@@ -492,7 +491,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewGas(etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
+func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
 	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.config.ChainID(), etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
@@ -504,15 +503,15 @@ func (eb *EthBroadcaster) tryAgainWithNewGas(etx models.EthTx, attempt models.Et
 	return eb.handleInProgressEthTx(etx, replacementAttempt, initialBroadcastAt)
 }
 
-func saveFatallyErroredTransaction(db *gorm.DB, etx *models.EthTx) error {
-	if etx.State != models.EthTxInProgress {
+func saveFatallyErroredTransaction(db *gorm.DB, etx *EthTx) error {
+	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
 	if etx.Error == nil {
 		return errors.New("expected error field to be set")
 	}
 	etx.Nonce = nil
-	etx.State = models.EthTxFatalError
+	etx.State = EthTxFatalError
 	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)

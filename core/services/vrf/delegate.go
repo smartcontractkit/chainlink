@@ -225,7 +225,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 				err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 					if err == nil {
 						// No errors processing the log, submit a transaction
-						var etx models.EthTx
+						var etx bulletprooftxmanager.EthTx
 						var from common.Address
 						from, err = lsn.gethks.GetRoundRobinAddress()
 						if err != nil {
@@ -250,6 +250,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 						// and be able to save errored proof generations. Until then only save
 						// successful runs and log errors.
 						_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+							State:          pipeline.RunStatusCompleted,
 							PipelineSpecID: lsn.job.PipelineSpecID,
 							Errors:         []null.String{{}},
 							Outputs: pipeline.JSONSerializable{
@@ -262,7 +263,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 								Val: map[string]interface{}{"eth_tx_id": etx.ID},
 							},
 							CreatedAt:  s,
-							FinishedAt: &f,
+							FinishedAt: null.TimeFrom(f),
 						}, nil, false)
 						if err != nil {
 							return errors.Wrap(err, "VRFListener: failed to insert finished run")
