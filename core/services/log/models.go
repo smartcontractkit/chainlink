@@ -53,7 +53,7 @@ func (b *broadcast) SetDecodedLog(newLog interface{}) {
 	b.decodedLog = newLog
 }
 
-func (b broadcast) JobID() JobIdSelect {
+func (b *broadcast) JobID() JobIdSelect {
 	return b.jobID
 }
 
