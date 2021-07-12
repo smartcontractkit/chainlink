@@ -16,7 +16,6 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -175,7 +174,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -183,11 +182,11 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, store, models.EthTx{}, 1)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 1)
 
 		require.NoError(t, store.ORM.DB.First(&etx).Error)
 
-		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)

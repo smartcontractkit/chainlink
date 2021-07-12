@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 )
 
 // EthTxResource represents a Ethereum Transaction JSONAPI resource.
@@ -34,7 +34,7 @@ func (EthTxResource) GetName() string {
 // For backwards compatibility, there is no id set when initializing from an
 // EthTx as the id being used was the EthTxAttempt Hash.
 // This should really use it's proper id
-func NewEthTxResource(tx models.EthTx) EthTxResource {
+func NewEthTxResource(tx bulletprooftxmanager.EthTx) EthTxResource {
 	return EthTxResource{
 		Data:     hexutil.Bytes(tx.EncodedPayload),
 		From:     &tx.FromAddress,
@@ -45,7 +45,7 @@ func NewEthTxResource(tx models.EthTx) EthTxResource {
 	}
 }
 
-func NewEthTxResourceFromAttempt(txa models.EthTxAttempt) EthTxResource {
+func NewEthTxResourceFromAttempt(txa bulletprooftxmanager.EthTxAttempt) EthTxResource {
 	tx := txa.EthTx
 
 	r := NewEthTxResource(tx)

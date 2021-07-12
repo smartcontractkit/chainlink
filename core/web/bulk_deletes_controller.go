@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +28,7 @@ func (bdc *BulkDeletesController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if err := orm.BulkDeleteRuns(bdc.App.GetStore().DB, request); err != nil {
+	if err := postgres.BulkDeleteRuns(bdc.App.GetStore().DB, request); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

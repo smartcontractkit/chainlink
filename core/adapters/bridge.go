@@ -120,7 +120,7 @@ func (ba *Bridge) postToExternalAdapter(
 		Config:  config,
 	}
 
-	bytes, statusCode, err := httpRequest.SendRequest(context.TODO())
+	bytes, statusCode, _, err := httpRequest.SendRequest(context.TODO())
 
 	if err != nil {
 		return nil, err
