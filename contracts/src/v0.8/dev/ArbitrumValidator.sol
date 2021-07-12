@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
-import "./interfaces/ArbitrumInboxInterface.sol";
-import "./interfaces/AggregatorValidatorInterface.sol";
-import "./interfaces/FlagsInterface.sol";
-import "../v0.6/SimpleWriteAccessController.sol";
+import "../interfaces/ArbitrumInboxInterface.sol";
+import "../interfaces/AggregatorValidatorInterface.sol";
+import "../interfaces/FlagsInterface.sol";
+import "../SimpleWriteAccessController.sol";
 
 contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorInterface {
 
