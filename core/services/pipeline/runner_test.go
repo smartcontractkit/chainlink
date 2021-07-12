@@ -550,7 +550,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
 		require.NoError(t, err)
-		// TODO: assert finding the id
+		require.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{}
