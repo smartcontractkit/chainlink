@@ -19,7 +19,7 @@ type ORM interface {
 	FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
 	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (bool, error)
 	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error
-	DeleteNewestBroadcastsUntil(tx *gorm.DB, blockNumber uint64) error
+	DeleteBroadcastsSince(blockNumber uint64) error
 }
 
 type orm struct {
@@ -97,6 +97,12 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 	return nil
 }
 
+func (o *orm) DeleteBroadcastsSince(blockNumber uint64) error {
+	return o.db.Exec(`
+        DELETE FROM log_broadcasts WHERE block_number >= ?
+    `, blockNumber).Error
+}
+
 // LogBroadcast - gorm-compatible receive data from log_broadcasts table columns
 type LogBroadcast struct {
 	BlockHash common.Hash
@@ -134,10 +140,4 @@ func NewLogBroadcastAsKey(log types.Log, listener Listener) LogBroadcastAsKey {
 		log.Index,
 		NewJobIdFromListener(listener).String(),
 	}
-}
-
-func (o *orm) DeleteNewestBroadcastsUntil(tx *gorm.DB, blockNumber uint64) error {
-	return tx.Exec(`
-        DELETE FROM log_broadcasts WHERE block_number >= blockNumber
-    `, blockNumber).Error
 }

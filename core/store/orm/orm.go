@@ -1321,13 +1321,6 @@ func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (mod
 	return *firstHead, nil
 }
 
-// PruneHeads removes newest heads from the 'heads' table until (inclusive) given block number
-func (orm *ORM) PruneHeads(ctx context.Context, number int64) error {
-	return orm.DB.WithContext(ctx).Raw(`
-	DELETE FROM heads WHERE number >= ?
-	`, number).Error
-}
-
 // HeadByHash fetches the head with the given hash from the db, returns nil if none exists
 func (orm *ORM) HeadByHash(ctx context.Context, hash common.Hash) (*models.Head, error) {
 	head := &models.Head{}

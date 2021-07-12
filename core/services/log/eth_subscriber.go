@@ -96,6 +96,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 			q.FromBlock = big.NewInt(i)
 			q.ToBlock = big.NewInt(untilIncluded)
 			batchLogs, err := sub.ethClient.FilterLogs(ctx, q)
+			logger.Infof("LogBroadcaster: Fetched a batch of %v logs from %v to %v", len(batchLogs), i, untilIncluded)
 			if err != nil {
 				if ctx.Err() != nil {
 					logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
@@ -113,7 +114,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 			}
 		}
 
-		logger.Infof("LogBroadcaster: Finished getting %v logs for backfill", len(logs))
+		logger.Infof("LogBroadcaster: Fetched a total of %v logs for backfill", len(logs))
 
 		// unbufferred channel, as it will be filled in the goroutine,
 		// while the broadcaster's eventLoop is reading from it

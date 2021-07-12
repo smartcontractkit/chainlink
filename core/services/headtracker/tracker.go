@@ -16,4 +16,3 @@ func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 func (*NullTracker) Start() error             { return nil }
 func (*NullTracker) Stop() error              { return nil }
 func (*NullTracker) SetLogger(*logger.Logger) {}
-func (*NullTracker) PruneHeads(int64) error   { return nil }
