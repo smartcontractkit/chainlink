@@ -3,13 +3,13 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/ArbitrumInboxInterface.sol";
 import "../interfaces/AggregatorValidatorInterface.sol";
-import "../interfaces/FlagsInterface.sol";
+import "../interfaces/FlagsDevInterface.sol";
 import "../SimpleWriteAccessController.sol";
 
 contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorInterface {
 
-  bytes4 constant private RAISE_SELECTOR = FlagsInterface.raiseFlag.selector;
-  bytes4 constant private LOWER_SELECTOR = FlagsInterface.lowerFlags.selector;
+  bytes4 constant private RAISE_SELECTOR = FlagsDevInterface.raiseFlag.selector;
+  bytes4 constant private LOWER_SELECTOR = FlagsDevInterface.lowerFlag.selector;
 
   address private s_flagsAddress;
   // Follows: https://eips.ethereum.org/EIPS/eip-1967
@@ -103,8 +103,8 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     if (s_lastChangedAnswer == currentAnswer) {
       return true;
     }
-    s_lastChangedAnswer == currentAnswer;
-    bytes memory data = currentAnswer == 1 ? abi.encodeWithSelector(RAISE_SELECTOR, s_arbitrumFlag) : abi.encodeWithSelector(LOWER_SELECTOR, [s_arbitrumFlag]);
+    s_lastChangedAnswer = currentAnswer;
+    bytes memory data = currentAnswer == 1 ? abi.encodeWithSelector(RAISE_SELECTOR, s_arbitrumFlag) : abi.encodeWithSelector(LOWER_SELECTOR, s_arbitrumFlag);
 
     s_arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
       s_flagsAddress, 
