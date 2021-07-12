@@ -217,11 +217,3 @@ func newNoopSubscription() noopSubscription {
 func (b noopSubscription) Err() <-chan error    { return nil }
 func (b noopSubscription) Logs() chan types.Log { return b.chRawLogs }
 func (b noopSubscription) Unsubscribe()         { close(b.chRawLogs) }
-
-// ListenerJobID returns the appropriate job ID for a listener
-func ListenerJobID(listener Listener) interface{} {
-	if listener.IsV2Job() {
-		return listener.JobIDV2()
-	}
-	return listener.JobID()
-}
