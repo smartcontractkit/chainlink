@@ -15,10 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"gopkg.in/guregu/null.v4"
-
 	geth_keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
