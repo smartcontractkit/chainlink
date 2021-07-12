@@ -8,6 +8,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/scylladb/go-reflectx"
 	"gorm.io/gorm"
 )
 
@@ -93,7 +94,7 @@ func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
 
 func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
 	db := sqlx.NewDb(rdb, "postgres")
-	db.MapperFunc(CamelToSnakeASCII)
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
 	return db
 }
 
