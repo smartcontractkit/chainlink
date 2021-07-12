@@ -253,6 +253,9 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 
 	// confirm we now contain the latest restart data merged with local task data
+	ds1 := run.ByDotID("ds1")
+	require.Equal(t, ds1.Output.Val, float64(2))
+	require.True(t, ds1.FinishedAt.Valid)
 
 }
 
