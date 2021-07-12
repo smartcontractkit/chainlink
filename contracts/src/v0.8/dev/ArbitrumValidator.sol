@@ -27,7 +27,6 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
   }
   GasConfiguration private s_gasConfig;
   uint32 constant private s_L2GasLimit = 30000000;
-  uint32 constant private s_maxSubmissionCostIncreaseRatio = 13;
 
   /**
    * @param aggregatorAddress default aggregator with access to validate
@@ -49,6 +48,7 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     uint256 gasCostL2,
     address refundableAddress
   ) {
+    require(flagAddress != address(0), "Invalid Flags contract address");
     s_arbitrumInbox = ArbitrumInboxInterface(inboxAddress);
     s_gasConfigAccessController = SimpleWriteAccessController(gasConfigAccessController);
     s_flagsAddress = flagAddress;
@@ -132,7 +132,7 @@ contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorIn
     uint256 _gasCostL2,
     address _refundableAddress
   ) internal {
-    uint256 minGasCostValue = _maximumSubmissionCost * s_maxSubmissionCostIncreaseRatio + s_L2GasLimit * _maximumGasPrice;
+    uint256 minGasCostValue = _maximumSubmissionCost + s_L2GasLimit * _maximumGasPrice;
     require(_gasCostL2 >= minGasCostValue, "The gas cost value provided is too low to cover the L2 transactions");
     s_gasConfig = GasConfiguration(_maximumSubmissionCost, _maximumGasPrice, _gasCostL2, _refundableAddress);
     emit GasConfigurationSet(_maximumSubmissionCost, _maximumGasPrice, _gasCostL2, _refundableAddress);
