@@ -1411,11 +1411,11 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx models.EthTx) []models.EthTxAttempt {
+func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx bulletprooftxmanager.EthTx) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var attempts []models.EthTxAttempt
+	var attempts []bulletprooftxmanager.EthTxAttempt
 	var err error
 	g.Eventually(func() int {
 		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
@@ -1425,13 +1425,13 @@ func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx model
 	return attempts
 }
 
-func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var txas []models.EthTxAttempt
+	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
-	g.Eventually(func() []models.EthTxAttempt {
+	g.Eventually(func() []bulletprooftxmanager.EthTxAttempt {
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
@@ -1440,13 +1440,13 @@ func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []mod
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var txas []models.EthTxAttempt
+	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
-	g.Consistently(func() []models.EthTxAttempt {
+	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
@@ -1697,10 +1697,10 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 	return runs
 }
 
-func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt {
+func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 
-	var txa models.EthTxAttempt
+	var txa bulletprooftxmanager.EthTxAttempt
 	var count int64
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
