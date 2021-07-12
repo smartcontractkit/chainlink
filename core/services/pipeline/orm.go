@@ -156,7 +156,7 @@ func (o *orm) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface
 		FROM pipeline_runs
 		JOIN pipeline_task_runs ON (pipeline_task_runs.pipeline_run_id = pipeline_runs.id)
 		JOIN pipeline_specs ON (pipeline_specs.id = pipeline_runs.pipeline_spec_id)
-		WHERE pipeline_task_runs.id = $1
+		WHERE pipeline_task_runs.id = $1 AND pipeline_runs.state in ('running', 'suspended')
 		FOR UPDATE`
 		if err = tx.Get(&run, sql, taskID); err != nil {
 			return err
