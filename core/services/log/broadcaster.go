@@ -319,6 +319,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 func (b *broadcaster) onNewLog(log types.Log) {
 	if log.Removed {
+		b.logPool.removeLog(log)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return
@@ -346,10 +347,32 @@ func (b *broadcaster) onNewHeads() {
 	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
 	// Some heads may be missed (which is fine for LogBroadcaster logic) but the latest one in a burst will be received
 	if latestHead != nil {
-		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
+		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
+			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
-		logs := b.logPool.getLogsToSend(*latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
-		b.registrations.sendLogs(logs, b.orm, *latestHead)
+		keptLogsDepth := uint64(b.config.EthFinalityDepth())
+		if b.registrations.highestNumConfirmations > keptLogsDepth {
+			keptLogsDepth = b.registrations.highestNumConfirmations
+		}
+
+		latestBlockNum := latestHead.Number
+		keptDepth := latestBlockNum - int64(keptLogsDepth)
+		if keptDepth < 0 {
+			keptDepth = 0
+		}
+
+		logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
+
+		if len(logs) > 0 {
+			broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
+			if err != nil {
+				logger.Errorf("Failed to query for log broadcasts, %v", err)
+				return
+			}
+
+			b.registrations.sendLogs(logs, *latestHead, broadcasts)
+		}
+		b.logPool.deleteOlderLogs(uint64(keptDepth))
 	}
 }
 
