@@ -1,7 +1,10 @@
 package vrf_test
 
 import (
+	"bytes"
 	"context"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"math/big"
 	"testing"
 	"time"
@@ -40,12 +43,14 @@ type vrfUniverse struct {
 	vrfkey    secp256k1.PublicKey
 	submitter common.Address
 	txm       *bptxmmocks.TxManager
+	hb        httypes.HeadBroadcaster
 }
 
 func buildVrfUni(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
+	hb := headtracker.NewHeadBroadcaster()
 
 	// Don't mock db interactions
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, db, nil, nil)
@@ -70,6 +75,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse 
 		vrfkey:    vrfkey,
 		submitter: submitter,
 		txm:       txm,
+		hb: hb,
 	}
 }
 
@@ -107,6 +113,7 @@ func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
 		vuni.jpv2.Pr,
 		vuni.jpv2.Prm,
 		vuni.lb,
+		vuni.hb,
 		vuni.ec,
 		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
@@ -127,6 +134,7 @@ func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
 		logListener = args.Get(0).(log.Listener)
 	}).Return(unsubscribe)
 	require.NoError(t, listener.Start())
+	require.NoError(t, vuni.hb.Start())
 	t.Cleanup(func() {
 		require.NoError(t, listener.Close())
 		unsubscribeAwaiter.AwaitOrFail(t, 1*time.Second)
@@ -135,14 +143,20 @@ func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
 	return vuni, logListener, jb
 }
 
+func TestDelegate_ReorgAttackProtection(t *testing.T) {
+	// Send it a log of a previously fulfilled request
+}
+
 func TestDelegate_ValidLog(t *testing.T) {
 	vuni, logListener, jb := setup(t)
 	txHash := cltest.NewHash()
 	reqID := cltest.NewHash()
 
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+	//done := make(chan struct{})
 	a := cltest.NewAwaiter()
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		//done<- struct{}{}
 		a.ItHappened()
 	}).Return(nil).Once()
 	// Expect a call to check if the req is already fulfilled.
@@ -159,22 +173,26 @@ func TestDelegate_ValidLog(t *testing.T) {
 	require.NoError(t, err)
 	logListener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
-		Data: append(append(append(append(
-			pk.MustHash().Bytes(),                        // key hash
-			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
-			cltest.NewHash().Bytes()...), // sender
-			cltest.NewHash().Bytes()...), // fee
-			reqID.Bytes()...), // requestID
+		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
+			common.BigToHash(big.NewInt(42)).Bytes(), // seed
+			cltest.NewHash().Bytes(), // sender
+			cltest.NewHash().Bytes(), // fee
+			reqID.Bytes()}, []byte{}, // requestID
+		),
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		Address:     common.Address{},
-		BlockNumber: 0,
+		BlockNumber: 10,
 		TxHash:      txHash,
 		TxIndex:     0,
 		BlockHash:   common.Hash{},
 		Index:       0,
 		Removed:     false,
 	}))
+	time.Sleep(1 * time.Second)
+	// Default is 6 confs
+	// Feed it heads until it confirms
+	vuni.hb.OnNewLongestChain(context.Background(), models.Head{Number: 16})
 	a.AwaitOrFail(t)
 
 	// Ensure we created a successful run.
@@ -188,6 +206,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 	assert.True(t, ok)
 	assert.Len(t, runs[0].PipelineTaskRuns, 0)
 }
+
 func TestDelegate_InvalidLog(t *testing.T) {
 	vuni, logListener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
@@ -210,13 +229,17 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		Address:     common.Address{},
-		BlockNumber: 0,
+		BlockNumber: 10,
 		TxHash:      common.Hash{},
 		TxIndex:     0,
 		BlockHash:   common.Hash{},
 		Index:       0,
 		Removed:     false,
 	}))
+	time.Sleep(1 * time.Second)
+	// Default is 6 confs
+	// Feed it heads until it confirms
+	vuni.hb.OnNewLongestChain(context.Background(), models.Head{Number: 16})
 	a.AwaitOrFail(t)
 
 	// Ensure we have not created a run.

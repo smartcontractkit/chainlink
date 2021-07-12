@@ -268,6 +268,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				pipelineORM,
 				logBroadcaster,
+				headBroadcaster,
 				store.EthClient,
 				store.Config),
 		}
