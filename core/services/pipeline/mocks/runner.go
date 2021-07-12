@@ -140,6 +140,27 @@ func (_m *Runner) Ready() error {
 	return r0
 }
 
+// Run provides a mock function with given fields: ctx, run, l, saveSuccessfulTaskRuns
+func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool) (bool, error) {
+	ret := _m.Called(ctx, run, l, saveSuccessfulTaskRuns)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool) bool); ok {
+		r0 = rf(ctx, run, l, saveSuccessfulTaskRuns)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, logger.Logger, bool) error); ok {
+		r1 = rf(ctx, run, l, saveSuccessfulTaskRuns)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Start provides a mock function with given fields:
 func (_m *Runner) Start() error {
 	ret := _m.Called()
