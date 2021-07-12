@@ -13,6 +13,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -88,7 +90,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			Value:          value,
 			GasLimit:       gasLimit,
 			BroadcastAt:    &timeNow,
-			Error:          nil,
+			Error:          null.String{},
 			State:          bulletprooftxmanager.EthTxUnconfirmed,
 		}
 		etxWithError := bulletprooftxmanager.EthTx{
@@ -98,7 +100,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			Error:          &errStr,
+			Error:          null.StringFrom(errStr),
 			State:          bulletprooftxmanager.EthTxFatalError,
 		}
 
@@ -186,7 +188,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		// This was the earlier one sent so it has the lower nonce
 		earlierTransaction, err := store.FindEthTxWithAttempts(earlierEthTx.ID)
 		require.NoError(t, err)
-		assert.Nil(t, earlierTransaction.Error)
+		assert.False(t, earlierTransaction.Error.Valid)
 		require.NotNil(t, earlierTransaction.FromAddress)
 		assert.Equal(t, fromAddress, earlierTransaction.FromAddress)
 		require.NotNil(t, earlierTransaction.Nonce)
@@ -214,7 +216,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		// This was the later one sent so it has the higher nonce
 		laterTransaction, err := store.FindEthTxWithAttempts(laterEthTx.ID)
 		require.NoError(t, err)
-		assert.Nil(t, laterTransaction.Error)
+		assert.False(t, earlierTransaction.Error.Valid)
 		require.NotNil(t, laterTransaction.FromAddress)
 		assert.Equal(t, fromAddress, laterTransaction.FromAddress)
 		require.NotNil(t, laterTransaction.Nonce)
@@ -384,7 +386,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			Value:          value,
 			GasLimit:       gasLimit,
 			BroadcastAt:    nil,
-			Error:          nil,
+			Error:          null.String{},
 			State:          bulletprooftxmanager.EthTxInProgress,
 		}
 
@@ -396,7 +398,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			Value:          value,
 			GasLimit:       gasLimit,
 			BroadcastAt:    nil,
-			Error:          nil,
+			Error:          null.String{},
 			State:          bulletprooftxmanager.EthTxInProgress,
 		}
 
@@ -439,7 +441,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
 
@@ -480,8 +482,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
-		assert.NotNil(t, etx.Error)
-		assert.Equal(t, "exceeds block gas limit", *etx.Error)
+		assert.True(t, etx.Error.Valid)
+		assert.Equal(t, "exceeds block gas limit", etx.Error.String)
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		ethClient.AssertExpectations(t)
@@ -520,7 +522,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 
 		ethClient.AssertExpectations(t)
@@ -561,7 +563,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		require.NotNil(t, etx.BroadcastAt)
 		assert.Equal(t, *etx.BroadcastAt, etx.CreatedAt)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 
 		ethClient.AssertExpectations(t)
@@ -604,7 +606,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		assert.Nil(t, etx.BroadcastAt)
 		assert.Equal(t, nextNonce, *etx.Nonce)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 
 		ethClient.AssertExpectations(t)
@@ -651,7 +653,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
 		s, err := attempt.GetSignedTx()
@@ -730,7 +732,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.NotEqual(t, etx1.CreatedAt, *etx1.BroadcastAt)
 		require.NotNil(t, etx1.Nonce)
 		assert.Equal(t, int64(0), *etx1.Nonce)
-		assert.Nil(t, etx1.Error)
+		assert.False(t, etx1.Error.Valid)
 		assert.Len(t, etx1.EthTxAttempts, 1)
 
 		// Check that the local nonce was incremented by one
@@ -768,8 +770,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.Nil(t, etx.BroadcastAt)
 		require.Nil(t, etx.Nonce)
-		assert.NotNil(t, etx.Error)
-		assert.Contains(t, *etx.Error, "exceeds block gas limit")
+		assert.True(t, etx.Error.Valid)
+		assert.Contains(t, etx.Error.String, "exceeds block gas limit")
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		// Check that the key had its nonce reset
@@ -808,8 +810,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.Nil(t, etx.BroadcastAt)
 		require.Nil(t, etx.Nonce)
-		assert.NotNil(t, etx.Error)
-		assert.Contains(t, *etx.Error, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
+		assert.True(t, etx.Error.Valid)
+		assert.Contains(t, etx.Error.String, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		// Check that the key had its nonce reset
@@ -851,7 +853,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.Nil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, bulletprooftxmanager.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
@@ -872,7 +874,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.NotNil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
@@ -924,7 +926,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.NotNil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
 		assert.Equal(t, big.NewInt(30000000000).String(), attempt.GasPrice.String())
@@ -959,7 +961,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.Nil(t, etx.BroadcastAt)
 		assert.NotNil(t, etx.Nonce)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, bulletprooftxmanager.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInProgress, etx.EthTxAttempts[0].State)
@@ -988,7 +990,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		assert.NotNil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
-		assert.Nil(t, etx.Error)
+		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
 		assert.Equal(t, big.NewInt(20000000000).String(), attempt.GasPrice.String())
@@ -1034,7 +1036,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("eth node returns insufficient eth", func(t *testing.T) {
+	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 		etx := bulletprooftxmanager.EthTx{
@@ -1052,19 +1054,19 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(insufficientEthError)).Once()
 
 		err := eb.ProcessUnstartedEthTxs(key)
-		require.NoError(t, err)
+		require.EqualError(t, err, "processUnstartedEthTxs failed: insufficient funds for transfer")
 
 		// Check it was saved correctly with its attempt
 		etx, err = store.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.NotNil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.BroadcastAt)
 		require.NotNil(t, etx.Nonce)
-		assert.Nil(t, etx.Error)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.False(t, etx.Error.Valid)
+		assert.Equal(t, bulletprooftxmanager.EthTxInProgress, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt := etx.EthTxAttempts[0]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInsufficientEth, attempt.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 
 		ethClient.AssertExpectations(t)

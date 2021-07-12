@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 )
 
 type EthTxState string
@@ -48,7 +49,7 @@ type EthTx struct {
 	// GasLimit on the EthTx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
 	GasLimit uint64
-	Error    *string
+	Error    null.String
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
 	BroadcastAt   *time.Time
@@ -63,10 +64,10 @@ type EthTx struct {
 }
 
 func (e EthTx) GetError() error {
-	if e.Error == nil {
-		return nil
+	if e.Error.Valid {
+		return errors.New(e.Error.String)
 	}
-	return errors.New(*e.Error)
+	return nil
 }
 
 // GetID allows EthTx to be used as jsonapi.MarshalIdentifier
