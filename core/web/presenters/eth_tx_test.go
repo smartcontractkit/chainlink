@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,13 +18,13 @@ func TestEthTxResource(t *testing.T) {
 
 	from := common.HexToAddress("0x1")
 	to := common.HexToAddress("0x2")
-	tx := models.EthTx{
+	tx := bulletprooftxmanager.EthTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    from,
 		ToAddress:      to,
 		GasLimit:       uint64(5000),
-		State:          models.EthTxConfirmed,
+		State:          bulletprooftxmanager.EthTxConfirmed,
 		Value:          assets.NewEthValue(1),
 	}
 
@@ -65,7 +65,7 @@ func TestEthTxResource(t *testing.T) {
 	)
 
 	tx.Nonce = &nonce
-	txa := models.EthTxAttempt{
+	txa := bulletprooftxmanager.EthTxAttempt{
 		EthTx:                   tx,
 		Hash:                    hash,
 		GasPrice:                *gasPrice,

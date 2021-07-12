@@ -84,7 +84,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	service.Service
 	Trigger(addr common.Address)
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx models.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 }
 
@@ -260,7 +260,7 @@ func (b *BulletproofTxManager) Connect(*models.Head) error {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx models.EthTx, err error) {
+func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error) {
 	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EthMaxQueuedTransactions())
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
@@ -330,24 +330,24 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit uint64) (etx models.EthTx, err error) {
+func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
-	etx = models.EthTx{
+	etx = EthTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
 		Value:          value,
 		GasLimit:       gasLimit,
-		State:          models.EthTxUnstarted,
+		State:          EthTxUnstarted,
 	}
 	err = db.Create(&etx).Error
 	return etx, err
 }
 
-func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx models.EthTx, gasPrice *big.Int, gasLimit uint64) (models.EthTxAttempt, error) {
-	attempt := models.EthTxAttempt{}
+func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
+	attempt := EthTxAttempt{}
 
 	tx := newLegacyTransaction(
 		uint64(*etx.Nonce),
@@ -364,7 +364,7 @@ func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx models.
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
 
-	attempt.State = models.EthTxAttemptInProgress
+	attempt.State = EthTxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
 	attempt.GasPrice = *utils.NewBig(gasPrice)
@@ -399,7 +399,7 @@ func signTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt, e models.EthTx) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return eth.NewFatalSendError(err)
@@ -451,8 +451,8 @@ func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint64, gasP
 	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
-func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {
-	if oldAttempt.State != models.EthTxAttemptInProgress || replacementAttempt.State != models.EthTxAttemptInProgress {
+func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
+	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}
 	if oldAttempt.ID == 0 {
@@ -504,7 +504,7 @@ func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
 func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx models.EthTx, err error) {
+func (n *NullTxManager) CreateEthTransaction(*gorm.DB, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                 { return nil }
