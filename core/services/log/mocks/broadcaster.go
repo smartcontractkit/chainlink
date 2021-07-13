@@ -69,20 +69,6 @@ func (_m *Broadcaster) Connect(head *models.Head) error {
 	return r0
 }
 
-// DeleteNewestBroadcastsUntil provides a mock function with given fields: blockNumber
-func (_m *Broadcaster) DeleteBroadcastsSince(blockNumber uint64) error {
-	ret := _m.Called(blockNumber)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64) error); ok {
-		r0 = rf(blockNumber)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // DependentReady provides a mock function with given fields:
 func (_m *Broadcaster) DependentReady() {
 	_m.Called()

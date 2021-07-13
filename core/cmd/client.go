@@ -228,7 +228,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	} else {
 		headers = map[string]string{}
 	}
-	logger.Warnf("DO REQUEST %v", path)
+
 	request, err := http.NewRequest(verb, h.config.ClientNodeURL()+path, body)
 	if err != nil {
 		return nil, err

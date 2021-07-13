@@ -19,7 +19,6 @@ type ORM interface {
 	FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
 	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (bool, error)
 	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error
-	DeleteBroadcastsSince(blockNumber uint64) error
 }
 
 type orm struct {
@@ -95,12 +94,6 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 		return errors.Errorf("cannot mark log broadcast as consumed: does not exist")
 	}
 	return nil
-}
-
-func (o *orm) DeleteBroadcastsSince(blockNumber uint64) error {
-	return o.db.Exec(`
-        DELETE FROM log_broadcasts WHERE block_number >= ?
-    `, blockNumber).Error
 }
 
 // LogBroadcast - gorm-compatible receive data from log_broadcasts table columns

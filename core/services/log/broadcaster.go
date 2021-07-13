@@ -53,7 +53,6 @@ type (
 		// DB interactions
 		WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error)
 		MarkConsumed(db *gorm.DB, lb Broadcast) error
-		DeleteBroadcastsSince(blockNumber uint64) error
 	}
 
 	broadcaster struct {
@@ -478,11 +477,6 @@ func (b *broadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
 	return b.orm.MarkBroadcastConsumed(db, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
 
-// DeleteBroadcastsSince removes already consumed broadcasts so that they can be reprocessed
-func (b *broadcaster) DeleteBroadcastsSince(blockNumber uint64) error {
-	return b.orm.DeleteBroadcastsSince(blockNumber)
-}
-
 type NullBroadcaster struct{ ErrMsg string }
 
 func (n *NullBroadcaster) IsConnected() bool { return false }
@@ -503,10 +497,6 @@ func (n *NullBroadcaster) WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, e
 	return false, errors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkConsumed(db *gorm.DB, lb Broadcast) error {
-	return errors.New(n.ErrMsg)
-}
-
-func (n *NullBroadcaster) DeleteBroadcastsSince(blockNumber uint64) error {
 	return errors.New(n.ErrMsg)
 }
 

@@ -746,11 +746,6 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 
 func (app *ChainlinkApplication) ReplayFromBlockNumber(number uint64) error {
 
-	err := app.LogBroadcaster.DeleteBroadcastsSince(number)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to delete broadcasts since block number %v", number)
-	}
-
 	app.LogBroadcaster.ReplayFrom(int64(number))
 
 	return nil
