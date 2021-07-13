@@ -29,9 +29,12 @@ var (
 )
 
 type Config interface {
-	EthHeadTrackerMaxBufferSize() uint
-	EthereumURL() string
 	ChainID() *big.Int
+	EthHeadTrackerHistoryDepth() uint
+	EthHeadTrackerMaxBufferSize() uint
+	EthHeadTrackerSamplingInterval() time.Duration
+	EthereumURL() string
+	EthFinalityDepth() uint
 }
 
 type HeadListener struct {
