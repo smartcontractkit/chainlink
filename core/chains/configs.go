@@ -210,17 +210,6 @@ func setConfigs() {
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
 
 	// Avalanche
-	avalancheFuji := FallbackConfig
-	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
-	avalancheFuji.EthFinalityDepth = 1
-	avalancheFuji.GasEstimatorMode = "FixedPrice"
-	avalancheFuji.EthGasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
-	avalancheFuji.EthMaxGasPriceWei = *big.NewInt(225000000000)
-	avalancheFuji.EthMinGasPriceWei = *big.NewInt(225000000000)
-	avalancheFuji.MinIncomingConfirmations = 1
-	avalancheFuji.MinRequiredOutgoingConfirmations = 1
-	avalancheFuji.OCRContractConfirmations = 1
-
 	avalancheMainnet := FallbackConfig
 	avalancheMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6" // TBD
 	avalancheMainnet.EthFinalityDepth = 1
@@ -231,6 +220,9 @@ func setConfigs() {
 	avalancheMainnet.MinIncomingConfirmations = 1
 	avalancheMainnet.MinRequiredOutgoingConfirmations = 1
 	avalancheMainnet.OCRContractConfirmations = 1
+
+	avalancheFuji := avalancheMainnet
+	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 
 	EthMainnet.config = mainnet
 	EthRinkeby.config = rinkeby
