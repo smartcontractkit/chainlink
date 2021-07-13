@@ -3,7 +3,6 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -276,23 +275,11 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, to
 	}
 
 	value := 0
-	// NOTE: It is important to remember that eth_tx_attempts with state
-	// insufficient_eth can actually hang around long after the node has been
-	// refunded and started sending transactions again.
-	// This is because they are not ever deleted if attached to an eth_tx that
-	// is moved into confirmed/fatal_error state
 	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
 		res := tx.Raw(`
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject)
-(
-SELECT ?,?,?,?,?,'unstarted',NOW(),?,?
-WHERE NOT EXISTS (
-    SELECT 1 FROM eth_tx_attempts
-	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
-	WHERE eth_txes.from_address = ?
-		AND eth_txes.state = 'unconfirmed'
-		AND eth_tx_attempts.state = 'insufficient_eth'
-	)
+VALUES (
+?,?,?,?,?,'unstarted',NOW(),?,?
 )
 RETURNING "eth_txes".*
 `, fromAddress, toAddress, payload, value, gasLimit, metaBytes, strategy.Subject(), fromAddress).Scan(&etx)
@@ -301,17 +288,6 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
 		}
 
-		if res.RowsAffected == 0 {
-			err = errors.Errorf("wallet is out of eth: %s", fromAddress.Hex())
-			logger.Warnw(err.Error(),
-				"fromAddress", fromAddress,
-				"toAddress", toAddress,
-				"payload", "0x"+hex.EncodeToString(payload),
-				"value", value,
-				"gasLimit", gasLimit,
-			)
-			return err
-		}
 		pruned, err := strategy.PruneQueue(tx)
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
