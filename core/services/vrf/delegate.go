@@ -123,6 +123,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		chStop:          make(chan struct{}),
 		waitOnStop:      make(chan struct{}),
 		newHead:         make(chan struct{}, 1),
+		respCount:       make(map[[32]byte]uint64),
 	}
 	return []job.Service{logListener}, nil
 }
@@ -285,6 +286,7 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 				}
 				if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
 					lsn.respCount[v.RequestId]++
+					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
 					continue
 				}
 				req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
@@ -321,6 +323,9 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 
 func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestID])
+	if newConfs > 200 {
+		newConfs = 200
+	}
 	if lsn.respCount[req.RequestID] > 0 {
 		lsn.l.Warn("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
 			"reqID", req.RequestID,
