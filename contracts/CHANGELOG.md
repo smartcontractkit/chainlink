@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.2.1 -
+## 0.2.1 - 2021-07-13
 
 ### Changed:
 
