@@ -187,7 +187,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTracker = &headtracker.NullTracker{}
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+		orm := headtracker.NewORM(store.DB)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, config, orm, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
