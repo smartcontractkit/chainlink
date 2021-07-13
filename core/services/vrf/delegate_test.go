@@ -3,9 +3,14 @@ package vrf
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
+
+	gormpostgres "github.com/jinzhu/gorm/dialects/postgres"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/theodesp/go-heaps/pairing"
 
@@ -158,6 +163,71 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 		waitForChannel(t, listener.waitOnStop, time.Second, "did not clean up properly")
 	})
 	return vuni, listener, jb
+}
+
+func TestStartingCounts(t *testing.T) {
+	db := pgtest.NewGormDB(t)
+	counts := getStartingResponseCounts(db, logger.Default)
+	assert.Equal(t, 0, len(counts))
+
+	ks := keystore.New(db, utils.FastScryptParams)
+	ks.Eth().Unlock("blah")
+	k, err := ks.Eth().CreateNewKey()
+	require.NoError(t, err)
+	b := time.Now()
+	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
+	m1 := models.EthTxMetaV2{
+		RequestID: utils.PadByteToHash(0x10),
+	}
+	md1, err := json.Marshal(&m1)
+	require.NoError(t, err)
+	m2 := models.EthTxMetaV2{
+		RequestID: utils.PadByteToHash(0x11),
+	}
+	md2, err := json.Marshal(&m2)
+	var txes = []bulletprooftxmanager.EthTx{
+		{
+			Nonce:       &n1,
+			FromAddress: k.Address.Address(),
+			Error:       null.String{},
+			BroadcastAt: &b,
+			CreatedAt:   b,
+			State:       bulletprooftxmanager.EthTxConfirmed,
+			Meta:        gormpostgres.Jsonb{},
+		},
+		{
+			Nonce:       &n2,
+			FromAddress: k.Address.Address(),
+			Error:       null.String{},
+			BroadcastAt: &b,
+			CreatedAt:   b,
+			State:       bulletprooftxmanager.EthTxConfirmed,
+			Meta:        gormpostgres.Jsonb{RawMessage: md1},
+		},
+		{
+			Nonce:       &n3,
+			FromAddress: k.Address.Address(),
+			Error:       null.String{},
+			BroadcastAt: &b,
+			CreatedAt:   b,
+			State:       bulletprooftxmanager.EthTxConfirmed,
+			Meta:        gormpostgres.Jsonb{RawMessage: md2},
+		},
+		{
+			Nonce:       &n4,
+			FromAddress: k.Address.Address(),
+			Error:       null.String{},
+			BroadcastAt: &b,
+			CreatedAt:   b,
+			State:       bulletprooftxmanager.EthTxConfirmed,
+			Meta:        gormpostgres.Jsonb{RawMessage: md2},
+		},
+	}
+	require.NoError(t, db.Create(&txes).Error)
+	counts = getStartingResponseCounts(db, logger.Default)
+	assert.Equal(t, 2, len(counts))
+	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
+	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
 }
 
 func TestConfirmedLogExtraction(t *testing.T) {
