@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.10.10] - 2021-07-19
 
+### Changed 
+
+This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
+
 #### Gas Estimation
 
 Gas estimation has been revamped and full support for Optimism has been added.
@@ -57,8 +61,6 @@ P2PV2_LISTEN_ADDRESSES
 ```
 
 All of these are currently optional, by default OCR will continue to use the existing V1 stack. The new env vars will be used internally for OCR testing.
-
-Note: This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
 
 ### Fixed
 
