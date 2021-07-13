@@ -210,9 +210,18 @@ func setConfigs() {
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
 
 	// Avalanche
-	// TODO: settings pending investigation
-	// See: https://app.clubhouse.io/chainlinklabs/story/8820/add-avalanche-mainnet-chain-config-details
-	avalancheFuji := FallbackConfig
+	avalancheMainnet := FallbackConfig
+	avalancheMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6" // TBD
+	avalancheMainnet.EthFinalityDepth = 1
+	avalancheMainnet.GasEstimatorMode = "FixedPrice"
+	avalancheMainnet.EthGasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
+	avalancheMainnet.EthMaxGasPriceWei = *big.NewInt(225000000000)
+	avalancheMainnet.EthMinGasPriceWei = *big.NewInt(225000000000)
+	avalancheMainnet.MinIncomingConfirmations = 1
+	avalancheMainnet.MinRequiredOutgoingConfirmations = 1
+	avalancheMainnet.OCRContractConfirmations = 1
+
+	avalancheFuji := avalancheMainnet
 	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 
 	EthMainnet.config = mainnet
@@ -232,4 +241,5 @@ func setConfigs() {
 	XDaiMainnet.config = xDaiMainnet
 	RSKMainnet.config = rskMainnet
 	AvalancheFuji.config = avalancheFuji
+	AvalancheMainnet.config = avalancheMainnet
 }
