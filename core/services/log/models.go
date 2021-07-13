@@ -21,7 +21,7 @@ type (
 		String() string
 		LatestBlockNumber() uint64
 		LatestBlockHash() common.Hash
-		JobID() interface{}
+		JobID() JobIdSelect
 	}
 
 	broadcast struct {
@@ -29,9 +29,7 @@ type (
 		latestBlockHash   common.Hash
 		decodedLog        interface{}
 		rawLog            types.Log
-		jobID             models.JobID
-		jobIDV2           int32
-		isV2              bool
+		jobID             JobIdSelect
 	}
 )
 
@@ -55,18 +53,12 @@ func (b *broadcast) SetDecodedLog(newLog interface{}) {
 	b.decodedLog = newLog
 }
 
-func (b broadcast) JobID() interface{} {
-	if b.isV2 {
-		return b.jobIDV2
-	}
+func (b *broadcast) JobID() JobIdSelect {
 	return b.jobID
 }
 
 func (b *broadcast) String() string {
 	jobId := b.jobID.String()
-	if b.isV2 {
-		jobId = fmt.Sprintf("%v", b.jobIDV2)
-	}
 	return fmt.Sprintf("Broadcast(JobID:%v,LogAddress:%v,Topics(%d):%v)", jobId, b.rawLog.Address, len(b.rawLog.Topics), b.rawLog.Topics)
 }
 
@@ -76,8 +68,38 @@ func NewLogBroadcast(rawLog types.Log) Broadcast {
 		latestBlockHash:   common.Hash{},
 		decodedLog:        nil,
 		rawLog:            rawLog,
-		jobID:             models.JobID{},
-		jobIDV2:           0,
-		isV2:              false,
+		jobID:             NewJobIdV1(models.NilJobID),
 	}
+}
+
+type JobIdSelect struct {
+	JobIDV1 models.JobID
+	JobIDV2 int32
+	IsV2    bool
+}
+
+func NewJobIdV1(id models.JobID) JobIdSelect {
+	return JobIdSelect{
+		JobIDV1: id,
+	}
+}
+func NewJobIdV2(id int32) JobIdSelect {
+	return JobIdSelect{
+		JobIDV2: id,
+		IsV2:    true,
+	}
+}
+func NewJobIdFromListener(listener Listener) JobIdSelect {
+	if listener.IsV2Job() {
+		return NewJobIdV2(listener.JobIDV2())
+	}
+	return NewJobIdV1(listener.JobID())
+}
+
+func (j JobIdSelect) String() string {
+	jobId := j.JobIDV1.String()
+	if j.IsV2 {
+		jobId = fmt.Sprintf("%v", j.JobIDV2)
+	}
+	return jobId
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
@@ -56,8 +55,8 @@ type (
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
 	NSinserttx struct {
-		Etx     models.EthTx
-		Attempt models.EthTxAttempt
+		Etx     EthTx
+		Attempt EthTxAttempt
 	}
 )
 

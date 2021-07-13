@@ -35,6 +35,9 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	if jb.SchemaVersion != uint32(1) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
+	if jb.Pipeline.HasAsync() {
+		return jb, errors.Errorf("async=true tasks are not supported for %v", jb.Type)
+	}
 
 	var spec job.VRFSpec
 	err = tree.Unmarshal(&spec)

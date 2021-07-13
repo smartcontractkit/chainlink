@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import "../interfaces/AuthorizedReceiverInterface.sol";
+import "./interfaces/AuthorizedReceiverInterface.sol";
 
 abstract contract AuthorizedReceiver is
   AuthorizedReceiverInterface
