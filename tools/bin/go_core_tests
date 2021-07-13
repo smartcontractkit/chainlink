@@ -4,14 +4,28 @@ set +e
 
 go test -v -p 4 -parallel 4 ./... >./output.txt
 EXITCODE=$?
-grep "\-\-\- FAIL" output.txt
-grep "FAIL	" output.txt
+
+echo "Failed tests and panics: ---------------------"
+echo ""
+grep --line-number --after-context=2 "panic: " output.txt
+echo ""
+grep --line-number "\-\-\- FAIL" output.txt
+grep -n "FAIL	" output.txt
+echo ""
+echo "----------------------------------------------"
+
+echo ""
+echo "(Note: panics abruptly end the test run and may appear out-of-place, not where they originate."
+echo "Finding their origin test may involve disabling parallelism)"
+echo ""
+echo "Potentially related:"
+echo ""
+
 grep "driver: bad connection" output.txt
 echo "Exit code: $EXITCODE"
-if [[ $EXITCODE == 1 ]]; then
+if [[ $EXITCODE != 0 ]]; then
   echo "Encountered test failures."
-  exit 1
 else
   echo "All tests passed!"
-  exit 0
 fi
+exit $EXITCODE

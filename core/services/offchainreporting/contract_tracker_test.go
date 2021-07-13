@@ -114,7 +114,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
-		uni.ec.On("HeaderByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&models.Head{Number: 42}, nil)
+		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&models.Head{Number: 42}, nil)
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -124,12 +124,12 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 
 	t.Run("Before first head incoming, on client error returns error", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
-		uni.ec.On("HeaderByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, nil).Once()
+		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, nil).Once()
 
 		_, err := uni.tracker.LatestBlockHeight(context.Background())
 		assert.EqualError(t, err, "got nil head")
 
-		uni.ec.On("HeaderByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, errors.New("bar")).Once()
+		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, errors.New("bar")).Once()
 
 		_, err = uni.tracker.LatestBlockHeight(context.Background())
 		assert.EqualError(t, err, "bar")
@@ -355,8 +355,8 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		require.NoError(t, uni.tracker.Close())
 
-		eventuallyCloseHeadBroadcaster.AssertHappened(t)
-		eventuallyCloseLogBroadcaster.AssertHappened(t)
+		eventuallyCloseHeadBroadcaster.AssertHappened(t, true)
+		eventuallyCloseLogBroadcaster.AssertHappened(t, true)
 	})
 }
 

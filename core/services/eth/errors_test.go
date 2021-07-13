@@ -153,7 +153,7 @@ func Test_Eth_Errors(t *testing.T) {
 			// Arbitrum
 			{"transaction rejected: insufficient funds for gas * price + value", true},
 			{"not enough funds for gas", true},
-			// Opitmism
+			// Optimism
 			{"invalid transaction: insufficient funds for gas * price + value", true},
 		}
 		for _, test := range tests {
@@ -183,6 +183,29 @@ func Test_Eth_Errors(t *testing.T) {
 		// Nil
 		err = eth.NewSendError(nil)
 		assert.False(t, err.IsTooExpensive())
+	})
+
+	t.Run("Optimism Fees errors", func(t *testing.T) {
+		err := eth.NewSendErrorS("fee too large: 10000000000000000000000")
+		assert.True(t, err.IsFeeTooHigh())
+		assert.False(t, err.IsFeeTooLow())
+		err = newSendErrorWrapped("fee too large: 10000000000000000000000")
+		assert.True(t, err.IsFeeTooHigh())
+		assert.False(t, err.IsFeeTooLow())
+
+		err = eth.NewSendErrorS("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
+		assert.False(t, err.IsFeeTooHigh())
+		assert.True(t, err.IsFeeTooLow())
+		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
+		assert.False(t, err.IsFeeTooHigh())
+		assert.True(t, err.IsFeeTooLow())
+
+		assert.False(t, randomError.IsFeeTooHigh())
+		assert.False(t, randomError.IsFeeTooLow())
+		// Nil
+		err = eth.NewSendError(nil)
+		assert.False(t, err.IsFeeTooHigh())
+		assert.False(t, err.IsFeeTooLow())
 	})
 }
 

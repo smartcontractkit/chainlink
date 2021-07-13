@@ -32,7 +32,7 @@ func TestWebhookDelegate(t *testing.T) {
 
 		requestBody = "foo"
 		meta        = pipeline.JSONSerializable{Val: "bar"}
-		vars        = pipeline.NewVarsFrom(map[string]interface{}{
+		vars        = map[string]interface{}{
 			"jobSpec": map[string]interface{}{
 				"databaseID":    spec.ID,
 				"externalJobID": spec.ExternalJobID,
@@ -42,7 +42,7 @@ func TestWebhookDelegate(t *testing.T) {
 				"requestBody": requestBody,
 				"meta":        meta.Val,
 			},
-		})
+		}
 		runner    = new(pipelinemocks.Runner)
 		eiManager = new(webhookmocks.ExternalInitiatorManager)
 		delegate  = webhook.NewDelegate(runner, eiManager)
@@ -62,8 +62,14 @@ func TestWebhookDelegate(t *testing.T) {
 	err = service.Start()
 	require.NoError(t, err)
 
-	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, *spec.PipelineSpec, vars, mock.Anything, true).
-		Return(int64(123), pipeline.FinalResult{}, nil).Once()
+	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
+		Return(false, nil).
+		Run(func(args mock.Arguments) {
+			run := args.Get(1).(*pipeline.Run)
+			run.ID = int64(123)
+
+			require.Equal(t, vars, run.Inputs.Val)
+		}).Once()
 
 	runID, err := delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
 	require.NoError(t, err)
@@ -72,8 +78,8 @@ func TestWebhookDelegate(t *testing.T) {
 	// Should error after service is started upon a failed run
 	expectedErr := errors.New("foo bar")
 
-	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, *spec.PipelineSpec, vars, mock.Anything, true).
-		Return(int64(0), pipeline.FinalResult{}, expectedErr).Once()
+	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
+		Return(false, expectedErr).Once()
 
 	_, err = delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
 	require.Equal(t, expectedErr, errors.Cause(err))

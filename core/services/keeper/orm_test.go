@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,7 +22,7 @@ var executeGas = uint64(10_000)
 
 func setupKeeperDB(t *testing.T) (*store.Store, keeper.ORM, func()) {
 	store, cleanup := cltest.NewStore(t)
-	orm := keeper.NewORM(store.DB, nil, store.Config)
+	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	return store, orm, cleanup
 }
 
@@ -339,7 +339,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 	txm := new(bptxmmocks.TxManager)
-	orm := keeper.NewORM(store.DB, txm, store.Config)
+	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
@@ -351,13 +351,13 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	fromAddress := registry.FromAddress.Address()
 	toAddress := registry.ContractAddress.Address()
 
-	var ethTX models.EthTx
+	var ethTX bulletprooftxmanager.EthTx
 	var err error
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
-		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, gasLimit, nil).Once().Return(models.EthTx{
+		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,

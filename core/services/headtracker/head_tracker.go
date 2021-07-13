@@ -7,13 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -32,7 +31,8 @@ var (
 type HeadTracker struct {
 	log             *logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
-	store           *strpkg.Store
+	ethClient       eth.Client
+	config          Config
 
 	backfillMB   utils.Mailbox
 	samplingMB   utils.Mailbox
@@ -49,24 +49,26 @@ type HeadTracker struct {
 // it tries to reconnect.
 func NewHeadTracker(
 	l *logger.Logger,
-	store *strpkg.Store,
+	ethClient eth.Client,
+	config Config,
+	orm *ORM,
 	headBroadcaster httypes.HeadBroadcaster,
 	sleepers ...utils.Sleeper,
 ) *HeadTracker {
-
 	var wgDone sync.WaitGroup
 	chStop := make(chan struct{})
 
 	return &HeadTracker{
-		store:           store,
 		headBroadcaster: headBroadcaster,
+		ethClient:       ethClient,
+		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
 		samplingMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
 		wgDone:          &wgDone,
-		headListener:    NewHeadListener(l, store.EthClient, store.Config, chStop, &wgDone, sleepers...),
-		headSaver:       NewHeadSaver(store),
+		headListener:    NewHeadListener(l, ethClient, config, chStop, &wgDone, sleepers...),
+		headSaver:       NewHeadSaver(orm, config),
 	}
 }
 
@@ -114,7 +116,7 @@ func (ht *HeadTracker) Start() error {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.store.Config.EthereumURL()))
+		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -131,10 +133,6 @@ func (ht *HeadTracker) HighestSeenHead() *models.Head {
 
 func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 	return ht.headSaver.HighestSeenHeadFromDB()
-}
-
-func (ht *HeadTracker) Chain(ctx context.Context, hash common.Hash, depth uint) (models.Head, error) {
-	return ht.headSaver.Chain(ctx, hash, depth)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -155,7 +153,7 @@ func (ht *HeadTracker) connect(bn *models.Head) {
 func (ht *HeadTracker) headSampler() {
 	defer ht.wgDone.Done()
 
-	debounceHead := time.NewTicker(ht.store.Config.EthHeadTrackerSamplingInterval())
+	debounceHead := time.NewTicker(ht.config.EthHeadTrackerSamplingInterval())
 	defer debounceHead.Stop()
 
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
@@ -198,7 +196,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
+					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth())
 					defer cancel()
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
@@ -256,7 +254,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		var existingHead *models.Head
-		existingHead, err = ht.store.HeadByHash(ctx, head.ParentHash)
+		existingHead, err = ht.headSaver.HeadByHash(ctx, head.ParentHash)
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
@@ -279,7 +277,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
 	ht.logger().Debugw("HeadTracker: fetching head", "blockHeight", n)
-	head, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
+	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if ctx.Err() != nil {
 		return models.Head{}, nil
 	} else if err != nil {
@@ -315,7 +313,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
+		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EthFinalityDepth())
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {
@@ -334,7 +332,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.store.Config.EthFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}

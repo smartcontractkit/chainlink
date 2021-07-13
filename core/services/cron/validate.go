@@ -1,14 +1,12 @@
 package cron
 
 import (
-	"strings"
-
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func ValidatedCronSpec(tomlString string) (job.Job, error) {
@@ -40,12 +38,8 @@ func ValidatedCronSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 
-	if !(strings.HasPrefix(spec.CronSchedule, "CRON_TZ=") || strings.HasPrefix(spec.CronSchedule, "@")) {
-		return jb, errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@hourly'")
-	}
-
-	if _, err := cron.New().AddFunc(spec.CronSchedule, func() {}); err != nil {
-		return jb, errors.Errorf("error parsing cron schedule: %v", err)
+	if err := utils.ValidateCronSchedule(spec.CronSchedule); err != nil {
+		return jb, errors.Wrapf(err, "while validating cron schedule '%v'", spec.CronSchedule)
 	}
 
 	return jb, nil

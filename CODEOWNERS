@@ -1,23 +1,24 @@
 # Services
-/core/services/bulletprooftxmanager @PiotrTrzpil @samsondav
+/core/services/bulletprooftxmanager @PiotrTrzpil @samsondav @archseer
 /core/services/cron @spooktheducks @samsondav
 /core/services/directrequest @PiotrTrzpil @spooktheducks @j16r @connorwstein @samsondav
 /core/services/eth @PiotrTrzpil @spooktheducks @samsondav
+/core/services/feeds @jkongie
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
-/core/services/gasupdater @samsondav @PiotrTrzpil
+/core/services/gasupdater @samsondav @PiotrTrzpil @archseer
 /core/services/headtracker @PiotrTrzpil @samsondav
 /core/services/health @archseer @samsondav
 /core/services/job @spooktheducks @connorwstein @archseer
 /core/services/keeper @RyanRHall @samsondav
 /core/services/log @PiotrTrzpil @spooktheducks
-/core/services/offchainreporting @spooktheducks @connorwstein @samsondav
+/core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pipeline @spooktheducks @connorwstein @archseer
-/core/services/postgres
+/core/services/postgres @archseer
 /core/services/synchronization
 /core/services/telemetry
 /core/services/vrf @connorwstein
-/core/services/webhook @spooktheducks
+/core/services/webhook @spooktheducks @archseer
 
 # API
 /core/web @jkongie

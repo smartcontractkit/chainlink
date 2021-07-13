@@ -16,9 +16,15 @@ let consumer: Contract;
 
 before(async () => {
   personas = (await getUsers()).personas;
-  controllerFactory = await ethers.getContractFactory("SimpleWriteAccessController", personas.Nelly);
-  consumerFactory = await ethers.getContractFactory("FlagsTestHelper", personas.Nelly);
-  flagsFactory = await ethers.getContractFactory("Flags", personas.Nelly);
+  controllerFactory = await ethers.getContractFactory(
+    "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
+    personas.Nelly,
+  );
+  consumerFactory = await ethers.getContractFactory(
+    "src/v0.6/tests/FlagsTestHelper.sol:FlagsTestHelper",
+    personas.Nelly,
+  );
+  flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags", personas.Nelly);
 });
 
 describe("Flags", () => {

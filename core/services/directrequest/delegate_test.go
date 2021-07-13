@@ -135,8 +135,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -180,8 +180,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 			BlockNumber: 0,
 		}).Maybe()
@@ -222,7 +222,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		log.On("RawLog").Return(types.Log{
-			Topics: []common.Hash{common.Hash{}, common.Hash{}},
+			Topics: []common.Hash{{}, {}},
 		})
 
 		err := uni.service.Start()
@@ -244,11 +244,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -275,12 +275,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
-			RequestId:        uni.spec.ExternalIDToTopicHash(),
+			RequestId:        uni.spec.ExternalIDEncodeStringToTopic(),
 		}
 		runLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
 		runLog.On("DecodedLog").Return(&logOracleRequest)
@@ -289,11 +289,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDToTopicHash()}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
 		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
@@ -350,8 +350,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -401,8 +401,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
-				common.Hash{},
-				uni.spec.ExternalIDToTopicHash(),
+				{},
+				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
