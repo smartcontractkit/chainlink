@@ -13,6 +13,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/assets"

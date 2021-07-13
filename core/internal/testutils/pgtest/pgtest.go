@@ -27,6 +27,7 @@ func NewGormDB(t *testing.T) *gorm.DB {
 	sqlDB := NewSqlDB(t)
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{
 		Conn: sqlDB,
+		//DSN: uuid.NewV4().String(),
 	}), &gorm.Config{})
 	require.NoError(t, err)
 

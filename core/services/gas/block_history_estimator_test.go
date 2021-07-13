@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -48,7 +50,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
-		h := &models.Head{Hash: cltest.NewHash(), Number: 42}
+		h := &models.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -58,11 +60,11 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &gas.Block{
 				Number: 42,
-				Hash:   cltest.NewHash(),
+				Hash:   utils.NewHash(),
 			}
 			elems[1].Result = &gas.Block{
 				Number: 41,
-				Hash:   cltest.NewHash(),
+				Hash:   utils.NewHash(),
 			}
 		})
 
@@ -82,7 +84,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
-		h := &models.Head{Hash: cltest.NewHash(), Number: 42}
+		h := &models.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == int(historySize)
@@ -188,17 +190,17 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		b41 := gas.Block{
 			Number:       41,
-			Hash:         cltest.NewHash(),
+			Hash:         utils.NewHash(),
 			Transactions: cltest.TransactionsFromGasPrices(1, 2),
 		}
 		b42 := gas.Block{
 			Number:       42,
-			Hash:         cltest.NewHash(),
+			Hash:         utils.NewHash(),
 			Transactions: cltest.TransactionsFromGasPrices(3),
 		}
 		b43 := gas.Block{
 			Number:       43,
-			Hash:         cltest.NewHash(),
+			Hash:         utils.NewHash(),
 			Transactions: cltest.TransactionsFromGasPrices(),
 		}
 
@@ -234,7 +236,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		b44 := gas.Block{
 			Number:       44,
-			Hash:         cltest.NewHash(),
+			Hash:         utils.NewHash(),
 			Transactions: cltest.TransactionsFromGasPrices(4),
 		}
 
@@ -290,17 +292,17 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 
 	b1 := gas.Block{
 		Number:       1,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(1),
 	}
 	b2 := gas.Block{
 		Number:       2,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(2),
 	}
 	b3 := gas.Block{
 		Number:       3,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(200, 300, 100, 100, 100, 100),
 	}
 
@@ -375,12 +377,12 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		blocks := []gas.Block{
 			gas.Block{
 				Number:       0,
-				Hash:         cltest.NewHash(),
+				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(9001),
 			},
 			gas.Block{
 				Number:       1,
-				Hash:         cltest.NewHash(),
+				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(9002),
 			},
 		}
@@ -411,12 +413,12 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		blocks := []gas.Block{
 			gas.Block{
 				Number:       0,
-				Hash:         cltest.NewHash(),
+				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(5),
 			},
 			gas.Block{
 				Number:       1,
-				Hash:         cltest.NewHash(),
+				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(7),
 			},
 		}
@@ -444,8 +446,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
-		b1Hash := cltest.NewHash()
-		b2Hash := cltest.NewHash()
+		b1Hash := utils.NewHash()
+		b2Hash := utils.NewHash()
 
 		blocks := []gas.Block{
 			{
@@ -462,7 +464,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 			},
 			{
 				Number:       2,
-				Hash:         cltest.NewHash(),
+				Hash:         utils.NewHash(),
 				ParentHash:   b2Hash,
 				Transactions: []gas.Transaction{gas.Transaction{GasPrice: big.NewInt(90), GasLimit: 0}},
 			},
@@ -492,7 +494,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
-		b1Hash := cltest.NewHash()
+		b1Hash := utils.NewHash()
 
 		blocks := []gas.Block{
 			gas.Block{
@@ -526,7 +528,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
-		b1Hash := cltest.NewHash()
+		b1Hash := utils.NewHash()
 
 		blocks := []gas.Block{
 			gas.Block{
@@ -566,7 +568,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 		unreasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000000))
 
-		b1Hash := cltest.NewHash()
+		b1Hash := utils.NewHash()
 
 		blocks := []gas.Block{
 			gas.Block{
