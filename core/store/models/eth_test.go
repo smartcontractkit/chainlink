@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -78,7 +79,7 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestEthTx_GetID(t *testing.T) {
-	tx := models.EthTx{ID: math.MinInt64}
+	tx := bulletprooftxmanager.EthTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
@@ -98,7 +99,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := models.EthTxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := bulletprooftxmanager.EthTxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := attempt.GetSignedTx()
 	require.NoError(t, err)

@@ -214,7 +214,22 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 	}
 	require.NoError(t, orm.DB.Create(&ds).Error)
 	// Add a pipeline run
-	pr := pipeline.Run{
+	type PipelineRun struct {
+		ID             int64                     `json:"-" gorm:"primary_key"`
+		PipelineSpecID int32                     `json:"-"`
+		PipelineSpec   pipeline.Spec             `json:"pipelineSpec"`
+		Meta           pipeline.JSONSerializable `json:"meta"`
+		// The errors are only ever strings
+		// DB example: [null, null, "my error"]
+		Errors pipeline.RunErrors `json:"errors" gorm:"type:jsonb"`
+		// The outputs can be anything.
+		// DB example: [1234, {"a": 10}, null]
+		Outputs          pipeline.JSONSerializable `json:"outputs" gorm:"type:jsonb"`
+		CreatedAt        time.Time                 `json:"createdAt"`
+		FinishedAt       *time.Time                `json:"finishedAt"`
+		PipelineTaskRuns []pipeline.TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
+	}
+	pr := PipelineRun{
 		PipelineSpecID: ps.ID,
 		Meta:           pipeline.JSONSerializable{},
 		Errors:         pipeline.RunErrors{},
@@ -226,7 +241,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 	type PipelineTaskRun struct {
 		ID                 int64                      `json:"-" gorm:"primary_key"`
 		Type               pipeline.TaskType          `json:"type"`
-		PipelineRun        pipeline.Run               `json:"-"`
+		PipelineRun        PipelineRun                `json:"-"`
 		PipelineRunID      int64                      `json:"-"`
 		Output             *pipeline.JSONSerializable `json:"output" gorm:"type:jsonb"`
 		Error              null.String                `json:"error"`
@@ -253,8 +268,20 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 	require.NoError(t, orm.DB.Create(&tr2).Error)
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0016_pipeline_task_run_dot_id"))
-	var ptrs []pipeline.TaskRun
-	require.NoError(t, orm.DB.Find(&ptrs).Error)
+	type NewPipelineTaskRun struct {
+		ID            int64                      `json:"-" gorm:"primary_key"`
+		Type          pipeline.TaskType          `json:"type"`
+		PipelineRun   PipelineRun                `json:"-"`
+		PipelineRunID int64                      `json:"-"`
+		Output        *pipeline.JSONSerializable `json:"output" gorm:"type:jsonb"`
+		Error         null.String                `json:"error"`
+		CreatedAt     time.Time                  `json:"createdAt"`
+		FinishedAt    *time.Time                 `json:"finishedAt"`
+		Index         int32
+		DotID         string `json:"dotId"`
+	}
+	var ptrs []NewPipelineTaskRun
+	require.NoError(t, orm.DB.Table("pipeline_task_runs").Find(&ptrs).Error)
 	assert.Equal(t, "__result__", ptrs[0].DotID)
 	assert.Equal(t, "ds1", ptrs[1].DotID)
 
@@ -273,14 +300,41 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 	}
 	require.NoError(t, orm.DB.Create(&ps).Error)
 	// Add a pipeline run
-	pr := pipeline.Run{
+	type PipelineRun struct {
+		ID             int64                     `json:"-" gorm:"primary_key"`
+		PipelineSpecID int32                     `json:"-"`
+		PipelineSpec   pipeline.Spec             `json:"pipelineSpec"`
+		Meta           pipeline.JSONSerializable `json:"meta"`
+		// The errors are only ever strings
+		// DB example: [null, null, "my error"]
+		Errors pipeline.RunErrors `json:"errors" gorm:"type:jsonb"`
+		// The outputs can be anything.
+		// DB example: [1234, {"a": 10}, null]
+		Outputs          pipeline.JSONSerializable `json:"outputs" gorm:"type:jsonb"`
+		CreatedAt        time.Time                 `json:"createdAt"`
+		FinishedAt       *time.Time                `json:"finishedAt"`
+		PipelineTaskRuns []pipeline.TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
+	}
+	pr := PipelineRun{
 		PipelineSpecID: ps.ID,
 		Meta:           pipeline.JSONSerializable{},
 		Errors:         pipeline.RunErrors{},
 		Outputs:        pipeline.JSONSerializable{Null: true},
 	}
+	type PipelineTaskRun struct {
+		ID            int64                      `json:"-" gorm:"primary_key"`
+		Type          pipeline.TaskType          `json:"type"`
+		PipelineRun   PipelineRun                `json:"-"`
+		PipelineRunID int64                      `json:"-"`
+		Output        *pipeline.JSONSerializable `json:"output" gorm:"type:jsonb"`
+		Error         null.String                `json:"error"`
+		CreatedAt     time.Time                  `json:"createdAt"`
+		FinishedAt    *time.Time                 `json:"finishedAt"`
+		DotID         string                     `json:"dotId"`
+		Index         int32
+	}
 	require.NoError(t, orm.DB.Create(&pr).Error)
-	tr1 := pipeline.TaskRun{
+	tr1 := PipelineTaskRun{
 		Type:          pipeline.TaskTypeAny,
 		DotID:         "any",
 		PipelineRunID: pr.ID,
@@ -289,7 +343,7 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 	}
 	require.NoError(t, orm.DB.Create(&tr1).Error)
 	f := time.Now()
-	tr2 := pipeline.TaskRun{
+	tr2 := PipelineTaskRun{
 		Type:          "result",
 		DotID:         "result",
 		PipelineRunID: pr.ID,
@@ -300,7 +354,7 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 	require.NoError(t, orm.DB.Create(&tr2).Error)
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0020_remove_result_task"))
-	var ptrs []pipeline.TaskRun
+	var ptrs []PipelineTaskRun
 	require.NoError(t, orm.DB.Find(&ptrs).Error)
 	assert.Equal(t, 1, len(ptrs))
 

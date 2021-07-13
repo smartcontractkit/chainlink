@@ -2,12 +2,11 @@ package services_test
 
 import (
 	"fmt"
-
-	"gorm.io/gorm"
-
 	"math/big"
 	"testing"
 	"time"
+
+	"gorm.io/gorm"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -202,6 +201,10 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+
+	sub := new(mocks.Subscription)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(sub, nil)
+
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
@@ -336,6 +339,10 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(1),
+			})
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 
 			defer cleanup()
 

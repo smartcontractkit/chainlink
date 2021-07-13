@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gopkg.in/guregu/null.v4"
@@ -206,7 +207,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
 	}
 
-	var etx models.EthTx
+	var etx bulletprooftxmanager.EthTx
 	ctxQuery, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
@@ -224,6 +225,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		}
 
 		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: executer.job.PipelineSpecID,
 			Meta: pipeline.JSONSerializable{
 				Val: map[string]interface{}{"eth_tx_id": etx.ID},
@@ -231,7 +233,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 			Errors:     runErrors,
 			Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
 			CreatedAt:  start,
-			FinishedAt: &f,
+			FinishedAt: null.TimeFrom(f),
 		}, nil, false)
 		if err != nil {
 			return errors.Wrap(err, "UpkeepExecuter: failed to insert finished run")

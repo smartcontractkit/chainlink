@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -38,8 +37,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 
-		cltest.AssertCount(t, store, models.EthTx{}, 0)
-		cltest.AssertCount(t, store, models.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTxAttempt{}, 0)
 
 		assertDatabaseNonce(t, store, from, 0)
 
@@ -63,8 +62,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		cltest.AssertCount(t, store, models.EthTx{}, 0)
-		cltest.AssertCount(t, store, models.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTxAttempt{}, 0)
 
 		assertDatabaseNonce(t, store, from, 0)
 
@@ -89,8 +88,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		cltest.AssertCount(t, store, models.EthTx{}, 0)
-		cltest.AssertCount(t, store, models.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTxAttempt{}, 0)
 
 		assertDatabaseNonce(t, store, k1.Address.Address(), 32)
 

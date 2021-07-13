@@ -4,12 +4,12 @@ pragma solidity ^0.7.0;
 import "./AuthorizedReceiver.sol";
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/OperatorInterface.sol";
-import "../interfaces/OwnableInterface.sol";
-import "../interfaces/WithdrawalInterface.sol";
-import "../vendor/Address.sol";
-import "../vendor/SafeMathChainlink.sol";
+import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/OperatorInterface.sol";
+import "./interfaces/OwnableInterface.sol";
+import "./interfaces/WithdrawalInterface.sol";
+import "./vendor/Address.sol";
+import "./vendor/SafeMathChainlink.sol";
 
 /**
  * @title The Chainlink Operator contract

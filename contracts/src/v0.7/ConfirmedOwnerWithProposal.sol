@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.7.0;
+
+import "./interfaces/OwnableInterface.sol";
 
 /**
  * @title The ConfirmedOwner contract
  * @notice A contract with helpers for basic contract ownership.
  */
-contract ConfirmedOwner {
+contract ConfirmedOwnerWithProposal is OwnableInterface {
 
   address private s_owner;
   address private s_pendingOwner;
@@ -19,8 +21,16 @@ contract ConfirmedOwner {
     address indexed to
   );
 
-  constructor(address newOwner) {
+  constructor(
+    address newOwner,
+    address pendingOwner
+  ) {
+    require(newOwner != address(0), "Cannot set owner to zero");
+
     s_owner = newOwner;
+    if (pendingOwner != address(0)) {
+      _transferOwnership(pendingOwner);
+    }
   }
 
   /**
@@ -30,14 +40,11 @@ contract ConfirmedOwner {
   function transferOwnership(
     address to
   )
-    external
+    public
+    override
     onlyOwner()
   {
-    require(to != msg.sender, "Cannot transfer to self");
-
-    s_pendingOwner = to;
-
-    emit OwnershipTransferRequested(s_owner, to);
+    _transferOwnership(to);
   }
 
   /**
@@ -45,6 +52,7 @@ contract ConfirmedOwner {
    */
   function acceptOwnership()
     external
+    override
   {
     require(msg.sender == s_pendingOwner, "Must be proposed owner");
 
@@ -61,6 +69,7 @@ contract ConfirmedOwner {
   function owner()
     public
     view
+    override
     returns (
       address
     )
@@ -69,10 +78,35 @@ contract ConfirmedOwner {
   }
 
   /**
+   * @notice validate, transfer ownership, and emit relevant events
+   */
+  function _transferOwnership(
+    address to
+  )
+    private
+  {
+    require(to != msg.sender, "Cannot transfer to self");
+
+    s_pendingOwner = to;
+
+    emit OwnershipTransferRequested(s_owner, to);
+  }
+
+  /**
+   * @notice validate access
+   */
+  function _validateOwnership()
+    internal
+    view
+  {
+    require(msg.sender == s_owner, "Only callable by owner");
+  }
+
+  /**
    * @notice Reverts if called by anyone other than the contract owner.
    */
   modifier onlyOwner() {
-    require(msg.sender == s_owner, "Only callable by owner");
+    _validateOwnership();
     _;
   }
 

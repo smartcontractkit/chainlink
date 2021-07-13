@@ -65,7 +65,7 @@ type HTTPRequestConfig struct {
 
 // SendRequest sends a HTTPRequest,
 // returns a body, status code, and error.
-func (h *HTTPRequest) SendRequest(ctx context.Context) (responseBody []byte, statusCode int, err error) {
+func (h *HTTPRequest) SendRequest(ctx context.Context) (responseBody []byte, statusCode int, headers http.Header, err error) {
 	var c *http.Client
 	if h.Config.AllowUnrestrictedNetworkAccess {
 		c = UnrestrictedClient
@@ -84,7 +84,7 @@ func withRetry(
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
-) (responseBody []byte, statusCode int, err error) {
+) (responseBody []byte, statusCode int, headers http.Header, err error) {
 	bb := &backoff.Backoff{
 		Min:    100,
 		Max:    20 * time.Minute, // We stop retrying on the number of attempts!
@@ -96,33 +96,33 @@ func withRetry(
 
 		requestWithTimeout, err := cloneRequest(timeoutCtx, originalRequest)
 		if err != nil {
-			return responseBody, statusCode, err
+			return responseBody, statusCode, headers, err
 		}
 
-		responseBody, statusCode, err = makeHTTPCall(client, requestWithTimeout, config)
+		responseBody, statusCode, headers, err = makeHTTPCall(client, requestWithTimeout, config)
 		if err == nil {
-			return responseBody, statusCode, nil
+			return responseBody, statusCode, headers, nil
 		}
 		if uint(bb.Attempt())+1 >= config.MaxAttempts { // Stop retrying.
-			return responseBody, statusCode, err
+			return responseBody, statusCode, headers, err
 		}
 		switch err.(type) {
 		// There is no point in retrying a request if the response was
 		// too large since it's likely that all retries will suffer the
 		// same problem
 		case *HTTPResponseTooLargeError:
-			return responseBody, statusCode, err
+			return responseBody, statusCode, headers, err
 		}
 		// Sleep and retry, unless the parent context is
 		// cancelled.
 		select {
 		case <-timeoutCtx.Done():
 			if timeoutCtx.Err() != context.DeadlineExceeded {
-				return responseBody, statusCode, timeoutCtx.Err()
+				return responseBody, statusCode, headers, timeoutCtx.Err()
 			}
 		case <-time.After(bb.Duration()):
 		case <-ctx.Done():
-			return responseBody, statusCode, ctx.Err()
+			return responseBody, statusCode, headers, ctx.Err()
 		}
 		logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", bb.Attempt(), "timeout", config.Timeout)
 	}
@@ -132,14 +132,14 @@ func makeHTTPCall(
 	client *http.Client,
 	request *http.Request,
 	config HTTPRequestConfig,
-) (responseBody []byte, statusCode int, _ error) {
+) (responseBody []byte, statusCode int, headers http.Header, _ error) {
 
 	start := time.Now()
 
 	r, err := client.Do(request)
 	if err != nil {
 		logger.Warnw("http adapter got error", "error", err)
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	defer logger.ErrorIfCalling(r.Body.Close)
 
@@ -151,7 +151,7 @@ func makeHTTPCall(
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
 		logger.Errorw("http adapter error reading body", "error", err)
-		return nil, statusCode, err
+		return nil, statusCode, nil, err
 	}
 	elapsed = time.Since(start)
 	logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
@@ -160,10 +160,10 @@ func makeHTTPCall(
 
 	// Retry on 5xx since this might give a different result
 	if 500 <= r.StatusCode && r.StatusCode < 600 {
-		return responseBody, statusCode, &RemoteServerError{responseBody, statusCode}
+		return responseBody, statusCode, nil, &RemoteServerError{responseBody, statusCode}
 	}
 
-	return responseBody, statusCode, nil
+	return responseBody, statusCode, r.Header, nil
 }
 
 func cloneRequest(ctx context.Context, originalRequest *http.Request) (*http.Request, error) {

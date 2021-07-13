@@ -11,7 +11,10 @@ let controller: Contract;
 
 before(async () => {
   personas = (await getUsers()).personas;
-  controllerFactory = await ethers.getContractFactory("SimpleWriteAccessController", personas.Carol);
+  controllerFactory = await ethers.getContractFactory(
+    "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
+    personas.Carol,
+  );
 });
 
 describe("SimpleWriteAccessController", () => {
