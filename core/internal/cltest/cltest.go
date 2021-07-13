@@ -1718,11 +1718,17 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 
 func (a Awaiter) ItHappened() { close(a) }
 
-func (a Awaiter) AssertHappened(t *testing.T) {
+func (a Awaiter) AssertHappened(t *testing.T, expected bool) {
+	t.Helper()
 	select {
 	case <-a:
+		if !expected {
+			t.Fatal("It happened")
+		}
 	default:
-		t.Fatal("It didn't happen")
+		if expected {
+			t.Fatal("It didn't happen")
+		}
 	}
 }
 
