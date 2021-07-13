@@ -18,12 +18,12 @@ type ReplayController struct {
 //  "<application>/replay_blocks"
 func (bdc *ReplayController) ReplayBlocks(c *gin.Context) {
 
-	if c.Query("number") == "" {
+	if c.Param("number") == "" {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))
 		return
 	}
 
-	blockNumber, err := strconv.ParseInt(c.Query("number"), 10, 0)
+	blockNumber, err := strconv.ParseInt(c.Param("number"), 10, 0)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return

@@ -188,7 +188,7 @@ func TestClient_ReplayBlocks(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"number"})
+	set.Parse([]string{"42"})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ReplayBlocks(c))
 }
