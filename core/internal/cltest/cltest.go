@@ -1345,12 +1345,14 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, e
 		var completed []pipeline.Run
 
 		for i := range prs {
-			if !prs[i].Outputs.Null {
-				if !prs[i].Errors.HasError() {
-					// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
-					// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
-					if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
-						completed = append(completed, prs[i])
+			if prs[i].State == pipeline.RunStatusCompleted {
+				if !prs[i].Outputs.Null {
+					if !prs[i].Errors.HasError() {
+						// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+						// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+						if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
+							completed = append(completed, prs[i])
+						}
 					}
 				}
 			}
@@ -1716,11 +1718,17 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 
 func (a Awaiter) ItHappened() { close(a) }
 
-func (a Awaiter) AssertHappened(t *testing.T) {
+func (a Awaiter) AssertHappened(t *testing.T, expected bool) {
+	t.Helper()
 	select {
 	case <-a:
+		if !expected {
+			t.Fatal("It happened")
+		}
 	default:
-		t.Fatal("It didn't happen")
+		if expected {
+			t.Fatal("It didn't happen")
+		}
 	}
 }
 

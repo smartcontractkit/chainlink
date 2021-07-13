@@ -15,43 +15,40 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-
-	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"gorm.io/gorm"
-
 	geth_keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	googleuuid "github.com/google/uuid"
+	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
+	"github.com/lib/pq"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 // NewJob return new NoOp JobSpec
@@ -665,8 +662,7 @@ func MustInsertConfirmedEthTxWithReceipt(t *testing.T, s *strpkg.Store, fromAddr
 
 func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	etx := NewEthTx(t, store, fromAddress)
-	errStr := "something exploded"
-	etx.Error = &errStr
+	etx.Error = null.StringFrom("something exploded")
 	etx.State = bulletprooftxmanager.EthTxFatalError
 
 	require.NoError(t, store.DB.Save(&etx).Error)
@@ -893,9 +889,10 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	run := pipeline.Run{
+		State:      pipeline.RunStatusRunning,
 		Outputs:    pipeline.JSONSerializable{Null: true},
 		Errors:     pipeline.RunErrors{},
-		FinishedAt: nil,
+		FinishedAt: null.Time{},
 	}
 	require.NoError(t, db.Create(&run).Error)
 	return run
@@ -903,7 +900,7 @@ func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
 	/* #nosec G404 */
-	p := pipeline.TaskRun{DotID: strconv.Itoa(mathrand.Int()), PipelineRunID: pipelineRunID}
+	p := pipeline.TaskRun{DotID: strconv.Itoa(mathrand.Int()), PipelineRunID: pipelineRunID, ID: uuid.NewV4()}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
 }

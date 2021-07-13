@@ -611,14 +611,6 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
 	for _, etx := range etxs {
-		// NOTE: This races with transaction insertion that checks for
-		// out-of-eth.  If we check at the wrong moment (while an
-		// insufficient_eth attempt has been temporarily moved to in_progress)
-		// we will send an extra transaction because it will appear as if no
-		// transactions are in insufficient_eth state.
-		//
-		// The maximum number of transactions that could be falsely inserted is
-		// 1 per job (if you get very unlucky) which is still "good enough".
 		attempt, err := ec.attemptForRebroadcast(ctx, etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")

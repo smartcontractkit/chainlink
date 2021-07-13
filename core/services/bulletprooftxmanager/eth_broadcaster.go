@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -302,14 +303,14 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 			"gasLimit", etx.GasLimit,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		etx.Error = sendError.StrPtr()
+		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return saveFatallyErroredTransaction(eb.db, &etx)
 	}
 
 	if sendError.Fatal() {
 		logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
-		etx.Error = sendError.StrPtr()
+		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return saveFatallyErroredTransaction(eb.db, &etx)
 	}
@@ -372,12 +373,19 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 
 	if sendError.IsInsufficientEth() {
-		logger.Errorw(fmt.Sprintf("EthBroadcaster: EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+		logger.Errorw(fmt.Sprintf("EthBroadcaster: tx 0x%x at gas price %s Wei was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
+			attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
 		), "ethTxID", etx.ID, "err", sendError)
-		return saveAttempt(eb.db, &etx, attempt, EthTxAttemptInsufficientEth)
+		// NOTE: This bails out of the entire cycle and essentially "blocks" on
+		// any transaction that gets insufficient_eth. This is OK if a
+		// transaction with a large VALUE blocks because this always comes last
+		// in the processing list.
+		// If it blocks because of a transaction that is expensive due to large
+		// gas limit, we could have smaller transactions "above" it that could
+		// theoretically be sent, but will instead be blocked.
+		return sendError
 	}
 
 	if sendError == nil {
@@ -442,8 +450,8 @@ func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, newAttemptState 
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	if !(newAttemptState == EthTxAttemptBroadcast || newAttemptState == EthTxAttemptInsufficientEth) {
-		return errors.Errorf("new attempt state must be broadcast or insufficient_eth, got: %s", newAttemptState)
+	if !(newAttemptState == EthTxAttemptBroadcast) {
+		return errors.Errorf("new attempt state must be broadcast, got: %s", newAttemptState)
 	}
 	etx.State = EthTxUnconfirmed
 	attempt.State = newAttemptState
@@ -507,7 +515,7 @@ func saveFatallyErroredTransaction(db *gorm.DB, etx *EthTx) error {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
-	if etx.Error == nil {
+	if !etx.Error.Valid {
 		return errors.New("expected error field to be set")
 	}
 	etx.Nonce = nil
