@@ -160,6 +160,48 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 	return vuni, listener, jb
 }
 
+func TestConfirmedLogExtraction(t *testing.T) {
+	lsn := listener{}
+	lsn.reqs = []request{
+		{
+			confirmedAtBlock: 2,
+			req: &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{
+				RequestID: utils.PadByteToHash(0x02),
+			},
+		},
+		{
+			confirmedAtBlock: 1,
+			req: &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{
+				RequestID: utils.PadByteToHash(0x01),
+			},
+		},
+		{
+			confirmedAtBlock: 3,
+			req: &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{
+				RequestID: utils.PadByteToHash(0x03),
+			},
+		},
+	}
+	// None are confirmed
+	lsn.latestHead = 0
+	logs := lsn.extractConfirmedLogs()
+	assert.Equal(t, 0, len(logs))     // None ready
+	assert.Equal(t, 3, len(lsn.reqs)) // All pending
+	lsn.latestHead = 2
+	logs = lsn.extractConfirmedLogs()
+	assert.Equal(t, 2, len(logs)) // 1 and 2 should be confirmed
+	// They should also be sorted
+	assert.Equal(t, uint64(1), logs[0].confirmedAtBlock)
+	assert.Equal(t, uint64(2), logs[1].confirmedAtBlock)
+	assert.Equal(t, 1, len(lsn.reqs)) // 3 is still pending
+	assert.Equal(t, uint64(3), lsn.reqs[0].confirmedAtBlock)
+	// Another block way in the future should clear it
+	lsn.latestHead = 10
+	logs = lsn.extractConfirmedLogs()
+	assert.Equal(t, 1, len(logs))     // remaining log
+	assert.Equal(t, 0, len(lsn.reqs)) // all processed
+}
+
 func TestResponsePruning(t *testing.T) {
 	lsn := listener{}
 	lsn.latestHead = 10000
