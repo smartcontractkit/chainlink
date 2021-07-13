@@ -10,12 +10,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +25,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
-	orm := fluxmonitorv2.NewORM(corestore.DB, nil)
+	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()
 
@@ -87,11 +87,11 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		corestore.Config.DatabaseListenerMinReconnectInterval(),
 		corestore.Config.DatabaseListenerMaxReconnectDuration(),
 	)
-	pipelineORM := pipeline.NewORM(corestore.ORM.DB, corestore.Config)
+	pipelineORM := pipeline.NewORM(corestore.DB)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-	orm := fluxmonitorv2.NewORM(corestore.DB, nil)
+	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
@@ -108,18 +108,20 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		runID, err := pipelineORM.InsertFinishedRun(
 			corestore.DB,
 			pipeline.Run{
+				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
 				CreatedAt:      time.Now(),
-				FinishedAt:     &f,
+				FinishedAt:     null.TimeFrom(f),
 				Errors:         pipeline.RunErrors{null.String{}},
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
 			}, pipeline.TaskRunResults{
 				{
+					ID:         uuid.NewV4(),
 					Task:       &pipeline.HTTPTask{},
 					Result:     pipeline.Result{Value: 10},
 					CreatedAt:  f,
-					FinishedAt: f,
+					FinishedAt: null.TimeFrom(f),
 				},
 			}, true)
 		require.NoError(t, err)
@@ -163,9 +165,11 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 
+	strategy := new(bptxmmocks.TxStrategy)
+
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(corestore.DB, txm)
+		orm = fluxmonitorv2.NewORM(corestore.DB, txm, strategy)
 
 		key      = cltest.MustInsertRandomKey(t, corestore.DB, 0)
 		from     = key.Address.Address()
@@ -174,7 +178,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil).Return(models.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
 

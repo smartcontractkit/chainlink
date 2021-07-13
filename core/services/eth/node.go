@@ -141,6 +141,21 @@ func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 	return
 }
 
+func (n node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
+	n.log.Debugw("eth.Client#HeaderByNumber(...)",
+		"number", n,
+		"mode", switching(n),
+	)
+	if n.http != nil {
+		header, err = n.http.geth.HeaderByNumber(ctx, number)
+		err = n.wrapHTTP(err)
+	} else {
+		header, err = n.ws.geth.HeaderByNumber(ctx, number)
+		err = n.wrapWS(err)
+	}
+	return
+}
+
 func (n node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	n.log.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
@@ -301,6 +316,20 @@ func (n node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, c
 	n.log.Debugw("eth.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	err = n.wrapWS(err)
+	return
+}
+
+func (n node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	n.log.Debugw("eth.Client#SuggestGasTipCap(...)",
+		"mode", switching(n),
+	)
+	if n.http != nil {
+		tipCap, err = n.http.geth.SuggestGasTipCap(ctx)
+		err = n.wrapHTTP(err)
+	} else {
+		tipCap, err = n.ws.geth.SuggestGasTipCap(ctx)
+		err = n.wrapWS(err)
+	}
 	return
 }
 

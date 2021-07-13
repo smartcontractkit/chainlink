@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/tevino/abool"
@@ -810,6 +811,51 @@ func (t *PausableTicker) Resume() {
 // Destroy pauses the PausibleTicker
 func (t *PausableTicker) Destroy() {
 	t.Pause()
+}
+
+type CronTicker struct {
+	*cron.Cron
+	ch chan time.Time
+}
+
+func NewCronTicker(schedule string) (CronTicker, error) {
+	cron := cron.New(cron.WithSeconds())
+	ch := make(chan time.Time, 1)
+	_, err := cron.AddFunc(schedule, func() {
+		select {
+		case ch <- time.Now():
+		default:
+		}
+	})
+	if err != nil {
+		return CronTicker{}, err
+	}
+	return CronTicker{Cron: cron, ch: ch}, nil
+}
+
+func (t *CronTicker) Start() {
+	if t.Cron != nil {
+		t.Cron.Start()
+	}
+}
+
+func (t *CronTicker) Stop() {
+	if t.Cron != nil {
+		t.Cron.Stop()
+	}
+}
+
+func (t *CronTicker) Ticks() <-chan time.Time {
+	return t.ch
+}
+
+func ValidateCronSchedule(schedule string) error {
+	if !(strings.HasPrefix(schedule, "CRON_TZ=") || strings.HasPrefix(schedule, "@every ")) {
+		return errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@every 1h30m'")
+	}
+	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	_, err := parser.Parse(schedule)
+	return errors.Wrapf(err, "invalid cron schedule '%v'", schedule)
 }
 
 // ResettableTimer stores a timer

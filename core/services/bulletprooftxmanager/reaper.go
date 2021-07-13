@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
 
@@ -117,7 +117,7 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 	// Delete old confirmed eth_txes
 	// NOTE that this relies on foreign key triggers automatically removing
 	// the eth_tx_attempts and eth_receipts linked to every eth_tx
-	err := orm.Batch(func(_, limit uint) (count uint, err error) {
+	err := postgres.Batch(func(_, limit uint) (count uint, err error) {
 		res := r.db.Exec(`
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM eth_receipts
@@ -140,7 +140,7 @@ AND eth_txes.state = 'confirmed'`, minBlockNumberToKeep, limit, timeThreshold)
 		return errors.Wrap(err, "BPTXMReaper#reapEthTxes batch delete of confirmed eth_txes failed")
 	}
 	// Delete old 'fatal_error' eth_txes
-	err = orm.Batch(func(_, limit uint) (count uint, err error) {
+	err = postgres.Batch(func(_, limit uint) (count uint, err error) {
 		res := r.db.Exec(`
 DELETE FROM eth_txes
 WHERE created_at < ?
@@ -176,5 +176,5 @@ func (r *Reaper) ReapJobRuns() error {
 		UpdatedBefore: timeThreshold,
 	}
 	r.log.Debugf("BPTXMReaper: ReapJobRuns completed in %v", time.Since(mark))
-	return errors.Wrap(orm.BulkDeleteRuns(r.db, request), "BPTXMReaper#ReapJobRuns failed")
+	return errors.Wrap(postgres.BulkDeleteRuns(r.db, request), "BPTXMReaper#ReapJobRuns failed")
 }

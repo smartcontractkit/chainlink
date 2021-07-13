@@ -119,6 +119,24 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
+func (p *Pipeline) HasAsync() bool {
+	for _, task := range p.Tasks {
+		if t, ok := task.(*BridgeTask); ok && t.Async == "true" {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Pipeline) ByDotID(id string) Task {
+	for _, task := range p.Tasks {
+		if task.DotID() == id {
+			return task
+		}
+	}
+	return nil
+}
+
 func Parse(text string) (*Pipeline, error) {
 	g := NewGraph()
 	err := g.UnmarshalText([]byte(text))

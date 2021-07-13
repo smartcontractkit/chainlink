@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -127,7 +127,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := models.EthTx{}
+	etx := bulletprooftxmanager.EthTx{}
 	require.NoError(t, s.DB.First(&etx).Error)
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)

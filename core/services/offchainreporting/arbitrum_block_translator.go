@@ -81,7 +81,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 			l2upper = *maybeL2Upper
 		} else {
 			// Initial query to get highest L1 and L2 numbers
-			h, err = a.ethClient.HeaderByNumber(ctx, nil)
+			h, err = a.ethClient.HeadByNumber(ctx, nil)
 			n++
 			if err != nil {
 				return nil, nil, err
@@ -211,7 +211,7 @@ func (a *ArbitrumBlockTranslator) arbL2ToL1(ctx context.Context, l2 int64) (l1 i
 		return l1, false, err
 	}
 
-	h, err := a.ethClient.HeaderByNumber(ctx, big.NewInt(l2))
+	h, err := a.ethClient.HeadByNumber(ctx, big.NewInt(l2))
 	if err != nil {
 		return 0, true, err
 	}
