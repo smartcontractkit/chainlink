@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -166,7 +167,32 @@ func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
 	jobSpec.MinPayment = assets.NewLink(100)
 	orm.DB.Create(&jobSpec)
 
-	fmSpec := job.FluxMonitorSpec{
+	// These structs are copied from the `job` package because otherwise, changes
+	// to them in subsequent migrations will cause this test to fail.
+	type FluxMonitorSpec struct {
+		ID                int32               `toml:"-" gorm:"primary_key"`
+		ContractAddress   ethkey.EIP55Address `toml:"contractAddress"`
+		Threshold         float32             `toml:"threshold,float"`
+		AbsoluteThreshold float32             `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
+		PollTimerPeriod   time.Duration       `gorm:"type:jsonb"`
+		PollTimerDisabled bool                `gorm:"type:jsonb"`
+		IdleTimerPeriod   time.Duration       `gorm:"type:jsonb"`
+		IdleTimerDisabled bool                `gorm:"type:jsonb"`
+		MinPayment        *assets.Link
+		CreatedAt         time.Time `toml:"-"`
+		UpdatedAt         time.Time `toml:"-"`
+	}
+
+	type Job struct {
+		ID                int32     `toml:"-" gorm:"primary_key"`
+		ExternalJobID     uuid.UUID `toml:"externalJobID"`
+		FluxMonitorSpecID *int32
+		FluxMonitorSpec   *FluxMonitorSpec
+		PipelineSpecID    int32
+		PipelineSpec      *pipeline.Spec
+	}
+
+	fmSpec := FluxMonitorSpec{
 		MinPayment:        assets.NewLink(100),
 		ContractAddress:   cltest.NewEIP55Address(),
 		PollTimerDisabled: true,
@@ -180,7 +206,7 @@ func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
 	require.NoError(t, orm.DB.Find(&js, "id = ?", jobSpec.ID).Error)
 	require.Equal(t, assets.NewLink(100), js.MinPayment)
 
-	var fms job.FluxMonitorSpec
+	var fms FluxMonitorSpec
 	require.NoError(t, orm.DB.Find(&fms, "id = ?", fmSpec.ID).Error)
 	require.Equal(t, assets.NewLink(100), fms.MinPayment)
 
