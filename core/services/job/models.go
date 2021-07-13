@@ -283,6 +283,8 @@ type FluxMonitorSpec struct {
 	PollTimerDisabled bool          `gorm:"type:jsonb"`
 	IdleTimerPeriod   time.Duration `gorm:"type:jsonb"`
 	IdleTimerDisabled bool          `gorm:"type:jsonb"`
+	DrumbeatSchedule  string
+	DrumbeatEnabled   bool `gorm:"type:jsonb"`
 	MinPayment        *assets.Link
 	CreatedAt         time.Time `toml:"-"`
 	UpdatedAt         time.Time `toml:"-"`
