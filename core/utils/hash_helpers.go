@@ -16,3 +16,9 @@ func randomBytes(n int) []byte {
 func NewHash() common.Hash {
 	return common.BytesToHash(randomBytes(32))
 }
+
+func PadByteToHash(b byte) common.Hash {
+	var h [32]byte
+	h[31] = b
+	return h
+}

@@ -81,6 +81,7 @@ type Application interface {
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
@@ -186,7 +187,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTracker = &headtracker.NullTracker{}
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+		orm := headtracker.NewORM(store.DB)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, config, orm, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
@@ -688,6 +690,13 @@ func (app *ChainlinkApplication) RunJobV2(
 		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
 	}
 	return runID, err
+}
+
+func (app *ChainlinkApplication) ResumeJobV2(
+	ctx context.Context,
+	run *pipeline.Run,
+) (bool, error) {
+	return app.pipelineRunner.Run(ctx, run, *logger.Default, false)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.

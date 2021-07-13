@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/theodesp/go-heaps/pairing"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -158,6 +160,32 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 	return vuni, listener, jb
 }
 
+func TestResponsePruning(t *testing.T) {
+	lsn := listener{}
+	lsn.latestHead = 10000
+	lsn.respCount = map[[32]byte]uint64{
+		utils.PadByteToHash(0x00): 1,
+		utils.PadByteToHash(0x01): 1,
+	}
+	lsn.blockNumberToReqID = pairing.New()
+	lsn.blockNumberToReqID.Insert(fulfilledReq{
+		blockNumber: 1,
+		reqID:       utils.PadByteToHash(0x00),
+	})
+	lsn.blockNumberToReqID.Insert(fulfilledReq{
+		blockNumber: 2,
+		reqID:       utils.PadByteToHash(0x01),
+	})
+	lsn.pruneConfirmedRequestCounts()
+	assert.Equal(t, 2, len(lsn.respCount))
+	lsn.latestHead = 10001
+	lsn.pruneConfirmedRequestCounts()
+	assert.Equal(t, 1, len(lsn.respCount))
+	lsn.latestHead = 10002
+	lsn.pruneConfirmedRequestCounts()
+	assert.Equal(t, 0, len(lsn.respCount))
+}
+
 func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	vuni, listener, jb := setup(t)
 
@@ -204,23 +232,8 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 func TestDelegate_ValidLog(t *testing.T) {
 	vuni, listener, jb := setup(t)
 	txHash := utils.NewHash()
-	reqID := utils.NewHash()
-
-	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	done := make(chan struct{})
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		done <- struct{}{}
-	}).Return(nil).Once()
-	// Expect a call to check if the req is already fulfilled.
-	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
-
-	// Ensure we queue up a valid eth transaction
-	// Linked to  requestID
-	vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
-		return meta.JobID > 0 && meta.RequestID == reqID && meta.RequestTxHash == txHash
-	}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
-
-	// Send a valid log
+	reqID1 := utils.NewHash()
+	reqID2 := utils.NewHash()
 	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
 	require.NoError(t, err)
 	added := make(chan struct{})
@@ -229,60 +242,104 @@ func TestDelegate_ValidLog(t *testing.T) {
 	}
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
 	bh := utils.NewHash()
-	listener.HandleLog(log.NewLogBroadcast(types.Log{
-		// Data has all the NON-indexed parameters
-		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
-			reqID.Bytes()}, []byte{}, // requestID
-		),
-		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
-		BlockNumber: 10,
-		TxHash:      txHash,
-		BlockHash:   bh,
-	}, nil))
+	var tt = []struct {
+		reqID [32]byte
+		log   types.Log
+	}{
+		{
+			reqID: reqID1,
+			log: types.Log{
+				// Data has all the NON-indexed parameters
+				Data: bytes.Join([][]byte{
+					pk.MustHash().Bytes(),                    // key hash
+					common.BigToHash(big.NewInt(42)).Bytes(), // seed
+					utils.NewHash().Bytes(),                  // sender
+					utils.NewHash().Bytes(),                  // fee
+					reqID1.Bytes()},                          // requestID
+					[]byte{}),
+				// JobID is indexed, thats why it lives in the Topics.
+				Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID STRING
+				TxHash:      txHash,
+				BlockNumber: 10,
+				BlockHash:   bh,
+			},
+		},
+		{
 
-	// Wait until the log is present
-	waitForChannel(t, added, time.Second, "request not added to the queue")
-	// Feed it a head which confirms it.
-	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
-	waitForChannel(t, done, 2*time.Second, "did not mark consumed")
+			reqID: reqID2,
+			log: types.Log{
+				Data: bytes.Join([][]byte{
+					pk.MustHash().Bytes(),                    // key hash
+					common.BigToHash(big.NewInt(42)).Bytes(), // seed
+					utils.NewHash().Bytes(),                  // sender
+					utils.NewHash().Bytes(),                  // fee
+					reqID2.Bytes()},                          // requestID
+					[]byte{}),
+				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+				TxHash:      txHash,
+				BlockNumber: 10,
+				BlockHash:   bh,
+			},
+		},
+	}
 
-	// Ensure we created a successful run.
-	runs, err := vuni.prm.GetAllRuns()
-	require.NoError(t, err)
-	require.Equal(t, 1, len(runs))
-	assert.False(t, runs[0].Errors.HasError())
-	m, ok := runs[0].Meta.Val.(map[string]interface{})
-	require.True(t, ok)
-	_, ok = m["eth_tx_id"]
-	assert.True(t, ok)
-	assert.Len(t, runs[0].PipelineTaskRuns, 0)
+	consumed := make(chan struct{})
+	for i, tc := range tt {
+		tc := tc
+		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			consumed <- struct{}{}
+		}).Return(nil).Once()
+		// Expect a call to check if the req is already fulfilled.
+		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
 
-	p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
-	require.NoError(t, err)
-	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		done <- struct{}{}
-	}).Return(nil).Once()
-	// If we send a completed log we should the respCount increase
-	var reqIDBytes [32]byte
-	copy(reqIDBytes[:], reqID.Bytes())
-	listener.HandleLog(log.NewLogBroadcast(types.Log{
-		// Data has all the NON-indexed parameters
-		Data: bytes.Join([][]byte{reqID.Bytes(), // output
-			p.Output.Bytes(),
-		}, []byte{},
-		),
-		BlockNumber: 10,
-		TxHash:      txHash,
-	}, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: reqIDBytes}))
-	waitForChannel(t, done, 2*time.Second, "fulfillment log not marked consumed")
-	// Should record that we've responded to this request
-	assert.Equal(t, uint64(1), listener.respCount[reqIDBytes])
-	vuni.Assert(t)
+		// Ensure we queue up a valid eth transaction
+		// Linked to  requestID
+		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
+			return meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash
+		}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
+
+		listener.HandleLog(log.NewLogBroadcast(tc.log, nil))
+		// Wait until the log is present
+		waitForChannel(t, added, time.Second, "request not added to the queue")
+		// Feed it a head which confirms it.
+		listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
+
+		// Ensure we created a successful run.
+		runs, err := vuni.prm.GetAllRuns()
+		require.NoError(t, err)
+		require.Equal(t, i+1, len(runs))
+		assert.False(t, runs[0].Errors.HasError())
+		m, ok := runs[0].Meta.Val.(map[string]interface{})
+		require.True(t, ok)
+		_, ok = m["eth_tx_id"]
+		assert.True(t, ok)
+		assert.Len(t, runs[0].PipelineTaskRuns, 0)
+
+		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
+		require.NoError(t, err)
+		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			consumed <- struct{}{}
+		}).Return(nil).Once()
+		// If we send a completed log we should the respCount increase
+		var reqIDBytes []byte
+		copy(reqIDBytes[:], tc.reqID[:])
+		listener.HandleLog(log.NewLogBroadcast(types.Log{
+			// Data has all the NON-indexed parameters
+			Data: bytes.Join([][]byte{reqIDBytes, // output
+				p.Output.Bytes(),
+			}, []byte{},
+			),
+			BlockNumber: 10,
+			TxHash:      txHash,
+		}, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
+		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
+		// Should record that we've responded to this request
+		assert.Equal(t, uint64(1), listener.respCount[tc.reqID])
+		vuni.Assert(t)
+	}
 }
 
 func TestDelegate_InvalidLog(t *testing.T) {
