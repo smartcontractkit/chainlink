@@ -213,8 +213,7 @@ func setConfigs() {
 	avalancheFuji := FallbackConfig
 	avalancheFuji.LinkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 	avalancheFuji.EthFinalityDepth = 1
-	avalancheFuji.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on avalanche
-	avalancheFuji.GasUpdaterEnabled = false
+	avalancheFuji.GasEstimatorMode = "FixedPrice"
 	avalancheFuji.EthGasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
 	avalancheFuji.EthMaxGasPriceWei = *big.NewInt(225000000000)
 	avalancheFuji.EthMinGasPriceWei = *big.NewInt(225000000000)
@@ -225,8 +224,7 @@ func setConfigs() {
 	avalancheMainnet := FallbackConfig
 	avalancheMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6" // TBD
 	avalancheMainnet.EthFinalityDepth = 1
-	avalancheMainnet.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on avalanche
-	avalancheMainnet.GasUpdaterEnabled = false
+	avalancheMainnet.GasEstimatorMode = "FixedPrice"
 	avalancheMainnet.EthGasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
 	avalancheMainnet.EthMaxGasPriceWei = *big.NewInt(225000000000)
 	avalancheMainnet.EthMinGasPriceWei = *big.NewInt(225000000000)
