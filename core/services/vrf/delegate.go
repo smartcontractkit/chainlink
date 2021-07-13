@@ -146,33 +146,36 @@ type request struct {
 type listener struct {
 	utils.StartStopOnce
 
-	cfg                Config
-	l                  logger.Logger
-	abi                abi.ABI
-	logBroadcaster     log.Broadcaster
-	coordinator        *solidity_vrf_coordinator_interface.VRFCoordinator
-	pipelineRunner     pipeline.Runner
-	pipelineORM        pipeline.ORM
-	vorm               keystore.VRFORM
-	job                job.Job
-	db                 *gorm.DB
-	headBroadcaster    httypes.HeadBroadcasterRegistry
-	txm                bulletprooftxmanager.TxManager
-	vrfks              *keystore.VRF
-	gethks             GethKeyStore
-	reqLogs            *utils.Mailbox
-	respCount          map[[32]byte]uint64
-	blockNumberToReqID *pairing.PairHeap
-	chStop             chan struct{}
-	waitOnStop         chan struct{}
-	newHead            chan struct{}
-	latestHead         uint64 // Only one writer and one reader, no lock needed
+	cfg             Config
+	l               logger.Logger
+	abi             abi.ABI
+	logBroadcaster  log.Broadcaster
+	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
+	pipelineRunner  pipeline.Runner
+	pipelineORM     pipeline.ORM
+	vorm            keystore.VRFORM
+	job             job.Job
+	db              *gorm.DB
+	headBroadcaster httypes.HeadBroadcasterRegistry
+	txm             bulletprooftxmanager.TxManager
+	vrfks           *keystore.VRF
+	gethks          GethKeyStore
+	reqLogs         *utils.Mailbox
+	chStop          chan struct{}
+	waitOnStop      chan struct{}
+	newHead         chan struct{}
+	latestHead      uint64 // Only one writer and one reader, no lock needed
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
 	reqsMu   sync.Mutex // Both goroutines write to reqs
 	reqs     []request
 	reqAdded func() // A simple debug helper
+
+	// Data structures for reorg attack protection
+	respCountMu        sync.Mutex
+	respCount          map[[32]byte]uint64
+	blockNumberToReqID *pairing.PairHeap
 }
 
 func (lsn *listener) Connect(head *models.Head) error {
@@ -237,17 +240,28 @@ func (lsn *listener) Start() error {
 func (lsn *listener) extractConfirmedLogs() []request {
 	var toProcess []request
 	lsn.reqsMu.Lock()
+	defer lsn.reqsMu.Unlock()
+	// No logs to process, return
+	if len(lsn.reqs) == 0 {
+		return toProcess
+	}
 	sort.Slice(lsn.reqs, func(i, j int) bool {
 		return lsn.reqs[i].confirmedAtBlock < lsn.reqs[j].confirmedAtBlock
 	})
+	// Find the index of the first unconfirmed log
 	i := sort.Search(len(lsn.reqs), func(i int) bool {
-		return lsn.reqs[i].confirmedAtBlock <= lsn.latestHead
+		return lsn.reqs[i].confirmedAtBlock > lsn.latestHead
 	})
-	if i < len(lsn.reqs) && lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
-		toProcess = append(toProcess, lsn.reqs[:i+1]...)
-		lsn.reqs = lsn.reqs[i+1:]
+	// Some (potentially all) are confirmed excluding index i
+	if i < len(lsn.reqs) && lsn.reqs[i].confirmedAtBlock > lsn.latestHead {
+		toProcess = append(toProcess, lsn.reqs[:i]...)
+		lsn.reqs = lsn.reqs[i:]
+	} else {
+		// There are no unconfirmed logs in the list. Means they are all confirmed
+		// since we already checked for an empty list
+		toProcess = lsn.reqs
+		lsn.reqs = []request{}
 	}
-	lsn.reqsMu.Unlock()
 	return toProcess
 }
 
@@ -272,6 +286,8 @@ func (a fulfilledReq) Compare(b heaps.Item) int {
 // Remove all entries 10000 blocks or older
 // to avoid a memory leak.
 func (lsn *listener) pruneConfirmedRequestCounts() {
+	lsn.respCountMu.Lock()
+	defer lsn.respCountMu.Unlock()
 	min := lsn.blockNumberToReqID.FindMin()
 	for min != nil {
 		m := min.(fulfilledReq)
@@ -291,6 +307,7 @@ func (lsn *listener) runHeadListener(unsubscribe func()) {
 		case <-lsn.chStop:
 			unsubscribe()
 			lsn.waitOnStop <- struct{}{}
+			return
 		case <-lsn.newHead:
 			toProcess := lsn.extractConfirmedLogs()
 			for _, r := range toProcess {

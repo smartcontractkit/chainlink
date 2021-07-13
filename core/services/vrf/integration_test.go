@@ -25,17 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//func TestDBProblems(t *testing.T) {
-//	s, cl := cltest.NewStore(t)
-//	defer cl()
-//	require.NoError(t, postgres.DBWithDefaultContext(s.DB, func(db *gorm.DB) error {
-//		return db.Find(&bulletprooftxmanager.EthTx{}).Error
-//	}))
-//	require.NoError(t, postgres.DBWithDefaultContext(s.DB, func(db *gorm.DB) error {
-//		return db.Find(&bulletprooftxmanager.EthTx{}).Error
-//	}))
-//}
-
 func TestIntegration_VRFV2(t *testing.T) {
 	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2", true)
 	defer cleanupDB()
