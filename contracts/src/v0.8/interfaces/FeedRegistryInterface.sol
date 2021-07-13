@@ -30,8 +30,8 @@ interface FeedRegistryInterface {
   // V3 AggregatorV3Interface
 
   function decimals(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -40,8 +40,8 @@ interface FeedRegistryInterface {
     );
 
   function description(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -50,8 +50,8 @@ interface FeedRegistryInterface {
     );
 
   function version(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -60,8 +60,8 @@ interface FeedRegistryInterface {
     );
 
   function latestRoundData(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -74,8 +74,8 @@ interface FeedRegistryInterface {
     );
 
   function getRoundData(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint80 _roundId
   )
     external
@@ -91,8 +91,8 @@ interface FeedRegistryInterface {
   // V2 AggregatorInterface
 
   function latestAnswer(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -101,8 +101,8 @@ interface FeedRegistryInterface {
     );
 
   function latestTimestamp(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -111,8 +111,8 @@ interface FeedRegistryInterface {
     );
 
   function latestRound(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -121,8 +121,8 @@ interface FeedRegistryInterface {
     );
 
   function getAnswer(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint256 roundId
   )
     external
@@ -132,8 +132,8 @@ interface FeedRegistryInterface {
     );
 
   function getTimestamp(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint256 roundId
   )
     external
@@ -145,8 +145,8 @@ interface FeedRegistryInterface {
   // Registry getters
 
   function getFeed(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -155,8 +155,8 @@ interface FeedRegistryInterface {
     );
 
   function getPhaseFeed(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint16 phaseId
   )
     external
@@ -175,8 +175,8 @@ interface FeedRegistryInterface {
     );
 
   function getPhase(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint16 phaseId
   )
     external
@@ -188,8 +188,8 @@ interface FeedRegistryInterface {
   // Round helpers
 
   function getRoundFeed(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint80 roundId
   )
     external
@@ -199,8 +199,8 @@ interface FeedRegistryInterface {
     );
 
   function getPhaseRange(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint16 phaseId
   )
     external
@@ -211,8 +211,8 @@ interface FeedRegistryInterface {
     );
 
   function getPreviousRoundId(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint80 roundId
   ) external
     view
@@ -221,8 +221,8 @@ interface FeedRegistryInterface {
     );
 
   function getNextRoundId(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint80 roundId
   ) external
     view
@@ -233,22 +233,22 @@ interface FeedRegistryInterface {
   // Feed management
 
   function proposeFeed(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     address aggregator
   ) external;
 
   function confirmFeed(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     address aggregator
   ) external;
 
   // Proposed aggregator
 
   function getProposedFeed(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -257,8 +257,8 @@ interface FeedRegistryInterface {
     );
 
   function proposedGetRoundData(
-    address asset,
-    address denomination,
+    address base,
+    address quote,
     uint80 roundId
   )
     external
@@ -272,8 +272,8 @@ interface FeedRegistryInterface {
     );
 
   function proposedLatestRoundData(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view
@@ -287,8 +287,8 @@ interface FeedRegistryInterface {
 
   // Phases
   function getCurrentPhaseId(
-    address asset,
-    address denomination
+    address base,
+    address quote
   )
     external
     view

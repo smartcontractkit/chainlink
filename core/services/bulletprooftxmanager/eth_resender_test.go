@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -34,7 +33,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 		assert.Len(t, attempts, 0)
 	})
 
-	etxs := []models.EthTx{
+	etxs := []bulletprooftxmanager.EthTx{
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress, time.Unix(1616509100, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress, time.Unix(1616509200, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress, time.Unix(1616509300, 0)),

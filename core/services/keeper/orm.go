@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"gorm.io/gorm"
@@ -137,7 +136,7 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepI
 		).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistration, payload []byte) (models.EthTx, error) {
+func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistration, payload []byte) (bulletprooftxmanager.EthTx, error) {
 	from := upkeep.Registry.FromAddress.Address()
 	to := upkeep.Registry.ContractAddress.Address()
 	gasLimit := upkeep.ExecuteGas + korm.config.KeeperRegistryPerformGasOverhead()

@@ -16,7 +16,7 @@ externalJobID     =  "123e4567-e89b-12d3-a456-426655440002"
 	CronSpec = `
 type            = "cron"
 schemaVersion   = 1
-schedule        = "CRON_TZ=UTC 0 0 1 1 *"
+schedule        = "CRON_TZ=UTC * 0 0 1 1 *"
 externalJobID     =  "123e4567-e89b-12d3-a456-426655440003"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];

@@ -3,7 +3,6 @@ package bulletprooftxmanager_test
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"testing"
 	"time"
 
@@ -17,133 +16,12 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-func TestBulletproofTxManager_BumpGas(t *testing.T) {
-	t.Parallel()
-
-	for _, test := range []struct {
-		name             string
-		originalGasPrice *big.Int
-		priceDefault     *big.Int
-		bumpPercent      uint16
-		bumpWei          *big.Int
-		maxGasPriceWei   *big.Int
-		expected         *big.Int
-	}{
-		{
-			name:             "defaults",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("2e10"), // 20 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("5e9"),    // 0.5 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("3.6e10"), // 36 GWei
-		},
-		{
-			name:             "original + percentage wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("2e10"), // 20 GWei
-			bumpPercent:      30,
-			bumpWei:          toBigInt("5e9"),    // 0.5 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("3.9e10"), // 39 GWei
-		},
-		{
-			name:             "original + fixed wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("2e10"), // 20 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("8e9"),    // 0.8 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("3.8e10"), // 38 GWei
-		},
-		{
-			name:             "default + percentage wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("4e10"), // 40 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("5e9"),    // 0.5 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("4.8e10"), // 48 GWei
-		},
-		{
-			name:             "default + fixed wins",
-			originalGasPrice: toBigInt("3e10"), // 30 GWei
-			priceDefault:     toBigInt("4e10"), // 40 GWei
-			bumpPercent:      20,
-			bumpWei:          toBigInt("9e9"),    // 0.9 GWei
-			maxGasPriceWei:   toBigInt("5e11"),   // 0.5 uEther
-			expected:         toBigInt("4.9e10"), // 49 GWei
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			config := orm.NewConfig()
-			config.Set("ETH_GAS_PRICE_DEFAULT", test.priceDefault)
-			config.Set("ETH_GAS_BUMP_PERCENT", test.bumpPercent)
-			config.Set("ETH_GAS_BUMP_WEI", test.bumpWei)
-			config.Set("ETH_MAX_GAS_PRICE_WEI", test.maxGasPriceWei)
-			actual, err := bulletprooftxmanager.BumpGas(config, test.originalGasPrice)
-			require.NoError(t, err)
-			if actual.Cmp(test.expected) != 0 {
-				t.Fatalf("Expected %s but got %s", test.expected.String(), actual.String())
-			}
-		})
-	}
-}
-
-func TestBulletproofTxManager_BumpGas_HitsMaxError(t *testing.T) {
-	t.Parallel()
-	config := orm.NewConfig()
-	config.Set("ETH_GAS_BUMP_PERCENT", "50")
-	config.Set("ETH_GAS_PRICE_DEFAULT", toBigInt("2e10")) // 20 GWei
-	config.Set("ETH_GAS_BUMP_WEI", toBigInt("5e9"))       // 0.5 GWei
-	config.Set("ETH_MAX_GAS_PRICE_WEI", toBigInt("4e10")) // 40 Gwei
-
-	originalGasPrice := toBigInt("3e10") // 30 GWei
-	_, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "bumped gas price of 45000000000 would exceed configured max gas price of 40000000000 (original price was 30000000000)")
-}
-
-func TestBulletproofTxManager_BumpGas_NoBumpError(t *testing.T) {
-	t.Parallel()
-	config := orm.NewConfig()
-	config.Set("ETH_GAS_BUMP_PERCENT", "0")
-	config.Set("ETH_GAS_BUMP_WEI", "0")
-	config.Set("ETH_MAX_GAS_PRICE_WEI", "40000000000")
-
-	originalGasPrice := toBigInt("3e10") // 30 GWei
-	_, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "bumped gas price of 30000000000 is equal to original gas price of 30000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
-
-	// Even if it's exactly the maximum
-	originalGasPrice = toBigInt("4e10") // 40 GWei
-	_, err = bulletprooftxmanager.BumpGas(config, originalGasPrice)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "bumped gas price of 40000000000 is equal to original gas price of 40000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
-}
-
-// Helpers
-
-// toBigInt is used to convert scientific notation string to a *big.Int
-func toBigInt(input string) *big.Int {
-	flt, _, err := big.ParseFloat(input, 10, 0, big.ToNearestEven)
-	if err != nil {
-		panic(fmt.Sprintf("unable to parse '%s' into a big.Float: %v", input, err))
-	}
-	var i = new(big.Int)
-	i, _ = flt.Int(i)
-	return i
-}
 
 func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	t.Parallel()
@@ -282,6 +160,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config := new(bptxmmocks.Config)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config.On("GasEstimatorMode").Return("FixedPrice")
 
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, nil, config, nil, nil, nil)
 
@@ -295,7 +174,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -303,11 +182,11 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, store, models.EthTx{}, 1)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 1)
 
 		require.NoError(t, store.ORM.DB.First(&etx).Error)
 
-		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -339,6 +218,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config := new(bptxmmocks.Config)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config.On("GasEstimatorMode").Return("FixedPrice")
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(store.DB, nil, config, nil, nil, nil)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
@@ -358,22 +238,26 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
 
-	t.Run("if this key has any transactions with insufficient eth errors, skips transmission entirely", func(t *testing.T) {
+	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
+		config.On("EthMaxQueuedTransactions").Return(uint64(1))
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, thisKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
+		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
-		_, err := bptxm.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, nil, strategy)
-		require.EqualError(t, err, fmt.Sprintf("wallet is out of eth: %s", thisKey.Address.Hex()))
+		etx, err := bptxm.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, nil, strategy)
+		assert.NoError(t, err)
+
+		require.Equal(t, payload, etx.EncodedPayload)
 		strategy.AssertExpectations(t)
 	})
 
+	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
+
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
-		require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
+		cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 42, thisKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
@@ -403,6 +287,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EthTxReaperInterval").Return(1 * time.Hour)
 	config.On("EthMaxInFlightTransactions").Return(uint32(42))
 	config.On("EthFinalityDepth").Maybe().Return(uint(42))
+	config.On("GasEstimatorMode").Return("FixedPrice")
 	kst.On("AllKeys").Return([]ethkey.Key{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})

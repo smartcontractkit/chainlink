@@ -135,6 +135,8 @@ type setupOptions struct {
 	pollTickerDisabled bool
 	idleTimerDisabled  bool
 	idleTimerPeriod    time.Duration
+	drumbeatEnabled    bool
+	drumbeatSchedule   string
 	orm                fluxmonitorv2.ORM
 }
 
@@ -152,6 +154,23 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 	for _, optionFn := range optionFns {
 		optionFn(&options)
 	}
+
+	pollManager, err := fluxmonitorv2.NewPollManager(
+		fluxmonitorv2.PollManagerConfig{
+			PollTickerInterval:      time.Minute,
+			PollTickerDisabled:      options.pollTickerDisabled,
+			IdleTimerPeriod:         options.idleTimerPeriod,
+			IdleTimerDisabled:       options.idleTimerDisabled,
+			DrumbeatEnabled:         options.drumbeatEnabled,
+			DrumbeatSchedule:        options.drumbeatSchedule,
+			HibernationPollPeriod:   24 * time.Hour,
+			MinRetryBackoffDuration: 1 * time.Minute,
+			MaxRetryBackoffDuration: 1 * time.Hour,
+		},
+		logger.Default,
+	)
+	require.NoError(t, err)
+
 	fm, err := fluxmonitorv2.NewFluxMonitor(
 		tm.pipelineRunner,
 		job.Job{},
@@ -161,18 +180,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.jobORM,
 		tm.pipelineORM,
 		tm.keyStore,
-		fluxmonitorv2.NewPollManager(
-			fluxmonitorv2.PollManagerConfig{
-				PollTickerInterval:      time.Minute,
-				PollTickerDisabled:      options.pollTickerDisabled,
-				IdleTimerPeriod:         options.idleTimerPeriod,
-				IdleTimerDisabled:       options.idleTimerDisabled,
-				HibernationPollPeriod:   24 * time.Hour,
-				MinRetryBackoffDuration: 1 * time.Minute,
-				MaxRetryBackoffDuration: 1 * time.Hour,
-			},
-			logger.Default,
-		),
+		pollManager,
 		fluxmonitorv2.NewPaymentChecker(assets.NewLink(1), nil),
 		contractAddress,
 		tm.contractSubmitter,
@@ -199,6 +207,14 @@ func disablePollTicker(disabled bool) func(*setupOptions) {
 func disableIdleTimer(disabled bool) func(*setupOptions) {
 	return func(opts *setupOptions) {
 		opts.idleTimerDisabled = disabled
+	}
+}
+
+// enableDrumbeatTicker is an option to enable the drumbeat ticker during setup
+func enableDrumbeatTicker(schedule string) func(*setupOptions) {
+	return func(opts *setupOptions) {
+		opts.drumbeatEnabled = true
+		opts.drumbeatSchedule = schedule
 	}
 }
 
@@ -269,7 +285,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		}, {
 			name:     "previous job run in progress",
 			eligible: true, connected: true, funded: true, answersDeviate: true,
-			hasPreviousRun: true, previousRunStatus: pipeline.RunStatusInProgress,
+			hasPreviousRun: true, previousRunStatus: pipeline.RunStatusRunning,
 			expectedToPoll: false, expectedToSubmit: false,
 		}, {
 			name:     "previous job run errored",
@@ -314,7 +330,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 				switch tc.previousRunStatus {
 				case pipeline.RunStatusCompleted:
 					now := time.Now()
-					run.FinishedAt = &now
+					run.FinishedAt = null.TimeFrom(now)
 				case pipeline.RunStatusErrored:
 					run.Errors = []null.String{
 						null.StringFrom("Random: String, foo"),
@@ -793,7 +809,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		}, nil).Once()
 	finishedAt := time.Now()
 	tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
-		FinishedAt: &finishedAt,
+		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
 	require.Eventually(t, func() bool { return len(idleDurationOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
@@ -1286,7 +1302,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil).Once()
 		now := time.Now()
 		tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
-			FinishedAt: &now,
+			FinishedAt: null.TimeFrom(now),
 		}, nil)
 
 		fm.ExportedPollIfEligible(0, 0)
@@ -1381,4 +1397,110 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			StartedAt: big.NewInt(0),
 		}, log.NewLogBroadcast(types.Log{}))
 	})
+}
+
+func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
+	t.Parallel()
+
+	store, nodeAddr := setupStoreWithKey(t)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
+	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 1s"))
+
+	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
+
+	const fetchedAnswer = 100
+	answerBigInt := big.NewInt(fetchedAnswer)
+
+	tm.fluxAggregator.On("Address").Return(common.Address{})
+	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
+	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
+
+	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
+
+	expectSubmission := func(roundID uint32, runID int64) {
+		roundState := flux_aggregator_wrapper.OracleRoundState{
+			RoundId:          roundID,
+			EligibleToSubmit: true,
+			LatestSubmission: answerBigInt,
+			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), store.Config.MinimumContractPayment().ToInt()),
+			PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
+			StartedAt:        now(),
+		}
+
+		tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).
+			Return(roundState, nil).
+			Once()
+
+		tm.orm.On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(roundID)).
+			Return(fluxmonitorv2.FluxMonitorRoundStatsV2{Aggregator: contractAddress, RoundID: roundID}, nil).
+			Once()
+
+		tm.fluxAggregator.On("LatestRoundData", nilOpts).
+			Return(flux_aggregator_wrapper.LatestRoundData{
+				Answer:    answerBigInt,
+				UpdatedAt: big.NewInt(100),
+			}, nil).
+			Once()
+
+		tm.pipelineRunner.
+			On("ExecuteRun", context.Background(), pipelineSpec, pipeline.NewVarsFrom(
+				map[string]interface{}{
+					"jobRun": map[string]interface{}{
+						"meta": map[string]interface{}{
+							"latestAnswer": float64(fetchedAnswer),
+							"updatedAt":    float64(100),
+						},
+					},
+					"jobSpec": map[string]interface{}{
+						"databaseID":    int32(0),
+						"externalJobID": uuid.UUID{},
+						"name":          "",
+					},
+				},
+			), defaultLogger).
+			Return(pipeline.Run{}, pipeline.TaskRunResults{
+				{
+					Result: pipeline.Result{
+						Value: decimal.NewFromInt(fetchedAnswer),
+						Error: nil,
+					},
+					Task: &pipeline.HTTPTask{},
+				},
+			}, nil).
+			Once()
+
+		tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(runID, nil).
+			Once()
+		tm.contractSubmitter.
+			On("Submit", mock.Anything, big.NewInt(int64(roundID)), answerBigInt).
+			Return(nil).
+			Once()
+
+		tm.orm.
+			On("UpdateFluxMonitorRoundStats", mock.Anything, contractAddress, roundID, runID).
+			Return(nil).
+			Once()
+	}
+
+	expectSubmission(2, 1)
+	expectSubmission(3, 2)
+	expectSubmission(4, 3)
+
+	// catch remaining drumbeats
+	tm.fluxAggregator.
+		On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).
+		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 4, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}, nil).
+		Maybe()
+
+	fm.Start()
+	defer fm.Close()
+
+	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, 10*time.Second, 10*time.Millisecond)
+	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, 10*time.Second, 10*time.Millisecond)
+	cltest.EventuallyExpectationsMet(t, tm.orm, 10*time.Second, 10*time.Millisecond)
+	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, 10*time.Second, 10*time.Millisecond)
+	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, 10*time.Second, 10*time.Millisecond)
 }

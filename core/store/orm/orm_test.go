@@ -16,12 +16,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1139,7 +1140,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		require.NoError(t, err)
 		db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-		err = orm.BulkDeleteRuns(store.DB, &models.BulkDeleteRunRequest{
+		err = postgres.BulkDeleteRuns(store.DB, &models.BulkDeleteRunRequest{
 			Status:        []models.RunStatus{models.RunStatusCompleted},
 			UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
 		})
@@ -1210,11 +1211,11 @@ func TestORM_RemoveUnstartedTransaction_RemoveByEthTx(t *testing.T) {
 	require.NoError(t, store.DB.Find(&runRequests).Error)
 	assert.Len(t, runRequests, 1, "expected only one RunRequests to be left in the db")
 
-	ethTxes := []models.EthTx{}
+	ethTxes := []bulletprooftxmanager.EthTx{}
 	require.NoError(t, store.DB.Find(&ethTxes).Error)
 	assert.Len(t, ethTxes, 1, "expected only one EthTx to be left in the db")
 
-	ethTxAttempts := []models.EthTxAttempt{}
+	ethTxAttempts := []bulletprooftxmanager.EthTxAttempt{}
 	require.NoError(t, store.DB.Find(&ethTxAttempts).Error)
 	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
 }
@@ -1271,18 +1272,18 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
 	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
-	attempt.State = models.EthTxAttemptBroadcast
+	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, store.DB.Create(&attempt).Error)
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, store, from)
-	tx3.State = models.EthTxUnstarted
+	tx3.State = bulletprooftxmanager.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, store.DB.Save(&tx3).Error)
 
-	count, err := store.CountOf(models.EthTx{})
+	count, err := store.CountOf(bulletprooftxmanager.EthTx{})
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
@@ -1393,7 +1394,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}
-	jobNumber := int(orm.BatchSize*2 + 1)
+	jobNumber := int(postgres.BatchSize*2 + 1)
 	for i := 0; i < jobNumber; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))
@@ -1409,111 +1410,6 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, jobNumber, counter)
-}
-
-func TestORM_Heads_Chain(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	// A competing chain existed from block num 3 to 4
-	var baseOfForkHash common.Hash
-	var longestChainHeadHash common.Hash
-	var parentHash *common.Hash
-	for idx := 0; idx < 8; idx++ {
-		h := *cltest.Head(idx)
-		if parentHash != nil {
-			h.ParentHash = *parentHash
-		}
-		parentHash = &h.Hash
-		if idx == 2 {
-			baseOfForkHash = h.Hash
-		} else if idx == 7 {
-			longestChainHeadHash = h.Hash
-		}
-		assert.Nil(t, store.IdempotentInsertHead(context.TODO(), h))
-	}
-
-	competingHead1 := *cltest.Head(3)
-	competingHead1.ParentHash = baseOfForkHash
-	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), competingHead1))
-	competingHead2 := *cltest.Head(4)
-	competingHead2.ParentHash = competingHead1.Hash
-	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), competingHead2))
-
-	// Query for the top of the longer chain does not include the competing chain
-	h, err := store.Chain(context.TODO(), longestChainHeadHash, 12)
-	require.NoError(t, err)
-	assert.Equal(t, longestChainHeadHash, h.Hash)
-	count := 1
-	for {
-		if h.Parent == nil {
-			break
-		}
-		require.NotEqual(t, competingHead1.Hash, h.Hash)
-		require.NotEqual(t, competingHead2.Hash, h.Hash)
-		h = *h.Parent
-		count++
-	}
-	assert.Equal(t, 8, count)
-
-	// If we set the limit lower we get fewer heads in chain
-	h, err = store.Chain(context.TODO(), longestChainHeadHash, 2)
-	require.NoError(t, err)
-	assert.Equal(t, longestChainHeadHash, h.Hash)
-	count = 1
-	for {
-		if h.Parent == nil {
-			break
-		}
-		h = *h.Parent
-		count++
-	}
-	assert.Equal(t, 2, count)
-
-	// If we query for the top of the competing chain we get its parents
-	head, err := store.Chain(context.TODO(), competingHead2.Hash, 12)
-	require.NoError(t, err)
-	assert.Equal(t, competingHead2.Hash, head.Hash)
-	require.NotNil(t, head.Parent)
-	assert.Equal(t, competingHead1.Hash, head.Parent.Hash)
-	require.NotNil(t, head.Parent.Parent)
-	assert.Equal(t, baseOfForkHash, head.Parent.Parent.Hash)
-	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
-
-	// Returns error if hash has no matches
-	_, err = store.Chain(context.TODO(), cltest.NewHash(), 12)
-	require.Error(t, err)
-
-	t.Run("depth of 0 returns error", func(t *testing.T) {
-		_, err = store.Chain(context.TODO(), longestChainHeadHash, 0)
-		require.EqualError(t, err, "record not found")
-	})
-}
-
-func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	// Returns nil when inserting first head
-	head := *cltest.Head(0)
-	require.NoError(t, store.IdempotentInsertHead(context.TODO(), head))
-
-	// Head is inserted
-	foundHead, err := store.LastHead(context.TODO())
-	require.NoError(t, err)
-	assert.Equal(t, head.Hash, foundHead.Hash)
-
-	// Returns nil when inserting same head again
-	require.NoError(t, store.IdempotentInsertHead(context.TODO(), head))
-
-	// Head is still inserted
-	foundHead, err = store.LastHead(context.TODO())
-	require.NoError(t, err)
-	assert.Equal(t, head.Hash, foundHead.Hash)
 }
 
 func TestORM_EthTaskRunTx(t *testing.T) {
@@ -1549,7 +1445,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
 		assert.Equal(t, encodedPayload, etrt.EthTx.EncodedPayload)
 		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
-		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnstarted, etrt.EthTx.State)
 
 		// Do it again to test idempotence
 		err = store.IdempotentInsertEthTaskRunTx(models.EthTxMeta{TaskRunID: sharedTaskRunID}, fromAddress, toAddress, encodedPayload, gasLimit)

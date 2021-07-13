@@ -16,8 +16,11 @@ before(async () => {
   personas = (await getUsers()).personas;
 
   validatorFactory = await ethers.getContractFactory("CompoundPriceFlaggingValidator", personas.Carol);
-  acFactory = await ethers.getContractFactory("SimpleWriteAccessController", personas.Carol);
-  flagsFactory = await ethers.getContractFactory("Flags", personas.Carol);
+  acFactory = await ethers.getContractFactory(
+    "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
+    personas.Carol,
+  );
+  flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags", personas.Carol);
   aggregatorFactory = await ethers.getContractFactory("MockV3Aggregator", personas.Carol);
   compoundOracleFactory = await ethers.getContractFactory("MockCompoundOracle", personas.Carol);
 });
