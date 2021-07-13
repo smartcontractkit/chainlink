@@ -6,19 +6,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type HeadSaver struct {
 	highestSeenHead *models.Head
-	store           *strpkg.Store
+	orm             *ORM
+	config          Config
 	headMutex       sync.RWMutex
 }
 
-func NewHeadSaver(store *strpkg.Store) *HeadSaver {
+func NewHeadSaver(orm *ORM, config Config) *HeadSaver {
 	return &HeadSaver{
-		store: store,
+		orm:    orm,
+		config: config,
 	}
 }
 
@@ -31,13 +32,13 @@ func (ht *HeadSaver) Save(ctx context.Context, h models.Head) error {
 	}
 	ht.headMutex.Unlock()
 
-	err := ht.store.IdempotentInsertHead(ctx, h)
+	err := ht.orm.IdempotentInsertHead(ctx, h)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
 		return err
 	}
-	return ht.store.TrimOldHeads(ctx, ht.store.Config.EthHeadTrackerHistoryDepth())
+	return ht.orm.TrimOldHeads(ctx, ht.config.EthHeadTrackerHistoryDepth())
 }
 
 // HighestSeenHead returns the block header with the highest number that has been seen, or nil
@@ -53,7 +54,7 @@ func (ht *HeadSaver) HighestSeenHead() *models.Head {
 }
 
 func (ht *HeadSaver) IdempotentInsertHead(ctx context.Context, head models.Head) error {
-	return ht.store.IdempotentInsertHead(ctx, head)
+	return ht.orm.IdempotentInsertHead(ctx, head)
 }
 
 func (ht *HeadSaver) SetHighestSeenHeadFromDB() (*models.Head, error) {
@@ -70,9 +71,13 @@ func (ht *HeadSaver) SetHighestSeenHeadFromDB() (*models.Head, error) {
 
 func (ht *HeadSaver) HighestSeenHeadFromDB() (*models.Head, error) {
 	ctxQuery, _ := postgres.DefaultQueryCtx()
-	return ht.store.LastHead(ctxQuery)
+	return ht.orm.LastHead(ctxQuery)
 }
 
 func (ht *HeadSaver) Chain(ctx context.Context, hash common.Hash, depth uint) (models.Head, error) {
-	return ht.store.Chain(ctx, hash, depth)
+	return ht.orm.Chain(ctx, hash, depth)
+}
+
+func (ht *HeadSaver) HeadByHash(ctx context.Context, hash common.Hash) (*models.Head, error) {
+	return ht.orm.HeadByHash(ctx, hash)
 }

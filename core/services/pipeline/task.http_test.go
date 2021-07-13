@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -160,7 +161,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        "foo",
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(store.Config, store.DB)
+			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)

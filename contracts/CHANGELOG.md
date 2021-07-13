@@ -13,6 +13,7 @@
 - Move Solidity version 0.8.x contracts `ChainlinkClient.sol`, `Chainlink.sol`, `VRFConsumerBase.sol` and `VRFRequestIDBase.sol` from `./src/v0.8/dev/` to `./src/v0.8/`.
 - Updated `FeedRegistryInterface` to use `base` and `quote` parameter names.
 - Move `Denominations` from `./src/<version>/dev/` to `./src/<version>`
+- Move `Operator` and associated contracts (`AuthorizedForwarder`, `AuthorizedReceiver`, `LinkTokenReceiver`, `OperatorFactory`) from `./src/v0.7/dev/` to `./src/v0.7/`.
 
 ## 0.2.0 - 2021-07-01
 

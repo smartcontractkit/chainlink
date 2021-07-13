@@ -225,6 +225,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		}
 
 		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: executer.job.PipelineSpecID,
 			Meta: pipeline.JSONSerializable{
 				Val: map[string]interface{}{"eth_tx_id": etx.ID},
@@ -232,7 +233,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 			Errors:     runErrors,
 			Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
 			CreatedAt:  start,
-			FinishedAt: &f,
+			FinishedAt: null.TimeFrom(f),
 		}, nil, false)
 		if err != nil {
 			return errors.Wrap(err, "UpkeepExecuter: failed to insert finished run")

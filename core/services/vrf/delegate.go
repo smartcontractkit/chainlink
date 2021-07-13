@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	heaps "github.com/theodesp/go-heaps"
+	"github.com/theodesp/go-heaps/pairing"
+
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -105,25 +108,26 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	vorm := keystore.NewVRFORM(d.db)
 
 	logListener := &listener{
-		cfg:             d.cfg,
-		l:               *l,
-		headBroadcaster: d.hb,
-		logBroadcaster:  d.lb,
-		db:              d.db,
-		txm:             d.txm,
-		abi:             abi,
-		coordinator:     coordinator,
-		pipelineRunner:  d.pr,
-		vorm:            vorm,
-		vrfks:           d.ks.VRF(),
-		gethks:          d.ks.Eth(),
-		pipelineORM:     d.porm,
-		job:             jb,
-		reqLogs:         utils.NewMailbox(1000),
-		chStop:          make(chan struct{}),
-		waitOnStop:      make(chan struct{}),
-		newHead:         make(chan struct{}, 1),
-		respCount:       make(map[[32]byte]uint64),
+		cfg:                d.cfg,
+		l:                  *l,
+		headBroadcaster:    d.hb,
+		logBroadcaster:     d.lb,
+		db:                 d.db,
+		txm:                d.txm,
+		abi:                abi,
+		coordinator:        coordinator,
+		pipelineRunner:     d.pr,
+		vorm:               vorm,
+		vrfks:              d.ks.VRF(),
+		gethks:             d.ks.Eth(),
+		pipelineORM:        d.porm,
+		job:                jb,
+		reqLogs:            utils.NewMailbox(1000),
+		chStop:             make(chan struct{}),
+		waitOnStop:         make(chan struct{}),
+		newHead:            make(chan struct{}, 1),
+		respCount:          make(map[[32]byte]uint64),
+		blockNumberToReqID: pairing.New(),
 	}
 	return []job.Service{logListener}, nil
 }
@@ -142,32 +146,33 @@ type request struct {
 type listener struct {
 	utils.StartStopOnce
 
-	cfg             Config
-	l               logger.Logger
-	abi             abi.ABI
-	logBroadcaster  log.Broadcaster
-	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
-	pipelineRunner  pipeline.Runner
-	pipelineORM     pipeline.ORM
-	vorm            keystore.VRFORM
-	job             job.Job
-	db              *gorm.DB
-	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             bulletprooftxmanager.TxManager
-	vrfks           *keystore.VRF
-	gethks          GethKeyStore
-	reqLogs         *utils.Mailbox
-	respCount       map[[32]byte]uint64
-	chStop          chan struct{}
-	waitOnStop      chan struct{}
-	newHead         chan struct{}
+	cfg                Config
+	l                  logger.Logger
+	abi                abi.ABI
+	logBroadcaster     log.Broadcaster
+	coordinator        *solidity_vrf_coordinator_interface.VRFCoordinator
+	pipelineRunner     pipeline.Runner
+	pipelineORM        pipeline.ORM
+	vorm               keystore.VRFORM
+	job                job.Job
+	db                 *gorm.DB
+	headBroadcaster    httypes.HeadBroadcasterRegistry
+	txm                bulletprooftxmanager.TxManager
+	vrfks              *keystore.VRF
+	gethks             GethKeyStore
+	reqLogs            *utils.Mailbox
+	respCount          map[[32]byte]uint64
+	blockNumberToReqID *pairing.PairHeap
+	chStop             chan struct{}
+	waitOnStop         chan struct{}
+	newHead            chan struct{}
+	latestHead         uint64 // Only one writer and one reader, no lock needed
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
-	latestHead uint64
-	reqsMu     sync.Mutex
-	reqs       []request
-	reqAdded   func()
+	reqsMu   sync.Mutex // Both goroutines write to reqs
+	reqs     []request
+	reqAdded func() // A simple debug helper
 }
 
 func (lsn *listener) Connect(head *models.Head) error {
@@ -226,6 +231,59 @@ func (lsn *listener) Start() error {
 	})
 }
 
+// This sorts the pending requests by confirmedAt block number,
+// then removes and returns all the ones later than lsn.latestHead
+// If none are confirmed, it returns an empty slice.
+func (lsn *listener) extractConfirmedLogs() []request {
+	var toProcess []request
+	lsn.reqsMu.Lock()
+	sort.Slice(lsn.reqs, func(i, j int) bool {
+		return lsn.reqs[i].confirmedAtBlock < lsn.reqs[j].confirmedAtBlock
+	})
+	i := sort.Search(len(lsn.reqs), func(i int) bool {
+		return lsn.reqs[i].confirmedAtBlock <= lsn.latestHead
+	})
+	if i < len(lsn.reqs) && lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
+		toProcess = append(toProcess, lsn.reqs[:i+1]...)
+		lsn.reqs = lsn.reqs[i+1:]
+	}
+	lsn.reqsMu.Unlock()
+	return toProcess
+}
+
+type fulfilledReq struct {
+	blockNumber uint64
+	reqID       [32]byte
+}
+
+func (a fulfilledReq) Compare(b heaps.Item) int {
+	a1 := a
+	a2 := b.(fulfilledReq)
+	switch {
+	case a1.blockNumber > a2.blockNumber:
+		return 1
+	case a1.blockNumber < a2.blockNumber:
+		return -1
+	default:
+		return 0
+	}
+}
+
+// Remove all entries 10000 blocks or older
+// to avoid a memory leak.
+func (lsn *listener) pruneConfirmedRequestCounts() {
+	min := lsn.blockNumberToReqID.FindMin()
+	for min != nil {
+		m := min.(fulfilledReq)
+		if m.blockNumber > (lsn.latestHead - 10000) {
+			break
+		}
+		delete(lsn.respCount, m.reqID)
+		lsn.blockNumberToReqID.DeleteMin()
+		min = lsn.blockNumberToReqID.FindMin()
+	}
+}
+
 // Listen for new heads
 func (lsn *listener) runHeadListener(unsubscribe func()) {
 	for {
@@ -234,22 +292,11 @@ func (lsn *listener) runHeadListener(unsubscribe func()) {
 			unsubscribe()
 			lsn.waitOnStop <- struct{}{}
 		case <-lsn.newHead:
-			var toProcess []request
-			lsn.reqsMu.Lock()
-			sort.Slice(lsn.reqs, func(i, j int) bool {
-				return lsn.reqs[i].confirmedAtBlock < lsn.reqs[j].confirmedAtBlock
-			})
-			i := sort.Search(len(lsn.reqs), func(i int) bool {
-				return lsn.reqs[i].confirmedAtBlock <= lsn.latestHead
-			})
-			if i < len(lsn.reqs) && lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
-				toProcess = append(toProcess, lsn.reqs[:i+1]...)
-				lsn.reqs = lsn.reqs[i+1:]
-			}
-			lsn.reqsMu.Unlock()
+			toProcess := lsn.extractConfirmedLogs()
 			for _, r := range toProcess {
 				lsn.ProcessRequest(r.req, r.lb)
 			}
+			lsn.pruneConfirmedRequestCounts()
 		}
 	}
 }
@@ -286,6 +333,10 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 				}
 				if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
 					lsn.respCount[v.RequestId]++
+					lsn.blockNumberToReqID.Insert(fulfilledReq{
+						blockNumber: v.Raw.BlockNumber,
+						reqID:       v.RequestId,
+					})
 					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
 					continue
 				}
@@ -328,7 +379,7 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 	}
 	if lsn.respCount[req.RequestID] > 0 {
 		lsn.l.Warn("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
-			"reqID", req.RequestID,
+			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 	}
 	return req.Raw.BlockNumber + uint64(minConfs)*(1<<lsn.respCount[req.RequestID])
@@ -366,6 +417,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 			// and be able to save errored proof generations. Until then only save
 			// successful runs and log errors.
 			_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: lsn.job.PipelineSpecID,
 				Errors:         []null.String{{}},
 				Outputs: pipeline.JSONSerializable{
@@ -378,7 +430,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 					Val: map[string]interface{}{"eth_tx_id": etx.ID},
 				},
 				CreatedAt:  s,
-				FinishedAt: &f,
+				FinishedAt: null.TimeFrom(f),
 			}, nil, false)
 			if err != nil {
 				return errors.Wrap(err, "VRFListener: failed to insert finished run")
@@ -449,9 +501,10 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 	if err != nil {
 		return inputs, errors.New("unable to parse preseed")
 	}
-	expectedJobID := jb.ExternalIDEncodeStringToTopic()
-	if !bytes.Equal(expectedJobID[:], request.JobID[:]) {
-		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDEncodeStringToTopic().Bytes())
+	strJobID := jb.ExternalIDEncodeStringToTopic()
+	bytesJobID := jb.ExternalIDEncodeBytesToTopic()
+	if !bytes.Equal(bytesJobID[:], request.JobID[:]) && !bytes.Equal(strJobID[:], request.JobID[:]) {
+		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v or %v", request.JobID[:], strJobID, bytesJobID)
 	}
 	return VRFInputs{
 		pk: jb.VRFSpec.PublicKey,
