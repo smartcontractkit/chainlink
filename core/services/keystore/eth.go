@@ -505,7 +505,7 @@ func (ks *Eth) ImportKeyFileToDB(keyPath string) (k ethkey.Key, err error) {
 // loadDBKeys returns a map of all of the keys saved in the database
 // including the funding key.
 func (ks *Eth) loadDBKeys() (keys []ethkey.Key, err error) {
-	err = postgres.DBWithDefaultContext(ks.db, func(db *gorm.DB) error {
+	err = postgres.GormTransactionWithDefaultContext(ks.db, func(db *gorm.DB) error {
 		return db.Order("created_at ASC, address ASC").Where("deleted_at IS NULL").Find(&keys).Error
 	})
 	return

@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"sort"
+	"sync"
 	"time"
+
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -39,7 +42,7 @@ type Delegate struct {
 	porm pipeline.ORM
 	ks   *keystore.Master
 	ec   eth.Client
-	hb httypes.HeadBroadcasterRegistry
+	hb   httypes.HeadBroadcasterRegistry
 	lb   log.Broadcaster
 }
 
@@ -71,7 +74,7 @@ func NewDelegate(
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
-		hb: headBroadcaster,
+		hb:   headBroadcaster,
 		lb:   lb,
 		ec:   ec,
 	}
@@ -102,24 +105,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	vorm := keystore.NewVRFORM(d.db)
 
 	logListener := &listener{
-		cfg:            d.cfg,
-		l:              *l,
+		cfg:             d.cfg,
+		l:               *l,
 		headBroadcaster: d.hb,
-		logBroadcaster: d.lb,
-		db:             d.db,
-		txm:            d.txm,
-		abi:            abi,
-		coordinator:    coordinator,
-		pipelineRunner: d.pr,
-		vorm:           vorm,
-		vrfks:          d.ks.VRF(),
-		gethks:         d.ks.Eth(),
-		pipelineORM:    d.porm,
-		job:            jb,
-		reqLogs:        utils.NewMailbox(1000),
-		chStop:         make(chan struct{}),
-		waitOnStop:     make(chan struct{}),
-		newHead: make(chan struct{}, 1),
+		logBroadcaster:  d.lb,
+		db:              d.db,
+		txm:             d.txm,
+		abi:             abi,
+		coordinator:     coordinator,
+		pipelineRunner:  d.pr,
+		vorm:            vorm,
+		vrfks:           d.ks.VRF(),
+		gethks:          d.ks.Eth(),
+		pipelineORM:     d.porm,
+		job:             jb,
+		reqLogs:         utils.NewMailbox(1000),
+		chStop:          make(chan struct{}),
+		waitOnStop:      make(chan struct{}),
+		newHead:         make(chan struct{}, 1),
 	}
 	return []job.Service{logListener}, nil
 }
@@ -129,7 +132,7 @@ var (
 	_ job.Service  = &listener{}
 )
 
-type pendingRequest struct {
+type request struct {
 	confirmedAtBlock uint64
 	req              *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
 	lb               log.Broadcast
@@ -138,10 +141,10 @@ type pendingRequest struct {
 type listener struct {
 	utils.StartStopOnce
 
-	cfg            Config
-	l              logger.Logger
-	abi            abi.ABI
-	logBroadcaster log.Broadcaster
+	cfg             Config
+	l               logger.Logger
+	abi             abi.ABI
+	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
 	pipelineORM     pipeline.ORM
@@ -153,7 +156,7 @@ type listener struct {
 	vrfks           *keystore.VRF
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
-	respCount 		map[[32]byte]uint64
+	respCount       map[[32]byte]uint64
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
@@ -161,7 +164,9 @@ type listener struct {
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
 	latestHead uint64
-	pendingLogs []pendingRequest
+	reqsMu     sync.Mutex
+	reqs       []request
+	reqAdded   func()
 }
 
 func (lsn *listener) Connect(head *models.Head) error {
@@ -173,7 +178,7 @@ func (lsn *listener) Connect(head *models.Head) error {
 func (lsn *listener) OnNewLongestChain(ctx context.Context, head models.Head) {
 	lsn.latestHead = uint64(head.Number)
 	select {
-	case lsn.newHead<-struct{}{}:
+	case lsn.newHead <- struct{}{}:
 	default:
 	}
 }
@@ -205,7 +210,7 @@ func (lsn *listener) Start() error {
 			// would depend on the order in which their OnNewLongestChain callbacks got called.
 			// We listen one block early so that the log can be stored in pendingRequests
 			// to avoid this.
-			NumConfirmations: uint64(minConfs-1),
+			NumConfirmations: uint64(minConfs - 1),
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
@@ -226,19 +231,24 @@ func (lsn *listener) runHeadListener(unsubscribe func()) {
 		select {
 		case <-lsn.chStop:
 			unsubscribe()
-			lsn.waitOnStop<-struct{}{}
+			lsn.waitOnStop <- struct{}{}
 		case <-lsn.newHead:
-			var remainingLogs []pendingRequest
-			for _, pl := range lsn.pendingLogs {
-				if pl.confirmedAtBlock <= lsn.latestHead {
-					// Note below makes API calls and opens a database transaction
-					// TODO: Batch these requests in a follow up.
-					lsn.ProcessRequest(pl.req, pl.lb)
-				} else {
-					remainingLogs = append(remainingLogs, pl)
-				}
+			var toProcess []request
+			lsn.reqsMu.Lock()
+			sort.Slice(lsn.reqs, func(i, j int) bool {
+				return lsn.reqs[i].confirmedAtBlock < lsn.reqs[j].confirmedAtBlock
+			})
+			i := sort.Search(len(lsn.reqs), func(i int) bool {
+				return lsn.reqs[i].confirmedAtBlock <= lsn.latestHead
+			})
+			if i < len(lsn.reqs) && lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
+				toProcess = append(toProcess, lsn.reqs[:i+1]...)
+				lsn.reqs = lsn.reqs[i+1:]
 			}
-			lsn.pendingLogs = remainingLogs
+			lsn.reqsMu.Unlock()
+			for _, r := range toProcess {
+				lsn.ProcessRequest(r.req, r.lb)
+			}
 		}
 	}
 }
@@ -296,11 +306,14 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 					continue
 				}
 				confirmedAt := lsn.getConfirmedAt(req, minConfs)
-				lsn.pendingLogs = append(lsn.pendingLogs, pendingRequest{
+				lsn.reqsMu.Lock()
+				lsn.reqs = append(lsn.reqs, request{
 					confirmedAtBlock: confirmedAt,
 					req:              req,
 					lb:               lb,
 				})
+				lsn.reqAdded()
+				lsn.reqsMu.Unlock()
 			}
 		}
 	}
@@ -311,9 +324,9 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 	if lsn.respCount[req.RequestID] > 0 {
 		lsn.l.Warn("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
 			"reqID", req.RequestID,
-			"newConfs",  newConfs)
+			"newConfs", newConfs)
 	}
-	return req.Raw.BlockNumber + uint64(minConfs) * (1 << lsn.respCount[req.RequestID])
+	return req.Raw.BlockNumber + uint64(minConfs)*(1<<lsn.respCount[req.RequestID])
 }
 
 func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
@@ -327,7 +340,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 			var from common.Address
 			from, err = lsn.gethks.GetRoundRobinAddress()
 			if err != nil {
-			 	return err
+				return err
 			}
 			etx, err = lsn.txm.CreateEthTransaction(tx,
 				from,
@@ -342,8 +355,8 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 				bulletprooftxmanager.SendEveryStrategy{},
 			)
 			if err != nil {
-					  return err
-					  }
+				return err
+			}
 			// TODO: Once we have eth tasks supported, we can use the pipeline directly
 			// and be able to save errored proof generations. Until then only save
 			// successful runs and log errors.
@@ -363,14 +376,14 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 				FinishedAt: &f,
 			}, nil, false)
 			if err != nil {
-					  return errors.Wrap(err, "VRFListener: failed to insert finished run")
-					  }
+				return errors.Wrap(err, "VRFListener: failed to insert finished run")
+			}
 		}
 		// Always mark consumed regardless of whether the proof failed or not.
 		err = lsn.logBroadcaster.MarkConsumed(tx, lb)
 		if err != nil {
-				  return err
-				  }
+			return err
+		}
 		return nil
 	})
 	if err != nil {

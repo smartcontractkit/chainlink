@@ -206,11 +206,6 @@ func NewJobWithRandomnessLog() models.JobSpec {
 	return j
 }
 
-// NewHash return random Keccak256
-func NewHash() common.Hash {
-	return common.BytesToHash(randomBytes(32))
-}
-
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
@@ -319,8 +314,8 @@ func NewRunLog(
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
-		TxHash:      NewHash(),
-		BlockHash:   NewHash(),
+		TxHash:      utils.NewHash(),
+		BlockHash:   utils.NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
 			jobID,
@@ -338,8 +333,8 @@ func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        rawData,
-		TxHash:      NewHash(),
-		BlockHash:   NewHash(),
+		TxHash:      utils.NewHash(),
+		BlockHash:   utils.NewHash(),
 		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
 	}
 }
@@ -632,7 +627,7 @@ func NewEthTxAttempt(t *testing.T, etxID int64) bulletprooftxmanager.EthTxAttemp
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:        NewHash(),
+		Hash:        utils.NewHash(),
 		State:       bulletprooftxmanager.EthTxAttemptInProgress,
 	}
 }
@@ -659,7 +654,7 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, s *strpkg.Store, fromAddress common.Address, nonce, blockNum int64) (etx bulletprooftxmanager.EthTx) {
 	etx = MustInsertConfirmedEthTxWithAttempt(t, s, nonce, blockNum, fromAddress)
-	MustInsertEthReceipt(t, s, blockNum, NewHash(), etx.EthTxAttempts[0].Hash)
+	MustInsertEthReceipt(t, s, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
 	return etx
 }
 
@@ -744,7 +739,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) ethkey.Key {
 }
 
 func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {
-	h := models.NewHead(big.NewInt(number), NewHash(), NewHash(), 0)
+	h := models.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0)
 	err := store.DB.Create(&h).Error
 	require.NoError(t, err)
 	return h
@@ -934,23 +929,23 @@ func RandomLog(t *testing.T) types.Log {
 
 	topics := make([]common.Hash, 4)
 	for i := range topics {
-		topics[i] = NewHash()
+		topics[i] = utils.NewHash()
 	}
 
 	return types.Log{
 		Address:     NewAddress(),
-		BlockHash:   NewHash(),
+		BlockHash:   utils.NewHash(),
 		BlockNumber: uint64(mathrand.Intn(9999999)),
 		Index:       uint(mathrand.Intn(9999999)),
 		Data:        MustRandomBytes(t, 512),
-		Topics:      []common.Hash{NewHash(), NewHash(), NewHash(), NewHash()},
+		Topics:      []common.Hash{utils.NewHash(), utils.NewHash(), utils.NewHash(), utils.NewHash()},
 	}
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	topics := []common.Hash{topic, NewHash(), NewHash()}
+	topics := []common.Hash{topic, utils.NewHash(), utils.NewHash()}
 	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
 }
 

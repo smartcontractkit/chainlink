@@ -1,13 +1,18 @@
-package vrf_test
+package vrf
 
 import (
 	"bytes"
 	"context"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -22,13 +27,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -36,7 +39,9 @@ import (
 )
 
 type vrfUniverse struct {
-	jpv2      cltest.JobPipelineV2TestHelper
+	jrm       job.ORM
+	pr        pipeline.Runner
+	prm       pipeline.ORM
 	lb        *log_mocks.Broadcaster
 	ec        *eth_mocks.Client
 	ks        *keystore.Master
@@ -46,21 +51,27 @@ type vrfUniverse struct {
 	hb        httypes.HeadBroadcaster
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *gorm.DB, cfg *orm.Config) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
 	hb := headtracker.NewHeadBroadcaster()
 
 	// Don't mock db interactions
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, db, nil, nil)
-	ks := cltest.NewKeyStore(t, db)
-	require.NoError(t, ks.Eth().Unlock(cltest.Password))
-	_, err := ks.Eth().CreateNewKey()
+	eb := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
+	err := eb.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { eb.Close() })
+	prm := pipeline.NewORM(db)
+	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
+	pr := pipeline.NewRunner(prm, cfg, ec, nil)
+	ks := keystore.New(db, utils.FastScryptParams)
+	require.NoError(t, ks.Eth().Unlock("blah"))
+	_, err = ks.Eth().CreateNewKey()
 	require.NoError(t, err)
 	submitter, err := ks.Eth().GetRoundRobinAddress()
 	require.NoError(t, err)
-	_, err = ks.VRF().Unlock(cltest.Password)
+	_, err = ks.VRF().Unlock("blah")
 	require.NoError(t, err)
 	vrfkey, err := ks.VRF().CreateKey()
 	require.NoError(t, err)
@@ -68,14 +79,16 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *cltest.TestConfig) vrfUniverse 
 	t.Cleanup(func() { txm.AssertExpectations(t) })
 
 	return vrfUniverse{
-		jpv2:      jpv2,
+		jrm:       jrm,
+		pr:        pr,
+		prm:       prm,
 		lb:        lb,
 		ec:        ec,
 		ks:        ks,
 		vrfkey:    vrfkey,
 		submitter: submitter,
 		txm:       txm,
-		hb: hb,
+		hb:        hb,
 	}
 }
 
@@ -93,71 +106,68 @@ func generateCallbackReturnValues(t *testing.T) []byte {
 	var args abi.Arguments = []abi.Argument{{Type: callback}}
 	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 		RandomnessFee:   big.NewInt(10),
-		SeedAndBlockNum: cltest.NewHash(),
+		SeedAndBlockNum: utils.NewHash(),
 	})
 	require.NoError(t, err)
 	return b
 }
 
-func setup(t *testing.T) (vrfUniverse, log.Listener, job.Job) {
-	cfg, cfgcleanup := cltest.NewConfig(t)
-	t.Cleanup(cfgcleanup)
-	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
-	t.Cleanup(cleanup)
-	vuni := buildVrfUni(t, store.DB, cfg)
+func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
+	db := pgtest.NewGormDB(t)
+	c := orm.NewConfig()
+	vuni := buildVrfUni(t, db, c)
 
-	vd := vrf.NewDelegate(
-		store.DB,
+	vd := NewDelegate(
+		db,
 		vuni.txm,
 		vuni.ks,
-		vuni.jpv2.Pr,
-		vuni.jpv2.Prm,
+		vuni.pr,
+		vuni.prm,
 		vuni.lb,
 		vuni.hb,
 		vuni.ec,
-		cfg)
+		c)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
 	t.Log(vs)
-	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
+	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	require.NoError(t, vuni.jpv2.Jrm.CreateJob(context.Background(), &jb, pipeline.Pipeline{}))
+	require.NoError(t, vuni.jrm.CreateJob(context.Background(), &jb, pipeline.Pipeline{}))
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
-
-	listener := vl[0]
-	unsubscribeAwaiter := cltest.NewAwaiter()
-	unsubscribe := func() { unsubscribeAwaiter.ItHappened() }
-
-	var logListener log.Listener
-	vuni.lb.On("Register", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		logListener = args.Get(0).(log.Listener)
-	}).Return(unsubscribe)
-	require.NoError(t, listener.Start())
-	require.NoError(t, vuni.hb.Start())
+	listener := vl[0].(*listener)
+	// Start the listener
+	go func() {
+		listener.runLogListener([]func(){}, 6)
+	}()
+	go func() {
+		listener.runHeadListener(func() {})
+	}()
 	t.Cleanup(func() {
-		require.NoError(t, listener.Close())
-		unsubscribeAwaiter.AwaitOrFail(t, 1*time.Second)
-		vuni.Assert(t)
+		listener.chStop <- struct{}{}
+		select {
+		case <-listener.waitOnStop:
+		case <-time.After(1 * time.Second):
+			t.Error("did not clean up properly")
+		}
 	})
-	return vuni, logListener, jb
+	return vuni, listener, jb
 }
 
 func TestDelegate_ReorgAttackProtection(t *testing.T) {
-	// Send it a log of a previously fulfilled request
+	//vuni, listener, jb := setup(t)
+	//TODO
 }
 
 func TestDelegate_ValidLog(t *testing.T) {
-	vuni, logListener, jb := setup(t)
-	txHash := cltest.NewHash()
-	reqID := cltest.NewHash()
+	vuni, listener, jb := setup(t)
+	txHash := utils.NewHash()
+	reqID := utils.NewHash()
 
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	//done := make(chan struct{})
-	a := cltest.NewAwaiter()
+	done := make(chan struct{})
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		//done<- struct{}{}
-		a.ItHappened()
+		done <- struct{}{}
 	}).Return(nil).Once()
 	// Expect a call to check if the req is already fulfilled.
 	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
@@ -171,13 +181,17 @@ func TestDelegate_ValidLog(t *testing.T) {
 	// Send a valid log
 	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
 	require.NoError(t, err)
-	logListener.HandleLog(log.NewLogBroadcast(types.Log{
+	added := make(chan struct{})
+	listener.reqAdded = func() {
+		added <- struct{}{}
+	}
+	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
 			common.BigToHash(big.NewInt(42)).Bytes(), // seed
-			cltest.NewHash().Bytes(), // sender
-			cltest.NewHash().Bytes(), // fee
-			reqID.Bytes()}, []byte{}, // requestID
+			utils.NewHash().Bytes(),                  // sender
+			utils.NewHash().Bytes(),                  // fee
+			reqID.Bytes()}, []byte{},                 // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
@@ -189,14 +203,24 @@ func TestDelegate_ValidLog(t *testing.T) {
 		Index:       0,
 		Removed:     false,
 	}))
-	time.Sleep(1 * time.Second)
-	// Default is 6 confs
-	// Feed it heads until it confirms
-	vuni.hb.OnNewLongestChain(context.Background(), models.Head{Number: 16})
-	a.AwaitOrFail(t)
+
+	// Wait until the log is present
+	select {
+	case <-added:
+	case <-time.After(1 * time.Second):
+		t.FailNow()
+	}
+
+	// Feed it a head which confirms it.
+	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.FailNow()
+	}
 
 	// Ensure we created a successful run.
-	runs, err := vuni.jpv2.Prm.GetAllRuns()
+	runs, err := vuni.prm.GetAllRuns()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(runs))
 	assert.False(t, runs[0].Errors.HasError())
@@ -205,27 +229,33 @@ func TestDelegate_ValidLog(t *testing.T) {
 	_, ok = m["eth_tx_id"]
 	assert.True(t, ok)
 	assert.Len(t, runs[0].PipelineTaskRuns, 0)
+
+	vuni.Assert(t)
 }
 
 func TestDelegate_InvalidLog(t *testing.T) {
-	vuni, logListener, jb := setup(t)
+	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	a := cltest.NewAwaiter()
+	done := make(chan struct{})
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		a.ItHappened()
+		done <- struct{}{}
 	}).Return(nil).Once()
 	// Expect a call to check if the req is already fulfilled.
 	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
 
+	added := make(chan struct{})
+	listener.reqAdded = func() {
+		added <- struct{}{}
+	}
 	// Send a invalid log (keyhash doesnt match)
-	logListener.HandleLog(log.NewLogBroadcast(types.Log{
+	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			cltest.NewHash().Bytes(),                     // key hash
+			utils.NewHash().Bytes(),                      // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
-			cltest.NewHash().Bytes()...), // sender
-			cltest.NewHash().Bytes()...), // fee
-			cltest.NewHash().Bytes()...), // requestID
+			utils.NewHash().Bytes()...), // sender
+			utils.NewHash().Bytes()...), // fee
+			utils.NewHash().Bytes()...), // requestID
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		Address:     common.Address{},
@@ -236,20 +266,28 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		Index:       0,
 		Removed:     false,
 	}))
-	time.Sleep(1 * time.Second)
-	// Default is 6 confs
-	// Feed it heads until it confirms
-	vuni.hb.OnNewLongestChain(context.Background(), models.Head{Number: 16})
-	a.AwaitOrFail(t)
+	// Wait until the log is present
+	select {
+	case <-added:
+	case <-time.After(1 * time.Second):
+		t.FailNow()
+	}
+	// Feed it a head which confirms it.
+	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.FailNow()
+	}
 
 	// Ensure we have not created a run.
-	runs, err := vuni.jpv2.Prm.GetAllRuns()
+	runs, err := vuni.prm.GetAllRuns()
 	require.NoError(t, err)
 	require.Equal(t, len(runs), 0)
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx
-	err = vuni.jpv2.Prm.DB().Find(&ethTxes).Error
+	err = vuni.prm.DB().Find(&ethTxes).Error
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }
