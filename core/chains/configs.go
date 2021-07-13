@@ -225,7 +225,7 @@ func setConfigs() {
 	avalancheFuji.OCRContractConfirmations = 1
 
 	avalancheMainnet := FallbackConfig
-	avalancheMainnet.LinkContractAddress = "" // TBD
+	avalancheMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6" // TBD
 	avalancheMainnet.EthFinalityDepth = 1
 	avalancheMainnet.GasUpdaterBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on avalanche
 	avalancheMainnet.GasUpdaterEnabled = false
