@@ -22,11 +22,6 @@ func (s *SendError) Error() string {
 	return s.err.Error()
 }
 
-func (s *SendError) StrPtr() *string {
-	e := s.err.Error()
-	return &e
-}
-
 // Fatal indicates whether the error should be considered fatal or not
 // Fatal errors mean that no matter how many times the send is retried, no node
 // will ever accept it

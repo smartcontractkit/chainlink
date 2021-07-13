@@ -355,8 +355,8 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		require.NoError(t, uni.tracker.Close())
 
-		eventuallyCloseHeadBroadcaster.AssertHappened(t)
-		eventuallyCloseLogBroadcaster.AssertHappened(t)
+		eventuallyCloseHeadBroadcaster.AssertHappened(t, true)
+		eventuallyCloseLogBroadcaster.AssertHappened(t, true)
 	})
 }
 

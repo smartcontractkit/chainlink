@@ -45,6 +45,7 @@ const (
 	PollRequestTypeHibernation
 	PollRequestTypeRetry
 	PollRequestTypeAwaken
+	PollRequestTypeDrumbeat
 )
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
@@ -208,18 +209,23 @@ func NewFromJobSpec(
 		),
 	)
 
-	pollManager := NewPollManager(
+	pollManager, err := NewPollManager(
 		PollManagerConfig{
 			PollTickerInterval:      fmSpec.PollTimerPeriod,
 			PollTickerDisabled:      fmSpec.PollTimerDisabled,
 			IdleTimerPeriod:         fmSpec.IdleTimerPeriod,
 			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
+			DrumbeatSchedule:        fmSpec.DrumbeatSchedule,
+			DrumbeatEnabled:         fmSpec.DrumbeatEnabled,
 			HibernationPollPeriod:   24 * time.Hour, // Not currently configurable
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
 		fmLogger,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	return NewFluxMonitor(
 		pipelineRunner,
@@ -417,6 +423,11 @@ func (fm *FluxMonitor) consume() {
 		case <-fm.pollManager.RetryTickerTicks():
 			tickLogger.Debug("Retry ticker fired")
 			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(), nil)
+
+		case <-fm.pollManager.DrumbeatTicks():
+			tickLogger.Debug("Drumbeat ticker fired")
+			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(), nil)
+
 		case request := <-fm.pollManager.Poll():
 			switch request.Type {
 			case PollRequestTypeUnknown:

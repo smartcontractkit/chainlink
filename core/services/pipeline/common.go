@@ -13,6 +13,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -90,25 +91,6 @@ type FinalResult struct {
 	Errors []error
 }
 
-// OutputsDB dumps a result output for a pipeline_run
-func (result FinalResult) OutputsDB() JSONSerializable {
-	return JSONSerializable{Val: result.Values, Null: false}
-}
-
-// ErrorsDB dumps a result error for a pipeline_run
-func (result FinalResult) ErrorsDB() RunErrors {
-	errStrs := make([]null.String, len(result.Errors))
-	for i, err := range result.Errors {
-		if err == nil {
-			errStrs[i] = null.String{}
-		} else {
-			errStrs[i] = null.StringFrom(err.Error())
-		}
-	}
-
-	return errStrs
-}
-
 // HasErrors returns true if the final result has any errors
 func (result FinalResult) HasErrors() bool {
 	for _, err := range result.Errors {
@@ -132,12 +114,16 @@ func (result FinalResult) SingularResult() (Result, error) {
 // ID might be zero if the TaskRun has not been inserted yet
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
-	ID         int64
+	ID         uuid.UUID
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
 	CreatedAt  time.Time
-	FinishedAt time.Time
+	FinishedAt null.Time
+}
+
+func (result *TaskRunResult) IsPending() bool {
+	return !result.FinishedAt.Valid && result.Result == Result{}
 }
 
 func (result *TaskRunResult) IsTerminal() bool {
@@ -216,6 +202,10 @@ func (js JSONSerializable) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return js.MarshalJSON()
+}
+
+func (js *JSONSerializable) Empty() bool {
+	return js == nil || js.Null
 }
 
 type TaskType string
