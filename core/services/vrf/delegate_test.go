@@ -259,10 +259,7 @@ func TestConfirmedLogExtraction(t *testing.T) {
 	assert.Equal(t, 3, len(lsn.reqs)) // All pending
 	lsn.latestHead = 2
 	logs = lsn.extractConfirmedLogs()
-	assert.Equal(t, 2, len(logs)) // 1 and 2 should be confirmed
-	// They should also be sorted
-	assert.Equal(t, uint64(1), logs[0].confirmedAtBlock)
-	assert.Equal(t, uint64(2), logs[1].confirmedAtBlock)
+	assert.Equal(t, 2, len(logs))     // 1 and 2 should be confirmed
 	assert.Equal(t, 1, len(lsn.reqs)) // 3 is still pending
 	assert.Equal(t, uint64(3), lsn.reqs[0].confirmedAtBlock)
 	// Another block way in the future should clear it
