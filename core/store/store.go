@@ -84,6 +84,17 @@ func newStore(
 
 // Start initiates all of Store's dependencies
 func (s *Store) Start() error {
+	return checkV1JobSpecs(s.DB)
+}
+
+func checkV1JobSpecs(db *gorm.DB) error {
+	var count int
+	if err := db.Raw(`SELECT count(*) FROM job_specs`).Scan(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		logger.Warnf(`Found %d legacy job_specs. The JSON style of job spec is now deprecated and support for jobs using this format will be REMOVED in an upcoming release. You should migrate all these jobs to V2 (TOML) format. For help doing this, please contact our node operator support team. To test your node to see how it would behave after support for these jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false`, count)
+	}
 	return nil
 }
 
