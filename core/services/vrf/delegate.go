@@ -149,20 +149,19 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("vrf.Delegate unable to read previous fulfillments", "err", err)
 		return respCounts
-	} else {
-		for _, c := range counts {
-			// Remove the quotes from the json
-			req := strings.Replace(c.RequestID, `"`, ``, 2)
-			// Remove the 0x prefix
-			b, err := hex.DecodeString(req[2:])
-			if err != nil {
-				l.Errorw("vrf.Delegate unable to read fulfillment", "err", err, "reqID", c.RequestID)
-				continue
-			}
-			var reqID [32]byte
-			copy(reqID[:], b[:])
-			respCounts[reqID] = uint64(c.Count)
+	}
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			l.Errorw("vrf.Delegate unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
 		}
+		var reqID [32]byte
+		copy(reqID[:], b[:])
+		respCounts[reqID] = uint64(c.Count)
 	}
 	return respCounts
 }
