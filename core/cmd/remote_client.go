@@ -113,21 +113,19 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	return err
 }
 
-// ReplayBlocks replays blocks from the given number
-func (cli *Client) ReplayBlocks(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in a block number"))
+// ReplayFromBlock replays chain data from the given block number until the most recent
+func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
+
+	blockNumber := c.Int64("block-number")
+	if blockNumber <= 0 {
+		return cli.errorOut(errors.New("Must pass in a positive block number"))
 	}
 
 	buf := bytes.NewBufferString("{}")
 
-	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/replay_from_block/%s", c.Args().First()), buf)
+	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/replay_from_block/%v", blockNumber), buf)
 	if err != nil {
 		return cli.errorOut(err)
-	}
-
-	if resp.StatusCode != http.StatusNoContent {
-		return cli.errorOut(errors.Errorf("Unexpected status code: %v", resp.Status))
 	}
 
 	defer func() {
@@ -136,7 +134,16 @@ func (cli *Client) ReplayBlocks(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	return nil
+	if resp.StatusCode != http.StatusOK {
+		bytes, err := cli.parseResponse(resp)
+		if err != nil {
+			return errors.Wrap(err, "parseResponse error")
+		}
+		return cli.errorOut(errors.New(string(bytes)))
+	}
+
+	err = cli.printResponseBody(resp)
+	return err
 }
 
 // ShowJobRun returns the status of the given Jobrun.

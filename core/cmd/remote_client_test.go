@@ -187,10 +187,10 @@ func TestClient_ReplayBlocks(t *testing.T) {
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"42"})
+	set := flag.NewFlagSet("flagset", 0)
+	set.Int64("block-number", 42, "")
 	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ReplayBlocks(c))
+	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
 func TestClient_IndexJobRuns(t *testing.T) {

@@ -89,8 +89,8 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
-	// ReplayBlocks of blocks
-	ReplayFromBlockNumber(number uint64) error
+	// ReplayFromBlock of blocks
+	ReplayFromBlock(number uint64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -744,7 +744,7 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
 }
 
-func (app *ChainlinkApplication) ReplayFromBlockNumber(number uint64) error {
+func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
 
 	app.LogBroadcaster.ReplayFrom(int64(number))
 
