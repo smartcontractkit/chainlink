@@ -6,7 +6,7 @@ import (
 
 const up46 = `
     ALTER TABLE flux_monitor_specs ADD COLUMN drumbeat_enabled boolean NOT NULL DEFAULT false;
-    ALTER TABLE flux_monitor_specs ADD COLUMN drumbeat_schedule text NOT NULL;
+    ALTER TABLE flux_monitor_specs ADD COLUMN drumbeat_schedule text;
 `
 
 const down46 = `
