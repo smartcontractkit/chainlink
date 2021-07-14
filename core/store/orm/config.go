@@ -281,6 +281,11 @@ func (c Config) BlockBackfillDepth() uint64 {
 	return c.getWithFallback("BlockBackfillDepth", parseUint64).(uint64)
 }
 
+// BlockBackfillMode specifies the behavior of backfills
+func (c Config) BlockBackfillMode() string {
+	return c.viper.GetString(EnvVarName("BlockBackfillMode"))
+}
+
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c Config) BridgeResponseURL() *url.URL {
 	return c.getWithFallback("BridgeResponseURL", parseURL).(*url.URL)
