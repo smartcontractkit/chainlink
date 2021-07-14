@@ -6,6 +6,7 @@ import TokenBalanceCard from 'components/Cards/TokenBalance'
 import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
 import Content from 'components/Content'
+import Paper from '@material-ui/core/Paper'
 import {
   fetchRecentJobRuns,
   fetchRecentlyCreatedJobs,
@@ -50,6 +51,7 @@ export const Index = ({
   return (
     <Content>
       <Grid container>
+        {recentlyCreatedJobs && recentlyCreatedJobs.length > 0 ? <Grid item xs={12}> <Paper><h1>WARNING: Found legacy job_specs. The JSON style of job spec is now deprecated and support for jobs using this format will be REMOVED in an upcoming release. You should migrate all these jobs to V2 (TOML) format. For help doing this, please contact our node operator support team. To test your node to see how it would behave after support for these jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false</h1></Paper> </Grid> : null}
         <Grid item xs={9}>
           <Activity
             runs={recentJobRuns}
