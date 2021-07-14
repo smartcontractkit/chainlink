@@ -186,7 +186,7 @@ func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 
 func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) {
 	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinator.GetCallback(nil, req.PreSeedAndRequestId)
+	callback, err := lsn.coordinator.GetCallbackHash(nil, req.PreSeedAndRequestId)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback[:]) {

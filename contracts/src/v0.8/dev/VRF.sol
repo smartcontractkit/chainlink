@@ -212,6 +212,8 @@ contract VRF {
         p[0] = fieldHash(b);
         p[1] = squareRoot(ySquared(p[0]));
         if (p[1] % 2 == 1) {
+            // Note that 0 <= p[1] < FIELD_SIZE
+            // so this cannot wrap.
             p[1] = FIELD_SIZE - p[1];
         }
     }
@@ -267,7 +269,7 @@ contract VRF {
         address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
         // Note that we want the bottom 20 bytes, byte bytes20 normally takes the top 20
         // so we need to shift first.
-        address expected = address(bytes20(keccak256(abi.encodePacked(product))<<8*12));
+        address expected = address(uint160(uint256(keccak256(abi.encodePacked(product)))));
         return (actual == expected);
     }
 
@@ -275,6 +277,8 @@ contract VRF {
     function projectiveSub(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     internal pure returns(uint256 x3, uint256 z3) {
         uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
+        // This subtraction is safe since its of the form
+        // X - (Y % X). 0 <= x2 < FIELD_SIZE
         uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
         (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
     }
@@ -327,12 +331,14 @@ contract VRF {
 
         // We only need the "point addition" equations from Hankerson et al. Can
         // skip the "point doubling" equations because p1 == p2 is cryptographically
-        // impossible, and require'd not to be the case in linearCombination.
+        // impossible, and required not to be the case in linearCombination.
 
         // Add extra "projective coordinate" to the two points
         (uint256 z1, uint256 z2) = (1, 1);
 
         // (lx, lz) = (qy-py)/(qx-px), i.e., gradient of secant line.
+        // This subtraction is safe since its of the form
+        // X - (Y % X). 0 <= (px, py) < FIELD_SIZE
         uint256 lx = addmod(qy, FIELD_SIZE - py, FIELD_SIZE);
         uint256 lz = addmod(qx, FIELD_SIZE - px, FIELD_SIZE);
 
@@ -385,6 +391,8 @@ contract VRF {
         // Rule out ecrecover failure modes which return address 0.
         require(lcWitness != address(0), "bad witness");
         uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
+        // This subtraction is safe since its of the form
+        // X - (Y % X).
         bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER)); // -s*p[0]
         bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER)); // c*p[0]
         // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9

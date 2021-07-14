@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/BlockHashStoreInterface.sol";
+import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
@@ -14,12 +14,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
-  BlockHashStoreInterface public immutable BLOCKHASH_STORE;
+  BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
   error InsufficientBalance();
   error InvalidConsumer(address consumer);
   error InvalidSubscription();
   error MustBeSubOwner(address owner);
+  // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
   struct Subscription {
     uint96 balance; // Common link balance used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub
@@ -33,7 +34,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   event SubscriptionFundsWithdrawn(uint64 subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionCanceled(uint64 subId, address to, uint256 amount);
 
-  error RequestBlockConfsTooLow(uint64 have, uint64 want);
+  // Set this maximum to 200 to give us a 56 block window to fulfill
+  // the request before requiring the block hash feeder.
+  uint16 constant MAX_REQUEST_CONFIRMATIONS = 200;
+  error InvalidRequestBlockConfs(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error KeyHashAlreadyRegistered(bytes32 keyHash);
   error InvalidFeedResponse(int256 linkWei);
@@ -41,7 +45,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidProofLength(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
-  error BlockHashNotInStore(uint256 blockNum);
+  error BlockhashNotInStore(uint256 blockNum);
   // Just to relieve stack pressure
   struct FulfillmentParams {
     uint64 subId;
@@ -70,16 +74,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   );
 
   struct Config {
-    // Gas to cover oracle payment after we calculate the payment.
-    // We make it configurable in case those operations are repriced.
     uint16 minimumRequestBlockConfirmations;
     uint32 maxGasLimit;
     // stalenessSeconds is how long before we consider the feed price to be stale
-    // and fallback to fallbackLinkPrice.
+    // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
+    // Gas to cover oracle payment after we calculate the payment.
+    // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
     uint96 minimumSubscriptionBalance;
-    int256 fallbackLinkPrice;
+    int256 fallbackWeiPerUnitLink;
   }
   Config private s_config;
   event ConfigSet(
@@ -88,19 +92,19 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     uint96 minimumSubscriptionBalance,
-    int256 fallbackLinkPrice
+    int256 fallbackWeiPerUnitLink
   );
 
   constructor(
     address link,
-    address blockHashStore,
+    address blockhashStore,
     address linkEthFeed
   )
     ConfirmedOwner(msg.sender)
   {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    BLOCKHASH_STORE = BlockHashStoreInterface(blockHashStore);
+    BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
   }
 
   function registerProvingKey(
@@ -140,7 +144,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     uint96 minimumSubscriptionBalance,
-    int256 fallbackLinkPrice
+    int256 fallbackWeiPerUnitLink
   )
     external
     onlyOwner()
@@ -151,7 +155,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       minimumSubscriptionBalance: minimumSubscriptionBalance,
-      fallbackLinkPrice: fallbackLinkPrice
+      fallbackWeiPerUnitLink: fallbackWeiPerUnitLink
     });
     emit ConfigSet(
       minimumRequestBlockConfirmations,
@@ -159,7 +163,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       stalenessSeconds,
       gasAfterPaymentCalculation,
       minimumSubscriptionBalance,
-      fallbackLinkPrice
+      fallbackWeiPerUnitLink
     );
   }
 
@@ -175,7 +179,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation,
       uint96 minimumSubscriptionBalance,
-      int256 fallbackLinkPrice
+      int256 fallbackWeiPerUnitLink
     )
   {
     Config memory config = s_config;
@@ -185,7 +189,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       config.stalenessSeconds,
       config.gasAfterPaymentCalculation,
       config.minimumSubscriptionBalance,
-      config.fallbackLinkPrice
+      config.fallbackWeiPerUnitLink
     );
   }
 
@@ -195,7 +199,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   function requestRandomWords(
     bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
     uint64  subId,
-    uint16  minimumRequestConfirmations,
+    uint16  requestConfirmations,
     uint32  callbackGasLimit,
     uint32  numWords,  // Desired number of random words
     uint32  consumerId // Index into consumers to avoid SLOADing all the consumers
@@ -217,8 +221,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InvalidConsumer(msg.sender);
     }
     // Input validation using the config storage word.
-    if (minimumRequestConfirmations < s_config.minimumRequestBlockConfirmations) {
-      revert RequestBlockConfsTooLow(minimumRequestConfirmations, s_config.minimumRequestBlockConfirmations);
+    if (requestConfirmations < s_config.minimumRequestBlockConfirmations || requestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
+      revert InvalidRequestBlockConfs(requestConfirmations, s_config.minimumRequestBlockConfirmations, MAX_REQUEST_CONFIRMATIONS);
     }
     if (s_subscriptions[subId].balance < s_config.minimumSubscriptionBalance) {
       revert InsufficientBalance();
@@ -239,14 +243,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         callbackGasLimit,
         numWords,
         msg.sender));
-    emit RandomWordsRequested(keyHash, preSeedAndRequestId, subId, minimumRequestConfirmations, callbackGasLimit, numWords, msg.sender);
+    emit RandomWordsRequested(keyHash, preSeedAndRequestId, subId, requestConfirmations, callbackGasLimit, numWords, msg.sender);
     s_nonces[keyHash][msg.sender] = nonce;
 
     return preSeedAndRequestId;
   }
 
-  function getCallback(
-      uint256 requestId
+  function getCallbackHash(
+    uint256 requestId
   )
     external
     view
@@ -262,7 +266,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // Public key. Skips byte array's length prefix.
   uint256 public constant PUBLIC_KEY_OFFSET = 0x20;
   // Seed is 7th word in proof, plus word for length, (6+1)*0x20=0xe0
-  uint256 public constant PRESEED_OFFSET = 0xe0;
+  uint256 public constant PRESEED_OFFSET = 7*0x20;
 
   function fulfillRandomWords(
     bytes memory proof
@@ -320,7 +324,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (weiPerUnitLink < 0) {
       revert InvalidFeedResponse(weiPerUnitLink);
     }
-    // (1e18 jules/link) (wei/gas * gas) / (wei/link) = jules
+    // (1e18 juels/link) (wei/gas * gas) / (wei/link) = jules
     return uint96(1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / uint256(weiPerUnitLink));
   }
 
@@ -381,7 +385,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (blockHash == bytes32(0)) {
       blockHash = BLOCKHASH_STORE.getBlockhash(blockNum);
       if (blockHash == bytes32(0)) {
-        revert BlockHashNotInStore(blockNum);
+        revert BlockhashNotInStore(blockNum);
       }
     }
     // The seed actually used by the VRF machinery, mixing in the blockhash
@@ -398,18 +402,18 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     private
     view
     returns (
-        int256
+      int256
     )
   {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
-    int256 linkEth;
-    (,linkEth,,timestamp,) = LINK_ETH_FEED.latestRoundData();
+    int256 weiPerUnitLink;
+    (,weiPerUnitLink,,timestamp,) = LINK_ETH_FEED.latestRoundData();
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
-      linkEth = s_config.fallbackLinkPrice;
+      weiPerUnitLink = s_config.fallbackWeiPerUnitLink;
     }
-    return linkEth;
+    return weiPerUnitLink;
   }
 
   function withdraw(
@@ -422,7 +426,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
-    assert(LINK.transfer(recipient, amount));
+    if (!LINK.transfer(recipient, amount)) {
+      revert InsufficientBalance();
+    }
   }
 
   function getSubscription(
@@ -431,10 +437,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
     view
     returns (
-      Subscription memory
+      uint96 balance,
+      address owner,
+      address[] memory consumers
     )
   {
-    return s_subscriptions[subId];
+    return (
+      s_subscriptions[subId].balance,
+      s_subscriptions[subId].owner,
+      s_subscriptions[subId].consumers
+    );
   }
 
   function createSubscription(
@@ -453,6 +465,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     });
     emit SubscriptionCreated(currentSubId, msg.sender, consumers);
     return currentSubId;
+  }
+
+  function changeSubscriptionOwner(
+    uint64 subId,
+    address newOwner
+  )
+    external
+    onlySubOwner(subId)
+  {
+    s_subscriptions[subId].owner = newOwner;
   }
 
   function updateSubscription(
@@ -479,11 +501,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance += amount;
-    LINK.transferFrom(msg.sender, address(this), amount);
+    if (!LINK.transferFrom(msg.sender, address(this), amount)) {
+      revert InsufficientBalance();
+    }
     emit SubscriptionFundsAdded(subId, oldBalance, oldBalance+amount);
   }
 
-  function withdrawFromSubscription(
+  function defundSubscription(
     uint64 subId,
     address to,
     uint96 amount
@@ -496,7 +520,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance -= amount;
-    LINK.transfer(to, amount);
+    if (!LINK.transfer(to, amount)) {
+      revert InsufficientBalance();
+    }
     emit SubscriptionFundsWithdrawn(subId, oldBalance, s_subscriptions[subId].balance);
   }
 
@@ -511,7 +537,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     uint256 balance = s_subscriptions[subId].balance;
     delete s_subscriptions[subId];
-    LINK.transfer(to, balance);
+    if (!LINK.transfer(to, balance)) {
+      revert InsufficientBalance();
+    }
     emit SubscriptionCanceled(subId, to, balance);
   }
 
@@ -533,7 +561,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     virtual
     override
     returns (
-        string memory
+      string memory
     )
   {
     return "VRFCoordinatorV2 1.0.0";

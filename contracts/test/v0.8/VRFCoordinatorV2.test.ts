@@ -18,7 +18,7 @@ describe("VRFCoordinatorV2", () => {
     maxGasLimit: number;
     stalenessSeconds: number;
     gasAfterPaymentCalculation: number;
-    fallbackLinkPrice: BigNumber;
+    weiPerUnitLink: BigNumber;
     minimumSubscriptionBalance: BigNumber;
   };
   let c: config;
@@ -48,7 +48,7 @@ describe("VRFCoordinatorV2", () => {
       maxGasLimit: 1000000,
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
-      fallbackLinkPrice: BigNumber.from("10000000000000000"),
+      weiPerUnitLink: BigNumber.from("10000000000000000"),
       minimumSubscriptionBalance: BigNumber.from("100000000000000000"), // 0.1 link
     };
     await vrfCoordinatorV2
@@ -58,7 +58,7 @@ describe("VRFCoordinatorV2", () => {
         c.maxGasLimit,
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
-        c.fallbackLinkPrice,
+        c.weiPerUnitLink,
         c.minimumSubscriptionBalance,
       );
   });
@@ -72,7 +72,7 @@ describe("VRFCoordinatorV2", () => {
           c.maxGasLimit,
           c.stalenessSeconds,
           c.gasAfterPaymentCalculation,
-          c.fallbackLinkPrice,
+          c.weiPerUnitLink,
           c.minimumSubscriptionBalance,
         ),
     ).to.be.revertedWith("Only callable by owner");
@@ -82,7 +82,7 @@ describe("VRFCoordinatorV2", () => {
     assert(resp[1] == c.maxGasLimit);
     assert(resp[2] == c.stalenessSeconds);
     assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString());
-    assert(resp[4].toString() == c.fallbackLinkPrice.toString());
+    assert(resp[4].toString() == c.weiPerUnitLink.toString());
   });
 
   it("subscription lifecycle", async function () {
@@ -111,17 +111,14 @@ describe("VRFCoordinatorV2", () => {
     await expect(
       vrfCoordinatorV2
         .connect(random)
-        .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("1000000000000000000")),
+        .defundSubscription(subId, await random.getAddress(), BigNumber.from("1000000000000000000")),
     ).to.be.revertedWith(`MustBeSubOwner("${await subOwner.getAddress()}")`);
 
     // Withdraw from the subscription
     await expect(
-      vrfCoordinatorV2
-        .connect(subOwner)
-        .withdrawFromSubscription(subId, await random.getAddress(), BigNumber.from("100")),
-    )
-      .to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn")
-      .withArgs(subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900"));
+      vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, await random.getAddress(), BigNumber.from("100")),
+    ).to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn")
+     .withArgs(subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900"));
     const randomBalance = await linkToken.balanceOf(await random.getAddress());
     assert.equal(randomBalance.toString(), "100");
 
@@ -200,7 +197,7 @@ describe("VRFCoordinatorV2", () => {
         1, // numWords
         0,
       ),
-    ).to.be.revertedWith("RequestBlockConfsTooLow(0, 1)");
+    ).to.be.revertedWith("InvalidRequestBlockConfs(0, 1, 200)");
 
     // SubId must be valid
     await expect(
