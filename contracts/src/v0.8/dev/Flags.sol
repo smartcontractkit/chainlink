@@ -68,7 +68,9 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
    * @return A true value indicates that a flag was raised and a
    * false value indicates that no flag was raised.
    */
-  function getFlag(address subject)
+  function getFlag(
+    address subject
+  )
     external
     view
     override
@@ -84,7 +86,9 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
    * @return An array of bools where a true value for any flag indicates that
    * a flag was raised and a false value indicates that no flag was raised.
    */
-  function getFlags(address[] calldata subjects)
+  function getFlags(
+    address[] calldata subjects
+  )
     external
     view
     override
@@ -104,7 +108,9 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
    * who always has access.
    * @param subject The contract address whose flag is being raised
    */
-  function raiseFlag(address subject)
+  function raiseFlag(
+    address subject
+  )
     external
     override
   {
@@ -119,7 +125,9 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
    * who always has access.
    * @param subjects List of the contract addresses whose flag is being raised
    */
-  function raiseFlags(address[] calldata subjects)
+  function raiseFlags(
+    address[] calldata subjects
+  )
     external
     override
   {
@@ -136,16 +144,15 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
    * who always has access.
    * @param subject The contract address whose flag is being lowered
    */
-  function lowerFlag(address subject)
+  function lowerFlag(
+    address subject
+  )
     external
     override
   {
     require(allowedToLowerFlags(), "Not allowed to lower flags");
 
-    if (flags[subject]) {
-      flags[subject] = false;
-      emit FlagLowered(subject);
-    }
+    tryToLowerFlag(subject);
   }
 
   /**
@@ -154,7 +161,9 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
    * who always has access.
    * @param subjects List of the contract addresses whose flag is being lowered
    */
-  function lowerFlags(address[] calldata subjects)
+  function lowerFlags(
+    address[] calldata subjects
+  )
     external
     override
   {
@@ -163,10 +172,7 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
     for (uint256 i = 0; i < subjects.length; i++) {
       address subject = subjects[i];
 
-      if (flags[subject]) {
-        flags[subject] = false;
-        emit FlagLowered(subject);
-      }
+      tryToLowerFlag(subject);
     }
   }
 
@@ -232,6 +238,15 @@ contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionI
     if (!flags[subject]) {
       flags[subject] = true;
       emit FlagRaised(subject);
+    }
+  }
+
+  function tryToLowerFlag(address subject)
+    private
+  {
+    if (flags[subject]) {
+      flags[subject] = false;
+      emit FlagLowered(subject);
     }
   }
 
