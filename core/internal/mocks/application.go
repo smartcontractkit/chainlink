@@ -381,8 +381,8 @@ func (_m *Application) PipelineORM() pipeline.ORM {
 	return r0
 }
 
-// ReplayFromBlockNumber provides a mock function with given fields: number
-func (_m *Application) ReplayFromBlockNumber(number uint64) error {
+// ReplayFromBlock provides a mock function with given fields: number
+func (_m *Application) ReplayFromBlock(number uint64) error {
 	ret := _m.Called(number)
 
 	var r0 error

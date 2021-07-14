@@ -101,11 +101,11 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "replay",
-					Usage:  "Replays blocks from the given number",
-					Action: client.ReplayBlocks,
+					Usage:  "Replays block data from the given number",
+					Action: client.ReplayFromBlock,
 					Flags: []cli.Flag{
 						cli.IntFlag{
-							Name:  "number",
+							Name:  "block-number",
 							Usage: "Block number to replay from",
 						},
 					},

@@ -13,10 +13,10 @@ type ReplayController struct {
 	App chainlink.Application
 }
 
-// ReplayBlocks causes the node to process blocks again from the given block number
+// ReplayFromBlock causes the node to process blocks again from the given block number
 // Example:
-//  "<application>/replay_blocks"
-func (bdc *ReplayController) ReplayBlocks(c *gin.Context) {
+//  "<application>/v2/replay_from_block/:number"
+func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 
 	if c.Param("number") == "" {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))
@@ -32,10 +32,33 @@ func (bdc *ReplayController) ReplayBlocks(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("block number cannot be negative: %v", blockNumber))
 		return
 	}
-	if err := bdc.App.ReplayFromBlockNumber(uint64(blockNumber)); err != nil {
+	if err := bdc.App.ReplayFromBlock(uint64(blockNumber)); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, nil, "nil", http.StatusNoContent)
+	response := ReplayResponse{
+		Message: "Replay started",
+	}
+	jsonAPIResponse(c, &response, "response")
+}
+
+type ReplayResponse struct {
+	Message string `json:"message"`
+}
+
+// GetID returns the jsonapi ID.
+func (s ReplayResponse) GetID() string {
+	return "replayID"
+}
+
+// GetName returns the collection name for jsonapi.
+func (ReplayResponse) GetName() string {
+	return "replay"
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (*ReplayResponse) SetID(string) error {
+	return nil
 }
