@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
@@ -14,7 +14,9 @@
     "compile": "hardhat compile",
     "lint:sol": "solhint -f table ./src/**/**/*.sol",
     "setup": "yarn compile",
-    "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder"
+    "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder",
+    "publish-beta": "yarn publish --tag beta",
+    "publish-prod": "yarn publish"
   },
   "files": [
     "src/",
