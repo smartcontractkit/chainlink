@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -209,8 +208,12 @@ type listener struct {
 	reqAdded func() // A simple debug helper
 
 	// Data structures for reorg attack protection
-	respCountMu        sync.Mutex
-	respCount          map[[32]byte]uint64
+	// We want a map so we can do an O(1) count update every fulfillment log we get.
+	respCountMu sync.Mutex
+	respCount   map[[32]byte]uint64
+	// This auxiliary heap is to used when we need to purge the
+	// respCount map - we repeatedly want remove the minimum log.
+	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
 }
 
@@ -270,34 +273,20 @@ func (lsn *listener) Start() error {
 	})
 }
 
-// This sorts the pending requests by confirmedAt block number,
-// then removes and returns all the ones later than lsn.latestHead
-// If none are confirmed, it returns an empty slice.
+// Removes and returns all the confirmed logs from
+// the pending queue.
 func (lsn *listener) extractConfirmedLogs() []request {
-	var toProcess []request
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
-	// No logs to process, return
-	if len(lsn.reqs) == 0 {
-		return toProcess
+	var toProcess, toKeep []request
+	for i := 0; i < len(lsn.reqs); i++ {
+		if lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
+			toProcess = append(toProcess, lsn.reqs[i])
+		} else {
+			toKeep = append(toKeep, lsn.reqs[i])
+		}
 	}
-	sort.Slice(lsn.reqs, func(i, j int) bool {
-		return lsn.reqs[i].confirmedAtBlock < lsn.reqs[j].confirmedAtBlock
-	})
-	// Find the index of the first unconfirmed log
-	i := sort.Search(len(lsn.reqs), func(i int) bool {
-		return lsn.reqs[i].confirmedAtBlock > lsn.latestHead
-	})
-	// Some (potentially all) are confirmed excluding index i
-	if i < len(lsn.reqs) && lsn.reqs[i].confirmedAtBlock > lsn.latestHead {
-		toProcess = append(toProcess, lsn.reqs[:i]...)
-		lsn.reqs = lsn.reqs[i:]
-	} else {
-		// There are no unconfirmed logs in the list. Means they are all confirmed
-		// since we already checked for an empty list
-		toProcess = lsn.reqs
-		lsn.reqs = []request{}
-	}
+	lsn.reqs = toKeep
 	return toProcess
 }
 
@@ -377,13 +366,6 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
-				alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
-				if err != nil {
-					lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
-					continue
-				} else if alreadyConsumed {
-					continue
-				}
 				if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
 					lsn.respCount[v.RequestId]++
 					lsn.blockNumberToReqID.Insert(fulfilledReq{
@@ -427,6 +409,10 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 
 func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestID])
+	// We cap this at 200 because solidity only supports the most recent 256 blocks
+	// in the contract so if it was older than that, fulfillments would start failing
+	// without the blockhash store feeder. We use 200 to give the node plenty of time
+	// to fulfill even on fast chains.
 	if newConfs > 200 {
 		newConfs = 200
 	}
@@ -439,6 +425,17 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 }
 
 func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
+	// This check to see if the log was consumed needs to be in the same
+	// goroutine as the mark consumed to avoid processing duplicates.
+	alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
+	if err != nil {
+		// If we cannot determine if its consumed, we don't process it
+		// but we also don't mark it consumed which means the lb will resend it.
+		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		return
+	} else if alreadyConsumed {
+		return
+	}
 	s := time.Now()
 	vrfCoordinatorPayload, req, err := lsn.ProcessLog(req, lb)
 	f := time.Now()
@@ -490,11 +487,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 			}
 		}
 		// Always mark consumed regardless of whether the proof failed or not.
-		err = lsn.logBroadcaster.MarkConsumed(tx, lb)
-		if err != nil {
-			return err
-		}
-		return nil
+		return lsn.logBroadcaster.MarkConsumed(tx, lb)
 	})
 	if err != nil {
 		lsn.l.Errorw("VRFListener failed to save run", "err", err)
