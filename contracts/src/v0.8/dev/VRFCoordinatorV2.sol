@@ -7,7 +7,7 @@ import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
 import "./VRF.sol";
-import "./ConfirmedOwner.sol";
+import "../ConfirmedOwner.sol";
 import "../interfaces/VRFConsumerV2Interface.sol";
 
 contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {

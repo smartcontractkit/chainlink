@@ -47,10 +47,6 @@ const (
 	CallFulfillGasCost = 21000 + // Base tx cost
 		8005 // Static costs of argument encoding etc.
 		// note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
-	// An sanity upper bound on the gas costs
-	// We error the job if this is reached
-	// We do not check this at request time to keep request costs low.
-	TotalGasLimit = 2000000
 )
 
 type pendingRequest struct {
@@ -282,24 +278,22 @@ func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []by
 		return 0, err
 	}
 	/* The fulfillment can be summarized as follows:
-		fulfill {
-			   1. get and verify randomness (max cost = func(seed))
-	           2. user callback (max cost = requested gas limit)
-			   3. calculate payment and pay oracles (max cost = deterministic)
-		}
-	   For step 3 see definition of StaticFulfillExecuteGasCost.
-	   Note we do not include CallFulfillGasCost, as that is included as
-	   part of the EstimateGas. It also has the same argument as the outer
-	   fulfillment contract method, so has the same encoding costs.
+			fulfill {
+	               1. get and verify randomness (max cost = func(seed))
+	               2. user callback (max cost = requested gas limit)
+	               3. calculate payment and pay oracles (max cost = deterministic)
+			}
+		   For step 3 see definition of StaticFulfillExecuteGasCost.
+		   Note we do not include CallFulfillGasCost, as that is included as
+		   part of the EstimateGas. It also has the same argument as the outer
+		   fulfillment contract method, so has the same encoding costs.
 	*/
 	staticVerifyGas := uint64(BufferForConsumerCallback + StaticFulfillExecuteGasCost)
 	totalGas := variableFulfillmentCost + requestedCallbackGas + staticVerifyGas
 	logger.Infow("VRFListenerV2: estimated gas limit for tx", "gasLimit", totalGas, "callbackLimit", requestedCallbackGas)
 
-	// Sanity check total gas
-	if totalGas > TotalGasLimit {
-		return totalGas, errors.Errorf("total gas limit exceeded %v > %v", totalGas, TotalGasLimit)
-	}
+	// Note the total gas maximum is sanity checked in the contract, we do not need
+	// to check it here.
 	return totalGas, nil
 }
 

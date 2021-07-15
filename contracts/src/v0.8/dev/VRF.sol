@@ -269,8 +269,7 @@ contract VRF {
         // scalar*multiplicand. See https://crypto.stackexchange.com/a/18106
         bytes32 scalarTimesX = bytes32(mulmod(scalar, x, GROUP_ORDER));
         address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
-        // Note that we want the bottom 20 bytes, byte bytes20 normally takes the top 20
-        // so we need to shift first.
+        // Explicit conversion to address takes bottom 160 bits
         address expected = address(uint160(uint256(keccak256(abi.encodePacked(product)))));
         return (actual == expected);
     }
