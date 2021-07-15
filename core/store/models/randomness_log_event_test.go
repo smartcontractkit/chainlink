@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -30,12 +32,12 @@ func TestValidate_RandomnessLogEvent(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) {
 			fee := assets.Link(*big.NewInt(1))
 			randLog := models.RandomnessRequestLog{
-				KeyHash:   cltest.NewHash(),
+				KeyHash:   utils.NewHash(),
 				Seed:      big.NewInt(1),
-				JobID:     cltest.NewHash(),
+				JobID:     utils.NewHash(),
 				Sender:    cltest.NewAddress(),
 				Fee:       &fee,
-				RequestID: cltest.NewHash(),
+				RequestID: utils.NewHash(),
 				Raw:       models.RawRandomnessRequestLog{},
 			}
 			log := cltest.NewRandomnessRequestLog(t, randLog, test.emitter, 1)
