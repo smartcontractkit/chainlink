@@ -294,9 +294,9 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 	t.Parallel()
 
-	initiatingTxHash := cltest.NewHash()
-	triggeringBlockHash := cltest.NewHash()
-	otherBlockHash := cltest.NewHash()
+	initiatingTxHash := utils.NewHash()
+	triggeringBlockHash := utils.NewHash()
+	otherBlockHash := utils.NewHash()
 
 	tests := []struct {
 		name             string
@@ -621,8 +621,8 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	t.Parallel()
 
-	initiatingTxHash := cltest.NewHash()
-	triggeringBlockHash := cltest.NewHash()
+	initiatingTxHash := utils.NewHash()
+	triggeringBlockHash := utils.NewHash()
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
