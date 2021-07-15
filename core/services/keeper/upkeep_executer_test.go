@@ -88,13 +88,13 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
 			Once().
-			Return(models.EthTx{}, nil).
+			Return(bulletprooftxmanager.EthTx{}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
-		head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
+		head := models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000)
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
 		assertLastRunHeight(t, store, upkeep, 20)
@@ -117,7 +117,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
 			Once().
-			Return(models.EthTx{}, nil).
+			Return(bulletprooftxmanager.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
@@ -146,7 +146,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
 			Once().
-			Return(models.EthTx{}, nil).
+			Return(bulletprooftxmanager.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[1].ItHappened() })
 
 		executer.OnNewLongestChain(context.Background(), head)
@@ -174,11 +174,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 		wasCalled.Store(true)
 	})
 
-	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
+	head := models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000)
 	executer.OnNewLongestChain(context.TODO(), head)
 
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
-	cltest.AssertCountStays(t, store, models.EthTx{}, 0)
+	cltest.AssertCountStays(t, store, bulletprooftxmanager.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
 }
 

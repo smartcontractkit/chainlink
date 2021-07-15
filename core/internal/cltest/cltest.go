@@ -201,7 +201,7 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
-	config.Set("ETH_FINALITY_DEPTH", 1)
+	config.Set("ETH_FINALITY_DEPTH", 15)
 	// Disable the EthTxReaper
 	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
 	// Set low sampling interval to remain within test head waiting timeouts
@@ -1194,7 +1194,7 @@ func SendBlocksUntilComplete(
 	var err error
 	block := start
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		h := models.NewHead(big.NewInt(block), utils.NewHash(), utils.NewHash(), 0)
 		blockCh <- &h
 		block++
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
@@ -1345,12 +1345,14 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, e
 		var completed []pipeline.Run
 
 		for i := range prs {
-			if !prs[i].Outputs.Null {
-				if !prs[i].Errors.HasError() {
-					// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
-					// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
-					if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
-						completed = append(completed, prs[i])
+			if prs[i].State == pipeline.RunStatusCompleted {
+				if !prs[i].Outputs.Null {
+					if !prs[i].Errors.HasError() {
+						// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+						// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+						if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
+							completed = append(completed, prs[i])
+						}
 					}
 				}
 			}
@@ -1411,11 +1413,11 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx models.EthTx) []models.EthTxAttempt {
+func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx bulletprooftxmanager.EthTx) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var attempts []models.EthTxAttempt
+	var attempts []bulletprooftxmanager.EthTxAttempt
 	var err error
 	g.Eventually(func() int {
 		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
@@ -1425,13 +1427,13 @@ func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx model
 	return attempts
 }
 
-func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var txas []models.EthTxAttempt
+	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
-	g.Eventually(func() []models.EthTxAttempt {
+	g.Eventually(func() []bulletprooftxmanager.EthTxAttempt {
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
@@ -1440,13 +1442,13 @@ func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []mod
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var txas []models.EthTxAttempt
+	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
-	g.Consistently(func() []models.EthTxAttempt {
+	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
@@ -1511,13 +1513,13 @@ func Head(val interface{}) *models.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
 	case int64:
-		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time)
 	case *big.Int:
-		h = models.NewHead(t, NewHash(), NewHash(), time)
+		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time)
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
@@ -1697,10 +1699,10 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 	return runs
 }
 
-func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt {
+func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 
-	var txa models.EthTxAttempt
+	var txa bulletprooftxmanager.EthTxAttempt
 	var count int64
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
@@ -1716,11 +1718,17 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 
 func (a Awaiter) ItHappened() { close(a) }
 
-func (a Awaiter) AssertHappened(t *testing.T) {
+func (a Awaiter) AssertHappened(t *testing.T, expected bool) {
+	t.Helper()
 	select {
 	case <-a:
+		if !expected {
+			t.Fatal("It happened")
+		}
 	default:
-		t.Fatal("It didn't happen")
+		if expected {
+			t.Fatal("It didn't happen")
+		}
 	}
 }
 
@@ -1952,44 +1960,19 @@ type SimulateIncomingHeadsArgs struct {
 	Interval             time.Duration
 	Timeout              time.Duration
 	HeadTrackables       []httypes.HeadTrackable
-	Hashes               map[int64]common.Hash
+	Blocks               *Blocks
 }
 
 func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
 	t.Helper()
+	logger.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
 
 	if args.BackfillDepth == 0 {
 		t.Fatal("BackfillDepth must be > 0")
 	}
 
 	// Build the full chain of heads
-	heads := make(map[int64]*models.Head)
-	first := args.StartBlock - args.BackfillDepth
-	if first < 0 {
-		first = 0
-	}
-	last := args.EndBlock
-	if last == 0 {
-		last = args.StartBlock + 300 // If no .EndBlock is provided, assume we want 300 heads
-	}
-	for i := first; i <= last; i++ {
-		// If a particular block should have a particular
-		// hash, use that. Otherwise, generate a random one.
-		var hash common.Hash
-		if args.Hashes != nil {
-			if h, exists := args.Hashes[i]; exists {
-				hash = h
-			}
-		}
-		if hash == (common.Hash{}) {
-			hash = NewHash()
-		}
-		heads[i] = &models.Head{Hash: hash, Number: i}
-		if i > first {
-			heads[i].Parent = heads[i-1]
-		}
-	}
-
+	heads := args.Blocks.Heads
 	if args.Timeout == 0 {
 		args.Timeout = 60 * time.Second
 	}
@@ -2002,7 +1985,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 
 	chDone := make(chan struct{})
 	go func() {
-		current := int64(args.StartBlock)
+		current := args.StartBlock
 		for {
 			select {
 			case <-chDone:
@@ -2010,12 +1993,10 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 			case <-chTimeout:
 				return
 			default:
-				// Trim chain to backfill depth
-				ptr := heads[current]
-				for i := int64(0); i < args.BackfillDepth && ptr.Parent != nil; i++ {
-					ptr = ptr.Parent
+				_, exists := heads[current]
+				if !exists {
+					logger.Fatalf("Head %v does not exist", current)
 				}
-				ptr.Parent = nil
 
 				for _, ht := range args.HeadTrackables {
 					ht.OnNewLongestChain(ctx, *heads[current])
@@ -2037,6 +2018,79 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 		})
 	}
 	return cleanup, chDone
+}
+
+type Blocks struct {
+	t       *testing.T
+	Hashes  []common.Hash
+	mHashes map[int64]common.Hash
+	Heads   map[int64]*models.Head
+}
+
+func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, false)
+}
+
+func (b *Blocks) LogOnBlockNumRemoved(i uint64, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, true)
+}
+
+func (b *Blocks) LogOnBlockNumWithIndex(i uint64, logIndex uint, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, false)
+}
+
+func (b *Blocks) LogOnBlockNumWithIndexRemoved(i uint64, logIndex uint, addr common.Address) types.Log {
+	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, true)
+}
+
+func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
+	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
+}
+
+func (b *Blocks) HashesMap() map[int64]common.Hash {
+	return b.mHashes
+}
+
+func (b *Blocks) Head(number uint64) *models.Head {
+	return b.Heads[int64(number)]
+}
+
+func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
+	blocks2 := NewBlocks(t, len(b.Heads)+numHashes)
+
+	if _, exists := blocks2.Heads[blockNum]; !exists {
+		logger.Fatalf("Not enough length for block num: %v", blockNum)
+	}
+	blocks2.Heads[blockNum].Parent = b.Heads[blockNum].Parent
+	return blocks2
+}
+
+func NewBlocks(t *testing.T, numHashes int) *Blocks {
+	hashes := make([]common.Hash, 0)
+	heads := make(map[int64]*models.Head)
+	for i := int64(0); i < int64(numHashes); i++ {
+		hash := utils.NewHash()
+		hashes = append(hashes, hash)
+
+		heads[i] = &models.Head{Hash: hash, Number: i}
+		if i > 0 {
+			parent := heads[i-1]
+			heads[i].Parent = parent
+			heads[i].ParentHash = parent.Hash
+		}
+	}
+
+	hashesMap := make(map[int64]common.Hash)
+	for i := 0; i < len(hashes); i++ {
+		hashesMap[int64(i)] = hashes[i]
+	}
+
+	return &Blocks{
+		t:       t,
+		Hashes:  hashes,
+		mHashes: hashesMap,
+		Heads:   heads,
+	}
 }
 
 type HeadTrackableFunc func(context.Context, models.Head)

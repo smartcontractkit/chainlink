@@ -16,7 +16,6 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -175,7 +174,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -183,11 +182,11 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, store, models.EthTx{}, 1)
+		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 1)
 
 		require.NoError(t, store.ORM.DB.First(&etx).Error)
 
-		assert.Equal(t, etx.State, models.EthTxUnstarted)
+		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
@@ -239,22 +238,26 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
 
-	t.Run("if this key has any transactions with insufficient eth errors, skips transmission entirely", func(t *testing.T) {
+	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
+		config.On("EthMaxQueuedTransactions").Return(uint64(1))
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, 0, thisKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
+		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
-		_, err := bptxm.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, nil, strategy)
-		require.EqualError(t, err, fmt.Sprintf("wallet is out of eth: %s", thisKey.Address.Hex()))
+		etx, err := bptxm.CreateEthTransaction(store.DB, fromAddress, toAddress, payload, gasLimit, nil, strategy)
+		assert.NoError(t, err)
+
+		require.Equal(t, payload, etx.EncodedPayload)
 		strategy.AssertExpectations(t)
 	})
 
+	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
+
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast'`).Error)
-		require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET nonce = 0, state = 'confirmed', broadcast_at = NOW()`).Error)
+		cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 42, thisKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)

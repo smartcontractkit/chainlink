@@ -2,6 +2,9 @@ package vrf
 
 import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+
+	"github.com/theodesp/go-heaps/pairing"
+
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
@@ -26,8 +29,8 @@ type Delegate struct {
 	porm pipeline.ORM
 	ks   *keystore.Master
 	ec   eth.Client
-	lb   log.Broadcaster
 	hb   httypes.HeadBroadcasterRegistry
+	lb   log.Broadcaster
 }
 
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
@@ -58,9 +61,9 @@ func NewDelegate(
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
+		hb:   hb,
 		lb:   lb,
 		ec:   ec,
-		hb:   hb,
 	}
 }
 
@@ -94,22 +97,27 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	vorm := keystore.NewVRFORM(d.db)
 	return []job.Service{
 		&listenerV1{
-			cfg:            d.cfg,
-			l:              *l,
-			logBroadcaster: d.lb,
-			db:             d.db,
-			abi:            abi,
-			coordinator:    coordinator,
-			txm:            d.txm,
-			pipelineRunner: d.pr,
-			vorm:           vorm,
-			vrfks:          d.ks.VRF(),
-			gethks:         d.ks.Eth(),
-			pipelineORM:    d.porm,
-			job:            jb,
-			mbLogs:         utils.NewMailbox(1000),
-			chStop:         make(chan struct{}),
-			waitOnStop:     make(chan struct{}),
+			cfg:                d.cfg,
+			l:                  *l,
+			headBroadcaster:    d.hb,
+			logBroadcaster:     d.lb,
+			db:                 d.db,
+			txm:                d.txm,
+			abi:                abi,
+			coordinator:        coordinator,
+			pipelineRunner:     d.pr,
+			vorm:               vorm,
+			vrfks:              d.ks.VRF(),
+			gethks:             d.ks.Eth(),
+			pipelineORM:        d.porm,
+			job:                jb,
+			reqLogs:            utils.NewMailbox(1000),
+			chStop:             make(chan struct{}),
+			waitOnStop:         make(chan struct{}),
+			newHead:            make(chan struct{}, 1),
+			respCount:          getStartingResponseCounts(d.db, l),
+			blockNumberToReqID: pairing.New(),
+			reqAdded:           func() {},
 		},
 		&listenerV2{
 			cfg:             d.cfg,
@@ -133,10 +141,3 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		},
 	}, nil
 }
-
-var (
-	_ log.Listener = &listenerV1{}
-	_ job.Service  = &listenerV1{}
-	_ log.Listener = &listenerV2{}
-	_ job.Service  = &listenerV2{}
-)

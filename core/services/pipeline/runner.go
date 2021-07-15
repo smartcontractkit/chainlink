@@ -2,14 +2,17 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"runtime/debug"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
@@ -24,6 +27,11 @@ import (
 
 type Runner interface {
 	service.Service
+
+	// Run is a blocking call that will execute the run until no further progress can be made.
+	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
+	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
+	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error)
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
@@ -49,7 +57,7 @@ type runner struct {
 
 	utils.StartStopOnce
 	chStop chan struct{}
-	chDone chan struct{}
+	wgDone sync.WaitGroup
 }
 
 var (
@@ -89,7 +97,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager
 		ethClient: ethClient,
 		txManager: txManager,
 		chStop:    make(chan struct{}),
-		chDone:    make(chan struct{}),
+		wgDone:    sync.WaitGroup{},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -99,6 +107,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager
 
 func (r *runner) Start() error {
 	return r.StartOnce("PipelineRunner", func() error {
+		go r.scheduleUnfinishedRuns()
 		go r.runReaperLoop()
 		return nil
 	})
@@ -107,7 +116,7 @@ func (r *runner) Start() error {
 func (r *runner) Close() error {
 	return r.StopOnce("PipelineRunner", func() error {
 		close(r.chStop)
-		<-r.chDone
+		r.wgDone.Wait()
 		return nil
 	})
 }
@@ -120,7 +129,8 @@ func (r *runner) destroy() {
 }
 
 func (r *runner) runReaperLoop() {
-	defer close(r.chDone)
+	r.wgDone.Add(1)
+	defer r.wgDone.Done()
 	defer r.destroy()
 
 	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
@@ -137,28 +147,8 @@ func (r *runner) runReaperLoop() {
 
 type memoryTaskRun struct {
 	task   Task
-	inputs []input
+	inputs []Result // sorted by input index
 	vars   Vars
-}
-
-// Returns the results sorted by index. It is not thread-safe.
-func (m *memoryTaskRun) inputsSorted() (a []Result) {
-	inputs := make([]input, len(m.inputs))
-	copy(inputs, m.inputs)
-	sort.Slice(inputs, func(i, j int) bool {
-		return inputs[i].index < inputs[j].index
-	})
-	a = make([]Result, len(inputs))
-	for i, input := range inputs {
-		a[i] = input.result
-	}
-
-	return
-}
-
-type input struct {
-	result Result
-	index  int32
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
@@ -170,6 +160,17 @@ func (err ErrRunPanicked) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
+func NewRun(spec Spec, vars Vars) Run {
+	return Run{
+		State:          RunStatusRunning,
+		PipelineSpec:   spec,
+		PipelineSpecID: spec.ID,
+		Inputs:         JSONSerializable{Val: vars.vars, Null: false},
+		Outputs:        JSONSerializable{Val: nil, Null: true},
+		CreatedAt:      time.Now(),
+	}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
@@ -178,17 +179,36 @@ func (r *runner) ExecuteRun(
 ) (Run, TaskRunResults, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
 
-	var (
-		startRun = time.Now()
-		run      = Run{
-			PipelineSpecID: spec.ID,
-			CreatedAt:      startRun,
-		}
-	)
+	run := NewRun(spec, vars)
 
-	pipeline, err := Parse(spec.DotDagSource)
+	taskRunResults, err := r.run(ctx, &run, vars, l)
 	if err != nil {
 		return run, nil, err
+	}
+
+	if run.Async && run.Pending {
+		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
+	}
+
+	finalResult := taskRunResults.FinalResult()
+	if finalResult.HasErrors() {
+		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
+	}
+
+	return run, taskRunResults, nil
+}
+
+func (r *runner) run(
+	ctx context.Context,
+	run *Run,
+	vars Vars,
+	l logger.Logger,
+) (TaskRunResults, error) {
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
+
+	pipeline, err := Parse(run.PipelineSpec.DotDagSource)
+	if err != nil {
+		return nil, err
 	}
 
 	// initialize certain task params
@@ -199,6 +219,7 @@ func (r *runner) ExecuteRun(
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
+			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeETHTx:
@@ -207,8 +228,18 @@ func (r *runner) ExecuteRun(
 		}
 	}
 
+	// avoid an extra db write if there is no async tasks present or if this is a resumed run
+	if pipeline.HasAsync() {
+		run.Async = true
+		if run.ID == 0 {
+			if err = r.orm.CreateRun(r.orm.DB(), run); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	todo := context.TODO()
-	scheduler := newScheduler(todo, pipeline, vars)
+	scheduler := newScheduler(todo, pipeline, run, vars)
 	go scheduler.Run()
 
 	for taskRun := range scheduler.taskCh {
@@ -220,40 +251,86 @@ func (r *runner) ExecuteRun(
 
 					t := time.Now()
 					scheduler.report(todo, TaskRunResult{
+						ID:         uuid.NewV4(),
 						Task:       taskRun.task,
 						Result:     Result{Error: ErrRunPanicked{err}},
-						FinishedAt: t,
+						FinishedAt: null.TimeFrom(t),
 						CreatedAt:  t, // TODO: more accurate start time
 					})
 				}
 			}()
-			result := r.executeTaskRun(ctx, spec, taskRun, l)
+			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
 
-			logTaskRunToPrometheus(result, spec)
+			logTaskRunToPrometheus(result, run.PipelineSpec)
 
 			scheduler.report(todo, result)
 		}(taskRun)
 	}
 
-	finishRun := time.Now()
-	runTime := finishRun.Sub(startRun)
-	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
-	PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
+	// if the run is suspended, awaiting resumption
+	run.Pending = scheduler.pending
+	run.State = RunStatusSuspended
 
+	if !scheduler.pending {
+		run.FinishedAt = null.TimeFrom(time.Now())
+
+		// NOTE: runTime can be very long now because it'll include suspend
+		runTime := run.FinishedAt.Time.Sub(run.CreatedAt)
+		l.Debugw("Finished all tasks for pipeline run", "specID", run.PipelineSpecID, "runTime", runTime)
+		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
+	}
+
+	// Update run results
+	run.PipelineTaskRuns = nil
+	for _, result := range scheduler.results {
+		output := result.Result.OutputDB()
+		run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
+			ID:            result.ID,
+			PipelineRunID: run.ID,
+			Type:          result.Task.Type(),
+			Index:         result.Task.OutputIndex(),
+			Output:        &output,
+			Error:         result.Result.ErrorDB(),
+			DotID:         result.Task.DotID(),
+			CreatedAt:     result.CreatedAt,
+			FinishedAt:    result.FinishedAt,
+			task:          result.Task,
+		})
+
+		sort.Slice(run.PipelineTaskRuns, func(i, j int) bool {
+			return run.PipelineTaskRuns[i].task.OutputIndex() < run.PipelineTaskRuns[j].task.OutputIndex()
+		})
+	}
+
+	// Update run errors/outputs
+	if run.FinishedAt.Valid {
+		var errors []null.String
+		var outputs []interface{}
+		for _, result := range run.PipelineTaskRuns {
+			// skip non-terminal results
+			if len(result.task.Outputs()) != 0 {
+				continue
+			}
+			errors = append(errors, result.Error)
+			outputs = append(outputs, result.Output.Val)
+		}
+		run.Errors = errors
+		run.Outputs = JSONSerializable{Val: outputs, Null: false}
+
+		if run.HasErrors() {
+			run.State = RunStatusErrored
+		} else {
+			run.State = RunStatusCompleted
+		}
+	}
+
+	// TODO: drop this once we stop using TaskRunResults
 	var taskRunResults TaskRunResults
 	for _, result := range scheduler.results {
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	finalResult := taskRunResults.FinalResult()
-	if finalResult.HasErrors() {
-		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
-	}
-	run.Errors = finalResult.ErrorsDB()
-	run.Outputs = finalResult.OutputsDB()
-	run.FinishedAt = &finishRun
-
-	return run, taskRunResults, err
+	return taskRunResults, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
@@ -277,7 +354,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputsSorted())
+	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
 	loggerFields = append(loggerFields, "result value", result.Value)
 	loggerFields = append(loggerFields, "result error", result.Error)
 	switch v := result.Value.(type) {
@@ -287,16 +364,26 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 	l.Debugw("Pipeline task completed", loggerFields...)
 
+	now := time.Now()
+
+	var id uuid.UUID
+	if taskRun.task.Type() == TaskTypeBridge {
+		id = taskRun.task.(*BridgeTask).id
+	} else {
+		id = uuid.NewV4()
+	}
+
 	return TaskRunResult{
+		ID:         id,
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
-		FinishedAt: time.Now(),
+		FinishedAt: null.TimeFrom(now),
 	}
 }
 
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
-	elapsed := trr.FinishedAt.Sub(trr.CreatedAt)
+	elapsed := trr.FinishedAt.Time.Sub(trr.CreatedAt)
 
 	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type())).Set(float64(elapsed))
 	var status string
@@ -312,14 +399,53 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
-		return run.ID, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
+
 	finalResult = trrs.FinalResult()
-	runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns)
-	if err != nil {
+	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return runID, finalResult, nil
+
+}
+
+func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error) {
+	for {
+		trrs, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
+		if err != nil {
+			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
+		}
+
+		if run.Async {
+			var db *sql.DB
+			db, err = r.orm.DB().DB()
+			if err != nil {
+				return false, errors.Wrap(err, "unable to retrieve sql.DB")
+			}
+
+			var restart bool
+
+			restart, err = r.orm.StoreRun(db, run)
+			if err != nil {
+				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+			}
+
+			if restart {
+				// instant restart: new data is already available in the database
+				continue
+			}
+		} else {
+			if run.Pending {
+				return false, errors.Wrapf(err, "a run without async returned as pending")
+			}
+			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, saveSuccessfulTaskRuns); err != nil {
+				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+			}
+		}
+
+		return run.Pending, err
+	}
 }
 
 func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
@@ -329,11 +455,12 @@ func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, sa
 func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
 	t := time.Now()
 	runID, err := r.InsertFinishedRun(db, Run{
+		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},
 		Outputs:        JSONSerializable{Val: "queued eth transaction"},
 		CreatedAt:      t,
-		FinishedAt:     &t,
+		FinishedAt:     null.TimeFrom(t),
 	}, nil, false)
 	elapsed := time.Since(t)
 
@@ -356,5 +483,30 @@ func (r *runner) runReaper() {
 	err := r.orm.DeleteRunsOlderThan(r.config.JobPipelineReaperThreshold())
 	if err != nil {
 		logger.Errorw("Pipeline run reaper failed", "error", err)
+	}
+}
+
+// init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
+// We pick up those runs and resume execution.
+func (r *runner) scheduleUnfinishedRuns() {
+	r.wgDone.Add(1)
+	defer r.wgDone.Done()
+
+	// limit using a createdAt < now() @ start of run to prevent executing new jobs
+	now := time.Now()
+
+	// immediately run reaper so we don't consider runs that are too old
+	r.runReaper()
+
+	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
+		go func() {
+			if _, err := r.Run(context.TODO(), &run, *logger.Default, false); err != nil {
+				logger.Errorw("Pipeline run init job resumption failed", "error", err)
+			}
+		}()
+		return nil
+	})
+	if err != nil {
+		logger.Errorw("Pipeline run init job failed", "error", err)
 	}
 }

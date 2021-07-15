@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## Unreleased
+## 0.2.2 - Unreleased
 
 ### Added:
 
@@ -9,6 +9,12 @@
 - v0.8 Contracts for the V2 VRF. `VRFCoordinatorV2.sol`, `VRF.sol`,
 `VRFConsumerV2Interface.sol`, `VRFCoordinatorV2Interface.sol`. Along
 with related test contract `VRFConsumerV2.sol`. 
+
+### Changed:
+
+- Move `Operator` and associated contracts (`AuthorizedForwarder`, `AuthorizedReceiver`, `LinkTokenReceiver`, `OperatorFactory`) from `./src/v0.7/dev/` to `./src/v0.7/`.
+
+## 0.2.1 - 2021-07-13
 
 ### Changed:
 

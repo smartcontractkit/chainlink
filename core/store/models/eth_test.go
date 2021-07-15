@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,7 +35,7 @@ func TestHead_NewHead(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			num := models.NewHead(test.input, cltest.NewHash(), cltest.NewHash(), 0)
+			num := models.NewHead(test.input, utils.NewHash(), utils.NewHash(), 0)
 			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
 		})
 	}
@@ -78,7 +81,7 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestEthTx_GetID(t *testing.T) {
-	tx := models.EthTx{ID: math.MinInt64}
+	tx := bulletprooftxmanager.EthTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
@@ -98,7 +101,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := models.EthTxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := bulletprooftxmanager.EthTxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := attempt.GetSignedTx()
 	require.NoError(t, err)
@@ -216,9 +219,9 @@ func TestHead_EarliestInChain(t *testing.T) {
 }
 
 func TestHead_IsInChain(t *testing.T) {
-	hash1 := cltest.NewHash()
-	hash2 := cltest.NewHash()
-	hash3 := cltest.NewHash()
+	hash1 := utils.NewHash()
+	hash2 := utils.NewHash()
+	hash3 := utils.NewHash()
 
 	head := models.Head{
 		Number: 3,
@@ -236,7 +239,7 @@ func TestHead_IsInChain(t *testing.T) {
 	assert.True(t, head.IsInChain(hash1))
 	assert.True(t, head.IsInChain(hash2))
 	assert.True(t, head.IsInChain(hash3))
-	assert.False(t, head.IsInChain(cltest.NewHash()))
+	assert.False(t, head.IsInChain(utils.NewHash()))
 	assert.False(t, head.IsInChain(common.Hash{}))
 }
 

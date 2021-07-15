@@ -173,7 +173,7 @@ func sendRequest(input models.RunInput, request *http.Request, config utils.HTTP
 		Config:  config,
 	}
 
-	bytes, statusCode, err := httpRequest.SendRequest(context.TODO())
+	bytes, statusCode, _, err := httpRequest.SendRequest(context.TODO())
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

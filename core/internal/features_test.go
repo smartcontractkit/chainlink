@@ -145,7 +145,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -206,6 +206,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(100),
 	})
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(cltest.Head(1), nil)
 	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
@@ -226,8 +228,8 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	triggeringBlockHash := cltest.NewHash()
-	otherBlockHash := cltest.NewHash()
+	triggeringBlockHash := utils.NewHash()
+	otherBlockHash := utils.NewHash()
 
 	tests := []struct {
 		name             string
@@ -274,10 +276,17 @@ func TestIntegration_RunLog(t *testing.T) {
 				}).
 				Return(sub, nil)
 
+			creationHeight := int64(1)
+			blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
+			minGlobalHeight := creationHeight + blockIncrease
+			firstHead := cltest.Head(minGlobalHeight)
+
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
 			})
 			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(firstHead, nil)
+			ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(firstHead, nil)
 
 			require.NoError(t, app.StartAndConnect())
 			j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/runlog_noop_job.json")
@@ -285,7 +294,6 @@ func TestIntegration_RunLog(t *testing.T) {
 			initr := j.Initiators[0]
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-			creationHeight := int64(1)
 			runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 			runlog.BlockHash = test.logBlockHash
 			logs := <-logsCh
@@ -299,9 +307,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			require.Len(t, jr.TaskRuns, 1)
 			assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
-			blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
-			minGlobalHeight := creationHeight + blockIncrease
-			newHeads <- cltest.Head(minGlobalHeight)
+			newHeads <- firstHead
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
 			assert.Equal(t, int64(creationHeight+blockIncrease), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
@@ -358,10 +364,10 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	randLog := models.RandomnessRequestLog{
 		KeyHash:   keyHash,
 		Seed:      big.NewInt(1),
-		JobID:     cltest.NewHash(),
+		JobID:     utils.NewHash(),
 		Sender:    sender,
 		Fee:       &fee,
-		RequestID: cltest.NewHash(),
+		RequestID: utils.NewHash(),
 		Raw:       models.RawRandomnessRequestLog{},
 	}
 	log := cltest.NewRandomnessRequestLog(t, randLog, sender, 101)
@@ -371,8 +377,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 102
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
@@ -380,8 +386,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 103
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
@@ -389,8 +395,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Should be capped at 200
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 103
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
@@ -398,7 +404,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(200), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// New requestID should be back to original
-	randLog.RequestID = cltest.NewHash()
+	randLog.RequestID = utils.NewHash()
 	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
 	logs <- newReqLog
 	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
@@ -410,6 +416,8 @@ func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
@@ -451,6 +459,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 			newHeadsCh <- args.Get(1).(chan<- *models.Head)
 		}).
 		Return(sub, nil)
+
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Maybe().Return(cltest.Head(100), nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Maybe().Return(cltest.Head(100), nil)
+
 	require.NoError(t, app.Start())
 
 	eaValue := "87698118359"
@@ -1208,7 +1220,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1264,6 +1276,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	)
 	defer cleanup()
 
+	blocks := cltest.NewBlocks(t, 20)
+
 	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
@@ -1275,7 +1289,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// Log backfill
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil).Maybe()
 
 	newHeadsCh := make(chan chan<- *models.Head, 1)
 	ethClientDone := cltest.NewAwaiter()
@@ -1335,7 +1349,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(sub, nil)
 
 	// Log Broadcaster backfills logs
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(1), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
@@ -1359,6 +1373,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	// Send a NewRound log event to trigger a run.
 	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/new_round_log.json")
 	log.Address = job.Initiators[0].InitiatorParams.Address
+	log.BlockHash = blocks.Head(log.BlockNumber).Hash
 
 	ethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -1368,17 +1383,17 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
 
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(inLongestChain), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(uint64(inLongestChain)), nil)
 
 	logs <- log
 
 	newHeads := <-newHeadsCh
-	newHeads <- cltest.Head(log.BlockNumber)
+	newHeads <- blocks.Head(log.BlockNumber)
 
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
@@ -1443,7 +1458,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			}).Maybe()
 		}).
 		Return(nil).Once()
@@ -1920,10 +1935,12 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	)
 	defer cleanup()
 
+	blocks := cltest.NewBlocks(t, 12)
+
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(10), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(10), nil)
 
 	var headCh chan<- *models.Head
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().
@@ -1935,7 +1952,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 
 	require.NoError(t, app.StartAndConnect())
@@ -1958,6 +1975,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
 	runLog := cltest.NewRunLog(t, job.ExternalIDEncodeStringToTopic(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	runLog.BlockHash = blocks.Head(1).Hash
 	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
@@ -1967,8 +1985,9 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}, 30*time.Second)
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
-	headCh <- &models.Head{Number: 10}
-	headCh <- &models.Head{Number: 11}
+	for i := 0; i < 12; i++ {
+		headCh <- blocks.Head(uint64(i))
+	}
 
 	httpAwaiter.AwaitOrFail(t)
 
@@ -2006,21 +2025,21 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	b41 := gas.Block{
 		Number:       41,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
 	b42 := gas.Block{
 		Number:       42,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
 	b43 := gas.Block{
 		Number:       43,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
-	h40 := models.Head{Hash: cltest.NewHash(), Number: 40}
+	h40 := models.Head{Hash: utils.NewHash(), Number: 40}
 	h41 := models.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
 	h42 := models.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
 

@@ -405,7 +405,7 @@ func TestFulfillmentCost(t *testing.T) {
 		"fulfillRandomWords", proof[:])
 	t.Log("estimate", estimate)
 	// Establish very rough bounds on fulfillment cost
-	assert.Greater(t, estimate, uint64(150000))
+	assert.Greater(t, estimate, uint64(130000))
 	assert.Less(t, estimate, uint64(500000))
 }
 
