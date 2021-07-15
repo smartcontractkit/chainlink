@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -27,6 +29,7 @@ func NewGormDB(t *testing.T) *gorm.DB {
 	sqlDB := NewSqlDB(t)
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{
 		Conn: sqlDB,
+		DSN:  uuid.NewV4().String(),
 	}), &gorm.Config{})
 	require.NoError(t, err)
 
