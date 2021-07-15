@@ -2,9 +2,10 @@ package services
 
 import (
 	"errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -44,7 +45,7 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 			err: err,
 			t:   t,
 		},
-		callback: func(manager RunManager, request models.LogRequest){callbackCalled<-struct{}{}},
+		callback: func(manager RunManager, request models.LogRequest) { callbackCalled <- struct{}{} },
 	}
 	// Note spawns a goroutine
 	s.Start()
@@ -79,7 +80,8 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 		t.Error("log listener did not read logs after reconnecting")
 	}
 
-	// Unsubscribe and we expect the logs channel to be closed.
+	// Unsubscribe and we expect the logs channel to be close
+	// which will end the goroutine.
 	s.Unsubscribe()
 	select {
 	case <-s.logs:
