@@ -7,7 +7,6 @@ package proto
 
 import (
 	context "context"
-
 	wsrpc "github.com/smartcontractkit/wsrpc"
 )
 
