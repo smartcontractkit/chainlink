@@ -65,7 +65,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
-    address sender
+    address indexed sender
   );
   event RandomWordsFulfilled(
     uint256 requestId,
@@ -75,6 +75,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   struct Config {
     uint16 minimumRequestBlockConfirmations;
+    // Flat fee charged per fulfillment in millionths of link
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeLinkPPM;
     uint32 maxGasLimit;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
@@ -83,11 +86,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
     uint96 minimumSubscriptionBalance;
-    int256 fallbackWeiPerUnitLink;
   }
+  int256 s_fallbackWeiPerUnitLink;
   Config private s_config;
   event ConfigSet(
     uint16 minimumRequestBlockConfirmations,
+    uint32 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -140,6 +144,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function setConfig(
     uint16 minimumRequestBlockConfirmations,
+    uint32 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -151,14 +156,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     s_config = Config({
       minimumRequestBlockConfirmations: minimumRequestBlockConfirmations,
+      fulfillmentFlatFeeLinkPPM: fulfillmentFlatFeeLinkPPM,
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      minimumSubscriptionBalance: minimumSubscriptionBalance,
-      fallbackWeiPerUnitLink: fallbackWeiPerUnitLink
+      minimumSubscriptionBalance: minimumSubscriptionBalance
     });
-    emit ConfigSet(
+  s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
+  emit ConfigSet(
       minimumRequestBlockConfirmations,
+      fulfillmentFlatFeeLinkPPM,
       maxGasLimit,
       stalenessSeconds,
       gasAfterPaymentCalculation,
@@ -175,6 +182,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     view
     returns (
       uint16 minimumRequestBlockConfirmations,
+      uint32 fulfillmentFlatFeeLinkPPM,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation,
@@ -185,11 +193,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     Config memory config = s_config;
     return (
       config.minimumRequestBlockConfirmations,
+      config.fulfillmentFlatFeeLinkPPM,
       config.maxGasLimit,
       config.stalenessSeconds,
       config.gasAfterPaymentCalculation,
       config.minimumSubscriptionBalance,
-      config.fallbackWeiPerUnitLink
+      s_fallbackWeiPerUnitLink
     );
   }
 
@@ -293,13 +302,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (gasPreCallback < fp.callbackGasLimit) {
       revert InsufficientGasForConsumer(gasPreCallback, fp.callbackGasLimit);
     }
-    (bool success,) = fp.sender.call(resp);
+    // Call with explicitly the amount of callback gas requested
+    // Important to not let them exhaust the gas budget and avoid oracle payment.
+    (bool success,) = fp.sender.call{gas: fp.callbackGasLimit}(resp);
     emit RandomWordsFulfilled(requestId, randomWords, success);
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.
-    uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice);
+    uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice)
+                     + s_config.fulfillmentFlatFeeLinkPPM*1e6;
     if (s_subscriptions[fp.subId].balance < payment) {
       revert InsufficientBalance();
     }
@@ -411,7 +423,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     int256 weiPerUnitLink;
     (,weiPerUnitLink,,timestamp,) = LINK_ETH_FEED.latestRoundData();
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
-      weiPerUnitLink = s_config.fallbackWeiPerUnitLink;
+      weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
   }

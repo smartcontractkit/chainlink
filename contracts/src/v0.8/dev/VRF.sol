@@ -209,12 +209,14 @@ contract VRF {
     // returning the point with given x ordinate, and even y ordinate.
     function newCandidateSecp256k1Point(bytes memory b)
     internal view returns (uint256[2] memory p) {
-        p[0] = fieldHash(b);
-        p[1] = squareRoot(ySquared(p[0]));
-        if (p[1] % 2 == 1) {
-            // Note that 0 <= p[1] < FIELD_SIZE
-            // so this cannot wrap.
-            p[1] = FIELD_SIZE - p[1];
+        unchecked {
+            p[0] = fieldHash(b);
+            p[1] = squareRoot(ySquared(p[0]));
+            if (p[1] % 2 == 1) {
+                // Note that 0 <= p[1] < FIELD_SIZE
+                // so this cannot wrap, we use unchecked to save gas.
+                p[1] = FIELD_SIZE - p[1];
+            }
         }
     }
 
@@ -276,11 +278,13 @@ contract VRF {
     // Returns x1/z1-x2/z2=(x1z2-x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
     function projectiveSub(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     internal pure returns(uint256 x3, uint256 z3) {
-        uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
-        // This subtraction is safe since its of the form
-        // X - (Y % X). 0 <= x2 < FIELD_SIZE
-        uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
-        (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
+        unchecked {
+            uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
+            // Note this cannot wrap since x2 is a point in [0, FIELD_SIZE-1]
+            // we use unchecked to save gas.
+            uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
+            (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
+        }
     }
 
     // Returns x1/z1*x2/z2=(x1x2)/(z1z2), in projective coordinates on P¹(𝔽ₙ)
@@ -323,43 +327,44 @@ contract VRF {
     */
     function projectiveECAdd(uint256 px, uint256 py, uint256 qx, uint256 qy)
     internal pure returns(uint256 sx, uint256 sy, uint256 sz) {
-        // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
-        // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
-        // We take the equations there for (sx,sy), and homogenize them to
-        // projective coordinates. That way, no inverses are required, here, and we
-        // only need the one inverse in affineECAdd.
+        unchecked {
+            // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
+            // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
+            // We take the equations there for (sx,sy), and homogenize them to
+            // projective coordinates. That way, no inverses are required, here, and we
+            // only need the one inverse in affineECAdd.
 
-        // We only need the "point addition" equations from Hankerson et al. Can
-        // skip the "point doubling" equations because p1 == p2 is cryptographically
-        // impossible, and required not to be the case in linearCombination.
+            // We only need the "point addition" equations from Hankerson et al. Can
+            // skip the "point doubling" equations because p1 == p2 is cryptographically
+            // impossible, and required not to be the case in linearCombination.
 
-        // Add extra "projective coordinate" to the two points
-        (uint256 z1, uint256 z2) = (1, 1);
+            // Add extra "projective coordinate" to the two points
+            (uint256 z1, uint256 z2) = (1, 1);
 
-        // (lx, lz) = (qy-py)/(qx-px), i.e., gradient of secant line.
-        // This subtraction is safe since its of the form
-        // X - (Y % X). 0 <= (px, py) < FIELD_SIZE
-        uint256 lx = addmod(qy, FIELD_SIZE - py, FIELD_SIZE);
-        uint256 lz = addmod(qx, FIELD_SIZE - px, FIELD_SIZE);
+            // (lx, lz) = (qy-py)/(qx-px), i.e., gradient of secant line.
+            // Cannot wrap since px and py are in [0, FIELD_SIZE-1]
+            uint256 lx = addmod(qy, FIELD_SIZE - py, FIELD_SIZE);
+            uint256 lz = addmod(qx, FIELD_SIZE - px, FIELD_SIZE);
 
-        uint256 dx; // Accumulates denominator from sx calculation
-        // sx=((qy-py)/(qx-px))^2-px-qx
-        (sx, dx) = projectiveMul(lx, lz, lx, lz); // ((qy-py)/(qx-px))^2
-        (sx, dx) = projectiveSub(sx, dx, px, z1); // ((qy-py)/(qx-px))^2-px
-        (sx, dx) = projectiveSub(sx, dx, qx, z2); // ((qy-py)/(qx-px))^2-px-qx
+            uint256 dx; // Accumulates denominator from sx calculation
+            // sx=((qy-py)/(qx-px))^2-px-qx
+            (sx, dx) = projectiveMul(lx, lz, lx, lz); // ((qy-py)/(qx-px))^2
+            (sx, dx) = projectiveSub(sx, dx, px, z1); // ((qy-py)/(qx-px))^2-px
+            (sx, dx) = projectiveSub(sx, dx, qx, z2); // ((qy-py)/(qx-px))^2-px-qx
 
-        uint256 dy; // Accumulates denominator from sy calculation
-        // sy=((qy-py)/(qx-px))(px-sx)-py
-        (sy, dy) = projectiveSub(px, z1, sx, dx); // px-sx
-        (sy, dy) = projectiveMul(sy, dy, lx, lz); // ((qy-py)/(qx-px))(px-sx)
-        (sy, dy) = projectiveSub(sy, dy, py, z1); // ((qy-py)/(qx-px))(px-sx)-py
+            uint256 dy; // Accumulates denominator from sy calculation
+            // sy=((qy-py)/(qx-px))(px-sx)-py
+            (sy, dy) = projectiveSub(px, z1, sx, dx); // px-sx
+            (sy, dy) = projectiveMul(sy, dy, lx, lz); // ((qy-py)/(qx-px))(px-sx)
+            (sy, dy) = projectiveSub(sy, dy, py, z1); // ((qy-py)/(qx-px))(px-sx)-py
 
-        if (dx != dy) { // Cross-multiply to put everything over a common denominator
-            sx = mulmod(sx, dy, FIELD_SIZE);
-            sy = mulmod(sy, dx, FIELD_SIZE);
-            sz = mulmod(dx, dy, FIELD_SIZE);
-        } else { // Already over a common denominator, use that for z ordinate
-            sz = dx;
+            if (dx != dy) { // Cross-multiply to put everything over a common denominator
+                sx = mulmod(sx, dy, FIELD_SIZE);
+                sy = mulmod(sy, dx, FIELD_SIZE);
+                sz = mulmod(dx, dy, FIELD_SIZE);
+            } else { // Already over a common denominator, use that for z ordinate
+                sz = dx;
+            }
         }
     }
 
@@ -389,20 +394,22 @@ contract VRF {
         uint256 c, uint256[2] memory p, uint256 s, address lcWitness)
     internal pure returns (bool) {
         // Rule out ecrecover failure modes which return address 0.
-        require(lcWitness != address(0), "bad witness");
-        uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
-        // This subtraction is safe since its of the form
-        // X - (Y % X).
-        bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER)); // -s*p[0]
-        bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER)); // c*p[0]
-        // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
-        // The point corresponding to the address returned by
-        // ecrecover(-s*p[0],v,p[0],c*p[0]) is
-        // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g.
-        // See https://crypto.stackexchange.com/a/18106
-        // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
-        address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
-        return computed == lcWitness;
+        unchecked {
+            require(lcWitness != address(0), "bad witness");
+            uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
+            // Note this cannot wrap (X - Y % X), but we use unchecked to save
+            // gas.
+            bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER)); // -s*p[0]
+            bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER)); // c*p[0]
+            // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
+            // The point corresponding to the address returned by
+            // ecrecover(-s*p[0],v,p[0],c*p[0]) is
+            // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g.
+            // See https://crypto.stackexchange.com/a/18106
+            // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
+            address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
+            return computed == lcWitness;
+        }
     }
 
     // c*p1 + s*p2. Requires cp1Witness=c*p1 and sp2Witness=s*p2. Also
@@ -417,14 +424,13 @@ contract VRF {
         uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
         uint256 zInv)
     internal pure returns (uint256[2] memory) {
-        uint256 diff;
         unchecked {
-            diff = cp1Witness[0] - sp2Witness[0]; // We rely on the wrap around here, because we are checking diff % FIELD_SIZE.
+            // Note we are relying on the wrap around here
+            require(cp1Witness[0] - sp2Witness[0] % FIELD_SIZE != 0, "points in sum must be distinct");
+            require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
+            require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
+            return affineECAdd(cp1Witness, sp2Witness, zInv);
         }
-        require((diff) % FIELD_SIZE != 0, "points in sum must be distinct");
-        require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
-        require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
-        return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
     // Domain-separation tag for the hash taken in scalarFromCurvePoints.
@@ -465,27 +471,29 @@ contract VRF {
         uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
         uint256[2] memory sHashWitness, uint256 zInv)
     internal view {
-        require(isOnCurve(pk), "public key is not on curve");
-        require(isOnCurve(gamma), "gamma is not on curve");
-        require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
-        require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
-        // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
-        // we use the address of u instead of u itself. Also, here we add the
-        // terms instead of taking the difference, and in the proof consruction in
-        // vrf.GenerateProof, we correspondingly take the difference instead of
-        // taking the sum as they do in step 7 of section 5.1.)
-        require(
-            verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
-            "addr(c*pk+s*g)!=_uWitness"
-        );
-        // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
-        uint256[2] memory hash = hashToCurve(pk, seed);
-        // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
-        uint256[2] memory v = linearCombination(
-            c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
-        // Steps 7. and 8. of IETF draft section 5.3
-        uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
-        require(c == derivedC, "invalid proof");
+        unchecked {
+            require(isOnCurve(pk), "public key is not on curve");
+            require(isOnCurve(gamma), "gamma is not on curve");
+            require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
+            require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
+            // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
+            // we use the address of u instead of u itself. Also, here we add the
+            // terms instead of taking the difference, and in the proof consruction in
+            // vrf.GenerateProof, we correspondingly take the difference instead of
+            // taking the sum as they do in step 7 of section 5.1.)
+            require(
+                verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
+                "addr(c*pk+s*g)!=_uWitness"
+            );
+            // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
+            uint256[2] memory hash = hashToCurve(pk, seed);
+            // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
+            uint256[2] memory v = linearCombination(
+                c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
+            // Steps 7. and 8. of IETF draft section 5.3
+            uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
+            require(c == derivedC, "invalid proof");
+        }
     }
 
     // Domain-separation tag for the hash used as the final VRF output.

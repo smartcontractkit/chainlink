@@ -45,7 +45,7 @@ const (
 	BufferForConsumerCallback = 6000
 	// Gas costs associated with making the fulfillment call itself.
 	CallFulfillGasCost = 21000 + // Base tx cost
-		7958 // Static costs of argument encoding etc.
+		8005 // Static costs of argument encoding etc.
 		// note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 	// An sanity upper bound on the gas costs
 	// We error the job if this is reached
