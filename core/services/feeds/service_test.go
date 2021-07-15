@@ -162,9 +162,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			JobTypes: pq.StringArray{feeds.JobTypeFluxMonitor},
 		}
 		chainID    = big.NewInt(1)
-		fundingKey = ethkey.Key{
+		sendingKey = ethkey.Key{
 			Address:   ethkey.EIP55AddressFromAddress(rawKey.Address),
-			IsFunding: true,
+			IsFunding: false,
 		}
 	)
 
@@ -172,14 +172,14 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", ctx, feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("FundingKeys").Return([]ethkey.Key{fundingKey}, nil)
+	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:         []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
 		ChainId:          chainID.Int64(),
-		FundingAddresses: []string{fundingKey.Address.String()},
+		AccountAddresses: []string{sendingKey.Address.String()},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
