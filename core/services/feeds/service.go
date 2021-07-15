@@ -121,7 +121,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		}
 	}
 
-	keys, err := s.ethKeyStore.FundingKeys()
+	keys, err := s.ethKeyStore.SendingKeys()
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 	_, err = s.fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:         jobtypes,
 		ChainId:          s.cfg.ChainID().Int64(),
-		FundingAddresses: addresses,
+		AccountAddresses: addresses,
 	})
 	if err != nil {
 		return err
