@@ -348,7 +348,7 @@ func TestRequestCost(t *testing.T) {
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
-	assert.Less(t, estimate, uint64(87000),
+	assert.Less(t, estimate, uint64(87100),
 		"requestRandomness tx gas cost more than expected")
 }
 
@@ -414,7 +414,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	vrfkey secp256k1.PublicKey) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{vrfkey.MustHash()})
+		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{vrfkey.MustHash()}, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)

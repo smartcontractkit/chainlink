@@ -9,12 +9,15 @@ describe("VRFCoordinatorV2", () => {
   let mockLinkEth: Contract;
   let owner: Signer;
   let subOwner: Signer;
+  let subOwnerAddress: string;
   let consumer: Signer;
   let random: Signer;
+  let randomAddress: string;
   let oracle: Signer;
   const linkEth = BigNumber.from(300000000);
   type config = {
     minimumRequestBlockConfirmations: number;
+    fulfillmentFlatFeePPM: number;
     maxGasLimit: number;
     stalenessSeconds: number;
     gasAfterPaymentCalculation: number;
@@ -27,8 +30,10 @@ describe("VRFCoordinatorV2", () => {
     let accounts = await ethers.getSigners();
     owner = accounts[0];
     subOwner = accounts[1];
+    subOwnerAddress = await subOwner.getAddress();
     consumer = accounts[2];
     random = accounts[3];
+    randomAddress = await random.getAddress();
     oracle = accounts[4];
     let ltFactory = await ethers.getContractFactory("LinkToken", accounts[0]);
     linkToken = await ltFactory.deploy();
@@ -42,9 +47,10 @@ describe("VRFCoordinatorV2", () => {
       blockHashStore.address,
       mockLinkEth.address,
     );
-    await linkToken.transfer(await subOwner.getAddress(), BigNumber.from("1000000000000000000")); // 1 link
+    await linkToken.transfer(subOwnerAddress, BigNumber.from("1000000000000000000")); // 1 link
     c = {
       minimumRequestBlockConfirmations: 1,
+      fulfillmentFlatFeePPM: 0,
       maxGasLimit: 1000000,
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation: 21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
@@ -55,6 +61,7 @@ describe("VRFCoordinatorV2", () => {
       .connect(owner)
       .setConfig(
         c.minimumRequestBlockConfirmations,
+        c.fulfillmentFlatFeePPM,
         c.maxGasLimit,
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
@@ -69,6 +76,7 @@ describe("VRFCoordinatorV2", () => {
         .connect(subOwner)
         .setConfig(
           c.minimumRequestBlockConfirmations,
+          c.fulfillmentFlatFeePPM,
           c.maxGasLimit,
           c.stalenessSeconds,
           c.gasAfterPaymentCalculation,
@@ -79,10 +87,11 @@ describe("VRFCoordinatorV2", () => {
     // Anyone can read the config.
     const resp = await vrfCoordinatorV2.connect(random).getConfig();
     assert(resp[0] == c.minimumRequestBlockConfirmations);
-    assert(resp[1] == c.maxGasLimit);
-    assert(resp[2] == c.stalenessSeconds);
-    assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString());
-    assert(resp[4].toString() == c.weiPerUnitLink.toString());
+    assert(resp[1] == c.fulfillmentFlatFeePPM);
+    assert(resp[2] == c.maxGasLimit);
+    assert(resp[3] == c.stalenessSeconds);
+    assert(resp[4].toString() == c.gasAfterPaymentCalculation.toString());
+    assert(resp[5].toString() == c.weiPerUnitLink.toString());
   });
 
   it("subscription lifecycle", async function () {
@@ -91,50 +100,70 @@ describe("VRFCoordinatorV2", () => {
     const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
     const receipt = await tx.wait();
     assert(receipt.events[0].event == "SubscriptionCreated");
-    assert(receipt.events[0].args["owner"] == (await subOwner.getAddress()), "sub owner");
+    assert(receipt.events[0].args["owner"] == subOwnerAddress, "sub owner");
     assert(receipt.events[0].args["consumers"][0] == consumers[0], "wrong consumers");
     const subId = receipt.events[0].args["subId"];
 
     // Subscription owner cannot fund
     await expect(
       vrfCoordinatorV2.connect(random).fundSubscription(subId, BigNumber.from("1000000000000000000")),
-    ).to.be.revertedWith(`MustBeSubOwner("${await subOwner.getAddress()}")`);
+    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
 
     // Fund the subscription
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
-    await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
+    await linkToken.allowance(subOwnerAddress, vrfCoordinatorV2.address);
     await expect(vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000")))
       .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded")
       .withArgs(subId, BigNumber.from(0), BigNumber.from("1000000000000000000"));
 
     // Non-owners cannot withdraw
     await expect(
-      vrfCoordinatorV2
-        .connect(random)
-        .defundSubscription(subId, await random.getAddress(), BigNumber.from("1000000000000000000")),
-    ).to.be.revertedWith(`MustBeSubOwner("${await subOwner.getAddress()}")`);
+      vrfCoordinatorV2.connect(random).defundSubscription(subId, randomAddress, BigNumber.from("1000000000000000000")),
+    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
 
     // Withdraw from the subscription
-    await expect(
-      vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, await random.getAddress(), BigNumber.from("100")),
-    ).to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn")
-     .withArgs(subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900"));
-    const randomBalance = await linkToken.balanceOf(await random.getAddress());
+    await expect(vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, randomAddress, BigNumber.from("100")))
+      .to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn")
+      .withArgs(subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900"));
+    const randomBalance = await linkToken.balanceOf(randomAddress);
     assert.equal(randomBalance.toString(), "100");
 
     // Non-owners cannot change the consumers
     await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, consumers)).to.be.revertedWith(
-      `MustBeSubOwner("${await subOwner.getAddress()}")`,
+      `MustBeSubOwner("${subOwnerAddress}")`,
     );
     // Owners can update
     await vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, consumers);
 
-    // Non-owners cannot cancel
+    // Non-owners cannot ask to transfer ownership
     await expect(
-      vrfCoordinatorV2.connect(random).cancelSubscription(subId, await random.getAddress()),
-    ).to.be.revertedWith(`MustBeSubOwner("${await subOwner.getAddress()}")`);
+      vrfCoordinatorV2.connect(random).requestSubscriptionOwnerTransfer(subId, randomAddress),
+    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
 
-    const randomAddress = await random.getAddress();
+    // Owners can request ownership transfership
+    await expect(vrfCoordinatorV2.connect(subOwner).requestSubscriptionOwnerTransfer(subId, randomAddress))
+      .to.emit(vrfCoordinatorV2, "SubscriptionOwnerTransferRequested")
+      .withArgs(subId, subOwnerAddress, randomAddress);
+
+    // Non-requested owners cannot accept
+    await expect(vrfCoordinatorV2.connect(subOwner).acceptSubscriptionOwnerTransfer(subId)).to.be.revertedWith(
+      `MustBeRequestedOwner("${randomAddress}")`,
+    );
+
+    // Requested owners can accept
+    await expect(vrfCoordinatorV2.connect(random).acceptSubscriptionOwnerTransfer(subId))
+      .to.emit(vrfCoordinatorV2, "SubscriptionOwnerTransferred")
+      .withArgs(subId, subOwnerAddress, randomAddress);
+
+    // Transfer it back to subOwner
+    vrfCoordinatorV2.connect(random).requestSubscriptionOwnerTransfer(subId, subOwnerAddress);
+    vrfCoordinatorV2.connect(subOwner).acceptSubscriptionOwnerTransfer(subId);
+
+    // Non-owners cannot cancel
+    await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId, randomAddress)).to.be.revertedWith(
+      `MustBeSubOwner("${subOwnerAddress}")`,
+    );
+
     await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress))
       .to.emit(vrfCoordinatorV2, "SubscriptionCanceled")
       .withArgs(subId, randomAddress, BigNumber.from("999999999999999900"));
@@ -149,7 +178,7 @@ describe("VRFCoordinatorV2", () => {
     const receipt = await tx.wait();
     const subId = receipt.events[0].args["subId"];
     await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
-    await linkToken.allowance(await subOwner.getAddress(), vrfCoordinatorV2.address);
+    await linkToken.allowance(subOwnerAddress, vrfCoordinatorV2.address);
     await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"));
 
     // Should fail without a key registered

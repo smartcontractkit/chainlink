@@ -20,10 +20,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidConsumer(address consumer);
   error InvalidSubscription();
   error MustBeSubOwner(address owner);
+  error MustBeRequestedOwner(address proposedOwner);
   // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
   struct Subscription {
     uint96 balance; // Common link balance used for all consumer requests.
-    address owner; // Owner can fund/withdraw/cancel the sub
+    address owner; // Owner can fund/withdraw/cancel the sub.
+    address requestedOwner; // For safe transfering sub ownership.
     address[] consumers; // List of addresses which can consume using this subscription.
   }
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
@@ -33,6 +35,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
   event SubscriptionFundsWithdrawn(uint64 subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionCanceled(uint64 subId, address to, uint256 amount);
+  event SubscriptionOwnerTransferRequested(uint64 subId, address from, address to);
+  event SubscriptionOwnerTransferred(uint64 subId, address from, address to);
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
@@ -471,22 +475,44 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     currentSubId++;
     s_subscriptions[currentSubId] = Subscription({
+      balance: 0,
       owner: msg.sender,
-      consumers: consumers,
-      balance: 0
+      requestedOwner: address(0),
+      consumers: consumers
     });
     emit SubscriptionCreated(currentSubId, msg.sender, consumers);
     return currentSubId;
   }
 
-  function changeSubscriptionOwner(
+  function requestSubscriptionOwnerTransfer(
     uint64 subId,
     address newOwner
   )
     external
     onlySubOwner(subId)
   {
-    s_subscriptions[subId].owner = newOwner;
+    // Proposing to address(0) would never be claimable so don't need to check.
+    if (s_subscriptions[subId].requestedOwner != newOwner) {
+      s_subscriptions[subId].requestedOwner = newOwner;
+      emit SubscriptionOwnerTransferRequested(subId, msg.sender, newOwner);
+    }
+  }
+
+  function acceptSubscriptionOwnerTransfer(
+    uint64 subId
+  )
+    external
+  {
+    if (s_subscriptions[subId].owner == address(0)) {
+      revert InvalidSubscription();
+    }
+    if (s_subscriptions[subId].requestedOwner != msg.sender) {
+      revert MustBeRequestedOwner(s_subscriptions[subId].requestedOwner);
+    }
+    address oldOwner = s_subscriptions[subId].owner;
+    s_subscriptions[subId].owner = msg.sender;
+    s_subscriptions[subId].requestedOwner = address(0);
+    emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
   }
 
   function updateSubscription(
@@ -557,6 +583,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   modifier onlySubOwner(uint64 subId) {
     address owner = s_subscriptions[subId].owner;
+    if (owner == address(0)) {
+      revert InvalidSubscription();
+    }
     if (msg.sender != owner) {
       revert MustBeSubOwner(owner);
     }
