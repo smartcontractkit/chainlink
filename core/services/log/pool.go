@@ -29,8 +29,8 @@ func (pool *logPool) addLog(log types.Log) {
 	pool.heap.Insert(Uint64(log.BlockNumber))
 }
 
-func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]types.Log, int64) {
-	logsToReturn := make([]types.Log, 0)
+func (pool *logPool) getLogsToSend(latestBlockNum int64) (map[uint64][]types.Log, int64) {
+	logsToReturn := make(map[uint64][]types.Log)
 
 	// gathering logs to return - from min block number kept, to latestBlockNum
 	minBlockNumToSendItem := pool.heap.FindMin()
@@ -42,7 +42,12 @@ func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]types.Log, int64) {
 	for num := minBlockNumToSend; num <= latestBlockNum; num++ {
 
 		for _, hash := range pool.hashesByBlockNumbers[uint64(num)] {
-			logsToReturn = append(logsToReturn, pool.logsByBlockHash[hash]...)
+			_, exists := logsToReturn[uint64(num)]
+			if exists {
+				logsToReturn[uint64(num)] = append(logsToReturn[uint64(num)], pool.logsByBlockHash[hash]...)
+			} else {
+				logsToReturn[uint64(num)] = pool.logsByBlockHash[hash]
+			}
 		}
 	}
 	return logsToReturn, minBlockNumToSend
