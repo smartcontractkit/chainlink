@@ -345,8 +345,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.
+    // We also add the flat link fee to the payment amount.
+    // Its specified in millionths of link, if s_config.fulfillmentFlatFeeLinkPPM = 1
+    // 1 link / 1e6 = 1e18 juels / 1e6 = 1e12 juels.
     uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice)
-                     + s_config.fulfillmentFlatFeeLinkPPM*1e24; // juels = link/1e6 * 1e6 * 1e18 juels/link
+                     + s_config.fulfillmentFlatFeeLinkPPM*1e12;
     if (s_subscriptions[fp.subId].balance < payment) {
       revert InsufficientBalance();
     }
