@@ -83,6 +83,7 @@ type (
 
 	Config interface {
 		BlockBackfillDepth() uint64
+		BlockBackfillSkip() bool
 		EthFinalityDepth() uint
 		EthLogBackfillBatchSize() uint32
 	}
@@ -193,17 +194,17 @@ func (b *broadcaster) awaitInitialSubscribers() {
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	if len(opts.LogsWithTopics) == 0 {
-		logger.Fatal("Must supply at least 1 Log to Register")
+		logger.Fatal("LogBroadcaster: Must supply at least 1 LogsWithTopics element to Register")
 	}
 
 	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})
 	if wasOverCapacity {
-		logger.Error("LogBroadcaster: subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
+		logger.Error("LogBroadcaster: Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
 	return func() {
 		wasOverCapacity := b.rmSubscriber.Deliver(registration{listener, opts})
 		if wasOverCapacity {
-			logger.Error("LogBroadcaster: subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+			logger.Error("LogBroadcaster: Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
 		}
 	}
 }
@@ -242,6 +243,11 @@ func (b *broadcaster) startResubscribeLoop() {
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
 		if abort {
 			return
+		}
+
+		if b.config.BlockBackfillSkip() && b.highestSavedHead != nil {
+			logger.Info("LogBroadcaster: BlockBackfillSkip is set to true, preventing a deep backfill")
+			b.highestSavedHead = nil
 		}
 
 		if b.highestSavedHead != nil {

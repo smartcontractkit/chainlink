@@ -191,6 +191,57 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	helper.mockEth.assertExpectations(t)
 }
 
+func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
+	t.Parallel()
+
+	const (
+		lastStoredBlockHeight       = 100
+		blockHeight           int64 = 125
+	)
+
+	backfillTimes := 1
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: backfillTimes,
+		HeaderByNumber:      backfillTimes,
+		FilterLogs:          backfillTimes,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper.mockEth = mockEth
+
+	backfillDepth := 15
+
+	helper.store.Config.Set(orm.EnvVarName("BlockBackfillSkip"), true)
+	helper.store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), backfillDepth)
+
+	var backfillCount int64
+	var backfillCountPtr = &backfillCount
+
+	listener := helper.newLogListener("one")
+	helper.register(listener, newMockContract(), uint64(10))
+
+	listener2 := helper.newLogListener("two")
+	helper.register(listener2, newMockContract(), uint64(2))
+
+	// the backfill does not use the height from DB because BlockBackfillSkip is true
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+		atomic.StoreInt64(backfillCountPtr, 1)
+		require.Equal(t, blockHeight-int64(backfillDepth), fromBlock)
+	}
+
+	helper.start()
+
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+	helper.stop()
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	helper.mockEth.assertExpectations(t)
+}
+
 func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	t.Parallel()
 
