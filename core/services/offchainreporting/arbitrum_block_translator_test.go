@@ -6,9 +6,10 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -249,7 +250,7 @@ func generateDeterministicL2Blocks() (heads []models.Head) {
 		head := models.Head{
 			Number:        int64(i),
 			L1BlockNumber: null.Int64From(l1BlockNumber),
-			Hash:          cltest.NewHash(),
+			Hash:          utils.NewHash(),
 			ParentHash:    parentHash,
 		}
 		parentHash = head.Hash

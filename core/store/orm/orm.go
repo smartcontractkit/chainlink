@@ -694,16 +694,6 @@ func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string
 	return int(count), err
 }
 
-// Sessions returns all sessions limited by the parameters.
-func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
-	var sessions []models.Session
-	err := orm.DB.
-		Limit(limit).
-		Offset(offset).
-		Find(&sessions).Error
-	return sessions, err
-}
-
 // GetConfigValue returns the value for a named configuration entry
 func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
 	name := EnvVarName(field)
@@ -1129,11 +1119,6 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-// ClearSessions removes all sessions.
-func (orm *ORM) ClearSessions() error {
-	return orm.DB.Exec("DELETE FROM sessions").Error
-}
-
 // ClearNonCurrentSessions removes all sessions but the id passed in.
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
@@ -1224,11 +1209,6 @@ func (orm *ORM) SaveUser(user *models.User) error {
 	return orm.DB.Save(user).Error
 }
 
-// SaveSession saves the session.
-func (orm *ORM) SaveSession(session *models.Session) error {
-	return orm.DB.Save(session).Error
-}
-
 // CreateBridgeType saves the bridge type.
 func (orm *ORM) CreateBridgeType(bt *models.BridgeType) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
@@ -1254,11 +1234,6 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 		return err
 	}
 	return orm.DB.Create(initr).Error
-}
-
-// DeleteStaleSessions deletes all sessions before the passed time.
-func (orm *ORM) DeleteStaleSessions(before time.Time) error {
-	return orm.DB.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates

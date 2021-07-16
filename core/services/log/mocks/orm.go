@@ -16,20 +16,6 @@ type ORM struct {
 	mock.Mock
 }
 
-// DeleteNewestBroadcastsUntil provides a mock function with given fields: blockNumber
-func (_m *ORM) DeleteNewestBroadcastsUntil(blockNumber uint64) error {
-	ret := _m.Called(blockNumber)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64) error); ok {
-		r0 = rf(blockNumber)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // FindConsumedLogs provides a mock function with given fields: fromBlockNum, toBlockNum
 func (_m *ORM) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]log.LogBroadcast, error) {
 	ret := _m.Called(fromBlockNum, toBlockNum)
@@ -51,6 +37,20 @@ func (_m *ORM) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]log.Log
 	}
 
 	return r0, r1
+}
+
+// DeleteNewestBroadcastsUntil provides a mock function with given fields: blockNumber
+func (_m *ORM) DeleteNewestBroadcastsUntil(blockNumber uint64) error {
+	ret := _m.Called(blockNumber)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(uint64) error); ok {
+		r0 = rf(blockNumber)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // MarkBroadcastConsumed provides a mock function with given fields: tx, blockHash, blockNumber, logIndex, jobID

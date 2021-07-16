@@ -186,7 +186,7 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&j))
 
 	run := cltest.NewJobRun(j)
-	txHash := cltest.NewHash()
+	txHash := utils.NewHash()
 	run.RunRequest.TxHash = &txHash
 	run.TaskRuns[0].MinRequiredIncomingConfirmations = null.Uint32From(10)
 	run.CreationHeight = utils.NewBig(big.NewInt(0))
