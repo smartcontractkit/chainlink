@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.6;
 
 import "../interfaces/AggregatorValidatorInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
@@ -7,7 +7,7 @@ import "../interfaces/AccessControllerInterface.sol";
 import "../SimpleWriteAccessController.sol";
 
 /* dev dependencies - to be re/moved after audit */
-import "./interfaces/ArbitrumInboxInterface.sol";
+import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
 import "./interfaces/FlagsInterface.sol";
 
 /**
@@ -33,7 +33,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   uint256 constant private L2_GAS_LIMIT = 30000000;
 
   address private s_l2FlagsAddress;
-  ArbitrumInboxInterface private s_inbox;
+  IInbox private s_inbox;
   AccessControllerInterface private s_gasConfigAccessController;
   GasConfiguration private s_gasConfig;
 
@@ -80,7 +80,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address refundableAddress
   ) {
     require(l2FlagsAddress != address(0), "Invalid Flags contract address");
-    s_inbox = ArbitrumInboxInterface(inboxAddress);
+    s_inbox = IInbox(inboxAddress);
     s_gasConfigAccessController = AccessControllerInterface(gasConfigAccessControllerAddress);
     s_l2FlagsAddress = l2FlagsAddress;
     _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
