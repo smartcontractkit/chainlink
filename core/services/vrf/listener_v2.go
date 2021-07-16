@@ -31,22 +31,14 @@ import (
 )
 
 const (
-	// Gas costs associated with executing the fulfillment
-	// aside from the seed-dependent variable costs in
-	// getRandomnessFromProof (for which we use estimateGas).
-	StaticFulfillExecuteGasCost = 5000 + // subID balance update
+	// Gas to be used
+	GasAfterPaymentCalculation = 5000 + // subID balance update
 		2100 + // cold subscription balance read
 		20000 + // first time oracle balance update, note first time will be 20k, but 5k subsequently
 		2*2100 - // cold read oracle address and oracle balance
-		4800 // request delete refund, note pre-london fork was 15k
-	// Buffer to ensure that the gas received after the call to the consumer contract is
-	// at least the amount they requested. Same argument as
-	// https://github.com/cholladay0816/chainlink/blob/08b6fd1b910b5e9b5d20f834a09204d159a56142/contracts/src/v0.6/VRFCoordinator.sol#L201
-	BufferForConsumerCallback = 6000
-	// Gas costs associated with making the fulfillment call itself.
-	CallFulfillGasCost = 21000 + // Base tx cost
-		8005 // Static costs of argument encoding etc.
-		// note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		4800 + // request delete refund, note pre-london fork was 15k
+		21000 + // base cost of the transaction
+		7643 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 type pendingRequest struct {
@@ -195,9 +187,9 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 
 	s := time.Now()
 	proof, err1 := lsn.LogToProof(req, lb)
-	gasLimit, err2 := lsn.computeTxGasLimit(uint64(req.CallbackGasLimit), proof)
-	vrfCoordinatorPayload, _, err3 := lsn.ProcessLogV2(proof)
-	err = multierr.Combine(err1, err2, err3)
+	//gasLimit, err2 := lsn.computeTxGasLimit(uint64(req.CallbackGasLimit), proof)
+	vrfCoordinatorPayload, gasLimit, _, err2 := lsn.ProcessLogV2(proof)
+	err = multierr.Combine(err1, err2)
 	if err != nil {
 		logger.Errorw("VRFListenerV2: error processing random request", "err", err, "txHash", req.Raw.TxHash)
 	}
@@ -256,47 +248,6 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 	}
 }
 
-// Compute the gasLimit required for the fulfillment transaction
-// such that the user gets their requested amount of gas.
-// We only estimate the getRandomnessFromProof as opposed to the whole fulfillRandomWords
-// to avoid including the users contract code as part of the estimate for security concerns.
-func (lsn *listenerV2) computeTxGasLimit(requestedCallbackGas uint64, proof []byte) (uint64, error) {
-	vrfCoordinatorArgs, err := lsn.abi.Methods["getRandomnessFromProof"].Inputs.PackValues(
-		[]interface{}{
-			proof[:], // geth expects slice, even if arg is constant-length
-		})
-	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: error building fulfill args", "err", err)
-		return 0, err
-	}
-	to := lsn.coordinator.Address()
-	variableFulfillmentCost, err := lsn.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
-		To:   &to,
-		Data: append(lsn.abi.Methods["getRandomnessFromProof"].ID, vrfCoordinatorArgs...),
-	})
-	if err != nil {
-		return 0, err
-	}
-	/* The fulfillment can be summarized as follows:
-			fulfill {
-	               1. get and verify randomness (max cost = func(seed))
-	               2. user callback (max cost = requested gas limit)
-	               3. calculate payment and pay oracles (max cost = deterministic)
-			}
-		   For step 3 see definition of StaticFulfillExecuteGasCost.
-		   Note we do not include CallFulfillGasCost, as that is included as
-		   part of the EstimateGas. It also has the same argument as the outer
-		   fulfillment contract method, so has the same encoding costs.
-	*/
-	staticVerifyGas := uint64(BufferForConsumerCallback + StaticFulfillExecuteGasCost)
-	totalGas := variableFulfillmentCost + requestedCallbackGas + staticVerifyGas
-	logger.Infow("VRFListenerV2: estimated gas limit for tx", "gasLimit", totalGas, "callbackLimit", requestedCallbackGas)
-
-	// Note the total gas maximum is sanity checked in the contract, we do not need
-	// to check it here.
-	return totalGas, nil
-}
-
 func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, error) {
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
@@ -336,17 +287,25 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	return solidityProof[:], nil
 }
 
-func (lsn *listenerV2) ProcessLogV2(solidityProof []byte) ([]byte, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+func (lsn *listenerV2) ProcessLogV2(solidityProof []byte) ([]byte, uint64, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
 	vrfCoordinatorArgs, err := lsn.abi.Methods["fulfillRandomWords"].Inputs.PackValues(
 		[]interface{}{
 			solidityProof[:], // geth expects slice, even if arg is constant-length
 		})
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: error building fulfill args", "err", err)
-		return nil, nil, err
+		return nil, 0, nil, err
 	}
-
-	return append(lsn.abi.Methods["fulfillRandomWords"].ID, vrfCoordinatorArgs...), nil, nil
+	to := lsn.coordinator.Address()
+	gasLimit, err := lsn.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
+		To:   &to,
+		Data: append(lsn.abi.Methods["fulfillRandomWords"].ID, vrfCoordinatorArgs...),
+	})
+	if err != nil {
+		lsn.l.Errorw("VRFListenerV2: error computing gas limit", "err", err)
+		return nil, 0, nil, err
+	}
+	return append(lsn.abi.Methods["fulfillRandomWords"].ID, vrfCoordinatorArgs...), gasLimit, nil, nil
 }
 
 // Close complies with job.Service

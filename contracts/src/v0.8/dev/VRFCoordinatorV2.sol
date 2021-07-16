@@ -50,6 +50,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
+  error PaymentTooLarge();
   uint256 constant private CUSHION = 5_000;
   // Just to relieve stack pressure
   struct FulfillmentParams {
@@ -82,7 +83,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint16 minimumRequestBlockConfirmations;
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^48/10^6].
-    uint48 fulfillmentFlatFeeLinkPPM;
+    uint32 fulfillmentFlatFeeLinkPPM;
     uint32 maxGasLimit;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
@@ -96,7 +97,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   Config private s_config;
   event ConfigSet(
     uint16 minimumRequestBlockConfirmations,
-    uint48 fulfillmentFlatFeeLinkPPM,
+    uint32 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -149,7 +150,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function setConfig(
     uint16 minimumRequestBlockConfirmations,
-    uint48 fulfillmentFlatFeeLinkPPM,
+    uint32 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -187,7 +188,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     view
     returns (
       uint16 minimumRequestBlockConfirmations,
-      uint48 fulfillmentFlatFeeLinkPPM,
+      uint32 fulfillmentFlatFeeLinkPPM,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation,
@@ -348,8 +349,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We also add the flat link fee to the payment amount.
     // Its specified in millionths of link, if s_config.fulfillmentFlatFeeLinkPPM = 1
     // 1 link / 1e6 = 1e18 juels / 1e6 = 1e12 juels.
-    uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice)
-                     + s_config.fulfillmentFlatFeeLinkPPM*1e12;
+    uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, s_config.fulfillmentFlatFeeLinkPPM, tx.gasprice);
     if (s_subscriptions[fp.subId].balance < payment) {
       revert InsufficientBalance();
     }
@@ -361,6 +361,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   function calculatePaymentAmount(
       uint256 startGas,
       uint256 gasAfterPaymentCalculation,
+      uint32  fulfillmentFlatFeeLinkPPM,
       uint256 weiPerUnitGas
   )
     private
@@ -375,13 +376,20 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InvalidFeedResponse(weiPerUnitLink);
     }
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = jules
-    return uint96(1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / uint256(weiPerUnitLink));
+    uint256 paymentNoFee = 1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / uint256(weiPerUnitLink);
+    uint256 fee = 1e12*uint256(fulfillmentFlatFeeLinkPPM);
+    if (paymentNoFee > (1e27-fee)) {
+      revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
+    }
+    unchecked {
+      return uint96(paymentNoFee+fee);
+    }
   }
 
   function getRandomnessFromProof(
     bytes memory proof
   )
-    public 
+    private
     view 
     returns (
       bytes32 currentKeyHash,

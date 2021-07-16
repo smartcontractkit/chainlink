@@ -111,13 +111,13 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
-		uint16(1), // minRequestConfirmations
-		big.NewInt(1000), // 0.001 link flat fee
+		uint16(1),    // minRequestConfirmations
+		uint32(1000), // 0.0001 link flat fee
 		uint32(1000000),
-		uint32(60*60*24), // stalenessSeconds
-		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
-		big.NewInt(10000000000000000),                                  // 0.01 eth per link fallbackLinkPrice
-		big.NewInt(1000000000000000000),                                // Minimum subscription balance 0.01 link
+		uint32(60*60*24),                       // stalenessSeconds
+		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
+		big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
+		big.NewInt(1000000000000000000),        // Minimum subscription balance 0.01 link
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -177,7 +177,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	uni.backend.Commit()
 
 	// Create and fund a subscription.
-	// We should see that our subscription has 0.1 link.
+	// We should see that our subscription has 1 link.
 	AssertLinkBalances(t, uni.linkContract, []common.Address{
 		uni.consumerContractAddress,
 		uni.rootContractAddress,
@@ -280,7 +280,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	)
 	t.Log("end balance", end)
 	linkWeiCharged := start.Sub(end)
-	linkCharged := linkWeiCharged.Div(wei)
+	// Remove flat fee of 0.0001 to get fee for just gas.
+	linkCharged := linkWeiCharged.Sub(decimal.RequireFromString("100000000000000")).Div(wei)
 	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), weiPerUnitLink.Div(wei))
 	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(weiPerUnitLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
