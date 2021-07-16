@@ -3,19 +3,26 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
+	"math/big"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 )
 
@@ -28,7 +35,8 @@ type (
 	}
 
 	balanceMonitor struct {
-		store          *store.Store
+		db             *gorm.DB
+		ethClient      eth.Client
 		ethKeyStore    *keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -39,12 +47,14 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(store *store.Store, ethKeyStore *keystore.Eth) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth) BalanceMonitor {
 	bm := &balanceMonitor{
-		store:          store,
-		ethKeyStore:    ethKeyStore,
-		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
-		ethBalancesMtx: new(sync.RWMutex),
+		db,
+		ethClient,
+		ethKeyStore,
+		make(map[gethCommon.Address]*assets.Eth),
+		new(sync.RWMutex),
+		nil,
 	}
 	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm})
 	return bm
@@ -88,7 +98,7 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 }
 
 func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address) {
-	store.PromUpdateEthBalance(&ethBal, address)
+	promUpdateEthBalance(&ethBal, address)
 
 	bm.ethBalancesMtx.Lock()
 	oldBal := bm.ethBalances[address]
@@ -147,7 +157,7 @@ func (w *worker) checkAccountBalance(k ethkey.Key) {
 	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
 	defer cancel()
 
-	bal, err := w.bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
+	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address.Address(), nil)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
 			"error", err,
@@ -176,3 +186,33 @@ func (*NullBalanceMonitor) Connect(head *models.Head) error {
 }
 func (*NullBalanceMonitor) Disconnect()                                             {}
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
+
+var promETHBalance = promauto.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "eth_balance",
+		Help: "Each Ethereum account's balance",
+	},
+	[]string{"account"},
+)
+
+func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
+	balanceFloat, err := ApproximateFloat64(balance)
+
+	if err != nil {
+		logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
+		return
+	}
+
+	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
+}
+
+func ApproximateFloat64(e *assets.Eth) (float64, error) {
+	ef := new(big.Float).SetInt(e.ToInt())
+	weif := new(big.Float).SetInt(models.WeiPerEth)
+	bf := new(big.Float).Quo(ef, weif)
+	f64, _ := bf.Float64()
+	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
+		return math.Inf(1), errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+	}
+	return f64, nil
+}
