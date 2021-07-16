@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/ArbitrumInboxInterface.sol";
+import "./interfaces/ArbitrumInboxInterface.sol";
 import "../interfaces/AggregatorValidatorInterface.sol";
-import "../interfaces/FlagsDevInterface.sol";
+import "./interfaces/FlagsInterface.sol";
 import "../SimpleWriteAccessController.sol";
 
 /**
@@ -16,8 +16,8 @@ import "../SimpleWriteAccessController.sol";
 contract ArbitrumValidator is SimpleWriteAccessController, AggregatorValidatorInterface {
   // Follows: https://eips.ethereum.org/EIPS/eip-1967
   address constant private s_arbitrumFlag = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
-  bytes constant private s_raiseFlagData = abi.encodeWithSelector(FlagsDevInterface.raiseFlag.selector, s_arbitrumFlag);
-  bytes constant private s_lowerFlagData = abi.encodeWithSelector(FlagsDevInterface.lowerFlag.selector, s_arbitrumFlag);
+  bytes constant private s_raiseFlagData = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, s_arbitrumFlag);
+  bytes constant private s_lowerFlagData = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, s_arbitrumFlag);
   uint32 constant private s_L2GasLimit = 30000000;
 
   address private s_flagsAddress;

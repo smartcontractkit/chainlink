@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../SimpleReadAccessController.sol";
 import "../interfaces/AccessControllerInterface.sol";
-import "../interfaces/FlagsDevInterface.sol";
+import "./interfaces/FlagsInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
 
@@ -16,7 +16,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
  * to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is FlagsDevInterface, SimpleReadAccessController, TypeAndVersionInterface {
+contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInterface {
 
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;

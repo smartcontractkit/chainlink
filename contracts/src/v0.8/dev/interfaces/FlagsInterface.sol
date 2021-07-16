@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface FlagsDevInterface {
+interface FlagsInterface {
   function getFlag(address) external view returns (bool);
   function getFlags(address[] calldata) external view returns (bool[] memory);
   function raiseFlag(address) external;
