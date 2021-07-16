@@ -16,6 +16,7 @@ func TestConfigSchema(t *testing.T) {
 		"AuthenticatedRateLimitPeriod":               "AUTHENTICATED_RATE_LIMIT_PERIOD",
 		"BalanceMonitorEnabled":                      "BALANCE_MONITOR_ENABLED",
 		"BlockBackfillDepth":                         "BLOCK_BACKFILL_DEPTH",
+		"BlockBackfillSkip":                          "BLOCK_BACKFILL_SKIP",
 		"BlockHistoryEstimatorBatchSize":             "BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE",
 		"BlockHistoryEstimatorBlockDelay":            "BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY",
 		"BlockHistoryEstimatorBlockHistorySize":      "BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE",

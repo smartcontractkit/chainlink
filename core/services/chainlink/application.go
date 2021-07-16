@@ -236,7 +236,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(store, keyStore.Eth())
+		balanceMonitor = services.NewBalanceMonitor(store.DB, ethClient, keyStore.Eth())
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
@@ -251,7 +251,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
-	// vorm := vrf.NewORM(store.DB)
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -347,7 +346,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, keyStore.CSA(), keyStore.Eth(), config)
+	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), config)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
@@ -368,7 +367,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		KeyStore:                 keyStore,
-		SessionReaper:            services.NewSessionReaper(store),
+		SessionReaper:            services.NewSessionReaper(store.DB, store.Config),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
