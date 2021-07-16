@@ -145,7 +145,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -228,8 +228,8 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	triggeringBlockHash := cltest.NewHash()
-	otherBlockHash := cltest.NewHash()
+	triggeringBlockHash := utils.NewHash()
+	otherBlockHash := utils.NewHash()
 
 	tests := []struct {
 		name             string
@@ -364,10 +364,10 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	randLog := models.RandomnessRequestLog{
 		KeyHash:   keyHash,
 		Seed:      big.NewInt(1),
-		JobID:     cltest.NewHash(),
+		JobID:     utils.NewHash(),
 		Sender:    sender,
 		Fee:       &fee,
-		RequestID: cltest.NewHash(),
+		RequestID: utils.NewHash(),
 		Raw:       models.RawRandomnessRequestLog{},
 	}
 	log := cltest.NewRandomnessRequestLog(t, randLog, sender, 101)
@@ -377,8 +377,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 102
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
@@ -386,8 +386,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 103
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
@@ -395,8 +395,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Should be capped at 200
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 103
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
@@ -404,7 +404,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(200), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// New requestID should be back to original
-	randLog.RequestID = cltest.NewHash()
+	randLog.RequestID = utils.NewHash()
 	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
 	logs <- newReqLog
 	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
@@ -1220,7 +1220,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1383,7 +1383,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1458,7 +1458,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			}).Maybe()
 		}).
 		Return(nil).Once()
@@ -2025,21 +2025,21 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	b41 := gas.Block{
 		Number:       41,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
 	b42 := gas.Block{
 		Number:       42,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
 	b43 := gas.Block{
 		Number:       43,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
-	h40 := models.Head{Hash: cltest.NewHash(), Number: 40}
+	h40 := models.Head{Hash: utils.NewHash(), Number: 40}
 	h41 := models.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
 	h42 := models.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
 

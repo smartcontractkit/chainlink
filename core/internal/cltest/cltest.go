@@ -622,7 +622,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() string {
 	session := NewSession()
-	require.NoError(ta.t, ta.Store.SaveSession(&session))
+	require.NoError(ta.t, ta.Store.DB.Save(&session).Error)
 	return session.ID
 }
 
@@ -1194,7 +1194,7 @@ func SendBlocksUntilComplete(
 	var err error
 	block := start
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		h := models.NewHead(big.NewInt(block), utils.NewHash(), utils.NewHash(), 0)
 		blockCh <- &h
 		block++
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
@@ -1513,13 +1513,13 @@ func Head(val interface{}) *models.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
 	case int64:
-		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time)
 	case *big.Int:
-		h = models.NewHead(t, NewHash(), NewHash(), time)
+		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time)
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
@@ -2069,7 +2069,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*models.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
-		hash := NewHash()
+		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
 		heads[i] = &models.Head{Hash: hash, Number: i}

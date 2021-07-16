@@ -6,6 +6,8 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	gorm "gorm.io/gorm"
 
+	log "github.com/smartcontractkit/chainlink/core/services/log"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,12 +16,35 @@ type ORM struct {
 	mock.Mock
 }
 
+// FindConsumedLogs provides a mock function with given fields: fromBlockNum, toBlockNum
+func (_m *ORM) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]log.LogBroadcast, error) {
+	ret := _m.Called(fromBlockNum, toBlockNum)
+
+	var r0 []log.LogBroadcast
+	if rf, ok := ret.Get(0).(func(int64, int64) []log.LogBroadcast); ok {
+		r0 = rf(fromBlockNum, toBlockNum)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]log.LogBroadcast)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, int64) error); ok {
+		r1 = rf(fromBlockNum, toBlockNum)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // MarkBroadcastConsumed provides a mock function with given fields: tx, blockHash, blockNumber, logIndex, jobID
-func (_m *ORM) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {
+func (_m *ORM) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID log.JobIdSelect) error {
 	ret := _m.Called(tx, blockHash, blockNumber, logIndex, jobID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Hash, uint64, uint, interface{}) error); ok {
+	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Hash, uint64, uint, log.JobIdSelect) error); ok {
 		r0 = rf(tx, blockHash, blockNumber, logIndex, jobID)
 	} else {
 		r0 = ret.Error(0)
@@ -29,18 +54,18 @@ func (_m *ORM) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNu
 }
 
 // WasBroadcastConsumed provides a mock function with given fields: tx, blockHash, logIndex, jobID
-func (_m *ORM) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error) {
+func (_m *ORM) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID log.JobIdSelect) (bool, error) {
 	ret := _m.Called(tx, blockHash, logIndex, jobID)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Hash, uint, interface{}) bool); ok {
+	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Hash, uint, log.JobIdSelect) bool); ok {
 		r0 = rf(tx, blockHash, logIndex, jobID)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*gorm.DB, common.Hash, uint, interface{}) error); ok {
+	if rf, ok := ret.Get(1).(func(*gorm.DB, common.Hash, uint, log.JobIdSelect) error); ok {
 		r1 = rf(tx, blockHash, logIndex, jobID)
 	} else {
 		r1 = ret.Error(1)
