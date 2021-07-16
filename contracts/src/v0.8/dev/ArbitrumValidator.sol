@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/AggregatorValidatorInterface.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
 import "../SimpleWriteAccessController.sol";
 
 /* dev dependencies - to be re/moved after audit */
@@ -15,7 +16,7 @@ import "./interfaces/FlagsInterface.sol";
  * Gas configuration is controlled by a configurable external SimpleWriteAccessController
  * Funds on the contract are managed by the owner
  */
-contract ArbitrumValidator is AggregatorValidatorInterface, SimpleWriteAccessController {
+contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   // Config for L1 -> L2 `createRetryableTicket` call
   struct GasConfiguration {
     uint256 maxSubmissionCost;
@@ -83,7 +84,26 @@ contract ArbitrumValidator is AggregatorValidatorInterface, SimpleWriteAccessCon
     s_flagsAddress = flagAddress;
     _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
   }
-  
+
+  /**
+   * @notice versions:
+   *
+   * - ArbitrumValidator 0.1.0: initial release
+   *
+   * @inheritdoc TypeAndVersionInterface
+   */
+  function typeAndVersion()
+    external
+    pure
+    virtual
+    override
+    returns (
+      string memory
+    )
+  {
+    return "ArbitrumValidator 0.1.0";
+  }
+
   /// @notice makes this contract payable. It need funds in order to pay for L2 transactions fees
   receive() external payable {}
 
@@ -163,8 +183,8 @@ contract ArbitrumValidator is AggregatorValidatorInterface, SimpleWriteAccessCon
   ) 
     external
     override
-    checkAccess() 
-    returns (bool) 
+    checkAccess()
+    returns (bool)
   {
     // Avoids resending to L2 the same tx on every call
     if (previousAnswer == currentAnswer) {
