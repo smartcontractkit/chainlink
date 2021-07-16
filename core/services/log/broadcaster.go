@@ -47,7 +47,7 @@ type (
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		LatestHeadNumber() null.Int64
+		BackfillBlockNumber() null.Int64
 
 		TrackedAddressesCount() uint32
 		// DB interactions
@@ -56,10 +56,12 @@ type (
 	}
 
 	broadcaster struct {
-		orm                   ORM
-		config                Config
-		connected             *abool.AtomicBool
-		requestedBackfillFrom null.Int64
+		orm       ORM
+		config    Config
+		connected *abool.AtomicBool
+
+		// a block number to start backfill from
+		backfillBlockNumber null.Int64
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -75,7 +77,8 @@ type (
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
 		trackedAddressesCount uint32
-		restartFromNumber     int64
+		replayChannel         chan int64
+		highestSavedHead      *models.Head
 	}
 
 	Config interface {
@@ -113,24 +116,26 @@ var _ Broadcaster = (*broadcaster)(nil)
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
 	chStop := make(chan struct{})
-	var requestedBackfillFrom null.Int64
-	if highestSavedHead != nil {
-		requestedBackfillFrom = null.NewInt64(highestSavedHead.Number, true)
-	}
+	//var requestedBackfillFrom null.Int64
+	//if highestSavedHead != nil {
+	//	requestedBackfillFrom = null.NewInt64(highestSavedHead.Number, true)
+	//}
 
 	return &broadcaster{
-		orm:                   orm,
-		config:                config,
-		connected:             abool.New(),
-		ethSubscriber:         newEthSubscriber(ethClient, config, chStop),
-		registrations:         newRegistrations(),
-		logPool:               newLogPool(),
-		addSubscriber:         utils.NewMailbox(0),
-		rmSubscriber:          utils.NewMailbox(0),
-		newHeads:              utils.NewMailbox(1),
-		DependentAwaiter:      utils.NewDependentAwaiter(),
-		chStop:                chStop,
-		requestedBackfillFrom: requestedBackfillFrom,
+		orm:              orm,
+		config:           config,
+		connected:        abool.New(),
+		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
+		registrations:    newRegistrations(),
+		logPool:          newLogPool(),
+		addSubscriber:    utils.NewMailbox(0),
+		rmSubscriber:     utils.NewMailbox(0),
+		newHeads:         utils.NewMailbox(1),
+		DependentAwaiter: utils.NewDependentAwaiter(),
+		chStop:           chStop,
+		//backfillBlockNumber: requestedBackfillFrom,
+		highestSavedHead: highestSavedHead,
+		replayChannel:    make(chan int64, 1),
 	}
 }
 
@@ -142,8 +147,8 @@ func (b *broadcaster) Start() error {
 	})
 }
 
-func (b *broadcaster) LatestHeadNumber() null.Int64 {
-	return b.requestedBackfillFrom
+func (b *broadcaster) BackfillBlockNumber() null.Int64 {
+	return b.backfillBlockNumber
 }
 
 func (b *broadcaster) TrackedAddressesCount() uint32 {
@@ -152,7 +157,10 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 
 func (b *broadcaster) ReplayFrom(number int64) {
 	logger.Infof("LogBroadcaster: Replay requested from block number: %v", number)
-	atomic.StoreInt64(&b.restartFromNumber, number)
+	select {
+	case b.replayChannel <- number:
+	default:
+	}
 }
 
 func (b *broadcaster) Close() error {
@@ -236,35 +244,36 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		var backfillFrom null.Int64
-		if b.requestedBackfillFrom.Valid {
+		if b.highestSavedHead != nil {
 			// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
 			// - keeping logs in the in-memory buffers in registration.go
 			//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
 			// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
 			//   (or more heads on fast chains) may be saved but not yet processed by LB
 			//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
-			from := b.requestedBackfillFrom.Int64 -
+			from := b.highestSavedHead.Number -
 				int64(b.registrations.highestNumConfirmations) -
 				int64(b.config.BlockBackfillDepth())
-
-			logger.Debugw("LogBroadcaster: Using an override as a start of the backfill",
-				"blockNumber", b.requestedBackfillFrom.Int64,
-				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
-			)
-
 			if from < 0 {
 				from = 0
 			}
-			backfillFrom = null.Int64From(from)
+			b.backfillBlockNumber = null.NewInt64(from, true)
+			b.highestSavedHead = nil
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(backfillFrom, addresses, topics)
+		if b.backfillBlockNumber.Valid {
+			logger.Debugw("LogBroadcaster: Using an override as a start of the backfill",
+				"blockNumber", b.backfillBlockNumber.Int64,
+				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
+			)
+		}
+
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.backfillBlockNumber, addresses, topics)
 		if abort {
 			return
 		}
 
-		b.requestedBackfillFrom.Valid = false
+		b.backfillBlockNumber.Valid = false
 
 		// Each time this loop runs, chRawLogs is reconstituted as:
 		// "remaining logs from last subscription <- backfilled logs <- logs from new subscription"
@@ -318,14 +327,13 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 		case <-b.rmSubscriber.Notify():
 			needsResubscribe = b.onRmSubscribers() || needsResubscribe
 
+		case blockNumber := <-b.replayChannel:
+			b.backfillBlockNumber.SetValid(blockNumber)
+			logger.Debugw("LogBroadcaster: Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
+			return true, nil
+
 		case <-debounceResubscribe.C:
-			restartFrom := atomic.LoadInt64(&b.restartFromNumber)
-			if restartFrom != 0 {
-				atomic.StoreInt64(&b.restartFromNumber, 0)
-				logger.Debugw("LogBroadcaster: Setting head number to restart from", "number", restartFrom)
-				b.requestedBackfillFrom.SetValid(restartFrom)
-			}
-			if needsResubscribe || restartFrom != 0 {
+			if needsResubscribe {
 				logger.Debug("LogBroadcaster: Returning from the event loop to resubscribe")
 				return true, nil
 			}
@@ -487,7 +495,7 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 func (n *NullBroadcaster) ReplayFrom(number int64) {
 }
 
-func (n *NullBroadcaster) LatestHeadNumber() null.Int64 {
+func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
 	return null.NewInt64(0, false)
 }
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {

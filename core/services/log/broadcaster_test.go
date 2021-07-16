@@ -140,7 +140,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: backfillTimes,
 		HeaderByNumber:      backfillTimes,
-		FilterLogs:          3,
+		FilterLogs:          2,
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
@@ -168,7 +168,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		if times == 0 {
 			require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
 		} else if times == 1 {
-			require.Equal(t, replayFrom-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
+			require.Equal(t, replayFrom, fromBlock)
 		}
 
 		atomic.StoreInt64(backfillCountPtr, times+1)
@@ -1178,8 +1178,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				// Validate that the ethereum.FilterQuery is specified correctly for the backfill that we expect
 				fromBlock := args.Get(1).(ethereum.FilterQuery).FromBlock
 				expected := big.NewInt(0)
-				if helper.lb.LatestHeadNumber().Valid && helper.lb.LatestHeadNumber().Int64 > test.blockHeight2-backfillDepth {
-					expected = big.NewInt(helper.lb.LatestHeadNumber().Int64)
+				if helper.lb.BackfillBlockNumber().Valid && helper.lb.BackfillBlockNumber().Int64 > test.blockHeight2-backfillDepth {
+					expected = big.NewInt(helper.lb.BackfillBlockNumber().Int64)
 				} else if test.blockHeight2 > backfillDepth {
 					expected = big.NewInt(test.blockHeight2 - backfillDepth)
 				}
