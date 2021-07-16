@@ -1,5 +1,10 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+### Changed:
+- Updated `Denominations` in `./src/<version>` to include additional fiat currencies.
+
 ## 0.2.2 - Unreleased
 
 ### Added:
