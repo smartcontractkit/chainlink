@@ -27,9 +27,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address constant private FLAG_ARBITRUM_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
-  bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_OFFLINE);
-  bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_OFFLINE);
+  address constant private FLAG_ARBITRUM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
+  bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
+  bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
   uint256 constant private L2_GAS_LIMIT = 30000000;
 
   address private s_l2FlagsAddress;
@@ -247,7 +247,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       s_gasConfig.refundableAddress, // callValueRefundAddress
       L2_GAS_LIMIT,
       s_gasConfig.maxGasPrice,
-      currentAnswer == 0 ? CALL_RAISE_FLAG : CALL_LOWER_FLAG
+      currentAnswer == 0 ? CALL_LOWER_FLAG : CALL_RAISE_FLAG
     );
     return true;
   }
