@@ -958,7 +958,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
-			require.NoError(t, store.SaveSession(&prevSession))
+			require.NoError(t, store.DB.Save(&prevSession).Error)
 
 			expectedTime := utils.ISO8601UTC(time.Now())
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
@@ -1001,7 +1001,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	defer cleanup()
 
 	session := models.NewSession()
-	require.NoError(t, store.SaveSession(&session))
+	require.NoError(t, store.DB.Save(&session).Error)
 
 	err := store.DeleteUserSession(session.ID)
 	require.NoError(t, err)
@@ -1009,7 +1009,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	_, err = store.FindUser()
 	require.NoError(t, err)
 
-	sessions, err := store.Sessions(0, 10)
+	sessions, err := postgres.Sessions(store.DB, 0, 10)
 	assert.NoError(t, err)
 	require.Empty(t, sessions)
 }

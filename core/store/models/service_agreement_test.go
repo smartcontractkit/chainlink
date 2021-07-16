@@ -98,7 +98,7 @@ func TestBuildServiceAgreement(t *testing.T) {
 func TestEncumbrance_ABI(t *testing.T) {
 	t.Parallel()
 	endAt := cltest.ParseISO8601(t, "2007-01-02T15:04:05.000Z")
-	digest := cltest.NewHash()
+	digest := utils.NewHash()
 	requestDigestHex := utils.RemoveHexPrefix(digest.Hex())
 
 	tests := []struct {

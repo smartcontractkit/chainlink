@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -207,9 +209,9 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
 
-		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
+		cltest.MustInsertEthReceipt(t, store, 1, utils.NewHash(), confirmedAttemptHash)
 		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), models.Head{
-			Hash:   cltest.NewHash(),
+			Hash:   utils.NewHash(),
 			Number: 12,
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
@@ -236,9 +238,9 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
 
-		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
+		cltest.MustInsertEthReceipt(t, store, 1, utils.NewHash(), confirmedAttemptHash)
 		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), models.Head{
-			Hash:   cltest.NewHash(),
+			Hash:   utils.NewHash(),
 			Number: 13,
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
@@ -271,9 +273,9 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
 
-		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
+		cltest.MustInsertEthReceipt(t, store, 1, utils.NewHash(), confirmedAttemptHash)
 		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), models.Head{
-			Hash:   cltest.NewHash(),
+			Hash:   utils.NewHash(),
 			Number: 14,
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
@@ -301,9 +303,9 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 		confirmedAttemptHash := attempt2.Hash
 
-		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
+		cltest.MustInsertEthReceipt(t, store, 1, utils.NewHash(), confirmedAttemptHash)
 		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), models.Head{
-			Hash:   cltest.NewHash(),
+			Hash:   utils.NewHash(),
 			Number: int64(store.Config.MinRequiredOutgoingConfirmations()) + 2,
 		}))
 		_, err := store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)

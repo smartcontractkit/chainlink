@@ -127,7 +127,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			log := test.logFactory(t, models.IDToTopic(js.ID), cltest.NewAddress(), test.requester, 1, `{}`)
 
 			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
-			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: utils.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
 			})
