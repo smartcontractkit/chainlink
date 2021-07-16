@@ -2,7 +2,7 @@ package log
 
 import (
 	"context"
-	"errors"
+	"github.com/pkg/errors"
 	"sync"
 	"sync/atomic"
 	"time"
