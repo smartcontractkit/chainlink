@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/AggregatorValidatorInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
+import "../interfaces/AccessControllerInterface.sol";
 import "../SimpleWriteAccessController.sol";
 
 /* dev dependencies - to be re/moved after audit */
@@ -10,17 +11,17 @@ import "./interfaces/ArbitrumInboxInterface.sol";
 import "./interfaces/FlagsInterface.sol";
 
 /**
- * @title ArbitrumValidator Contract
+ * @title ArbitrumValidator
  * @notice Allows to raise and lower Flags on the Arbitrum network through its Layer 1 contracts
- * The internal AccessController controls the access of the validate method
- * Gas configuration is controlled by a configurable external SimpleWriteAccessController
- * Funds on the contract are managed by the owner
+ *  - The internal AccessController controls the access of the validate method
+ *  - Gas configuration is controlled by a configurable external SimpleWriteAccessController
+ *  - Funds on the contract are managed by the owner
  */
 contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   // Config for L1 -> L2 `createRetryableTicket` call
   struct GasConfiguration {
     uint256 maxSubmissionCost;
-    uint32 maxGasPrice;
+    uint256 maxGasPrice;
     uint256 gasCostL2;
     address refundableAddress;
   }
@@ -29,11 +30,11 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   address constant private FLAG_ARBITRUM_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-offline")) - 1)));
   bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_OFFLINE);
   bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_OFFLINE);
-  uint32 constant private L2_GAS_LIMIT = 30000000;
+  uint256 constant private L2_GAS_LIMIT = 30000000;
 
-  address private s_flagsAddress;
-  ArbitrumInboxInterface private s_arbitrumInbox;
-  SimpleWriteAccessController private s_gasConfigAccessController;
+  address private s_l2FlagsAddress;
+  ArbitrumInboxInterface private s_inbox;
+  AccessControllerInterface private s_gasConfigAccessController;
   GasConfiguration private s_gasConfig;
 
   /**
@@ -45,7 +46,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    */
   event GasConfigurationSet(
     uint256 maxSubmissionCost,
-    uint32 maxGasPrice,
+    uint256 maxGasPrice,
     uint256 gasCostL2,
     address indexed refundableAddress
   );
@@ -62,8 +63,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @param inboxAddress address of the Arbitrum Inbox L1 contract
-   * @param flagAddress address of the Chainlink L2 Flags contract
-   * @param gasConfigAccessController address of the access controller for managing gas price on Arbitrum
+   * @param l2FlagsAddress address of the Chainlink L2 Flags contract
+   * @param gasConfigAccessControllerAddress address of the access controller for managing gas price on Arbitrum
    * @param maxSubmissionCost maximum cost willing to pay on L2
    * @param maxGasPrice maximum gas price to pay on L2
    * @param gasCostL2 value to send to L2 to cover gas fee
@@ -71,17 +72,17 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    */
   constructor(
     address inboxAddress,
-    address flagAddress,
-    address gasConfigAccessController,
+    address l2FlagsAddress,
+    address gasConfigAccessControllerAddress,
     uint256 maxSubmissionCost,
-    uint32 maxGasPrice,
+    uint256 maxGasPrice,
     uint256 gasCostL2,
     address refundableAddress
   ) {
-    require(flagAddress != address(0), "Invalid Flags contract address");
-    s_arbitrumInbox = ArbitrumInboxInterface(inboxAddress);
-    s_gasConfigAccessController = SimpleWriteAccessController(gasConfigAccessController);
-    s_flagsAddress = flagAddress;
+    require(l2FlagsAddress != address(0), "Invalid Flags contract address");
+    s_inbox = ArbitrumInboxInterface(inboxAddress);
+    s_gasConfigAccessController = AccessControllerInterface(gasConfigAccessControllerAddress);
+    s_l2FlagsAddress = l2FlagsAddress;
     _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
   }
 
@@ -104,7 +105,47 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     return "ArbitrumValidator 0.1.0";
   }
 
-  /// @notice makes this contract payable. It need funds in order to pay for L2 transactions fees
+  /// @return L2 Flags contract address
+  function l2Flags()
+    external
+    view
+    virtual
+    returns (address)
+  {
+    return s_l2FlagsAddress;
+  }
+
+  /// @return Arbitrum Inbox contract address
+  function inbox()
+    external
+    view
+    virtual
+    returns (address)
+  {
+    return address(s_inbox);
+  }
+
+  /// @return gas config AccessControllerInterface contract address
+  function gasConfigAccessController()
+    external
+    view
+    virtual
+    returns (address)
+  {
+    return address(s_gasConfigAccessController);
+  }
+
+  /// @return stored GasConfiguration
+  function gasConfig()
+    external
+    view
+    virtual
+    returns (GasConfiguration memory)
+  {
+    return s_gasConfig;
+  }
+
+  /// @notice makes this contract payable as it need funds to pay for L2 transactions fees on L1.
   receive() external payable {}
 
   /**
@@ -121,8 +162,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @notice withdraws all funds availbale in this contract to the address specified
-   * @param to address where to send the funds
    * @dev only owner can call this
+   * @param to address where to send the funds
    */
   function withdrawFundsTo(
     address payable to
@@ -134,46 +175,48 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-   * @notice sets gasAccessController
-   * @param gasAccessController new gasAccessController contract address
+   * @notice sets gas config AccessControllerInterface contract
    * @dev only owner can call this
+   * @param accessController new AccessControllerInterface contract address
    */
   function setGasAccessController(
-    address gasAccessController
+    address accessController
   )
     external
     onlyOwner
   {
-    _setGasAccessController(gasAccessController);
+    _setGasAccessController(accessController);
   }
 
   /**
    * @notice sets Arbitrum gas configuration
+   * @dev access control provided by s_gasConfigAccessController
    * @param maxSubmissionCost maximum cost willing to pay on L2
    * @param maxGasPrice maximum gas price to pay on L2
    * @param gasCostL2 value to send to L2 to cover gas fee
    * @param refundableAddress address where gas excess on L2 will be sent
-   * @dev access control provided by s_gasConfigAccessController
    */
   function setGasConfiguration(
     uint256 maxSubmissionCost,
-    uint32 maxGasPrice,
+    uint256 maxGasPrice,
     uint256 gasCostL2,
     address refundableAddress
   )
     external
   {
-    require(s_gasConfigAccessController.hasAccess(msg.sender, msg.data), "Only gas configuration admin can call");
+    require(s_gasConfigAccessController.hasAccess(msg.sender, msg.data), "Access required to set config");
     _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
   }
 
   /**
-   * @notice validate method updates the state of an L2 Flag in case of change on the Arbitrum Sequencer. A zero answer considers the service as offline
-   * In case the previous answer is the same as the current it does not trigger any tx on L2
-   * In other case, a retryable ticket is created on the Arbitrum L1 Inbox contract. The tx gas fee can be paid from this contract providing a value, or the same address on L2
+   * @notice validate method updates the state of an L2 Flag in case of change on the Arbitrum Sequencer.
+   * A zero answer considers the service as offline.
+   * In case the previous answer is the same as the current it does not trigger any tx on L2. In other case,
+   * a retryable ticket is created on the Arbitrum L1 Inbox contract. The tx gas fee can be paid from this
+   * contract providing a value, or the same address on L2.
+   * @dev access control provided internally by SimpleWriteAccessController
    * @param previousAnswer previous aggregator answer
    * @param currentAnswer new aggregator answer
-   * @dev access control provided internally by SimpleWriteAccessController
    */
   function validate(
     uint256 /* previousRoundId */,
@@ -191,9 +234,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       return true;
     }
 
-    s_arbitrumInbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
-      s_flagsAddress, 
+    // NOTICE: if gasCostL2 is zero the payment is processed on L2 so the L2 address needs to be funded, as it will
+    // paying the fee. We also ignore the returned msg nubmer, that can be queried via the InboxMessageDelivered event.
+    s_inbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
+      s_l2FlagsAddress,
       0, // L2 call value
+      // NOTICE: maxSubmissionCost info will possibly become available on L1 after the London fork. At that time this
+      // contract could start querying/calculating it directly so we wouldn't need to configure it statically. On L2 this
+      // info is available via `ArbRetryableTx.getSubmissionPrice`.
       s_gasConfig.maxSubmissionCost, // Max submission cost of sending data length
       s_gasConfig.refundableAddress, // excessFeeRefundAddress
       s_gasConfig.refundableAddress, // callValueRefundAddress
@@ -206,7 +254,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   function _setGasConfiguration(
     uint256 maxSubmissionCost,
-    uint32 maxGasPrice,
+    uint256 maxGasPrice,
     uint256 gasCostL2,
     address refundableAddress
   )
@@ -217,14 +265,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   function _setGasAccessController(
-    address gasAccessController
+    address accessController
   )
     internal
   {
-    address previousController = address(s_gasConfigAccessController);
-    if (gasAccessController != previousController) {
-      s_gasConfigAccessController = SimpleWriteAccessController(gasAccessController);
-      emit GasAccessControllerSet(previousController, gasAccessController);
+    address previousAccessController = address(s_gasConfigAccessController);
+    if (accessController != previousAccessController) {
+      s_gasConfigAccessController = AccessControllerInterface(accessController);
+      emit GasAccessControllerSet(previousAccessController, accessController);
     }
   }
 }
