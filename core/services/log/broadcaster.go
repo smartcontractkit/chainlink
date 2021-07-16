@@ -76,7 +76,7 @@ type (
 
 	Config interface {
 		BlockBackfillDepth() uint64
-		BlockBackfillMode() string
+		BlockBackfillSkip() bool
 		EthFinalityDepth() uint
 		EthLogBackfillBatchSize() uint32
 	}
@@ -223,8 +223,8 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		if b.config.BlockBackfillMode() == "ShallowOnly" && b.latestHeadFromDb != nil {
-			logger.Info("LogBroadcaster: BlockBackfillMode is set to ShallowOnly, preventing a deep backfill")
+		if b.config.BlockBackfillSkip() && b.latestHeadFromDb != nil {
+			logger.Info("LogBroadcaster: BlockBackfillSkip is set to true, preventing a deep backfill")
 			b.latestHeadFromDb = nil
 		}
 

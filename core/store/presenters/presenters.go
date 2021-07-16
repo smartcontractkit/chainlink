@@ -39,7 +39,7 @@ type EnvPrinter struct {
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
 	BalanceMonitorEnabled                      bool            `json:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
-	BlockBackfillMode                          string          `json:"BLOCK_BACKFILL_MODE"`
+	BlockBackfillSkip                          bool            `json:"BLOCK_BACKFILL_SKIP"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
@@ -143,7 +143,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			AllowOrigins:                               config.AllowOrigins(),
 			BalanceMonitorEnabled:                      config.BalanceMonitorEnabled(),
 			BlockBackfillDepth:                         config.BlockBackfillDepth(),
-			BlockBackfillMode:                          config.BlockBackfillMode(),
+			BlockBackfillSkip:                          config.BlockBackfillSkip(),
 			BlockHistoryEstimatorBlockDelay:            config.BlockHistoryEstimatorBlockDelay(),
 			BlockHistoryEstimatorBlockHistorySize:      config.BlockHistoryEstimatorBlockHistorySize(),
 			BlockHistoryEstimatorTransactionPercentile: config.BlockHistoryEstimatorTransactionPercentile(),

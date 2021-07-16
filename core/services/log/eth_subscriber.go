@@ -32,7 +32,8 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 }
 
 // backfillLogs - fetches earlier logs either from a relatively recent block (latest minus BlockBackfillDepth) or from the given fromBlockOverride
-// note that the whole operation has no timeout - it relies on BlockBackfillMode (set outside) to optionally prevent very deep, long backfills
+// note that the whole operation has no timeout - it relies on BlockBackfillSkip (set outside) to optionally prevent very deep, long backfills
+// Max runtime is: (10 sec + 1 min * numBlocks/batchSize) * 3 retries
 func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	if len(addresses) == 0 {
 		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
@@ -46,7 +47,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 
 	retryCount := 0
 	utils.RetryWithBackoff(ctxParent, func() (retry bool) {
-		if retryCount > 10 {
+		if retryCount > 3 {
 			return false
 		}
 		retryCount++
@@ -113,7 +114,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 
 			var elapsedMessage string
 			if elapsed > time.Minute {
-				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_MODE configuration variable to \"ShallowOnly\")"
+				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_SKIP configuration variable to \"true\")"
 			}
 			logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of logs%s", elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
 			if err != nil {
