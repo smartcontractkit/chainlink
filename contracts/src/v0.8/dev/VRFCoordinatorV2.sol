@@ -80,8 +80,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   struct Config {
     uint16 minimumRequestBlockConfirmations;
     // Flat fee charged per fulfillment in millionths of link
-    // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeLinkPPM;
+    // So fee range is [0, 2^48/10^6].
+    uint48 fulfillmentFlatFeeLinkPPM;
     uint32 maxGasLimit;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
@@ -95,7 +95,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   Config private s_config;
   event ConfigSet(
     uint16 minimumRequestBlockConfirmations,
-    uint32 fulfillmentFlatFeeLinkPPM,
+    uint48 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -148,7 +148,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function setConfig(
     uint16 minimumRequestBlockConfirmations,
-    uint32 fulfillmentFlatFeeLinkPPM,
+    uint48 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -186,7 +186,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     view
     returns (
       uint16 minimumRequestBlockConfirmations,
-      uint32 fulfillmentFlatFeeLinkPPM,
+      uint48 fulfillmentFlatFeeLinkPPM,
       uint32 maxGasLimit,
       uint32 stalenessSeconds,
       uint32 gasAfterPaymentCalculation,
