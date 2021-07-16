@@ -50,6 +50,14 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
     setLoweringAccessController(lacAddress);
   }
 
+  /**
+   * @notice versions:
+   *
+   * - Flags 1.1.0: upgraded to solc 0.8, added lowering access controller
+   * - Flags 1.0.0: initial release
+   *
+   * @inheritdoc TypeAndVersionInterface
+   */
   function typeAndVersion()
     external
     pure
