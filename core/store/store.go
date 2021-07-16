@@ -93,7 +93,7 @@ func checkV1JobSpecs(db *gorm.DB) error {
 		return err
 	}
 	if count > 0 {
-		logger.Warnf(`Found %d legacy job_specs. The JSON style of job spec is now deprecated and support for jobs using this format will be REMOVED in an upcoming release. You should migrate all these jobs to V2 (TOML) format. For help doing this, please contact our node operator support team. To test your node to see how it would behave after support for these jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false`, count)
+		logger.Warnf(`Found %d legacy job_specs. The JSON style of job spec is now deprecated and support for jobs using this format will be REMOVED in an upcoming release. You should migrate all these jobs to V2 (TOML) format. For help doing this, please refer to the docs (https://docs.chain.link/docs/jobs/). To test your node to see how it would behave after support for these jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false`, count)
 	}
 	return nil
 }
