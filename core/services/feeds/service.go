@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/wsrpc"
 )
@@ -23,10 +24,14 @@ type Service interface {
 
 	CountManagers() (int64, error)
 	CreateJobProposal(jp *JobProposal) (int64, error)
+	GetJobProposal(id int64) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
 	RegisterManager(ms *FeedsManager) (int64, error)
+	RejectJobProposal(ctx context.Context, id int64) error
 	SyncNodeInfo(id int64) error
+
+	Unsafe_SetFMSClient(pb.FeedsManagerClient)
 }
 
 type service struct {
@@ -46,11 +51,13 @@ type service struct {
 	ethKeyStore keystore.EthKeyStoreInterface
 	fmsClient   pb.FeedsManagerClient
 	cfg         Config
+	txm         postgres.TransactionManager
 }
 
 // NewService constructs a new feeds service
 func NewService(
 	orm ORM,
+	txm postgres.TransactionManager,
 	csaKeyStore keystore.CSAKeystoreInterface,
 	ethKeyStore keystore.EthKeyStoreInterface,
 	cfg Config,
@@ -61,6 +68,7 @@ func NewService(
 		connCtx:       ctx,
 		connCtxCancel: cancel,
 		orm:           orm,
+		txm:           txm,
 		csaKeyStore:   csaKeyStore,
 		ethKeyStore:   ethKeyStore,
 		cfg:           cfg,
@@ -121,7 +129,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		}
 	}
 
-	keys, err := s.ethKeyStore.FundingKeys()
+	keys, err := s.ethKeyStore.SendingKeys()
 	if err != nil {
 		return err
 	}
@@ -135,7 +143,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 	_, err = s.fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:         jobtypes,
 		ChainId:          s.cfg.ChainID().Int64(),
-		FundingAddresses: addresses,
+		AccountAddresses: addresses,
 	})
 	if err != nil {
 		return err
@@ -159,8 +167,50 @@ func (s *service) CountManagers() (int64, error) {
 	return s.orm.CountManagers()
 }
 
+// CreateJobProposal creates a job proposal.
 func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 	return s.orm.CreateJobProposal(context.Background(), jp)
+}
+
+// GetJobProposal gets a job proposal by id.
+func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
+	return s.orm.GetJobProposal(context.Background(), id)
+}
+
+func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
+	if s.fmsClient == nil {
+		return errors.New("fms rpc client is not connected")
+	}
+
+	jp, err := s.orm.GetJobProposal(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if jp.Status != JobProposalStatusPending {
+		return errors.New("must be a pending job proposal")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
+		if err = s.orm.UpdateJobProposalStatus(ctx, id, JobProposalStatusRejected); err != nil {
+			return err
+		}
+
+		if _, err = s.fmsClient.RejectedJob(ctx, &pb.RejectedJobRequest{
+			Uuid: jp.RemoteUUID.String(),
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *service) Start() error {
@@ -269,4 +319,14 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	}
 
 	return privkey, nil
+}
+
+// Unsafe_SetFMSClient sets the FMSClient on the service.
+//
+// We need to be able to inject a mock for the client to facilitate integration
+// tests.
+//
+// ONLY TO BE USED FOR TESTING.
+func (s *service) Unsafe_SetFMSClient(client pb.FeedsManagerClient) {
+	s.fmsClient = client
 }

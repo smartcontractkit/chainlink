@@ -18,7 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -232,6 +234,64 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		ethClient.AssertExpectations(t)
 	})
+}
+
+func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
+	db := pgtest.NewGormDB(t)
+	ethClient := new(mocks.Client)
+	config := cltest.NewTestConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	ethKeyStore.Unlock(cltest.Password)
+
+	chStartEstimate := make(chan struct{})
+	chBlock := make(chan struct{})
+
+	estimator := new(gasmocks.Estimator)
+	estimator.On("EstimateGas", mock.Anything, mock.Anything).Return(big.NewInt(32), uint64(500), nil).Run(func(_ mock.Arguments) {
+		close(chStartEstimate)
+		<-chBlock
+	})
+
+	eb := bulletprooftxmanager.NewEthBroadcaster(
+		db,
+		ethClient,
+		config,
+		ethKeyStore,
+		&postgres.NullAdvisoryLocker{},
+		&postgres.NullEventBroadcaster{},
+		[]ethkey.Key{key},
+		estimator,
+	)
+
+	etx := bulletprooftxmanager.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      cltest.NewAddress(),
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          *assets.NewEth(0),
+		GasLimit:       500000,
+		State:          bulletprooftxmanager.EthTxUnstarted,
+	}
+	require.NoError(t, db.Save(&etx).Error)
+
+	go func() {
+		select {
+		case <-chStartEstimate:
+		case <-time.After(5 * time.Second):
+			t.Log("timed out waiting for estimator to be called")
+			return
+		}
+
+		// Simulate a "PruneQueue" call
+		assert.NoError(t, db.Exec(`DELETE FROM eth_txes WHERE state = 'unstarted'`).Error)
+
+		close(chBlock)
+	}()
+
+	err := eb.ProcessUnstartedEthTxs(key)
+	require.NoError(t, err)
+
+	estimator.AssertExpectations(t)
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {

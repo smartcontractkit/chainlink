@@ -189,3 +189,17 @@ func (_m *ORM) ListManagers(ctx context.Context) ([]feeds.FeedsManager, error) {
 
 	return r0, r1
 }
+
+// UpdateJobProposalStatus provides a mock function with given fields: ctx, id, status
+func (_m *ORM) UpdateJobProposalStatus(ctx context.Context, id int64, status feeds.JobProposalStatus) error {
+	ret := _m.Called(ctx, id, status)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, feeds.JobProposalStatus) error); ok {
+		r0 = rf(ctx, id, status)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}

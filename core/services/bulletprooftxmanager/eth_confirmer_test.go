@@ -190,8 +190,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	t.Run("saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
 		bptxmReceipt := bulletprooftxmanager.Receipt{
-			TxHash:           cltest.NewHash(),
-			BlockHash:        cltest.NewHash(),
+			TxHash:           utils.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
@@ -218,7 +218,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Run("saves nothing if query returns error", func(t *testing.T) {
 		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt1_1.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
@@ -251,7 +251,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Run("saves eth_receipt and marks eth_tx as confirmed when geth client returns valid receipt", func(t *testing.T) {
 		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt1_1.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
@@ -310,7 +310,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt2_2.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
@@ -378,7 +378,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		// NOTE: This should never happen, but we shouldn't panic regardless
 		receipt := bulletprooftxmanager.Receipt{
 			TxHash:    attempt3_1.Hash,
-			BlockHash: cltest.NewHash(),
+			BlockHash: utils.NewHash(),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt3_1.Hash)
@@ -401,7 +401,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	})
 
 	t.Run("handles case where eth_receipt already exists somehow", func(t *testing.T) {
-		ethReceipt := cltest.MustInsertEthReceipt(t, store, 42, cltest.NewHash(), attempt3_1.Hash)
+		ethReceipt := cltest.MustInsertEthReceipt(t, store, 42, utils.NewHash(), attempt3_1.Hash)
 
 		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt3_1.Hash,
@@ -451,7 +451,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt4_2.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
@@ -703,13 +703,13 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {
 		bptxmReceipt0 := bulletprooftxmanager.Receipt{
 			TxHash:           attempt0_2.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
 		bptxmReceipt3 := bulletprooftxmanager.Receipt{
 			TxHash:           attempt3_1.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
@@ -776,7 +776,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	t.Run("marks eth_txes with state 'confirmed_missing_receipt' as 'confirmed' if a receipt finally shows up", func(t *testing.T) {
 		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt2_1.Hash,
-			BlockHash:        cltest.NewHash(),
+			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(43),
 			TransactionIndex: uint(1),
 		}
@@ -1964,14 +1964,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	head := models.Head{
-		Hash:   cltest.NewHash(),
+		Hash:   utils.NewHash(),
 		Number: 10,
 		Parent: &models.Head{
-			Hash:   cltest.NewHash(),
+			Hash:   utils.NewHash(),
 			Number: 9,
 			Parent: &models.Head{
 				Number: 8,
-				Hash:   cltest.NewHash(),
+				Hash:   utils.NewHash(),
 				Parent: nil,
 			},
 		},
@@ -2009,7 +2009,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Add receipt that is older than the lowest block of the chain
-		cltest.MustInsertEthReceipt(t, store, head.Parent.Parent.Number-1, cltest.NewHash(), attempt.Hash)
+		cltest.MustInsertEthReceipt(t, store, head.Parent.Parent.Number-1, utils.NewHash(), attempt.Hash)
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
@@ -2023,7 +2023,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Include one within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, cltest.NewHash(), attempt.Hash)
+		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, utils.NewHash(), attempt.Hash)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			atx, err := attempt.GetSignedTx()
@@ -2049,9 +2049,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 5, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Add receipt that is older than the lowest block of the chain
-		cltest.MustInsertEthReceipt(t, store, head.Parent.Parent.Number-1, cltest.NewHash(), attempt.Hash)
+		cltest.MustInsertEthReceipt(t, store, head.Parent.Parent.Number-1, utils.NewHash(), attempt.Hash)
 		// Include one within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, cltest.NewHash(), attempt.Hash)
+		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, utils.NewHash(), attempt.Hash)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -2082,9 +2082,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		require.NoError(t, store.DB.Create(&attempt3).Error)
 
 		// Receipt is within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, cltest.NewHash(), attempt2.Hash)
+		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, utils.NewHash(), attempt2.Hash)
 		// Receipt is within head height but a different block hash
-		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, cltest.NewHash(), attempt3.Hash)
+		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, utils.NewHash(), attempt3.Hash)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			s, err := attempt3.GetSignedTx()
