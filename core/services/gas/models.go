@@ -45,6 +45,7 @@ func NewEstimator(ethClient eth.Client, config Config) Estimator {
 }
 
 // Estimator provides an interface for estimating gas price and limit
+//go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, models.Head)
 	Start() error
