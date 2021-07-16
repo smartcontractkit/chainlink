@@ -112,7 +112,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
 		uint16(1), // minRequestConfirmations
-		big.NewInt(0),
+		big.NewInt(1000), // 0.001 link flat fee
 		uint32(1000000),
 		uint32(60*60*24), // stalenessSeconds
 		uint32(vrf.CallFulfillGasCost+vrf.StaticFulfillExecuteGasCost), // gasAfterPaymentCalculation
@@ -260,11 +260,12 @@ func TestIntegrationVRFV2(t *testing.T) {
 		seen[rw.String()] = struct{}{}
 	}
 
-	// We should have at least as much gas as we requested
-	// (after accounting for function look up code etc.)
+	// We should have exactly as much gas as we requested
+	// after accounting for function look up code, argument decoding etc.
+	// which should be fixed at 1529 in this test.
 	ga, err := uni.consumerContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	assert.Equal(t, 1, big.NewInt(0).Add(ga, big.NewInt(5000)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1529)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
 	t.Log("gas available", ga.String())
 
 	// Assert that we were only charged for how much gas we actually used.

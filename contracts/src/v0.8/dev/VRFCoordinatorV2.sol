@@ -50,6 +50,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
+  uint256 constant private CUSHION = 5_000;
   // Just to relieve stack pressure
   struct FulfillmentParams {
     uint64 subId;
@@ -274,6 +275,36 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return s_callbacks[requestId];
   }
 
+  /**
+   * @dev calls target address with exactly gasAmount gas and data as calldata
+   * or reverts if at least gasAmount gas is not available
+   */
+  function callWithExactGas(
+    uint256 gasAmount,
+    address target,
+    bytes memory data
+  )
+    private
+    returns (
+      bool success
+    )
+  {
+    assembly{
+      let g := gas()
+      // Compute g -= CUSHION and check for underflow
+      if lt(g, CUSHION) { revert(0, 0) }
+      g := sub(g, CUSHION)
+      // if g - g//64 <= gasAmount, revert
+      // (we subtract g//64 because of EIP-150)
+      if iszero(gt(sub(g, div(g, 64)), gasAmount)) { revert(0, 0) }
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      if iszero(extcodesize(target)) { revert(0, 0) }
+      // call and return whether we succeeded. ignore return data
+      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
+    }
+    return success;
+  }
+
   // Offsets into fulfillRandomnessRequest's proof of various values
   //
   // Public key. Skips byte array's length prefix.
@@ -308,14 +339,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
-    (bool success,) = fp.sender.call{gas: fp.callbackGasLimit}(resp);
+    bool success = callWithExactGas(fp.callbackGasLimit, fp.sender, resp);
     emit RandomWordsFulfilled(requestId, randomWords, success);
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.
     uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, tx.gasprice)
-                     + s_config.fulfillmentFlatFeeLinkPPM*1e6;
+                     + s_config.fulfillmentFlatFeeLinkPPM*1e24; // juels = link/1e6 * 1e6 * 1e18 juels/link
     if (s_subscriptions[fp.subId].balance < payment) {
       revert InsufficientBalance();
     }
