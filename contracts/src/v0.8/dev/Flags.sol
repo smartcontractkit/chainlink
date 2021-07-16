@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
 import "../SimpleReadAccessController.sol";
 import "../interfaces/AccessControllerInterface.sol";
-import "./interfaces/FlagsInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
+/* dev dependencies - to be re/moved after audit */
+import "./interfaces/FlagsInterface.sol";
 
 /**
  * @title The Flags contract
@@ -16,7 +16,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
  * to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInterface {
+contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessController {
 
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;
@@ -59,7 +59,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
       string memory
     )
   {
-    return "Flags 2.0.0";
+    return "Flags 1.1.0";
   }
 
   /**
@@ -114,9 +114,9 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
     external
     override
   {
-    require(allowedToRaiseFlags(), "Not allowed to raise flags");
+    require(_allowedToRaiseFlags(), "Not allowed to raise flags");
 
-    tryToRaiseFlag(subject);
+    _tryToRaiseFlag(subject);
   }
 
   /**
@@ -131,10 +131,10 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
     external
     override
   {
-    require(allowedToRaiseFlags(), "Not allowed to raise flags");
+    require(_allowedToRaiseFlags(), "Not allowed to raise flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
-      tryToRaiseFlag(subjects[i]);
+      _tryToRaiseFlag(subjects[i]);
     }
   }
 
@@ -150,9 +150,9 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
     external
     override
   {
-    require(allowedToLowerFlags(), "Not allowed to lower flags");
+    require(_allowedToLowerFlags(), "Not allowed to lower flags");
 
-    tryToLowerFlag(subject);
+    _tryToLowerFlag(subject);
   }
 
   /**
@@ -167,12 +167,12 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
     external
     override
   {
-    require(allowedToLowerFlags(), "Not allowed to lower flags");
+    require(_allowedToLowerFlags(), "Not allowed to lower flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
       address subject = subjects[i];
 
-      tryToLowerFlag(subject);
+      _tryToLowerFlag(subject);
     }
   }
 
@@ -214,7 +214,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
 
 
   // PRIVATE
-  function allowedToRaiseFlags()
+  function _allowedToRaiseFlags()
     private
     view
     returns (bool)
@@ -223,7 +223,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
       raisingAccessController.hasAccess(msg.sender, msg.data);
   }
 
-  function allowedToLowerFlags()
+  function _allowedToLowerFlags()
     private
     view
     returns (bool)
@@ -232,7 +232,9 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
       loweringAccessController.hasAccess(msg.sender, msg.data);
   }
 
-  function tryToRaiseFlag(address subject)
+  function _tryToRaiseFlag(
+    address subject
+  )
     private
   {
     if (!flags[subject]) {
@@ -241,7 +243,9 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
     }
   }
 
-  function tryToLowerFlag(address subject)
+  function _tryToLowerFlag(
+    address subject
+  )
     private
   {
     if (flags[subject]) {
@@ -249,5 +253,4 @@ contract Flags is FlagsInterface, SimpleReadAccessController, TypeAndVersionInte
       emit FlagLowered(subject);
     }
   }
-
 }
