@@ -261,7 +261,8 @@ export const New = ({
                       NOTE: Support for adding JSON jobs has been removed. These
                       legacy job types will be disabled entirely in an upcoming
                       release. For help migrating existing jobs to the TOML
-                      format, please contact node operator support.
+                      format, please see the{' '}
+                      <a href="https://docs.chain.link/docs/jobs/">docs</a>.
                     </b>
                   </Grid>
                   <Grid item xs={12}>
