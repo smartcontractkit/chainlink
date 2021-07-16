@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Note: This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
 
+A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill. 
+This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
+
 ### Fixed
 
 - Fix inability to create jobs with a cron schedule.

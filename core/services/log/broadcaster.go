@@ -76,6 +76,7 @@ type (
 
 	Config interface {
 		BlockBackfillDepth() uint64
+		BlockBackfillSkip() bool
 		EthFinalityDepth() uint
 		EthLogBackfillBatchSize() uint32
 	}
@@ -171,17 +172,17 @@ func (b *broadcaster) awaitInitialSubscribers() {
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	if len(opts.LogsWithTopics) == 0 {
-		logger.Fatal("Must supply at least 1 Log to Register")
+		logger.Fatal("LogBroadcaster: Must supply at least 1 LogsWithTopics element to Register")
 	}
 
 	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})
 	if wasOverCapacity {
-		logger.Error("LogBroadcaster: subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
+		logger.Error("LogBroadcaster: Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
 	return func() {
 		wasOverCapacity := b.rmSubscriber.Deliver(registration{listener, opts})
 		if wasOverCapacity {
-			logger.Error("LogBroadcaster: subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+			logger.Error("LogBroadcaster: Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
 		}
 	}
 }
@@ -220,6 +221,11 @@ func (b *broadcaster) startResubscribeLoop() {
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
 		if abort {
 			return
+		}
+
+		if b.config.BlockBackfillSkip() && b.latestHeadFromDb != nil {
+			logger.Info("LogBroadcaster: BlockBackfillSkip is set to true, preventing a deep backfill")
+			b.latestHeadFromDb = nil
 		}
 
 		var backfillFrom null.Int64
@@ -268,7 +274,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
-			logger.Warnw("LogBroadcaster: error in the event loop - will reconnect", "err", err)
+			logger.Warnw("LogBroadcaster: Error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
 			continue
 		} else if !shouldResubscribe {
@@ -285,7 +291,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
-	logger.Debug("LogBroadcaster: starting the event loop")
+	logger.Debug("LogBroadcaster: Starting the event loop")
 	for {
 		select {
 		case rawLog := <-chRawLogs:
