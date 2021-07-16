@@ -102,8 +102,8 @@ func (_m *Broadcaster) IsConnected() bool {
 	return r0
 }
 
-// LatestHeadNumber provides a mock function with given fields:
-func (_m *Broadcaster) LatestHeadNumber() null.Int64 {
+// BackfillBlockNumber provides a mock function with given fields:
+func (_m *Broadcaster) BackfillBlockNumber() null.Int64 {
 	ret := _m.Called()
 
 	var r0 null.Int64
