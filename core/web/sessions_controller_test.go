@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -69,7 +70,7 @@ func TestSessionsController_Create(t *testing.T) {
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				// Ignore fixture session
-				sessions, err := app.Store.Sessions(1, 2)
+				sessions, err := postgres.Sessions(app.Store.DB, 1, 2)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -90,7 +91,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.Store.SaveSession(&staleSession))
+	require.NoError(t, app.Store.DB.Save(&staleSession).Error)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
@@ -101,7 +102,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	var sessions []models.Session
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err = app.Store.Sessions(0, 10)
+		sessions, err = postgres.Sessions(app.Store.DB, 0, 10)
 		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(1))
@@ -122,7 +123,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := models.NewSession()
-	require.NoError(t, app.Store.SaveSession(&correctSession))
+	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
 	defer cleanup()
 
 	config := app.Store.Config
@@ -169,12 +170,12 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := models.NewSession()
-	require.NoError(t, app.Store.SaveSession(&correctSession))
+	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
 	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.Store.SaveSession(&staleSession))
+	require.NoError(t, app.Store.DB.Save(&staleSession).Error)
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)
@@ -185,7 +186,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err := app.Store.Sessions(0, 10)
+		sessions, err := postgres.Sessions(app.Store.DB, 0, 10)
 		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(0))

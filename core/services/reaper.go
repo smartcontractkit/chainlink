@@ -4,29 +4,39 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 )
 
 type sessionReaper struct {
-	store  *store.Store
-	config orm.ConfigReader
+	db     *gorm.DB
+	config SessionReaperConfig
+}
+
+type SessionReaperConfig interface {
+	SessionTimeout() models.Duration
+	ReaperExpiration() models.Duration
 }
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
-func NewSessionReaper(store *store.Store) utils.SleeperTask {
+func NewSessionReaper(db *gorm.DB, config SessionReaperConfig) utils.SleeperTask {
 	return utils.NewSleeperTask(&sessionReaper{
-		store:  store,
-		config: store.Config,
+		db,
+		config,
 	})
 }
 
 func (sr *sessionReaper) Work() {
 	recordCreationStaleThreshold := sr.config.ReaperExpiration().Before(
 		sr.config.SessionTimeout().Before(time.Now()))
-	err := sr.store.DeleteStaleSessions(recordCreationStaleThreshold)
+	err := sr.deleteStaleSessions(recordCreationStaleThreshold)
 	if err != nil {
 		logger.Error("unable to reap stale sessions: ", err)
 	}
+}
+
+// DeleteStaleSessions deletes all sessions before the passed time.
+func (sr *sessionReaper) deleteStaleSessions(before time.Time) error {
+	return sr.db.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }

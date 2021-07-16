@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -678,15 +680,15 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	blocks := cltest.NewBlocks(t, 20)
 
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	field1Value1 := cltest.NewHash()
-	field1Value2 := cltest.NewHash()
-	field2Value1 := cltest.NewHash()
-	field2Value2 := cltest.NewHash()
+	field1Value1 := utils.NewHash()
+	field1Value2 := utils.NewHash()
+	field2Value1 := utils.NewHash()
+	field2Value2 := utils.NewHash()
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNumWithTopics(1, 0, contract1.Address(), []common.Hash{topic, field1Value1, field2Value1}),
 		blocks.LogOnBlockNumWithTopics(1, 1, contract1.Address(), []common.Hash{topic, field1Value2, field2Value2}),
-		blocks.LogOnBlockNumWithTopics(2, 0, contract1.Address(), []common.Hash{topic, cltest.NewHash(), field2Value2}),
-		blocks.LogOnBlockNumWithTopics(2, 1, contract1.Address(), []common.Hash{topic, field1Value2, cltest.NewHash()}),
+		blocks.LogOnBlockNumWithTopics(2, 0, contract1.Address(), []common.Hash{topic, utils.NewHash(), field2Value2}),
+		blocks.LogOnBlockNumWithTopics(2, 1, contract1.Address(), []common.Hash{topic, field1Value2, utils.NewHash()}),
 	}
 
 	listener0 := helper.newLogListener("listener 0")
