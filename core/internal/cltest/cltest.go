@@ -622,7 +622,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() string {
 	session := NewSession()
-	require.NoError(ta.t, ta.Store.SaveSession(&session))
+	require.NoError(ta.t, ta.Store.DB.Save(&session).Error)
 	return session.ID
 }
 

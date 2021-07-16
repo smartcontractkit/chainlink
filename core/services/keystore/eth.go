@@ -521,7 +521,7 @@ func (ks *Eth) insertKeyIfNotExists(k *ethkey.Key) error {
 	if err == nil || err.Error() == "sql: no rows in result set" {
 		return nil
 	}
-	return err
+	return errors.Wrap(err, "insertKeyIfNotExists failed")
 }
 
 // newKey pulled from geth (sadly not exported)
