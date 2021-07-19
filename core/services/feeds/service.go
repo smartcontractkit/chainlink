@@ -144,6 +144,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		JobTypes:         jobtypes,
 		ChainId:          s.cfg.ChainID().Int64(),
 		AccountAddresses: addresses,
+		IsBootstrapPeer:  mgr.IsOCRBootstrapPeer,
 	})
 	if err != nil {
 		return err
