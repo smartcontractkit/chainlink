@@ -281,6 +281,11 @@ func (c Config) BlockBackfillDepth() uint64 {
 	return c.getWithFallback("BlockBackfillDepth", parseUint64).(uint64)
 }
 
+// BlockBackfillSkip enables skipping of very long log backfills
+func (c Config) BlockBackfillSkip() bool {
+	return c.getWithFallback("BlockBackfillSkip", parseBool).(bool)
+}
+
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c Config) BridgeResponseURL() *url.URL {
 	return c.getWithFallback("BridgeResponseURL", parseURL).(*url.URL)
