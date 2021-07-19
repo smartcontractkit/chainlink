@@ -6,8 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 func main() {
@@ -23,12 +23,12 @@ func Run(client *cmd.Client, args ...string) {
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
-	config := orm.NewConfig()
+	cfg := config.NewConfig()
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(config, cmd.DiskCookieStore{Config: config})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
 	sr := models.SessionRequest{}
 	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder()
-	if credentialsFile := config.AdminCredentialsFile(); credentialsFile != "" {
+	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
 		if err != nil && errors.Cause(err) != cmd.ErrNoCredentialFile && !os.IsNotExist(err) {
@@ -37,12 +37,12 @@ func NewProductionClient() *cmd.Client {
 	}
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
-		Config:                         config,
+		Config:                         cfg,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                         cmd.ChainlinkRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(config, cookieAuth, sr),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth, sr),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      sessionRequestBuilder,
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),

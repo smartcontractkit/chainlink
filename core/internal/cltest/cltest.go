@@ -48,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -166,7 +167,7 @@ func logLevelFromEnv() zapcore.Level {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	*orm.Config
+	*config.Config
 	wsServer *httptest.Server
 }
 
@@ -228,7 +229,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := orm.NewConfig()
+	rawConfig := config.NewConfig()
 
 	rawConfig.Dialect = dialects.TransactionWrappedPostgres
 	for _, opt := range options {
@@ -405,7 +406,7 @@ func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestAppl
 	}
 }
 
-// NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
+// NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
@@ -684,7 +685,7 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -694,13 +695,14 @@ func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interf
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewInsecureStore(tcfg.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
-	s.Config.SetRuntimeStore(s.ORM)
+	orm := config.NewORM(s.DB)
+	s.Config.SetRuntimeStore(orm)
 	return s, func() {
-		cleanUpStore(config.t, s)
+		cleanUpStore(tcfg.t, s)
 	}
 }
 

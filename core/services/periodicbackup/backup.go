@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -49,7 +49,7 @@ type (
 	databaseBackup struct {
 		logger          *logger.Logger
 		databaseURL     url.URL
-		mode            orm.DatabaseBackupMode
+		mode            config.DatabaseBackupMode
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
@@ -57,7 +57,7 @@ type (
 	}
 
 	Config interface {
-		DatabaseBackupMode() orm.DatabaseBackupMode
+		DatabaseBackupMode() config.DatabaseBackupMode
 		DatabaseBackupFrequency() time.Duration
 		DatabaseBackupURL() *url.URL
 		DatabaseBackupDir() string
@@ -161,7 +161,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 		"-F", "c", // format: custom (zipped)
 	}
 
-	if backup.mode == orm.DatabaseBackupModeLite {
+	if backup.mode == config.DatabaseBackupModeLite {
 		for _, table := range excludedDataFromTables {
 			args = append(args, fmt.Sprintf("--exclude-table-data=%s", table))
 		}

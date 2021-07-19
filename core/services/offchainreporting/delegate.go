@@ -3,6 +3,7 @@ package offchainreporting
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -18,19 +19,44 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
+type Config interface {
+	Chain() *chains.Chain
+	ChainID() *big.Int
+	Dev() bool
+	EthGasLimitDefault() uint64
+	JobPipelineResultWriteQueueDepth() uint64
+	OCRBlockchainTimeout(time.Duration) time.Duration
+	OCRContractConfirmations(uint16) uint16
+	OCRContractPollInterval(time.Duration) time.Duration
+	OCRContractSubscribeInterval(time.Duration) time.Duration
+	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRDatabaseTimeout() time.Duration
+	OCRDefaultTransactionQueueDepth() uint32
+	OCRKeyBundleID(*models.Sha256Hash) (models.Sha256Hash, error)
+	OCRObservationGracePeriod() time.Duration
+	OCRObservationTimeout(time.Duration) time.Duration
+	OCRTraceLogging() bool
+	OCRTransmitterAddress(*ethkey.EIP55Address) (ethkey.EIP55Address, error)
+	P2PBootstrapPeers([]string) ([]string, error)
+	P2PPeerID(*p2pkey.PeerID) (p2pkey.PeerID, error)
+	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+}
+
 type Delegate struct {
 	db                 *gorm.DB
 	txm                txManager
 	jobORM             job.ORM
-	config             *orm.Config
+	config             Config
 	keyStore           *keystore.OCR
 	pipelineRunner     pipeline.Runner
 	ethClient          eth.Client
@@ -47,7 +73,7 @@ func NewDelegate(
 	db *gorm.DB,
 	txm txManager,
 	jobORM job.ORM,
-	config *orm.Config,
+	config Config,
 	keyStore *keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,

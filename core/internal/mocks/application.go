@@ -5,6 +5,8 @@ package mocks
 import (
 	big "math/big"
 
+	config "github.com/smartcontractkit/chainlink/core/store/config"
+
 	context "context"
 
 	eth "github.com/smartcontractkit/chainlink/core/services/eth"
@@ -193,6 +195,7 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 	return r0
 }
 
+<<<<<<< HEAD
 // GetEthClient provides a mock function with given fields:
 func (_m *Application) GetEthClient() eth.Client {
 	ret := _m.Called()
@@ -203,6 +206,18 @@ func (_m *Application) GetEthClient() eth.Client {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(eth.Client)
+=======
+// GetConfig provides a mock function with given fields:
+func (_m *Application) GetConfig() *config.Config {
+	ret := _m.Called()
+
+	var r0 *config.Config
+	if rf, ok := ret.Get(0).(func() *config.Config); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*config.Config)
+>>>>>>> 659c1dd3e (Pull global config out of ORM and move to it's own package)
 		}
 	}
 

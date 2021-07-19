@@ -5,13 +5,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-func NewORM(db *gorm.DB, txm transmitter, config orm.ConfigReader, strategy bulletprooftxmanager.TxStrategy) ORM {
+func NewORM(db *gorm.DB, txm transmitter, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
 	return ORM{
 		DB:       db,
 		txm:      txm,
@@ -23,7 +22,7 @@ func NewORM(db *gorm.DB, txm transmitter, config orm.ConfigReader, strategy bull
 type ORM struct {
 	DB       *gorm.DB
 	txm      transmitter
-	config   orm.ConfigReader
+	config   Config
 	strategy bulletprooftxmanager.TxStrategy
 }
 
