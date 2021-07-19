@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
 )
@@ -12,6 +13,7 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	ApproveJobProposal(ctx context.Context, id int64, externalJobID uuid.UUID, status JobProposalStatus) error
 	CountJobProposals() (int64, error)
 	CountManagers() (int64, error)
 	CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
@@ -169,7 +171,7 @@ func (o *orm) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error
 	return &jp, nil
 }
 
-// RejectJobProposal updates the stataus of a job proposal by id.
+// UpdateJobProposalStatus updates the status of a job proposal by id.
 func (o *orm) UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error {
 	tx := postgres.TxFromContext(ctx, o.db)
 
@@ -178,11 +180,36 @@ func (o *orm) UpdateJobProposalStatus(ctx context.Context, id int64, status JobP
 	stmt := `
 		UPDATE job_proposals
 		SET status = ?,
-		updated_at = ?
+		    updated_at = ?
 		WHERE id = ?;
 	`
 
 	result := tx.Exec(stmt, status, now, id)
+	if result.RowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
+// ApproveJobProposal updates the job proposal as approved.
+func (o *orm) ApproveJobProposal(ctx context.Context, id int64, externalJobID uuid.UUID, status JobProposalStatus) error {
+	tx := postgres.TxFromContext(ctx, o.db)
+
+	now := time.Now()
+
+	stmt := `
+		UPDATE job_proposals
+		SET status = ?,
+		    job_id = ?,
+		    updated_at = ?
+		WHERE id = ?;
+	`
+
+	result := tx.Exec(stmt, status, externalJobID, now, id)
 	if result.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}

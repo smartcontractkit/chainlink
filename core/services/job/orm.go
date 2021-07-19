@@ -195,7 +195,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 	// Inherit the parent context so that client side request cancellations are respected.
 	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	outerTx := postgres.TxFromContext(ctx, o.db)
+
+	return postgres.GormTransaction(ctx, outerTx, func(tx *gorm.DB) error {
 		switch jobSpec.Type {
 		case DirectRequest:
 			err := tx.Create(&jobSpec.DirectRequestSpec).Error
