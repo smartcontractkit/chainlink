@@ -311,33 +311,33 @@ func TestClient_ImportKey(t *testing.T) {
 	require.NoError(t, client.ImportKey(c))
 }
 
-func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
-	tests := []struct {
-		name            string
-		logToDiskValue  bool
-		fileShouldExist bool
-	}{
-		{"LogToDisk = false => no log on disk", false, false},
-		{"LogToDisk = true => log on disk (positive control)", true, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config, configCleanup := cltest.NewConfig(t)
-			defer configCleanup()
-			config.Set("CHAINLINK_DEV", true)
-			config.Set("LOG_TO_DISK", tt.logToDiskValue)
-			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
-			defer os.RemoveAll(config.RootDir())
+// func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
+// 	tests := []struct {
+// 		name            string
+// 		logToDiskValue  bool
+// 		fileShouldExist bool
+// 	}{
+// 		{"LogToDisk = false => no log on disk", false, false},
+// 		{"LogToDisk = true => log on disk (positive control)", true, true},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			config, configCleanup := cltest.NewConfig(t)
+// 			defer configCleanup()
+// 			config.Set("CHAINLINK_DEV", true)
+// 			config.Set("LOG_TO_DISK", tt.logToDiskValue)
+// 			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
+// 			defer os.RemoveAll(config.RootDir())
 
-			previousLogger := logger.Default
-			logger.SetLogger(config.CreateProductionLogger())
-			defer logger.SetLogger(previousLogger)
-			filepath := filepath.Join(config.RootDir(), "log.jsonl")
-			_, err := os.Stat(filepath)
-			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
-		})
-	}
-}
+// 			previousLogger := logger.Default
+// 			logger.SetLogger(config.CreateProductionLogger())
+// 			defer logger.SetLogger(previousLogger)
+// 			filepath := filepath.Join(config.RootDir(), "log.jsonl")
+// 			_, err := os.Stat(filepath)
+// 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
+// 		})
+// 	}
+// }
 
 func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to

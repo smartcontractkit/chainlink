@@ -14,7 +14,9 @@ import (
 )
 
 // NullClient satisfies the Client but has no side effects
-type NullClient struct{}
+type NullClient struct{
+	l logger.Logger
+}
 
 // NullClientChainID the ChainID that nullclient will return
 // 0 is never used as a real chain ID so makes sense as a dummy value here
@@ -25,63 +27,65 @@ const NullClientChainID = 0
 //
 
 func (nc *NullClient) Dial(ctx context.Context) error {
-	logger.Debug("NullClient#Dial")
+	nc.l.Debug("NullClient#Dial")
 	return nil
 }
 
 func (nc *NullClient) Close() {
-	logger.Debug("NullClient#Close")
+	nc.l.Debug("NullClient#Close")
 }
 
 func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
-	logger.Debug("NullClient#GetERC20Balance")
+	nc.l.Debug("NullClient#GetERC20Balance")
 	return big.NewInt(0), nil
 }
 
 func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	logger.Debug("NullClient#GetLINKBalance")
+	nc.l.Debug("NullClient#GetLINKBalance")
 	return assets.NewLink(0), nil
 }
 
 func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
-	logger.Debug("NullClient#GetEthBalance")
+	nc.l.Debug("NullClient#GetEthBalance")
 	return assets.NewEth(0), nil
 }
 
 func (nc *NullClient) Call(result interface{}, method string, args ...interface{}) error {
-	logger.Debug("NullClient#Call")
+	nc.l.Debug("NullClient#Call")
 	return nil
 }
 
 func (nc *NullClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	logger.Debug("NullClient#CallContext")
+	nc.l.Debug("NullClient#CallContext")
 	return nil
 }
 
 func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
-	logger.Debug("NullClient#HeadByNumber")
+	nc.l.Debug("NullClient#HeadByNumber")
 	return &models.Head{}, nil
 }
 
-type nullSubscription struct{}
+type nullSubscription struct{
+	l logger.Logger
+}
 
 func (ns *nullSubscription) Unsubscribe() {
-	logger.Debug("NullClient nullSubscription#Unsubscribe")
+	ns.l.Debug("NullClient nullSubscription#Unsubscribe")
 }
 
 func (ns *nullSubscription) Err() <-chan error {
-	logger.Debug("NullClient nullSubscription#Err")
+	ns.l.Debug("NullClient nullSubscription#Err")
 	return nil
 }
 
 func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	logger.Debug("NullClient#SubscribeFilterLogs")
-	return &nullSubscription{}, nil
+	nc.l.Debug("NullClient#SubscribeFilterLogs")
+	return &nullSubscription{l: nc.l}, nil
 }
 
 func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
-	logger.Debug("NullClient#SubscribeNewHead")
-	return &nullSubscription{}, nil
+	nc.l.Debug("NullClient#SubscribeNewHead")
+	return &nullSubscription{l: nc.l}, nil
 }
 
 //
@@ -89,72 +93,72 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 //
 
 func (nc *NullClient) ChainID(ctx context.Context) (*big.Int, error) {
-	logger.Debug("NullClient#ChainID")
+	nc.l.Debug("NullClient#ChainID")
 	return big.NewInt(NullClientChainID), nil
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	logger.Debug("NullClient#HeaderByNumber")
+	nc.l.Debug("NullClient#HeaderByNumber")
 	return nil, nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	logger.Debug("NullClient#SendTransaction")
+	nc.l.Debug("NullClient#SendTransaction")
 	return nil
 }
 
 func (nc *NullClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	logger.Debug("NullClient#PendingCodeAt")
+	nc.l.Debug("NullClient#PendingCodeAt")
 	return nil, nil
 }
 
 func (nc *NullClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	logger.Debug("NullClient#PendingNonceAt")
+	nc.l.Debug("NullClient#PendingNonceAt")
 	return 0, nil
 }
 
 func (nc *NullClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	logger.Debug("NullClient#NonceAt")
+	nc.l.Debug("NullClient#NonceAt")
 	return 0, nil
 }
 
 func (nc *NullClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	logger.Debug("NullClient#TransactionReceipt")
+	nc.l.Debug("NullClient#TransactionReceipt")
 	return nil, nil
 }
 
 func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	logger.Debug("NullClient#BlockByNumber")
+	nc.l.Debug("NullClient#BlockByNumber")
 	return nil, nil
 }
 
 func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	logger.Debug("NullClient#BalanceAt")
+	nc.l.Debug("NullClient#BalanceAt")
 	return big.NewInt(0), nil
 }
 
 func (nc *NullClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	logger.Debug("NullClient#FilterLogs")
+	nc.l.Debug("NullClient#FilterLogs")
 	return nil, nil
 }
 
 func (nc *NullClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	logger.Debug("NullClient#EstimateGas")
+	nc.l.Debug("NullClient#EstimateGas")
 	return 0, nil
 }
 
 func (nc *NullClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	logger.Debug("NullClient#SuggestGasPrice")
+	nc.l.Debug("NullClient#SuggestGasPrice")
 	return big.NewInt(0), nil
 }
 
 func (nc *NullClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	logger.Debug("NullClient#CallContract")
+	nc.l.Debug("NullClient#CallContract")
 	return nil, nil
 }
 
 func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	logger.Debug("NullClient#CodeAt")
+	nc.l.Debug("NullClient#CodeAt")
 	return nil, nil
 }
 

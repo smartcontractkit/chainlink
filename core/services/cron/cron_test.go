@@ -7,6 +7,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -54,6 +55,8 @@ func TestCronV2Pipeline(t *testing.T) {
 func TestCronV2Schedule(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	spec := job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
@@ -65,7 +68,7 @@ func TestCronV2Schedule(t *testing.T) {
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
 		Return(false, nil).Once()
 
-	service, err := cron.NewCronFromJobSpec(spec, runner)
+	service, err := cron.NewCronFromJobSpec(spec, runner, l)
 	require.NoError(t, err)
 	err = service.Start()
 	require.NoError(t, err)

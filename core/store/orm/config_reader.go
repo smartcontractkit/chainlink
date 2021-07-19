@@ -21,7 +21,7 @@ type ConfigReader interface {
 	CertFile() string
 	ChainID() *big.Int
 	ClientNodeURL() string
-	CreateProductionLogger() *logger.Logger
+	CreateProductionLogger() logger.Logger
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL

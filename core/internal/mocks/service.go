@@ -76,7 +76,7 @@ func (_m *Service) RemoveJob(_a0 models.JobID) {
 }
 
 // SetLogger provides a mock function with given fields: _a0
-func (_m *Service) SetLogger(_a0 *logger.Logger) {
+func (_m *Service) SetLogger(_a0 logger.Logger) {
 	_m.Called(_a0)
 }
 

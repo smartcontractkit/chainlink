@@ -37,6 +37,7 @@ type (
 	balanceMonitor struct {
 		db             *gorm.DB
 		ethClient      eth.Client
+		l              logger.Logger
 		ethKeyStore    *keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -47,10 +48,11 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth, logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		db,
 		ethClient,
+		logger,
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
 		new(sync.RWMutex),
@@ -69,6 +71,10 @@ func (bm *balanceMonitor) Connect(_ *models.Head) error {
 
 func (bm *balanceMonitor) Start() error {
 	return nil
+}
+
+func (bm *balanceMonitor) SetLogger(logger logger.Logger) {
+	bm.l.Swap(logger)
 }
 
 // Close shuts down the BalanceMonitor, should not be used after this
@@ -93,7 +99,7 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head)
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
-	logger.Debugw("BalanceMonitor: signalling balance worker")
+	bm.l.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
 
@@ -113,12 +119,12 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	}
 
 	if oldBal == nil {
-		logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.l.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 		return
 	}
 
 	if ethBal.Cmp(oldBal) != 0 {
-		logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.l.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 	}
 }
 
@@ -177,10 +183,11 @@ func (w *worker) checkAccountBalance(k ethkey.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error   { return nil }
-func (*NullBalanceMonitor) Close() error   { return nil }
-func (*NullBalanceMonitor) Ready() error   { return nil }
-func (*NullBalanceMonitor) Healthy() error { return nil }
+func (*NullBalanceMonitor) Start() error             { return nil }
+func (*NullBalanceMonitor) Close() error             { return nil }
+func (*NullBalanceMonitor) SetLogger(logger.Logger) {}
+func (*NullBalanceMonitor) Ready() error             { return nil }
+func (*NullBalanceMonitor) Healthy() error           { return nil }
 func (*NullBalanceMonitor) Connect(head *models.Head) error {
 	return nil
 }

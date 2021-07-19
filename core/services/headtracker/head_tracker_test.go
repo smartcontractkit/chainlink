@@ -43,6 +43,8 @@ func firstHead(t *testing.T, db *gorm.DB) models.Head {
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
 
@@ -58,13 +60,15 @@ func TestHeadTracker_New(t *testing.T) {
 	assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), *last))
 	assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), *cltest.Head(10)))
 
-	ht := createHeadTracker(ethClient, config, orm)
+	ht := createHeadTracker(ethClient, config, orm, l)
 	assert.Nil(t, ht.Start())
 	assert.Equal(t, last.Number, ht.headTracker.HighestSeenHead().Number)
 }
 
 func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	t.Parallel()
+
+	l := logger.CreateTestLogger()
 
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
@@ -78,7 +82,7 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 		assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), *cltest.Head(idx)))
 	}
 
-	ht := createHeadTracker(ethClient, config, orm)
+	ht := createHeadTracker(ethClient, config, orm, l)
 
 	h := cltest.Head(200)
 	require.NoError(t, ht.headTracker.Save(context.TODO(), *h))
@@ -96,6 +100,7 @@ func TestHeadTracker_Get(t *testing.T) {
 	t.Parallel()
 
 	start := cltest.Head(5)
+	l := logger.CreateTestLogger()
 
 	tests := []struct {
 		name    string
@@ -136,7 +141,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), *test.initial))
 			}
 
-			ht := createHeadTracker(ethClient, config, orm)
+			ht := createHeadTracker(ethClient, config, orm, l)
 			ht.Start()
 			defer ht.Stop()
 
@@ -153,6 +158,8 @@ func TestHeadTracker_Get(t *testing.T) {
 func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
 	orm := headtracker.NewORM(db)
@@ -167,7 +174,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 		Run(func(mock.Arguments) { close(chStarted) }).
 		Return(sub, nil)
 
-	ht := createHeadTracker(ethClient, config, orm)
+	ht := createHeadTracker(ethClient, config, orm, l)
 
 	assert.NoError(t, ht.Start())
 	<-chStarted
@@ -179,6 +186,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
+	l := logger.CreateTestLogger()
 
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
@@ -200,7 +208,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
+	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker, l)
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
@@ -219,6 +227,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
+	l := logger.CreateTestLogger()
 
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
@@ -235,7 +244,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	sub.On("Err").Return((<-chan error)(chErr))
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
+	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker, l)
 
 	// connect
 	assert.Nil(t, ht.Start())
@@ -255,6 +264,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
+	l := logger.CreateTestLogger()
 
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
@@ -273,7 +283,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
+	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker, l)
 
 	// connect
 	assert.Nil(t, ht.Start())
@@ -296,6 +306,8 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
+
+	l := logger.CreateTestLogger()
 
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
@@ -338,7 +350,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 		connectedValue.Store(bn.ToInt())
 	}}
 	orm := headtracker.NewORM(store.DB)
-	ht := createHeadTrackerWithChecker(ethClient, store.Config, orm, checker)
+	ht := createHeadTrackerWithChecker(ethClient, store.Config, orm, checker, l)
 
 	require.NoError(t, ht.headTracker.Save(context.TODO(), models.NewHead(lastSavedBN, utils.NewHash(), utils.NewHash(), 0)))
 
@@ -363,6 +375,8 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
 	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true)
@@ -381,7 +395,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 
 	checker := new(mocks.HeadTrackable)
 	orm := headtracker.NewORM(store.DB)
-	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
+	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker, l)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
@@ -570,6 +584,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		h15,
 	}
 
+
+	l := logger.CreateTestLogger()
 	ctx := context.Background()
 
 	t.Run("does nothing if all the heads are in database", func(t *testing.T) {
@@ -582,7 +598,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		err := ht.Backfill(ctx, h12, 2)
 		require.NoError(t, err)
@@ -603,7 +619,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		var depth uint = 3
 
@@ -637,7 +653,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
@@ -671,7 +687,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		err := ht.Backfill(ctx, h15, 3)
 		require.NoError(t, err)
@@ -692,7 +708,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h1))
 
@@ -725,7 +741,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			Return(nil, ethereum.NotFound).
 			Once()
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		err := ht.Backfill(ctx, h12, 400)
 		require.Error(t, err)
@@ -756,7 +772,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
 			Return(nil, context.DeadlineExceeded)
 
-		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
+		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm, l)
 
 		err := ht.Backfill(ctx, h12, 400)
 		require.Error(t, err)
@@ -773,28 +789,28 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 }
 
-func createHeadTracker(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM) *headTrackerUniverse {
+func createHeadTracker(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM, logger logger.Logger) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
 	return &headTrackerUniverse{
-		headTracker:     headtracker.NewHeadTracker(logger.Default, ethClient, config, orm, hb),
+		headTracker:     headtracker.NewHeadTracker(logger, ethClient, config, orm, hb),
 		headBroadcaster: hb,
 	}
 }
 
-func createHeadTrackerWithNeverSleeper(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM) *headTrackerUniverse {
+func createHeadTrackerWithNeverSleeper(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM, logger logger.Logger) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
 	return &headTrackerUniverse{
-		headTracker:     headtracker.NewHeadTracker(logger.Default, ethClient, config, orm, hb, cltest.NeverSleeper{}),
+		headTracker:     headtracker.NewHeadTracker(logger, ethClient, config, orm, hb, cltest.NeverSleeper{}),
 		headBroadcaster: hb,
 	}
 }
 
-func createHeadTrackerWithChecker(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
+func createHeadTrackerWithChecker(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM, checker httypes.HeadTrackable, logger logger.Logger) *headTrackerUniverse {
 	hb := headtracker.NewHeadBroadcaster()
 	hb.Subscribe(checker)
 	hb.Start()
 	return &headTrackerUniverse{
-		headTracker:     headtracker.NewHeadTracker(logger.Default, ethClient, config, orm, hb, cltest.NeverSleeper{}),
+		headTracker:     headtracker.NewHeadTracker(logger, ethClient, config, orm, hb, cltest.NeverSleeper{}),
 		headBroadcaster: hb,
 	}
 }

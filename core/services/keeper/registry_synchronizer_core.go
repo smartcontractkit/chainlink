@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -28,6 +29,7 @@ func NewRegistrySynchronizer(
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
 	minConfirmations uint64,
+	logger logger.Logger,
 ) *RegistrySynchronizer {
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
@@ -47,6 +49,7 @@ func NewRegistrySynchronizer(
 		orm:              orm,
 		StartStopOnce:    utils.StartStopOnce{},
 		wgDone:           sync.WaitGroup{},
+		l:                logger,
 	}
 }
 
@@ -66,6 +69,7 @@ type RegistrySynchronizer struct {
 	orm              ORM
 	wgDone           sync.WaitGroup
 	utils.StartStopOnce
+	l logger.Logger
 }
 
 func (rs *RegistrySynchronizer) Start() error {

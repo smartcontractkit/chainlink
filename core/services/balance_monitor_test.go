@@ -12,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	// "github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/pkg/errors"
@@ -25,6 +25,8 @@ import (
 var nilBigInt *big.Int
 
 func TestBalanceMonitor_Connect(t *testing.T) {
+	l := logger.CreateTestLogger()
+
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -35,7 +37,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, l)
 		defer bm.Close()
 
 		k0bal := big.NewInt(42)
@@ -68,7 +70,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, l)
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 
@@ -91,7 +93,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, l)
 		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
@@ -108,6 +110,8 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 }
 
 func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
+	l := logger.CreateTestLogger()
+
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -118,7 +122,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, l)
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
@@ -169,7 +173,8 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.AssertExpectations(t)
 
-	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+	l := logger.CreateTestLogger()
+	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, l)
 
 	head := cltest.Head(0)
 

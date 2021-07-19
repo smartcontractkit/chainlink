@@ -41,17 +41,14 @@ type Store struct {
 }
 
 // NewStore will create a new store
-// func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	// return newStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
-	return newStore(config, ethClient, advisoryLock, shutdownSignal)
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, logger logger.Logger) (*Store, error) {
+	return newStore(config, ethClient, advisoryLock, shutdownSignal, logger)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	// return newStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
-	return newStore(config, ethClient, advisoryLocker, shutdownSignal)
+func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, logger logger.Logger) (*Store, error) {
+	return newStore(config, ethClient, advisoryLocker, shutdownSignal, logger)
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
@@ -61,12 +58,13 @@ func newStore(
 	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
 	shutdownSignal gracefulpanic.Signal,
+	logger logger.Logger,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		return nil, errors.Wrap(err, "error while creating project root dir")
 	}
 
-	orm, err := initializeORM(config, shutdownSignal)
+	orm, err := initializeORM(config, logger, shutdownSignal)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
@@ -153,9 +151,9 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	return nil
 }
 
-func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
+func initializeORM(config *orm.Config, logger logger.Logger, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	dbURL := config.DatabaseURL()
-	dbOrm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	dbOrm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns(), logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
@@ -169,7 +167,7 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		if version != nil {
 			versionString = version.Version
 		}
-		databaseBackup := periodicbackup.NewDatabaseBackup(config, logger.Default)
+		databaseBackup := periodicbackup.NewDatabaseBackup(config, logger)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 	if err = CheckSquashUpgrade(dbOrm.DB); err != nil {

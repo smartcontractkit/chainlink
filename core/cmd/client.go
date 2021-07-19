@@ -52,6 +52,7 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
+	Logger                         logger.Logger
 }
 
 func (cli *Client) errorOut(err error) error {

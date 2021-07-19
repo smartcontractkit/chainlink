@@ -26,7 +26,7 @@ type rawclient struct {
 type node struct {
 	ws     rawclient
 	http   *rawclient
-	log    *logger.Logger
+	log    logger.Logger
 	dialed bool
 }
 

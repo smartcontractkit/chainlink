@@ -2,6 +2,7 @@ package fluxmonitorv2
 
 import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -22,6 +23,6 @@ func (fm *FluxMonitor) ExportedRoundState() {
 	fm.roundState(0)
 }
 
-func (fm *FluxMonitor) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound, broadcast log.Broadcast) {
-	fm.respondToNewRoundLog(*log, broadcast)
+func (fm *FluxMonitor) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound, broadcast log.Broadcast, logger logger.Logger) {
+	fm.respondToNewRoundLog(*log, broadcast, logger)
 }

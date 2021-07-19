@@ -41,6 +41,7 @@ type runQueue struct {
 	stopRequested bool
 
 	runExecutor RunExecutor
+	l           logger.Logger
 }
 
 // NewRunQueue initializes a RunQueue.
@@ -63,6 +64,10 @@ func (rq *runQueue) Close() error {
 	rq.workersMutex.Unlock()
 	rq.workersWg.Wait()
 	return nil
+}
+
+func (rq *runQueue) SetLogger(logger logger.Logger) {
+	rq.l.Swap(logger)
 }
 
 func (rq *runQueue) Ready() error {
@@ -118,7 +123,7 @@ func (rq *runQueue) Run(runID uuid.UUID) {
 
 		for {
 			if err := rq.runExecutor.Execute(runID); err != nil {
-				logger.Errorw(fmt.Sprint("Error executing run ", id), "error", err)
+				rq.l.Errorw(fmt.Sprint("Error executing run ", id), "error", err)
 			}
 
 			if rq.decrementQueue(id) {
@@ -139,10 +144,11 @@ func (rq *runQueue) WorkerCount() int {
 // NullRunQueue implements Null pattern for RunQueue interface
 type NullRunQueue struct{}
 
-func (NullRunQueue) Start() error   { return nil }
-func (NullRunQueue) Close() error   { return nil }
-func (NullRunQueue) Ready() error   { return nil }
-func (NullRunQueue) Healthy() error { return nil }
+func (NullRunQueue) Start() error             { return nil }
+func (NullRunQueue) Close() error             { return nil }
+func (NullRunQueue) SetLogger(logger.Logger) {}
+func (NullRunQueue) Ready() error             { return nil }
+func (NullRunQueue) Healthy() error           { return nil }
 func (NullRunQueue) Run(uuid.UUID) {
 	panic("NullRunQueue#Run should never be called")
 }

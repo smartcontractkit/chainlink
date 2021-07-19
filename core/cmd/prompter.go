@@ -22,10 +22,12 @@ type Prompter interface {
 }
 
 // terminalPrompter is used to display and read input from the user.
-type terminalPrompter struct{}
+type terminalPrompter struct{
+	l logger.Logger
+}
 
 // NewTerminalPrompter prompts the user via terminal.
-func NewTerminalPrompter() Prompter {
+func NewTerminalPrompter(logger logger.Logger) Prompter {
 	return terminalPrompter{}
 }
 
@@ -36,7 +38,7 @@ func (tp terminalPrompter) Prompt(prompt string) string {
 	fmt.Print(prompt)
 	line, err := reader.ReadString('\n')
 	if err != nil {
-		logger.Fatal(err)
+		tp.l.Fatal(err)
 	}
 	clearLine()
 	return strings.TrimSpace(line)
@@ -46,11 +48,11 @@ func (tp terminalPrompter) Prompt(prompt string) string {
 // reads their input.
 func (tp terminalPrompter) PasswordPrompt(prompt string) string {
 	var rval string
-	withTerminalResetter(func() {
+	withTerminalResetter(tp.l, func() {
 		fmt.Print(prompt)
 		bytePwd, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
-			logger.Fatal(err)
+			tp.l.Fatal(err)
 		}
 		clearLine()
 		rval = string(bytePwd)
@@ -67,7 +69,7 @@ func (tp terminalPrompter) IsTerminal() bool {
 // Explicitly reset terminal state in the event of a signal (CTRL+C)
 // to ensure typed characters are echoed in terminal:
 // https://groups.google.com/forum/#!topic/Golang-nuts/kTVAbtee9UA
-func withTerminalResetter(f func()) {
+func withTerminalResetter(logger logger.Logger, f func()) {
 	osSafeStdin := int(os.Stdin.Fd())
 
 	initialTermState, err := term.GetState(osSafeStdin)

@@ -37,7 +37,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
 			require.True(t, resp.Get("params").IsArray())
 			require.Equal(t, txHash, resp.Get("params").Get("0").String())
-		})
+		}, t)
 		defer wsCleanup()
 
 		ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{})
@@ -59,7 +59,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
 			require.True(t, resp.Get("params").IsArray())
 			require.Equal(t, txHash, resp.Get("params").Get("0").String())
-		})
+		}, t)
 		defer wsCleanup()
 
 		ethClient, err := eth.NewClient(wsUrl, nil, nil)
@@ -88,7 +88,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 		require.True(t, resp.Get("params").IsArray())
 		require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(resp.Get("params").Get("0").String()))
 		require.Equal(t, "pending", resp.Get("params").Get("1").String())
-	})
+	}, t)
 	defer cleanup()
 
 	ethClient, err := eth.NewClient(url, nil, nil)
@@ -129,7 +129,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 				require.Equal(t, "eth_getBalance", resp.Get("method").String())
 				require.True(t, resp.Get("params").IsArray())
 				require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(resp.Get("params").Get("0").String()))
-			})
+			}, t)
 			defer cleanup()
 
 			ethClient, err := eth.NewClient(url, nil, nil)
@@ -180,7 +180,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 				require.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String())
 
 				require.Equal(t, "latest", resp.Get("params").Get("1").String())
-			})
+			}, t)
 			defer cleanup()
 
 			ethClient, err := eth.NewClient(url, nil, nil)
@@ -247,7 +247,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 				require.Equal(t, test.expectedRequestBlock, blockNum.ToInt())
 
 				require.Equal(t, false, req.Get("params").Get("1").Bool())
-			})
+			}, t)
 			defer cleanup()
 
 			ethClient, err := eth.NewClient(url, nil, nil)
@@ -281,7 +281,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 		resp := cltest.ParseJSON(t, bytes.NewReader(data))
 		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
 		require.True(t, resp.Get("params").IsArray())
-	})
+	}, t)
 	defer cleanup()
 
 	ethClient, err := eth.NewClient(url, nil, nil)
@@ -308,7 +308,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 		resp := cltest.ParseJSON(t, bytes.NewReader(data))
 		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
 		require.True(t, resp.Get("params").IsArray())
-	})
+	}, t)
 	defer cleanup()
 
 	requests := make(chan struct{}, 2)

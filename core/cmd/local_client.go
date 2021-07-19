@@ -58,7 +58,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
-	logger.SetLogger(cli.Config.CreateProductionLogger())
+	logger := cli.Config.CreateProductionLogger()
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 	if cli.Config.Dev() {
 		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
@@ -270,7 +270,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cli.Config.Dialect = dialects.PostgresWithoutLock
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
@@ -309,15 +308,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil)
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil, cli.Logger)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
 
 // HardReset will remove all non-started transactions if any are found.
 func (cli *Client) HardReset(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-
 	fmt.Print("/// WARNING WARNING WARNING ///\n\n\n")
 	fmt.Print("Do not run this while a Chainlink node is currently using the DB as it could cause undefined behavior.\n\n")
 	if !confirmAction(c) {
@@ -412,7 +409,6 @@ func (cli *Client) makeApp() (chainlink.Application, func(), error) {
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
 // This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	config := orm.NewConfig()
 	parsed := config.DatabaseURL()
 	if parsed.String() == "" {
@@ -429,7 +425,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
-	if err := migrateDB(config); err != nil {
+	if err := migrateDB(config, cli.Logger); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -449,7 +445,6 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	config := orm.NewConfig()
 	parsed := config.DatabaseURL()
 	if parsed.String() == "" {
@@ -457,7 +452,7 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	}
 
 	logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(config); err != nil {
+	if err := migrateDB(config, cli.Logger); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -465,14 +460,13 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	config := orm.NewConfig()
 	parsed := config.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	orm, err := orm.NewORM(parsed.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	orm, err := orm.NewORM(parsed.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns(), cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -512,9 +506,9 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func migrateDB(config *orm.Config) error {
+func migrateDB(config *orm.Config, logger logger.Logger) error {
 	dbURL := config.DatabaseURL()
-	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns(), logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -566,7 +560,6 @@ func insertFixtures(config *orm.Config) (err error) {
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
@@ -595,7 +588,6 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 	dbURL := cli.Config.DatabaseURL()
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		DSN: dbURL.String(),
 	}), &gorm.Config{})
@@ -622,7 +614,6 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 // NOTE: This should not be run concurrently with a running chainlink node.
 // If you do run it concurrently, it will not take effect until the next reboot.
 func (cli *Client) ImportKey(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))

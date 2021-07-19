@@ -90,12 +90,14 @@ type Recurring struct {
 	Cron       Cron
 	Clock      utils.Nower
 	runManager RunManager
+	l          logger.Logger
 }
 
 // NewRecurring create a new instance of Recurring, ready to use.
-func NewRecurring(runManager RunManager) *Recurring {
+func NewRecurring(runManager RunManager, logger logger.Logger) *Recurring {
 	return &Recurring{
 		runManager: runManager,
+		l:          logger,
 	}
 }
 
@@ -127,11 +129,11 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 
 			_, err := r.runManager.Create(job.ID, &initrs[i], nil, &models.RunRequest{})
 			if err != nil && !ExpectedRecurringScheduleJobError(err) {
-				logger.Errorw(err.Error())
+				r.l.Errorw(err.Error())
 			}
 		})
 		if err != nil {
-			logger.Error(err)
+			r.l.Error(err)
 		}
 	}
 }
@@ -142,6 +144,7 @@ type OneTime struct {
 	Clock      utils.Afterer
 	RunManager RunManager
 	done       chan struct{}
+	l          logger.Logger
 }
 
 // Start allocates a channel for the "done" field with an empty struct.
@@ -154,7 +157,7 @@ func (ot *OneTime) Start() error {
 func (ot *OneTime) AddJob(job models.JobSpec) {
 	for _, initiator := range job.InitiatorsFor(models.InitiatorRunAt) {
 		if !initiator.Time.Valid {
-			logger.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID, initiator)
+			ot.l.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID, initiator)
 			continue
 		}
 
@@ -180,12 +183,12 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 
 		_, err := ot.RunManager.Create(job.ID, &initiator, nil, &models.RunRequest{})
 		if err != nil && !ExpectedRecurringScheduleJobError(err) {
-			logger.Error(err.Error())
+			ot.l.Error(err.Error())
 			return
 		}
 
 		if err := ot.Store.MarkRan(initiator, true); err != nil {
-			logger.Error(err.Error())
+			ot.l.Error(err.Error())
 		}
 	}
 }

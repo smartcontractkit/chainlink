@@ -60,7 +60,7 @@ type (
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		logBroadcaster   log.Broadcaster
 		jobID            int32
-		logger           logger.Logger
+		l                logger.Logger
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
 		blockTranslator  BlockTranslator
@@ -175,6 +175,10 @@ func (t *OCRContractTracker) Close() error {
 	})
 }
 
+func (t *OCRContractTracker) SetLogger(logger logger.Logger) {
+	t.l.Swap(logger)
+}
+
 // Connect conforms to HeadTrackable
 func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
 
@@ -227,7 +231,7 @@ func (t *OCRContractTracker) OnDisconnect() {}
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(t.gdb, lb)
 	if err != nil {
-		t.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
+		t.l.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
 		return
 	} else if was {
 		return
@@ -235,13 +239,13 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
-		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+		t.l.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
+		t.l.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+		t.l.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 		return
 	}
 
@@ -251,8 +255,8 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		var configSet *offchainaggregator.OffchainAggregatorConfigSet
 		configSet, err = t.contractFilterer.ParseConfigSet(raw)
 		if err != nil {
-			t.logger.Errorw("could not parse config set", "err", err)
-			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+			t.l.Errorw("could not parse config set", "err", err)
+			t.l.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 			return
 		}
 		configSet.Raw = lb.RawLog()
@@ -260,14 +264,14 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 
 		wasOverCapacity := t.configsMB.Deliver(cc)
 		if wasOverCapacity {
-			t.logger.Error("config mailbox is over capacity - dropped the oldest unprocessed item")
+			t.l.Error("config mailbox is over capacity - dropped the oldest unprocessed item")
 		}
 	case OCRContractLatestRoundRequested:
 		var rr *offchainaggregator.OffchainAggregatorRoundRequested
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
-			t.logger.Errorw("could not parse round requested", "err", err)
-			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+			t.l.Errorw("could not parse round requested", "err", err)
+			t.l.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
@@ -285,15 +289,15 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			t.lrrMu.Lock()
 			t.latestRoundRequested = *rr
 			t.lrrMu.Unlock()
-			t.logger.Infow("OCRContractTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
+			t.l.Infow("OCRContractTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
 		} else {
-			t.logger.Warnw("OCRContractTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
+			t.l.Warnw("OCRContractTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
 		}
 	default:
 		logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+		t.l.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
 	}
 }
 
@@ -391,7 +395,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		return uint64(latestBlockHeight), nil
 	}
 
-	t.logger.Debugw("OCRContractTracker: still waiting for first head, falling back to on-chain lookup")
+	t.l.Debugw("OCRContractTracker: still waiting for first head, falling back to on-chain lookup")
 
 	var cancel context.CancelFunc
 	ctx, cancel = utils.CombinedContext(t.ctx, ctx)

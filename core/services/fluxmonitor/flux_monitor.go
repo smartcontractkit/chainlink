@@ -58,15 +58,13 @@ type Service interface {
 	AddJob(models.JobSpec) error
 	RemoveJob(models.JobID)
 	service.Service
-	SetLogger(logger *logger.Logger)
 }
 
 type concreteFluxMonitor struct {
-	muLogger       sync.RWMutex
 	store          *store.Store
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
-	log            *logger.Logger
+	l              logger.Logger
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
 	chRemove       chan models.JobID
@@ -109,16 +107,8 @@ func New(
 }
 
 // SetLogger sets and reconfigures the log for the flux monitor service
-func (fm *concreteFluxMonitor) SetLogger(logger *logger.Logger) {
-	fm.muLogger.Lock()
-	defer fm.muLogger.Unlock()
-	fm.log = logger
-}
-
-func (fm *concreteFluxMonitor) logger() *logger.Logger {
-	fm.muLogger.RLock()
-	defer fm.muLogger.RUnlock()
-	return fm.log
+func (fm *concreteFluxMonitor) SetLogger(logger logger.Logger) {
+	fm.l.Swap(logger)
 }
 
 func (fm *concreteFluxMonitor) Start() error {
@@ -129,7 +119,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
 		if j == nil {
 			err := errors.New("received nil job")
-			fm.logger().Error(err)
+			fm.l.Error(err)
 			return true
 		}
 		job := *j
@@ -140,7 +130,7 @@ func (fm *concreteFluxMonitor) Start() error {
 
 			err := fm.AddJob(job)
 			if err != nil {
-				logger.Errorf("error adding FluxMonitor job: %v", err)
+				fm.l.Errorf("error adding FluxMonitor job: %v", err)
 			}
 		}()
 		return true
@@ -187,7 +177,7 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 		select {
 		case entry := <-fm.chAdd:
 			if _, ok := jobMap[entry.jobID]; ok {
-				logger.Errorf("job '%s' has already been added to flux monitor", entry.jobID.String())
+				fm.l.Errorf("job '%s' has already been added to flux monitor", entry.jobID.String())
 				continue
 			}
 			for _, checker := range entry.checkers {
@@ -198,7 +188,7 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 		case jobID := <-fm.chRemove:
 			checkers, ok := jobMap[jobID]
 			if !ok {
-				logger.Debugf("job '%s' is missing from the flux monitor", jobID.String())
+				fm.l.Debugf("job '%s' is missing from the flux monitor", jobID.String())
 				continue
 			}
 			waiter := sync.WaitGroup{}
@@ -234,13 +224,13 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 	if job.ID.IsZero() {
 		err := errors.New("received job with zero ID")
-		logger.Error(err)
+		fm.l.Error(err)
 		return err
 	}
 
 	var validCheckers []DeviationChecker
 	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
-		logger.Debugw("Adding job to flux monitor",
+		fm.l.Debugw("Adding job to flux monitor",
 			"job", job.ID.String(),
 			"initr", initr.ID,
 		)
@@ -271,7 +261,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 // to the passed job ID.
 func (fm *concreteFluxMonitor) RemoveJob(id models.JobID) {
 	if id.IsZero() {
-		logger.Warn("nil job ID passed to FluxMonitor#RemoveJob")
+		fm.l.Warn("nil job ID passed to FluxMonitor#RemoveJob")
 		return
 	}
 	fm.chRemove <- id
@@ -332,7 +322,7 @@ func (f pollingDeviationCheckerFactory) New(
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
 		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
 		errorMsg := fmt.Sprintf("unable to create Flags contract instance, check address: %s", f.store.Config.FlagsContractAddress())
-		logger.ErrorIf(err, errorMsg)
+		fm.l.ErrorIf(err, errorMsg)
 	}
 
 	min, err := fluxAggregator.MinSubmissionValue(nil)
@@ -442,6 +432,8 @@ type PollingDeviationChecker struct {
 
 	chStop     chan struct{}
 	waitOnStop chan struct{}
+
+	l logger.Logger
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -455,7 +447,9 @@ func NewPollingDeviationChecker(
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
-	minSubmission, maxSubmission *big.Int,
+	minSubmission,
+	maxSubmission *big.Int,
+	logger logger.Logger,
 ) (*PollingDeviationChecker, error) {
 	var idleTimer = utils.NewResettableTimer()
 	if !initr.IdleTimer.Disabled {
@@ -489,6 +483,7 @@ func NewPollingDeviationChecker(
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
+		l: logger,
 	}
 	// This is necessary due to the unfortunate fact that assigning `nil` to an
 	// interface variable causes `x == nil` checks to always return false. If we
@@ -509,7 +504,7 @@ const (
 // Start begins the CSP consumer in a single goroutine to
 // poll the price adapters and listen to NewRound events.
 func (p *PollingDeviationChecker) Start() {
-	logger.Debugw("Starting checker for job",
+	p.l.Debugw("Starting checker for job",
 		"job", p.initr.JobSpecID.String(),
 		"initr", p.initr.ID,
 	)
@@ -527,7 +522,7 @@ func (p *PollingDeviationChecker) setIsHibernatingStatus() {
 	}
 	isFlagLowered, err := p.isFlagLowered()
 	if err != nil {
-		logger.Errorf("unable to set hibernation status: %v", err)
+		p.l.Errorf("unable to set hibernation status: %v", err)
 		p.isHibernating = false
 	} else {
 		p.isHibernating = !isFlagLowered
@@ -564,7 +559,7 @@ func (p *PollingDeviationChecker) IsV2Job() bool  { return false }
 func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		logger.Error("HandleLog: ignoring nil value")
+		p.l.Error("HandleLog: ignoring nil value")
 		return
 	}
 
@@ -586,7 +581,7 @@ func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast) {
 		}
 
 	default:
-		logger.Warnf("unexpected log type %T", log)
+		p.l.Warnf("unexpected log type %T", log)
 		return
 	}
 
@@ -600,7 +595,7 @@ func (p *PollingDeviationChecker) consume() {
 	defer close(p.waitOnStop)
 
 	if err := p.SetOracleAddress(); err != nil {
-		logger.Warnw("unable to set oracle address, this flux monitor job may not work correctly", "err", err)
+		p.l.Warnw("unable to set oracle address, this flux monitor job may not work correctly", "err", err)
 	}
 
 	// subscribe to contract logs
@@ -641,7 +636,7 @@ func (p *PollingDeviationChecker) consume() {
 			p.processLogs()
 
 		case <-p.pollTicker.Ticks():
-			logger.Debugw("Poll ticker fired",
+			p.l.Debugw("Poll ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"contract", p.initr.Address.Hex(),
@@ -652,7 +647,7 @@ func (p *PollingDeviationChecker) consume() {
 			})
 
 		case <-p.idleTimer.Ticks():
-			logger.Debugw("Idle ticker fired",
+			p.l.Debugw("Idle ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"contract", p.initr.Address.Hex(),
@@ -660,7 +655,7 @@ func (p *PollingDeviationChecker) consume() {
 			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 
 		case <-p.roundTimer.Ticks():
-			logger.Debugw("Round timeout ticker fired",
+			p.l.Debugw("Round timeout ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"contract", p.initr.Address.Hex(),
@@ -677,7 +672,7 @@ func (p *PollingDeviationChecker) consume() {
 }
 
 func (p *PollingDeviationChecker) SetOracleAddress() error {
-	log := logger.Default.With(
+	log := p.l.Default.With(
 		"jobID", p.initr.JobSpecID.String(),
 		"contract", p.initr.Address.Hex(),
 	)
@@ -737,14 +732,14 @@ func (p *PollingDeviationChecker) shouldPerformInitialPoll() bool {
 
 // hibernate restarts the PollingDeviationChecker in hibernation mode
 func (p *PollingDeviationChecker) hibernate() {
-	logger.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
+	p.l.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
 	p.isHibernating = true
 	p.resetTickers(flux_aggregator_wrapper.OracleRoundState{})
 }
 
 // reactivate restarts the PollingDeviationChecker without hibernation mode
 func (p *PollingDeviationChecker) reactivate() {
-	logger.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
+	p.l.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
 	p.isHibernating = false
 	p.setInitialTickers()
 	p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
@@ -755,7 +750,7 @@ func (p *PollingDeviationChecker) processLogs() {
 		maybeBroadcast := p.backlog.Take()
 		broadcast, ok := maybeBroadcast.(log.Broadcast)
 		if !ok {
-			logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
+			p.l.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
 		}
 
 		// If the log is a duplicate of one we've seen before, ignore it (this
@@ -764,10 +759,10 @@ func (p *PollingDeviationChecker) processLogs() {
 		defer cancel()
 		consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
 		if err != nil {
-			logger.Errorf("Error determining if log was already consumed: %v", err)
+			p.l.Errorf("Error determining if log was already consumed: %v", err)
 			continue
 		} else if consumed {
-			logger.Debug("Log was already consumed by Flux Monitor, skipping")
+			p.l.Debug("Log was already consumed by Flux Monitor, skipping")
 			continue
 		}
 
@@ -779,14 +774,14 @@ func (p *PollingDeviationChecker) processLogs() {
 			p.respondToNewRoundLog(*log)
 			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
+				p.l.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			p.respondToAnswerUpdatedLog(*log)
 			err = p.logBroadcaster.MarkConsumed(db, broadcast)
 			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
+				p.l.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *flags_wrapper.FlagsFlagRaised:
@@ -794,12 +789,12 @@ func (p *PollingDeviationChecker) processLogs() {
 			// while the other flag remains raised
 			var isFlagLowered bool
 			isFlagLowered, err = p.isFlagLowered()
-			logger.ErrorIf(err, "Error determining if flag is still raised")
+			p.l.ErrorIf(err, "Error determining if flag is still raised")
 			if !isFlagLowered {
 				p.hibernate()
 			}
 			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			logger.ErrorIf(err, "Error marking log as consumed")
+			p.l.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
 			if p.isHibernating {
@@ -807,10 +802,10 @@ func (p *PollingDeviationChecker) processLogs() {
 			}
 
 			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			logger.ErrorIf(err, "Error marking log as consumed")
+			p.l.ErrorIf(err, "Error marking log as consumed")
 
 		default:
-			logger.Errorf("unknown log %v of type %T", log, log)
+			p.l.Errorf("unknown log %v of type %T", log, log)
 		}
 	}
 }
@@ -819,11 +814,11 @@ func (p *PollingDeviationChecker) processLogs() {
 // answer.  We update our view of the oracleRoundState in case this log was
 // generated by a chain reorg.
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.FluxAggregatorAnswerUpdated) {
-	logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
+	p.l.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 
 	roundState, err := p.roundState(0)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("could not fetch oracleRoundState: %v", err), p.loggerFieldsForAnswerUpdated(log)...)
+		p.l.Errorw(fmt.Sprintf("could not fetch oracleRoundState: %v", err), p.loggerFieldsForAnswerUpdated(log)...)
 		return
 	}
 	p.resetTickers(roundState)
@@ -832,7 +827,7 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log flux_aggregator_
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
 // need to poll and submit an answer to the contract regardless of the deviation.
 func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound) {
-	l := logger.Default.With(
+	l := p.l.With(
 		"round", log.RoundId,
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
@@ -958,13 +953,13 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, p.l)
 	if err != nil {
 		l.Errorw("unable to fetch median price", "err", err)
 		return
 	}
 
-	if !p.isValidSubmission(logger.Default.SugaredLogger, polledAnswer) {
+	if !p.isValidSubmission(p.l, polledAnswer) {
 		return
 	}
 
@@ -1095,7 +1090,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
 	defer cancel()
-	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, *logger.CreateLogger(l))
+	polledAnswer, err := p.fetcher.Fetch(ctx, metaDataForBridge, p.l)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")
@@ -1114,7 +1109,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
 	)
-	if roundState.RoundId > 1 && !OutsideDeviation(latestAnswer, polledAnswer, thresholds) {
+	if roundState.RoundId > 1 && !OutsideDeviation(latestAnswer, polledAnswer, thresholds, p.l) {
 		l.Debugw("deviation < threshold, not submitting")
 		return
 	}
@@ -1144,12 +1139,12 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 // If the polledAnswer is outside the allowable range, log an error and don't submit.
 // to avoid an onchain reversion.
-func (p *PollingDeviationChecker) isValidSubmission(l *zap.SugaredLogger, polledAnswer decimal.Decimal) bool {
+func (p *PollingDeviationChecker) isValidSubmission(logger logger.Logger, polledAnswer decimal.Decimal) bool {
 	max := decimal.NewFromBigInt(p.maxSubmission, -p.precision)
 	min := decimal.NewFromBigInt(p.minSubmission, -p.precision)
 
 	if polledAnswer.GreaterThan(max) || polledAnswer.LessThan(min) {
-		l.Errorw("polled value is outside acceptable range", "min", min, "max", max, "polled value", polledAnswer)
+		logger.Errorw("polled value is outside acceptable range", "min", min, "max", max, "polled value", polledAnswer)
 		p.store.UpsertErrorFor(p.JobID(), "Polled value is outside acceptable range")
 		return false
 	}
@@ -1168,7 +1163,7 @@ func (p *PollingDeviationChecker) initialRoundState() flux_aggregator_wrapper.Or
 	}
 	latestRoundData, err := p.fluxAggregator.LatestRoundData(nil)
 	if err != nil {
-		logger.Warnf(
+		p.l.Warnf(
 			"unable to retrieve latestRoundData for FluxAggregator contract %s - defaulting "+
 				"to current time for tickers: %v",
 			p.initr.Address.Hex(),
@@ -1179,7 +1174,7 @@ func (p *PollingDeviationChecker) initialRoundState() flux_aggregator_wrapper.Or
 	roundID := uint32(latestRoundData.RoundId.Uint64())
 	latestRoundState, err := p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
 	if err != nil {
-		logger.Warnf(
+		p.l.Warnf(
 			"unable to call roundState for latest round, contract: %s, round: %d, err: %v",
 			p.initr.Address.Hex(),
 			latestRoundData.RoundId,
@@ -1227,7 +1222,7 @@ func (p *PollingDeviationChecker) resetRoundTimer(roundTimesOutAt uint64) {
 
 	if roundTimesOutAt == 0 {
 		p.roundTimer.Stop()
-		logger.Debugw("disabling roundTimer, no active round", loggerFields...)
+		p.l.Debugw("disabling roundTimer, no active round", loggerFields...)
 
 	} else {
 		timesOutAt := time.Unix(int64(roundTimesOutAt), 0)
@@ -1235,11 +1230,11 @@ func (p *PollingDeviationChecker) resetRoundTimer(roundTimesOutAt uint64) {
 
 		if timeUntilTimeout <= 0 {
 			p.roundTimer.Stop()
-			logger.Debugw("roundTimer has run down; disabling", loggerFields...)
+			p.l.Debugw("roundTimer has run down; disabling", loggerFields...)
 		} else {
 			p.roundTimer.Reset(timeUntilTimeout)
 			loggerFields = append(loggerFields, "value", roundTimesOutAt)
-			logger.Debugw("updating roundState.TimesOutAt", loggerFields...)
+			p.l.Debugw("updating roundState.TimesOutAt", loggerFields...)
 		}
 	}
 }
@@ -1262,11 +1257,11 @@ func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
 	)
 
 	if timeUntilIdleDeadline <= 0 {
-		logger.Debugw("not resetting idleTimer, negative duration", loggerFields...)
+		p.l.Debugw("not resetting idleTimer, negative duration", loggerFields...)
 		return
 	}
 	p.idleTimer.Reset(timeUntilIdleDeadline)
-	logger.Debugw("resetting idleTimer", loggerFields...)
+	p.l.Debugw("resetting idleTimer", loggerFields...)
 }
 
 // jobRunRequest is the request used to trigger a Job Run by the Flux Monitor.
@@ -1309,7 +1304,7 @@ func (p *PollingDeviationChecker) createJobRun(
 
 	err = p.store.UpdateFluxMonitorRoundStats(p.initr.Address, roundID, jobRun.ID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error updating FM round submission count: %v", err),
+		p.l.Errorw(fmt.Sprintf("error updating FM round submission count: %v", err),
 			"address", p.initr.Address.Hex(),
 			"roundID", roundID,
 			"jobID", p.initr.JobSpecID.String(),
@@ -1341,7 +1336,7 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log flux_aggregat
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 // If both thresholds are zero (default value), always returns true.
-func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, thresholds DeviationThresholds) bool {
+func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, thresholds DeviationThresholds, logger logger.Logger) bool {
 	loggerFields := []interface{}{
 		"threshold", thresholds.Rel,
 		"absoluteThreshold", thresholds.Abs,
@@ -1394,7 +1389,7 @@ func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, thresholds Deviatio
 //
 // If system time is not accurate (compared to the cluster) then you should
 // expect poor behaviour here.
-func MakeIdleTimer(log flux_aggregator_wrapper.FluxAggregatorNewRound, idleThreshold models.Duration, clock utils.AfterNower) <-chan time.Time {
+func MakeIdleTimer(log flux_aggregator_wrapper.FluxAggregatorNewRound, idleThreshold models.Duration, clock utils.AfterNower, logger logger.Logger) <-chan time.Time {
 	timeNow := clock.Now()
 	if log.StartedAt == nil {
 		return defaultIdleTimer(idleThreshold, clock)

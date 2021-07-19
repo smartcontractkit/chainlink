@@ -31,6 +31,7 @@ func (set callbackSet) clone() callbackSet {
 // NewHeadBroadcaster creates a new HeadBroadcaster
 func NewHeadBroadcaster() httypes.HeadBroadcaster {
 	return &headBroadcaster{
+		logger:        logger.Default,
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.RWMutex{},
@@ -43,6 +44,7 @@ func NewHeadBroadcaster() httypes.HeadBroadcaster {
 // headBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 type headBroadcaster struct {
+	l    logger.Logger
 	callbacks callbackSet
 	mailbox   *utils.Mailbox
 	mutex     *sync.RWMutex
@@ -74,6 +76,10 @@ func (hr *headBroadcaster) Close() error {
 	})
 }
 
+func (hr *headBroadcaster) SetLogger(logger logger.Logger) {
+	hr.l.Swap(logger)
+}
+
 func (hr *headBroadcaster) Connect(head *models.Head) error {
 	hr.mutex.RLock()
 	callbacks := hr.callbacks.clone()
@@ -82,7 +88,7 @@ func (hr *headBroadcaster) Connect(head *models.Head) error {
 	for i, callback := range callbacks {
 		err := callback.Connect(head)
 		if err != nil {
-			logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
+			hr.l.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
 		}
 	}
 
@@ -100,7 +106,7 @@ func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscrib
 	defer hr.mutex.Unlock()
 	id, err := newID()
 	if err != nil {
-		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
+		hr.l.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
 		return
 	}
 	hr.callbacks[id] = callback
@@ -134,16 +140,16 @@ func (hr *headBroadcaster) executeCallbacks() {
 
 	item, exists := hr.mailbox.Retrieve()
 	if !exists {
-		logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
+		hr.l.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
 		return
 	}
 	head, ok := item.(models.Head)
 	if !ok {
-		logger.Errorf("expected `models.Head`, got %T", head)
+		hr.l.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
 
-	logger.Debugw("HeadBroadcaster initiating callbacks",
+	hr.l.Debugw("HeadBroadcaster initiating callbacks",
 		"headNum", head.Number,
 		"numCallbacks", len(hr.callbacks),
 	)
@@ -152,14 +158,14 @@ func (hr *headBroadcaster) executeCallbacks() {
 	wg.Add(len(hr.callbacks))
 
 	for _, callback := range callbacks {
-		go func(hr httypes.HeadTrackable) {
+		go func(ht httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
 			defer cancel()
-			hr.OnNewLongestChain(ctx, head)
+			ht.OnNewLongestChain(ctx, head)
 			elapsed := time.Since(start)
-			logger.Debugw(fmt.Sprintf("HeadBroadcaster: finished callback in %s", elapsed), "callbackType", reflect.TypeOf(hr), "blockNumber", head.Number, "time", elapsed, "id", "head_relayer")
+			hr.l.Debugw(fmt.Sprintf("HeadBroadcaster: finished callback in %s", elapsed), "callbackType", reflect.TypeOf(hr), "blockNumber", head.Number, "time", elapsed, "id", "head_relayer")
 		}(callback)
 	}
 
@@ -180,6 +186,7 @@ type NullBroadcaster struct{}
 
 func (*NullBroadcaster) Start() error                                            { return nil }
 func (*NullBroadcaster) Close() error                                            { return nil }
+func (*NullBroadcaster) SetLogger(logger.Logger)                                {}
 func (*NullBroadcaster) Connect(head *models.Head) error                         { return nil }
 func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {}
 func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {

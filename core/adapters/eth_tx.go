@@ -63,18 +63,18 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store, keyStore *ke
 	jr := input.JobRun()
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
-		logger.Errorw("EthTx: unable to find task run tx by runID", "err", err, "runID", input.TaskRunID())
+		e.l.Errorw("EthTx: unable to find task run tx by runID", "err", err, "runID", input.TaskRunID())
 		return models.NewRunOutputError(errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed"))
 	}
 	if trtx != nil {
-		logger.Debugw("EthTx: checking confirmation of eth tx",
+		e.l.Debugw("EthTx: checking confirmation of eth tx",
 			"jobID", jr.JobSpecID,
 			"runID", jr.ID,
 			"type", jr.Initiator.Type,
 			"runRequestTxHash", jr.RunRequest.TxHash)
 		return e.checkForConfirmation(*trtx, input, store)
 	}
-	logger.Debugw("EthTx: creating eth tx for bptxm",
+	e.l.Debugw("EthTx: creating eth tx for bptxm",
 		"jobID", jr.JobSpecID,
 		"runID", jr.ID,
 		"type", jr.Initiator.Type,
@@ -103,7 +103,7 @@ func (e *EthTx) checkForConfirmation(trtx bulletprooftxmanager.EthTaskRunTx,
 func (e *EthTx) pickFromAddress(input models.RunInput, keyStore *keystore.Master) (common.Address, error) {
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
-			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
+			e.l.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
@@ -112,7 +112,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, keyStore *keystore.Master
 	if e.FromAddress == utils.ZeroAddress {
 		return keyStore.Eth().GetRoundRobinAddress(e.FromAddresses...)
 	}
-	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
+	e.l.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
 	"type": "EthTx",
 	"fromAddresses": ["%s"],
@@ -152,7 +152,7 @@ func (e *EthTx) insertEthTx(
 	fromAddress, err := e.pickFromAddress(input, keyStore)
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed to pickFromAddress")
-		logger.Error(err)
+		e.l.Error(err)
 		return models.NewRunOutputError(err)
 	}
 
@@ -177,12 +177,12 @@ func (e *EthTx) insertEthTx(
 
 	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(store.DB, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
 		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", static.EthMaxQueuedTransactionsLabel)
-		logger.Error(err)
+		e.l.Error(err)
 		return models.NewRunOutputError(err)
 	}
 
 	if err := store.IdempotentInsertEthTaskRunTx(m, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
-		logger.Errorw("EthTx: failed to insert eth tx for bptxm", "err", err)
+		e.l.Errorw("EthTx: failed to insert eth tx for bptxm", "err", err)
 		return models.NewRunOutputError(errors.Wrap(err, "insertEthTx failed"))
 	}
 
@@ -199,7 +199,7 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 
 	receipt, err := getConfirmedReceipt(ethTxID, s.DB, minRequiredOutgoingConfirmations)
 	if err != nil {
-		logger.Error(err)
+		e.l.Error(err)
 		return models.NewRunOutputError(err)
 	}
 
@@ -209,11 +209,11 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 	var r types.Receipt
 	err = json.Unmarshal(receipt.Receipt, &r)
 	if err != nil {
-		logger.Debug("EthTx: unable to unmarshal tx receipt", err)
+		e.l.Debug("EthTx: unable to unmarshal tx receipt", err)
 	}
 	if err == nil && r.Status == 0 {
 		err = errors.Errorf("transaction %s reverted on-chain", r.TxHash)
-		logger.Error(err)
+		e.l.Error(err)
 		return models.NewRunOutputError(err)
 	}
 
@@ -226,7 +226,7 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 		"latestOutgoingTxHash": hexHash,
 	})
 	if err != nil {
-		logger.Error("unable to add tx hash to output", err)
+		e.l.Error("unable to add tx hash to output", err)
 		return models.NewRunOutputError(err)
 	}
 	return models.NewRunOutputComplete(output)

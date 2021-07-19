@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
@@ -51,8 +52,11 @@ var (
 )
 
 func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
+	l := logger.CreateTestLogger()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
@@ -67,7 +71,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
+		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil, l)
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
@@ -101,7 +105,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
+		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil, l)
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)

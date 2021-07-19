@@ -57,6 +57,7 @@ type (
 		config           Config
 		connected        *abool.AtomicBool
 		latestHeadFromDb *models.Head
+		l                logger.Logger
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -108,11 +109,12 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head, logger logger.Logger) *broadcaster {
 	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
 		config:           config,
+		l:                logger,
 		connected:        abool.New(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
 		registrations:    newRegistrations(),
@@ -132,6 +134,10 @@ func (b *broadcaster) Start() error {
 		go b.awaitInitialSubscribers()
 		return nil
 	})
+}
+
+func (b *broadcaster) SetLogger(logger logger.Logger) {
+	b.l.Swap(logger)
 }
 
 func (b *broadcaster) LatestHead() *models.Head {
@@ -172,17 +178,17 @@ func (b *broadcaster) awaitInitialSubscribers() {
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	if len(opts.LogsWithTopics) == 0 {
-		logger.Fatal("LogBroadcaster: Must supply at least 1 LogsWithTopics element to Register")
+		b.l.Fatal("LogBroadcaster: Must supply at least 1 LogsWithTopics element to Register")
 	}
 
 	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})
 	if wasOverCapacity {
-		logger.Error("LogBroadcaster: Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
+		b.l.Error("LogBroadcaster: Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
 	return func() {
 		wasOverCapacity := b.rmSubscriber.Deliver(registration{listener, opts})
 		if wasOverCapacity {
-			logger.Error("LogBroadcaster: Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+			b.l.Error("LogBroadcaster: Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
 		}
 	}
 }
@@ -192,6 +198,7 @@ func (b *broadcaster) Connect(head *models.Head) error { return nil }
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
+		// FIXME: no TraceW on logger
 		logger.Tracew("LogBroadcaster: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
 	}
 }
@@ -215,7 +222,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 	var chRawLogs chan types.Log
 	for {
-		logger.Debug("LogBroadcaster: Resubscribing and backfilling logs...")
+		b.l.Debug("LogBroadcaster: Resubscribing and backfilling logs...")
 		addresses, topics := b.registrations.addressesAndTopics()
 
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
@@ -240,7 +247,7 @@ func (b *broadcaster) startResubscribeLoop() {
 				int64(b.registrations.highestNumConfirmations) -
 				int64(b.config.BlockBackfillDepth())
 
-			logger.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
+			b.l.Debugw("LogBroadcaster: Using highest seen head as part of the initial backfill",
 				"blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash,
 				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
 			)
@@ -274,7 +281,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
-			logger.Warnw("LogBroadcaster: Error in the event loop - will reconnect", "err", err)
+			b.l.Warnw("LogBroadcaster: Error in the event loop - will reconnect", "err", err)
 			b.connected.UnSet()
 			continue
 		} else if !shouldResubscribe {
@@ -291,7 +298,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
-	logger.Debug("LogBroadcaster: Starting the event loop")
+	b.l.Debug("LogBroadcaster: Starting the event loop")
 	for {
 		select {
 		case rawLog := <-chRawLogs:
@@ -313,7 +320,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
-				logger.Debug("LogBroadcaster: returning from the event loop to resubscribe")
+				b.l.Debug("LogBroadcaster: returning from the event loop to resubscribe")
 				return true, nil
 			}
 
@@ -343,7 +350,7 @@ func (b *broadcaster) onNewHeads() {
 		}
 		head, ok := item.(models.Head)
 		if !ok {
-			logger.Errorf("expected `models.Head`, got %T", item)
+			b.l.Errorf("expected `models.Head`, got %T", item)
 			continue
 		}
 		latestHead = &head
@@ -353,7 +360,7 @@ func (b *broadcaster) onNewHeads() {
 	// when 'b.newHeads.Notify()' receives more times that the number of items in the mailbox
 	// Some heads may be missed (which is fine for LogBroadcaster logic) but the latest one in a burst will be received
 	if latestHead != nil {
-		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
+		b.l.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
 			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
 		keptLogsDepth := uint64(b.config.EthFinalityDepth())
@@ -390,10 +397,10 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 		}
 		reg, ok := x.(registration)
 		if !ok {
-			logger.Errorf("expected `registration`, got %T", x)
+			b.l.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		b.l.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -410,10 +417,10 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 		}
 		reg, ok := x.(registration)
 		if !ok {
-			logger.Errorf("expected `registration`, got %T", x)
+			b.l.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		b.l.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -491,6 +498,7 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 func (n *NullBroadcaster) DependentReady()                                {}
 func (n *NullBroadcaster) Start() error                                   { return nil }
 func (n *NullBroadcaster) Close() error                                   { return nil }
+func (n *NullBroadcaster) SetLogger(logger.Logger)                       {}
 func (n *NullBroadcaster) Healthy() error                                 { return nil }
 func (n *NullBroadcaster) Ready() error                                   { return nil }
 func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }

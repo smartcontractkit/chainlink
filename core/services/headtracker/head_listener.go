@@ -46,14 +46,14 @@ type HeadListener struct {
 	connected        bool
 	sleeper          utils.Sleeper
 
-	log      *logger.Logger
+	l        logger.Logger
 	muLogger sync.RWMutex
 
 	chStop chan struct{}
 	wgDone *sync.WaitGroup
 }
 
-func NewHeadListener(l *logger.Logger,
+func NewHeadListener(l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	chStop chan struct{},
@@ -70,30 +70,22 @@ func NewHeadListener(l *logger.Logger,
 		config:    config,
 		ethClient: ethClient,
 		sleeper:   sleeper,
-		log:       l,
+		l:         l,
 		chStop:    chStop,
 		wgDone:    wgDone,
 	}
 }
 
 // SetLogger sets and reconfigures the log for the head tracker service
-func (hl *HeadListener) SetLogger(logger *logger.Logger) {
-	hl.muLogger.Lock()
-	defer hl.muLogger.Unlock()
-	hl.log = logger
-}
-
-func (hl *HeadListener) logger() *logger.Logger {
-	hl.muLogger.RLock()
-	defer hl.muLogger.RUnlock()
-	return hl.log
+func (hl *HeadListener) SetLogger(logger logger.Logger) {
+	hl.l.Swap(logger)
 }
 
 func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error, connected func()) {
 	defer hl.wgDone.Done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.logger().Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
+			hl.l.Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
 		}
 	}()
 
@@ -108,7 +100,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.logger().Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			hl.l.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			hl.headers = nil
 			continue
 		} else {
@@ -136,7 +128,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
 			if blockHeader == nil {
-				hl.logger().Error("HeadTracker: got nil block header")
+				hl.l.Error("HeadTracker: got nil block header")
 				continue
 			}
 			promNumHeadsReceived.Inc()
@@ -167,11 +159,11 @@ func (hl *HeadListener) subscribe(connected func()) bool {
 	hl.sleeper.Reset()
 	for {
 		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.logger().Error("failed when unsubscribe from head", err)
+			hl.l.Error("failed when unsubscribe from head", err)
 			return false
 		}
 
-		hl.logger().Info("HeadListener: Connecting to ethereum node ", hl.config.EthereumURL(), " in ", hl.sleeper.Duration())
+		hl.l.Info("HeadListener: Connecting to ethereum node ", hl.config.EthereumURL(), " in ", hl.sleeper.Duration())
 		select {
 		case <-hl.chStop:
 			return false
@@ -179,9 +171,9 @@ func (hl *HeadListener) subscribe(connected func()) bool {
 			err := hl.subscribeToHead(connected)
 			if err != nil {
 				promEthConnectionErrors.Inc()
-				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to connect to ethereum node %v", hl.config.EthereumURL()), "err", err)
+				hl.l.Warnw(fmt.Sprintf("HeadListener: Failed to connect to ethereum node %v", hl.config.EthereumURL()), "err", err)
 			} else {
-				hl.logger().Info("HeadListener: Connected to ethereum node ", hl.config.EthereumURL())
+				hl.l.Info("HeadListener: Connected to ethereum node ", hl.config.EthereumURL())
 				return true
 			}
 		}

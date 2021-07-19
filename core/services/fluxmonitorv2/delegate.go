@@ -2,6 +2,7 @@ package fluxmonitorv2
 
 import (
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -22,6 +23,7 @@ type Delegate struct {
 	ethClient      eth.Client
 	logBroadcaster log.Broadcaster
 	cfg            Config
+	l              logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -37,6 +39,7 @@ func NewDelegate(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	cfg Config,
+	logger logger.Logger,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -48,6 +51,7 @@ func NewDelegate(
 		ethClient,
 		logBroadcaster,
 		cfg,
+		logger,
 	}
 }
 
@@ -78,6 +82,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		d.logBroadcaster,
 		d.pipelineRunner,
 		d.cfg,
+		d.l,
 	)
 	if err != nil {
 		return nil, err

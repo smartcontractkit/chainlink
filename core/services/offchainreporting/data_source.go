@@ -22,7 +22,7 @@ type dataSource struct {
 	pipelineRunner        pipeline.Runner
 	jobSpec               job.Job
 	spec                  pipeline.Spec
-	ocrLogger             logger.Logger
+	l             logger.Logger
 	runResults            chan<- pipeline.RunWithResults
 	currentBridgeMetadata models.BridgeMetaData
 }
@@ -35,7 +35,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	var observation ocrtypes.Observation
 	md, err := models.MarshalBridgeMetaData(ds.currentBridgeMetadata.LatestAnswer, ds.currentBridgeMetadata.UpdatedAt)
 	if err != nil {
-		logger.Warnw("unable to attach metadata for run", "err", err)
+		ds.l.Warnw("unable to attach metadata for run", "err", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -49,7 +49,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 		},
 	})
 
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.ocrLogger)
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.l)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}

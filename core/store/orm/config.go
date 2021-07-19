@@ -124,7 +124,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 
 // Validate performs basic sanity checks on config and returns error if any
 // misconfiguration would be fatal to the application
-func (c *Config) Validate() error {
+func (c *Config) Validate(logger logger.Logger) error {
 	ethGasBumpPercent := c.EthGasBumpPercent()
 	if uint64(ethGasBumpPercent) < ethCore.DefaultTxPoolConfig.PriceBump {
 		return errors.Errorf(
@@ -225,7 +225,7 @@ func (c Config) Set(name string, value interface{}) {
 			return
 		}
 	}
-	logger.Panicf("No configuration parameter for %s", name)
+	log.Panicf("No configuration parameter for %s", name)
 }
 
 const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
@@ -1528,7 +1528,7 @@ func (c Config) CertFile() string {
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c Config) CreateProductionLogger() *logger.Logger {
+func (c Config) CreateProductionLogger() logger.Logger {
 	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 

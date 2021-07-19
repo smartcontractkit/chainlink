@@ -8,8 +8,8 @@ import (
 )
 
 type ORM interface {
-	GetServiceLogLevel(serviceName string) (string, error)
-	SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error
+	GetServiceLogLevel(serviceName ServiceName) (string, error)
+	SetServiceLogLevel(ctx context.Context, serviceName ServiceName, level zapcore.Level) error
 }
 
 type orm struct {
@@ -22,7 +22,7 @@ func NewORM(db *gorm.DB) *orm {
 }
 
 // GetServiceLogLevel returns the log level for a configured service
-func (orm *orm) GetServiceLogLevel(serviceName string) (string, error) {
+func (orm *orm) GetServiceLogLevel(serviceName ServiceName) (string, error) {
 	config := LogConfig{}
 	if err := orm.DB.First(&config, "service_name = ?", serviceName).Error; err != nil {
 		return "", err
@@ -30,13 +30,13 @@ func (orm *orm) GetServiceLogLevel(serviceName string) (string, error) {
 	return config.LogLevel, nil
 }
 
-func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error {
+func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName ServiceName, level zapcore.Level) error {
 	return orm.DB.WithContext(ctx).Exec(`
         INSERT INTO log_configs (
             service_name, log_level
         ) VALUES (
             ?, ?
-        ) ON CONFLICT (service_name) 
+        ) ON CONFLICT (service_name)
 		DO UPDATE SET log_level = EXCLUDED.log_level
     `, serviceName, level.String()).Error
 }

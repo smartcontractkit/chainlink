@@ -45,7 +45,7 @@ type contractTrackerUni struct {
 	tracker *offchainreporting.OCRContractTracker
 }
 
-func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
+func newContractTrackerUni(t *testing.T, logger logger.Logger, opts ...interface{}) (uni contractTrackerUni) {
 	var chain *chains.Chain
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
@@ -84,7 +84,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.ec,
 		uni.lb,
 		42,
-		*logger.Default,
+		logger,
 		s.DB,
 		uni.db,
 		chain,
@@ -104,8 +104,10 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	t.Run("on L2 chains, always returns 0", func(t *testing.T) {
-		uni := newContractTrackerUni(t, chains.OptimismMainnet)
+		uni := newContractTrackerUni(t, l, chains.OptimismMainnet)
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
 
@@ -113,7 +115,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	})
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
-		uni := newContractTrackerUni(t)
+		uni := newContractTrackerUni(t, l)
 		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&models.Head{Number: 42}, nil)
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
@@ -123,7 +125,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	})
 
 	t.Run("Before first head incoming, on client error returns error", func(t *testing.T) {
-		uni := newContractTrackerUni(t)
+		uni := newContractTrackerUni(t, l)
 		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, nil).Once()
 
 		_, err := uni.tracker.LatestBlockHeight(context.Background())
@@ -138,7 +140,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	})
 
 	t.Run("after first head incoming, uses cached value", func(t *testing.T) {
-		uni := newContractTrackerUni(t)
+		uni := newContractTrackerUni(t, l)
 
 		uni.tracker.OnNewLongestChain(context.Background(), models.Head{Number: 42})
 
@@ -152,12 +154,14 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	fixtureLogAddress := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
 	fixtureFilterer := mustNewFilterer(t, fixtureLogAddress)
 	fixtureContract := mustNewContract(t, fixtureLogAddress)
 
 	t.Run("does not update if contract address doesn't match", func(t *testing.T) {
-		uni := newContractTrackerUni(t)
+		uni := newContractTrackerUni(t, l)
 		logBroadcast := new(logmocks.Broadcast)
 
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
@@ -184,7 +188,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	})
 
 	t.Run("does nothing if log has already been consumed", func(t *testing.T) {
-		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
+		uni := newContractTrackerUni(t, l, fixtureFilterer, fixtureContract)
 		logBroadcast := new(logmocks.Broadcast)
 
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(true, nil)
@@ -208,7 +212,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	})
 
 	t.Run("for new round requested log", func(t *testing.T) {
-		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
+		uni := newContractTrackerUni(t, l, fixtureFilterer, fixtureContract)
 
 		configDigest, epoch, round, err := uni.tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)
@@ -300,7 +304,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	})
 
 	t.Run("does not mark consumed or update state if latest round fails to save", func(t *testing.T) {
-		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
+		uni := newContractTrackerUni(t, l, fixtureFilterer, fixtureContract)
 
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast := new(logmocks.Broadcast)
@@ -321,7 +325,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	})
 
 	t.Run("restores latest round requested from database on start", func(t *testing.T) {
-		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
+		uni := newContractTrackerUni(t, l, fixtureFilterer, fixtureContract)
 
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		rr := offchainaggregator.OffchainAggregatorRoundRequested{

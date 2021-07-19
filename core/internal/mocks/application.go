@@ -271,22 +271,6 @@ func (_m *Application) GetKeyStore() *keystore.Master {
 	return r0
 }
 
-// GetLogger provides a mock function with given fields:
-func (_m *Application) GetLogger() *logger.Logger {
-	ret := _m.Called()
-
-	var r0 *logger.Logger
-	if rf, ok := ret.Get(0).(func() *logger.Logger); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logger.Logger)
-		}
-	}
-
-	return r0
-}
-
 // GetStatsPusher provides a mock function with given fields:
 func (_m *Application) GetStatsPusher() synchronization.StatsPusher {
 	ret := _m.Called()
@@ -501,11 +485,11 @@ func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, r
 }
 
 // SetServiceLogger provides a mock function with given fields: ctx, service, level
-func (_m *Application) SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error {
+func (_m *Application) SetServiceLogger(ctx context.Context, service logger.ServiceName, level zapcore.Level) error {
 	ret := _m.Called(ctx, service, level)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, zapcore.Level) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, logger.ServiceName, zapcore.Level) error); ok {
 		r0 = rf(ctx, service, level)
 	} else {
 		r0 = ret.Error(0)

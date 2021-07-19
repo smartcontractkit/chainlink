@@ -132,6 +132,7 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 	c := orm.NewConfig()
 	vuni := buildVrfUni(t, db, c)
 
+	l := logger.CreateTestLogger()
 	vd := NewDelegate(
 		db,
 		vuni.txm,
@@ -141,7 +142,9 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 		vuni.lb,
 		vuni.hb,
 		vuni.ec,
-		c)
+		c,
+		l,
+	)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
 	t.Log(vs)
 	jb, err := ValidatedVRFSpec(vs.Toml())
@@ -167,7 +170,8 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 
 func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	counts := getStartingResponseCounts(db, logger.Default)
+	l := logger.CreateTestLogger()
+	counts := getStartingResponseCounts(db, l)
 	assert.Equal(t, 0, len(counts))
 
 	ks := keystore.New(db, utils.FastScryptParams)
@@ -224,7 +228,7 @@ func TestStartingCounts(t *testing.T) {
 		},
 	}
 	require.NoError(t, db.Create(&txes).Error)
-	counts = getStartingResponseCounts(db, logger.Default)
+	counts = getStartingResponseCounts(db, l)
 	assert.Equal(t, 2, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])

@@ -739,7 +739,7 @@ func TestClient_SetPkgLogLevel(t *testing.T) {
 	logPkg := logger.HeadTracker
 	logLevel := "warn"
 	set := flag.NewFlagSet("logpkg", 0)
-	set.String("pkg", logPkg, "")
+	set.String("pkg", string(logPkg), "")
 	set.String("level", logLevel, "")
 	c := cli.NewContext(nil, set, nil)
 

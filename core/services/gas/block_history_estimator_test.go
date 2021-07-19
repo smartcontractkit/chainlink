@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +27,8 @@ import (
 
 func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Parallel()
+
+	l := logger.CreateTestLogger()
 
 	config := new(gumocks.Config)
 
@@ -47,7 +50,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Run("loads initial state", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		h := &models.Head{Hash: utils.NewHash(), Number: 42}
@@ -82,7 +85,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Run("boots even if initial batch call returns nothing", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 
-		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
+		bhe := gas.NewBlockHistoryEstimator(ethClient, config, l)
 
 		h := &models.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
@@ -100,7 +103,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Run("starts anyway if fetching latest head fails", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 
-		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
+		bhe := gas.NewBlockHistoryEstimator(ethClient, config, l)
 
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("something exploded"))
 
@@ -115,10 +118,12 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	t.Run("with history size of 0, errors", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
+		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config, l))
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 0
@@ -135,7 +140,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Run("with current block height less than block delay does nothing", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
+		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config, l))
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 1
@@ -156,7 +161,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Run("with error retrieving blocks returns error", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
+		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config, l))
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 3
@@ -178,7 +183,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Run("batch fetches heads and transactions and sets them on the block history estimator instance", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
+		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config, l))
 
 		var blockDelay uint16 = 1
 		var historySize uint16 = 3
@@ -276,6 +281,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	ethClient := new(mocks.Client)
 	config := new(gumocks.Config)
 
@@ -287,7 +294,7 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 	config.On("BlockHistoryEstimatorBatchSize").Return(uint32(0))
 	config.On("ChainID").Return(big.NewInt(0))
 
-	estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+	estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 	bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 	b1 := gas.Block{
@@ -332,6 +339,8 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	t.Parallel()
 
+	l := logger.CreateTestLogger()
+
 	maxGasPrice := big.NewInt(100)
 	minGasPrice := big.NewInt(10)
 
@@ -343,18 +352,18 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("EthMinGasPriceWei").Return(big.NewInt(1))
 		config.On("ChainID").Return(big.NewInt(0))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		blocks := []gas.Block{}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(*cltest.Head(1))
 
-		blocks = []gas.Block{gas.Block{}}
+		blocks = []gas.Block{{}}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(*cltest.Head(1))
 
-		blocks = []gas.Block{gas.Block{Transactions: []gas.Transaction{}}}
+		blocks = []gas.Block{{Transactions: []gas.Transaction{}}}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(*cltest.Head(1))
 
@@ -371,16 +380,16 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 		config.On("ChainID").Return(big.NewInt(0))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		blocks := []gas.Block{
-			gas.Block{
+			{
 				Number:       0,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(9001),
 			},
-			gas.Block{
+			{
 				Number:       1,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(9002),
@@ -407,16 +416,16 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 		config.On("ChainID").Return(big.NewInt(0))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		blocks := []gas.Block{
-			gas.Block{
+			{
 				Number:       0,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(5),
 			},
-			gas.Block{
+			{
 				Number:       1,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.TransactionsFromGasPrices(7),
@@ -443,7 +452,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(100))
 		config.On("ChainID").Return(big.NewInt(0))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		b1Hash := utils.NewHash()
@@ -460,13 +469,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 				Number:       1,
 				Hash:         b2Hash,
 				ParentHash:   b1Hash,
-				Transactions: []gas.Transaction{gas.Transaction{GasPrice: big.NewInt(70), GasLimit: 42}},
+				Transactions: []gas.Transaction{{GasPrice: big.NewInt(70), GasLimit: 42}},
 			},
 			{
 				Number:       2,
 				Hash:         utils.NewHash(),
 				ParentHash:   b2Hash,
-				Transactions: []gas.Transaction{gas.Transaction{GasPrice: big.NewInt(90), GasLimit: 0}},
+				Transactions: []gas.Transaction{{GasPrice: big.NewInt(90), GasLimit: 0}},
 			},
 		}
 
@@ -491,13 +500,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(0))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		b1Hash := utils.NewHash()
 
 		blocks := []gas.Block{
-			gas.Block{
+			{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
@@ -525,13 +534,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(100))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		b1Hash := utils.NewHash()
 
 		blocks := []gas.Block{
-			gas.Block{
+			{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
@@ -563,7 +572,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(0))
 
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config, l)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
 		unreasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000000))
@@ -571,20 +580,20 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []gas.Block{
-			gas.Block{
+			{
 				Number:     0,
 				Hash:       b1Hash,
 				ParentHash: common.Hash{},
 				Transactions: []gas.Transaction{
-					gas.Transaction{GasPrice: big.NewInt(50), GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					gas.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: big.NewInt(50), GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
 				},
 			},
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -38,7 +39,8 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minIncomingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
+	l := logger.CreateTestLogger()
+	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config, l)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -81,7 +83,8 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 		jobORM.Close()
 	}
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
+	l := logger.CreateTestLogger()
+	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig, l)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()

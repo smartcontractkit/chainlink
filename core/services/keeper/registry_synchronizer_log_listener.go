@@ -24,11 +24,11 @@ func (rs *RegistrySynchronizer) IsV2Job() bool {
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		logger.Errorf("RegistrySynchronizer: HandleLog: ignoring nil value, type: %T", broadcast)
+		rs.l.Errorf("RegistrySynchronizer: HandleLog: ignoring nil value, type: %T", broadcast)
 		return
 	}
 
-	logger.Debugw(
+	rs.l.Debugw(
 		"RegistrySynchronizer: received log, waiting for confirmations",
 		"jobID", rs.job.ID,
 		"logType", reflect.TypeOf(log),
@@ -54,9 +54,9 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 		wasOverCapacity = rs.mailRoom.mbUpkeepPerformed.Deliver(broadcast)
 		mailboxName = "mbUpkeepPerformed"
 	default:
-		logger.Warnf("unexpected log type %T", log)
+		rs.l.Warnf("unexpected log type %T", log)
 	}
 	if wasOverCapacity {
-		logger.Errorf("RegistrySynchronizer: %v mailbox is over capacity - dropped the oldest unprocessed item", mailboxName)
+		rs.l.Errorf("RegistrySynchronizer: %v mailbox is over capacity - dropped the oldest unprocessed item", mailboxName)
 	}
 }

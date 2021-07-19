@@ -3,9 +3,12 @@
 package mocks
 
 import (
-	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
+
+	models "github.com/smartcontractkit/chainlink/core/store/models"
+
+	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
 
 	url "net/url"
 )
@@ -102,6 +105,11 @@ func (_m *StatsPusher) Ready() error {
 	}
 
 	return r0
+}
+
+// SetLogger provides a mock function with given fields: _a0
+func (_m *StatsPusher) SetLogger(_a0 logger.Logger) {
+	_m.Called(_a0)
 }
 
 // Start provides a mock function with given fields:

@@ -59,24 +59,26 @@ func MemoryLogTestingOnly() *MemorySink {
 
 // CreateTestLogger creates a logger that directs output to PrettyConsole
 // configured for test output, and to the buffer testMemoryLog.
-func CreateTestLogger(lvl zapcore.Level) *Logger {
-	_ = MemoryLogTestingOnly() // Make sure memory log is created
+func CreateTestLogger(lvl ...zapcore.Level) Logger {
 	color.NoColor = false
 	config := zap.NewProductionConfig()
-	config.Level.SetLevel(lvl)
-	config.OutputPaths = []string{"pretty://console", "memory://"}
+	if len(lvl) > 0 {
+		config.Level.SetLevel(lvl[0])
+	} else {
+	}
+	config.OutputPaths = []string{"pretty://console"}
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{
+	return &logger{
 		SugaredLogger: zl.Sugar(),
 	}
 }
 
 // CreateMemoryTestLogger creates a logger that only directs output to the
 // buffer testMemoryLog.
-func CreateMemoryTestLogger(lvl zapcore.Level) *Logger {
+func CreateMemoryTestLogger(lvl zapcore.Level) Logger {
 	_ = MemoryLogTestingOnly() // Make sure memory log is created
 	color.NoColor = true
 	config := zap.NewProductionConfig()
@@ -86,7 +88,7 @@ func CreateMemoryTestLogger(lvl zapcore.Level) *Logger {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{
+	return &logger{
 		SugaredLogger: zl.Sugar(),
 	}
 }

@@ -14,7 +14,7 @@ import (
 // Cron runs a cron jobSpec from a CronSpec
 type Cron struct {
 	cronRunner     *cron.Cron
-	logger         *logger.Logger
+	l         logger.Logger
 	jobSpec        job.Job
 	pipelineRunner pipeline.Runner
 	chStop         chan struct{}
@@ -24,17 +24,16 @@ type Cron struct {
 func NewCronFromJobSpec(
 	jobSpec job.Job,
 	pipelineRunner pipeline.Runner,
+	logger logger.Logger,
 ) (*Cron, error) {
-	cronLogger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", jobSpec.ID,
-			"schedule", jobSpec.CronSpec.CronSchedule,
-		),
+	cronLogger := logger.With(
+		"jobID", jobSpec.ID,
+		"schedule", jobSpec.CronSpec.CronSchedule,
 	)
 
 	return &Cron{
 		cronRunner:     cronRunner(),
-		logger:         cronLogger,
+		l:         cronLogger,
 		jobSpec:        jobSpec,
 		pipelineRunner: pipelineRunner,
 		chStop:         make(chan struct{}),
@@ -43,11 +42,11 @@ func NewCronFromJobSpec(
 
 // Start implements the job.Service interface.
 func (cr *Cron) Start() error {
-	cr.logger.Debug("Cron: Starting")
+	cr.l.Debug("Cron: Starting")
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
-		cr.logger.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "error", err, "schedule", cr.jobSpec.CronSpec.CronSchedule, "jobID", cr.jobSpec.ID)
+		cr.l.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "error", err, "schedule", cr.jobSpec.CronSpec.CronSchedule, "jobID", cr.jobSpec.ID)
 		return err
 	}
 	cr.cronRunner.Start()
@@ -57,7 +56,7 @@ func (cr *Cron) Start() error {
 // Close implements the job.Service interface. It stops this job from
 // running and cleans up resources.
 func (cr *Cron) Close() error {
-	cr.logger.Debug("Cron: Closing")
+	cr.l.Debug("Cron: Closing")
 	cr.cronRunner.Stop()
 	return nil
 }
@@ -79,9 +78,9 @@ func (cr *Cron) runPipeline() {
 
 	run := pipeline.NewRun(*cr.jobSpec.PipelineSpec, vars)
 
-	_, err := cr.pipelineRunner.Run(ctx, &run, *cr.logger, false)
+	_, err := cr.pipelineRunner.Run(ctx, &run, cr.l, false)
 	if err != nil {
-		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
+		cr.l.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}
 }
 

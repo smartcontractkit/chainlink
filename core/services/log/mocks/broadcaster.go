@@ -7,7 +7,9 @@ import (
 
 	gorm "gorm.io/gorm"
 
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	log "github.com/smartcontractkit/chainlink/core/services/log"
+
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
@@ -163,6 +165,11 @@ func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) fu
 	}
 
 	return r0
+}
+
+// SetLogger provides a mock function with given fields: _a0
+func (_m *Broadcaster) SetLogger(_a0 logger.Logger) {
+	_m.Called(_a0)
 }
 
 // Start provides a mock function with given fields:

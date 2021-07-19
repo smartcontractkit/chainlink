@@ -65,10 +65,12 @@ type EthBroadcaster struct {
 	wg        sync.WaitGroup
 
 	utils.StartStopOnce
+
+	l logger.Logger
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, allKeys []ethkey.Key, estimator gas.Estimator) *EthBroadcaster {
+func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, allKeys []ethkey.Key, estimator gas.Estimator, logger logger.Logger) *EthBroadcaster {
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
 	return &EthBroadcaster{
@@ -84,6 +86,7 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 		ctx:              ctx,
 		ctxCancel:        cancel,
 		wg:               sync.WaitGroup{},
+		l:                logger,
 	}
 }
 
@@ -138,7 +141,7 @@ func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
 			for addr := range eb.triggers {
 				registeredAddrs = append(registeredAddrs, addr)
 			}
-			logger.Errorw(fmt.Sprintf("EthBroadcaster: attempted trigger for address %s which is not registered", addr.Hex()), "registeredAddrs", registeredAddrs)
+			eb.l.Errorw(fmt.Sprintf("EthBroadcaster: attempted trigger for address %s which is not registered", addr.Hex()), "registeredAddrs", registeredAddrs)
 			return
 		}
 		select {
@@ -148,7 +151,7 @@ func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
 	})
 
 	if !ok {
-		logger.Debugf("EthBroadcaster: unstarted; ignoring trigger for %s", addr.Hex())
+		eb.l.Debugf("EthBroadcaster: unstarted; ignoring trigger for %s", addr.Hex())
 	}
 }
 
@@ -172,7 +175,7 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.Key, triggerCh chan struct{}) {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
 		if err := eb.ProcessUnstartedEthTxs(k); err != nil {
-			logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
+			eb.l.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
 		}
 
 		select {
@@ -210,7 +213,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 	mark := time.Now()
 	defer func() {
 		if n > 0 {
-			logger.Debugw("EthBroadcaster: finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
+			eb.l.Debugw("EthBroadcaster: finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
 		}
 	}()
 
@@ -225,7 +228,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; maximum number of in-flight transactions is %d per key. If this happens a lot, you might need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS. %s`, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "nUnconfirmed", nUnconfirmed)
+				eb.l.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; maximum number of in-flight transactions is %d per key. If this happens a lot, you might need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS. %s`, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "nUnconfirmed", nUnconfirmed)
 				time.Sleep(InFlightTransactionRecheckInterval)
 				continue
 			}
@@ -248,7 +251,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		}
 
 		if err := eb.saveInProgressTransaction(etx, &a); errors.Is(err, errEthTxRemoved) {
-			logger.Debugw("EthBroadcaster: eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
+			eb.l.Debugw("EthBroadcaster: eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
@@ -302,7 +305,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt, etx)
 
 	if sendError.IsTooExpensive() {
-		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+		eb.l.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
 			"ethTxID", etx.ID,
 			"err", sendError,
 			"gasPrice", attempt.GasPrice,
@@ -315,7 +318,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 
 	if sendError.Fatal() {
-		logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
+		eb.l.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return saveFatallyErroredTransaction(eb.db, &etx)
@@ -374,12 +377,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		// success (even though the transaction will never confirm) and hand
 		// off to the ethConfirmer to bump gas periodically until we _can_ get
 		// it in
-		logger.Infow("EthBroadcaster: Transaction temporarily underpriced", "ethTxID", etx.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
+		eb.l.Infow("EthBroadcaster: Transaction temporarily underpriced", "ethTxID", etx.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
 		sendError = nil
 	}
 
 	if sendError.IsInsufficientEth() {
-		logger.Errorw(fmt.Sprintf("EthBroadcaster: tx 0x%x at gas price %s Wei was rejected due to insufficient eth. "+
+		eb.l.Errorw(fmt.Sprintf("EthBroadcaster: tx 0x%x at gas price %s Wei was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
@@ -488,7 +491,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
-	logger.Errorw(fmt.Sprintf("default gas price %v wei was rejected by the eth node for being too low. "+
+	eb.l.Errorw(fmt.Sprintf("default gas price %v wei was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EthGasPriceDefault(), sendError.Error(), bumpedGasPrice), "err", err)
@@ -503,7 +506,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}
-	logger.Debugw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
+	eb.l.Debugw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }

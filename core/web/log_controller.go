@@ -25,34 +25,35 @@ type LogPatchRequest struct {
 
 // Get retrieves the current log config settings
 func (cc *LogController) Get(c *gin.Context) {
-	var svcs, lvls []string
-	svcs = append(svcs, "Global")
-	lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
+	// FIXME: oh fuck me
+	// var svcs, lvls []string
+	// svcs = append(svcs, "Global")
+	// lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
 
-	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetStore().Config.LogSQLStatements()))
+	// svcs = append(svcs, "IsSqlEnabled")
+	// lvls = append(lvls, strconv.FormatBool(cc.App.GetStore().Config.LogSQLStatements()))
 
-	logSvcs := logger.GetLogServices()
-	for _, svcName := range logSvcs {
-		lvl, err := cc.App.GetLogger().ServiceLogLevel(svcName)
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error getting service log level for %s service: %v", svcName, err))
-			return
-		}
+	// logSvcs := logger.GetLogServices()
+	// for _, svcName := range logSvcs {
+	// 	lvl, err := cc.App.GetLogger().ServiceLogLevel(svcName)
+	// 	if err != nil {
+	// 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error getting service log level for %s service: %v", svcName, err))
+	// 		return
+	// 	}
 
-		svcs = append(svcs, svcName)
-		lvls = append(lvls, lvl)
-	}
+	// 	svcs = append(svcs, string(svcName))
+	// 	lvls = append(lvls, lvl)
+	// }
 
-	response := &presenters.ServiceLogConfigResource{
-		JAID: presenters.JAID{
-			ID: "log",
-		},
-		ServiceName: svcs,
-		LogLevel:    lvls,
-	}
+	// response := &presenters.ServiceLogConfigResource{
+	// 	JAID: presenters.JAID{
+	// 		ID: "log",
+	// 	},
+	// 	ServiceName: svcs,
+	// 	LogLevel:    lvls,
+	// }
 
-	jsonAPIResponse(c, response, "log")
+	// jsonAPIResponse(c, response, "log")
 }
 
 // Patch sets a log level and enables sql logging for the logger
@@ -107,12 +108,12 @@ func (cc *LogController) Patch(c *gin.Context) {
 				return
 			}
 
-			if err := cc.App.SetServiceLogger(c.Request.Context(), svcName, level); err != nil {
+			if err := cc.App.SetServiceLogger(c.Request.Context(), logger.ServiceName(svcName), level); err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return
 			}
 
-			ll, err := cc.App.GetLogger().ServiceLogLevel(svcName)
+			ll, err := cc.App.GetLogger().ServiceLogLevel(logger.ServiceName(svcName))
 			if err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return
@@ -124,8 +125,9 @@ func (cc *LogController) Patch(c *gin.Context) {
 	}
 
 	// Set default logger with new configurations
-	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
-	cc.App.GetLogger().SetDB(cc.App.GetStore().DB)
+	// FIXME: OMG
+	// logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
+	// cc.App.Logger().SetDB(cc.App.GetStore().DB)
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{

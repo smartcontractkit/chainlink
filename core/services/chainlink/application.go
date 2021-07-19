@@ -3,7 +3,6 @@ package chainlink
 import (
 	"context"
 	stderr "errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"reflect"
@@ -58,7 +57,6 @@ import (
 type Application interface {
 	Start() error
 	Stop() error
-	GetLogger() *logger.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetKeyStore() *keystore.Master
@@ -84,7 +82,7 @@ type Application interface {
 	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
+	SetServiceLogger(ctx context.Context, service logger.ServiceName, level zapcore.Level) error
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -122,7 +120,12 @@ type ChainlinkApplication struct {
 	explorerClient           synchronization.ExplorerClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
-	logger                   *logger.Logger
+	Logger                   logger.Logger
+
+	// References for SetServiceLogger only
+	databaseBackup periodicbackup.DatabaseBackup
+	promReporter   service.Service
+	peerWrapper    *offchainreporting.SingletonPeerWrapper
 
 	started     bool
 	startStopMu sync.Mutex
@@ -135,13 +138,15 @@ type ChainlinkApplication struct {
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []service.Service
 
+	logger := config.CreateProductionLogger()
+
 	shutdownSignal := gracefulpanic.NewSignal()
-	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
+	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	setupConfig(config, store)
+	setupConfig(config, store, logger)
 
 	healthChecker := health.NewChecker()
 
@@ -159,26 +164,27 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
+	var databaseBackup periodicbackup.DatabaseBackup
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
+		databaseBackup = periodicbackup.NewDatabaseBackup(store.Config, logger)
 		subservices = append(subservices, databaseBackup)
 	} else {
 		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	// Init service loggers
-	globalLogger := config.CreateProductionLogger()
-	globalLogger.SetDB(store.DB)
-	serviceLogLevels, err := globalLogger.GetServiceLogLevels()
-	if err != nil {
-		logger.Fatalf("error getting log levels: %v", err)
-	}
-	headTrackerLogger, err := globalLogger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
-	if err != nil {
-		logger.Fatal("error starting logger for head tracker", err)
-	}
+	// globalLogger := config.CreateProductionLogger()
+	// globalLogger.SetDB(store.DB)
+	// serviceLogLevels, err := globalLogger.GetServiceLogLevels()
+	// if err != nil {
+	// 	logger.Fatalf("error getting log levels: %v", err)
+	// }
+	// headTrackerLogger, err := globalLogger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
+	// if err != nil {
+	// 	logger.Fatal("error starting logger for head tracker", err)
+	// }
 
 	var headBroadcaster httypes.HeadBroadcaster
 	var headTracker httypes.Tracker
@@ -188,7 +194,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
 		orm := headtracker.NewORM(store.DB)
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, config, orm, headBroadcaster)
+		headTracker = headtracker.NewHeadTracker(logger, ethClient, config, orm, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
@@ -222,8 +228,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			return nil, err2
 		}
 
-		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
-		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster)
+		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead, logger)
+		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster, logger)
 		subservices = append(subservices, logBroadcaster, txManager)
 	}
 
@@ -236,7 +242,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(store.DB, ethClient, keyStore.Eth())
+		balanceMonitor = services.NewBalanceMonitor(store.DB, ethClient, keyStore.Eth(), logger)
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
@@ -260,6 +266,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				ethClient,
 				store.DB,
 				config,
+				logger,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
 			job.VRF: vrf.NewDelegate(
@@ -271,7 +278,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				logBroadcaster,
 				headBroadcaster,
 				store.EthClient,
-				store.Config),
+				store.Config,
+				logger,
+			),
 		}
 	)
 
@@ -296,13 +305,15 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				EthMaxQueuedTransactions:       store.Config.EthMaxQueuedTransactions(),
 				FMDefaultTransactionQueueDepth: store.Config.FMDefaultTransactionQueueDepth(),
 			},
+			logger,
 		)
 	}
 
+	var peerWrapper *offchainreporting.SingletonPeerWrapper
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
-		subservices = append(subservices, concretePW)
+		peerWrapper = offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
+		subservices = append(subservices, peerWrapper)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
 			txManager,
@@ -312,7 +323,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			pipelineRunner,
 			ethClient,
 			logBroadcaster,
-			concretePW,
+			peerWrapper,
 			monitoringEndpoint,
 			config.Chain(),
 			headBroadcaster,
@@ -366,7 +377,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
-		logger:                   globalLogger,
+		Logger:                   logger,
+
+		databaseBackup: databaseBackup,
+		promReporter:   promReporter,
+		peerWrapper:    peerWrapper,
+
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
@@ -403,27 +419,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	return app, nil
 }
 
-// SetServiceLogger sets the Logger for a given service and stores the setting in the db
-func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level zapcore.Level) error {
-	newL, err := app.logger.InitServiceLevelLogger(serviceName, level.String())
-	if err != nil {
-		return err
-	}
-
-	// TODO: Implement other service loggers
-	switch serviceName {
-	case logger.HeadTracker:
-		app.HeadTracker.SetLogger(newL)
-	case logger.FluxMonitor:
-		app.FluxMonitor.SetLogger(newL)
-	default:
-		return fmt.Errorf("no service found with name: %s", serviceName)
-	}
-
-	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
-}
-
-func setupConfig(config *orm.Config, store *strpkg.Store) {
+func setupConfig(config *orm.Config, store *strpkg.Store, logger logger.Logger) {
 	config.SetRuntimeStore(store.ORM)
 
 	if !config.P2PPeerIDIsSet() {
@@ -461,7 +457,7 @@ func (app *ChainlinkApplication) Start() error {
 		case <-sigs:
 		case <-app.shutdownSignal.Wait():
 		}
-		logger.ErrorIf(app.Stop())
+		app.Logger.ErrorIf(app.Stop())
 		app.Exiter(0)
 	}()
 
@@ -483,11 +479,11 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	if err := app.FeedsService.Start(); err != nil {
-		logger.Infof("[Feeds Service] %v", err)
+		app.Logger.Infof("[Feeds Service] %v", err)
 	}
 
 	for _, subservice := range app.subservices {
-		logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
+		app.Logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
 			return err
 		}
@@ -547,7 +543,7 @@ func (app *ChainlinkApplication) stop() error {
 	var merr error
 	app.shutdownOnce.Do(func() {
 		defer func() {
-			if err := logger.Sync(); err != nil {
+			if err := app.Logger.Sync(); err != nil {
 				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() &&
 					stderr.Unwrap(err).Error() != "inappropriate ioctl for device" &&
 					stderr.Unwrap(err).Error() != "bad file descriptor" {
@@ -555,34 +551,34 @@ func (app *ChainlinkApplication) stop() error {
 				}
 			}
 		}()
-		logger.Info("Gracefully exiting...")
+		app.Logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
 
-		logger.Debug("Stopping Scheduler...")
+		app.Logger.Debug("Stopping Scheduler...")
 		merr = multierr.Append(merr, app.Scheduler.Stop())
 
-		logger.Debug("Stopping HeadTracker...")
+		app.Logger.Debug("Stopping HeadTracker...")
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
-			logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			app.Logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		logger.Debug("Closing RunQueue...")
+		app.Logger.Debug("Closing RunQueue...")
 		merr = multierr.Append(merr, app.RunQueue.Close())
-		logger.Debug("Stopping SessionReaper...")
+		app.Logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		logger.Debug("Closing Store...")
+		app.Logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
-		logger.Debug("Closing HealthChecker...")
+		app.Logger.Debug("Closing HealthChecker...")
 		merr = multierr.Append(merr, app.HealthChecker.Close())
-		logger.Debug("Closing Feeds Service...")
+		app.Logger.Debug("Closing Feeds Service...")
 		merr = multierr.Append(merr, app.FeedsService.Close())
 
-		logger.Info("Exited all services")
+		app.Logger.Info("Exited all services")
 
 		app.started = false
 	})
@@ -596,10 +592,6 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 
 func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {
 	return app.KeyStore
-}
-
-func (app *ChainlinkApplication) GetLogger() *logger.Logger {
-	return app.logger
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
@@ -645,8 +637,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	logger.ErrorIf(app.FluxMonitor.AddJob(job))
-	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
+	app.Logger.ErrorIf(app.FluxMonitor.AddJob(job))
+	app.Logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
 	return nil
 }
 
@@ -686,7 +678,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				"meta": meta,
 			},
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), app.Logger, false)
 	}
 	return runID, err
 }
@@ -695,7 +687,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	ctx context.Context,
 	run *pipeline.Run,
 ) (bool, error) {
-	return app.pipelineRunner.Run(ctx, run, *logger.Default, false)
+	return app.pipelineRunner.Run(ctx, run, app.Logger, false)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
@@ -703,7 +695,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 	err := app.JobSubscriber.RemoveJob(ID)
 	if err != nil {
-		logger.Warnw("Error removing job from JobSubscriber", "error", err)
+		app.Logger.Warnw("Error removing job from JobSubscriber", "error", err)
 	}
 	app.FluxMonitor.RemoveJob(ID)
 
@@ -726,8 +718,8 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	// XXX: Add mechanism to asynchronously communicate when a job spec has
 	// an ethereum interaction error.
 	// https://www.pivotaltracker.com/story/show/170349568
-	logger.ErrorIf(app.FluxMonitor.AddJob(sa.JobSpec))
-	logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil))
+	app.Logger.ErrorIf(app.FluxMonitor.AddJob(sa.JobSpec))
+	app.Logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil))
 	return nil
 }
 

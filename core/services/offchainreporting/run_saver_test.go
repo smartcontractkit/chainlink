@@ -21,12 +21,13 @@ func TestRunSaver(t *testing.T) {
 	url := c.DatabaseURL()
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{DSN: url.String()}), &gorm.Config{})
 	require.NoError(t, err)
+	l := logger.CreateTestLogger()
 	rs := NewResultRunSaver(
 		db,
 		rr,
 		pipelineRunner,
 		make(chan struct{}),
-		*logger.Default,
+		l,
 	)
 	require.NoError(t, rs.Start())
 	for i := 0; i < 100; i++ {

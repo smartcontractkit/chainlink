@@ -29,11 +29,11 @@ var (
 	})
 )
 
-func NewEstimator(ethClient eth.Client, config Config) Estimator {
+func NewEstimator(ethClient eth.Client, config Config, logger logger.Logger) Estimator {
 	s := config.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(ethClient, config)
+		return NewBlockHistoryEstimator(ethClient, config, logger)
 	case "FixedPrice":
 		return NewFixedPriceEstimator(config)
 	case "Optimism":

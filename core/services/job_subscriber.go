@@ -41,6 +41,7 @@ type JobSubscriber interface {
 // jobSubscriber implementation
 type jobSubscriber struct {
 	store            *store.Store
+	l                logger.Logger
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 	runManager       RunManager
@@ -52,6 +53,7 @@ type nextBlockWorker struct {
 	runManager RunManager
 	head       big.Int
 	headMtx    sync.RWMutex
+	l logger.Logger
 }
 
 func (b *nextBlockWorker) getHead() big.Int {
@@ -70,7 +72,7 @@ func (b *nextBlockWorker) Work() {
 	head := b.getHead()
 	err := b.runManager.ResumeAllPendingNextBlock(&head)
 	if err != nil {
-		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
+		b.l.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}
 }
 
@@ -105,6 +107,10 @@ func (js *jobSubscriber) Close() error {
 	return js.jobResumer.Stop()
 }
 
+func (js *jobSubscriber) SetLogger(logger logger.Logger) {
+	js.l.Swap(logger)
+}
+
 func (js *jobSubscriber) Ready() error {
 	return nil
 }
@@ -129,7 +135,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 		return nil
 	}
 	if js.store.Config.EthereumDisabled() {
-		logger.Errorw(fmt.Sprintf("ACTION REQUIRED: Attempted to add job with name '%s' but Ethereum was disabled. This job is NOT running.", job.Name), "job", job)
+		js.l.Errorw(fmt.Sprintf("ACTION REQUIRED: Attempted to add job with name '%s' but Ethereum was disabled. This job is NOT running.", job.Name), "job", job)
 		return nil
 	}
 
@@ -183,12 +189,12 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
 func (js *jobSubscriber) Connect(bn *models.Head) error {
-	logger.Debugw("JobSubscriber connect", "head", bn)
+	js.l.Debugw("JobSubscriber connect", "head", bn)
 
 	var merr error
 	err := js.store.Jobs(
 		func(j *models.JobSpec) bool {
-			logger.Debugw("JobSubscriber adding job", "jobSpecID", j.ID)
+			js.l.Debugw("JobSubscriber adding job", "jobSpecID", j.ID)
 			merr = multierr.Append(merr, js.AddJob(*j, bn))
 			return true
 		},
@@ -219,5 +225,6 @@ func (NullJobSubscriber) RemoveJob(ID models.JobID) error {
 func (NullJobSubscriber) Jobs() (j []models.JobSpec) { return }
 func (NullJobSubscriber) Start() error               { return nil }
 func (NullJobSubscriber) Close() error               { return nil }
+func (NullJobSubscriber) SetLogger(logger.Logger)   {}
 func (NullJobSubscriber) Ready() error               { return nil }
 func (NullJobSubscriber) Healthy() error             { return nil }

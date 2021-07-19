@@ -18,13 +18,13 @@ type secondarynode struct {
 	uri    url.URL
 	rpc    *rpc.Client
 	geth   *ethclient.Client
-	log    *logger.Logger
+	l    logger.Logger
 	dialed bool
 }
 
 func newSecondaryNode(httpuri url.URL, name string) (s *secondarynode) {
 	s = new(secondarynode)
-	s.log = logger.CreateLogger(logger.Default.With(
+	s.l = logger.CreateLogger(logger.Default.With(
 		"nodeName", name,
 		"nodeTier", "secondary",
 	))
@@ -33,7 +33,7 @@ func newSecondaryNode(httpuri url.URL, name string) (s *secondarynode) {
 }
 
 func (s *secondarynode) Dial() error {
-	s.log.Debugw("eth.Client#Dial(...)")
+	s.l.Debugw("eth.Client#Dial(...)")
 	if s.dialed {
 		panic("eth.Client.Dial(...) should only be called once during the node's lifetime.")
 	}
@@ -50,14 +50,14 @@ func (s *secondarynode) Dial() error {
 }
 
 func (s secondarynode) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	s.log.Debugw("eth.Client#SendTransaction(...)",
+	s.l.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 	)
 	return s.wrap(s.geth.SendTransaction(ctx, tx))
 }
 
 func (s secondarynode) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	s.log.Debugw("eth.Client#BatchCall(...)",
+	s.l.Debugw("eth.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 	)
 	return s.wrap(s.rpc.BatchCallContext(ctx, b))

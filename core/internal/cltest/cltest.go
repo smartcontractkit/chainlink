@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"log"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -126,8 +127,7 @@ var (
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
-	lvl := logLevelFromEnv()
-	logger.SetLogger(logger.CreateTestLogger(lvl))
+
 	// Register txdb as dialect wrapping postgres
 	// See: DialectTransactionWrappedPostgres
 	config := orm.NewConfig()
@@ -153,7 +153,7 @@ func init() {
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
 	seed := time.Now().UTC().UnixNano()
-	logger.Debugf("Using seed: %v", seed)
+	log.Print("Using seed: %v", seed)
 	rand.Seed(seed)
 
 	// Also seed the local source
@@ -194,7 +194,7 @@ type TestConfig struct {
 func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
-	wsserver, url, cleanup := newWSServer()
+	wsserver, url, cleanup := newWSServer(t)
 	config := NewConfigWithWSServer(t, url, wsserver)
 	// Disable block history estimator for application tests
 	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
@@ -336,9 +336,9 @@ func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftx
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *TestConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *TestConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, logger logger.Logger) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config))
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), logger)
 	return ec
 }
 
@@ -347,7 +347,7 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Config           *TestConfig
-	Logger           *logger.Logger
+	Logger           logger.Logger
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -357,19 +357,19 @@ type TestApplication struct {
 	allowUnstarted   bool
 }
 
-func newWSServer() (*httptest.Server, string, func()) {
-	return NewWSServer("", nil)
+func newWSServer(t testing.TB) (*httptest.Server, string, func()) {
+	return NewWSServer("", nil, t)
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
+func NewWSServer(msg string, callback func(data []byte), t testing.TB) (*httptest.Server, string, func()) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		logger.PanicIf(err)
+		require.NoError(t, err)
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -610,7 +610,7 @@ func (ta *TestApplication) Stop() error {
 	if err != nil {
 		return err
 	}
-	cleanUpStore(ta.t, ta.Store)
+	cleanUpStore(ta.t, ta.Store, ta.Logger)
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -714,13 +714,14 @@ func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interf
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
+	l := logger.CreateTestLogger()
+	s, err := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal(), l)
 	if err != nil {
 		require.NoError(t, err)
 	}
 	s.Config.SetRuntimeStore(s.ORM)
 	return s, func() {
-		cleanUpStore(config.t, s)
+		cleanUpStore(config.t, s, l)
 	}
 }
 
@@ -740,12 +741,12 @@ func NewKeyStore(t testing.TB, db *gorm.DB) *keystore.Master {
 	return keystore.New(db, utils.FastScryptParams)
 }
 
-func cleanUpStore(t testing.TB, store *strpkg.Store) {
+func cleanUpStore(t testing.TB, store *strpkg.Store, logger logger.Logger) {
 	t.Helper()
 
 	defer func() {
 		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
-			logger.Warn("unable to clear test store:", err)
+			logger.Errorw("unable to clear test store", "error", err)
 		}
 	}()
 	// Ignore sync errors for testing
@@ -1521,7 +1522,7 @@ func Head(val interface{}) *models.Head {
 	case *big.Int:
 		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time)
 	default:
-		logger.Panicf("Could not convert %v of type %T to Head", val, val)
+		log.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
 	return &h
 }

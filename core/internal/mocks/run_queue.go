@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
 
 	uuid "github.com/satori/go.uuid"
@@ -57,6 +58,11 @@ func (_m *RunQueue) Ready() error {
 
 // Run provides a mock function with given fields: _a0
 func (_m *RunQueue) Run(_a0 uuid.UUID) {
+	_m.Called(_a0)
+}
+
+// SetLogger provides a mock function with given fields: _a0
+func (_m *RunQueue) SetLogger(_a0 logger.Logger) {
 	_m.Called(_a0)
 }
 

@@ -97,6 +97,8 @@ func (s pseudoService) Close() error {
 	return nil
 }
 
+func (s pseudoService) SetLogger(logger.Logger) {}
+
 type webhookJobRunner struct {
 	specsByUUID   map[uuid.UUID]registeredJob
 	muSpecsByUUID sync.RWMutex
@@ -144,12 +146,13 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		return 0, ErrJobNotExists
 	}
 
-	logger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", spec.ID,
-			"uuid", spec.ExternalJobID,
-		),
-	)
+	// FIXME: Pass in a logger
+	// logger := logger.CreateLogger(
+	// 	logger.Default.With(
+	// 		"jobID", spec.ID,
+	// 		"uuid", spec.ExternalJobID,
+	// 	),
+	// )
 
 	ctx, cancel := utils.CombinedContext(ctx, spec.chRemove)
 	defer cancel()

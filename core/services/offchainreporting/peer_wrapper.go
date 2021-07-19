@@ -28,6 +28,7 @@ type (
 		keyStore *keystore.OCR
 		config   *orm.Config
 		db       *gorm.DB
+		l        logger.Logger
 
 		pstoreWrapper *Pstorewrapper
 		PeerID        p2pkey.PeerID
@@ -115,7 +116,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			announcePort = listenPort
 		}
 
-		peerLogger := NewLogger(logger.Default, p.config.OCRTraceLogging(), func(string) {})
+		peerLogger := NewLogger(p.l, p.config.OCRTraceLogging(), func(string) {})
 
 		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 			NetworkingStack:      p.config.P2PNetworkingStack(),
@@ -160,4 +161,8 @@ func (p *SingletonPeerWrapper) Close() error {
 
 		return err
 	})
+}
+
+func (p *SingletonPeerWrapper) SetLogger(logger logger.Logger) {
+	p.l.Swap(logger)
 }

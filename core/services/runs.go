@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client) error {
+func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client, logger logger.Logger) error {
 	txhash := run.RunRequest.TxHash
 	if txhash == nil {
 		logger.Debug("validateOnMainChain not performing check, runRequest missing txHash")

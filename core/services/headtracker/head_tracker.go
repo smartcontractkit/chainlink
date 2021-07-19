@@ -29,14 +29,13 @@ var (
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	log             *logger.Logger
+	l               logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	ethClient       eth.Client
 	config          Config
 
 	backfillMB   utils.Mailbox
 	samplingMB   utils.Mailbox
-	muLogger     sync.RWMutex
 	headListener *HeadListener
 	headSaver    *HeadSaver
 	chStop       chan struct{}
@@ -48,7 +47,7 @@ type HeadTracker struct {
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
 func NewHeadTracker(
-	l *logger.Logger,
+	l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	orm *ORM,
@@ -62,7 +61,7 @@ func NewHeadTracker(
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
 		config:          config,
-		log:             l,
+		l:               l,
 		backfillMB:      *utils.NewMailbox(1),
 		samplingMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
@@ -73,17 +72,9 @@ func NewHeadTracker(
 }
 
 // SetLogger sets and reconfigures the log for the head tracker service
-func (ht *HeadTracker) SetLogger(logger *logger.Logger) {
-	ht.muLogger.Lock()
-	defer ht.muLogger.Unlock()
-	ht.log = logger
+func (ht *HeadTracker) SetLogger(logger logger.Logger) {
+	ht.l.Swap(logger)
 	ht.headListener.SetLogger(logger)
-}
-
-func (ht *HeadTracker) logger() *logger.Logger {
-	ht.muLogger.RLock()
-	defer ht.muLogger.RUnlock()
-	return ht.log
 }
 
 // Start retrieves the last persisted block number from the HeadTracker,
@@ -91,13 +82,13 @@ func (ht *HeadTracker) logger() *logger.Logger {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.logger().Debug("Starting HeadTracker")
+		ht.l.Debug("Starting HeadTracker")
 		highestSeenHead, err := ht.headSaver.SetHighestSeenHeadFromDB()
 		if err != nil {
 			return err
 		}
 		if highestSeenHead != nil {
-			ht.logger().Debugw(
+			ht.l.Debugw(
 				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", presenters.FriendlyBigInt(highestSeenHead.ToInt()), highestSeenHead.Hash.Hex()),
 				"blockNumber", highestSeenHead.Number,
 				"blockHash", highestSeenHead.Hash,
@@ -116,7 +107,7 @@ func (ht *HeadTracker) Start() error {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.config.EthereumURL()))
+		ht.l.Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -146,7 +137,7 @@ func (ht *HeadTracker) handleConnected() {
 
 func (ht *HeadTracker) connect(bn *models.Head) {
 	if err := ht.headBroadcaster.Connect(bn); err != nil {
-		ht.logger().Warn(err)
+		ht.l.Warn(err)
 	}
 }
 
@@ -199,7 +190,7 @@ func (ht *HeadTracker) backfiller() {
 					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth())
 					defer cancel()
 					if err != nil {
-						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
+						ht.l.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
 						break
 					}
@@ -230,7 +221,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 	}
 	mark := time.Now()
 	fetched := 0
-	ht.logger().Debugw("HeadTracker: starting backfill",
+	ht.l.Debugw("HeadTracker: starting backfill",
 		"blockNumber", head.Number,
 		"id", "head_tracker",
 		"n", head.Number-baseHeight,
@@ -240,7 +231,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		if ctx.Err() != nil {
 			return
 		}
-		ht.logger().Debugw("HeadTracker: finished backfill",
+		ht.l.Debugw("HeadTracker: finished backfill",
 			"fetched", fetched,
 			"blockNumber", head.Number,
 			"time", time.Since(mark),
@@ -276,7 +267,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 }
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
-	ht.logger().Debugw("HeadTracker: fetching head", "blockHeight", n)
+	ht.l.Debugw("HeadTracker: fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if ctx.Err() != nil {
 		return models.Head{}, nil
@@ -297,7 +288,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.He
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) error {
 	prevHead := ht.HighestSeenHead()
 
-	ht.logger().Debugw(fmt.Sprintf("HeadTracker: Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
+	ht.l.Debugw(fmt.Sprintf("HeadTracker: Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
 		"blockHash", head.Hash,
 		"parentHeadHash", head.ParentHash,
@@ -326,14 +317,14 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	}
 	if head.Number == prevHead.Number {
 		if head.Hash != prevHead.Hash {
-			ht.logger().Debugw("HeadTracker: got duplicate head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Hash.Hex())
+			ht.l.Debugw("HeadTracker: got duplicate head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Hash.Hex())
 		} else {
-			ht.logger().Debugw("HeadTracker: head already in the database", "gotHead", head.Hash.Hex())
+			ht.l.Debugw("HeadTracker: head already in the database", "gotHead", head.Hash.Hex())
 		}
 	} else {
-		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
+		ht.l.Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
-			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.l.Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
 	return nil

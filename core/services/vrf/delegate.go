@@ -47,6 +47,7 @@ type Delegate struct {
 	ec   eth.Client
 	hb   httypes.HeadBroadcasterRegistry
 	lb   log.Broadcaster
+	l    logger.Logger
 }
 
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
@@ -69,7 +70,8 @@ func NewDelegate(
 	lb log.Broadcaster,
 	headBroadcaster httypes.HeadBroadcasterRegistry,
 	ec eth.Client,
-	cfg Config) *Delegate {
+	cfg Config,
+	logger logger.Logger) *Delegate {
 	return &Delegate{
 		cfg:  cfg,
 		db:   db,
@@ -80,6 +82,7 @@ func NewDelegate(
 		hb:   headBroadcaster,
 		lb:   lb,
 		ec:   ec,
+		l:    logger,
 	}
 }
 
@@ -99,17 +102,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		return nil, err
 	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
-	l := logger.CreateLogger(logger.Default.SugaredLogger.With(
+	l := d.l.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
-	))
+	)
 
 	vorm := keystore.NewVRFORM(d.db)
 
 	logListener := &listener{
 		cfg:                d.cfg,
-		l:                  *l,
+		l:                  l,
 		headBroadcaster:    d.hb,
 		logBroadcaster:     d.lb,
 		db:                 d.db,
@@ -133,7 +136,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return []job.Service{logListener}, nil
 }
 
-func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint64 {
+func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64 {
 	respCounts := make(map[[32]byte]uint64)
 	var counts []struct {
 		RequestID string
@@ -340,6 +343,10 @@ func (lsn *listener) runHeadListener(unsubscribe func()) {
 			lsn.pruneConfirmedRequestCounts()
 		}
 	}
+}
+
+func (lsn *listener) SetLogger(logger logger.Logger) {
+	lsn.l.Swap(logger)
 }
 
 func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {

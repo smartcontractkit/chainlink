@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +13,8 @@ import (
 
 func TestReaper_ReapEthTxes(t *testing.T) {
 	t.Parallel()
+
+	l := logger.CreateTestLogger()
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
@@ -27,7 +30,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := bulletprooftxmanager.NewReaper(store.DB, config, l)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -43,7 +46,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(0 * time.Second)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := bulletprooftxmanager.NewReaper(store.DB, config, l)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -57,7 +60,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := bulletprooftxmanager.NewReaper(store.DB, config, l)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -85,7 +88,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := bulletprooftxmanager.NewReaper(store.DB, config, l)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)

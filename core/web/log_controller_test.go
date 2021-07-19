@@ -122,37 +122,37 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			Description: "Set head tracker to debug",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker}, ","),
+			svcName:  strings.Join([]string{string(logger.HeadTracker)}, ","),
 			svcLevel: strings.Join([]string{"info"}, ","),
 
 			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.HeadTracker: zapcore.InfoLevel},
+			expectedSvcLevel: map[string]zapcore.Level{string(logger.HeadTracker): zapcore.InfoLevel},
 		},
 		{
 			Description: "Set flux monitor to warn",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.FluxMonitor}, ","),
+			svcName:  strings.Join([]string{string(logger.FluxMonitor)}, ","),
 			svcLevel: strings.Join([]string{"warn"}, ","),
 
 			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.FluxMonitor: zapcore.WarnLevel},
+			expectedSvcLevel: map[string]zapcore.Level{string(logger.FluxMonitor): zapcore.WarnLevel},
 		},
 		{
 			Description: "Set multiple services log levels",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor}, ","),
+			svcName:  strings.Join([]string{string(logger.HeadTracker), string(logger.FluxMonitor)}, ","),
 			svcLevel: strings.Join([]string{"debug", "warn"}, ","),
 
 			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.HeadTracker: zapcore.DebugLevel, logger.FluxMonitor: zapcore.WarnLevel},
+			expectedSvcLevel: map[string]zapcore.Level{string(logger.HeadTracker): zapcore.DebugLevel, string(logger.FluxMonitor): zapcore.WarnLevel},
 		},
 		{
 			Description: "Set incorrect log levels",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor}, ","),
+			svcName:  strings.Join([]string{string(logger.HeadTracker), string(logger.FluxMonitor)}, ","),
 			svcLevel: strings.Join([]string{"debug", "warning"}, ","),
 
 			expectedErrorCode: http.StatusInternalServerError,
@@ -161,7 +161,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			Description: "Set incorrect service names",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker, "FLUX-MONITOR"}, ","),
+			svcName:  strings.Join([]string{string(logger.HeadTracker), "FLUX-MONITOR"}, ","),
 			svcLevel: strings.Join([]string{"debug", "warning"}, ","),
 
 			expectedErrorCode: http.StatusInternalServerError,
@@ -207,12 +207,12 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 					assert.Equal(t, strconv.FormatBool(tc.expectedLogSQL), svcLogConfig.LogLevel[i])
 				}
 
-				if svcName == logger.HeadTracker {
-					assert.Equal(t, tc.expectedSvcLevel[logger.HeadTracker].String(), svcLogConfig.LogLevel[i])
+				if svcName == string(logger.HeadTracker) {
+					assert.Equal(t, tc.expectedSvcLevel[string(logger.HeadTracker)].String(), svcLogConfig.LogLevel[i])
 				}
 
-				if svcName == logger.FluxMonitor {
-					assert.Equal(t, tc.expectedSvcLevel[logger.FluxMonitor].String(), svcLogConfig.LogLevel[i])
+				if svcName == string(logger.FluxMonitor) {
+					assert.Equal(t, tc.expectedSvcLevel[string(logger.FluxMonitor)].String(), svcLogConfig.LogLevel[i])
 				}
 			}
 		}

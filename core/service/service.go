@@ -1,6 +1,9 @@
 package service
 
-import "github.com/smartcontractkit/chainlink/core/services/health"
+import (
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/health"
+)
 
 type (
 	// Service represents a long running service inside the
@@ -80,6 +83,8 @@ type (
 		// Invariants: Usually after this call the Service cannot be started
 		// again, you need to build a new Service to do so.
 		Close() error
+
+		SetLogger(logger logger.Logger)
 
 		health.Checkable
 	}

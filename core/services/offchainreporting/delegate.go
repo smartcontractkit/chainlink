@@ -2,7 +2,6 @@ package offchainreporting
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -39,6 +38,7 @@ type Delegate struct {
 	monitoringEndpoint ocrtypes.MonitoringEndpoint
 	chain              *chains.Chain
 	headBroadcaster    httypes.HeadBroadcaster
+	l                  logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -56,6 +56,7 @@ func NewDelegate(
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 	chain *chains.Chain,
 	headBroadcaster httypes.HeadBroadcaster,
+	logger logger.Logger,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -70,6 +71,7 @@ func NewDelegate(
 		monitoringEndpoint,
 		chain,
 		headBroadcaster,
+		logger,
 	}
 }
 
@@ -114,7 +116,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.ethClient,
 		d.logBroadcaster,
 		jobSpec.ID,
-		*logger.Default,
+		d.l,
 		d.db,
 		ocrdb,
 		d.chain,
@@ -140,10 +142,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	v2BootstrapPeers := d.config.P2PV2Bootstrappers()
 
-	loggerWith := logger.CreateLogger(logger.Default.With(
+	loggerWith := d.l.With(
 		"contractAddress", concreteSpec.ContractAddress,
 		"jobName", jobSpec.Name.ValueOrZero(),
-		"jobID", jobSpec.ID))
+		"jobID", jobSpec.ID,
+	)
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
@@ -167,7 +170,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
-	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
+	d.l.Infof("OCR job using local config %+v", lc)
 
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
@@ -223,7 +226,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Database: ocrdb,
 			Datasource: &dataSource{
 				pipelineRunner: d.pipelineRunner,
-				ocrLogger:      *loggerWith,
+				l:              loggerWith,
 				jobSpec:        jobSpec,
 				spec:           *jobSpec.PipelineSpec,
 				runResults:     runResults,
@@ -251,7 +254,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			*loggerWith,
+			loggerWith,
 		)}, services...)
 	}
 

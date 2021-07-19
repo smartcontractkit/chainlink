@@ -47,7 +47,7 @@ type (
 	}
 
 	databaseBackup struct {
-		logger          *logger.Logger
+		l               logger.Logger
 		databaseURL     url.URL
 		mode            orm.DatabaseBackupMode
 		frequency       time.Duration
@@ -66,7 +66,7 @@ type (
 	}
 )
 
-func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config, logger logger.Logger) DatabaseBackup {
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
 	if dbBackupUrl != nil {
@@ -82,8 +82,8 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 		outputParentDir = dir
 	}
 
-	return &databaseBackup{
-		logger,
+	db := &databaseBackup{
+		nil,
 		dbUrl,
 		config.DatabaseBackupMode(),
 		config.DatabaseBackupFrequency(),
@@ -91,6 +91,8 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 		make(chan bool),
 		utils.StartStopOnce{},
 	}
+	db.SetLogger(logger)
+	return db
 }
 
 func (backup *databaseBackup) Start() error {
@@ -124,19 +126,23 @@ func (backup *databaseBackup) Close() error {
 	})
 }
 
+func (backup *databaseBackup) SetLogger(logger logger.Logger) {
+	backup.l.Swap(logger)
+}
+
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }
 
 func (backup *databaseBackup) RunBackupGracefully(version string) {
-	backup.logger.Debugw("DatabaseBackup: Starting database backup...", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
+	backup.l.Debugw("DatabaseBackup: Starting database backup...", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
 	startAt := time.Now()
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Errorw("DatabaseBackup: Failed", "duration", duration, "error", err)
+		backup.l.Errorw("DatabaseBackup: Failed", "duration", duration, "error", err)
 	} else {
-		backup.logger.Infow("DatabaseBackup: Database backup finished successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
+		backup.l.Infow("DatabaseBackup: Database backup finished successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
 	}
 }
 
@@ -175,7 +181,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	}
 
 	maskedArgs := maskArgs(args)
-	backup.logger.Debugf("DatabaseBackup: Running pg_dump with: %v", maskedArgs)
+	backup.l.Debugf("DatabaseBackup: Running pg_dump with: %v", maskedArgs)
 
 	cmd := exec.Command(
 		"pg_dump", args...,

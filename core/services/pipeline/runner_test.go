@@ -85,7 +85,8 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	l := logger.CreateTestLogger()
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, l)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
@@ -241,7 +242,9 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), *logger.Default)
+
+			l := logger.CreateTestLogger()
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), l)
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -318,7 +321,8 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(ctx, spec, vars, *logger.Default)
+	l := logger.CreateTestLogger()
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal() {
@@ -328,6 +332,7 @@ answer1 [type=median                      index=0];
 }
 
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	l := logger.CreateTestLogger()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := new(mocks.ORM)
@@ -342,7 +347,7 @@ b2 [type=multiply input="$(a)" times=3]
 c [type=median values=<[ $(b1), $(b2) ]> index=0]
 a->b1->c;
 a->b2->c;`,
-	}, pipeline.NewVarsFrom(input), *logger.Default)
+	}, pipeline.NewVarsFrom(input), l)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, false, trrs.FinalResult().HasErrors())
@@ -357,6 +362,7 @@ a->b2->c;`,
 }
 
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+	l := logger.CreateTestLogger()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := new(mocks.ORM)
@@ -370,7 +376,7 @@ b1 [type=multiply input="$(a)" times=2 index=0]
 b2 [type=multiply input="$(a)" times=3 index=1]
 a->b1;
 a->b2;`,
-	}, pipeline.NewVarsFrom(input), *logger.Default)
+	}, pipeline.NewVarsFrom(input), l)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
 	result := trrs.FinalResult()
@@ -381,6 +387,7 @@ a->b2;`,
 }
 
 func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
+	l := logger.CreateTestLogger()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := new(mocks.ORM)
@@ -400,7 +407,7 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, l)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
@@ -409,6 +416,8 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 }
 
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
+	l := logger.CreateTestLogger()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -489,7 +498,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err := r.Run(context.Background(), &run, l, false)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -498,7 +507,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err = r.Run(context.Background(), &run, l, false)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -511,7 +520,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err = r.Run(context.Background(), &run, l, false)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -630,7 +639,8 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
+	l := logger.CreateTestLogger()
+	incomplete, err := r.Run(context.Background(), &run, l, false)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete

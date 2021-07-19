@@ -5,7 +5,9 @@ package mocks
 import (
 	context "context"
 
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	job "github.com/smartcontractkit/chainlink/core/services/job"
+
 	mock "github.com/stretchr/testify/mock"
 
 	null "gopkg.in/guregu/null.v4"
@@ -107,6 +109,11 @@ func (_m *Spawner) Ready() error {
 	}
 
 	return r0
+}
+
+// SetLogger provides a mock function with given fields: _a0
+func (_m *Spawner) SetLogger(_a0 logger.Logger) {
+	_m.Called(_a0)
 }
 
 // Start provides a mock function with given fields:

@@ -5,8 +5,10 @@ package mocks
 import (
 	context "context"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
+
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 )
@@ -75,6 +77,11 @@ func (_m *HeadBroadcaster) Ready() error {
 	}
 
 	return r0
+}
+
+// SetLogger provides a mock function with given fields: _a0
+func (_m *HeadBroadcaster) SetLogger(_a0 logger.Logger) {
+	_m.Called(_a0)
 }
 
 // Start provides a mock function with given fields:

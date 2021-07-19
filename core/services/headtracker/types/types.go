@@ -12,7 +12,7 @@ type Tracker interface {
 	HighestSeenHeadFromDB() (*models.Head, error)
 	Start() error
 	Stop() error
-	SetLogger(logger *logger.Logger)
+	SetLogger(logger logger.Logger)
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,

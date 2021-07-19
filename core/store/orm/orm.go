@@ -66,11 +66,12 @@ type ORM struct {
 	advisoryLockTimeout models.Duration
 	closeOnce           sync.Once
 	shutdownSignal      gracefulpanic.Signal
+	l                   logger.Logger
 }
 
 // NewORM initializes the orm with the configured uri
-func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect dialects.DialectName, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (*ORM, error) {
-	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval, maxOpenConns, maxIdleConns)
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect dialects.DialectName, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int, logger logger.Logger) (*ORM, error) {
+	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval, maxOpenConns, maxIdleConns, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +85,7 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
 		shutdownSignal:      shutdownSignal,
+		l:                   logger,
 	}
 
 	db, err := ct.initializeDatabase()
@@ -108,7 +110,7 @@ func (orm *ORM) MustSQLDB() *sql.DB {
 func (orm *ORM) MustEnsureAdvisoryLock() error {
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
-		logger.Errorf("unable to lock ORM: %v", err)
+		orm.l.Errorf("unable to lock ORM: %v", err)
 		orm.shutdownSignal.Panic()
 		return err
 	}
@@ -124,7 +126,8 @@ func displayTimeout(timeout models.Duration) string {
 
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.Logger = newOrmLogWrapper(logger.Default, enabled, time.Second)
+	// FIXME: old way to set logger, remove
+	// orm.DB.Logger = newOrmLogWrapper(logger.Default, enabled, time.Second)
 }
 
 // Close closes the underlying database connection.
@@ -1400,11 +1403,12 @@ type Connection struct {
 	transactionWrapped bool
 	maxOpenConns       int
 	maxIdleConns       int
+	l                  logger.Logger
 }
 
 // NewConnection returns a Connection which holds all of the configuration
 // necessary for managing the database connection.
-func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
+func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int, logger logger.Logger) (Connection, error) {
 	switch dialect {
 	case dialects.Postgres:
 		return Connection{
@@ -1417,6 +1421,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 			lockRetryInterval:  lockRetryInterval,
 			maxOpenConns:       maxOpenConns,
 			maxIdleConns:       maxIdleConns,
+			l:                  logger,
 		}, nil
 	case dialects.PostgresWithoutLock:
 		return Connection{
@@ -1428,6 +1433,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 			uri:                uri,
 			maxOpenConns:       maxOpenConns,
 			maxIdleConns:       maxIdleConns,
+			l:                  logger,
 		}, nil
 	case dialects.TransactionWrappedPostgres:
 		return Connection{
@@ -1440,6 +1446,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 			lockRetryInterval:  lockRetryInterval,
 			maxOpenConns:       maxOpenConns,
 			maxIdleConns:       maxIdleConns,
+			l:                  logger,
 		}, nil
 	}
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
@@ -1465,7 +1472,7 @@ func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = uri.String()
 	}
 
-	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
+	newLogger := newOrmLogWrapper(ct.l, false, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
 	d, err := sql.Open(string(ct.dialect), ct.uri)

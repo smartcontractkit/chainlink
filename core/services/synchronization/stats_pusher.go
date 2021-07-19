@@ -49,6 +49,7 @@ type NoopStatsPusher struct{}
 
 func (NoopStatsPusher) Start() error                                        { return nil }
 func (NoopStatsPusher) Close() error                                        { return nil }
+func (NoopStatsPusher) SetLogger(logger.Logger)                             {}
 func (NoopStatsPusher) Ready() error                                        { return nil }
 func (NoopStatsPusher) Healthy() error                                      { return nil }
 func (NoopStatsPusher) PushNow()                                            {}
@@ -64,6 +65,7 @@ type statsPusher struct {
 	backoffSleeper backoff.Backoff
 	done           chan struct{}
 	waker          chan struct{}
+	l              logger.Logger
 
 	utils.StartStopOnce
 }
@@ -93,6 +95,7 @@ func NewStatsPusher(db *gorm.DB, explorerClient ExplorerClient, afters ...utils.
 		},
 		done:  make(chan struct{}),
 		waker: make(chan struct{}, 1),
+		l:     logger,
 	}
 }
 
@@ -142,6 +145,10 @@ func (sp *statsPusher) Close() error {
 	})
 }
 
+func (sp *statsPusher) SetLogger(logger logger.Logger) {
+	sp.l = logger
+}
+
 // PushNow wakes up the stats pusher, asking it to push all queued events immediately.
 func (sp *statsPusher) PushNow() {
 	select {
@@ -155,7 +162,7 @@ type response struct {
 }
 
 func (sp *statsPusher) eventLoop() {
-	logger.Debugw("Entered StatsPusher event loop")
+	sp.l.Debugw("Entered StatsPusher event loop")
 
 	for {
 		err := sp.pusherLoop()
@@ -164,7 +171,7 @@ func (sp *statsPusher) eventLoop() {
 		}
 
 		duration := sp.backoffSleeper.Duration()
-		logger.Warnw("Failure during event synchronization", "error", err.Error(), "sleep_duration", duration)
+		sp.l.Warnw("Failure during event synchronization", "error", err.Error(), "sleep_duration", duration)
 
 		select {
 		case <-sp.done:

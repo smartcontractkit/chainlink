@@ -161,6 +161,11 @@ func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, s
 	return r0, r1
 }
 
+// SetLogger provides a mock function with given fields: _a0
+func (_m *Runner) SetLogger(_a0 logger.Logger) {
+	_m.Called(_a0)
+}
+
 // Start provides a mock function with given fields:
 func (_m *Runner) Start() error {
 	ret := _m.Called()
