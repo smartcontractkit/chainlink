@@ -13,6 +13,7 @@ with related test contract `VRFConsumerV2.sol`.
 ### Changed:
 
 - Move `Operator` and associated contracts (`AuthorizedForwarder`, `AuthorizedReceiver`, `LinkTokenReceiver`, `OperatorFactory`) from `./src/v0.7/dev/` to `./src/v0.7/`.
+- Updated `Denominations` in `./src/<version>` to include additional fiat currencies.
 
 ## 0.2.1 - 2021-07-13
 
