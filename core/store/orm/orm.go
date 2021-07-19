@@ -22,7 +22,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/ethereum/go-ethereum/common"
-	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -36,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+
+	"gorm.io/datatypes"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -124,7 +125,7 @@ func displayTimeout(timeout models.Duration) string {
 
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.Logger = newOrmLogWrapper(logger.Default, enabled, time.Second)
+	orm.DB.Logger = NewOrmLogWrapper(logger.Default, enabled, time.Second)
 }
 
 // Close closes the underlying database connection.
@@ -897,7 +898,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(meta models.EthTxMeta, fromAddress 
 		Value:          assets.NewEthValue(0),
 		GasLimit:       gasLimit,
 		State:          bulletprooftxmanager.EthTxUnstarted,
-		Meta:           gormpostgrestypes.Jsonb{RawMessage: metaBytes},
+		Meta:           datatypes.JSON(metaBytes),
 	}
 	ethTaskRunTransaction := bulletprooftxmanager.EthTaskRunTx{
 		TaskRunID: meta.TaskRunID,
@@ -971,15 +972,6 @@ func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*bulletprooftx
 		return nil, nil
 	}
 	return etrt, err
-}
-
-// FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
-func (orm *ORM) FindEthTxWithAttempts(etxID int64) (bulletprooftxmanager.EthTx, error) {
-	etx := bulletprooftxmanager.EthTx{}
-	err := orm.DB.Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-		return db.Order("gas_price asc, id asc")
-	}).Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
-	return etx, err
 }
 
 // EthTxAttempts returns the last tx attempts sorted by created_at descending.
@@ -1465,7 +1457,7 @@ func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = uri.String()
 	}
 
-	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
+	newLogger := NewOrmLogWrapper(logger.Default, false, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
 	d, err := sql.Open(string(ct.dialect), ct.uri)

@@ -54,6 +54,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethClient := new(mocks.Client)
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -67,9 +68,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
+		lb := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, nil)
 		require.NoError(t, lb.Start())
-		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb)
+		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb, ethClient)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
 
@@ -101,9 +102,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		lb := log.NewBroadcaster(log.NewORM(store.DB), store.EthClient, store.Config, nil)
+		lb := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, nil)
 		require.NoError(t, lb.Start())
-		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb)
+		fm := fluxmonitor.New(store, ethKeyStore, runManager, lb, ethClient)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
 		err := fm.Start()
@@ -115,6 +116,8 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory.AssertNotCalled(t, "New", mock.Anything, mock.Anything, mock.Anything)
 	})
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {

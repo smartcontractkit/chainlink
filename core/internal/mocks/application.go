@@ -7,6 +7,8 @@ import (
 
 	context "context"
 
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
 	health "github.com/smartcontractkit/chainlink/core/services/health"
@@ -186,6 +188,22 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 		r0 = rf(ctx, jobID)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetEthClient provides a mock function with given fields:
+func (_m *Application) GetEthClient() eth.Client {
+	ret := _m.Called()
+
+	var r0 eth.Client
+	if rf, ok := ret.Get(0).(func() eth.Client); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(eth.Client)
+		}
 	}
 
 	return r0

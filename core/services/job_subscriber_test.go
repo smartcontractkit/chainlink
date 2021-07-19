@@ -25,7 +25,7 @@ func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, new(mocks.Client))
 	defer jobSubscriber.Close()
 
 	wg := sync.WaitGroup{}
@@ -86,7 +86,6 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
-	store.EthClient = ethClient
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(2),
 	})
@@ -95,7 +94,7 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, ethClient)
 	defer jobSubscriber.Close()
 
 	jobSpec := cltest.NewJobWithLogInitiator()
@@ -128,7 +127,7 @@ func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, new(mocks.Client))
 	defer jobSubscriber.Close()
 
 	job := models.JobSpec{}
@@ -143,7 +142,7 @@ func TestJobSubscriber_RemoveJob_NotFoundError(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, new(mocks.Client))
 	defer jobSubscriber.Close()
 
 	err := jobSubscriber.RemoveJob(models.NewJobID())
@@ -157,11 +156,10 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
-
 	ethClient := new(mocks.Client)
 	defer ethClient.AssertExpectations(t)
-	store.EthClient = ethClient
+	jobSubscriber := services.NewJobSubscriber(store, runManager, ethClient)
+
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(500),
 	})

@@ -35,7 +35,6 @@ type Store struct {
 	*orm.ORM
 	Config         *orm.Config
 	Clock          utils.AfterNower
-	EthClient      eth.Client
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
@@ -76,7 +75,6 @@ func newStore(
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
 		ORM:            orm,
-		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},
 	}
 	return store, nil

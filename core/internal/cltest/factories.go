@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	googleuuid "github.com/google/uuid"
-	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/lib/pq"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
@@ -48,6 +47,7 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -498,7 +498,7 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) (uuid.UUID, models.Job
 	return taskRunID, jobRun
 }
 
-func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func NewEthTx(t *testing.T, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	return bulletprooftxmanager.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      NewAddress(),
@@ -509,7 +509,7 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) bul
 	}
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	broadcastAt := time.Now()
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -517,18 +517,18 @@ func MustInsertUnconfirmedEthTx(t *testing.T, store *strpkg.Store, nonce int64, 
 			broadcastAt = v
 		}
 	}
-	etx := NewEthTx(t, store, fromAddress)
+	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &broadcastAt
 	n := nonce
 	etx.Nonce = &n
 	etx.State = bulletprooftxmanager.EthTxUnconfirmed
-	require.NoError(t, store.DB.Save(&etx).Error)
+	require.NoError(t, db.Save(&etx).Error)
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
-	etx := MustInsertUnconfirmedEthTx(t, store, nonce, fromAddress, opts...)
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, db, nonce, fromAddress, opts...)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -537,21 +537,30 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	require.NoError(t, store.DB.Save(&attempt).Error)
-	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, db.Save(&attempt).Error)
+	etx, err := FindEthTxWithAttempts(db, etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+// FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
+func FindEthTxWithAttempts(db *gorm.DB, etxID int64) (bulletprooftxmanager.EthTx, error) {
+	etx := bulletprooftxmanager.EthTx{}
+	err := db.Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+		return db.Order("gas_price asc, id asc")
+	}).Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
+	return etx, err
+}
+
+func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store, fromAddress)
+	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	n := nonce
 	etx.Nonce = &n
 	etx.State = bulletprooftxmanager.EthTxUnconfirmed
-	require.NoError(t, store.DB.Save(&etx).Error)
+	require.NoError(t, db.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -560,48 +569,48 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, store *s
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
-	require.NoError(t, store.DB.Save(&attempt).Error)
-	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, db.Save(&attempt).Error)
+	etx, err := FindEthTxWithAttempts(db, etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertConfirmedEthTxWithAttempt(t *testing.T, db *gorm.DB, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store, fromAddress)
+	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxConfirmed
-	require.NoError(t, store.DB.Save(&etx).Error)
+	require.NoError(t, db.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	require.NoError(t, store.DB.Save(&attempt).Error)
+	require.NoError(t, db.Save(&attempt).Error)
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
-	etx := NewEthTx(t, store, fromAddress)
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxInProgress
-	require.NoError(t, store.DB.Save(&etx).Error)
+	require.NoError(t, db.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 	attempt.State = bulletprooftxmanager.EthTxAttemptInProgress
-	require.NoError(t, store.DB.Save(&attempt).Error)
-	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, db.Save(&attempt).Error)
+	etx, err := FindEthTxWithAttempts(db, etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+func MustInsertUnstartedEthTx(t *testing.T, db *gorm.DB, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	var subject uuid.NullUUID
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -609,10 +618,10 @@ func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress com
 			subject = uuid.NullUUID{UUID: v, Valid: true}
 		}
 	}
-	etx := NewEthTx(t, store, fromAddress)
+	etx := NewEthTx(t, fromAddress)
 	etx.State = bulletprooftxmanager.EthTxUnstarted
 	etx.Subject = subject
-	require.NoError(t, store.DB.Save(&etx).Error)
+	require.NoError(t, db.Save(&etx).Error)
 	return etx
 }
 
@@ -629,15 +638,15 @@ func NewEthTxAttempt(t *testing.T, etxID int64) bulletprooftxmanager.EthTxAttemp
 	}
 }
 
-func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, store *strpkg.Store, gasPrice int64) bulletprooftxmanager.EthTxAttempt {
+func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, db *gorm.DB, gasPrice int64) bulletprooftxmanager.EthTxAttempt {
 	attempt := NewEthTxAttempt(t, etxID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(gasPrice))
-	require.NoError(t, store.DB.Create(&attempt).Error)
+	require.NoError(t, db.Create(&attempt).Error)
 	return attempt
 }
 
-func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
+func MustInsertEthReceipt(t *testing.T, db *gorm.DB, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
 	r := bulletprooftxmanager.EthReceipt{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
@@ -645,22 +654,22 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 		TransactionIndex: uint(NewRandomInt64()),
 		Receipt:          []byte(`{"foo":42}`),
 	}
-	require.NoError(t, s.DB.Save(&r).Error)
+	require.NoError(t, db.Save(&r).Error)
 	return r
 }
 
-func MustInsertConfirmedEthTxWithReceipt(t *testing.T, s *strpkg.Store, fromAddress common.Address, nonce, blockNum int64) (etx bulletprooftxmanager.EthTx) {
-	etx = MustInsertConfirmedEthTxWithAttempt(t, s, nonce, blockNum, fromAddress)
-	MustInsertEthReceipt(t, s, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
+func MustInsertConfirmedEthTxWithReceipt(t *testing.T, db *gorm.DB, fromAddress common.Address, nonce, blockNum int64) (etx bulletprooftxmanager.EthTx) {
+	etx = MustInsertConfirmedEthTxWithAttempt(t, db, nonce, blockNum, fromAddress)
+	MustInsertEthReceipt(t, db, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
 	return etx
 }
 
-func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) bulletprooftxmanager.EthTx {
-	etx := NewEthTx(t, store, fromAddress)
+func MustInsertFatalErrorEthTx(t *testing.T, db *gorm.DB, fromAddress common.Address) bulletprooftxmanager.EthTx {
+	etx := NewEthTx(t, fromAddress)
 	etx.Error = null.StringFrom("something exploded")
 	etx.State = bulletprooftxmanager.EthTxFatalError
 
-	require.NoError(t, store.DB.Save(&etx).Error)
+	require.NoError(t, db.Save(&etx).Error)
 	return etx
 }
 
@@ -727,7 +736,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) ethkey.Key {
 
 	key := ethkey.Key{
 		Address:   eip,
-		JSON:      gormpostgrestypes.Jsonb{RawMessage: keyjsonbytes},
+		JSON:      datatypes.JSON(keyjsonbytes),
 		NextNonce: nextNonce,
 		IsFunding: funding,
 	}

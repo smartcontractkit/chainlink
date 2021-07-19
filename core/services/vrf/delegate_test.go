@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	gormpostgres "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"gopkg.in/guregu/null.v4"
 
@@ -42,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -187,40 +187,44 @@ func TestStartingCounts(t *testing.T) {
 	md2, err := json.Marshal(&m2)
 	var txes = []bulletprooftxmanager.EthTx{
 		{
-			Nonce:       &n1,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{},
+			Nonce:          &n1,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON{},
+			EncodedPayload: []byte{},
 		},
 		{
-			Nonce:       &n2,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{RawMessage: md1},
+			Nonce:          &n2,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON(md1),
+			EncodedPayload: []byte{},
 		},
 		{
-			Nonce:       &n3,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{RawMessage: md2},
+			Nonce:          &n3,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON(md2),
+			EncodedPayload: []byte{},
 		},
 		{
-			Nonce:       &n4,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{RawMessage: md2},
+			Nonce:          &n4,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON(md2),
+			EncodedPayload: []byte{},
 		},
 	}
 	require.NoError(t, db.Create(&txes).Error)

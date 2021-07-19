@@ -75,7 +75,7 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 		fe.Add("MinimumContractPayment must be positive")
 	}
 	ts := models.TaskSpec{Type: bt.Name}
-	if a := adapters.FindNativeAdapterFor(ts); a != nil {
+	if a := adapters.FindNativeAdapterFor(ts, nil); a != nil {
 		fe.Add(fmt.Sprintf("Bridge Type %v is a native adapter", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
@@ -301,7 +301,7 @@ func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error 
 }
 
 func validateTask(task models.TaskSpec, store *store.Store, keyStore *keystore.Master) error {
-	adapter, err := adapters.For(task, store.Config, store.ORM)
+	adapter, err := adapters.For(task, store.Config, store.ORM, nil)
 	if err != nil {
 		return err
 	}

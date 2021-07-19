@@ -307,7 +307,6 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
-	store.EthClient = ethClient
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
@@ -688,7 +687,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		orm := headtracker.NewORM(store.DB)
 
 		ethClient := new(mocks.Client)
-		store.EthClient = ethClient
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
@@ -717,7 +715,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := new(mocks.Client)
-		store.EthClient = ethClient
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
 			Once()
@@ -750,7 +747,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := new(mocks.Client)
-		store.EthClient = ethClient
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
