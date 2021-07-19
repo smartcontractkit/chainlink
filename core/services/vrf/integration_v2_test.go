@@ -238,7 +238,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// Wait for the request to be fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil)
+		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)

@@ -1,7 +1,8 @@
 import { ethers } from "hardhat";
 import { Signer, Contract, BigNumber } from "ethers";
 import { assert, expect } from "chai";
-import {defaultAbiCoder} from "ethers/utils";
+import { defaultAbiCoder } from "ethers/utils";
+import { publicAbi } from "../../test-helpers/helpers";
 
 describe("VRFCoordinatorV2", () => {
   let vrfCoordinatorV2: Contract;
@@ -72,6 +73,39 @@ describe("VRFCoordinatorV2", () => {
       );
   });
 
+  it("has a limited public interface", async () => {
+    publicAbi(vrfCoordinatorV2, [
+      // Owner
+      "acceptOwnership",
+      "transferOwnership",
+      "owner",
+      "getConfig",
+      "setConfig",
+      // Oracle
+      "requestRandomWords",
+      "getCommitment", // Note we use this to check if a request is already fulfilled.
+      "hashOfKey",
+      "fulfillRandomWords",
+      "registerProvingKey",
+      "withdraw",
+      // Subscription management
+      "createSubscription",
+      "updateSubscription",
+      "getSubscription",
+      "onTokenTransfer", // Effectively the fundSubscription.
+      "defundSubscription",
+      "cancelSubscription",
+      "requestSubscriptionOwnerTransfer",
+      "acceptSubscriptionOwnerTransfer",
+      // Misc
+      "typeAndVersion",
+      "BLOCKHASH_STORE",
+      "LINK",
+      "LINK_ETH_FEED",
+      "PROOF_LENGTH", // Inherited from VRF.sol as public.
+    ]);
+  });
+
   it("configuration management", async function () {
     await expect(
       vrfCoordinatorV2
@@ -96,6 +130,104 @@ describe("VRFCoordinatorV2", () => {
     assert(resp[5].toString() == c.weiPerUnitLink.toString());
   });
 
+  async function createSubscription(): Promise<number> {
+    let consumers: string[] = [await consumer.getAddress()];
+    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
+    const receipt = await tx.wait();
+    return receipt.events[0].args["subId"];
+  }
+
+  describe("#createSubscription", async function () {
+    it("can create a subscription", async function () {
+      let consumers: string[] = [await consumer.getAddress()];
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
+        .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
+        .withArgs(1, subOwnerAddress, consumers);
+      const s = await vrfCoordinatorV2.getSubscription(1);
+      assert(s.balance.toString() == "0", "invalid balance");
+      assert.deepEqual(s.consumers, consumers, "invalid consumers");
+      assert(s.owner == subOwnerAddress, "invalid address");
+    });
+    it("subscription id increments", async function () {
+      let consumers: string[] = [await consumer.getAddress()];
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
+        .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
+        .withArgs(1, subOwnerAddress, consumers);
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
+        .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
+        .withArgs(2, subOwnerAddress, consumers);
+    });
+  });
+
+  describe("#requestSubscriptionOwnerTransfer", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+    it("rejects non-owner", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(random).requestSubscriptionOwnerTransfer(subId, randomAddress),
+      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
+    });
+    it("owner can request transfer", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).requestSubscriptionOwnerTransfer(subId, randomAddress))
+        .to.emit(vrfCoordinatorV2, "SubscriptionOwnerTransferRequested")
+        .withArgs(subId, subOwnerAddress, randomAddress);
+      // Same request is a noop
+      await expect(
+        vrfCoordinatorV2.connect(subOwner).requestSubscriptionOwnerTransfer(subId, randomAddress),
+      ).to.not.emit(vrfCoordinatorV2, "SubscriptionOwnerTransferRequested");
+    });
+  });
+
+  describe("#acceptSubscriptionOwnerTransfer", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+    it("subscription must exist", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).acceptSubscriptionOwnerTransfer(1203123123)).to.be.revertedWith(
+        `InvalidSubscription`,
+      );
+    });
+    it("must be requested owner to accept", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).requestSubscriptionOwnerTransfer(subId, randomAddress));
+      await expect(vrfCoordinatorV2.connect(subOwner).acceptSubscriptionOwnerTransfer(subId)).to.be.revertedWith(
+        `MustBeRequestedOwner("${randomAddress}")`,
+      );
+    });
+    it("requested owner can accept", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).requestSubscriptionOwnerTransfer(subId, randomAddress))
+        .to.emit(vrfCoordinatorV2, "SubscriptionOwnerTransferRequested")
+        .withArgs(subId, subOwnerAddress, randomAddress);
+      await expect(vrfCoordinatorV2.connect(random).acceptSubscriptionOwnerTransfer(subId))
+        .to.emit(vrfCoordinatorV2, "SubscriptionOwnerTransferred")
+        .withArgs(subId, subOwnerAddress, randomAddress);
+    });
+  });
+
+  describe("#updateSubscription", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+    it("subscription must exist", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).updateSubscription(1203123123, [])).to.be.revertedWith(
+        `InvalidSubscription`,
+      );
+    });
+    it("must be owner", async function () {
+      await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, [])).to.be.revertedWith(
+        `MustBeSubOwner("${subOwnerAddress}")`,
+      );
+    });
+    it("owner can update", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, []))
+        .to.emit(vrfCoordinatorV2, "SubscriptionConsumersUpdated")
+        .withArgs(subId, [await consumer.getAddress()], []);
+    });
+  });
+
   it("subscription lifecycle", async function () {
     // Create subscription.
     let consumers: string[] = [await consumer.getAddress()];
@@ -107,15 +239,23 @@ describe("VRFCoordinatorV2", () => {
     const subId = receipt.events[0].args["subId"];
 
     // Subscription owner cannot fund
-    const s = defaultAbiCoder.encode(["uint64"], [subId])
-    await expect(linkToken.connect(random).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"),
-        s)).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
+    const s = defaultAbiCoder.encode(["uint64"], [subId]);
+    await expect(
+      linkToken.connect(random).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"), s),
+    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
 
     // Fund the subscription
-    await expect(linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"),
-        defaultAbiCoder.encode(["uint64"], [subId])))
-          .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded")
-          .withArgs(subId, BigNumber.from(0), BigNumber.from("1000000000000000000"));
+    await expect(
+      linkToken
+        .connect(subOwner)
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000000000000000000"),
+          defaultAbiCoder.encode(["uint64"], [subId]),
+        ),
+    )
+      .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded")
+      .withArgs(subId, BigNumber.from(0), BigNumber.from("1000000000000000000"));
 
     // Non-owners cannot withdraw
     await expect(
@@ -178,8 +318,13 @@ describe("VRFCoordinatorV2", () => {
     const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
     const receipt = await tx.wait();
     const subId = receipt.events[0].args["subId"];
-    await linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"),
-        defaultAbiCoder.encode(["uint64"], [subId]));
+    await linkToken
+      .connect(subOwner)
+      .transferAndCall(
+        vrfCoordinatorV2.address,
+        BigNumber.from("1000000000000000000"),
+        defaultAbiCoder.encode(["uint64"], [subId]),
+      );
 
     // Should fail without a key registered
     const testKey = [BigNumber.from("1"), BigNumber.from("2")];

@@ -31,7 +31,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     address[] consumers; // List of addresses which can consume using this subscription.
   }
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
-  uint64 private currentSubId;
+  uint64 private s_currentSubId;
   event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
   event SubscriptionFundsAdded(uint64 subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
@@ -64,9 +64,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
   mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
   mapping(address /* oracle */ => uint96 /* LINK balance */) private s_withdrawableTokens;
-  mapping(bytes32 /* keyHash */ => mapping(address /* consumer */ => uint256 /* nonce */)) public s_nonces;
-  mapping(uint256 /* requestID */ => bytes32) private s_callbacks;
-  event NewServiceAgreement(bytes32 keyHash, address oracle);
+  mapping(bytes32 /* keyHash */ => mapping(address /* consumer */ => uint256 /* nonce */)) private s_nonces;
+  mapping(uint256 /* requestID */ => bytes32 /* commitment */) private s_commitments;
+  event NewServiceAgreement(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 preSeedAndRequestId,
@@ -77,7 +77,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     address indexed sender
   );
   event RandomWordsFulfilled(
-    uint256 requestId,
+    uint256 indexed requestId,
     uint256[] output,
     bool success
   );
@@ -254,7 +254,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint256 nonce = s_nonces[keyHash][msg.sender] + 1;
     uint256 preSeedAndRequestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
 
-    s_callbacks[preSeedAndRequestId] = keccak256(abi.encodePacked(
+    s_commitments[preSeedAndRequestId] = keccak256(abi.encodePacked(
         preSeedAndRequestId,
         block.number,
         subId,
@@ -267,7 +267,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return preSeedAndRequestId;
   }
 
-  function getCallbackHash(
+  function getCommitment(
     uint256 requestId
   )
     external
@@ -276,7 +276,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       bytes32
     )
   {
-    return s_callbacks[requestId];
+    return s_commitments[requestId];
   }
 
   /**
@@ -312,9 +312,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // Offsets into fulfillRandomnessRequest's proof of various values
   //
   // Public key. Skips byte array's length prefix.
-  uint256 public constant PUBLIC_KEY_OFFSET = 0x20;
+  uint256 private constant PUBLIC_KEY_OFFSET = 0x20;
   // Seed is 7th word in proof, plus word for length, (6+1)*0x20=0xe0
-  uint256 public constant PRESEED_OFFSET = 7*0x20;
+  uint256 private constant PRESEED_OFFSET = 7*0x20;
 
   function fulfillRandomWords(
     bytes memory proof
@@ -322,8 +322,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
   {
     uint256 startGas = gasleft();
-    (bytes32 keyHash, uint256 requestId,
-    uint256 randomness, FulfillmentParams memory fp) = getRandomnessFromProof(proof);
+    (
+      bytes32 keyHash,
+      uint256 requestId,
+      uint256 randomness,
+      FulfillmentParams memory fp
+    ) = getRandomnessFromProof(proof);
 
 
     uint256[] memory randomWords = new uint256[](fp.numWords);
@@ -334,7 +338,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Prevent re-entrancy. The user callback cannot call fulfillRandomWords again
     // with the same proof because this getRandomnessFromProof will revert because the requestId
     // is gone.
-    delete s_callbacks[requestId];
+    delete s_commitments[requestId];
     VRFConsumerV2Interface v;
     bytes memory resp = abi.encodeWithSelector(v.fulfillRandomWords.selector, requestId, randomWords);
     uint256 gasPreCallback = gasleft();
@@ -384,9 +388,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (paymentNoFee > (1e27-fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
-    unchecked {
-      return uint96(paymentNoFee+fee);
-    }
+    return uint96(paymentNoFee+fee);
   }
 
   function getRandomnessFromProof(
@@ -425,12 +427,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       sender := mload(add(add(proof, blockNumOffset), 0x80))
     }
     currentKeyHash = hashOfKey(publicKey);
-    bytes32 callback = s_callbacks[preSeed];
+    bytes32 commitment = s_commitments[preSeed];
     requestId = preSeed;
-    if (callback == 0) {
+    if (commitment == 0) {
       revert NoCorrespondingRequest();
     }
-    if (callback != keccak256(abi.encodePacked(
+    if (commitment != keccak256(abi.encodePacked(
         requestId,
         blockNum,
         fp.subId,
@@ -544,7 +546,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint64
     )
   {
-    currentSubId++;
+    s_currentSubId++;
+    uint64 currentSubId = s_currentSubId;
     s_subscriptions[currentSubId] = Subscription({
       balance: 0,
       owner: msg.sender,
