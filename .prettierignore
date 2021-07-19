@@ -33,3 +33,4 @@ docs/
 venv/
 
 *.md
+.github/workflows/*.yml
