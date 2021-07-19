@@ -35,11 +35,12 @@ func Test_ORM_CreateManager(t *testing.T) {
 
 	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
-		URI:       uri,
-		Name:      name,
-		PublicKey: publicKey,
-		JobTypes:  jobTypes,
-		Network:   network,
+		URI:                uri,
+		Name:               name,
+		PublicKey:          publicKey,
+		JobTypes:           jobTypes,
+		Network:            network,
+		IsOCRBootstrapPeer: true,
 	}
 
 	count, err := orm.CountManagers()
@@ -61,11 +62,12 @@ func Test_ORM_ListManagers(t *testing.T) {
 
 	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
-		URI:       uri,
-		Name:      name,
-		PublicKey: publicKey,
-		JobTypes:  jobTypes,
-		Network:   network,
+		URI:                uri,
+		Name:               name,
+		PublicKey:          publicKey,
+		JobTypes:           jobTypes,
+		Network:            network,
+		IsOCRBootstrapPeer: true,
 	}
 
 	id, err := orm.CreateManager(context.Background(), mgr)
@@ -82,6 +84,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Equal(t, publicKey, actual.PublicKey)
 	assert.Equal(t, jobTypes, actual.JobTypes)
 	assert.Equal(t, network, actual.Network)
+	assert.Equal(t, true, actual.IsOCRBootstrapPeer)
 }
 
 func Test_ORM_GetManager(t *testing.T) {
@@ -89,11 +92,12 @@ func Test_ORM_GetManager(t *testing.T) {
 
 	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
-		URI:       uri,
-		Name:      name,
-		PublicKey: publicKey,
-		JobTypes:  jobTypes,
-		Network:   network,
+		URI:                uri,
+		Name:               name,
+		PublicKey:          publicKey,
+		JobTypes:           jobTypes,
+		Network:            network,
+		IsOCRBootstrapPeer: true,
 	}
 
 	id, err := orm.CreateManager(context.Background(), mgr)
@@ -108,6 +112,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.Equal(t, publicKey, actual.PublicKey)
 	assert.Equal(t, jobTypes, actual.JobTypes)
 	assert.Equal(t, network, actual.Network)
+	assert.Equal(t, true, actual.IsOCRBootstrapPeer)
 
 	actual, err = orm.GetManager(context.Background(), -1)
 	require.Nil(t, actual)
