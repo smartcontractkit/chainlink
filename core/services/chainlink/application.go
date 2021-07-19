@@ -343,7 +343,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), cfg)
+	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), jobSpawner, keyStore.CSA(), keyStore.Eth(), cfg)
 
 	app := &ChainlinkApplication{
 		ethClient:                ethClient,
