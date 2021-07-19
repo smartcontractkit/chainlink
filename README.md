@@ -135,9 +135,15 @@ go build -o chainlink ./core/
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
-2. Install [gencodec](https://github.com/fjl/gencodec), [mockery version 1.0.0](https://github.com/vektra/mockery/releases/tag/v1.0.0), and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
+2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
 
-3. Build contracts:
+3. Install mockery
+
+`make mockery`
+
+Using the `make` command will install the correct version.
+
+4. Build contracts:
 
 ```bash
 yarn
