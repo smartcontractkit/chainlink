@@ -15,14 +15,15 @@ const (
 )
 
 type FeedsManager struct {
-	ID        int64
-	Name      string
-	URI       string
-	PublicKey crypto.PublicKey
-	JobTypes  pq.StringArray `gorm:"type:text[]"`
-	Network   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                 int64
+	Name               string
+	URI                string
+	PublicKey          crypto.PublicKey
+	JobTypes           pq.StringArray `gorm:"type:text[]"`
+	Network            string
+	IsOCRBootstrapPeer bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (FeedsManager) TableName() string {
