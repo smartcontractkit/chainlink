@@ -19,6 +19,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InsufficientBalance();
   error InvalidConsumer(address consumer);
   error InvalidSubscription();
+  error OnlyCallableFromLink();
+  error InvalidCalldata();
   error MustBeSubOwner(address owner);
   error MustBeRequestedOwner(address proposedOwner);
   // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
@@ -51,6 +53,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
+  //
   uint256 constant private CUSHION = 5_000;
   // Just to relieve stack pressure
   struct FulfillmentParams {
@@ -82,7 +85,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   struct Config {
     uint16 minimumRequestBlockConfirmations;
     // Flat fee charged per fulfillment in millionths of link
-    // So fee range is [0, 2^48/10^6].
+    // So fee range is [0, 2^32/10^6].
     uint32 fulfillmentFlatFeeLinkPPM;
     uint32 maxGasLimit;
     // stalenessSeconds is how long before we consider the feed price to be stale
@@ -489,6 +492,32 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
   }
 
+  function onTokenTransfer(
+    address sender,
+    uint256 amount,
+    bytes calldata data
+  )
+    external
+  {
+    if (msg.sender != address(LINK)) {
+      revert OnlyCallableFromLink();
+    }
+    if (data.length != 32) {
+      revert InvalidCalldata();
+    }
+    uint64 subId = abi.decode(data, (uint64));
+    if (s_subscriptions[subId].owner == address(0))  {
+      revert InvalidSubscription();
+    }
+    address owner = s_subscriptions[subId].owner;
+    if (owner != sender) {
+      revert MustBeSubOwner(owner);
+    }
+    uint256 oldBalance = s_subscriptions[subId].balance;
+    s_subscriptions[subId].balance += uint96(amount);
+    emit SubscriptionFundsAdded(subId, oldBalance, oldBalance+amount);
+  }
+
   function getSubscription(
     uint64 subId
   )
@@ -567,24 +596,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     address[] memory oldConsumers = s_subscriptions[subId].consumers;
     s_subscriptions[subId].consumers = consumers;
     emit SubscriptionConsumersUpdated(subId, oldConsumers, consumers);
-  }
-
-  function fundSubscription(
-    uint64 subId,
-    uint96 amount
-  )
-    external
-    onlySubOwner(subId)
-  {
-    if (s_subscriptions[subId].owner == address(0))  {
-      revert InvalidSubscription();
-    }
-    uint256 oldBalance = s_subscriptions[subId].balance;
-    s_subscriptions[subId].balance += amount;
-    if (!LINK.transferFrom(msg.sender, address(this), amount)) {
-      revert InsufficientBalance();
-    }
-    emit SubscriptionFundsAdded(subId, oldBalance, oldBalance+amount);
   }
 
   function defundSubscription(

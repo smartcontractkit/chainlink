@@ -42,9 +42,7 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
             s_subId = COORDINATOR.createSubscription(consumers);
         }
         // Approve the link transfer.
-        LINKTOKEN.approve(address(COORDINATOR), amount);
-        // Transfer link to the coordinator.
-        COORDINATOR.fundSubscription(s_subId, amount);
+        LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
     }
 
     function updateSubscription(address[] memory consumers) external {

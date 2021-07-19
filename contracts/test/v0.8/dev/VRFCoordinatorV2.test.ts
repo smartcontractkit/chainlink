@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { Signer, Contract, BigNumber } from "ethers";
 import { assert, expect } from "chai";
+import {defaultAbiCoder} from "ethers/utils";
 
 describe("VRFCoordinatorV2", () => {
   let vrfCoordinatorV2: Contract;
@@ -48,6 +49,7 @@ describe("VRFCoordinatorV2", () => {
       mockLinkEth.address,
     );
     await linkToken.transfer(subOwnerAddress, BigNumber.from("1000000000000000000")); // 1 link
+    await linkToken.transfer(randomAddress, BigNumber.from("1000000000000000000")); // 1 link
     c = {
       minimumRequestBlockConfirmations: 1,
       fulfillmentFlatFeePPM: 0,
@@ -105,16 +107,15 @@ describe("VRFCoordinatorV2", () => {
     const subId = receipt.events[0].args["subId"];
 
     // Subscription owner cannot fund
-    await expect(
-      vrfCoordinatorV2.connect(random).fundSubscription(subId, BigNumber.from("1000000000000000000")),
-    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
+    const s = defaultAbiCoder.encode(["uint64"], [subId])
+    await expect(linkToken.connect(random).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"),
+        s)).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
 
     // Fund the subscription
-    await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
-    await linkToken.allowance(subOwnerAddress, vrfCoordinatorV2.address);
-    await expect(vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000")))
-      .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded")
-      .withArgs(subId, BigNumber.from(0), BigNumber.from("1000000000000000000"));
+    await expect(linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"),
+        defaultAbiCoder.encode(["uint64"], [subId])))
+          .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded")
+          .withArgs(subId, BigNumber.from(0), BigNumber.from("1000000000000000000"));
 
     // Non-owners cannot withdraw
     await expect(
@@ -126,7 +127,7 @@ describe("VRFCoordinatorV2", () => {
       .to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn")
       .withArgs(subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900"));
     const randomBalance = await linkToken.balanceOf(randomAddress);
-    assert.equal(randomBalance.toString(), "100");
+    assert.equal(randomBalance.toString(), "1000000000000000100");
 
     // Non-owners cannot change the consumers
     await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, consumers)).to.be.revertedWith(
@@ -168,7 +169,7 @@ describe("VRFCoordinatorV2", () => {
       .to.emit(vrfCoordinatorV2, "SubscriptionCanceled")
       .withArgs(subId, randomAddress, BigNumber.from("999999999999999900"));
     const random2Balance = await linkToken.balanceOf(randomAddress);
-    assert.equal(random2Balance.toString(), "1000000000000000000");
+    assert.equal(random2Balance.toString(), "2000000000000000000");
   });
 
   it("request random words", async () => {
@@ -177,9 +178,8 @@ describe("VRFCoordinatorV2", () => {
     const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
     const receipt = await tx.wait();
     const subId = receipt.events[0].args["subId"];
-    await linkToken.connect(subOwner).approve(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"));
-    await linkToken.allowance(subOwnerAddress, vrfCoordinatorV2.address);
-    await vrfCoordinatorV2.connect(subOwner).fundSubscription(subId, BigNumber.from("1000000000000000000"));
+    await linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"),
+        defaultAbiCoder.encode(["uint64"], [subId]));
 
     // Should fail without a key registered
     const testKey = [BigNumber.from("1"), BigNumber.from("2")];
