@@ -117,10 +117,6 @@ var _ Broadcaster = (*broadcaster)(nil)
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
 	chStop := make(chan struct{})
-	//var requestedBackfillFrom null.Int64
-	//if highestSavedHead != nil {
-	//	requestedBackfillFrom = null.NewInt64(highestSavedHead.Number, true)
-	//}
 
 	return &broadcaster{
 		orm:              orm,
@@ -134,7 +130,6 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHe
 		newHeads:         utils.NewMailbox(1),
 		DependentAwaiter: utils.NewDependentAwaiter(),
 		chStop:           chStop,
-		//backfillBlockNumber: requestedBackfillFrom,
 		highestSavedHead: highestSavedHead,
 		replayChannel:    make(chan int64, 1),
 	}
