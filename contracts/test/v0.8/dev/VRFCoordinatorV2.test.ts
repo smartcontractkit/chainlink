@@ -81,13 +81,15 @@ describe("VRFCoordinatorV2", () => {
       "owner",
       "getConfig",
       "setConfig",
+      "recoverFunds",
+      "s_totalBalance",
       // Oracle
       "requestRandomWords",
       "getCommitment", // Note we use this to check if a request is already fulfilled.
       "hashOfKey",
       "fulfillRandomWords",
       "registerProvingKey",
-      "withdraw",
+      "oracleWithdraw",
       // Subscription management
       "createSubscription",
       "updateSubscription",
@@ -225,6 +227,65 @@ describe("VRFCoordinatorV2", () => {
       await expect(vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, []))
         .to.emit(vrfCoordinatorV2, "SubscriptionConsumersUpdated")
         .withArgs(subId, [await consumer.getAddress()], []);
+    });
+  });
+
+  describe("#recoverFunds", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+
+    // Note we can't test the oracleWithdraw without fulfilling a request, so leave
+    // that coverage to the go tests.
+    it("function that should change internal balance do", async function () {
+      type bf = [() => Promise<any>, BigNumber];
+      const balanceChangingFns: Array<bf> = [
+        [
+          async function () {
+            const s = defaultAbiCoder.encode(["uint64"], [subId]);
+            await linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), s);
+          },
+          BigNumber.from("1000"),
+        ],
+        [
+          async function () {
+            await vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, randomAddress, BigNumber.from("100"));
+          },
+          BigNumber.from("-100"),
+        ],
+        [
+          async function () {
+            await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress);
+          },
+          BigNumber.from("-900"),
+        ],
+      ];
+      for (let [fn, expectedBalanceChange] of balanceChangingFns) {
+        const startingBalance = await vrfCoordinatorV2.s_totalBalance();
+        await fn();
+        const endingBalance = await vrfCoordinatorV2.s_totalBalance();
+        assert(endingBalance.sub(startingBalance).toString() == expectedBalanceChange.toString());
+      }
+    });
+    it("only owner can recover", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).recoverFunds(randomAddress)).to.be.revertedWith(
+        `Only callable by owner`,
+      );
+    });
+
+    it("owner can recover link transferred", async function () {
+      // Set the internal balance
+      assert(BigNumber.from("0"), linkToken.balanceOf(randomAddress));
+      const s = defaultAbiCoder.encode(["uint64"], [subId]);
+      await linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), s);
+      // Circumvent internal balance
+      await linkToken.connect(subOwner).transfer(vrfCoordinatorV2.address, BigNumber.from("1000"));
+      // Should recover this 1000
+      await expect(vrfCoordinatorV2.connect(owner).recoverFunds(randomAddress))
+        .to.emit(vrfCoordinatorV2, "FundsRecovered")
+        .withArgs(randomAddress, BigNumber.from("1000"));
+      assert(BigNumber.from("1000"), linkToken.balanceOf(randomAddress));
     });
   });
 

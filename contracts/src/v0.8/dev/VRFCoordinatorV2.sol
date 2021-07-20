@@ -23,6 +23,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
   error MustBeRequestedOwner(address proposedOwner);
+  error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
+  event FundsRecovered(address to, uint256 amount);
   // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
   struct Subscription {
     uint96 balance; // Common link balance used for all consumer requests.
@@ -32,6 +34,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
   uint64 private s_currentSubId;
+  // s_totalBalance tracks the total link sent to/from
+  // this contract through onTokenTransfer, defundSubscription, cancelSubscription and oracleWithdraw.
+  // A discrepancy with this contracts link balance indicates someone
+  // sent tokens using transfer and so we may need to use recoverFunds.
+  uint96 public s_totalBalance;
   event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
   event SubscriptionFundsAdded(uint64 subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
@@ -209,6 +216,25 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       config.minimumSubscriptionBalance,
       s_fallbackWeiPerUnitLink
     );
+  }
+
+  function recoverFunds(
+    address to
+  )
+    external
+    onlyOwner()
+  {
+    uint256 externalBalance = LINK.balanceOf(address(this));
+    uint256 internalBalance = uint256(s_totalBalance);
+    if (internalBalance > externalBalance) {
+      revert BalanceInvariantViolated(internalBalance, externalBalance);
+    }
+    if (internalBalance < externalBalance) {
+      uint256 amount = externalBalance - internalBalance;
+      LINK.transfer(to, amount);
+      emit FundsRecovered(to, amount);
+    }
+    // If the balances are equal, nothing to be done.
   }
 
   // Want to ensure these arguments can fit inside of 2 words
@@ -479,7 +505,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return weiPerUnitLink;
   }
 
-  function withdraw(
+  function oracleWithdraw(
     address recipient,
     uint96 amount
   )
@@ -489,6 +515,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
+    s_totalBalance -= amount;
     if (!LINK.transfer(recipient, amount)) {
       revert InsufficientBalance();
     }
@@ -517,6 +544,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance += uint96(amount);
+    s_totalBalance += uint96(amount);
     emit SubscriptionFundsAdded(subId, oldBalance, oldBalance+amount);
   }
 
@@ -614,6 +642,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance -= amount;
+    s_totalBalance -= amount;
     if (!LINK.transfer(to, amount)) {
       revert InsufficientBalance();
     }
@@ -629,9 +658,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
     onlySubOwner(subId)
   {
-    uint256 balance = s_subscriptions[subId].balance;
+    uint96 balance = s_subscriptions[subId].balance;
     delete s_subscriptions[subId];
-    if (!LINK.transfer(to, balance)) {
+    s_totalBalance -= balance;
+    if (!LINK.transfer(to, uint256(balance))) {
       revert InsufficientBalance();
     }
     emit SubscriptionCanceled(subId, to, balance);
