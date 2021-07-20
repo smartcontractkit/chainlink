@@ -166,7 +166,7 @@ func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) fu
 }
 
 // ReplayFrom provides a mock function with given fields: number
-func (_m *Broadcaster) ReplayFrom(number int64) {
+func (_m *Broadcaster) ReplayFromBlock(number int64) {
 	_m.Called(number)
 }
 

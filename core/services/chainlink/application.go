@@ -477,7 +477,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	// EthClient must be dialed first because it is required in subtasks
-	if err := app.ethClient.Dial(context.TODO()); err != nil {
+	if err := app.ethClient.Dial(context.Background()); err != nil {
 		return err
 	}
 
@@ -762,7 +762,7 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 
 func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
 
-	app.LogBroadcaster.ReplayFrom(int64(number))
+	app.LogBroadcaster.ReplayFromBlock(int64(number))
 
 	return nil
 }
