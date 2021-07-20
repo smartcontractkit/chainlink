@@ -5,7 +5,11 @@ package mocks
 import (
 	big "math/big"
 
+	config "github.com/smartcontractkit/chainlink/core/store/config"
+
 	context "context"
+
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
@@ -186,6 +190,38 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 		r0 = rf(ctx, jobID)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetConfig provides a mock function with given fields:
+func (_m *Application) GetConfig() *config.Config {
+	ret := _m.Called()
+
+	var r0 *config.Config
+	if rf, ok := ret.Get(0).(func() *config.Config); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*config.Config)
+		}
+	}
+
+	return r0
+}
+
+// GetEthClient provides a mock function with given fields:
+func (_m *Application) GetEthClient() eth.Client {
+	ret := _m.Called()
+
+	var r0 eth.Client
+	if rf, ok := ret.Get(0).(func() eth.Client); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(eth.Client)
+		}
 	}
 
 	return r0

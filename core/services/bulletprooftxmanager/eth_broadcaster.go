@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -434,9 +435,17 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 	etx.State = EthTxInProgress
 	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
 		err := tx.Create(attempt).Error
-		if e, is := err.(*pq.Error); is && e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
-			return errEthTxRemoved
-		} else if err != nil {
+		switch e := err.(type) {
+		case *pq.Error:
+			if e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
+			}
+		case *pgconn.PgError:
+			if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
+			}
+		}
+		if err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
 		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")

@@ -16,6 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+//
+// Return types:
+//     nil
+//
 type ETHTxTask struct {
 	BaseTask `mapstructure:",squash"`
 	From     string `json:"from"`

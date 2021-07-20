@@ -54,7 +54,7 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 
 	stmt := fmt.Sprintf(q, jobIDName)
 	err = tx.Raw(stmt, args...).Row().Scan(&consumed)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 	return consumed, err

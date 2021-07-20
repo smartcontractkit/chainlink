@@ -21,8 +21,8 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -213,8 +213,8 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	backfillDepth := 15
 
-	helper.store.Config.Set(orm.EnvVarName("BlockBackfillSkip"), true)
-	helper.store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), backfillDepth)
+	helper.store.Config.Set(config.EnvVarName("BlockBackfillSkip"), true)
+	helper.store.Config.Set(config.EnvVarName("BlockBackfillDepth"), backfillDepth)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -266,7 +266,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
-	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
+	helper.store.Config.Set(config.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -340,7 +340,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
+	helper.store.Config.Set(config.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -520,7 +520,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(1))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -601,7 +601,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(4))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(4))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -682,7 +682,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(3))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(3))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -772,7 +772,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(2))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(2))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -887,7 +887,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(2))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(2))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -1175,7 +1175,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
 			var backfillDepth int64 = 5
-			helper.store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), uint64(backfillDepth)) // something other than default
+			helper.store.Config.Set(config.EnvVarName("BlockBackfillDepth"), uint64(backfillDepth)) // something other than default
 
 			helper.start()
 			defer helper.stop()

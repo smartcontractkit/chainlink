@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	storm "github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -54,7 +53,7 @@ type ORM interface {
 
 type orm struct {
 	db                  *gorm.DB
-	config              *storm.Config
+	config              Config
 	advisoryLocker      postgres.AdvisoryLocker
 	advisoryLockClassID int32
 	pipelineORM         pipeline.ORM
@@ -65,10 +64,10 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, config *storm.Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
+func NewORM(db *gorm.DB, cfg Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
 	return &orm{
 		db:                  db,
-		config:              config,
+		config:              cfg,
 		advisoryLocker:      advisoryLocker,
 		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
 		pipelineORM:         pipelineORM,
@@ -411,7 +410,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 	return jobs, err
 }
 
-func loadDynamicConfigVars(cfg *storm.Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+func loadDynamicConfigVars(cfg Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	// Load dynamic variables
 	return &OffchainReportingOracleSpec{
 		ID:                                     os.ID,

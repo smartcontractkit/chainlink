@@ -12,6 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
+//
+// Return types:
+//     []byte
+//
 type ETHCallTask struct {
 	BaseTask `mapstructure:",squash"`
 	Contract string `json:"contract"`

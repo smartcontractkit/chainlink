@@ -211,5 +211,5 @@ func TestIntegration_SharedProvingKey(t *testing.T) {
 	defer stopMining()
 
 	cltest.WaitForJobRunStatus(t, app.Store, jobRun, models.RunStatusErrored)
-	cltest.AssertCount(t, app.Store, bulletprooftxmanager.EthTxAttempt{}, 0)
+	cltest.AssertCount(t, app.Store.DB, bulletprooftxmanager.EthTxAttempt{}, 0)
 }

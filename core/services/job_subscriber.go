@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -41,6 +42,7 @@ type JobSubscriber interface {
 // jobSubscriber implementation
 type jobSubscriber struct {
 	store            *store.Store
+	ethClient        eth.Client
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 	runManager       RunManager
@@ -75,10 +77,11 @@ func (b *nextBlockWorker) Work() {
 }
 
 // NewJobSubscriber returns a new job subscriber.
-func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
+func NewJobSubscriber(store *store.Store, runManager RunManager, ethClient eth.Client) JobSubscriber {
 	b := &nextBlockWorker{runManager: runManager}
 	js := &jobSubscriber{
 		store:            store,
+		ethClient:        ethClient,
 		runManager:       runManager,
 		jobSubscriptions: map[string]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
@@ -137,7 +140,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 		return nil
 	}
 	// Create a new subscription for this job
-	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
+	sub, err := StartJobSubscription(job, bn, js.store, js.runManager, js.ethClient)
 	if err != nil {
 		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
 		return err

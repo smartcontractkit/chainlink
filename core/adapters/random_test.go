@@ -76,7 +76,6 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	ethMock := new(mocks.Client)
-	store.EthClient = ethMock
 
 	publicKey := cltest.StoredVRFKey(t, keyStore.VRF())
 	address := cltest.NewEIP55Address()
@@ -110,7 +109,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	} {
 		test := test
 		t.Run(test.name, func(tt *testing.T) {
-			adapter := adapters.Random{PublicKey: publicKey.String()}
+			adapter := adapters.Random{PublicKey: publicKey.String(), Backend: ethMock}
 			response := solidity_vrf_coordinator_interface.Callbacks{
 				CallbackContract: cltest.NewAddress(),
 				RandomnessFee:    big.NewInt(100),

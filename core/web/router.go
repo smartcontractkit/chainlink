@@ -26,6 +26,7 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/ulule/limiter"
@@ -128,19 +129,19 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(config orm.ConfigReader) secure.Options {
+func secureOptions(cfg orm.ConfigReader) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
-		IsDevelopment: config.Dev(),
-		SSLRedirect:   config.TLSRedirect(),
-		SSLHost:       config.TLSHost(),
+		IsDevelopment: cfg.Dev(),
+		SSLRedirect:   cfg.TLSRedirect(),
+		SSLHost:       cfg.TLSHost(),
 	}
 }
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(config orm.ConfigReader) gin.HandlerFunc {
-	secureMiddleware := secure.New(secureOptions(config))
+func secureMiddleware(cfg orm.ConfigReader) gin.HandlerFunc {
+	secureMiddleware := secure.New(secureOptions(cfg))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
 			err := secureMiddleware.Process(c.Writer, c.Request)
@@ -350,7 +351,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(box packr.Box, engine *gin.Engine, config *orm.Config) {
+func guiAssetRoutes(box packr.Box, engine *gin.Engine, config *config.Config) {
 	// Serve static files
 	assetsRouterHandlers := []gin.HandlerFunc{}
 	if !config.Dev() {
