@@ -249,7 +249,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	// TODO: Remove in
 	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
 	elapsed := time.Since(start)
-	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String()).Set(float64(elapsed))
+	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, "", job.Keeper.String()).Set(float64(elapsed))
 	var status string
 	if runErrors.HasError() || err != nil {
 		status = "error"
@@ -258,7 +258,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		status = "completed"
 	}
 	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String).Set(float64(elapsed))
-	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String(), status).Inc()
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, "", job.Keeper.String(), status).Inc()
 }
 
 func (executer *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
