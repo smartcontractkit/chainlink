@@ -209,6 +209,8 @@ func setConfigs() {
 	rskMainnet.EthMinGasPriceWei = *big.NewInt(0)
 	rskMainnet.MinimumContractPayment = assets.NewLink(1000000000000000)
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
+	rskTestnet := rskMainnet
+	rskTestnet.LinkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
 	// Avalanche
 	avalancheMainnet := FallbackConfig
@@ -241,6 +243,7 @@ func setConfigs() {
 	PolygonMumbai.config = polygonMumbai
 	XDaiMainnet.config = xDaiMainnet
 	RSKMainnet.config = rskMainnet
+	RSKTestnet.config = rskTestnet
 	AvalancheFuji.config = avalancheFuji
 	AvalancheMainnet.config = avalancheMainnet
 }
