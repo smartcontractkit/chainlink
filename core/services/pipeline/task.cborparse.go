@@ -9,6 +9,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+//
+// Return types:
+//     map[string]interface{} with potential value types:
+//         float64
+//         string
+//         bool
+//         map[string]interface{}
+//         []interface{}
+//         nil
+//
 type CBORParseTask struct {
 	BaseTask `mapstructure:",squash"`
 	Data     string `json:"data"`

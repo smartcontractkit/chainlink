@@ -45,7 +45,7 @@ func setup(t *testing.T) (
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
