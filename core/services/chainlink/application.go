@@ -61,6 +61,7 @@ type Application interface {
 	GetLogger() *logger.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
+	GetEthClient() eth.Client
 	GetKeyStore() *keystore.Master
 	GetStatsPusher() synchronization.StatsPusher
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
@@ -112,6 +113,7 @@ type ChainlinkApplication struct {
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Scheduler                *services.Scheduler
+	ethClient                eth.Client
 	Store                    *strpkg.Store
 	KeyStore                 *keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -196,10 +198,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	var runManager services.RunManager
 	var jobSubscriber services.JobSubscriber
 	if config.EnableLegacyJobPipeline() {
-		runExecutor = services.NewRunExecutor(store, keyStore, statsPusher)
+		runExecutor = services.NewRunExecutor(store, ethClient, keyStore, statsPusher)
 		runQueue = services.NewRunQueue(runExecutor)
 		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
-		jobSubscriber = services.NewJobSubscriber(store, runManager)
+		jobSubscriber = services.NewJobSubscriber(store, runManager, ethClient)
 	} else {
 		runExecutor = &services.NullRunExecutor{}
 		runQueue = &services.NullRunQueue{}
@@ -227,7 +229,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		subservices = append(subservices, logBroadcaster, txManager)
 	}
 
-	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster)
+	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster, ethClient)
 
 	subservices = append(subservices,
 		fluxMonitor,
@@ -261,7 +263,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB,
 				config,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, ethClient, headBroadcaster, logBroadcaster, config),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -270,7 +272,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineORM,
 				logBroadcaster,
 				headBroadcaster,
-				store.EthClient,
+				ethClient,
 				store.Config),
 		}
 	)
@@ -341,6 +343,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), config)
 
 	app := &ChainlinkApplication{
+		ethClient:                ethClient,
 		HeadBroadcaster:          headBroadcaster,
 		TxManager:                txManager,
 		JobSubscriber:            jobSubscriber,
@@ -466,7 +469,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	// EthClient must be dialed first because it is required in subtasks
-	if err := app.Store.EthClient.Dial(context.TODO()); err != nil {
+	if err := app.ethClient.Dial(context.TODO()); err != nil {
 		return err
 	}
 
@@ -592,6 +595,10 @@ func (app *ChainlinkApplication) stop() error {
 // GetStore returns the pointer to the store for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
+}
+
+func (app *ChainlinkApplication) GetEthClient() eth.Client {
+	return app.ethClient
 }
 
 func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {

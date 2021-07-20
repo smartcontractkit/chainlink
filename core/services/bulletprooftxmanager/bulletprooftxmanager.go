@@ -282,7 +282,7 @@ VALUES (
 ?,?,?,?,?,'unstarted',NOW(),?,?
 )
 RETURNING "eth_txes".*
-`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, strategy.Subject(), fromAddress).Scan(&etx)
+`, fromAddress, toAddress, payload, value, gasLimit, metaBytes, strategy.Subject()).Scan(&etx)
 		err = res.Error
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")

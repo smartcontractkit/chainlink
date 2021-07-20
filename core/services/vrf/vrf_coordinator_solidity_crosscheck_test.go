@@ -91,7 +91,7 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.Key) coor
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
 func newVRFCoordinatorUniverse(t *testing.T, key ethkey.Key) coordinatorUniverse {
-	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON, cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 	var (

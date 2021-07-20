@@ -22,7 +22,6 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
-	store.EthClient = ethClient
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)

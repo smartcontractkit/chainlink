@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -57,7 +56,6 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -80,6 +78,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
+
+	// Force import of pgtest to ensure that txdb is registered as a DB driver
+	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
 const (
@@ -128,27 +129,6 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
 	logger.SetLogger(logger.CreateTestLogger(lvl))
-	// Register txdb as dialect wrapping postgres
-	// See: DialectTransactionWrappedPostgres
-	config := orm.NewConfig()
-
-	parsed := config.DatabaseURL()
-	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid DATABASE_URL: `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.String())
-		panic(msg)
-	}
-	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
-		panic(msg)
-	}
-	// Disable SavePoints because they cause random errors for reasons I cannot fathom
-	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
-	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
-	// a no-op, this should have no negative impact on normal test operation.
-	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
-	// store to use the raw DialectPostgres dialect and setup a one-use database.
-	// See BootstrapThrowawayORM() as a convenience function to help you do this.
-	txdb.Register(string(dialects.TransactionWrappedPostgres), string(dialects.Postgres), parsed.String(), txdb.SavePointOption(nil))
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
@@ -326,12 +306,12 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
 		assert.NoError(t, eventBroadcaster.Close())
 	}
 }
@@ -2131,10 +2111,10 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
+func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 	t.Helper()
 	var count int64
-	err := store.DB.Unscoped().Model(model).Count(&count).Error
+	err := db.Unscoped().Model(model).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

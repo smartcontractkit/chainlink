@@ -116,6 +116,7 @@ func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 
 func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 	store, synchronizer, ethMock, _, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -130,8 +131,8 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 
 	synchronizer.ExportedFullSync()
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
-	cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 2)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 2)
 
 	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
@@ -158,14 +159,15 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 
 	synchronizer.ExportedFullSync()
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
-	cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 2)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 2)
 	assertUpkeepIDs(t, store, []int64{2, 4})
 	ethMock.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -202,13 +204,14 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	cltest.AssertRecordEventually(t, store, &registry, func() bool {
 		return registry.BlockCountPerTurn == 40
 	})
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -245,7 +248,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	cltest.AssertRecordEventually(t, store, &registry, func() bool {
 		return registry.NumKeepers == 2
 	})
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }

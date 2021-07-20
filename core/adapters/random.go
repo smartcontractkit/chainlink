@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -63,6 +64,7 @@ type Random struct {
 	// (See adapters.For function.)
 	PublicKey          string              `json:"publicKey"`
 	CoordinatorAddress ethkey.EIP55Address `json:"coordinatorAddress"`
+	Backend            bind.ContractBackend
 }
 
 // TaskType returns the type of Adapter.
@@ -72,7 +74,7 @@ func (ra *Random) TaskType() models.TaskType {
 
 // Perform returns the the proof for the VRF output given seed, or an error.
 func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *keystore.Master) models.RunOutput {
-	shouldFulfill, err := checkFulfillment(ra, input, store)
+	shouldFulfill, err := checkFulfillment(ra, input, ra.Backend)
 	if err != nil {
 		return models.NewRunOutputError(errors.Wrapf(err, "unable to determine if fulfillment needed"))
 	}
@@ -232,14 +234,14 @@ func extractHex(input models.RunInput, key string) ([]byte, error) {
 }
 
 // checkFulfillment checks to see if the randomness request has already been fulfilled or not
-func checkFulfillment(ra *Random, input models.RunInput, store *store.Store) (bool, error) {
+func checkFulfillment(ra *Random, input models.RunInput, backend bind.ContractBackend) (bool, error) {
 	if len(ra.CoordinatorAddress) == 0 {
 		return true, nil // only perform this check if the optional address field is present
 	}
 
 	contract, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
 		ra.CoordinatorAddress.Address(),
-		store.EthClient,
+		backend,
 	)
 	if err != nil {
 		return false, errors.Wrapf(

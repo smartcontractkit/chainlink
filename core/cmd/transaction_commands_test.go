@@ -22,7 +22,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	store := app.GetStore()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store.DB, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
 	// page 1
@@ -56,7 +56,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	store := app.GetStore()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store.DB, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
@@ -77,7 +77,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	store := app.GetStore()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store.DB, 0, 1, from)
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)
