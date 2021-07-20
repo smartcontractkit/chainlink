@@ -824,7 +824,8 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 }
 
 func TestJobSpecsController_DestroyAdd(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, s, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
@@ -857,7 +858,8 @@ func TestJobSpecsController_DestroyAdd(t *testing.T) {
 
 func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	t.Parallel()
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, s, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
