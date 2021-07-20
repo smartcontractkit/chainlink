@@ -79,6 +79,7 @@ import (
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
