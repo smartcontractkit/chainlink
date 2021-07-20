@@ -2,15 +2,12 @@ package orm
 
 import (
 	"bytes"
-	"context"
 	"crypto/subtle"
 	"database/sql"
-	"encoding"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -693,50 +690,6 @@ func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string
 		Where("status = ?", status).
 		Count(&count).Error
 	return int(count), err
-}
-
-// GetConfigValue returns the value for a named configuration entry
-func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
-	name := EnvVarName(field)
-	config := models.Configuration{}
-	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
-		return err
-	}
-	return value.UnmarshalText([]byte(config.Value))
-}
-
-// GetConfigBoolValue returns a boolean value for a named configuration entry
-func (orm *ORM) GetConfigBoolValue(field string) (*bool, error) {
-	name := EnvVarName(field)
-	config := models.Configuration{}
-	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
-		return nil, err
-	}
-	value, err := strconv.ParseBool(config.Value)
-	if err != nil {
-		return nil, err
-	}
-	return &value, nil
-}
-
-// SetConfigValue returns the value for a named configuration entry
-func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
-	name := EnvVarName(field)
-	textValue, err := value.MarshalText()
-	if err != nil {
-		return err
-	}
-	return orm.DB.Where(models.Configuration{Name: name}).
-		Assign(models.Configuration{Name: name, Value: string(textValue)}).
-		FirstOrCreate(&models.Configuration{}).Error
-}
-
-// SetConfigValue returns the value for a named configuration entry
-func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value string) error {
-	name := EnvVarName(field)
-	return orm.DB.WithContext(ctx).Where(models.Configuration{Name: name}).
-		Assign(models.Configuration{Name: name, Value: value}).
-		FirstOrCreate(&models.Configuration{}).Error
 }
 
 // CreateJob saves a job to the database and adds IDs to associated tables.

@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -1280,7 +1280,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.Set(orm.EnvVarName("MinimumContractPayment"), test.minContractPayment)
+			store.Config.Set(config.EnvVarName("MinimumContractPayment"), test.minContractPayment)
 			var minJobPayment *assets.Link
 
 			if test.minJobPayment != nil {

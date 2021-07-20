@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -58,7 +58,7 @@ type vrfUniverse struct {
 	hb        httypes.HeadBroadcaster
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *orm.Config) vrfUniverse {
+func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
@@ -129,7 +129,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 
 func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 	db := pgtest.NewGormDB(t)
-	c := orm.NewConfig()
+	c := config.NewConfig()
 	vuni := buildVrfUni(t, db, c)
 
 	vd := NewDelegate(

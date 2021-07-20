@@ -5,6 +5,8 @@ package mocks
 import (
 	big "math/big"
 
+	config "github.com/smartcontractkit/chainlink/core/store/config"
+
 	context "context"
 
 	eth "github.com/smartcontractkit/chainlink/core/services/eth"
@@ -188,6 +190,22 @@ func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
 		r0 = rf(ctx, jobID)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetConfig provides a mock function with given fields:
+func (_m *Application) GetConfig() *config.Config {
+	ret := _m.Called()
+
+	var r0 *config.Config
+	if rf, ok := ret.Get(0).(func() *config.Config); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*config.Config)
+		}
 	}
 
 	return r0

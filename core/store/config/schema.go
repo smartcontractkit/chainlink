@@ -1,4 +1,4 @@
-package orm
+package config
 
 import (
 	"log"

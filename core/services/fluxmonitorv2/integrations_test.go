@@ -31,8 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -201,7 +201,7 @@ func (fau fluxAggregatorUniverse) WatchSubmissionReceived(t *testing.T, addresse
 func setupApplication(
 	t *testing.T,
 	fa fluxAggregatorUniverse,
-	setConfig func(cfg *orm.Config),
+	setConfig func(cfg *config.Config),
 ) *cltest.TestApplication {
 	config, cfgCleanup := cltest.NewConfig(t)
 	setConfig(config.Config)
@@ -403,7 +403,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
@@ -534,7 +534,7 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
@@ -639,7 +639,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
@@ -747,7 +747,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	fa.backend.Commit()
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 		cfg.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
@@ -824,7 +824,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})

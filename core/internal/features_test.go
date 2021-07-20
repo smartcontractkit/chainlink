@@ -20,48 +20,42 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-
-	"github.com/onsi/gomega"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/static"
-
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1269,16 +1263,16 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 
-	config, cleanup := cltest.NewConfig(t)
+	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg,
 		ethClient,
 	)
 	defer cleanup()
 
 	blocks := cltest.NewBlocks(t, 20)
 
-	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
+	app.GetStore().Config.Set(config.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
 
@@ -1339,8 +1333,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	defer assertCalled()
 
 	confirmed := int64(23456)
-	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
+	safe := confirmed + int64(cfg.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(cfg.BlockHistoryEstimatorBlockDelay())
 
 	// Prepare new rounds logs subscription to be called by new FM job
 	logs := make(chan<- types.Log, 1)
@@ -1417,16 +1411,16 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 
-	config, cleanup := cltest.NewConfig(t)
+	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg,
 		ethClient,
 	)
 	defer cleanup()
-	app.Config.Set(orm.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
+	app.Config.Set(config.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
 	confirmed := int64(23456)
-	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
+	safe := confirmed + int64(cfg.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(cfg.BlockHistoryEstimatorBlockDelay())
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
