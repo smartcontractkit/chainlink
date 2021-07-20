@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -49,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -57,7 +57,6 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -80,6 +79,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
+
+	// Force import of pgtest to ensure that txdb is registered as a DB driver
+	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
 const (
@@ -128,27 +130,6 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
 	logger.SetLogger(logger.CreateTestLogger(lvl))
-	// Register txdb as dialect wrapping postgres
-	// See: DialectTransactionWrappedPostgres
-	config := orm.NewConfig()
-
-	parsed := config.DatabaseURL()
-	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid DATABASE_URL: `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.String())
-		panic(msg)
-	}
-	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
-		panic(msg)
-	}
-	// Disable SavePoints because they cause random errors for reasons I cannot fathom
-	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
-	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
-	// a no-op, this should have no negative impact on normal test operation.
-	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
-	// store to use the raw DialectPostgres dialect and setup a one-use database.
-	// See BootstrapThrowawayORM() as a convenience function to help you do this.
-	txdb.Register(string(dialects.TransactionWrappedPostgres), string(dialects.Postgres), parsed.String(), txdb.SavePointOption(nil))
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
@@ -186,7 +167,7 @@ func logLevelFromEnv() zapcore.Level {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	*orm.Config
+	*config.Config
 	wsServer *httptest.Server
 }
 
@@ -248,7 +229,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := orm.NewConfig()
+	rawConfig := config.NewConfig()
 
 	rawConfig.Dialect = dialects.TransactionWrappedPostgres
 	for _, opt := range options {
@@ -326,12 +307,12 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
 		assert.NoError(t, eventBroadcaster.Close())
 	}
 }
@@ -425,7 +406,7 @@ func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestAppl
 	}
 }
 
-// NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
+// NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
@@ -704,7 +685,7 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -714,13 +695,14 @@ func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interf
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewInsecureStore(tcfg.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
-	s.Config.SetRuntimeStore(s.ORM)
+	orm := config.NewORM(s.DB)
+	s.Config.SetRuntimeStore(orm)
 	return s, func() {
-		cleanUpStore(config.t, s)
+		cleanUpStore(tcfg.t, s)
 	}
 }
 
@@ -2131,10 +2113,10 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
+func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 	t.Helper()
 	var count int64
-	err := store.DB.Unscoped().Model(model).Count(&count).Error
+	err := db.Unscoped().Model(model).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

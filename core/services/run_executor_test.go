@@ -31,7 +31,7 @@ func TestRunExecutor_Execute(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
+	runExecutor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -69,7 +69,7 @@ func TestRunExecutor_Execute_PendingOutgoing(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
+	runExecutor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -108,7 +108,7 @@ func TestRunExecutor_Execute_RunNotFoundError(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
+	runExecutor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 
 	err := runExecutor.Execute(uuid.NewV4())
 	require.Error(t, err)
@@ -128,7 +128,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
+	runExecutor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -179,7 +179,7 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
+	runExecutor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "noop")}
@@ -211,7 +211,7 @@ func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	runExecutor := services.NewRunExecutor(store, keyStore, pusher)
+	runExecutor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 	requestBase := 2
 	requestParameter := 10
 	specParameter := 100

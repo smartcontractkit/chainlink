@@ -187,8 +187,9 @@ func setConfigs() {
 	optimismMainnet.MinIncomingConfirmations = 1
 	optimismMainnet.MinRequiredOutgoingConfirmations = 0
 	optimismMainnet.OCRContractConfirmations = 1
+	optimismMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismKovan := optimismMainnet
-	optimismKovan.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
+	optimismKovan.LinkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
 
 	// Fantom
 	fantomMainnet := FallbackConfig
@@ -208,6 +209,8 @@ func setConfigs() {
 	rskMainnet.EthMinGasPriceWei = *big.NewInt(0)
 	rskMainnet.MinimumContractPayment = assets.NewLink(1000000000000000)
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
+	rskTestnet := rskMainnet
+	rskTestnet.LinkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
 	// Avalanche
 	avalancheMainnet := FallbackConfig
@@ -240,6 +243,7 @@ func setConfigs() {
 	PolygonMumbai.config = polygonMumbai
 	XDaiMainnet.config = xDaiMainnet
 	RSKMainnet.config = rskMainnet
+	RSKTestnet.config = rskTestnet
 	AvalancheFuji.config = avalancheFuji
 	AvalancheMainnet.config = avalancheMainnet
 }

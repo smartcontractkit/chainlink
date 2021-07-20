@@ -25,13 +25,14 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 2, from) // tx2
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 4, from)        // tx3
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 4, 4, from)        // tx3
 
 	// add second tx attempt for tx2
 	blockNum := int64(3)
@@ -82,11 +83,11 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
-	store := app.GetStore()
+	db := app.GetStore().DB
 	client := app.NewHTTPClient()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 	attempt.EthTx = tx
@@ -116,10 +117,10 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
-	store := app.GetStore()
+	db := app.GetStore().DB
 	client := app.NewHTTPClient()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 
