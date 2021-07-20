@@ -2,10 +2,11 @@ package log
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/null"
 	"gorm.io/gorm"
