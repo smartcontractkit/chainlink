@@ -214,7 +214,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fullfilled should fail
-	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, big.NewInt(1000))
+	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, big.NewInt(1000))
 	require.Error(t, err)
 
 	for i := 0; i < requestedIncomingConfs; i++ {
@@ -292,11 +292,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	assert.Less(t, gasDiff, int64(100))
 
 	// Oracle tries to withdraw move than it was paid should fail
-	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, linkWeiCharged.Add(decimal.NewFromInt(1)).BigInt())
+	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, linkWeiCharged.Add(decimal.NewFromInt(1)).BigInt())
 	require.Error(t, err)
 
 	// Assert the oracle can withdraw its payment.
-	_, err = uni.rootContract.Withdraw(uni.nallory, uni.nallory.From, linkWeiCharged.BigInt())
+	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, linkWeiCharged.BigInt())
 	require.NoError(t, err)
 	uni.backend.Commit()
 	AssertLinkBalances(t, uni.linkContract, []common.Address{

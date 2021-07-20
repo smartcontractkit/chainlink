@@ -46,12 +46,6 @@ interface VRFCoordinatorV2Interface {
   )
     external;
 
-  function fundSubscription(
-    uint64 subId,
-    uint96 amount
-  )
-    external;
-
   function updateSubscription(
     uint64 subId,
     address[] memory consumers

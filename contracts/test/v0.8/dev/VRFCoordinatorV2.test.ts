@@ -230,6 +230,68 @@ describe("VRFCoordinatorV2", () => {
     });
   });
 
+  describe("#defundSubscription", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+    it("subscription must exist", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(subOwner).defundSubscription(1203123123, subOwnerAddress, BigNumber.from("1000")),
+      ).to.be.revertedWith(`InvalidSubscription`);
+    });
+    it("must be owner", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(random).defundSubscription(subId, subOwnerAddress, BigNumber.from("1000")),
+      ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
+    });
+    it("insufficient balance", async function () {
+      await linkToken
+        .connect(subOwner)
+        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+      await expect(
+        vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, subOwnerAddress, BigNumber.from("1001")),
+      ).to.be.revertedWith(`InsufficientBalance()`);
+    });
+    it("can defund", async function () {
+      await linkToken
+        .connect(subOwner)
+        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+      await expect(vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, randomAddress, BigNumber.from("999")))
+        .to.emit(vrfCoordinatorV2, "SubscriptionDefunded")
+        .withArgs(subId, BigNumber.from("1000"), BigNumber.from("1"));
+      const randomBalance = await linkToken.balanceOf(randomAddress);
+      assert.equal(randomBalance.toString(), "1000000000000000999");
+    });
+  });
+
+  describe("#cancelSubscription", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+    it("subscription must exist", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(subOwner).cancelSubscription(1203123123, subOwnerAddress),
+      ).to.be.revertedWith(`InvalidSubscription`);
+    });
+    it("must be owner", async function () {
+      await expect(vrfCoordinatorV2.connect(random).cancelSubscription(subId, subOwnerAddress)).to.be.revertedWith(
+        `MustBeSubOwner("${subOwnerAddress}")`,
+      );
+    });
+    it("can cancel", async function () {
+      await linkToken
+        .connect(subOwner)
+        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+      await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress))
+        .to.emit(vrfCoordinatorV2, "SubscriptionCanceled")
+        .withArgs(subId, randomAddress, BigNumber.from("1000"));
+      const randomBalance = await linkToken.balanceOf(randomAddress);
+      assert.equal(randomBalance.toString(), "1000000000000001000");
+    });
+  });
+
   describe("#recoverFunds", async function () {
     let subId: number;
     beforeEach(async () => {
@@ -315,7 +377,7 @@ describe("VRFCoordinatorV2", () => {
           defaultAbiCoder.encode(["uint64"], [subId]),
         ),
     )
-      .to.emit(vrfCoordinatorV2, "SubscriptionFundsAdded")
+      .to.emit(vrfCoordinatorV2, "SubscriptionFunded")
       .withArgs(subId, BigNumber.from(0), BigNumber.from("1000000000000000000"));
 
     // Non-owners cannot withdraw
@@ -325,7 +387,7 @@ describe("VRFCoordinatorV2", () => {
 
     // Withdraw from the subscription
     await expect(vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, randomAddress, BigNumber.from("100")))
-      .to.emit(vrfCoordinatorV2, "SubscriptionFundsWithdrawn")
+      .to.emit(vrfCoordinatorV2, "SubscriptionDefunded")
       .withArgs(subId, BigNumber.from("1000000000000000000"), BigNumber.from("999999999999999900"));
     const randomBalance = await linkToken.balanceOf(randomAddress);
     assert.equal(randomBalance.toString(), "1000000000000000100");

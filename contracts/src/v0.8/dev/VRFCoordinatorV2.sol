@@ -40,9 +40,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
   event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
-  event SubscriptionFundsAdded(uint64 subId, uint256 oldBalance, uint256 newBalance);
+  event SubscriptionFunded(uint64 subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
-  event SubscriptionFundsWithdrawn(uint64 subId, uint256 oldBalance, uint256 newBalance);
+  event SubscriptionDefunded(uint64 subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionCanceled(uint64 subId, address to, uint256 amount);
   event SubscriptionOwnerTransferRequested(uint64 subId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 subId, address from, address to);
@@ -545,7 +545,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance += uint96(amount);
     s_totalBalance += uint96(amount);
-    emit SubscriptionFundsAdded(subId, oldBalance, oldBalance+amount);
+    emit SubscriptionFunded(subId, oldBalance, oldBalance+amount);
   }
 
   function getSubscription(
@@ -646,7 +646,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (!LINK.transfer(to, amount)) {
       revert InsufficientBalance();
     }
-    emit SubscriptionFundsWithdrawn(subId, oldBalance, s_subscriptions[subId].balance);
+    emit SubscriptionDefunded(subId, oldBalance, s_subscriptions[subId].balance);
   }
 
   // Keep this separate from zeroing, perhaps there is a use case where consumers
