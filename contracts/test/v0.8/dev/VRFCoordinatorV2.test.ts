@@ -91,8 +91,10 @@ describe("VRFCoordinatorV2", () => {
       "registerProvingKey",
       "oracleWithdraw",
       // Subscription management
+      "s_consumers",
       "createSubscription",
-      "updateSubscription",
+      "addConsumer",
+      "removeConsumer",
       "getSubscription",
       "onTokenTransfer", // Effectively the fundSubscription.
       "defundSubscription",
@@ -147,7 +149,6 @@ describe("VRFCoordinatorV2", () => {
         .withArgs(1, subOwnerAddress, consumers);
       const s = await vrfCoordinatorV2.getSubscription(1);
       assert(s.balance.toString() == "0", "invalid balance");
-      assert.deepEqual(s.consumers, consumers, "invalid consumers");
       assert(s.owner == subOwnerAddress, "invalid address");
     });
     it("subscription id increments", async function () {
@@ -208,25 +209,54 @@ describe("VRFCoordinatorV2", () => {
     });
   });
 
-  describe("#updateSubscription", async function () {
+  describe("#addConsumer", async function () {
     let subId: number;
     beforeEach(async () => {
       subId = await createSubscription();
     });
     it("subscription must exist", async function () {
-      await expect(vrfCoordinatorV2.connect(subOwner).updateSubscription(1203123123, [])).to.be.revertedWith(
+      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(1203123123, randomAddress)).to.be.revertedWith(
         `InvalidSubscription`,
       );
     });
     it("must be owner", async function () {
-      await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, [])).to.be.revertedWith(
+      await expect(vrfCoordinatorV2.connect(random).addConsumer(subId, randomAddress)).to.be.revertedWith(
+        `MustBeSubOwner("${subOwnerAddress}")`,
+      );
+    });
+    it("cannot overwrite", async function () {
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)).to.be.revertedWith(
+        `AlreadySubscribed(${subId}, "${randomAddress}")`,
+      );
+    });
+    it("owner can update", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress))
+        .to.emit(vrfCoordinatorV2, "SubscriptionConsumerAdded")
+        .withArgs(subId, randomAddress);
+    });
+  });
+
+  describe("#removeConsumer", async function () {
+    let subId: number;
+    beforeEach(async () => {
+      subId = await createSubscription();
+    });
+    it("subscription must exist", async function () {
+      await expect(vrfCoordinatorV2.connect(subOwner).removeConsumer(1203123123, randomAddress)).to.be.revertedWith(
+        `InvalidSubscription`,
+      );
+    });
+    it("must be owner", async function () {
+      await expect(vrfCoordinatorV2.connect(random).removeConsumer(subId, randomAddress)).to.be.revertedWith(
         `MustBeSubOwner("${subOwnerAddress}")`,
       );
     });
     it("owner can update", async function () {
-      await expect(vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, []))
-        .to.emit(vrfCoordinatorV2, "SubscriptionConsumersUpdated")
-        .withArgs(subId, [await consumer.getAddress()], []);
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+      await expect(vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress))
+        .to.emit(vrfCoordinatorV2, "SubscriptionConsumerRemoved")
+        .withArgs(subId, randomAddress);
     });
   });
 
@@ -393,11 +423,12 @@ describe("VRFCoordinatorV2", () => {
     assert.equal(randomBalance.toString(), "1000000000000000100");
 
     // Non-owners cannot change the consumers
-    await expect(vrfCoordinatorV2.connect(random).updateSubscription(subId, consumers)).to.be.revertedWith(
+    await expect(vrfCoordinatorV2.connect(random).addConsumer(subId, randomAddress)).to.be.revertedWith(
       `MustBeSubOwner("${subOwnerAddress}")`,
     );
-    // Owners can update
-    await vrfCoordinatorV2.connect(subOwner).updateSubscription(subId, consumers);
+    await expect(vrfCoordinatorV2.connect(random).removeConsumer(subId, randomAddress)).to.be.revertedWith(
+      `MustBeSubOwner("${subOwnerAddress}")`,
+    );
 
     // Non-owners cannot ask to transfer ownership
     await expect(
@@ -478,11 +509,24 @@ describe("VRFCoordinatorV2", () => {
               1, // minReqConf
               1000, // callbackGasLimit
               1, // numWords
-              0,
             ),
-          ).to.be.revertedWith(`InvalidConsumer("${v.toString()}")`);
+          ).to.be.revertedWith(`InvalidConsumer(${subId}, "${v.toString()}")`);
         },
     );
+
+    // Adding and removing a consumer should NOT allow that consumer to request
+    // Non-owners cannot change the consumers
+    await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+    await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
+    await expect(
+      vrfCoordinatorV2.connect(random).requestRandomWords(
+        kh, // keyhash
+        subId, // subId
+        1, // minReqConf
+        1000, // callbackGasLimit
+        1, // numWords
+      ),
+    ).to.be.revertedWith(`InvalidConsumer(${subId}, "${randomAddress.toString()}")`);
 
     // Should respect the minconfs
     await expect(
@@ -492,7 +536,6 @@ describe("VRFCoordinatorV2", () => {
         0, // minReqConf
         1000, // callbackGasLimit
         1, // numWords
-        0,
       ),
     ).to.be.revertedWith("InvalidRequestBlockConfs(0, 1, 200)");
 
@@ -504,7 +547,6 @@ describe("VRFCoordinatorV2", () => {
         0, // minReqConf
         1000, // callbackGasLimit
         1, // numWords
-        0,
       ),
     ).to.be.revertedWith("InvalidSubscription()");
 
@@ -514,7 +556,6 @@ describe("VRFCoordinatorV2", () => {
       1, // minReqConf
       1000, // callbackGasLimit
       1, // numWords
-      0,
     );
     const reqReceipt = await reqTx.wait();
     assert(reqReceipt.events.length == 1);

@@ -17,8 +17,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
   error InsufficientBalance();
-  error InvalidConsumer(address consumer);
+  error InvalidConsumer(uint64 subId, address consumer);
   error InvalidSubscription();
+  error AlreadySubscribed(uint64 subId, address consumer);
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
@@ -30,8 +31,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint96 balance; // Common link balance used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
     address requestedOwner; // For safe transfering sub ownership.
-    address[] consumers; // List of addresses which can consume using this subscription.
   }
+  // We make this public so people can lookup which subscription a given consumer is using (if any).
+  mapping(address /* consumer */ => uint64 /* subId */) public s_consumers;
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
@@ -39,13 +41,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // A discrepancy with this contracts link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
-  event SubscriptionCreated(uint64 subId, address owner, address[] consumers);
-  event SubscriptionFunded(uint64 subId, uint256 oldBalance, uint256 newBalance);
-  event SubscriptionConsumersUpdated(uint64 subId, address[] oldConsumers, address[] newConsumers);
-  event SubscriptionDefunded(uint64 subId, uint256 oldBalance, uint256 newBalance);
-  event SubscriptionCanceled(uint64 subId, address to, uint256 amount);
-  event SubscriptionOwnerTransferRequested(uint64 subId, address from, address to);
-  event SubscriptionOwnerTransferred(uint64 subId, address from, address to);
+  event SubscriptionCreated(uint64 indexed subId, address owner, address[] consumers);
+  event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
+  event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
+  event SubscriptionConsumerRemoved(uint64 indexed subId, address consumer);
+  event SubscriptionDefunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
+  event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amount);
+  event SubscriptionOwnerTransferRequested(uint64 indexed subId, address from, address to);
+  event SubscriptionOwnerTransferred(uint64 indexed subId, address from, address to);
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
@@ -245,8 +248,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint64  subId,
     uint16  requestConfirmations,
     uint32  callbackGasLimit,
-    uint32  numWords,  // Desired number of random words
-    uint32  consumerId // Index into consumers to avoid SLOADing all the consumers
+    uint32  numWords  // Desired number of random words
   )
     external
     returns (
@@ -257,12 +259,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    // We use this consumer index to ensure that the cost remains constant no matter
-    // the number of consumers.
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
-    if (s_subscriptions[subId].consumers[consumerId] != msg.sender) {
-      revert InvalidConsumer(msg.sender);
+    if (s_consumers[msg.sender] != subId) {
+      revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
     if (requestConfirmations < s_config.minimumRequestBlockConfirmations || requestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
@@ -555,14 +555,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     view
     returns (
       uint96 balance,
-      address owner,
-      address[] memory consumers
+      address owner
     )
   {
     return (
       s_subscriptions[subId].balance,
-      s_subscriptions[subId].owner,
-      s_subscriptions[subId].consumers
+      s_subscriptions[subId].owner
     );
   }
 
@@ -579,9 +577,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     s_subscriptions[currentSubId] = Subscription({
       balance: 0,
       owner: msg.sender,
-      requestedOwner: address(0),
-      consumers: consumers
+      requestedOwner: address(0)
     });
+    // This is ok to run out of gas, simply limits the number of
+    // consumers that can be added at subscription time.
+    // (more can be added with addConsumer).
+    for (uint256 i; i < consumers.length; i++) {
+      s_consumers[consumers[i]] = currentSubId;
+    }
     emit SubscriptionCreated(currentSubId, msg.sender, consumers);
     return currentSubId;
   }
@@ -617,16 +620,33 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
   }
 
-  function updateSubscription(
+  function removeConsumer(
     uint64 subId,
-    address[] memory consumers // permitted consumers of the subscription
+    address consumer
   )
     external
     onlySubOwner(subId)
   {
-    address[] memory oldConsumers = s_subscriptions[subId].consumers;
-    s_subscriptions[subId].consumers = consumers;
-    emit SubscriptionConsumersUpdated(subId, oldConsumers, consumers);
+    if (s_consumers[consumer] != subId) {
+      revert InvalidConsumer(subId, consumer);
+    }
+    delete s_consumers[consumer];
+    emit SubscriptionConsumerRemoved(subId, consumer);
+  }
+
+  function addConsumer(
+    uint64 subId,
+    address consumer
+  )
+    external
+    onlySubOwner(subId)
+  {
+    // Must explicitly remove a consumer before changing its subscription.
+    if (s_consumers[consumer] != 0) {
+      revert AlreadySubscribed(subId, consumer);
+    }
+    s_consumers[consumer] = subId;
+    emit SubscriptionConsumerAdded(subId, consumer);
   }
 
   function defundSubscription(

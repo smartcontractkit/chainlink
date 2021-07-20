@@ -8,8 +8,7 @@ interface VRFCoordinatorV2Interface {
     uint64  subId,   // A data structure for billing
     uint16  minimumRequestConfirmations,
     uint32  callbackGasLimit,
-    uint32  numWords,  // Desired number of random words
-    uint32 consumerID
+    uint32  numWords  // Desired number of random words
   )
     external
     returns (
@@ -46,9 +45,15 @@ interface VRFCoordinatorV2Interface {
   )
     external;
 
-  function updateSubscription(
+  function addConsumer(
     uint64 subId,
-    address[] memory consumers
+    address consumer
+  )
+    external;
+
+  function removeConsumer(
+    uint64 subId,
+    address consumer
   )
     external;
 

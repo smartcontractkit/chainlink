@@ -210,7 +210,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw), 0)
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fullfilled should fail
@@ -262,10 +262,10 @@ func TestIntegrationVRFV2(t *testing.T) {
 
 	// We should have exactly as much gas as we requested
 	// after accounting for function look up code, argument decoding etc.
-	// which should be fixed at 1529 in this test.
+	// which should be fixed in this test.
 	ga, err := uni.consumerContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1529)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1551)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
 	t.Log("gas available", ga.String())
 
 	// Assert that we were only charged for how much gas we actually used.
@@ -340,17 +340,16 @@ func TestRequestCost(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		addrs = append(addrs, cltest.NewAddress())
 	}
-	addrs = append(addrs, uni.consumerContractAddress)
 	_, err = uni.consumerContract.UpdateSubscription(uni.carol,
 		addrs) // 0.1 LINK
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.consumerContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.MustHash(), subId, uint16(2), uint32(10000), uint32(1), uint32(100))
+		"testRequestRandomness", vrfkey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
-	assert.Less(t, estimate, uint64(87100),
+	assert.Less(t, estimate, uint64(85000),
 		"requestRandomness tx gas cost more than expected")
 }
 
@@ -383,7 +382,7 @@ func TestFulfillmentCost(t *testing.T) {
 	gasRequested := 50000
 	nw := 1
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw), 0)
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()

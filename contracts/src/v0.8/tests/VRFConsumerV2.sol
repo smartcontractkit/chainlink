@@ -13,7 +13,10 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
     uint64 public s_subId;
     uint256 public s_gasAvailable;
 
-    constructor(address vrfCoordinator, address link)
+    constructor(
+        address vrfCoordinator,
+        address link
+    )
     {
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         LINKTOKEN = LinkTokenInterface(link);
@@ -23,8 +26,8 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
         uint256 requestId,
         uint256[] memory randomWords
     )
-    external
-    override
+        external
+        override
     {
         s_gasAvailable = gasleft();
         s_randomWords = randomWords;
@@ -34,7 +37,7 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
     function testCreateSubscriptionAndFund(
         uint96 amount
     )
-    external
+        external
     {
         if (s_subId == 0) {
             address[] memory consumers = new address[](1);
@@ -45,9 +48,15 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
         LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
     }
 
-    function updateSubscription(address[] memory consumers) external {
+    function updateSubscription(
+        address[] memory consumers
+    )
+        external
+    {
         require(s_subId != 0, "subID not set");
-        COORDINATOR.updateSubscription(s_subId, consumers);
+        for (uint256 i = 0; i < consumers.length; i++)  {
+            COORDINATOR.addConsumer(s_subId, consumers[i]);
+        }
     }
 
     function testRequestRandomness(
@@ -55,11 +64,11 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
         uint64 subId,
         uint16 minReqConfs,
         uint32 callbackGasLimit,
-        uint32 numWords,
-        uint32 consumerID)
-    external
-    returns (uint256)
+        uint32 numWords
+    )
+        external
+        returns (uint256)
     {
-        return COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords, consumerID);
+        return COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
     }
 }
