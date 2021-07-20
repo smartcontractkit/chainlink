@@ -219,12 +219,9 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func updateConfig(cfg *config.Config, debug bool, replayFromBlock int64) {
+func updateConfig(cfg *config.Config, debug bool) {
 	if debug {
 		cfg.Set("LOG_LEVEL", zapcore.DebugLevel.String())
-	}
-	if replayFromBlock >= 0 {
-		cfg.Set(config.EnvVarName("ReplayFromBlock"), replayFromBlock)
 	}
 }
 
