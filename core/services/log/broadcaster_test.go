@@ -181,7 +181,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
 
-	helper.lb.ReplayFrom(replayFrom)
+	helper.lb.ReplayFromBlock(replayFrom)
 
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) >= 2 }, 5*time.Second, 10*time.Millisecond)
 
@@ -1067,7 +1067,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	}
 
 	// ReplayFrom will not lead to backfill because the number is above current height
-	helper.lb.ReplayFrom(125)
+	helper.lb.ReplayFromBlock(125)
 
 	select {
 	case <-chchRawLogs:

@@ -44,7 +44,7 @@ type (
 		utils.DependentAwaiter
 		service.Service
 		httypes.HeadTrackable
-		ReplayFrom(number int64)
+		ReplayFromBlock(number int64)
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
@@ -152,7 +152,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return atomic.LoadUint32(&b.trackedAddressesCount)
 }
 
-func (b *broadcaster) ReplayFrom(number int64) {
+func (b *broadcaster) ReplayFromBlock(number int64) {
 	logger.Infof("LogBroadcaster: Replay requested from block number: %v", number)
 	select {
 	case b.replayChannel <- number:
@@ -193,12 +193,13 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 		logger.Fatal("LogBroadcaster: Must supply at least 1 LogsWithTopics element to Register")
 	}
 
-	wasOverCapacity := b.addSubscriber.Deliver(registration{listener, opts})
+	registration := registration{listener, opts}
+	wasOverCapacity := b.addSubscriber.Deliver(registration)
 	if wasOverCapacity {
 		logger.Error("LogBroadcaster: Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
 	return func() {
-		wasOverCapacity := b.rmSubscriber.Deliver(registration{listener, opts})
+		wasOverCapacity := b.rmSubscriber.Deliver(registration)
 		if wasOverCapacity {
 			logger.Error("LogBroadcaster: Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
 		}
@@ -242,7 +243,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		}
 
 		if b.config.BlockBackfillSkip() && b.highestSavedHead != nil {
-			logger.Info("LogBroadcaster: BlockBackfillSkip is set to true, preventing a deep backfill")
+			logger.Warn("LogBroadcaster: BlockBackfillSkip is set to true, preventing a deep backfill - some earlier chain events might be missed.")
 			b.highestSavedHead = nil
 		}
 
@@ -266,7 +267,8 @@ func (b *broadcaster) startResubscribeLoop() {
 		if b.backfillBlockNumber.Valid {
 			logger.Debugw("LogBroadcaster: Using an override as a start of the backfill",
 				"blockNumber", b.backfillBlockNumber.Int64,
-				"highestNumConfirmations", b.registrations.highestNumConfirmations, "blockBackfillDepth", b.config.BlockBackfillDepth(),
+				"highestNumConfirmations", b.registrations.highestNumConfirmations,
+				"blockBackfillDepth", b.config.BlockBackfillDepth(),
 			)
 		}
 
@@ -494,7 +496,7 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 	return func() {}
 }
 
-func (n *NullBroadcaster) ReplayFrom(number int64) {
+func (n *NullBroadcaster) ReplayFromBlock(number int64) {
 }
 
 func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
