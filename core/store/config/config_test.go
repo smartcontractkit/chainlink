@@ -1,4 +1,4 @@
-package orm_test
+package config_test
 
 import (
 	"math/big"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +45,7 @@ func TestConfig_SetEthGasPriceDefault(t *testing.T) {
 }
 
 func TestConfig_Profiles(t *testing.T) {
-	config := orm.NewConfig()
+	config := config.NewConfig()
 
 	tests := []struct {
 		name                           string
@@ -86,18 +86,18 @@ func TestConfig_MinimumContractPayment(t *testing.T) {
 		os.Setenv("MINIMUM_CONTRACT_PAYMENT", originalLink)
 	}()
 
-	config := orm.NewConfig()
-	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
+	cfg := config.NewConfig()
+	assert.Equal(t, assets.NewLink(1000000000000000000), cfg.MinimumContractPayment())
 
 	os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", "5987")
-	config = orm.NewConfig()
-	assert.Equal(t, assets.NewLink(5987), config.MinimumContractPayment())
+	cfg = config.NewConfig()
+	assert.Equal(t, assets.NewLink(5987), cfg.MinimumContractPayment())
 
 	os.Setenv("MINIMUM_CONTRACT_PAYMENT", "4937")
-	config = orm.NewConfig()
-	assert.Equal(t, assets.NewLink(5987), config.MinimumContractPayment())
+	cfg = config.NewConfig()
+	assert.Equal(t, assets.NewLink(5987), cfg.MinimumContractPayment())
 
 	os.Setenv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", "")
-	config = orm.NewConfig()
-	assert.Equal(t, assets.NewLink(4937), config.MinimumContractPayment())
+	cfg = config.NewConfig()
+	assert.Equal(t, assets.NewLink(4937), cfg.MinimumContractPayment())
 }

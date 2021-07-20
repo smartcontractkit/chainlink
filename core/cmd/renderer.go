@@ -9,8 +9,8 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -133,7 +133,7 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 
 func (rt RendererTable) renderConfiguration(cp presenters.ConfigPrinter) error {
 	table := rt.newTable([]string{"Key", "Value"})
-	schemaT := reflect.TypeOf(orm.ConfigSchema{})
+	schemaT := reflect.TypeOf(config.ConfigSchema{})
 	cpT := reflect.TypeOf(cp.EnvPrinter)
 	cpV := reflect.ValueOf(cp.EnvPrinter)
 

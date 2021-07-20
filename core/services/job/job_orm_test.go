@@ -310,34 +310,34 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err = store.DB.First(&ocrJob).Error
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 1)
-		cltest.AssertCount(t, store, pipeline.Spec{}, 1)
+		cltest.AssertCount(t, db, job.OffchainReportingOracleSpec{}, 1)
+		cltest.AssertCount(t, db, pipeline.Spec{}, 1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		err = orm.DeleteJob(ctx, ocrJob.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 0)
-		cltest.AssertCount(t, store, pipeline.Spec{}, 0)
-		cltest.AssertCount(t, store, job.Job{}, 0)
+		cltest.AssertCount(t, db, job.OffchainReportingOracleSpec{}, 0)
+		cltest.AssertCount(t, db, pipeline.Spec{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
 		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store, keyStore.Eth())
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-		cltest.AssertCount(t, store, job.KeeperSpec{}, 1)
-		cltest.AssertCount(t, store, keeper.Registry{}, 1)
-		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 1)
+		cltest.AssertCount(t, db, job.KeeperSpec{}, 1)
+		cltest.AssertCount(t, db, keeper.Registry{}, 1)
+		cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		err := orm.DeleteJob(ctx, keeperJob.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, store, job.KeeperSpec{}, 0)
-		cltest.AssertCount(t, store, keeper.Registry{}, 0)
-		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 0)
-		cltest.AssertCount(t, store, job.Job{}, 0)
+		cltest.AssertCount(t, db, job.KeeperSpec{}, 0)
+		cltest.AssertCount(t, db, keeper.Registry{}, 0)
+		cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
 	})
 
 	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
@@ -352,7 +352,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		defer cancel()
 		err = orm.DeleteJob(ctx, jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, store, job.VRFSpec{}, 0)
-		cltest.AssertCount(t, store, job.Job{}, 0)
+		cltest.AssertCount(t, db, job.VRFSpec{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
 	})
 }

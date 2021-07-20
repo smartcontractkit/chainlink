@@ -31,7 +31,7 @@ type JobSubscription struct {
 // StartJobSubscription constructs a JobSubscription which listens for and
 // tracks event logs corresponding to the specified job. Ignores any errors if
 // there is at least one successful subscription to an initiator log.
-func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
+func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager, ethClient eth.Client) (JobSubscription, error) {
 	var merr error
 	var initatorSubscriptions []InitiatorSubscription
 	var nextHead *big.Int
@@ -42,7 +42,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	defer cancel()
 
 	if head == nil {
-		latestBlock, err := store.EthClient.BlockByNumber(ctx, nil)
+		latestBlock, err := ethClient.BlockByNumber(ctx, nil)
 		if err != nil {
 			return JobSubscription{}, err
 		}
@@ -70,7 +70,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 			merr = multierr.Append(merr, err)
 			continue
 		}
-		is, err := NewInitiatorSubscription(initr, store.EthClient, runManager, filter, store.Config.EthLogBackfillBatchSize(), ProcessLogRequest)
+		is, err := NewInitiatorSubscription(initr, ethClient, runManager, filter, store.Config.EthLogBackfillBatchSize(), ProcessLogRequest)
 		if err != nil {
 			merr = multierr.Append(merr, err)
 		} else {

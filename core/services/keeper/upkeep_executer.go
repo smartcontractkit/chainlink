@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -40,7 +39,7 @@ var _ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 type UpkeepExecuter struct {
 	chStop          chan struct{}
 	ethClient       eth.Client
-	config          orm.ConfigReader
+	config          Config
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	job             job.Job
@@ -57,7 +56,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	config orm.ConfigReader,
+	config Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
 		chStop:          make(chan struct{}),

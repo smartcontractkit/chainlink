@@ -7,6 +7,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+//
+// Return types:
+//     map[string]interface{} with any geth/abigen value type
+//
 type ETHABIDecodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
 
@@ -49,7 +49,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint64(300), cp.MinimumRequestExpiration)
 	assert.Equal(t, big.NewInt(5000000000), cp.EthGasBumpWei)
 	assert.Equal(t, big.NewInt(20000000000), cp.EthGasPriceDefault)
-	assert.Equal(t, orm.NewConfig().BlockBackfillDepth(), cp.BlockBackfillDepth)
+	assert.Equal(t, config.NewConfig().BlockBackfillDepth(), cp.BlockBackfillDepth)
 	assert.Equal(t, assets.NewLink(100), cp.MinimumContractPayment)
 	assert.Equal(t, common.Address{}, cp.OperatorContractAddress)
 	assert.Equal(t, time.Second*5, cp.DatabaseTimeout.Duration())

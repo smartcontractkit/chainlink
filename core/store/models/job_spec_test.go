@@ -229,7 +229,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 
 	taskRun := run.TaskRuns[0]
 	assert.Equal(t, "noop", taskRun.TaskSpec.Type.String())
-	adapter, _ := adapters.For(taskRun.TaskSpec, store.Config, store.ORM)
+	adapter, _ := adapters.For(taskRun.TaskSpec, store.Config, store.ORM, nil)
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 

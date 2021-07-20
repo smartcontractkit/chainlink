@@ -8,6 +8,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+//
+// Return types:
+//    *decimal.Decimal
+//
 type SumTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`

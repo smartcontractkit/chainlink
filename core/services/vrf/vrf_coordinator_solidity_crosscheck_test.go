@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -91,7 +91,7 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.Key) coor
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
 func newVRFCoordinatorUniverse(t *testing.T, key ethkey.Key) coordinatorUniverse {
-	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON, cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 	var (
@@ -332,7 +332,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = orm.NewConfig().EthGasLimitDefault()
+	neil.GasLimit = config.NewConfig().EthGasLimitDefault()
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	gormpostgres "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"gopkg.in/guregu/null.v4"
 
@@ -18,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -42,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -58,7 +58,7 @@ type vrfUniverse struct {
 	hb        httypes.HeadBroadcaster
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *orm.Config) vrfUniverse {
+func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
@@ -71,7 +71,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *orm.Config) vrfUniverse {
 	t.Cleanup(func() { eb.Close() })
 	prm := pipeline.NewORM(db)
 	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
-	pr := pipeline.NewRunner(prm, cfg, ec, nil)
+	pr := pipeline.NewRunner(prm, cfg, ec, nil, nil)
 	ks := keystore.New(db, utils.FastScryptParams)
 	require.NoError(t, ks.Eth().Unlock("blah"))
 	_, err = ks.Eth().CreateNewKey()
@@ -129,7 +129,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 
 func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 	db := pgtest.NewGormDB(t)
-	c := orm.NewConfig()
+	c := config.NewConfig()
 	vuni := buildVrfUni(t, db, c)
 
 	vd := NewDelegate(
@@ -187,40 +187,44 @@ func TestStartingCounts(t *testing.T) {
 	md2, err := json.Marshal(&m2)
 	var txes = []bulletprooftxmanager.EthTx{
 		{
-			Nonce:       &n1,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{},
+			Nonce:          &n1,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON{},
+			EncodedPayload: []byte{},
 		},
 		{
-			Nonce:       &n2,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{RawMessage: md1},
+			Nonce:          &n2,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON(md1),
+			EncodedPayload: []byte{},
 		},
 		{
-			Nonce:       &n3,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{RawMessage: md2},
+			Nonce:          &n3,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON(md2),
+			EncodedPayload: []byte{},
 		},
 		{
-			Nonce:       &n4,
-			FromAddress: k.Address.Address(),
-			Error:       null.String{},
-			BroadcastAt: &b,
-			CreatedAt:   b,
-			State:       bulletprooftxmanager.EthTxConfirmed,
-			Meta:        gormpostgres.Jsonb{RawMessage: md2},
+			Nonce:          &n4,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           datatypes.JSON(md2),
+			EncodedPayload: []byte{},
 		},
 	}
 	require.NoError(t, db.Create(&txes).Error)

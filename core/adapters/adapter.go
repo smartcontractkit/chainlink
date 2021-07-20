@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -77,12 +78,12 @@ func (p PipelineAdapter) MinPayment() *assets.Link {
 }
 
 // For determines the adapter type to use for a given task.
-func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*PipelineAdapter, error) {
+func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM, ethClient eth.Client) (*PipelineAdapter, error) {
 	var err error
 	mic := config.MinIncomingConfirmations()
 	var mp *assets.Link
 
-	ba := FindNativeAdapterFor(task)
+	ba := FindNativeAdapterFor(task, ethClient)
 	if ba != nil { // task is for native adapter
 		err = unmarshalParams(task.Params, ba)
 	} else { // task is for external adapter
@@ -110,7 +111,7 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 }
 
 // FindNativeAdapterFor find the native adapter for a given task
-func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
+func FindNativeAdapterFor(task models.TaskSpec, ethClient eth.Client) BaseAdapter {
 	switch task.Type {
 	case TaskTypeCopy:
 		return &Copy{}
@@ -143,7 +144,7 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 	case TaskTypeSleep:
 		return &Sleep{}
 	case TaskTypeRandom:
-		return &Random{}
+		return &Random{Backend: ethClient}
 	case TaskTypeCompare:
 		return &Compare{}
 	case TaskTypeQuotient:
