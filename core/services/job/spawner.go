@@ -23,11 +23,6 @@ type (
 	// The job spawner manages the spinning up and spinning down of the long-running
 	// services that perform the work described by job specs.  Each active job spec
 	// has 1 or more of these services associated with it.
-	//
-	// At present, Flux Monitor and Offchain Reporting jobs can only have a single
-	// "initiator", meaning that they only require a single service.  But the older
-	// "direct request" model allows for multiple initiators, which imply multiple
-	// services.
 	Spawner interface {
 		service.Service
 		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)

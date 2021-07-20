@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,8 +21,8 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -178,6 +180,57 @@ func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
 	helper.mockEth.assertExpectations(t)
 }
 
+func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
+	t.Parallel()
+
+	const (
+		lastStoredBlockHeight       = 100
+		blockHeight           int64 = 125
+	)
+
+	backfillTimes := 1
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: backfillTimes,
+		HeaderByNumber:      backfillTimes,
+		FilterLogs:          backfillTimes,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper.mockEth = mockEth
+
+	backfillDepth := 15
+
+	helper.store.Config.Set(config.EnvVarName("BlockBackfillSkip"), true)
+	helper.store.Config.Set(config.EnvVarName("BlockBackfillDepth"), backfillDepth)
+
+	var backfillCount int64
+	var backfillCountPtr = &backfillCount
+
+	listener := helper.newLogListener("one")
+	helper.register(listener, newMockContract(), uint64(10))
+
+	listener2 := helper.newLogListener("two")
+	helper.register(listener2, newMockContract(), uint64(2))
+
+	// the backfill does not use the height from DB because BlockBackfillSkip is true
+	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+		atomic.StoreInt64(backfillCountPtr, 1)
+		require.Equal(t, blockHeight-int64(backfillDepth), fromBlock)
+	}
+
+	helper.start()
+
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+	helper.stop()
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	helper.mockEth.assertExpectations(t)
+}
+
 func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	t.Parallel()
 
@@ -202,7 +255,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
-	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
+	helper.store.Config.Set(config.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -276,7 +329,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	helper.store.Config.Set(orm.EnvVarName("EthLogBackfillBatchSize"), batchSize)
+	helper.store.Config.Set(config.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -456,7 +509,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(1))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -537,7 +590,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(4))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(4))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -618,7 +671,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(3))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(3))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -627,15 +680,15 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	blocks := cltest.NewBlocks(t, 20)
 
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	field1Value1 := cltest.NewHash()
-	field1Value2 := cltest.NewHash()
-	field2Value1 := cltest.NewHash()
-	field2Value2 := cltest.NewHash()
+	field1Value1 := utils.NewHash()
+	field1Value2 := utils.NewHash()
+	field2Value1 := utils.NewHash()
+	field2Value2 := utils.NewHash()
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNumWithTopics(1, 0, contract1.Address(), []common.Hash{topic, field1Value1, field2Value1}),
 		blocks.LogOnBlockNumWithTopics(1, 1, contract1.Address(), []common.Hash{topic, field1Value2, field2Value2}),
-		blocks.LogOnBlockNumWithTopics(2, 0, contract1.Address(), []common.Hash{topic, cltest.NewHash(), field2Value2}),
-		blocks.LogOnBlockNumWithTopics(2, 1, contract1.Address(), []common.Hash{topic, field1Value2, cltest.NewHash()}),
+		blocks.LogOnBlockNumWithTopics(2, 0, contract1.Address(), []common.Hash{topic, utils.NewHash(), field2Value2}),
+		blocks.LogOnBlockNumWithTopics(2, 1, contract1.Address(), []common.Hash{topic, field1Value2, utils.NewHash()}),
 	}
 
 	listener0 := helper.newLogListener("listener 0")
@@ -708,7 +761,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(2))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(2))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -823,7 +876,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(2))
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(2))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -1098,7 +1151,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
 			var backfillDepth int64 = 5
-			helper.store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), uint64(backfillDepth)) // something other than default
+			helper.store.Config.Set(config.EnvVarName("BlockBackfillDepth"), uint64(backfillDepth)) // something other than default
 
 			helper.start()
 			defer helper.stop()

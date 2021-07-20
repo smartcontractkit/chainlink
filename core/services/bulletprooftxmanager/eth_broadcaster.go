@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
@@ -25,6 +27,8 @@ import (
 // will poll the unconfirmed queue to see if it is allowed to send another
 // transaction
 const InFlightTransactionRecheckInterval = 1 * time.Second
+
+var errEthTxRemoved = errors.New("eth_tx removed")
 
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
@@ -244,7 +248,10 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 
-		if err := eb.saveInProgressTransaction(etx, &a); err != nil {
+		if err := eb.saveInProgressTransaction(etx, &a); errors.Is(err, errEthTxRemoved) {
+			logger.Debugw("EthBroadcaster: eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
+			continue
+		} else if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 
@@ -427,7 +434,18 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 	}
 	etx.State = EthTxInProgress
 	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
-		if err := tx.Create(attempt).Error; err != nil {
+		err := tx.Create(attempt).Error
+		switch e := err.(type) {
+		case *pq.Error:
+			if e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
+			}
+		case *pgconn.PgError:
+			if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
+			}
+		}
+		if err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
 		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")

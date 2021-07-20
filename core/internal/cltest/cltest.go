@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -49,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -57,7 +57,6 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -80,6 +79,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
+
+	// Force import of pgtest to ensure that txdb is registered as a DB driver
+	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
 const (
@@ -128,27 +130,6 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
 	logger.SetLogger(logger.CreateTestLogger(lvl))
-	// Register txdb as dialect wrapping postgres
-	// See: DialectTransactionWrappedPostgres
-	config := orm.NewConfig()
-
-	parsed := config.DatabaseURL()
-	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid DATABASE_URL: `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.String())
-		panic(msg)
-	}
-	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
-		panic(msg)
-	}
-	// Disable SavePoints because they cause random errors for reasons I cannot fathom
-	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
-	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
-	// a no-op, this should have no negative impact on normal test operation.
-	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
-	// store to use the raw DialectPostgres dialect and setup a one-use database.
-	// See BootstrapThrowawayORM() as a convenience function to help you do this.
-	txdb.Register(string(dialects.TransactionWrappedPostgres), string(dialects.Postgres), parsed.String(), txdb.SavePointOption(nil))
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
@@ -186,7 +167,7 @@ func logLevelFromEnv() zapcore.Level {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	*orm.Config
+	*config.Config
 	wsServer *httptest.Server
 }
 
@@ -248,7 +229,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := orm.NewConfig()
+	rawConfig := config.NewConfig()
 
 	rawConfig.Dialect = dialects.TransactionWrappedPostgres
 	for _, opt := range options {
@@ -303,11 +284,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, txManager pipeline.TxManager) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.KeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, tc, db)
 	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config, ethClient, txManager)
+	pr := pipeline.NewRunner(prm, tc.Config, ethClient, keyStore, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -326,12 +307,12 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, store *strpkg.Store, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(store.DB, store.EthClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
 		assert.NoError(t, eventBroadcaster.Close())
 	}
 }
@@ -425,7 +406,7 @@ func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestAppl
 	}
 }
 
-// NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
+// NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
@@ -622,7 +603,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() string {
 	session := NewSession()
-	require.NoError(ta.t, ta.Store.SaveSession(&session))
+	require.NoError(ta.t, ta.Store.DB.Save(&session).Error)
 	return session.ID
 }
 
@@ -704,7 +685,7 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -714,13 +695,14 @@ func NewStoreWithConfig(t testing.TB, config *TestConfig, flagsAndDeps ...interf
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewInsecureStore(tcfg.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
-	s.Config.SetRuntimeStore(s.ORM)
+	orm := config.NewORM(s.DB)
+	s.Config.SetRuntimeStore(orm)
 	return s, func() {
-		cleanUpStore(config.t, s)
+		cleanUpStore(tcfg.t, s)
 	}
 }
 
@@ -1194,7 +1176,7 @@ func SendBlocksUntilComplete(
 	var err error
 	block := start
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		h := models.NewHead(big.NewInt(block), utils.NewHash(), utils.NewHash(), 0)
 		blockCh <- &h
 		block++
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
@@ -1335,10 +1317,11 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 	return prs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
+	var numPipelineRuns int
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
@@ -1357,12 +1340,13 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, e
 				}
 			}
 		}
-		if len(completed) >= count {
+		numPipelineRuns = len(completed)
+		if len(completed) >= expectedPipelineRuns {
 			pr = completed
 			return true
 		}
 		return false
-	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs (found %v runs)", jobID, nodeID, expectedPipelineRuns, numPipelineRuns))
 	return pr
 }
 
@@ -1395,6 +1379,13 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 		return prs
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return prs
+}
+
+func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
 }
 
 // WaitForRunsAtLeast waits for at least the passed number of runs to start.
@@ -1513,13 +1504,13 @@ func Head(val interface{}) *models.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
 	case int64:
-		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), time)
+		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time)
 	case *big.Int:
-		h = models.NewHead(t, NewHash(), NewHash(), time)
+		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time)
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
@@ -1543,6 +1534,19 @@ func BlockWithTransactions(gasPrices ...int64) *types.Block {
 		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
 	return types.NewBlock(&types.Header{}, txs, nil, nil, new(trie.Trie))
+}
+
+type TransactionReceipter interface {
+	TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error)
+}
+
+func RequireTxSuccessful(t testing.TB, client TransactionReceipter, txHash common.Hash) *types.Receipt {
+	t.Helper()
+	r, err := client.TransactionReceipt(context.Background(), txHash)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	require.Equal(t, uint64(1), r.Status)
+	return r
 }
 
 func StringToHash(s string) common.Hash {
@@ -2069,7 +2073,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*models.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
-		hash := NewHash()
+		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
 		heads[i] = &models.Head{Hash: hash, Number: i}
@@ -2131,10 +2135,10 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
+func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 	t.Helper()
 	var count int64
-	err := store.DB.Unscoped().Model(model).Count(&count).Error
+	err := db.Unscoped().Model(model).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

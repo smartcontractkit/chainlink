@@ -1,4 +1,4 @@
-package orm
+package config
 
 import (
 	"context"
@@ -63,10 +63,11 @@ type (
 	//
 	// If you add an entry here which does not contain sensitive information, you
 	// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
+	// TODO: Make this private and expose an interface?
 	Config struct {
 		viper            *viper.Viper
 		SecretGenerator  SecretGenerator
-		runtimeStore     *ORM
+		ORM              *ORM
 		randomP2PPort    uint16
 		randomP2PPortMtx *sync.RWMutex
 		Dialect          dialects.DialectName
@@ -211,7 +212,7 @@ func (c *Config) Validate() error {
 // SetRuntimeStore tells the configuration system to use a store for retrieving
 // configuration variables that can be configured at runtime.
 func (c *Config) SetRuntimeStore(orm *ORM) {
-	c.runtimeStore = orm
+	c.ORM = orm
 }
 
 // Set a specific configuration variable
@@ -279,6 +280,11 @@ func (c Config) BalanceMonitorEnabled() bool {
 // log broadcaster will try to re-consume logs from
 func (c Config) BlockBackfillDepth() uint64 {
 	return c.getWithFallback("BlockBackfillDepth", parseUint64).(uint64)
+}
+
+// BlockBackfillSkip enables skipping of very long log backfills
+func (c Config) BlockBackfillSkip() bool {
+	return c.getWithFallback("BlockBackfillSkip", parseBool).(bool)
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
@@ -599,9 +605,9 @@ func (c Config) EthGasLimitTransfer() uint64 {
 
 // EthGasPriceDefault is the starting gas price for every transaction
 func (c Config) EthGasPriceDefault() *big.Int {
-	if c.runtimeStore != nil {
+	if c.ORM != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.ORM.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value
@@ -643,10 +649,10 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 	if value.Cmp(max) > 0 {
 		return errors.Errorf("cannot set default gas price to %s, it is above the maximum allowed value of %s", value.String(), max.String())
 	}
-	if c.runtimeStore == nil {
+	if c.ORM == nil {
 		return errors.New("No runtime store installed")
 	}
-	return c.runtimeStore.SetConfigValue("EthGasPriceDefault", value)
+	return c.ORM.SetConfigValue("EthGasPriceDefault", value)
 }
 
 // EthFinalityDepth is the number of blocks after which an ethereum transaction is considered "final"
@@ -1144,9 +1150,9 @@ func (c Config) OperatorContractAddress() common.Address {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
-	if c.runtimeStore != nil {
+	if c.ORM != nil {
 		var value LogLevel
-		if err := c.runtimeStore.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.ORM.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
 		} else if err == nil {
 			return value
@@ -1157,7 +1163,7 @@ func (c Config) LogLevel() LogLevel {
 
 // SetLogLevel saves a runtime value for the default logger level
 func (c Config) SetLogLevel(ctx context.Context, value string) error {
-	if c.runtimeStore == nil {
+	if c.ORM == nil {
 		return errors.New("No runtime store installed")
 	}
 	var ll LogLevel
@@ -1165,7 +1171,7 @@ func (c Config) SetLogLevel(ctx context.Context, value string) error {
 	if err != nil {
 		return err
 	}
-	return c.runtimeStore.SetConfigStrValue(ctx, "LogLevel", ll.String())
+	return c.ORM.SetConfigStrValue(ctx, "LogLevel", ll.String())
 }
 
 // LogToDisk configures disk preservation of logs.
@@ -1175,8 +1181,8 @@ func (c Config) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c Config) LogSQLStatements() bool {
-	if c.runtimeStore != nil {
-		logSqlStatements, err := c.runtimeStore.GetConfigBoolValue("LogSQLStatements")
+	if c.ORM != nil {
+		logSqlStatements, err := c.ORM.GetConfigBoolValue("LogSQLStatements")
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch LogSQLStatements.", "error", err)
 		} else if err == nil {
@@ -1188,11 +1194,11 @@ func (c Config) LogSQLStatements() bool {
 
 // SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
 func (c Config) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
-	if c.runtimeStore == nil {
+	if c.ORM == nil {
 		return errors.New("No runtime store installed")
 	}
 
-	return c.runtimeStore.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
+	return c.ORM.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
@@ -1500,14 +1506,14 @@ func (c Config) UnAuthenticatedRateLimitPeriod() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
 }
 
-func (c Config) tlsDir() string {
+func (c Config) TLSDir() string {
 	return filepath.Join(c.RootDir(), "tls")
 }
 
 // KeyFile returns the path where the server key is kept
 func (c Config) KeyFile() string {
 	if c.TLSKeyPath() == "" {
-		return filepath.Join(c.tlsDir(), "server.key")
+		return filepath.Join(c.TLSDir(), "server.key")
 	}
 	return c.TLSKeyPath()
 }
@@ -1515,7 +1521,7 @@ func (c Config) KeyFile() string {
 // CertFile returns the path where the server certificate is kept
 func (c Config) CertFile() string {
 	if c.TLSCertPath() == "" {
-		return filepath.Join(c.tlsDir(), "server.crt")
+		return filepath.Join(c.TLSDir(), "server.crt")
 	}
 	return c.TLSCertPath()
 }

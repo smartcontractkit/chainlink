@@ -48,6 +48,7 @@ func GormTransactionWithoutContext(db *gorm.DB, fc func(tx *gorm.DB) error, txOp
 	}, &txOpts)
 }
 
+// DEPRECATED: Use the transaction manager instead.
 func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {
@@ -67,6 +68,7 @@ func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) erro
 	}, &txOpts)
 }
 
+// DEPRECATED: Use the transaction manager instead.
 func GormTransactionWithDefaultContext(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) error {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {

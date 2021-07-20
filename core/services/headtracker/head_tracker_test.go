@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -305,7 +307,6 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
-	store.EthClient = ethClient
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
@@ -338,7 +339,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	orm := headtracker.NewORM(store.DB)
 	ht := createHeadTrackerWithChecker(ethClient, store.Config, orm, checker)
 
-	require.NoError(t, ht.headTracker.Save(context.TODO(), models.NewHead(lastSavedBN, cltest.NewHash(), cltest.NewHash(), 0)))
+	require.NoError(t, ht.headTracker.Save(context.TODO(), models.NewHead(lastSavedBN, utils.NewHash(), utils.NewHash(), 0)))
 
 	assert.Nil(t, ht.Start())
 	headers := <-chchHeaders
@@ -400,22 +401,22 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	blockHeaders := []*models.Head{}
 
 	// First block comes in
-	blockHeaders = append(blockHeaders, &models.Head{Number: 1, Hash: cltest.NewHash(), ParentHash: cltest.NewHash(), Timestamp: time.Unix(1, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(1, 0)})
 	// Blocks 2 and 3 are out of order
-	head2 := &models.Head{Number: 2, Hash: cltest.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(2, 0)}
-	head3 := &models.Head{Number: 3, Hash: cltest.NewHash(), ParentHash: head2.Hash, Timestamp: time.Unix(3, 0)}
+	head2 := &models.Head{Number: 2, Hash: utils.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(2, 0)}
+	head3 := &models.Head{Number: 3, Hash: utils.NewHash(), ParentHash: head2.Hash, Timestamp: time.Unix(3, 0)}
 	blockHeaders = append(blockHeaders, head3)
 	blockHeaders = append(blockHeaders, head2)
 	// Block 4 comes in
-	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(4, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: utils.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(4, 0)})
 	// Another block at level 4 comes in, that will be uncled
-	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(5, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: utils.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(5, 0)})
 	// Reorg happened forking from block 2
-	blockHeaders = append(blockHeaders, &models.Head{Number: 2, Hash: cltest.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(6, 0)})
-	blockHeaders = append(blockHeaders, &models.Head{Number: 3, Hash: cltest.NewHash(), ParentHash: blockHeaders[5].Hash, Timestamp: time.Unix(7, 0)})
-	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[6].Hash, Timestamp: time.Unix(8, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 2, Hash: utils.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(6, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 3, Hash: utils.NewHash(), ParentHash: blockHeaders[5].Hash, Timestamp: time.Unix(7, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: utils.NewHash(), ParentHash: blockHeaders[6].Hash, Timestamp: time.Unix(8, 0)})
 	// Now the new chain is longer
-	blockHeaders = append(blockHeaders, &models.Head{Number: 5, Hash: cltest.NewHash(), ParentHash: blockHeaders[7].Hash, Timestamp: time.Unix(9, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 5, Hash: utils.NewHash(), ParentHash: blockHeaders[7].Hash, Timestamp: time.Unix(9, 0)})
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
 		return h.Number == 1 && h.Hash == blockHeaders[0].Hash
@@ -518,17 +519,17 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := models.NewHead(gethHead0.Number, cltest.NewHash(), gethHead0.ParentHash, gethHead0.Time)
+	head0 := models.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time)
 
 	h1 := *cltest.Head(1)
 	h1.ParentHash = head0.Hash
 
 	gethHead8 := &gethTypes.Header{
 		Number:     big.NewInt(8),
-		ParentHash: cltest.NewHash(),
+		ParentHash: utils.NewHash(),
 		Time:       now,
 	}
-	head8 := models.NewHead(gethHead8.Number, cltest.NewHash(), gethHead8.ParentHash, gethHead8.Time)
+	head8 := models.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time)
 
 	h9 := *cltest.Head(9)
 	h9.ParentHash = head8.Hash
@@ -538,7 +539,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
-	head10 := models.NewHead(gethHead10.Number, cltest.NewHash(), gethHead10.ParentHash, gethHead10.Time)
+	head10 := models.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time)
 
 	h11 := *cltest.Head(11)
 	h11.ParentHash = head10.Hash
@@ -686,7 +687,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		orm := headtracker.NewORM(store.DB)
 
 		ethClient := new(mocks.Client)
-		store.EthClient = ethClient
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
@@ -715,7 +715,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := new(mocks.Client)
-		store.EthClient = ethClient
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
 			Once()
@@ -748,7 +747,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := new(mocks.Client)
-		store.EthClient = ethClient
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).

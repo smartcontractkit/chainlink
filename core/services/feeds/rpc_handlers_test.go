@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/stretchr/testify/require"
@@ -14,7 +14,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	svc := setupTestService(t)
 
 	var (
-		jobID          = uuid.New()
+		jobID          = uuid.NewV4()
 		spec           = `some spec`
 		feedsManagerID = int64(1)
 	)
@@ -25,6 +25,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 			Spec:           spec,
 			Status:         feeds.JobProposalStatusPending,
 			FeedsManagerID: feedsManagerID,
+			RemoteUUID:     jobID,
 		}).
 		Return(int64(1), nil)
 

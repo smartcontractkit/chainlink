@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/lib/pq"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -15,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -24,6 +27,7 @@ import (
 type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
+	txm         *pgmocks.TransactionManager
 	fmsClient   *mocks.FeedsManagerClient
 	csaKeystore *ksmocks.CSAKeystoreInterface
 	ethKeystore *ksmocks.EthKeyStoreInterface
@@ -31,15 +35,19 @@ type TestService struct {
 }
 
 func setupTestService(t *testing.T) *TestService {
-	orm := &mocks.ORM{}
-	fmsClient := &mocks.FeedsManagerClient{}
-	csaKeystore := &ksmocks.CSAKeystoreInterface{}
-	ethKeystore := &ksmocks.EthKeyStoreInterface{}
-	cfg := &mocks.Config{}
+	var (
+		orm         = &mocks.ORM{}
+		txm         = &pgmocks.TransactionManager{}
+		fmsClient   = &mocks.FeedsManagerClient{}
+		csaKeystore = &ksmocks.CSAKeystoreInterface{}
+		ethKeystore = &ksmocks.EthKeyStoreInterface{}
+		cfg         = &mocks.Config{}
+	)
 
 	t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t,
 			orm,
+			txm,
 			fmsClient,
 			csaKeystore,
 			ethKeystore,
@@ -47,12 +55,13 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	svc := feeds.NewService(orm, csaKeystore, ethKeystore, cfg)
+	svc := feeds.NewService(orm, txm, csaKeystore, ethKeystore, cfg)
 	svc.SetFMSClient(fmsClient)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
+		txm:         txm,
 		fmsClient:   fmsClient,
 		csaKeystore: csaKeystore,
 		ethKeystore: ethKeystore,
@@ -158,13 +167,14 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	var (
 		ctx      = context.Background()
 		feedsMgr = &feeds.FeedsManager{
-			ID:       1,
-			JobTypes: pq.StringArray{feeds.JobTypeFluxMonitor},
+			ID:                 1,
+			JobTypes:           pq.StringArray{feeds.JobTypeFluxMonitor},
+			IsOCRBootstrapPeer: true,
 		}
 		chainID    = big.NewInt(1)
-		fundingKey = ethkey.Key{
+		sendingKey = ethkey.Key{
 			Address:   ethkey.EIP55AddressFromAddress(rawKey.Address),
-			IsFunding: true,
+			IsFunding: false,
 		}
 	)
 
@@ -172,17 +182,48 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", ctx, feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("FundingKeys").Return([]ethkey.Key{fundingKey}, nil)
+	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:         []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
 		ChainId:          chainID.Int64(),
-		FundingAddresses: []string{fundingKey.Address.String()},
+		AccountAddresses: []string{sendingKey.Address.String()},
+		IsBootstrapPeer:  true,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
+	require.NoError(t, err)
+}
+
+func Test_Service_RejectJobProposal(t *testing.T) {
+	var (
+		ctx = context.Background()
+		jp  = &feeds.JobProposal{
+			ID:         1,
+			RemoteUUID: uuid.NewV4(),
+			Status:     feeds.JobProposalStatusPending,
+		}
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+	ctx = mockTransactWithContext(ctx, svc.txm)
+	svc.orm.On("UpdateJobProposalStatus",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		jp.ID,
+		feeds.JobProposalStatusRejected,
+	).Return(nil)
+	svc.fmsClient.On("RejectedJob",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		&proto.RejectedJobRequest{
+			Uuid: jp.RemoteUUID.String(),
+		},
+	).Return(&proto.RejectedJobResponse{}, nil)
+
+	err := svc.RejectJobProposal(ctx, jp.ID)
 	require.NoError(t, err)
 }
 
@@ -212,4 +253,18 @@ func Test_Service_StartStop(t *testing.T) {
 	require.NoError(t, err)
 
 	svc.Close()
+}
+
+func mockTransactWithContext(ctx context.Context, txm *pgmocks.TransactionManager) context.Context {
+	call := txm.On("TransactWithContext",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		mock.Anything,
+	)
+	call.Run(func(args mock.Arguments) {
+		arg := args.Get(1).(postgres.TxFn)
+		err := arg(ctx)
+		call.Return(err)
+	})
+
+	return ctx
 }

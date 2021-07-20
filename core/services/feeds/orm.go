@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
 )
 
@@ -19,6 +20,7 @@ type ORM interface {
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
 	ListJobProposals(ctx context.Context) ([]JobProposal, error)
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
+	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error
 }
 
 type orm struct {
@@ -37,12 +39,12 @@ func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int64, error
 	now := time.Now()
 
 	stmt := `
-		INSERT INTO feeds_managers (name, uri, public_key, job_types, network, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO feeds_managers (name, uri, public_key, job_types, network, is_ocr_bootstrap_peer, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id;
 	`
 
-	row := o.db.Raw(stmt, ms.Name, ms.URI, ms.PublicKey, ms.JobTypes, ms.Network, now, now).Row()
+	row := o.db.Raw(stmt, ms.Name, ms.URI, ms.PublicKey, ms.JobTypes, ms.Network, ms.IsOCRBootstrapPeer, now, now).Row()
 	if row.Err() != nil {
 		return id, row.Err()
 	}
@@ -59,7 +61,7 @@ func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int64, error
 func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 	mgrs := []FeedsManager{}
 	stmt := `
-		SELECT id, name, uri, public_key, job_types, network, created_at, updated_at
+		SELECT id, name, uri, public_key, job_types, network, is_ocr_bootstrap_peer, created_at, updated_at
 		FROM feeds_managers;
 	`
 
@@ -74,7 +76,7 @@ func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 // GetManager gets a feeds manager by id
 func (o *orm) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	stmt := `
-		SELECT id, name, uri, public_key, job_types, network, created_at, updated_at
+		SELECT id, name, uri, public_key, job_types, network, is_ocr_bootstrap_peer, created_at, updated_at
 		FROM feeds_managers
 		WHERE id = ?;
 	`
@@ -113,12 +115,12 @@ func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 	now := time.Now()
 
 	stmt := `
-		INSERT INTO job_proposals (spec, status, feeds_manager_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
 		RETURNING id;
 	`
 
-	row := o.db.Raw(stmt, jp.Spec, jp.Status, jp.FeedsManagerID, now, now).Row()
+	row := o.db.Raw(stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, now, now).Row()
 	if row.Err() != nil {
 		return id, row.Err()
 	}
@@ -135,7 +137,7 @@ func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 	jps := []JobProposal{}
 	stmt := `
-		SELECT id, spec, status, job_id, feeds_manager_id, created_at, updated_at
+		SELECT remote_uuid, id, spec, status, job_id, feeds_manager_id, created_at, updated_at
 		FROM job_proposals;
 	`
 
@@ -150,7 +152,7 @@ func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 // GetJobProposal gets a job proposal by id
 func (o *orm) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error) {
 	stmt := `
-		SELECT id, spec, status, job_id, feeds_manager_id, created_at, updated_at
+		SELECT id, remote_uuid, spec, status, job_id, feeds_manager_id, created_at, updated_at
 		FROM job_proposals
 		WHERE id = ?;
 	`
@@ -165,6 +167,30 @@ func (o *orm) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error
 	}
 
 	return &jp, nil
+}
+
+// RejectJobProposal updates the stataus of a job proposal by id.
+func (o *orm) UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error {
+	tx := postgres.TxFromContext(ctx, o.db)
+
+	now := time.Now()
+
+	stmt := `
+		UPDATE job_proposals
+		SET status = ?,
+		updated_at = ?
+		WHERE id = ?;
+	`
+
+	result := tx.Exec(stmt, status, now, id)
+	if result.RowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
 }
 
 // CountJobProposals counts the number of job proposal records.

@@ -15,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+//
+// Return types:
+//     string
+//
 type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 

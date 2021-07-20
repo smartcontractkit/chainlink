@@ -119,7 +119,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
-		runner := pipeline.NewRunner(orm, config, nil, nil)
+		runner := pipeline.NewRunner(orm, config, nil, nil, nil)
 		defer runner.Close()
 		jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()

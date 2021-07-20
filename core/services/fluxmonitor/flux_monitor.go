@@ -64,6 +64,7 @@ type Service interface {
 type concreteFluxMonitor struct {
 	muLogger       sync.RWMutex
 	store          *store.Store
+	ethClient      eth.Client
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
 	log            *logger.Logger
@@ -89,12 +90,15 @@ func New(
 	ethKeyStore *keystore.Eth,
 	runManager RunManager,
 	logBroadcaster log.Broadcaster,
+	ethClient eth.Client,
 ) Service {
 	return &concreteFluxMonitor{
 		store:          store,
+		ethClient:      ethClient,
 		runManager:     runManager,
 		logBroadcaster: logBroadcaster,
 		checkerFactory: pollingDeviationCheckerFactory{
+			ethClient:      ethClient,
 			store:          store,
 			ethKeyStore:    ethKeyStore,
 			logBroadcaster: logBroadcaster,
@@ -285,6 +289,7 @@ type DeviationCheckerFactory interface {
 
 type pollingDeviationCheckerFactory struct {
 	store          *store.Store
+	ethClient      eth.Client
 	ethKeyStore    *keystore.Eth
 	logBroadcaster log.Broadcaster
 }
@@ -322,7 +327,7 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.store.EthClient)
+	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.ethClient)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +335,7 @@ func (f pollingDeviationCheckerFactory) New(
 	var flagsContract *flags_wrapper.Flags
 	if f.store.Config.FlagsContractAddress() != "" {
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
-		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
+		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.ethClient)
 		errorMsg := fmt.Sprintf("unable to create Flags contract instance, check address: %s", f.store.Config.FlagsContractAddress())
 		logger.ErrorIf(err, errorMsg)
 	}

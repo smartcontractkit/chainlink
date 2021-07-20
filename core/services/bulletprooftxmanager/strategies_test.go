@@ -37,6 +37,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	subj1 := uuid.NewV4()
@@ -47,22 +48,20 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	var n int64 = 0
 
-	cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
-	cltest.MustInsertInProgressEthTxWithAttempt(t, store, n, fromAddress)
+	cltest.MustInsertFatalErrorEthTx(t, db, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, db, n, fromAddress)
 	n++
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, n, 42, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, n, 42, fromAddress)
 	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, n, fromAddress)
 	n++
 	initialEtxs := []bulletprooftxmanager.EthTx{
-		cltest.MustInsertUnstartedEthTx(t, store, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, store, fromAddress, subj2),
-		cltest.MustInsertUnstartedEthTx(t, store, otherAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, store, fromAddress, subj1),
-		cltest.MustInsertUnstartedEthTx(t, store, otherAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, db, fromAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, db, fromAddress, subj2),
+		cltest.MustInsertUnstartedEthTx(t, db, otherAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, db, fromAddress, subj1),
+		cltest.MustInsertUnstartedEthTx(t, db, otherAddress, subj1),
 	}
-
-	db := store.DB
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := bulletprooftxmanager.NewDropOldestStrategy(subj1, 2)
@@ -72,7 +71,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 		assert.Equal(t, int64(2), n)
 
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
-		cltest.AssertCount(t, store, &bulletprooftxmanager.EthTx{}, 7)
+		cltest.AssertCount(t, db, &bulletprooftxmanager.EthTx{}, 7)
 
 		var etxs []bulletprooftxmanager.EthTx
 		require.NoError(t, db.Raw(`SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`).Scan(&etxs).Error)
