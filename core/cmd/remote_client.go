@@ -28,32 +28,6 @@ import (
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 
-// CreateServiceAgreement creates a ServiceAgreement based on JSON input
-func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "while extracting json to buffer"))
-	}
-
-	resp, err := cli.HTTP.Post("/v2/service_agreements", buf)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "from initializing service-agreement-creation request"))
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var sa presenters.ServiceAgreement
-	err = cli.renderAPIResponse(resp, &sa)
-	return err
-}
-
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 	if c.NArg() != 1 && c.NArg() != 2 {
@@ -113,6 +87,35 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	return err
 }
 
+func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
+	uri, err := url.Parse(requestURI)
+	if err != nil {
+		return err
+	}
+	q := uri.Query()
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	uri.RawQuery = q.Encode()
+
+	resp, err := cli.HTTP.Get(uri.String())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
+	if err != nil {
+		return err
+	}
+	err = cli.errorOut(cli.Render(model))
+	return err
+}
+
 // ReplayFromBlock replays chain data from the given block number until the most recent
 func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 
@@ -143,165 +146,6 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 	}
 
 	err = cli.printResponseBody(resp)
-	return err
-}
-
-// ShowJobRun returns the status of the given Jobrun.
-func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the RunID to show"))
-	}
-	resp, err := cli.HTTP.Get("/v2/runs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.Errorf("Unexpected status code: %v", resp.Status))
-	}
-
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var job presenters.JobRun
-	err = cli.renderAPIResponse(resp, &job)
-	return err
-}
-
-// IndexJobRuns returns the list of all job runs for a specific job
-// if no jobid is passed, defaults to returning all jobruns
-func (cli *Client) IndexJobRuns(c *clipkg.Context) error {
-	jobID := c.String("jobid")
-	if jobID != "" {
-		return cli.getPage("/v2/runs?jobSpecId="+jobID, c.Int("page"), &[]presenters.JobRun{})
-	}
-	return cli.getPage("/v2/runs", c.Int("page"), &[]presenters.JobRun{})
-}
-
-// ShowJobSpec returns the status of the given JobID.
-func (cli *Client) ShowJobSpec(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be shown"))
-	}
-	resp, err := cli.HTTP.Get("/v2/specs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var job presenters.JobSpec
-	err = cli.renderAPIResponse(resp, &job)
-	return err
-}
-
-// IndexJobSpecs returns all job specs.
-func (cli *Client) IndexJobSpecs(c *clipkg.Context) error {
-	return cli.getPage("/v2/specs", c.Int("page"), &[]models.JobSpec{})
-}
-
-// CreateJobSpec creates a JobSpec based on JSON input
-func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post("/v2/specs", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var js presenters.JobSpec
-	err = cli.renderAPIResponse(resp, &js)
-	return err
-}
-
-// ArchiveJobSpec soft deletes a job and its associated runs.
-func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be archived"))
-	}
-	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
-// CreateJobRun creates job run based on SpecID and optional JSON
-func (cli *Client) CreateJobRun(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
-	}
-
-	buf := bytes.NewBufferString("")
-	if c.NArg() > 1 {
-		var jbuf *bytes.Buffer
-		jbuf, err = getBufferFromJSON(c.Args().Get(1))
-		if err != nil {
-			return cli.errorOut(err)
-		}
-		buf = jbuf
-	}
-
-	resp, err := cli.HTTP.Post("/v2/specs/"+c.Args().First()+"/runs", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var run presenters.JobRun
-	err = cli.renderAPIResponse(resp, &run)
-	return err
-}
-
-func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
-	uri, err := url.Parse(requestURI)
-	if err != nil {
-		return err
-	}
-	q := uri.Query()
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	uri.RawQuery = q.Encode()
-
-	resp, err := cli.HTTP.Get(uri.String())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
-	if err != nil {
-		return err
-	}
-	err = cli.errorOut(cli.Render(model))
 	return err
 }
 

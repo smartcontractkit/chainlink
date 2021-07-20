@@ -45,9 +45,7 @@ type (
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
 		HandleLog(b Broadcast)
-		JobID() models.JobID
 		JobIDV2() int32
-		IsV2Job() bool
 	}
 
 	// Metadata structure maintained per listener
@@ -293,7 +291,7 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
 				decodedLog:        decodedLog,
-				jobID:             NewJobIdFromListener(listener),
+				jobID:             listener.JobIDV2(),
 			})
 		}()
 	}

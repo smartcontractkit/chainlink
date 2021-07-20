@@ -14,48 +14,43 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
-
+	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-
-	"github.com/gobuffalo/packr"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
@@ -70,16 +65,10 @@ type Application interface {
 	GetEthClient() eth.Client
 	GetConfig() *config.Config
 	GetKeyStore() *keystore.Master
-	GetStatsPusher() synchronization.StatsPusher
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
-	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
 
-	// V1 Jobs (JSON specified)
-	services.RunManager // For managing job runs.
-	AddJob(job models.JobSpec) error
-	ArchiveJob(models.JobID) error
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 
 	// V2 Jobs (TOML specified)
@@ -105,24 +94,18 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter          func(int)
-	HeadTracker     httypes.Tracker
-	HeadBroadcaster httypes.HeadBroadcaster
-	TxManager       bulletprooftxmanager.TxManager
-	StatsPusher     synchronization.StatsPusher
-	services.RunManager
-	RunQueue                 services.RunQueue
-	JobSubscriber            services.JobSubscriber
+	Exiter                   func(int)
+	HeadTracker              httypes.Tracker
+	HeadBroadcaster          httypes.HeadBroadcaster
+	TxManager                bulletprooftxmanager.TxManager
 	LogBroadcaster           log.Broadcaster
 	EventBroadcaster         postgres.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
-	FluxMonitor              fluxmonitor.Service
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Scheduler                *services.Scheduler
 	ethClient                eth.Client
 	Store                    *strpkg.Store
 	Config                   *config.Config
@@ -145,7 +128,8 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
+// TODO: Pass the DB object in here, see: https://app.clubhouse.io/chainlinklabs/story/12980/remove-store-object-entirely
+func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
@@ -163,15 +147,13 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	keyStore := keystore.New(store.DB, scryptParams)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
-	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())
-		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
-	subservices = append(subservices, explorerClient, statsPusher)
+	subservices = append(subservices, explorerClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
@@ -205,22 +187,6 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, cfg, orm, headBroadcaster)
 	}
 
-	var runExecutor services.RunExecutor
-	var runQueue services.RunQueue
-	var runManager services.RunManager
-	var jobSubscriber services.JobSubscriber
-	if cfg.EnableLegacyJobPipeline() {
-		runExecutor = services.NewRunExecutor(store, ethClient, keyStore, statsPusher)
-		runQueue = services.NewRunQueue(runExecutor)
-		runManager = services.NewRunManager(runQueue, cfg, store.ORM, statsPusher, store.Clock)
-		jobSubscriber = services.NewJobSubscriber(store, runManager, ethClient)
-	} else {
-		runExecutor = &services.NullRunExecutor{}
-		runQueue = &services.NullRunQueue{}
-		runManager = &services.NullRunManager{}
-		jobSubscriber = &services.NullJobSubscriber{}
-	}
-
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
 	subservices = append(subservices, eventBroadcaster)
 
@@ -240,13 +206,6 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, cfg, keyStore.Eth(), advisoryLocker, eventBroadcaster)
 		subservices = append(subservices, logBroadcaster, txManager)
 	}
-
-	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster, ethClient)
-
-	subservices = append(subservices,
-		fluxMonitor,
-		jobSubscriber,
-	)
 
 	var balanceMonitor services.BalanceMonitor
 	if cfg.BalanceMonitorEnabled() {
@@ -358,21 +317,15 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		ethClient:                ethClient,
 		HeadBroadcaster:          headBroadcaster,
 		TxManager:                txManager,
-		JobSubscriber:            jobSubscriber,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
-		FluxMonitor:              fluxMonitor,
 		FeedsService:             feedsService,
-		StatsPusher:              statsPusher,
 		Config:                   cfg,
-		RunManager:               runManager,
-		RunQueue:                 runQueue,
 		webhookJobRunner:         webhookJobRunner,
-		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		KeyStore:                 keyStore,
 		SessionReaper:            services.NewSessionReaper(store.DB, cfg),
@@ -392,19 +345,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	headBroadcaster.Subscribe(logBroadcaster)
 	headBroadcaster.Subscribe(txManager)
 	headBroadcaster.Subscribe(promReporter)
-	headBroadcaster.Subscribe(jobSubscriber)
 	headBroadcaster.Subscribe(balanceMonitor)
-
-	headBroadcaster.Subscribe(&httypes.HeadTrackableCallback{OnConnect: func() error {
-		return runManager.ResumeAllPendingConnection()
-	}})
-
-	for _, onConnectCallback := range onConnectCallbacks {
-		headBroadcaster.Subscribe(&httypes.HeadTrackableCallback{OnConnect: func() error {
-			onConnectCallback(app)
-			return nil
-		}})
-	}
 
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
@@ -435,7 +376,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 	case logger.HeadTracker:
 		app.HeadTracker.SetLogger(newL)
 	case logger.FluxMonitor:
-		app.FluxMonitor.SetLogger(newL)
+		// TODO: Set FMv2?
 	default:
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
@@ -495,14 +436,6 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
-	if err := app.RunQueue.Start(); err != nil {
-		return err
-	}
-
-	if err := app.RunManager.ResumeAllInProgress(); err != nil {
-		return err
-	}
-
 	if err := app.FeedsService.Start(); err != nil {
 		logger.Infof("[Feeds Service] %v", err)
 	}
@@ -526,10 +459,6 @@ func (app *ChainlinkApplication) Start() error {
 	// which leads to writes of JobRuns RunStatus to the db.
 	// https://www.pivotaltracker.com/story/show/162230780
 	if err := app.HeadTracker.Start(); err != nil {
-		return err
-	}
-
-	if err := app.Scheduler.Start(); err != nil {
 		return err
 	}
 
@@ -580,9 +509,6 @@ func (app *ChainlinkApplication) stop() error {
 
 		// Stop services in the reverse order from which they were started
 
-		logger.Debug("Stopping Scheduler...")
-		merr = multierr.Append(merr, app.Scheduler.Stop())
-
 		logger.Debug("Stopping HeadTracker...")
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 
@@ -592,8 +518,6 @@ func (app *ChainlinkApplication) stop() error {
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		logger.Debug("Closing RunQueue...")
-		merr = multierr.Append(merr, app.RunQueue.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		logger.Debug("Closing Store...")
@@ -655,28 +579,9 @@ func (app *ChainlinkApplication) GetHeadBroadcaster() httypes.HeadBroadcasterReg
 	return app.HeadBroadcaster
 }
 
-func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
-	return app.StatsPusher
-}
-
 // WakeSessionReaper wakes up the reaper to do its reaping.
 func (app *ChainlinkApplication) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
-}
-
-// AddJob adds a job to the store and the scheduler. If there was
-// an error from adding the job to the store, the job will not be
-// added to the scheduler.
-func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
-	err := app.Store.CreateJob(&job)
-	if err != nil {
-		return err
-	}
-
-	app.Scheduler.AddJob(job)
-	logger.ErrorIf(app.FluxMonitor.AddJob(job))
-	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
-	return nil
 }
 
 func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
@@ -765,39 +670,6 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	run *pipeline.Run,
 ) (bool, error) {
 	return app.pipelineRunner.Run(ctx, run, *logger.Default, false)
-}
-
-// ArchiveJob silences the job from the system, preventing future job runs.
-// It is idempotent and can be run as many times as you like.
-func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
-	err := app.JobSubscriber.RemoveJob(ID)
-	if err != nil {
-		logger.Warnw("Error removing job from JobSubscriber", "error", err)
-	}
-	app.FluxMonitor.RemoveJob(ID)
-
-	if err = app.ExternalInitiatorManager.DeleteJob(ID); err != nil {
-		err = errors.Wrapf(err, "failed to delete job with id %s from external initiator", ID)
-	}
-	return multierr.Combine(err, app.Store.ArchiveJob(ID))
-}
-
-// AddServiceAgreement adds a Service Agreement which includes a job that needs
-// to be scheduled.
-func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement) error {
-	err := app.Store.CreateServiceAgreement(sa)
-	if err != nil {
-		return err
-	}
-
-	app.Scheduler.AddJob(sa.JobSpec)
-
-	// XXX: Add mechanism to asynchronously communicate when a job spec has
-	// an ethereum interaction error.
-	// https://www.pivotaltracker.com/story/show/170349568
-	logger.ErrorIf(app.FluxMonitor.AddJob(sa.JobSpec))
-	logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil))
-	return nil
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {

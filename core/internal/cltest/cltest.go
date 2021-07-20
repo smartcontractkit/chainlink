@@ -238,7 +238,6 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ENABLE_LEGACY_JOB_PIPELINE", false)
 	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
@@ -258,6 +257,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
 	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
 	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
+	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -313,15 +313,14 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *Te
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Config           *TestConfig
-	Logger           *logger.Logger
-	Server           *httptest.Server
-	wsServer         *httptest.Server
-	connectedChannel chan struct{}
-	Started          bool
-	Backend          *backends.SimulatedBackend
-	Key              ethkey.Key
-	allowUnstarted   bool
+	Config         *TestConfig
+	Logger         *logger.Logger
+	Server         *httptest.Server
+	wsServer       *httptest.Server
+	Started        bool
+	Backend        *backends.SimulatedBackend
+	Key            ethkey.Key
+	allowUnstarted bool
 }
 
 func newWSServer() (*httptest.Server, string, func()) {
@@ -461,10 +460,8 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 		}
 	}
 
-	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, func(app chainlink.Application) {
-		ta.connectedChannel <- struct{}{}
-	})
+	ta := &TestApplication{t: t}
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker)
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
@@ -552,27 +549,6 @@ func (ta *TestApplication) Start() error {
 
 	err = ta.ChainlinkApplication.Start()
 	return err
-}
-
-func (ta *TestApplication) StartAndConnect() error {
-	ta.t.Helper()
-
-	err := ta.Start()
-	if err != nil {
-		return err
-	}
-
-	return ta.waitForConnection()
-}
-
-// waitForConnection wait for the StartAndConnect callback to be called
-func (ta *TestApplication) waitForConnection() error {
-	select {
-	case <-time.After(4 * time.Second):
-		return errors.New("TestApplication#StartAndConnect() timed out")
-	case <-ta.connectedChannel:
-		return nil
-	}
 }
 
 // Stop will stop the test application and perform cleanup
@@ -667,23 +643,6 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
 	}
 	return client
-}
-
-func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes []byte) *models.JobRun {
-	job := NewJobWithWebInitiator()
-	err := ta.Store.CreateJob(&job)
-	require.NoError(ta.t, err)
-
-	jr := NewJobRun(job)
-	txHash := common.BytesToHash(txHashBytes)
-	jr.RunRequest.TxHash = &txHash
-	blockHash := common.BytesToHash(blockHashBytes)
-	jr.RunRequest.BlockHash = &blockHash
-
-	err = ta.Store.CreateJobRun(&jr)
-	require.NoError(ta.t, err)
-
-	return &jr
 }
 
 // NewStoreWithConfig creates a new store with given config
@@ -858,39 +817,6 @@ func ReadLogs(config orm.ConfigReader) (string, error) {
 	return string(b), err
 }
 
-func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
-	t.Helper()
-
-	sa, err := s.FindServiceAgreement(id)
-	require.NoError(t, err)
-
-	return sa
-}
-
-// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
-func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec) models.JobSpec {
-	t.Helper()
-
-	marshaled, err := json.Marshal(&job)
-	assert.NoError(t, err)
-	return CreateSpecViaWeb(t, app, string(marshaled))
-}
-
-// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
-func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpec {
-	t.Helper()
-
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBufferString(spec))
-	defer cleanup()
-	AssertServerResponse(t, resp, http.StatusOK)
-
-	var createdJob models.JobSpec
-	err := ParseJSONAPIResponse(t, resp, &createdJob)
-	require.NoError(t, err)
-	return createdJob
-}
-
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
@@ -936,52 +862,6 @@ func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor t
 	}, waitFor, 10*time.Millisecond)
 }
 
-// CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
-func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
-	t.Helper()
-
-	bodyBuffer := &bytes.Buffer{}
-	if len(body) > 0 {
-		bodyBuffer = bytes.NewBufferString(body[0])
-	}
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bodyBuffer)
-	defer cleanup()
-	AssertServerResponse(t, resp, http.StatusOK)
-	var jr models.JobRun
-	err := ParseJSONAPIResponse(t, resp, &jr)
-	require.NoError(t, err)
-
-	assert.Equal(t, j.ID, jr.JobSpecID)
-	return jr
-}
-
-func CreateJobRunViaExternalInitiator(
-	t testing.TB,
-	app *TestApplication,
-	j models.JobSpec,
-	eia auth.Token,
-	body string,
-) models.JobRun {
-	t.Helper()
-
-	headers := make(map[string]string)
-	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
-
-	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
-	bodyBuf := bytes.NewBufferString(body)
-	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-	var jr models.JobRun
-	err := ParseJSONAPIResponse(t, resp, &jr)
-	require.NoError(t, err)
-
-	assert.Equal(t, j.ID, jr.JobSpecID)
-	return jr
-}
-
 func CreateJobRunViaExternalInitiatorV2(
 	t testing.TB,
 	app *TestApplication,
@@ -1006,67 +886,6 @@ func CreateJobRunViaExternalInitiatorV2(
 
 	// assert.Equal(t, j.ID, pr.JobSpecID)
 	return pr
-}
-
-// CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
-func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
-	t.Helper()
-
-	buffer := []byte(`
-{
-  "initiators": [{ "type": "web" }],
-  "tasks": [
-    { "type": "HTTPGetWithUnrestrictedNetworkAccess", "params": {
-		"get": "https://bitstamp.net/api/ticker/",
-        "headers": {
-          "Key1": ["value"],
-          "Key2": ["value", "value"]
-        }
-      }
-    },
-    { "type": "JsonParse", "params": { "path": ["last"] }},
-    { "type": "EthBytes32" },
-    {
-      "type": "EthTx", "params": {
-        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
-        "functionSelector": "0x609ff1bd"
-      }
-    }
-  ]
-}
-`)
-
-	var job models.JobSpec
-	err := json.Unmarshal(buffer, &job)
-	require.NoError(t, err)
-
-	data, err := models.Merge(job.Tasks[0].Params, JSONFromString(t, `{"get":"%v"}`, url))
-	require.NoError(t, err)
-	job.Tasks[0].Params = data
-	return CreateJobSpecViaWeb(t, app, job)
-}
-
-// UpdateJobRunViaWeb updates jobrun via web using /v2/runs/ID
-func UpdateJobRunViaWeb(
-	t testing.TB,
-	app *TestApplication,
-	jr models.JobRun,
-	bridgeResource *webpresenters.BridgeResource,
-	body string,
-) models.JobRun {
-	t.Helper()
-
-	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bridgeResource.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	var respJobRun presenters.JobRun
-	assert.NoError(t, ParseJSONAPIResponse(t, resp, &respJobRun))
-	assert.Equal(t, jr.ID, respJobRun.ID)
-	jr = respJobRun.JobRun
-	return jr
 }
 
 // CreateBridgeTypeViaWeb creates a bridgetype via web using /v2/bridge_types
@@ -1124,147 +943,6 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitForJobRunToComplete waits for a JobRun to reach Completed Status
-func WaitForJobRunToComplete(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
-}
-
-// WaitForJobRunToPendBridge waits for a JobRun to reach PendingBridge Status
-func WaitForJobRunToPendBridge(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
-}
-
-// WaitForJobRunToPendIncomingConfirmations waits for a JobRun to reach PendingIncomingConfirmations Status
-func WaitForJobRunToPendIncomingConfirmations(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingIncomingConfirmations)
-}
-
-// WaitForJobRunToPendOutgoingConfirmations waits for a JobRun to reach PendingOutgoingConfirmations Status
-func WaitForJobRunToPendOutgoingConfirmations(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
-}
-
-func SendBlocksUntilComplete(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-	blockCh chan<- *models.Head,
-	start int64,
-) models.JobRun {
-	t.Helper()
-
-	var err error
-	block := start
-	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		h := models.NewHead(big.NewInt(block), utils.NewHash(), utils.NewHash(), 0)
-		blockCh <- &h
-		block++
-		jr, err = store.Unscoped().FindJobRun(jr.ID)
-		assert.NoError(t, err)
-		st := jr.GetStatus()
-		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(models.RunStatusCompleted))
-	return jr
-}
-
-// WaitForJobRunStatus waits for a JobRun to reach given status
-func WaitForJobRunStatus(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-	wantStatus models.RunStatus,
-
-) models.JobRun {
-	t.Helper()
-
-	var err error
-	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		jr, err = store.Unscoped().FindJobRun(jr.ID)
-		assert.NoError(t, err)
-		st := jr.GetStatus()
-		if wantStatus != models.RunStatusErrored {
-			if st == models.RunStatusErrored {
-				t.Fatalf("waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
-			}
-		}
-		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(wantStatus))
-	return jr
-}
-
-// JobRunStays tests if a JobRun will consistently stay at the specified status
-func JobRunStays(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-	status models.RunStatus,
-	optionalDuration ...time.Duration,
-) models.JobRun {
-	t.Helper()
-
-	duration := time.Second
-	if len(optionalDuration) > 0 {
-		duration = optionalDuration[0]
-	}
-
-	var err error
-	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
-		jr, err = store.FindJobRun(jr.ID)
-		assert.NoError(t, err)
-		return jr.GetStatus()
-	}, duration, DBPollingInterval).Should(gomega.Equal(status))
-	return jr
-}
-
-// JobRunStaysPendingIncomingConfirmations tests if a JobRun will stay at the PendingIncomingConfirmations Status
-func JobRunStaysPendingIncomingConfirmations(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
-}
-
-// Polls until the passed in jobID has count number
-// of job spec errors.
-func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.JobID, count int) []models.JobSpecError {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-	var jse []models.JobSpecError
-	g.Eventually(func() []models.JobSpecError {
-		err := store.DB.
-			Where("job_spec_id = ?", jobID.String()).
-			Find(&jse).Error
-		assert.NoError(t, err)
-		return jse
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
-	return jse
-}
-
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
 func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count int) []job.SpecError {
@@ -1280,29 +958,6 @@ func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count in
 		return jse
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
-}
-
-// WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
-func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var jrs []models.JobRun
-	var err error
-	if want == 0 {
-		g.Consistently(func() []models.JobRun {
-			jrs, err = store.JobRunsFor(j.ID)
-			assert.NoError(t, err)
-			return jrs
-		}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	} else {
-		g.Eventually(func() []models.JobRun {
-			jrs, err = store.JobRunsFor(j.ID)
-			assert.NoError(t, err)
-			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	}
-	return jrs
 }
 
 func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
@@ -1352,21 +1007,6 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 	return pr
 }
 
-// AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
-func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var jrs []models.JobRun
-	var err error
-	g.Consistently(func() []models.JobRun {
-		jrs, err = store.JobRunsFor(j.ID)
-		assert.NoError(t, err)
-		return jrs
-	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return jrs
-}
-
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
 func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.Store, want int) []pipeline.Run {
 	t.Helper()
@@ -1381,29 +1021,6 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 		return prs
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return prs
-}
-
-func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
-	t.Helper()
-	for i, run := range runs {
-		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
-	}
-}
-
-// WaitForRunsAtLeast waits for at least the passed number of runs to start.
-func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	if want == 0 {
-		t.Fatal("must want more than 0 runs when waiting")
-	} else {
-		g.Eventually(func() int {
-			jrs, err := store.JobRunsFor(j.ID)
-			require.NoError(t, err)
-			return len(jrs)
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">=", want))
-	}
 }
 
 func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx bulletprooftxmanager.EthTx) []bulletprooftxmanager.EthTxAttempt {
@@ -1447,36 +1064,6 @@ func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) [
 		return txas
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txas
-}
-
-// WaitForSyncEventCount checks if the sync event count eventually reaches
-// the amound specified in parameter want.
-func WaitForSyncEventCount(
-	t testing.TB,
-	orm *orm.ORM,
-	want int,
-) {
-	t.Helper()
-	gomega.NewGomegaWithT(t).Eventually(func() int {
-		count, err := orm.CountOf(&models.SyncEvent{})
-		assert.NoError(t, err)
-		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-}
-
-// AssertSyncEventCountStays ensures that the event sync count stays consistent
-// for a period of time
-func AssertSyncEventCountStays(
-	t testing.TB,
-	orm *orm.ORM,
-	want int,
-) {
-	t.Helper()
-	gomega.NewGomegaWithT(t).Consistently(func() int {
-		count, err := orm.CountOf(&models.SyncEvent{})
-		assert.NoError(t, err)
-		return count
-	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
@@ -1683,28 +1270,6 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	return all
 }
 
-func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
-	t.Helper()
-
-	var all []models.JobSpec
-	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Find(&all).Error
-	})
-	require.NoError(t, err)
-	return all
-}
-
-func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
-	t.Helper()
-
-	var runs []*models.JobRun
-	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) {
-		runs = append(runs, jr)
-	}, statuses...)
-	require.NoError(t, err)
-	return runs
-}
-
 func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 
@@ -1780,12 +1345,6 @@ func MustParseURL(input string) *url.URL {
 		logger.Panic(err)
 	}
 	return u
-}
-
-func MustResultString(t *testing.T, input models.RunResult) string {
-	result := input.Data.Get("result")
-	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
-	return result.String()
 }
 
 // GenericEncode eth encodes values based on the provided types
@@ -2102,7 +1661,6 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 
 type HeadTrackableFunc func(context.Context, models.Head)
 
-func (HeadTrackableFunc) Connect(*models.Head) error { return nil }
 func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
 	fn(ctx, head)
 }

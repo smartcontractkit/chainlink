@@ -83,7 +83,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 
 	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. NOTE: Legacy job specs (JSON) are no longer supported"))
 	}
 
 	var jb job.Job

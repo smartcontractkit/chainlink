@@ -100,7 +100,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)       // helps prevent missed heads
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// create job
 	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)

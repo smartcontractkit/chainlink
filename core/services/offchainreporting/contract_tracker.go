@@ -180,9 +180,6 @@ func (t *OCRContractTracker) Close() error {
 	})
 }
 
-// Connect conforms to HeadTrackable
-func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
-
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
 func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h models.Head) {
 	t.setLatestBlockHeight(h)

@@ -22,12 +22,6 @@ var (
 	minBackupFrequency = time.Minute
 
 	excludedDataFromTables = []string{
-		"job_runs",
-		"task_runs",
-		"eth_task_run_txes",
-		"run_requests",
-		"run_results",
-		"sync_events",
 		"pipeline_runs",
 		"pipeline_task_runs",
 	}

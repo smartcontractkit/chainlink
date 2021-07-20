@@ -215,10 +215,6 @@ type listener struct {
 	blockNumberToReqID *pairing.PairHeap
 }
 
-func (lsn *listener) Connect(head *models.Head) error {
-	return nil
-}
-
 // Note that we have 2 seconds to do this processing
 func (lsn *listener) OnNewLongestChain(_ context.Context, head models.Head) {
 	lsn.setLatestHead(head)

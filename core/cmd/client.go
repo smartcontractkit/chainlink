@@ -64,14 +64,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*config.Config, ...func(chainlink.Application)) (chainlink.Application, error)
+	NewApplication(*config.Config) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (n ChainlinkAppFactory) NewApplication(config *config.Config) (chainlink.Application, error) {
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
 		ethClient = &eth.NullClient{}
@@ -84,7 +84,7 @@ func (n ChainlinkAppFactory) NewApplication(config *config.Config, onConnectCall
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock)
 }
 
 // Runner implements the Run method.
