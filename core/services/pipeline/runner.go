@@ -70,7 +70,7 @@ var (
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
 	},
-		[]string{"job_id", "job_name", "task_type"},
+		[]string{"job_id", "job_name", "task_id", "task_type"},
 	)
 	PromPipelineRunErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pipeline_run_errors",
@@ -88,7 +88,7 @@ var (
 		Name: "pipeline_tasks_total_finished",
 		Help: "The total number of pipeline tasks which have finished",
 	},
-		[]string{"job_id", "job_name", "task_type", "status"},
+		[]string{"job_id", "job_name", "task_id", "task_type", "status"},
 	)
 )
 
@@ -396,14 +396,14 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	elapsed := trr.FinishedAt.Time.Sub(trr.CreatedAt)
 
-	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type())).Set(float64(elapsed))
+	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type())).Set(float64(elapsed))
 	var status string
 	if trr.Result.Error != nil {
 		status = "error"
 	} else {
 		status = "completed"
 	}
-	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type()), status).Inc()
+	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
 }
 
 // ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
@@ -477,7 +477,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 
 	// For testing metrics.
 	id := fmt.Sprintf("%d", jobID)
-	PromPipelineTaskExecutionTime.WithLabelValues(id, jobName, jobType).Set(float64(elapsed))
+	PromPipelineTaskExecutionTime.WithLabelValues(id, jobName, "", jobType).Set(float64(elapsed))
 	var status string
 	if err != nil {
 		status = "error"
@@ -486,7 +486,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 		status = "completed"
 	}
 	PromPipelineRunTotalTimeToCompletion.WithLabelValues(id, jobName).Set(float64(elapsed))
-	PromPipelineTasksTotalFinished.WithLabelValues(id, jobName, jobType, status).Inc()
+	PromPipelineTasksTotalFinished.WithLabelValues(id, jobName, "", jobType, status).Inc()
 	return runID, err
 }
 
