@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -41,7 +42,7 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         *orm.Config
+	Config                         *config.Config
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          KeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -63,14 +64,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*orm.Config, ...func(chainlink.Application)) (chainlink.Application, error)
+	NewApplication(*config.Config, ...func(chainlink.Application)) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (n ChainlinkAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
 		ethClient = &eth.NullClient{}
@@ -275,13 +276,13 @@ type CookieAuthenticator interface {
 // SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
 // that retrieves a session id for the user with credentials from the session request.
 type SessionCookieAuthenticator struct {
-	config *orm.Config
+	config *config.Config
 	store  CookieStore
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config *orm.Config, store CookieStore) CookieAuthenticator {
+func NewSessionCookieAuthenticator(config *config.Config, store CookieStore) CookieAuthenticator {
 	return &SessionCookieAuthenticator{config: config, store: store}
 }
 
@@ -348,7 +349,7 @@ func (m *MemoryCookieStore) Retrieve() (*http.Cookie, error) {
 
 // DiskCookieStore saves a single cookie in the local cli working directory.
 type DiskCookieStore struct {
-	Config *orm.Config
+	Config *config.Config
 }
 
 // Save stores a cookie.

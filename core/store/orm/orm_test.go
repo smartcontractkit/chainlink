@@ -1,10 +1,8 @@
 package orm_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
 
@@ -1737,44 +1735,4 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		require.True(t, fmrs.JobRunID.Valid)
 		require.Equal(t, jobRun.ID, fmrs.JobRunID.UUID)
 	}
-}
-
-func TestORM_SetConfigStrValue(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	fieldName := "LogSQLStatements"
-	name := orm.EnvVarName(fieldName)
-	isSqlStatementEnabled := true
-	res := models.Configuration{}
-
-	// Store db config entry as true
-	err := store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
-	require.NoError(t, err)
-
-	err = store.DB.First(&res, "name = ?", name).Error
-	require.NoError(t, err)
-	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
-
-	// Update db config entry as false
-	isSqlStatementEnabled = false
-	err = store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
-	require.NoError(t, err)
-
-	err = store.DB.First(&res, "name = ?", name).Error
-	require.NoError(t, err)
-	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
-}
-
-func TestORM_GetConfigBoolValue(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	store.Config.SetRuntimeStore(store.ORM)
-
-	isSqlStatementEnabled := true
-	err := store.Config.SetLogSQLStatements(context.TODO(), isSqlStatementEnabled)
-	require.NoError(t, err)
-	assert.Equal(t, isSqlStatementEnabled, store.Config.LogSQLStatements())
 }

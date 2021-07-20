@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -70,7 +71,7 @@ type ConfigReader interface {
 	KeeperMaximumGracePeriod() int64
 	KeyFile() string
 	LinkContractAddress() string
-	LogLevel() LogLevel
+	LogLevel() config.LogLevel
 	LogSQLStatements() bool
 	LogToDisk() bool
 	MaximumServiceDuration() models.Duration
@@ -91,10 +92,10 @@ type ConfigReader interface {
 	SessionTimeout() models.Duration
 	SetEthGasPriceDefault(value *big.Int) error
 	TLSCertPath() string
+	TLSDir() string
 	TLSHost() string
 	TLSKeyPath() string
 	TLSPort() uint16
 	TLSRedirect() bool
 	TriggerFallbackDBPollInterval() time.Duration
-	tlsDir() string
 }

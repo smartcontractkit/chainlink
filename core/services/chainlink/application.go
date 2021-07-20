@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -43,8 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
@@ -62,6 +63,7 @@ type Application interface {
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetEthClient() eth.Client
+	GetConfig() *config.Config
 	GetKeyStore() *keystore.Master
 	GetStatsPusher() synchronization.StatsPusher
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
@@ -115,6 +117,7 @@ type ChainlinkApplication struct {
 	Scheduler                *services.Scheduler
 	ethClient                eth.Client
 	Store                    *strpkg.Store
+	Config                   *config.Config
 	KeyStore                 *keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -134,44 +137,44 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
+func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
+	store, err := strpkg.NewStore(cfg, ethClient, advisoryLocker, shutdownSignal)
 	if err != nil {
 		return nil, err
 	}
 
-	setupConfig(config, store)
+	setupConfig(cfg, store.DB)
 
 	healthChecker := health.NewChecker()
 
-	scryptParams := utils.GetScryptParams(config)
+	scryptParams := utils.GetScryptParams(cfg)
 	keyStore := keystore.New(store.DB, scryptParams)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
-	if config.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(), config.StatsPusherLogging())
+	if cfg.ExplorerURL() != nil {
+		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
-	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
-		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
+	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
+		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		subservices = append(subservices, databaseBackup)
 	} else {
 		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	// Init service loggers
-	globalLogger := config.CreateProductionLogger()
+	globalLogger := cfg.CreateProductionLogger()
 	globalLogger.SetDB(store.DB)
 	serviceLogLevels, err := globalLogger.GetServiceLogLevels()
 	if err != nil {
@@ -184,23 +187,23 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var headBroadcaster httypes.HeadBroadcaster
 	var headTracker httypes.Tracker
-	if config.EthereumDisabled() {
+	if cfg.EthereumDisabled() {
 		headBroadcaster = &headtracker.NullBroadcaster{}
 		headTracker = &headtracker.NullTracker{}
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
 		orm := headtracker.NewORM(store.DB)
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, config, orm, headBroadcaster)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, cfg, orm, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue
 	var runManager services.RunManager
 	var jobSubscriber services.JobSubscriber
-	if config.EnableLegacyJobPipeline() {
+	if cfg.EnableLegacyJobPipeline() {
 		runExecutor = services.NewRunExecutor(store, ethClient, keyStore, statsPusher)
 		runQueue = services.NewRunQueue(runExecutor)
-		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
+		runManager = services.NewRunManager(runQueue, cfg, store.ORM, statsPusher, store.Clock)
 		jobSubscriber = services.NewJobSubscriber(store, runManager, ethClient)
 	} else {
 		runExecutor = &services.NullRunExecutor{}
@@ -209,12 +212,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
 	subservices = append(subservices, eventBroadcaster)
 
 	var txManager bulletprooftxmanager.TxManager
 	var logBroadcaster log.Broadcaster
-	if config.EthereumDisabled() {
+	if cfg.EthereumDisabled() {
 		txManager = &bulletprooftxmanager.NullTxManager{ErrMsg: "TxManager is not running because Ethereum is disabled"}
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: "LogBroadcaster is not running because Ethereum is disabled"}
 	} else {
@@ -224,8 +227,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			return nil, err2
 		}
 
-		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
-		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster)
+		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, cfg, highestSeenHead)
+		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, cfg, keyStore.Eth(), advisoryLocker, eventBroadcaster)
 		subservices = append(subservices, logBroadcaster, txManager)
 	}
 
@@ -237,7 +240,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	)
 
 	var balanceMonitor services.BalanceMonitor
-	if config.BalanceMonitorEnabled() {
+	if cfg.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store.DB, ethClient, keyStore.Eth())
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
@@ -249,8 +252,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.DB)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config, ethClient, txManager)
-		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, txManager)
+		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
 	var (
@@ -261,9 +264,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineORM,
 				ethClient,
 				store.DB,
-				config,
+				cfg,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, ethClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, ethClient, headBroadcaster, logBroadcaster, cfg),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -273,14 +276,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				logBroadcaster,
 				headBroadcaster,
 				ethClient,
-				store.Config),
+				cfg),
 		}
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if config.EthereumDisabled() {
+	if cfg.EthereumDisabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else if config.Dev() || config.FeatureFluxMonitorV2() {
+	} else if cfg.Dev() || cfg.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			txManager,
 			keyStore.Eth(),
@@ -291,32 +294,32 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			ethClient,
 			logBroadcaster,
 			fluxmonitorv2.Config{
-				DefaultHTTPTimeout:             store.Config.DefaultHTTPTimeout().Duration(),
-				FlagsContractAddress:           store.Config.FlagsContractAddress(),
-				MinContractPayment:             store.Config.MinimumContractPayment(),
-				EthGasLimit:                    store.Config.EthGasLimitDefault(),
-				EthMaxQueuedTransactions:       store.Config.EthMaxQueuedTransactions(),
-				FMDefaultTransactionQueueDepth: store.Config.FMDefaultTransactionQueueDepth(),
+				DefaultHTTPTimeout:             cfg.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:           cfg.FlagsContractAddress(),
+				MinContractPayment:             cfg.MinimumContractPayment(),
+				EthGasLimit:                    cfg.EthGasLimitDefault(),
+				EthMaxQueuedTransactions:       cfg.EthMaxQueuedTransactions(),
+				FMDefaultTransactionQueueDepth: cfg.FMDefaultTransactionQueueDepth(),
 			},
 		)
 	}
 
-	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
+	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
+		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), cfg, store.DB)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
 			txManager,
 			jobORM,
-			config,
+			cfg,
 			keyStore.OCR(),
 			pipelineRunner,
 			ethClient,
 			logBroadcaster,
 			concretePW,
 			monitoringEndpoint,
-			config.Chain(),
+			cfg.Chain(),
 			headBroadcaster,
 		)
 	} else {
@@ -326,21 +329,21 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB)
 
 	var webhookJobRunner webhook.JobRunner
-	if config.Dev() || config.FeatureWebhookV2() {
+	if cfg.Dev() || cfg.FeatureWebhookV2() {
 		delegate := webhook.NewDelegate(pipelineRunner, externalInitiatorManager)
 		delegates[job.Webhook] = delegate
 		webhookJobRunner = delegate.WebhookJobRunner()
 	}
 
-	if config.Dev() || config.FeatureCronV2() {
+	if cfg.Dev() || cfg.FeatureCronV2() {
 		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), config)
+	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), cfg)
 
 	app := &ChainlinkApplication{
 		ethClient:                ethClient,
@@ -356,13 +359,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		FluxMonitor:              fluxMonitor,
 		FeedsService:             feedsService,
 		StatsPusher:              statsPusher,
+		Config:                   cfg,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
 		webhookJobRunner:         webhookJobRunner,
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		KeyStore:                 keyStore,
-		SessionReaper:            services.NewSessionReaper(store.DB, store.Config),
+		SessionReaper:            services.NewSessionReaper(store.DB, cfg),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
@@ -426,19 +430,20 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
 }
 
-func setupConfig(config *orm.Config, store *strpkg.Store) {
-	config.SetRuntimeStore(store.ORM)
+func setupConfig(cfg *config.Config, db *gorm.DB) {
+	orm := config.NewORM(db)
+	cfg.SetRuntimeStore(orm)
 
-	if !config.P2PPeerIDIsSet() {
+	if !cfg.P2PPeerIDIsSet() {
 		var keys []p2pkey.EncryptedP2PKey
-		err := store.DB.Order("created_at asc, id asc").Find(&keys).Error
+		err := db.Order("created_at asc, id asc").Find(&keys).Error
 		if err != nil {
 			logger.Warnw("Failed to load keys", "err", err)
 		} else {
 			if len(keys) > 0 {
 				peerID := keys[0].PeerID
 				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
-				config.Set("P2P_PEER_ID", peerID)
+				cfg.Set("P2P_PEER_ID", peerID)
 				if len(keys) > 1 {
 					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
 				}
@@ -599,6 +604,10 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 
 func (app *ChainlinkApplication) GetEthClient() eth.Client {
 	return app.ethClient
+}
+
+func (app *ChainlinkApplication) GetConfig() *config.Config {
+	return app.Config
 }
 
 func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {

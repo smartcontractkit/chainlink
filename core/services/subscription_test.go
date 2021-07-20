@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -387,8 +387,8 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			ethClient := new(mocks.Client)
 			defer ethClient.AssertExpectations(t)
 
-			store.Config.Set(orm.EnvVarName("ReplayFromBlock"), 10)
-			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), 20)
+			store.Config.Set(config.EnvVarName("ReplayFromBlock"), 10)
+			store.Config.Set(config.EnvVarName("BlockBackfillDepth"), 20)
 
 			job := cltest.NewJobWithLogInitiator()
 			job.Initiators[0].InitiatorParams.FromBlock = test.initrParamFromBlock
@@ -448,7 +448,7 @@ func TestServices_NewInitiatorSubscription_EthLog_NilHead(t *testing.T) {
 			ethClient := new(mocks.Client)
 			defer ethClient.AssertExpectations(t)
 
-			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), 20)
+			store.Config.Set(config.EnvVarName("BlockBackfillDepth"), 20)
 
 			job := cltest.NewJobWithLogInitiator()
 
@@ -508,7 +508,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 
 			currentHead := cltest.Head(test.currentHead)
 
-			store.Config.Set(orm.EnvVarName("ReplayFromBlock"), 10)
+			store.Config.Set(config.EnvVarName("ReplayFromBlock"), 10)
 
 			job := cltest.NewJobWithRunLogInitiator()
 			initr := job.Initiators[0]
