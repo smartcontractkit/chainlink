@@ -9,6 +9,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+//
+// Return types:
+//    *decimal.Decimal
+//
 type MedianTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`

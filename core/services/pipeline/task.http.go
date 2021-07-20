@@ -12,6 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+//
+// Return types:
+//     string
+//
 type HTTPTask struct {
 	BaseTask                       `mapstructure:",squash"`
 	Method                         string

@@ -11,6 +11,13 @@ import (
 	"go.uber.org/multierr"
 )
 
+//
+// Return types:
+//    map[string]interface{}{
+//        "results": []interface{} containing any other type other pipeline tasks can return
+//        "occurrences": (int64)
+//    }
+//
 type ModeTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Values        string `json:"values"`
