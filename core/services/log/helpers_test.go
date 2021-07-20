@@ -384,17 +384,19 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Return(&models.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
-	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			filterQuery := args.Get(1).(ethereum.FilterQuery)
-			fromBlock := filterQuery.FromBlock.Int64()
-			toBlock := filterQuery.ToBlock.Int64()
-			if mockEth.checkFilterLogs != nil {
-				mockEth.checkFilterLogs(fromBlock, toBlock)
-			}
-		}).
-		Return(expectedCalls.FilterLogsResult, nil).
-		Times(expectedCalls.FilterLogs)
+	if expectedCalls.FilterLogs > 0 {
+		mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				filterQuery := args.Get(1).(ethereum.FilterQuery)
+				fromBlock := filterQuery.FromBlock.Int64()
+				toBlock := filterQuery.ToBlock.Int64()
+				if mockEth.checkFilterLogs != nil {
+					mockEth.checkFilterLogs(fromBlock, toBlock)
+				}
+			}).
+			Return(expectedCalls.FilterLogsResult, nil).
+			Times(expectedCalls.FilterLogs)
+	}
 
 	mockEth.sub.On("Err").
 		Return(nil)
