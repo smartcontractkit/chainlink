@@ -490,8 +490,9 @@ func (fm *FluxMonitor) processLogs() {
 		// If the log is a duplicate of one we've seen before, ignore it (this
 		// happens because of the LogBroadcaster's backfilling behavior).
 		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
 		consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db.WithContext(ctx), broadcast)
+		cancel()
+
 		if err != nil {
 			fm.logger.Errorf("Error determining if log was already consumed: %v", err)
 			continue
@@ -501,14 +502,17 @@ func (fm *FluxMonitor) processLogs() {
 		}
 
 		ctx, cancel = postgres.DefaultQueryCtx()
-		defer cancel()
-		db := fm.db.WithContext(ctx)
-		switch log := broadcast.DecodedLog().(type) {
+		started := time.Now()
+
+		decodedLog := broadcast.DecodedLog()
+		switch log := decodedLog.(type) {
 		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 			fm.respondToNewRoundLog(*log, broadcast)
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			fm.respondToAnswerUpdatedLog(*log)
-			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
+			if ctx.Err() != nil {
+				logger.Errorf("Timeout when processing log %T, after %v", decodedLog, time.Since(started))
+			} else if err = fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
 				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
 			}
 		case *flags_wrapper.FlagsFlagRaised:
@@ -520,7 +524,9 @@ func (fm *FluxMonitor) processLogs() {
 			if !isFlagLowered {
 				fm.pollManager.Hibernate()
 			}
-			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
+			if ctx.Err() != nil {
+				logger.Errorf("Timeout when processing log %T, after %v", decodedLog, time.Since(started))
+			} else if err = fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
 				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
 			}
 		case *flags_wrapper.FlagsFlagLowered:
@@ -532,6 +538,7 @@ func (fm *FluxMonitor) processLogs() {
 		default:
 			fm.logger.Errorf("unknown log %v of type %T", log, log)
 		}
+		cancel()
 	}
 }
 

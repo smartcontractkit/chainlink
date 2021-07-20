@@ -766,8 +766,9 @@ func (p *PollingDeviationChecker) processLogs() {
 		// If the log is a duplicate of one we've seen before, ignore it (this
 		// happens because of the LogBroadcaster's backfilling behavior).
 		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
 		consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
+		cancel()
+
 		if err != nil {
 			logger.Errorf("Error determining if log was already consumed: %v", err)
 			continue
@@ -777,22 +778,15 @@ func (p *PollingDeviationChecker) processLogs() {
 		}
 
 		ctx, cancel = postgres.DefaultQueryCtx()
-		defer cancel()
-		db := p.store.DB.WithContext(ctx)
-		switch log := broadcast.DecodedLog().(type) {
+		started := time.Now()
+
+		decodedLog := broadcast.DecodedLog()
+		switch log := decodedLog.(type) {
 		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 			p.respondToNewRoundLog(*log)
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
-			}
 
 		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 			p.respondToAnswerUpdatedLog(*log)
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
-			}
 
 		case *flags_wrapper.FlagsFlagRaised:
 			// check the contract before hibernating, because one flag could be lowered
@@ -803,20 +797,25 @@ func (p *PollingDeviationChecker) processLogs() {
 			if !isFlagLowered {
 				p.hibernate()
 			}
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
 			if p.isHibernating {
 				p.reactivate()
 			}
 
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			logger.ErrorIf(err, "Error marking log as consumed")
-
 		default:
 			logger.Errorf("unknown log %v of type %T", log, log)
+			cancel()
+			continue
 		}
+
+		if ctx.Err() != nil {
+			logger.Errorf("Timeout when processing log %T, after %v", decodedLog, time.Since(started))
+		} else if err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast); err != nil {
+			logger.Errorf("Error marking log %T as consumed: %v", decodedLog, err)
+		}
+
+		cancel()
 	}
 }
 
