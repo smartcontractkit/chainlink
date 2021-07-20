@@ -60,7 +60,7 @@ type fluxAggregatorUniverse struct {
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, key ethkey.Key, min, max *big.Int) fluxAggregatorUniverse {
-	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON, cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 

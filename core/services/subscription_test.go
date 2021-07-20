@@ -31,7 +31,6 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	defer cleanup()
 	ethClient := new(mocks.Client)
 	defer ethClient.AssertExpectations(t)
-	store.EthClient = ethClient
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -49,7 +48,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	jm := new(mocks.RunManager)
 	filter, err := models.FilterQueryFactory(initr, fromBlock.NextInt(), store.Config.OperatorContractAddress())
 	require.NoError(t, err)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, ethClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
 	sub.Start()
 	defer sub.Unsubscribe()
@@ -65,7 +64,6 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.
 	defer cleanup()
 	ethClient := new(mocks.Client)
 	defer ethClient.AssertExpectations(t)
-	store.EthClient = ethClient
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -97,7 +95,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.
 	jm := new(mocks.RunManager)
 	filter, err := models.FilterQueryFactory(initr, fromBlock.NextInt(), store.Config.OperatorContractAddress())
 	require.NoError(t, err)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, ethClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
 	sub.Start()
 	defer sub.Unsubscribe()
@@ -113,7 +111,6 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	defer cleanup()
 	ethClient := new(mocks.Client)
 	defer ethClient.AssertExpectations(t)
-	store.EthClient = ethClient
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -127,7 +124,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, ethereum.FilterQuery{}, store.Config.EthLogBackfillBatchSize(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, ethClient, jm, ethereum.FilterQuery{}, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
 	sub.Start()
 	defer sub.Unsubscribe()
@@ -141,7 +138,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	t.Cleanup(cleanup)
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	t.Cleanup(assertMocksCalled)
-	store.EthClient = ethClient
+
 	sub.On("Unsubscribe").Return(nil)
 	sub.On("Err").Return(nil)
 
@@ -161,7 +158,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	jm := new(mocks.RunManager)
 	filter, err := models.FilterQueryFactory(initr, head.NextInt(), store.Config.OperatorContractAddress())
 	require.NoError(t, err)
-	initrSub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
+	initrSub, err := services.NewInitiatorSubscription(initr, ethClient, jm, filter, store.Config.EthLogBackfillBatchSize(), callback)
 	assert.NoError(t, err)
 	initrSub.Start()
 	defer initrSub.Unsubscribe()
@@ -256,7 +253,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 
 			ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 			defer assertMocksCalled()
-			store.EthClient = ethClient
+
 			sub.On("Err").Return(nil)
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
@@ -279,7 +276,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 					executeJobChannel <- struct{}{}
 				})
 
-			subscription, err := services.StartJobSubscription(job, cltest.Head(91), store, runManager)
+			subscription, err := services.StartJobSubscription(job, cltest.Head(91), store, runManager, ethClient)
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 			logs := <-logsCh
@@ -326,7 +323,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 
 			ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 			defer assertMocksCalled()
-			store.EthClient = ethClient
+
 			sub.On("Err").Maybe().Return(nil)
 
 			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
@@ -345,7 +342,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			runManager.On("CreateErrored", mock.Anything, mock.Anything, mock.Anything).
 				Return(nil, nil)
 
-			subscription, err := services.StartJobSubscription(job, cltest.Head(91), store, runManager)
+			subscription, err := services.StartJobSubscription(job, cltest.Head(91), store, runManager, ethClient)
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 			logs := <-logsCh
@@ -389,7 +386,6 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			ethClient := new(mocks.Client)
 			defer ethClient.AssertExpectations(t)
-			store.EthClient = ethClient
 
 			store.Config.Set(orm.EnvVarName("ReplayFromBlock"), 10)
 			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), 20)
@@ -422,7 +418,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 					executeJobChannel <- struct{}{}
 				})
 
-			_, err := services.StartJobSubscription(job, test.currentHead, store, runManager)
+			_, err := services.StartJobSubscription(job, test.currentHead, store, runManager, ethClient)
 			require.NoError(t, err)
 
 			<-executeJobChannel
@@ -451,7 +447,6 @@ func TestServices_NewInitiatorSubscription_EthLog_NilHead(t *testing.T) {
 
 			ethClient := new(mocks.Client)
 			defer ethClient.AssertExpectations(t)
-			store.EthClient = ethClient
 
 			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), 20)
 
@@ -482,7 +477,7 @@ func TestServices_NewInitiatorSubscription_EthLog_NilHead(t *testing.T) {
 					executeJobChannel <- struct{}{}
 				})
 
-			_, err := services.StartJobSubscription(job, nil, store, runManager)
+			_, err := services.StartJobSubscription(job, nil, store, runManager, ethClient)
 			require.NoError(t, err)
 
 			<-executeJobChannel
@@ -510,7 +505,6 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			defer cleanup()
 
 			ethClient := new(mocks.Client)
-			store.EthClient = ethClient
 
 			currentHead := cltest.Head(test.currentHead)
 
@@ -549,7 +543,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 					executeJobChannel <- struct{}{}
 				})
 
-			_, err := services.StartJobSubscription(job, currentHead, store, runManager)
+			_, err := services.StartJobSubscription(job, currentHead, store, runManager, ethClient)
 			require.NoError(t, err)
 
 			<-executeJobChannel

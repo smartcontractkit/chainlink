@@ -130,7 +130,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	if !store.Config.EthereumDisabled() {
-		key, currentBalance, err := setupFundingKey(context.TODO(), store.EthClient, keyStore.Eth(), keyStorePwd)
+		key, currentBalance, err := setupFundingKey(context.TODO(), app.GetEthClient(), keyStore.Eth(), keyStorePwd)
 		if err != nil {
 			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
 		}
@@ -284,7 +284,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	store := app.GetStore()
 	keyStore := app.GetKeyStore()
 
-	err = store.EthClient.Dial(context.TODO())
+	ethClient := app.GetEthClient()
+	err = ethClient.Dial(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -309,7 +310,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, store.EthClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil)
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
