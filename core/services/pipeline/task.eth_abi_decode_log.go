@@ -8,6 +8,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+//
+// Return types:
+//     map[string]interface{} with any geth/abigen value type
+//
 type ETHABIDecodeLogTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`
@@ -33,7 +37,7 @@ func (t *ETHABIDecodeLogTask) Run(_ context.Context, vars Vars, inputs []Result)
 		topics HashSliceParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars))), "data"),
+		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), nil)), "data"),
 		errors.Wrap(ResolveParam(&topics, From(VarExpr(t.Topics, vars))), "topics"),
 		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)
@@ -52,9 +56,14 @@ func (t *ETHABIDecodeLogTask) Run(_ context.Context, vars Vars, inputs []Result)
 			return Result{Error: errors.Wrap(ErrBadInput, err2.Error())}
 		}
 	}
-	err = abi.ParseTopicsIntoMap(out, indexedArgs, topics[1:])
-	if err != nil {
-		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}
+	if len(indexedArgs) > 0 {
+		if len(topics) != len(indexedArgs)+1 {
+			return Result{Error: errors.Wrap(ErrBadInput, "topic/field count mismatch")}
+		}
+		err = abi.ParseTopicsIntoMap(out, indexedArgs, topics[1:])
+		if err != nil {
+			return Result{Error: errors.Wrap(ErrBadInput, err.Error())}
+		}
 	}
 	return Result{Value: out}
 }
