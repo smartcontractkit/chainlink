@@ -29,7 +29,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-type Config interface {
+type DelegateConfig interface {
 	Chain() *chains.Chain
 	ChainID() *big.Int
 	Dev() bool
@@ -56,7 +56,7 @@ type Delegate struct {
 	db                 *gorm.DB
 	txm                txManager
 	jobORM             job.ORM
-	config             Config
+	config             DelegateConfig
 	keyStore           *keystore.OCR
 	pipelineRunner     pipeline.Runner
 	ethClient          eth.Client
@@ -73,7 +73,7 @@ func NewDelegate(
 	db *gorm.DB,
 	txm txManager,
 	jobORM job.ORM,
-	config Config,
+	config DelegateConfig,
 	keyStore *keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,

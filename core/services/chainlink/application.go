@@ -203,7 +203,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	if cfg.EnableLegacyJobPipeline() {
 		runExecutor = services.NewRunExecutor(store, ethClient, keyStore, statsPusher)
 		runQueue = services.NewRunQueue(runExecutor)
-		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
+		runManager = services.NewRunManager(runQueue, cfg, store.ORM, statsPusher, store.Clock)
 		jobSubscriber = services.NewJobSubscriber(store, runManager, ethClient)
 	} else {
 		runExecutor = &services.NullRunExecutor{}

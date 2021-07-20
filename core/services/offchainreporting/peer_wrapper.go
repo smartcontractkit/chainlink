@@ -1,7 +1,9 @@
 package offchainreporting
 
 import (
+	"net"
 	"strings"
+	"time"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -9,12 +11,36 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
+
+type NetworkingConfig interface {
+	OCRBootstrapCheckInterval() time.Duration
+	OCRDHTLookupInterval() int
+	OCRIncomingMessageBufferSize() int
+	OCRNewStreamTimeout() time.Duration
+	OCROutgoingMessageBufferSize() int
+	OCRTraceLogging() bool
+	P2PAnnounceIP() net.IP
+	P2PAnnouncePort() uint16
+	P2PBootstrapPeers([]string) ([]string, error)
+	P2PDHTAnnouncementCounterUserPrefix() uint32
+	P2PListenIP() net.IP
+	P2PListenPort() uint16
+	P2PNetworkingStack() ocrnetworking.NetworkingStack
+	P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error)
+	P2PPeerstoreWriteInterval() time.Duration
+	P2PV2AnnounceAddresses() []string
+	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	P2PV2DeltaDial() models.Duration
+	P2PV2DeltaReconcile() models.Duration
+	P2PV2ListenAddresses() []string
+}
 
 type (
 	peer interface {
@@ -26,7 +52,7 @@ type (
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
 		keyStore *keystore.OCR
-		config   *config.Config
+		config   NetworkingConfig
 		db       *gorm.DB
 
 		pstoreWrapper *Pstorewrapper
