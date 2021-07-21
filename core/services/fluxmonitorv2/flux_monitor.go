@@ -540,7 +540,7 @@ func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog int
 	defer cancel()
 	if err := fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
 		fm.logger.Errorw("FluxMonitor: failed to mark log as consumed",
-			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "elapsed", time.Since(started))
+			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
 	}
 }
 

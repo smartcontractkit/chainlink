@@ -813,7 +813,7 @@ func (p *PollingDeviationChecker) processBroadcast(broadcast log.Broadcast) {
 	ctx, cancel = postgres.DefaultQueryCtx()
 	defer cancel()
 	if err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast); err != nil {
-		logger.Errorf("Error marking log %T as consumed: %v, after processing time: %v", decodedLog, err, time.Since(started))
+		logger.Errorf("Error marking log %T (%v) as consumed: %v, after processing time: %v", decodedLog, broadcast.String(), err, time.Since(started))
 	}
 }
 
