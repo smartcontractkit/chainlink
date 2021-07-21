@@ -145,6 +145,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	if err != nil {
 		return nil, err
 	}
+	gormTxm := postgres.NewGormTransactionManager(store.DB)
 
 	setupConfig(cfg, store.DB)
 
@@ -339,11 +340,11 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), jobSpawner, keyStore.CSA(), keyStore.Eth(), cfg)
+	feedsService := feeds.NewService(feedsORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), cfg)
 
 	app := &ChainlinkApplication{
 		ethClient:                ethClient,
