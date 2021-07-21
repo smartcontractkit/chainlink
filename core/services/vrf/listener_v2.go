@@ -159,7 +159,7 @@ func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 				req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
 				if err != nil {
 					lsn.l.Errorw("VRFListenerV2: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+					lsn.markLogAsConsumed(lb)
 					return
 				}
 				lsn.pendingLogs = append(lsn.pendingLogs, pendingRequest{
@@ -172,6 +172,13 @@ func (lsn *listenerV2) run(unsubscribeLogs []func(), minConfs uint32) {
 	}
 }
 
+func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
+	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListenerV2: unable to mark log %v as consumed", lb.String()))
+}
+
 func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) {
 	// Check if the vrf req has already been fulfilled
 	callback, err := lsn.coordinator.GetCommitment(nil, req.PreSeedAndRequestId)
@@ -181,13 +188,12 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
 		lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId, "callback", callback)
-		lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
+		lsn.markLogAsConsumed(lb)
 		return
 	}
 
 	s := time.Now()
 	proof, err1 := lsn.LogToProof(req, lb)
-	//gasLimit, err2 := lsn.computeTxGasLimit(uint64(req.CallbackGasLimit), proof)
 	vrfCoordinatorPayload, gasLimit, _, err2 := lsn.ProcessLogV2(proof)
 	err = multierr.Combine(err1, err2)
 	if err != nil {
