@@ -486,7 +486,7 @@ func (fm *FluxMonitor) processLogs() {
 		if !ok {
 			fm.logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
 		}
-
+		fm.processBroadcast(broadcast)
 	}
 }
 
