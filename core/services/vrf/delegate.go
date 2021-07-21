@@ -198,7 +198,8 @@ type listener struct {
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
-	latestHead      uint64 // Only one writer and one reader, no lock needed
+	latestHead      uint64
+	latestHeadMu    sync.RWMutex
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -217,17 +218,31 @@ type listener struct {
 }
 
 func (lsn *listener) Connect(head *models.Head) error {
-	lsn.latestHead = uint64(head.Number)
 	return nil
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listener) OnNewLongestChain(ctx context.Context, head models.Head) {
-	lsn.latestHead = uint64(head.Number)
+func (lsn *listener) OnNewLongestChain(_ context.Context, head models.Head) {
+	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
 	default:
 	}
+}
+
+func (lsn *listener) setLatestHead(h models.Head) {
+	lsn.latestHeadMu.Lock()
+	defer lsn.latestHeadMu.Unlock()
+	num := uint64(h.Number)
+	if num > lsn.latestHead {
+		lsn.latestHead = num
+	}
+}
+
+func (lsn *listener) getLatestHead() uint64 {
+	lsn.latestHeadMu.RLock()
+	defer lsn.latestHeadMu.RUnlock()
+	return lsn.latestHead
 }
 
 // Start complies with job.Service
@@ -261,7 +276,10 @@ func (lsn *listener) Start() error {
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
-		unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		if latestHead != nil {
+			lsn.setLatestHead(*latestHead)
+		}
 		go gracefulpanic.WrapRecover(func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
@@ -279,7 +297,7 @@ func (lsn *listener) extractConfirmedLogs() []request {
 	defer lsn.reqsMu.Unlock()
 	var toProcess, toKeep []request
 	for i := 0; i < len(lsn.reqs); i++ {
-		if lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
+		if lsn.reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
 			toProcess = append(toProcess, lsn.reqs[i])
 		} else {
 			toKeep = append(toKeep, lsn.reqs[i])
@@ -315,7 +333,7 @@ func (lsn *listener) pruneConfirmedRequestCounts() {
 	min := lsn.blockNumberToReqID.FindMin()
 	for min != nil {
 		m := min.(fulfilledReq)
-		if m.blockNumber > (lsn.latestHead - 10000) {
+		if m.blockNumber > (lsn.getLatestHead() - 10000) {
 			break
 		}
 		delete(lsn.respCount, m.reqID)

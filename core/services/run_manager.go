@@ -484,13 +484,13 @@ func (NullRunManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
 }
 
 func (NullRunManager) ResumeAllInProgress() error {
-	return errors.New("NullRunManager#ResumeAllInProgress should never be called")
+	return nil
 }
 
 func (NullRunManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
-	return errors.New("NullRunManager#ResumeAllPendingNextBlock should never be called")
+	return nil
 }
 
 func (NullRunManager) ResumeAllPendingConnection() error {
-	return errors.New("NullRunManager#ResumeAllPendingConnection should never be called")
+	return nil
 }
