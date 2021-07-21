@@ -69,6 +69,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param maxSubmissionCost maximum cost willing to pay on L2
    * @param maxGasPrice maximum gas price to pay on L2
    * @param gasCostL2 value to send to L2 to cover gas fee
+   * @param gasLimitL2 gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    * @param refundableAddress address where gas excess on L2 will be sent
    */
   constructor(
@@ -196,6 +197,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param maxSubmissionCost maximum cost willing to pay on L2
    * @param maxGasPrice maximum gas price to pay on L2
    * @param gasCostL2 value to send to L2 to cover gas fee
+   * @param gasLimitL2 gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    * @param refundableAddress address where gas excess on L2 will be sent
    */
   function setGasConfiguration(
@@ -264,7 +266,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   )
     internal
   {
-    // If gasCostL2 is zero L2 will pay the fee
+    // L2 will pay the fee if gasCostL2 is zero
     if (gasCostL2 > 0) {
       uint256 minGasCostValue = maxSubmissionCost + gasLimitL2 * maxGasPrice;
       require(gasCostL2 >= minGasCostValue, "Gas cost provided is too low");
