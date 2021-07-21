@@ -193,13 +193,13 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 		logger.Fatal("LogBroadcaster: Must supply at least 1 LogsWithTopics element to Register")
 	}
 
-	registration := registration{listener, opts}
-	wasOverCapacity := b.addSubscriber.Deliver(registration)
+	reg := registration{listener, opts}
+	wasOverCapacity := b.addSubscriber.Deliver(reg)
 	if wasOverCapacity {
 		logger.Error("LogBroadcaster: Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
 	return func() {
-		wasOverCapacity := b.rmSubscriber.Deliver(registration)
+		wasOverCapacity := b.rmSubscriber.Deliver(reg)
 		if wasOverCapacity {
 			logger.Error("LogBroadcaster: Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
 		}
