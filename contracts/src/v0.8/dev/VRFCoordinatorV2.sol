@@ -16,6 +16,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
+  // We need to maintain a list of consuming addresses.
+  // This bound ensures we are able to loop over them as needed.
+  // Should a user require more consumers, they can use multiple subscriptions.
+  uint16 constant MAXIMUM_CONSUMERS = 100;
+  error TooManyConsumers();
   error InsufficientBalance();
   error InvalidConsumer(uint64 subId, address consumer);
   error InvalidSubscription();
@@ -31,9 +36,15 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint96 balance; // Common link balance used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
     address requestedOwner; // For safe transfering sub ownership.
+    // Maintains the list of keys in s_consumers.
+    // We do this for 2 reasons:
+    // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
+    // 2. To be able to return the list of all consumers in getSubscription.
+    // Note that we need the s_consumers map to be able to directly check if a
+    // consumer is valid without reading all the consumers from storage.
+    address[] consumers;
   }
-  // We make this public so people can lookup which subscription a given consumer is using (if any).
-  mapping(address /* consumer */ => uint64 /* subId */) public s_consumers;
+  mapping(address /* consumer */ => uint64 /* subId */) private s_consumers;
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
@@ -53,6 +64,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
   uint16 constant MAX_REQUEST_CONFIRMATIONS = 200;
+  uint256 constant private CUSHION = 5_000;
   error InvalidRequestBlockConfs(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error KeyHashAlreadyRegistered(bytes32 keyHash);
@@ -63,8 +75,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
-  //
-  uint256 constant private CUSHION = 5_000;
   // Just to relieve stack pressure
   struct FulfillmentParams {
     uint64 subId;
@@ -555,12 +565,17 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     view
     returns (
       uint96 balance,
-      address owner
+      address owner,
+      address[] memory consumers
     )
   {
+    if (s_subscriptions[subId].owner == address(0)) {
+      revert InvalidSubscription();
+    }
     return (
       s_subscriptions[subId].balance,
-      s_subscriptions[subId].owner
+      s_subscriptions[subId].owner,
+      s_subscriptions[subId].consumers
     );
   }
 
@@ -572,16 +587,17 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint64
     )
   {
+    if (consumers.length > MAXIMUM_CONSUMERS) {
+      revert TooManyConsumers();
+    }
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     s_subscriptions[currentSubId] = Subscription({
       balance: 0,
       owner: msg.sender,
-      requestedOwner: address(0)
+      requestedOwner: address(0),
+      consumers: consumers
     });
-    // This is ok to run out of gas, simply limits the number of
-    // consumers that can be added at subscription time.
-    // (more can be added with addConsumer).
     for (uint256 i; i < consumers.length; i++) {
       s_consumers[consumers[i]] = currentSubId;
     }
@@ -630,6 +646,20 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_consumers[consumer] != subId) {
       revert InvalidConsumer(subId, consumer);
     }
+    // Note bounded by MAXIMUM_CONSUMERS
+    address[] memory consumers = s_subscriptions[subId].consumers;
+    for (uint256 i = 0; i < consumers.length; i++) {
+      if (consumers[i] == consumer) {
+        address last = consumers[consumers.length-1];
+        // Storage write removed element to the end
+        s_subscriptions[subId].consumers[consumers.length-1] = consumers[i];
+        // Storage write to preserve last element
+        s_subscriptions[subId].consumers[i] = last;
+        // Storage remove last element
+        s_subscriptions[subId].consumers.pop();
+        break;
+      }
+    }
     delete s_consumers[consumer];
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
@@ -641,11 +671,17 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
     onlySubOwner(subId)
   {
+    // Already maxed, cannot add any more consumers.
+    if (s_subscriptions[subId].consumers.length == MAXIMUM_CONSUMERS) {
+      revert TooManyConsumers();
+    }
     // Must explicitly remove a consumer before changing its subscription.
     if (s_consumers[consumer] != 0) {
       revert AlreadySubscribed(subId, consumer);
     }
     s_consumers[consumer] = subId;
+    s_subscriptions[subId].consumers.push(consumer);
+
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
@@ -678,7 +714,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
     onlySubOwner(subId)
   {
-    uint96 balance = s_subscriptions[subId].balance;
+    Subscription memory sub = s_subscriptions[subId];
+    uint96 balance = sub.balance;
+    // Note bounded by MAXIMUM_CONSUMERS;
+    for (uint256 i = 0; i < sub.consumers.length; i++) {
+      delete s_consumers[sub.consumers[i]];
+    }
     delete s_subscriptions[subId];
     s_totalBalance -= balance;
     if (!LINK.transfer(to, uint256(balance))) {

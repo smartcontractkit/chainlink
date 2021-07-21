@@ -3,6 +3,7 @@ import { Signer, Contract, BigNumber } from "ethers";
 import { assert, expect } from "chai";
 import { defaultAbiCoder } from "ethers/utils";
 import { publicAbi } from "../../test-helpers/helpers";
+import { randomAddressString } from "hardhat/internal/hardhat-network/provider/fork/random";
 
 describe("VRFCoordinatorV2", () => {
   let vrfCoordinatorV2: Contract;
@@ -91,7 +92,6 @@ describe("VRFCoordinatorV2", () => {
       "registerProvingKey",
       "oracleWithdraw",
       // Subscription management
-      "s_consumers",
       "createSubscription",
       "addConsumer",
       "removeConsumer",
@@ -230,6 +230,17 @@ describe("VRFCoordinatorV2", () => {
         `AlreadySubscribed(${subId}, "${randomAddress}")`,
       );
     });
+    it("cannot add more than maximum", async function () {
+      // There is one consumer, add another 99 to hit the max
+      for (let i = 0; i < 99; i++) {
+        await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddressString());
+      }
+      // Adding one more should fail
+      // await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)).to.be.revertedWith(
+        `TooManyConsumers()`,
+      );
+    });
     it("owner can update", async function () {
       await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress))
         .to.emit(vrfCoordinatorV2, "SubscriptionConsumerAdded")
@@ -253,10 +264,14 @@ describe("VRFCoordinatorV2", () => {
       );
     });
     it("owner can update", async function () {
+      const subBefore = await vrfCoordinatorV2.getSubscription(subId);
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
       await expect(vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress))
         .to.emit(vrfCoordinatorV2, "SubscriptionConsumerRemoved")
         .withArgs(subId, randomAddress);
+      const subAfter = await vrfCoordinatorV2.getSubscription(subId);
+      // Subscription should NOT contain the removed consumer
+      assert.deepEqual(subBefore.consumers, subAfter.consumers);
     });
   });
 
@@ -319,6 +334,7 @@ describe("VRFCoordinatorV2", () => {
         .withArgs(subId, randomAddress, BigNumber.from("1000"));
       const randomBalance = await linkToken.balanceOf(randomAddress);
       assert.equal(randomBalance.toString(), "1000000000000001000");
+      await expect(vrfCoordinatorV2.connect(subOwner).getSubscription(subId)).to.be.revertedWith("InvalidSubscription");
     });
   });
 

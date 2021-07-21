@@ -337,7 +337,7 @@ func TestRequestCost(t *testing.T) {
 	require.NoError(t, err)
 	// Ensure even with large number of consumers its still cheap
 	var addrs []common.Address
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 99; i++ {
 		addrs = append(addrs, cltest.NewAddress())
 	}
 	_, err = uni.consumerContract.UpdateSubscription(uni.carol,
@@ -351,6 +351,40 @@ func TestRequestCost(t *testing.T) {
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
 	assert.Less(t, estimate, uint64(85000),
 		"requestRandomness tx gas cost more than expected")
+}
+
+func TestMaxConsumersCost(t *testing.T) {
+	key := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, key)
+
+	cfg := cltest.NewTestConfig(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
+	defer cleanup()
+	require.NoError(t, app.StartAndConnect())
+	_, err := uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
+		big.NewInt(1000000000000000000)) // 0.1 LINK
+	require.NoError(t, err)
+	uni.backend.Commit()
+	subId, err := uni.consumerContract.SSubId(nil)
+	require.NoError(t, err)
+	t.Log(subId)
+	var addrs []common.Address
+	for i := 0; i < 98; i++ {
+		addrs = append(addrs, cltest.NewAddress())
+	}
+	_, err = uni.consumerContract.UpdateSubscription(uni.carol, addrs)
+	// Ensure even with max number of consumers its still reasonable gas costs.
+	require.NoError(t, err)
+	estimate := estimateGas(t, uni.backend, uni.consumerContractAddress,
+		uni.rootContractAddress, uni.coordinatorABI,
+		"removeConsumer", subId, uni.consumerContractAddress)
+	t.Log(estimate)
+	assert.Less(t, estimate, uint64(260000))
+	estimate = estimateGas(t, uni.backend, uni.consumerContractAddress,
+		uni.rootContractAddress, uni.coordinatorABI,
+		"addConsumer", subId, cltest.NewAddress())
+	t.Log(estimate)
+	assert.Less(t, estimate, uint64(100000))
 }
 
 func TestFulfillmentCost(t *testing.T) {
