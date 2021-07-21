@@ -10,7 +10,7 @@ import (
 // and a queue capacity.
 type Mailbox struct {
 	chNotify chan struct{}
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	queue    []interface{}
 	capacity uint64
 }
