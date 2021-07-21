@@ -23,6 +23,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost;
     uint256 maxGasPrice;
     uint256 gasCostL2;
+    uint256 gasLimitL2;
     address refundableAddress;
   }
 
@@ -30,7 +31,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   address constant private FLAG_ARBITRUM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
   bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
   bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
-  uint256 constant private L2_GAS_LIMIT = 30000000;
 
   address private s_l2FlagsAddress;
   IInbox private s_inbox;
@@ -48,6 +48,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost,
     uint256 maxGasPrice,
     uint256 gasCostL2,
+    uint256 gasLimitL2,
     address indexed refundableAddress
   );
 
@@ -77,13 +78,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost,
     uint256 maxGasPrice,
     uint256 gasCostL2,
+    uint256 gasLimitL2,
     address refundableAddress
   ) {
     require(l2FlagsAddress != address(0), "Invalid Flags contract address");
     s_inbox = IInbox(inboxAddress);
     s_gasConfigAccessController = AccessControllerInterface(gasConfigAccessControllerAddress);
     s_l2FlagsAddress = l2FlagsAddress;
-    _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
+    _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, gasLimitL2, refundableAddress);
   }
 
   /**
@@ -200,12 +202,13 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost,
     uint256 maxGasPrice,
     uint256 gasCostL2,
+    uint256 gasLimitL2,
     address refundableAddress
   )
     external
   {
     require(s_gasConfigAccessController.hasAccess(msg.sender, msg.data), "Access required to set config");
-    _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
+    _setGasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, gasLimitL2, refundableAddress);
   }
 
   /**
@@ -235,7 +238,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     }
 
     // NOTICE: if gasCostL2 is zero the payment is processed on L2 so the L2 address needs to be funded, as it will
-    // paying the fee. We also ignore the returned msg nubmer, that can be queried via the InboxMessageDelivered event.
+    // paying the fee. We also ignore the returned msg number, that can be queried via the InboxMessageDelivered event.
     s_inbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
       s_l2FlagsAddress,
       0, // L2 call value
@@ -245,7 +248,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       s_gasConfig.maxSubmissionCost, // Max submission cost of sending data length
       s_gasConfig.refundableAddress, // excessFeeRefundAddress
       s_gasConfig.refundableAddress, // callValueRefundAddress
-      L2_GAS_LIMIT,
+      s_gasConfig.gasLimitL2,
       s_gasConfig.maxGasPrice,
       currentAnswer == 0 ? CALL_LOWER_FLAG : CALL_RAISE_FLAG
     );
@@ -256,12 +259,18 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost,
     uint256 maxGasPrice,
     uint256 gasCostL2,
+    uint256 gasLimitL2,
     address refundableAddress
   )
     internal
   {
-    s_gasConfig = GasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
-    emit GasConfigurationSet(maxSubmissionCost, maxGasPrice, gasCostL2, refundableAddress);
+    // If gasCostL2 is zero L2 will pay the fee
+    if (gasCostL2 > 0) {
+      uint256 minGasCostValue = maxSubmissionCost + gasLimitL2 * maxGasPrice;
+      require(gasCostL2 >= minGasCostValue, "Gas cost provided is too low");
+    }
+    s_gasConfig = GasConfiguration(maxSubmissionCost, maxGasPrice, gasCostL2, gasLimitL2, refundableAddress);
+    emit GasConfigurationSet(maxSubmissionCost, maxGasPrice, gasCostL2, gasLimitL2, refundableAddress);
   }
 
   function _setGasAccessController(
