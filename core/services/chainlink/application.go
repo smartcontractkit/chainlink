@@ -4,6 +4,7 @@ import (
 	"context"
 	stderr "errors"
 	"fmt"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"os"
 	"os/signal"
 	"reflect"
@@ -47,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
@@ -155,7 +155,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
-	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
+	monitoringEndpoint := ocrcommontypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())

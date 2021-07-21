@@ -31,6 +31,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -1401,10 +1402,10 @@ func (c Config) P2PV2AnnounceAddressesRaw() []string {
 
 // P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
 // networking stack
-func (c Config) P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator) {
+func (c Config) P2PV2Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator) {
 	bootstrappers := c.P2PV2BootstrappersRaw()
 	for _, s := range bootstrappers {
-		var locator ocrtypes.BootstrapperLocator
+		var locator ocrcommontypes.BootstrapperLocator
 		err := locator.UnmarshalText([]byte(s))
 		if err != nil {
 			logger.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)

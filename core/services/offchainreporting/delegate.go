@@ -3,6 +3,7 @@ package offchainreporting
 import (
 	"context"
 	"fmt"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"math/big"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ type DelegateConfig interface {
 	OCRTransmitterAddress(*ethkey.EIP55Address) (ethkey.EIP55Address, error)
 	P2PBootstrapPeers([]string) ([]string, error)
 	P2PPeerID(*p2pkey.PeerID) (p2pkey.PeerID, error)
-	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator
 }
 
 type Delegate struct {
@@ -62,7 +63,7 @@ type Delegate struct {
 	ethClient          eth.Client
 	logBroadcaster     log.Broadcaster
 	peerWrapper        *SingletonPeerWrapper
-	monitoringEndpoint ocrtypes.MonitoringEndpoint
+	monitoringEndpoint ocrcommontypes.MonitoringEndpoint
 	chain              *chains.Chain
 	headBroadcaster    httypes.HeadBroadcaster
 }
@@ -79,7 +80,7 @@ func NewDelegate(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
-	monitoringEndpoint ocrtypes.MonitoringEndpoint,
+	monitoringEndpoint ocrcommontypes.MonitoringEndpoint,
 	chain *chains.Chain,
 	headBroadcaster httypes.HeadBroadcaster,
 ) *Delegate {
