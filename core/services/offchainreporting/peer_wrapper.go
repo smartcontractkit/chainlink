@@ -143,7 +143,7 @@ func (p *SingletonPeerWrapper) Start() error {
 
 		peerLogger := NewLogger(logger.Default, p.config.OCRTraceLogging(), func(string) {})
 
-		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
+		peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 			NetworkingStack:      p.config.P2PNetworkingStack(),
 			PrivKey:              key.PrivKey,
 			V1ListenIP:           p.config.P2PListenIP(),
@@ -169,6 +169,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "error calling NewPeer")
 		}
+		p.Peer = peer.OCRBinaryNetworkEndpointFactory()
 		return p.pstoreWrapper.Start()
 	})
 }
