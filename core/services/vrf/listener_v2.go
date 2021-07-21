@@ -97,7 +97,7 @@ func (lsn *listenerV2) Start() error {
 
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
-		unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		_, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
 
 		go gracefulpanic.WrapRecover(func() {
 			lsn.run([]func(){unsubscribeLogs, unsubscribeHeadBroadcaster}, minConfs)

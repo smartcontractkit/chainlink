@@ -7,7 +7,7 @@
 - v0.8 Access Controlled contracts (`SimpleWriteAccessController` and `SimpleReadAccessController`).
 - v0.8 Flags contracts (`Flags`).
 - v0.8 Contracts for the V2 VRF. `VRFCoordinatorV2.sol`, `VRF.sol`,
-`VRFConsumerV2Interface.sol`, `VRFCoordinatorV2Interface.sol`. Along
+`VRFConsumerBaseV2.sol`, `VRFCoordinatorV2Interface.sol`. Along
 with related test contract `VRFConsumerV2.sol`. 
 
 ### Changed:

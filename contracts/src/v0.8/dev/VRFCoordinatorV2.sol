@@ -8,7 +8,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
 
 import "./VRF.sol";
 import "../ConfirmedOwner.sol";
-import "../interfaces/VRFConsumerV2Interface.sol";
+import "./VRFConsumerBaseV2.sol";
 
 contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
@@ -375,8 +375,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // with the same proof because this getRandomnessFromProof will revert because the requestId
     // is gone.
     delete s_commitments[requestId];
-    VRFConsumerV2Interface v;
-    bytes memory resp = abi.encodeWithSelector(v.fulfillRandomWords.selector, requestId, randomWords);
+    VRFConsumerBaseV2 v;
+    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
     uint256 gasPreCallback = gasleft();
     if (gasPreCallback < fp.callbackGasLimit) {
       revert InsufficientGasForConsumer(gasPreCallback, fp.callbackGasLimit);

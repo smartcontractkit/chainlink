@@ -265,7 +265,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// which should be fixed in this test.
 	ga, err := uni.consumerContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1551)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1556)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
 	t.Log("gas available", ga.String())
 
 	// Assert that we were only charged for how much gas we actually used.

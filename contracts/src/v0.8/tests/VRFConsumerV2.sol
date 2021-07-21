@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../interfaces/VRFConsumerV2Interface.sol";
+import "../dev/VRFConsumerBaseV2.sol";
 
-contract VRFConsumerV2 is VRFConsumerV2Interface {
+contract VRFConsumerV2 is VRFConsumerBaseV2 {
     uint256[] public s_randomWords;
     uint256 public s_requestId;
     VRFCoordinatorV2Interface COORDINATOR;
@@ -17,6 +17,7 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
         address vrfCoordinator,
         address link
     )
+        VRFConsumerBaseV2(vrfCoordinator)
     {
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         LINKTOKEN = LinkTokenInterface(link);
@@ -26,7 +27,7 @@ contract VRFConsumerV2 is VRFConsumerV2Interface {
         uint256 requestId,
         uint256[] memory randomWords
     )
-        external
+        internal
         override
     {
         s_gasAvailable = gasleft();
