@@ -62,12 +62,12 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.
 
 // Connect complies with HeadTrackable
 func (bm *balanceMonitor) Connect(_ *models.Head) error {
-	// Connect head can be out of date, so always query the latest balance
-	bm.checkBalance(nil)
 	return nil
 }
 
 func (bm *balanceMonitor) Start() error {
+	// Always query latest balance on start
+	bm.checkBalance(nil)
 	return nil
 }
 

@@ -198,7 +198,8 @@ type listener struct {
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
-	latestHead      uint64 // Only one writer and one reader, no lock needed
+	latestHead      uint64
+	latestHeadMu    sync.RWMutex
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -217,17 +218,31 @@ type listener struct {
 }
 
 func (lsn *listener) Connect(head *models.Head) error {
-	lsn.latestHead = uint64(head.Number)
 	return nil
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listener) OnNewLongestChain(ctx context.Context, head models.Head) {
-	lsn.latestHead = uint64(head.Number)
+func (lsn *listener) OnNewLongestChain(_ context.Context, head models.Head) {
+	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
 	default:
 	}
+}
+
+func (lsn *listener) setLatestHead(h models.Head) {
+	lsn.latestHeadMu.Lock()
+	defer lsn.latestHeadMu.Unlock()
+	num := uint64(h.Number)
+	if num > lsn.latestHead {
+		lsn.latestHead = num
+	}
+}
+
+func (lsn *listener) getLatestHead() uint64 {
+	lsn.latestHeadMu.RLock()
+	defer lsn.latestHeadMu.RUnlock()
+	return lsn.latestHead
 }
 
 // Start complies with job.Service
@@ -261,7 +276,10 @@ func (lsn *listener) Start() error {
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
-		unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		if latestHead != nil {
+			lsn.setLatestHead(*latestHead)
+		}
 		go gracefulpanic.WrapRecover(func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
@@ -279,7 +297,7 @@ func (lsn *listener) extractConfirmedLogs() []request {
 	defer lsn.reqsMu.Unlock()
 	var toProcess, toKeep []request
 	for i := 0; i < len(lsn.reqs); i++ {
-		if lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
+		if lsn.reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
 			toProcess = append(toProcess, lsn.reqs[i])
 		} else {
 			toKeep = append(toKeep, lsn.reqs[i])
@@ -315,7 +333,7 @@ func (lsn *listener) pruneConfirmedRequestCounts() {
 	min := lsn.blockNumberToReqID.FindMin()
 	for min != nil {
 		m := min.(fulfilledReq)
-		if m.blockNumber > (lsn.latestHead - 10000) {
+		if m.blockNumber > (lsn.getLatestHead() - 10000) {
 			break
 		}
 		delete(lsn.respCount, m.reqID)
@@ -365,45 +383,57 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
-				if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
-					lsn.respCount[v.RequestId]++
-					lsn.blockNumberToReqID.Insert(fulfilledReq{
-						blockNumber: v.Raw.BlockNumber,
-						reqID:       v.RequestId,
-					})
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-				req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
-				if err != nil {
-					lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-
-				// Check if the vrf req has already been fulfilled
-				callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
-				if err != nil {
-					lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-				} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-					// If seedAndBlockNumber is zero then the response has been fulfilled
-					// and we should skip it
-					lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-				confirmedAt := lsn.getConfirmedAt(req, minConfs)
-				lsn.reqsMu.Lock()
-				lsn.reqs = append(lsn.reqs, request{
-					confirmedAtBlock: confirmedAt,
-					req:              req,
-					lb:               lb,
-				})
-				lsn.reqAdded()
-				lsn.reqsMu.Unlock()
+				lsn.handleLog(lb, minConfs)
 			}
 		}
 	}
+}
+
+func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
+	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
+		lsn.respCount[v.RequestId]++
+		lsn.blockNumberToReqID.Insert(fulfilledReq{
+			blockNumber: v.Raw.BlockNumber,
+			reqID:       v.RequestId,
+		})
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
+	if err != nil {
+		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+
+	// Check if the vrf req has already been fulfilled
+	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// If seedAndBlockNumber is zero then the response has been fulfilled
+		// and we should skip it
+		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+	confirmedAt := lsn.getConfirmedAt(req, minConfs)
+	lsn.reqsMu.Lock()
+	lsn.reqs = append(lsn.reqs, request{
+		confirmedAtBlock: confirmedAt,
+		req:              req,
+		lb:               lb,
+	})
+	lsn.reqAdded()
+	lsn.reqsMu.Unlock()
+}
+
+func (lsn *listener) markLogAsConsumed(lb log.Broadcast) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
+	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
+	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListener: unable to mark log %v as consumed", lb.String()))
 }
 
 func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {

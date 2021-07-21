@@ -77,7 +77,10 @@ func (executer *UpkeepExecuter) Start() error {
 	return executer.StartOnce("UpkeepExecuter", func() error {
 		executer.wgDone.Add(2)
 		go executer.run()
-		unsubscribeHeads := executer.headBroadcaster.Subscribe(executer)
+		latestHead, unsubscribeHeads := executer.headBroadcaster.Subscribe(executer)
+		if latestHead != nil {
+			executer.mailbox.Deliver(*latestHead)
+		}
 		go func() {
 			defer unsubscribeHeads()
 			defer executer.wgDone.Done()

@@ -104,6 +104,24 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
+		// NOTE: In an ideal world we want to always start the head tracker off
+		// with whatever the latest head is, without waiting for the
+		// subscription to send us one.
+		//
+		// This does not play nicely with the legacy pipeline for reasons that
+		// are difficult to understand, so for now we leave it disabled in case
+		// the legacy pipeline is turned on. We can remove this once legacy
+		// pipeline is removed
+		if !ht.config.EnableLegacyJobPipeline() {
+			initialHead, err := ht.getInitialHead()
+			if err != nil {
+				return err
+			}
+			if err := ht.handleNewHead(context.Background(), initialHead); err != nil {
+				return errors.Wrap(err, "error handling initial head")
+			}
+		}
+
 		ht.wgDone.Add(3)
 		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.handleConnected)
 		go ht.backfiller()
@@ -111,6 +129,19 @@ func (ht *HeadTracker) Start() error {
 
 		return nil
 	})
+}
+
+func (ht *HeadTracker) getInitialHead() (models.Head, error) {
+	ctx, cancel := eth.DefaultQueryCtx()
+	defer cancel()
+	head, err := ht.ethClient.HeadByNumber(ctx, nil)
+	if err != nil {
+		return models.Head{}, errors.Wrap(err, "failed to fetch initial head")
+	} else if head == nil {
+		return models.Head{}, errors.New("initial head was unexpectedly nil")
+	}
+	ht.logger().Debugw("HeadTracker: got initial current block", "blockNumber", head.Number, "blockHash", head.Hash)
+	return *head, nil
 }
 
 // Stop unsubscribes all connections and fires Disconnect.
@@ -338,3 +369,14 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	}
 	return nil
 }
+
+var _ httypes.Tracker = &NullTracker{}
+
+type NullTracker struct{}
+
+func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
+	return nil, nil
+}
+func (*NullTracker) Start() error             { return nil }
+func (*NullTracker) Stop() error              { return nil }
+func (*NullTracker) SetLogger(*logger.Logger) {}
