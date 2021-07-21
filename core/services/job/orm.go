@@ -177,6 +177,10 @@ func (o *orm) claimedJobIDs() (ids []int32) {
 	return
 }
 
+// CreateJob creates the job and it's associated spec record.
+//
+// NOTE: This is not wrapped in a db transaction so if you call this, you should
+// use postgres.TransactionManager to create the transaction in the context.
 func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) error {
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeBridge {
@@ -192,86 +196,81 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		}
 	}
 
-	// Inherit the parent context so that client side request cancellations are respected.
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-	outerTx := postgres.TxFromContext(ctx, o.db)
+	tx := postgres.TxFromContext(ctx, o.db)
 
-	return postgres.GormTransaction(ctx, outerTx, func(tx *gorm.DB) error {
-		switch jobSpec.Type {
-		case DirectRequest:
-			err := tx.Create(&jobSpec.DirectRequestSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "failed to create DirectRequestSpec for jobSpec")
-			}
-			jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
-		case FluxMonitor:
-			err := tx.Create(&jobSpec.FluxMonitorSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "failed to create FluxMonitorSpec for jobSpec")
-			}
-			jobSpec.FluxMonitorSpecID = &jobSpec.FluxMonitorSpec.ID
-		case OffchainReporting:
-			err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
-			pqErr, ok := err.(*pgconn.PgError)
-			if err != nil && ok && pqErr.Code == "23503" {
-				if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
-					return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
-				}
-				if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-					if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
-						return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-					}
-					if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
-						return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-					}
-				}
-			}
-			if err != nil {
-				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec for jobSpec")
-			}
-			jobSpec.OffchainreportingOracleSpecID = &jobSpec.OffchainreportingOracleSpec.ID
-		case Keeper:
-			err := tx.Create(&jobSpec.KeeperSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "failed to create KeeperSpec for jobSpec")
-			}
-			jobSpec.KeeperSpecID = &jobSpec.KeeperSpec.ID
-		case Cron:
-			err := tx.Create(&jobSpec.CronSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
-			}
-			jobSpec.CronSpecID = &jobSpec.CronSpec.ID
-		case VRF:
-			err := tx.Create(&jobSpec.VRFSpec).Error
-			pqErr, ok := err.(*pgconn.PgError)
-			if err != nil && ok && pqErr.Code == "23503" {
-				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
-					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jobSpec.VRFSpec.PublicKey.String())
-				}
-			}
-			if err != nil {
-				return errors.Wrap(err, "failed to create VRFSpec for jobSpec")
-			}
-			jobSpec.VRFSpecID = &jobSpec.VRFSpec.ID
-		case Webhook:
-			err := tx.Create(&jobSpec.WebhookSpec).Error
-			if err != nil {
-				return errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
-			}
-			jobSpec.WebhookSpecID = &jobSpec.WebhookSpec.ID
-		default:
-			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
-		}
-
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, p, jobSpec.MaxTaskDuration)
+	switch jobSpec.Type {
+	case DirectRequest:
+		err := tx.Create(&jobSpec.DirectRequestSpec).Error
 		if err != nil {
-			return errors.Wrap(err, "failed to create pipeline spec")
+			return errors.Wrap(err, "failed to create DirectRequestSpec for jobSpec")
 		}
-		jobSpec.PipelineSpecID = pipelineSpecID
-		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
-	})
+		jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
+	case FluxMonitor:
+		err := tx.Create(&jobSpec.FluxMonitorSpec).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to create FluxMonitorSpec for jobSpec")
+		}
+		jobSpec.FluxMonitorSpecID = &jobSpec.FluxMonitorSpec.ID
+	case OffchainReporting:
+		err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
+		pqErr, ok := err.(*pgconn.PgError)
+		if err != nil && ok && pqErr.Code == "23503" {
+			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+			}
+			if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+				}
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+				}
+			}
+		}
+		if err != nil {
+			return errors.Wrap(err, "failed to create OffchainreportingOracleSpec for jobSpec")
+		}
+		jobSpec.OffchainreportingOracleSpecID = &jobSpec.OffchainreportingOracleSpec.ID
+	case Keeper:
+		err := tx.Create(&jobSpec.KeeperSpec).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to create KeeperSpec for jobSpec")
+		}
+		jobSpec.KeeperSpecID = &jobSpec.KeeperSpec.ID
+	case Cron:
+		err := tx.Create(&jobSpec.CronSpec).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to create CronSpec for jobSpec")
+		}
+		jobSpec.CronSpecID = &jobSpec.CronSpec.ID
+	case VRF:
+		err := tx.Create(&jobSpec.VRFSpec).Error
+		pqErr, ok := err.(*pgconn.PgError)
+		if err != nil && ok && pqErr.Code == "23503" {
+			if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
+				return errors.Wrapf(ErrNoSuchPublicKey, "%s", jobSpec.VRFSpec.PublicKey.String())
+			}
+		}
+		if err != nil {
+			return errors.Wrap(err, "failed to create VRFSpec for jobSpec")
+		}
+		jobSpec.VRFSpecID = &jobSpec.VRFSpec.ID
+	case Webhook:
+		err := tx.Create(&jobSpec.WebhookSpec).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
+		}
+		jobSpec.WebhookSpecID = &jobSpec.WebhookSpec.ID
+	default:
+		logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
+	}
+
+	pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, p, jobSpec.MaxTaskDuration)
+	if err != nil {
+		return errors.Wrap(err, "failed to create pipeline spec")
+	}
+	jobSpec.PipelineSpecID = pipelineSpecID
+	return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
 }
 
 // DeleteJob removes a job that is claimed by this orm
