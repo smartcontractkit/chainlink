@@ -284,11 +284,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, txManager pipeline.TxManager) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.KeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, tc, db)
 	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config, ethClient, txManager)
+	pr := pipeline.NewRunner(prm, tc.Config, ethClient, keyStore, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -1317,10 +1317,11 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 	return prs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
+	var numPipelineRuns int
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
@@ -1339,12 +1340,13 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, e
 				}
 			}
 		}
-		if len(completed) >= count {
+		numPipelineRuns = len(completed)
+		if len(completed) >= expectedPipelineRuns {
 			pr = completed
 			return true
 		}
 		return false
-	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs (found %v runs)", jobID, nodeID, expectedPipelineRuns, numPipelineRuns))
 	return pr
 }
 
@@ -1377,6 +1379,13 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 		return prs
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return prs
+}
+
+func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
 }
 
 // WaitForRunsAtLeast waits for at least the passed number of runs to start.
@@ -1525,6 +1534,19 @@ func BlockWithTransactions(gasPrices ...int64) *types.Block {
 		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
 	return types.NewBlock(&types.Header{}, txs, nil, nil, new(trie.Trie))
+}
+
+type TransactionReceipter interface {
+	TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error)
+}
+
+func RequireTxSuccessful(t testing.TB, client TransactionReceipter, txHash common.Hash) *types.Receipt {
+	t.Helper()
+	r, err := client.TransactionReceipt(context.Background(), txHash)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	require.Equal(t, uint64(1), r.Status)
+	return r
 }
 
 func StringToHash(s string) common.Hash {

@@ -7,6 +7,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+//
+// Return types:
+//    *decimal.Decimal
+//
 type MultiplyTask struct {
 	BaseTask `mapstructure:",squash"`
 	Input    string `json:"input"`

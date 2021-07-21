@@ -56,7 +56,7 @@ func setupRegistrySync(t *testing.T) (
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
@@ -194,6 +194,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -238,6 +239,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -277,6 +279,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -313,6 +316,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -356,6 +360,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 

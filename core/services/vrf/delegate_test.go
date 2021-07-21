@@ -71,7 +71,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	prm := pipeline.NewORM(db)
 	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
-	pr := pipeline.NewRunner(prm, cfg, ec, nil)
+	pr := pipeline.NewRunner(prm, cfg, ec, nil, nil)
 	ks := keystore.New(db, utils.FastScryptParams)
 	require.NoError(t, ks.Eth().Unlock("blah"))
 	_, err = ks.Eth().CreateNewKey()
