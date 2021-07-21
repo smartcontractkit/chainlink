@@ -365,45 +365,57 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
-				if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
-					lsn.respCount[v.RequestId]++
-					lsn.blockNumberToReqID.Insert(fulfilledReq{
-						blockNumber: v.Raw.BlockNumber,
-						reqID:       v.RequestId,
-					})
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-				req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
-				if err != nil {
-					lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-
-				// Check if the vrf req has already been fulfilled
-				callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
-				if err != nil {
-					lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-				} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-					// If seedAndBlockNumber is zero then the response has been fulfilled
-					// and we should skip it
-					lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
-					lsn.l.ErrorIf(lsn.logBroadcaster.MarkConsumed(lsn.db, lb), "failed to mark consumed")
-					continue
-				}
-				confirmedAt := lsn.getConfirmedAt(req, minConfs)
-				lsn.reqsMu.Lock()
-				lsn.reqs = append(lsn.reqs, request{
-					confirmedAtBlock: confirmedAt,
-					req:              req,
-					lb:               lb,
-				})
-				lsn.reqAdded()
-				lsn.reqsMu.Unlock()
+				lsn.handleLog(lb, minConfs)
 			}
 		}
 	}
+}
+
+func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
+	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
+		lsn.respCount[v.RequestId]++
+		lsn.blockNumberToReqID.Insert(fulfilledReq{
+			blockNumber: v.Raw.BlockNumber,
+			reqID:       v.RequestId,
+		})
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
+	if err != nil {
+		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+
+	// Check if the vrf req has already been fulfilled
+	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// If seedAndBlockNumber is zero then the response has been fulfilled
+		// and we should skip it
+		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+	confirmedAt := lsn.getConfirmedAt(req, minConfs)
+	lsn.reqsMu.Lock()
+	lsn.reqs = append(lsn.reqs, request{
+		confirmedAtBlock: confirmedAt,
+		req:              req,
+		lb:               lb,
+	})
+	lsn.reqAdded()
+	lsn.reqsMu.Unlock()
+}
+
+func (lsn *listener) markLogAsConsumed(lb log.Broadcast) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
+	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
+	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListener: unable to mark log %v as consumed", lb.String()))
 }
 
 func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {

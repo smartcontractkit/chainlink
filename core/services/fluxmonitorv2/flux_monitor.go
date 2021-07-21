@@ -486,52 +486,61 @@ func (fm *FluxMonitor) processLogs() {
 		if !ok {
 			fm.logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
 		}
+		fm.processBroadcast(broadcast)
+	}
+}
 
-		// If the log is a duplicate of one we've seen before, ignore it (this
-		// happens because of the LogBroadcaster's backfilling behavior).
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db.WithContext(ctx), broadcast)
-		if err != nil {
-			fm.logger.Errorf("Error determining if log was already consumed: %v", err)
-			continue
-		} else if consumed {
-			fm.logger.Debug("Log was already consumed by Flux Monitor, skipping")
-			continue
-		}
+func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 
-		ctx, cancel = postgres.DefaultQueryCtx()
-		defer cancel()
-		db := fm.db.WithContext(ctx)
-		switch log := broadcast.DecodedLog().(type) {
-		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
-			fm.respondToNewRoundLog(*log, broadcast)
-		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
-			fm.respondToAnswerUpdatedLog(*log)
-			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
-				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
-			}
-		case *flags_wrapper.FlagsFlagRaised:
-			// check the contract before hibernating, because one flag could be lowered
-			// while the other flag remains raised
-			var isFlagLowered bool
-			isFlagLowered, err = fm.flags.IsLowered(fm.contractAddress)
-			fm.logger.ErrorIf(err, "Error determining if flag is still raised")
-			if !isFlagLowered {
-				fm.pollManager.Hibernate()
-			}
-			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
-				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
-			}
-		case *flags_wrapper.FlagsFlagLowered:
-			// Only reactivate if it is hibernating
-			if fm.pollManager.cfg.IsHibernating {
-				fm.pollManager.Awaken(fm.initialRoundState())
-				fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
-			}
-		default:
-			fm.logger.Errorf("unknown log %v of type %T", log, log)
+	// If the log is a duplicate of one we've seen before, ignore it (this
+	// happens because of the LogBroadcaster's backfilling behavior).
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db.WithContext(ctx), broadcast)
+
+	if err != nil {
+		fm.logger.Errorf("Error determining if log was already consumed: %v", err)
+		return
+	} else if consumed {
+		fm.logger.Debug("Log was already consumed by Flux Monitor, skipping")
+		return
+	}
+
+	started := time.Now()
+	decodedLog := broadcast.DecodedLog()
+	switch log := decodedLog.(type) {
+	case *flux_aggregator_wrapper.FluxAggregatorNewRound:
+		fm.respondToNewRoundLog(*log, broadcast)
+	case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
+		fm.respondToAnswerUpdatedLog(*log)
+		fm.markLogAsConsumed(broadcast, decodedLog, started)
+	case *flags_wrapper.FlagsFlagRaised:
+		// check the contract before hibernating, because one flag could be lowered
+		// while the other flag remains raised
+		var isFlagLowered bool
+		isFlagLowered, err = fm.flags.IsLowered(fm.contractAddress)
+		fm.logger.ErrorIf(err, "Error determining if flag is still raised")
+		if !isFlagLowered {
+			fm.pollManager.Hibernate()
 		}
+		fm.markLogAsConsumed(broadcast, decodedLog, started)
+	case *flags_wrapper.FlagsFlagLowered:
+		// Only reactivate if it is hibernating
+		if fm.pollManager.cfg.IsHibernating {
+			fm.pollManager.Awaken(fm.initialRoundState())
+			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
+		}
+	default:
+		fm.logger.Errorf("unknown log %v of type %T", log, log)
+	}
+}
+
+func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog interface{}, started time.Time) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	if err := fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+		fm.logger.Errorw("FluxMonitor: failed to mark log as consumed",
+			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
 	}
 }
 
