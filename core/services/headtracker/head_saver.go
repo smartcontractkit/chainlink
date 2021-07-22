@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// TODO: Needs to be optimised to allow for in-memory reads and not hit the DB every time
+// See: https://app.clubhouse.io/chainlinklabs/story/13314/optimise-headsaver-to-not-hit-the-db-so-much
 type HeadSaver struct {
 	highestSeenHead *models.Head
 	orm             *ORM

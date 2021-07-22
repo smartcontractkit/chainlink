@@ -121,10 +121,6 @@ func (pr *promReporter) Connect(*models.Head) error {
 	return nil
 }
 
-func (pr *promReporter) Disconnect() {
-	// pass
-}
-
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	pr.newHeads.Deliver(head)
 }
