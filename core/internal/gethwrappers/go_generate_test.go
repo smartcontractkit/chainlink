@@ -36,7 +36,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		wd = "<directory containing this test>"
 	}
 	require.Equal(t, versions.GethVersion, gethParams.Version,
-		color.HiRedString(boxOutput("please re-run `go generate %s` and commit the"+
+		color.HiRedString(utils.BoxOutput("please re-run `go generate %s` and commit the"+
 			"changes", wd)))
 
 	for _, contractVersionInfo := range versions.ContractVersions {
@@ -97,7 +97,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
 	recompileCommand := fmt.Sprintf("(cd %s; make go-solidity-wrappers)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
-		boxOutput(`compiled %s and/or %s has changed; please rerun
+		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
 and commit the changes`, versionInfo.AbiPath, versionInfo.BinaryPath, recompileCommand))
 }
@@ -131,49 +131,6 @@ func init() {
 	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
-}
-
-// boxOutput formats its arguments as fmt.Printf, and encloses them in a box of
-// arrows pointing at their content, in order to better highlight it. See
-// ExampleBoxOutput
-func boxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
-	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
-	lines := strings.Split(errorMsgTemplate, "\n")
-	maxlen := 0
-	for _, line := range lines {
-		if len(line) > maxlen {
-			maxlen = len(line)
-		}
-	}
-	internalLength := maxlen + 4
-	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	readme := strings.Repeat("README ", maxlen/7)
-	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	for _, line := range lines {
-		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
-	}
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
-		"\n\n"
-}
-
-func Example_boxOutput() {
-	fmt.Println()
-	fmt.Print(boxOutput("%s is %d", "foo", 17))
-	// Output:
-	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// →  foo is 17  ←
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }
 
 // getProjectRoot returns the root of the chainlink project

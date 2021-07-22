@@ -625,11 +625,15 @@ declare module 'core/store/models' {
     }
   }
 
-  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+  // We really need to change the API for this. It not only returns levels but
+  // true/false for IsSQLEnabled
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error' | "true" | "false"
+  export type LogServiceName = 'Global' | 'IsSqlEnabled' | 'header_tracker' | 'fluxmonitor'
 
   export interface LogConfig {
-    level: LogConfigLevel
-    sqlEnabled: boolean
+    // Stupidly this also returns boolean strings
+    logLevel: LogConfigLevel[] ;
+    serviceName: string[];
   }
 
   export interface LogConfigRequest {

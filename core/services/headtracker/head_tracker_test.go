@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -378,7 +379,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
 
-	checker := new(mocks.HeadTrackable)
+	checker := new(htmocks.HeadTrackable)
 	orm := headtracker.NewORM(store.DB)
 	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
 

@@ -1,10 +1,10 @@
 package config
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -179,21 +179,18 @@ func TestConfigSchema(t *testing.T) {
 		// ││ ││ ╯╰────────────────────────────────────╯
 		// │╰─╯│
 		// ╰───╯
-		//
-		// If this test is failing, you've probably added a new configuration
-		// variable, please make sure to:
-		//
-		// 0. Make sure that the method in config.go has a comment explaining
-		//    in detail what the new config var does
-		// 1. Update the changelog
-		// 2. Update the ConfigPrinter found in core/store/presenters/presenters.go
-		//    if you think this variable needs to be shown in the UI
-		// 3. Make a PR into the documentation page if node operators might
-		//    need to use this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%20Operators/configuration-variables.md) - don't forget to update TOC
-		// 4. Add your new config variable to this test
-		//
 
-		assert.True(t, found, fmt.Sprintf("New test variable: '%s', see test comment for guide on steps to follow when adding a configuration variable", field.Name))
+		msg := utils.BoxOutput(`New configuration variable detected: '%s'. Please take the following steps:
+0. Make sure that the method in config.go has a comment explaining in detail
+   what the new config var does
+1. Update the Changelog
+2. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
+   think this variable needs to be shown in the UI
+3. Make a PR into the documentation page if node operators might need to use
+   this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%20Operators/configuration-variables.md).
+   Don't forget to update TOC.
+4. Add your new config variable to this test`, field.Name)
+		assert.True(t, found, msg)
 		env := field.Tag.Get("env")
 		assert.Equal(t, item, env)
 	}
