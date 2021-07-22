@@ -118,7 +118,7 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 
 	blockNumber := c.Int64("block-number")
 	if blockNumber <= 0 {
-		return cli.errorOut(errors.New("Must pass in a positive block number"))
+		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
 	}
 
 	buf := bytes.NewBufferString("{}")
