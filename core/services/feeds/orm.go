@@ -139,7 +139,7 @@ func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 	jps := []JobProposal{}
 	stmt := `
-		SELECT remote_uuid, id, spec, status, job_id, feeds_manager_id, created_at, updated_at
+		SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, created_at, updated_at
 		FROM job_proposals;
 	`
 
@@ -154,7 +154,7 @@ func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 // GetJobProposal gets a job proposal by id
 func (o *orm) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error) {
 	stmt := `
-		SELECT id, remote_uuid, spec, status, job_id, feeds_manager_id, created_at, updated_at
+		SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, created_at, updated_at
 		FROM job_proposals
 		WHERE id = ?;
 	`
@@ -204,7 +204,7 @@ func (o *orm) ApproveJobProposal(ctx context.Context, id int64, externalJobID uu
 	stmt := `
 		UPDATE job_proposals
 		SET status = ?,
-		    job_id = ?,
+		    external_job_id = ?,
 		    updated_at = ?
 		WHERE id = ?;
 	`

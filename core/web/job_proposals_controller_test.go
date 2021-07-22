@@ -30,7 +30,7 @@ func Test_JobProposalsController_Approve(t *testing.T) {
 			RemoteUUID:     uuid.NewV4(),
 			Spec:           spec,
 			Status:         feeds.JobProposalStatusPending,
-			JobID:          uuid.NullUUID{},
+			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
 		}
 		expected = jp1
@@ -121,7 +121,7 @@ func Test_JobProposalsController_Reject(t *testing.T) {
 			RemoteUUID:     uuid.NewV4(),
 			Spec:           "some spec",
 			Status:         feeds.JobProposalStatusPending,
-			JobID:          uuid.NullUUID{},
+			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
 		}
 		expected = jp1
