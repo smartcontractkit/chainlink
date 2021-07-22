@@ -39,7 +39,7 @@ type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
 	ListenForDeletedJobs() (postgres.Subscription, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]Job, error)
-	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) error
+	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) (Job, error)
 	JobsV2() ([]Job, error)
 	FindJob(id int32) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
@@ -78,7 +78,9 @@ func NewORM(db *gorm.DB, cfg Config, pipelineORM pipeline.ORM, eventBroadcaster 
 }
 
 func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
-	return db.Preload("FluxMonitorSpec").
+	return db.
+		Preload("PipelineSpec").
+		Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("KeeperSpec").
@@ -177,7 +179,10 @@ func (o *orm) claimedJobIDs() (ids []int32) {
 	return
 }
 
-func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) error {
+// Expects an unmarshaled job spec as the jobSpec argument i.e. output from ValidatedXX.
+// Overwrites it to be a fully populated jobSpec with IDs and preloads.
+func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) (Job, error) {
+	var jb Job
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeBridge {
 			// Bridge must exist
@@ -185,9 +190,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 			bt := models.BridgeType{}
 			if err := o.db.First(&bt, "name = ?", name).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return errors.Wrap(pipeline.ErrNoSuchBridge, name)
+					return jb, errors.Wrap(pipeline.ErrNoSuchBridge, name)
 				}
-				return err
+				return jb, err
 			}
 		}
 	}
@@ -195,7 +200,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 	// Inherit the parent context so that client side request cancellations are respected.
 	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		switch jobSpec.Type {
 		case DirectRequest:
 			err := tx.Create(&jobSpec.DirectRequestSpec).Error
@@ -268,8 +273,16 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
-		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
+		if tx.Create(jobSpec).Error != nil {
+			return errors.Wrap(err, "failed to create job")
+		}
+		jb, err = o.FindJob(jobSpec.ID)
+		return errors.Wrap(err, "failed to read job back")
 	})
+	if err != nil {
+		return jb, err
+	}
+	return jb, nil
 }
 
 // DeleteJob removes a job that is claimed by this orm

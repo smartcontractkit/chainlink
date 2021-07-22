@@ -295,16 +295,16 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (i
 	defer cancel()
 
 	spec.Name = name
-	err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
+	jb, err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
 	if err != nil {
 		logger.Errorw("Error creating job", "type", spec.Type, "error", err)
 		return 0, err
 	}
 
-	delegate.OnJobCreated(spec)
+	delegate.OnJobCreated(jb)
 
-	logger.Infow("Created job", "type", spec.Type, "jobID", spec.ID)
-	return spec.ID, err
+	logger.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
+	return jb.ID, err
 }
 
 func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {

@@ -85,9 +85,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()
-	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(*spec)
+	serviceArray, err := delegate.ServicesForSpec(jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

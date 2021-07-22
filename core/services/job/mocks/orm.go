@@ -79,17 +79,24 @@ func (_m *ORM) Close() error {
 }
 
 // CreateJob provides a mock function with given fields: ctx, jobSpec, _a2
-func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.Job, _a2 pipeline.Pipeline) error {
+func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.Job, _a2 pipeline.Pipeline) (job.Job, error) {
 	ret := _m.Called(ctx, jobSpec, _a2)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *job.Job, pipeline.Pipeline) error); ok {
+	var r0 job.Job
+	if rf, ok := ret.Get(0).(func(context.Context, *job.Job, pipeline.Pipeline) job.Job); ok {
 		r0 = rf(ctx, jobSpec, _a2)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(job.Job)
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *job.Job, pipeline.Pipeline) error); ok {
+		r1 = rf(ctx, jobSpec, _a2)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // DeleteJob provides a mock function with given fields: ctx, id

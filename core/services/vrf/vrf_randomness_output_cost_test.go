@@ -4,12 +4,13 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 )
 
 func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
@@ -21,7 +22,7 @@ func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	randomSeed := randomUint256(t, r)
 	proof, err := pk.GenerateProofWithNonce(randomSeed, secp256k1.ToInt(nonce))
 	require.NoError(t, err, "failed to generate VRF proof")
-	mproof, err := vrf.MarshalForSolidityVerifier(&proof)
+	mproof, err := proof2.MarshalForSolidityVerifier(&proof)
 	require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
 	contract, _ := deployVRFContract(t)
 

@@ -76,6 +76,7 @@ type VRFSpecParams struct {
 	CoordinatorAddress string
 	Confirmations      int
 	PublicKey          string
+	ObservationSource  string
 }
 
 type VRFSpec struct {
@@ -108,6 +109,26 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
 	}
+	observationSource := `
+decode_log   [type=ethabidecodelog
+              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrf 
+			  publicKey="$(jobSpec.publicKey)" 
+              requestBlockHash="$(jobRun.logBlockHash)" 
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"
+              proofGenerator="$(jobSpec.proofGenerator)"]
+encode_tx    [type=ethabiencode
+              abi="fulfillRandomness(bytes proof)"
+              data=<{"proof": $(vrf)}>]
+submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7" data="$(encode_tx)"]
+decode_log->vrf->encode_tx->submit_tx
+`
+	if params.ObservationSource != "" {
+		publicKey = params.ObservationSource
+	}
 	template := `
 externalJobID = "%s"
 type = "vrf"
@@ -116,6 +137,9 @@ name = "%s"
 coordinatorAddress = "%s"
 confirmations = %d 
 publicKey = "%s"
+observationSource = """
+%s
+"""
 `
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:              jobID,
@@ -123,7 +147,8 @@ publicKey = "%s"
 		CoordinatorAddress: coordinatorAddress,
 		Confirmations:      confirmations,
 		PublicKey:          publicKey,
-	}, toml: fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey)}
+		ObservationSource:  observationSource,
+	}, toml: fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)}
 }
 
 type OCRSpecParams struct {

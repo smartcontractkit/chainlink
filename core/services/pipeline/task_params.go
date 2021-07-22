@@ -670,3 +670,14 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 	*p = ssp
 	return nil
 }
+
+type FunctionParam func([]interface{}) (interface{}, error)
+
+func (p *FunctionParam) UnmarshalPipelineParam(val interface{}) error {
+	v, ok := val.(func([]interface{}) (interface{}, error))
+	if !ok {
+		return ErrBadInput
+	}
+	*p = v
+	return nil
+}

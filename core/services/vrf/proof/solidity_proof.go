@@ -1,4 +1,4 @@
-package vrf
+package proof
 
 // Logic for providing the precomputed values required by the solidity verifier,
 // in binary-blob format.
