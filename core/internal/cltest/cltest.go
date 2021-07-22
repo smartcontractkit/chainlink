@@ -516,6 +516,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
 
 	block := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(100),
@@ -2100,7 +2101,6 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 type HeadTrackableFunc func(context.Context, models.Head)
 
 func (HeadTrackableFunc) Connect(*models.Head) error { return nil }
-func (HeadTrackableFunc) Disconnect()                {}
 func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
 	fn(ctx, head)
 }
