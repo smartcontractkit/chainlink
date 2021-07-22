@@ -3,11 +3,12 @@ package adapters
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -86,7 +87,7 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *k
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	solidityProof, err := vrf.GenerateProofResponse(keyStore.VRF(), key, i)
+	solidityProof, err := proof.GenerateProofResponse(keyStore.VRF(), key, i)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -106,22 +107,22 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *k
 // getInputs parses the JSON input for the values needed by the random adapter,
 // or returns an error.
 func getInputs(ra *Random, input models.RunInput, store *store.Store) (
-	secp256k1.PublicKey, vrf.PreSeedData, error) {
+	secp256k1.PublicKey, proof.PreSeedData, error) {
 	key, err := getKey(ra, input)
 	if err != nil {
-		return secp256k1.PublicKey{}, vrf.PreSeedData{}, errors.Wrapf(err,
+		return secp256k1.PublicKey{}, proof.PreSeedData{}, errors.Wrapf(err,
 			"bad key for vrf task")
 	}
 	preSeed, err := getPreSeed(input)
 	if err != nil {
-		return secp256k1.PublicKey{}, vrf.PreSeedData{}, errors.Wrap(err,
+		return secp256k1.PublicKey{}, proof.PreSeedData{}, errors.Wrap(err,
 			"bad seed for vrf task")
 	}
 	block, err := getBlockData(input)
 	if err != nil {
-		return secp256k1.PublicKey{}, vrf.PreSeedData{}, err
+		return secp256k1.PublicKey{}, proof.PreSeedData{}, err
 	}
-	s := vrf.PreSeedData{PreSeed: preSeed, BlockHash: block.hash, BlockNum: block.num}
+	s := proof.PreSeedData{PreSeed: preSeed, BlockHash: block.hash, BlockNum: block.num}
 	return key, s, nil
 }
 
@@ -164,17 +165,17 @@ func getBlockData(input models.RunInput) (block, error) {
 }
 
 // getPreSeed returns the numeric seed for the vrf task, or an error
-func getPreSeed(input models.RunInput) (vrf.Seed, error) {
+func getPreSeed(input models.RunInput) (proof.Seed, error) {
 	rawSeed, err := extractHex(input, "seed")
 	if err != nil {
-		return vrf.Seed{}, err
+		return proof.Seed{}, err
 	}
-	rv, err := vrf.BytesToSeed(rawSeed)
+	rv, err := proof.BytesToSeed(rawSeed)
 	if err != nil {
-		return vrf.Seed{}, err
+		return proof.Seed{}, err
 	}
 	if rv == nil {
-		return vrf.Seed{}, errors.Errorf("nil pre-seed from %+v", rawSeed)
+		return proof.Seed{}, errors.Errorf("nil pre-seed from %+v", rawSeed)
 	}
 	return *rv, nil
 }

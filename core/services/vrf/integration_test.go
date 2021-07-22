@@ -53,7 +53,8 @@ func TestIntegration_VRFV2(t *testing.T) {
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
-	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
+	jb, err = app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
 
 	p, err := vrfkey.Point()
 	require.NoError(t, err)

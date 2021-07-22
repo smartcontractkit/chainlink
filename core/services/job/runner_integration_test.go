@@ -109,11 +109,9 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
 		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
 		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), *logger.Default, true)
@@ -166,7 +164,8 @@ func TestRunner(t *testing.T) {
 				ds1          [type=bridge name="testbridge"];
 			"""
 		`)
-		require.NoError(t, jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
+		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		require.NoError(t, err)
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
 		require.NoError(t, err)
@@ -189,9 +188,10 @@ func TestRunner(t *testing.T) {
 				ds1          [type=bridge name="testbridge2"];
 			"""
 		`)
+		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.Error(t,
 			pipeline.ErrNoSuchBridge,
-			errors.Cause(jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)))
+			errors.Cause(err))
 	})
 
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
@@ -207,7 +207,7 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
@@ -257,11 +257,9 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
 		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
@@ -305,9 +303,7 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, true)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-		jb, err := jobORM.FindJob(dbSpec.ID)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
@@ -361,13 +357,7 @@ ds1 -> ds1_parse;
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
-			First(&jb).Error
-		require.NoError(t, err)
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -406,13 +396,7 @@ ds1 -> ds1_parse;
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").
-			Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 
@@ -466,12 +450,7 @@ ds1 -> ds1_parse;
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		// Assert the override
 		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
@@ -515,13 +494,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").
-			Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
@@ -557,12 +530,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -598,12 +566,7 @@ ds1 -> ds1_parse;
 		dbSpec := makeOCRJobSpecFromToml(t, db, spec)
 
 		// Create an OCR job
-		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -675,11 +638,9 @@ ds1 -> ds1_parse;
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
 		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
@@ -709,20 +670,16 @@ ds1 -> ds1_parse;
 		defer serv.Close()
 
 		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
-		err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(jbs.ID)
-		require.NoError(t, err)
 		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
 		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
-		require.NoError(t, err)
-		jb, err = jobORM.FindJob(jbs.ID)
+		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
@@ -733,9 +690,7 @@ ds1 -> ds1_parse;
 		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
 		jbs.Name = null.NewString("a job 3", true)
-		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
-		require.NoError(t, err)
-		jb, err = jobORM.FindJob(jbs.ID)
+		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)

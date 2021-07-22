@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/stretchr/testify/assert"
@@ -18,14 +20,14 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
 	log := requestRandomness(t, coordinator, keyHash, fee)
-	preSeed, err := vrf.BigToSeed(log.Seed)
+	preSeed, err := proof2.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
-	s := vrf.PreSeedData{
+	s := proof2.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}
-	seed := vrf.FinalSeed(s)
+	seed := proof2.FinalSeed(s)
 	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
 	require.NoError(t, err)
 	proofBlob, err := vrf.GenerateProofResponseFromProof(proof, s)

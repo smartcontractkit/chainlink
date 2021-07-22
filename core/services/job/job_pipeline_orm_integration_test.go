@@ -127,7 +127,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
 		// Need a job in order to create a run
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
