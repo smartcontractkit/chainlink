@@ -178,7 +178,7 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.JobID.Valid)
+	assert.False(t, actual.ExternalJobID.Valid)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
@@ -205,7 +205,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.JobID.Valid)
+	assert.False(t, actual.ExternalJobID.Valid)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 
 	actual, err = orm.GetJobProposal(context.Background(), int64(0))
@@ -270,7 +270,7 @@ func Test_ORM_ApproveJobProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, externalJobID, actual.JobID)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
 	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
 }
 
