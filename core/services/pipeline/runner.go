@@ -194,6 +194,11 @@ func (r *runner) ExecuteRun(
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
+	if run.FailEarly {
+		// return before FinalResult() panics
+		return run, taskRunResults, nil
+	}
+
 	finalResult := taskRunResults.FinalResult()
 	if finalResult.HasErrors() {
 		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
@@ -278,6 +283,7 @@ func (r *runner) run(
 
 	// if the run is suspended, awaiting resumption
 	run.Pending = scheduler.pending
+	run.FailEarly = scheduler.exiting
 	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
@@ -414,6 +420,12 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	}
 
 	finalResult = trrs.FinalResult()
+
+	// don't insert if we exited early
+	if run.FailEarly {
+		return 0, finalResult, nil
+	}
+
 	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
@@ -449,6 +461,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 		} else {
 			if run.Pending {
 				return false, errors.Wrapf(err, "a run without async returned as pending")
+			}
+			// don't insert if we exited early
+			if run.FailEarly {
+				return false, nil
 			}
 			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, saveSuccessfulTaskRuns); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)

@@ -48,6 +48,7 @@ type scheduler struct {
 	vars         Vars
 
 	pending bool
+	exiting bool
 
 	taskCh   chan *memoryTaskRun
 	resultCh chan TaskRunResult
@@ -193,6 +194,17 @@ Loop:
 			s.vars.Set(result.Task.DotID(), result.Result.Error)
 		} else {
 			s.vars.Set(result.Task.DotID(), result.Result.Value)
+		}
+
+		// if the task was marked as fail early, and the result is a fail
+		if result.Result.Error != nil && result.Task.Base().FailEarly == "true" {
+			// drain remaining jobs then exit
+			s.exiting = true
+		}
+
+		if s.exiting {
+			// skip scheduling dependencies if we're exiting early
+			continue
 		}
 
 		for _, output := range result.Task.Outputs() {
