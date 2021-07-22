@@ -131,7 +131,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return false
 }
 
-func (r *registrations) sendLogs(logsPerBlockNum map[uint64][]types.Log, latestHead models.Head, broadcasts []LogBroadcast) {
+func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Head, broadcasts []LogBroadcast) {
 	broadcastsExisting := make(map[LogBroadcastAsKey]struct{})
 	for _, b := range broadcasts {
 
@@ -140,7 +140,7 @@ func (r *registrations) sendLogs(logsPerBlockNum map[uint64][]types.Log, latestH
 
 	latestBlockNumber := uint64(latestHead.Number)
 
-	for logBlockNumber, logs := range logsPerBlockNum {
+	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, subscribers := range r.subscribers {
 			if latestBlockNumber < numConfirmations {
 				// Skipping send because not enough height to send
@@ -149,12 +149,12 @@ func (r *registrations) sendLogs(logsPerBlockNum map[uint64][]types.Log, latestH
 			// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
 			// even if the logs are too young
 			// so here we need to see if this particular listener actually should receive it at this depth
-			isOldEnough := (logBlockNumber + numConfirmations - 1) <= latestBlockNumber
+			isOldEnough := (logsPerBlock.BlockNumber + numConfirmations - 1) <= latestBlockNumber
 			if !isOldEnough {
 				continue
 			}
 
-			for _, log := range logs {
+			for _, log := range logsPerBlock.Logs {
 				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders)
 			}
 		}
