@@ -84,9 +84,6 @@ func (bm *balanceMonitor) Healthy() error {
 	return nil
 }
 
-// Disconnect complies with HeadTrackable
-func (bm *balanceMonitor) Disconnect() {}
-
 // OnNewLongestChain checks the balance for each key
 func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head) {
 	bm.checkBalance(&head)
@@ -184,7 +181,6 @@ func (*NullBalanceMonitor) Healthy() error { return nil }
 func (*NullBalanceMonitor) Connect(head *models.Head) error {
 	return nil
 }
-func (*NullBalanceMonitor) Disconnect()                                             {}
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
 
 var promETHBalance = promauto.NewGaugeVec(

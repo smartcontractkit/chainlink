@@ -246,8 +246,6 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-func (listener simpleLogListener) OnConnect()    {}
-func (listener simpleLogListener) OnDisconnect() {}
 func (listener simpleLogListener) JobID() models.JobID {
 	return listener.jobID.JobIDV1
 }
@@ -319,8 +317,6 @@ type mockListener struct {
 func (l *mockListener) JobID() models.JobID                                     { return l.jobID }
 func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
 func (l *mockListener) IsV2Job() bool                                           { return l.jobID.IsZero() }
-func (l *mockListener) OnConnect()                                              {}
-func (l *mockListener) OnDisconnect()                                           {}
 func (l *mockListener) HandleLog(log.Broadcast)                                 {}
 func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
 func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }
