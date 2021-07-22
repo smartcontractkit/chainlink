@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
@@ -13,21 +14,26 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	jobmocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
 	txm         *pgmocks.TransactionManager
+	spawner     *jobmocks.Spawner
 	fmsClient   *mocks.FeedsManagerClient
 	csaKeystore *ksmocks.CSAKeystoreInterface
 	ethKeystore *ksmocks.EthKeyStoreInterface
@@ -38,6 +44,7 @@ func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
 		txm         = &pgmocks.TransactionManager{}
+		spawner     = &jobmocks.Spawner{}
 		fmsClient   = &mocks.FeedsManagerClient{}
 		csaKeystore = &ksmocks.CSAKeystoreInterface{}
 		ethKeystore = &ksmocks.EthKeyStoreInterface{}
@@ -48,6 +55,7 @@ func setupTestService(t *testing.T) *TestService {
 		mock.AssertExpectationsForObjects(t,
 			orm,
 			txm,
+			spawner,
 			fmsClient,
 			csaKeystore,
 			ethKeystore,
@@ -55,13 +63,14 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	svc := feeds.NewService(orm, txm, csaKeystore, ethKeystore, cfg)
+	svc := feeds.NewService(orm, txm, spawner, csaKeystore, ethKeystore, cfg)
 	svc.SetFMSClient(fmsClient)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
 		txm:         txm,
+		spawner:     spawner,
 		fmsClient:   fmsClient,
 		csaKeystore: csaKeystore,
 		ethKeystore: ethKeystore,
@@ -194,6 +203,75 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
+	require.NoError(t, err)
+}
+
+func Test_Service_ApproveJobProposal(t *testing.T) {
+	var (
+		ctx = context.Background()
+		jp  = &feeds.JobProposal{
+			ID:         1,
+			RemoteUUID: uuid.NewV4(),
+			Status:     feeds.JobProposalStatusPending,
+			Spec: `name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
+			schemaVersion = 1
+			contractAddress = '0x0000000000000000000000000000000000000000'
+			type = 'fluxmonitor'
+			externalJobID = '00000000-0000-0000-0000-000000000001'
+			threshold = 1.0
+			idleTimerPeriod = '4h'
+			idleTimerDisabled = false
+			pollingTimerPeriod = '1m'
+			pollingTimerDisabled = false
+			observationSource = """
+			// data source 1
+			ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+			ds1_parse [type=jsonparse path="result"];
+			ds1_multiply [type=multiply times=1000000000000000000];
+			ds1 -> ds1_parse -> ds1_multiply -> answer1;
+
+			// data source 2
+			ds2 [type=bridge name="bridge-api1" requestData="{\\\"data\\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+			ds2_parse [type=jsonparse path="result"];
+			ds2_multiply [type=multiply times=1000000000000000000];
+			ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+			answer1 [type=median index=0];
+			"""
+			`,
+		}
+		jobID = int32(1)
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+	ctx = mockTransactWithContext(ctx, svc.txm)
+
+	svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
+	svc.spawner.
+		On("CreateJob",
+			ctx,
+			mock.MatchedBy(func(j job.Job) bool {
+				return true
+			}),
+			null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+		).
+		Return(jobID, nil)
+	svc.orm.On("ApproveJobProposal",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		jp.ID,
+		uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+		feeds.JobProposalStatusApproved,
+	).Return(nil)
+	svc.fmsClient.On("ApprovedJob",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		&proto.ApprovedJobRequest{
+			Uuid: jp.RemoteUUID.String(),
+		},
+	).Return(&proto.ApprovedJobResponse{}, nil)
+
+	err := svc.ApproveJobProposal(ctx, jp.ID)
 	require.NoError(t, err)
 }
 

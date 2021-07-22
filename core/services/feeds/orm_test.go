@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 var (
@@ -21,13 +22,19 @@ var (
 	network   = "mainnet"
 )
 
-func setupORM(t *testing.T) feeds.ORM {
+type TestORM struct {
+	feeds.ORM
+
+	db *gorm.DB
+}
+
+func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	db := pgtest.NewGormDB(t)
 	orm := feeds.NewORM(db)
 
-	return orm
+	return &TestORM{ORM: orm, db: db}
 }
 
 func Test_ORM_CreateManager(t *testing.T) {
@@ -171,7 +178,7 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.JobID.Valid)
+	assert.False(t, actual.ExternalJobID.Valid)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
@@ -198,7 +205,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.JobID.Valid)
+	assert.False(t, actual.ExternalJobID.Valid)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 
 	actual, err = orm.GetJobProposal(context.Background(), int64(0))
@@ -231,6 +238,40 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, feeds.JobProposalStatusRejected, actual.Status)
+}
+
+func Test_ORM_ApproveJobProposal(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	// Defer the FK requirement of a job proposal.
+	require.NoError(t, orm.db.Exec(
+		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+	).Error)
+
+	id, err := orm.CreateJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	err = orm.ApproveJobProposal(ctx, id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	require.NoError(t, err)
+
+	actual, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
 }
 
 // createFeedsManager is a test helper to create a feeds manager
