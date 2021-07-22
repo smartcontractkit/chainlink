@@ -717,6 +717,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;
     // Note bounded by MAXIMUM_CONSUMERS;
+    // If no consumers, does nothing.
     for (uint256 i = 0; i < sub.consumers.length; i++) {
       delete s_consumers[sub.consumers[i]];
     }

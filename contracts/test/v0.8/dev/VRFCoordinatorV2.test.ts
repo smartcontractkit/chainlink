@@ -141,6 +141,12 @@ describe("VRFCoordinatorV2", () => {
     return receipt.events[0].args["subId"];
   }
 
+  async function createSubscriptionWithConsumers(consumers: string[]): Promise<number> {
+    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
+    const receipt = await tx.wait();
+    return receipt.events[0].args["subId"];
+  }
+
   describe("#createSubscription", async function () {
     it("can create a subscription", async function () {
       let consumers: string[] = [await consumer.getAddress()];
@@ -159,6 +165,15 @@ describe("VRFCoordinatorV2", () => {
       await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
         .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
         .withArgs(2, subOwnerAddress, consumers);
+    });
+    it("cannot create more than the max", async function () {
+      let consumers: string[] = [];
+      for (let i = 0; i < 101; i++) {
+        consumers.push(randomAddressString());
+      }
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers)).to.be.revertedWith(
+        `TooManyConsumers()`,
+      );
     });
   });
 
@@ -240,6 +255,15 @@ describe("VRFCoordinatorV2", () => {
       await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)).to.be.revertedWith(
         `TooManyConsumers()`,
       );
+      // Same is true if we first create with the maximum
+      let consumers: string[] = [];
+      for (let i = 0; i < 100; i++) {
+        consumers.push(randomAddressString());
+      }
+      subId = await createSubscriptionWithConsumers(consumers);
+      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)).to.be.revertedWith(
+        `TooManyConsumers()`,
+      );
     });
     it("owner can update", async function () {
       await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress))
@@ -272,6 +296,15 @@ describe("VRFCoordinatorV2", () => {
       const subAfter = await vrfCoordinatorV2.getSubscription(subId);
       // Subscription should NOT contain the removed consumer
       assert.deepEqual(subBefore.consumers, subAfter.consumers);
+    });
+    it("can remove all consumers", async function () {
+      // Testing the handling of zero.
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+      await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
+      await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, await consumer.getAddress());
+      // Should be empty
+      const subAfter = await vrfCoordinatorV2.getSubscription(subId);
+      assert.deepEqual(subAfter.consumers, []);
     });
   });
 
@@ -335,6 +368,16 @@ describe("VRFCoordinatorV2", () => {
       const randomBalance = await linkToken.balanceOf(randomAddress);
       assert.equal(randomBalance.toString(), "1000000000000001000");
       await expect(vrfCoordinatorV2.connect(subOwner).getSubscription(subId)).to.be.revertedWith("InvalidSubscription");
+    });
+    it("can add same consumer after canceling", async function () {
+      await linkToken
+        .connect(subOwner)
+        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+      await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress);
+      subId = await createSubscription();
+      // The cancel should have removed this consumer, so we can add it again.
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
     });
   });
 
@@ -482,109 +525,175 @@ describe("VRFCoordinatorV2", () => {
     assert.equal(random2Balance.toString(), "2000000000000000000");
   });
 
-  it("request random words", async () => {
-    // Create and fund subscription.
-    let consumers: string[] = [await consumer.getAddress()];
-    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
-    const receipt = await tx.wait();
-    const subId = receipt.events[0].args["subId"];
-    await linkToken
-      .connect(subOwner)
-      .transferAndCall(
+  describe("#requestRandomWords", async function () {
+    let subId: number;
+    let kh: string;
+    beforeEach(async () => {
+      subId = await createSubscription();
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      kh = await vrfCoordinatorV2.hashOfKey(testKey);
+    });
+    it("invalid subId", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(random).requestRandomWords(
+          kh, // keyhash
+          12301928312, // subId
+          1, // minReqConf
+          1000, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`InvalidSubscription()`);
+    });
+    it("invalid consumer", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(random).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          1, // minReqConf
+          1000, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`InvalidConsumer(${subId}, "${randomAddress.toString()}")`);
+    });
+    it("invalid req confs", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(consumer).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          0, // minReqConf
+          1000, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`InvalidRequestBlockConfs(0, 1, 200)`);
+    });
+    it("below minimum balance", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(consumer).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          1, // minReqConf
+          1000, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`InsufficientBalance()`);
+    });
+    it("gas limit too high", async function () {
+      await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
-        BigNumber.from("1000000000000000000"),
+        BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
+      await expect(
+        vrfCoordinatorV2.connect(consumer).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          1, // minReqConf
+          1000001, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`GasLimitTooBig(1000001, 1000000)`);
+    });
 
-    // Should fail without a key registered
-    const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-    let kh = await vrfCoordinatorV2.hashOfKey(testKey);
-    // Non-owner cannot register a proving key
-    await expect(
-      vrfCoordinatorV2.connect(random).registerProvingKey(await oracle.getAddress(), [1, 2]),
-    ).to.be.revertedWith("Only callable by owner");
+    it("nonce increments", async function () {
+      await linkToken.connect(subOwner).transferAndCall(
+        vrfCoordinatorV2.address,
+        BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
+        defaultAbiCoder.encode(["uint64"], [subId]),
+      );
+      const r1 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
+        kh, // keyhash
+        subId, // subId
+        1, // minReqConf
+        1000000, // callbackGasLimit
+        1, // numWords
+      );
+      const r1Receipt = await r1.wait();
+      const seed1 = r1Receipt.events[0].args["preSeedAndRequestId"];
+      const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
+        kh, // keyhash
+        subId, // subId
+        1, // minReqConf
+        1000000, // callbackGasLimit
+        1, // numWords
+      );
+      const r2Receipt = await r2.wait();
+      const seed2 = r2Receipt.events[0].args["preSeedAndRequestId"];
+      assert(seed2 != seed1);
+    });
 
-    // Register a proving key
-    await vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]);
-    const realkh = await vrfCoordinatorV2.hashOfKey(testKey);
-    // Cannot register the same key twice
-    await expect(
-      vrfCoordinatorV2.connect(owner).registerProvingKey(await oracle.getAddress(), [1, 2]),
-    ).to.be.revertedWith(`KeyHashAlreadyRegistered("${realkh.toString()}")`);
-
-    // IMPORTANT: Only registered consumers can use the subscription
-    // Should fail for contract owner, sub owner, random address
-    const invalidConsumers = [owner, subOwner, random];
-    invalidConsumers.forEach(
-      v =>
-        async function () {
-          await expect(
-            vrfCoordinatorV2.connect(v).requestRandomWords(
-              kh, // keyhash
-              subId, // subId
-              1, // minReqConf
-              1000, // callbackGasLimit
-              1, // numWords
-            ),
-          ).to.be.revertedWith(`InvalidConsumer(${subId}, "${v.toString()}")`);
-        },
-    );
-
-    // Adding and removing a consumer should NOT allow that consumer to request
-    // Non-owners cannot change the consumers
-    await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
-    await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
-    await expect(
-      vrfCoordinatorV2.connect(random).requestRandomWords(
+    it("emits correct log", async function () {
+      await linkToken.connect(subOwner).transferAndCall(
+        vrfCoordinatorV2.address,
+        BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
+        defaultAbiCoder.encode(["uint64"], [subId]),
+      );
+      const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
         kh, // keyhash
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
         1, // numWords
-      ),
-    ).to.be.revertedWith(`InvalidConsumer(${subId}, "${randomAddress.toString()}")`);
+      );
+      const reqReceipt = await reqTx.wait();
+      assert(reqReceipt.events.length == 1);
+      const reqEvent = reqReceipt.events[0];
+      assert(reqEvent.event == "RandomWordsRequested", "wrong event name");
+      assert(reqEvent.args["keyHash"] == kh, "wrong key hash");
+      assert(reqEvent.args["subId"].toString() == subId.toString(), "wrong subId");
+      assert(
+        reqEvent.args["minimumRequestConfirmations"].toString() == BigNumber.from(1).toString(),
+        "wrong minRequestConf",
+      );
+      assert(reqEvent.args["callbackGasLimit"] == 1000, "wrong callbackGasLimit");
+      assert(reqEvent.args["numWords"] == 1, "wrong numWords");
+      assert(reqEvent.args["sender"] == (await consumer.getAddress()), "wrong sender address");
+    });
+    it("add/remove consumer invariant", async function () {
+      await linkToken.connect(subOwner).transferAndCall(
+        vrfCoordinatorV2.address,
+        BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
+        defaultAbiCoder.encode(["uint64"], [subId]),
+      );
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
+      await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
+      await expect(
+        vrfCoordinatorV2.connect(random).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          1, // minReqConf
+          1000, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`InvalidConsumer(${subId}, "${randomAddress.toString()}")`);
+    });
+    it("cancel/add subscription invariant", async function () {
+      await linkToken.connect(subOwner).transferAndCall(
+        vrfCoordinatorV2.address,
+        BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
+        defaultAbiCoder.encode(["uint64"], [subId]),
+      );
+      await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress);
+      subId = await createSubscriptionWithConsumers([]);
+      // Should not succeed because consumer was previously registered
+      // i.e. cancel should be cleaning up correctly.
+      await expect(
+        vrfCoordinatorV2.connect(random).requestRandomWords(
+          kh, // keyhash
+          subId, // subId
+          1, // minReqConf
+          1000, // callbackGasLimit
+          1, // numWords
+        ),
+      ).to.be.revertedWith(`InvalidConsumer(${subId}, "${randomAddress.toString()}")`);
+    });
+  });
 
-    // Should respect the minconfs
-    await expect(
-      vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
-        subId, // subId
-        0, // minReqConf
-        1000, // callbackGasLimit
-        1, // numWords
-      ),
-    ).to.be.revertedWith("InvalidRequestBlockConfs(0, 1, 200)");
-
-    // SubId must be valid
-    await expect(
-      vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
-        12398, // subId
-        0, // minReqConf
-        1000, // callbackGasLimit
-        1, // numWords
-      ),
-    ).to.be.revertedWith("InvalidSubscription()");
-
-    const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-      kh, // keyhash
-      subId, // subId
-      1, // minReqConf
-      1000, // callbackGasLimit
-      1, // numWords
-    );
-    const reqReceipt = await reqTx.wait();
-    assert(reqReceipt.events.length == 1);
-    const reqEvent = reqReceipt.events[0];
-    assert(reqEvent.args["keyHash"] == kh, "wrong key hash");
-    assert(reqEvent.args["subId"].toString() == subId.toString(), "wrong subId");
-    assert(
-      reqEvent.args["minimumRequestConfirmations"].toString() == BigNumber.from(1).toString(),
-      "wrong minRequestConf",
-    );
-    assert(reqEvent.args["callbackGasLimit"] == 1000, "wrong callbackGasLimit");
-    assert(reqEvent.args["numWords"] == 1, "wrong numWords");
-    assert(reqEvent.args["sender"] == (await consumer.getAddress()), "wrong sender address");
+  describe("#oracleWithdraw", async function () {
+    it("cannot withdraw with no balance", async function () {
+      await expect(
+        vrfCoordinatorV2.connect(oracle).oracleWithdraw(randomAddressString(), BigNumber.from("100")),
+      ).to.be.revertedWith(`InsufficientBalance`);
+    });
   });
 
   /*
