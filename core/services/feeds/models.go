@@ -45,8 +45,8 @@ type JobProposal struct {
 	RemoteUUID uuid.UUID
 	Spec       string
 	Status     JobProposalStatus
-	// JobID is the external job id in the spec.
-	JobID          uuid.NullUUID
+	// ExternalJobID is the external job id in the spec.
+	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
