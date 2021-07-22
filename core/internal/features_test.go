@@ -1473,9 +1473,10 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	// Feed the subscriber a block head so the transaction completes.
 	heads := <-headsCh
-	heads <- cltest.Head(safe)
+
 	// Job should complete successfully.
-	_ = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jr, heads, safe)
+
 	jr2, err := app.Store.ORM.FindJobRun(jr.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 9, len(jr2.TaskRuns))

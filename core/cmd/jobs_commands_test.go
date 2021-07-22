@@ -318,6 +318,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+	require.NotEmpty(t, r.Renders)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
