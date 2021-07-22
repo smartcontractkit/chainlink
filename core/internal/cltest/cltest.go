@@ -2101,7 +2101,6 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 type HeadTrackableFunc func(context.Context, models.Head)
 
 func (HeadTrackableFunc) Connect(*models.Head) error { return nil }
-func (HeadTrackableFunc) Disconnect()                {}
 func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
 	fn(ctx, head)
 }

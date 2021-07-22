@@ -237,12 +237,6 @@ func (t *OCRContractTracker) processLogs() {
 	}
 }
 
-// OnConnect complies with LogListener interface
-func (t *OCRContractTracker) OnConnect() {}
-
-// OnDisconnect complies with LogListener interface
-func (t *OCRContractTracker) OnDisconnect() {}
-
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
