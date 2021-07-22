@@ -1,20 +1,15 @@
 import React from 'react'
-import {
-  createStyles,
-  CardContent,
-  Card,
-  Theme,
-  Typography,
-  withStyles,
-  WithStyles,
-} from '@material-ui/core'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-import { CardTitle } from 'components/CardTitle'
 import Content from 'components/Content'
-import PrettyJson from 'components/PrettyJson'
 import { JobData } from './sharedTypes'
+
+import Card from '@material-ui/core/Card'
+import CardContent from '@material-ui/core/CardContent'
+import CardHeader from '@material-ui/core/CardHeader'
+import Typography from '@material-ui/core/Typography'
+import { Theme, createStyles, withStyles, WithStyles } from '@material-ui/core'
 
 const definitionStyles = (theme: Theme) =>
   createStyles({
@@ -28,12 +23,12 @@ const definitionStyles = (theme: Theme) =>
     },
   })
 
-type Props = {
+interface Props extends WithStyles<typeof definitionStyles> {
   error: unknown
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   job?: JobData['job']
-} & WithStyles<typeof definitionStyles>
+}
 
 export const JobDefinition = withStyles(definitionStyles)(
   ({ error, ErrorComponent, LoadingPlaceholder, job }: Props) => {
@@ -47,24 +42,16 @@ export const JobDefinition = withStyles(definitionStyles)(
       <Content>
         <ErrorComponent />
         <LoadingPlaceholder />
+
         {!error && job && (
           <Card>
-            <CardTitle divider>Definition</CardTitle>
+            <CardHeader title="Definition" />
             <CardContent>
-              {job.type === 'Direct request' && (
-                <PrettyJson object={JSON.parse(job.definition)} />
-              )}
-              {job.type === 'v2' && (
-                <Typography
-                  style={{ margin: 0 }}
-                  variant="body1"
-                  component="pre"
-                >
-                  <SyntaxHighlighter language="toml" style={prism}>
-                    {job.definition}
-                  </SyntaxHighlighter>
-                </Typography>
-              )}
+              <Typography style={{ margin: 0 }} variant="body1" component="pre">
+                <SyntaxHighlighter language="toml" style={prism}>
+                  {job.definition}
+                </SyntaxHighlighter>
+              </Typography>
             </CardContent>
           </Card>
         )}
