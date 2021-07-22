@@ -30,6 +30,7 @@ var (
 
 type Config interface {
 	ChainID() *big.Int
+	EnableLegacyJobPipeline() bool
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint
 	EthHeadTrackerSamplingInterval() time.Duration

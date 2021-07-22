@@ -24,7 +24,7 @@ type HeadTrackable interface {
 }
 
 type HeadBroadcasterRegistry interface {
-	Subscribe(callback HeadTrackable) (unsubscribe func())
+	Subscribe(callback HeadTrackable) (currentLongestChain *models.Head, unsubscribe func())
 }
 
 // HeadBroadcaster is the external interface of headBroadcaster
@@ -32,7 +32,7 @@ type HeadBroadcasterRegistry interface {
 type HeadBroadcaster interface {
 	service.Service
 	HeadTrackable
-	Subscribe(callback HeadTrackable) (unsubscribe func())
+	Subscribe(callback HeadTrackable) (currentLongestChain *models.Head, unsubscribe func())
 }
 
 // HeadTrackableCallback is a simple wrapper around an On Connect callback
