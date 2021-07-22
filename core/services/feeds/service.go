@@ -24,8 +24,7 @@ import (
 //go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
-	ErrTOMLParseError = errors.New("failed to parse job spec TOML")
-	ErrOCRDisabled    = errors.New("ocr is disabled")
+	ErrOCRDisabled = errors.New("ocr is disabled")
 )
 
 type Service interface {
@@ -199,7 +198,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "job proposal does not exist")
 	}
 
 	if jp.Status != JobProposalStatusPending {
@@ -211,7 +210,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 
 	j, err := s.generateJob(jp.Spec)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not generate job from spec")
 	}
 
 	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
@@ -236,7 +235,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not approve job proposal")
 	}
 
 	return nil
@@ -249,7 +248,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "job proposal does not exist")
 	}
 
 	if jp.Status != JobProposalStatusPending {
@@ -272,7 +271,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not reject job proposal")
 	}
 
 	return nil
@@ -406,7 +405,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	genericJS := GenericJobSpec{}
 	err := toml.Unmarshal([]byte(spec), &genericJS)
 	if err != nil {
-		return nil, ErrTOMLParseError
+		return nil, errors.Wrap(err, "failed to parse job spec TOML")
 	}
 
 	var js job.Job
