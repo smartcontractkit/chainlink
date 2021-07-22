@@ -38,6 +38,7 @@ type (
 		activeJobs                   map[int32]activeJob
 		activeJobsMu                 sync.RWMutex
 		chStopJob                    chan int32
+		txm                          postgres.TransactionManager
 
 		utils.StartStopOnce
 		chStop chan struct{}
@@ -67,11 +68,12 @@ const checkForDeletedJobsPollInterval = 5 * time.Minute
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spawner {
+func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, txm postgres.TransactionManager) *spawner {
 	s := &spawner{
 		orm:              orm,
 		config:           config,
 		jobTypeDelegates: jobTypeDelegates,
+		txm:              txm,
 		activeJobs:       make(map[int32]activeJob),
 		chStopJob:        make(chan int32),
 		chStop:           make(chan struct{}),
@@ -295,9 +297,20 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (i
 	defer cancel()
 
 	spec.Name = name
-	err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
+
+	ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+	err := js.txm.TransactWithContext(ctx, func(context.Context) error {
+		err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
+		if err != nil {
+			logger.Errorw("Error creating job", "type", spec.Type, "error", err)
+
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		logger.Errorw("Error creating job", "type", spec.Type, "error", err)
 		return 0, err
 	}
 

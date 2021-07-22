@@ -16,6 +16,20 @@ type Service struct {
 	mock.Mock
 }
 
+// ApproveJobProposal provides a mock function with given fields: ctx, id
+func (_m *Service) ApproveJobProposal(ctx context.Context, id int64) error {
+	ret := _m.Called(ctx, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *Service) Close() error {
 	ret := _m.Called()
