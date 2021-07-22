@@ -72,6 +72,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
+	txm := postgres.NewGormTransactionManager(db)
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
@@ -95,7 +96,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
 			jobSpecB.Type: delegateB,
-		})
+		}, txm)
 		spawner.Start()
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
@@ -147,7 +148,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		})
+		}, txm)
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
@@ -176,7 +177,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		})
+		}, txm)
 
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
@@ -213,7 +214,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, nil, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		})
+		}, txm)
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
