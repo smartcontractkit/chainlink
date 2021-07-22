@@ -91,6 +91,9 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
+
+	// ReplayFromBlock of blocks
+	ReplayFromBlock(number uint64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -475,7 +478,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	// EthClient must be dialed first because it is required in subtasks
-	if err := app.ethClient.Dial(context.TODO()); err != nil {
+	if err := app.ethClient.Dial(context.Background()); err != nil {
 		return err
 	}
 
@@ -756,4 +759,11 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
+}
+
+func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
+
+	app.LogBroadcaster.ReplayFromBlock(int64(number))
+
+	return nil
 }
