@@ -129,19 +129,20 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.mockEth.assertExpectations(t)
 }
 
-func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
+func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	t.Parallel()
 
 	const (
 		lastStoredBlockHeight       = 100
 		blockHeight           int64 = 125
+		replayFrom            int64 = 40
 	)
 
-	backfillTimes := 1
+	backfillTimes := 2
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: backfillTimes,
 		HeaderByNumber:      backfillTimes,
-		FilterLogs:          backfillTimes,
+		FilterLogs:          2,
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
@@ -165,14 +166,24 @@ func TestBroadcaster_BackfillOnNodeStart(t *testing.T) {
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		atomic.StoreInt64(backfillCountPtr, 1)
-		require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
+		times := atomic.LoadInt64(backfillCountPtr)
+		if times == 0 {
+			require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
+		} else if times == 1 {
+			require.Equal(t, replayFrom, fromBlock)
+		}
+
+		atomic.StoreInt64(backfillCountPtr, times+1)
 	}
 
 	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+	helper.lb.ReplayFromBlock(replayFrom)
+
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) >= 2 }, 5*time.Second, 10*time.Millisecond)
 
 	helper.stop()
 
@@ -964,15 +975,17 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		}).
 		Return(sub, nil).
 		Once()
+
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			chchRawLogs <- args.Get(2).(chan<- types.Log)
 		}).
 		Return(sub, nil).
-		Times(2)
+		Times(3)
 
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
 		Return(&models.Head{Number: blockHeight}, nil)
+
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			query := args.Get(1).(ethereum.FilterQuery)
@@ -982,6 +995,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		}).
 		Return(nil, nil).
 		Times(backfillTimes)
+
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			query := args.Get(1).(ethereum.FilterQuery)
@@ -992,6 +1006,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		}).
 		Return(nil, nil).
 		Once()
+
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			query := args.Get(1).(ethereum.FilterQuery)
@@ -1044,6 +1059,15 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 
 	// Subscribe #2
 	helper.register(listener2, contract2, 1)
+
+	select {
+	case <-chchRawLogs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not subscribe")
+	}
+
+	// ReplayFrom will not lead to backfill because the number is above current height
+	helper.lb.ReplayFromBlock(125)
 
 	select {
 	case <-chchRawLogs:
@@ -1207,8 +1231,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				// Validate that the ethereum.FilterQuery is specified correctly for the backfill that we expect
 				fromBlock := args.Get(1).(ethereum.FilterQuery).FromBlock
 				expected := big.NewInt(0)
-				if helper.lb.LatestHead() != nil && helper.lb.LatestHead().Number > test.blockHeight2-backfillDepth {
-					expected = big.NewInt(helper.lb.LatestHead().Number)
+				if helper.lb.BackfillBlockNumber().Valid && helper.lb.BackfillBlockNumber().Int64 > test.blockHeight2-backfillDepth {
+					expected = big.NewInt(helper.lb.BackfillBlockNumber().Int64)
 				} else if test.blockHeight2 > backfillDepth {
 					expected = big.NewInt(test.blockHeight2 - backfillDepth)
 				}
