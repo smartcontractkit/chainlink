@@ -84,7 +84,7 @@ type PipelineTaskRunResource struct {
 	FinishedAt time.Time         `json:"finishedAt"`
 	Output     *string           `json:"output"`
 	Error      *string           `json:"error"`
-	DotID      string            `json"dotId"`
+	DotID      string            `json:"dotId"`
 }
 
 // GetName implements the api2go EntityNamer interface

@@ -490,10 +490,19 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
-	// Ensure we have not created a run.
+	// Should create a run that errors in the vrf task
 	runs, err := vuni.prm.GetAllRuns()
 	require.NoError(t, err)
-	require.Equal(t, len(runs), 0)
+	require.Equal(t, len(runs), 1)
+	for _, tr := range runs[0].PipelineTaskRuns {
+		if tr.Type == pipeline.TaskTypeVRF {
+			assert.Contains(t, tr.Error.String, "invalid key hash")
+		}
+		// Log parsing task itself should succeed.
+		if tr.Type != pipeline.TaskTypeETHABIDecodeLog {
+			assert.Nil(t, tr.Output)
+		}
+	}
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx
