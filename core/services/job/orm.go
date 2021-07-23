@@ -38,7 +38,7 @@ type ORM interface {
 	ListenForDeletedJobs() (postgres.Subscription, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]Job, error)
 	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) (Job, error)
-	JobsV2() ([]Job, error)
+	JobsV2(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
@@ -402,10 +402,23 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
 }
 
-func (o *orm) JobsV2() ([]Job, error) {
+func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
+	var count int64
 	var jobs []Job
 	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
-		err := PreloadAllJobTypes(tx).
+		err := tx.
+			Model(Job{}).
+			Count(&count).
+			Error
+
+		if err != nil {
+			return err
+		}
+
+		err = PreloadAllJobTypes(tx).
+			Limit(limit).
+			Offset(offset).
+			Order("id ASC").
 			Find(&jobs).
 			Error
 		if err != nil {
@@ -422,7 +435,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 		}
 		return nil
 	})
-	return jobs, err
+	return jobs, int(count), err
 }
 
 func loadDynamicConfigVars(cfg Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {

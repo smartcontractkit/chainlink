@@ -2015,7 +2015,7 @@ observationSource = """
 	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
-		jobs, err := app.JobORM().JobsV2()
+		jobs, _, err := app.JobORM().JobsV2(0, 1000)
 		require.NoError(t, err)
 		// No spec errors
 		for _, j := range jobs {
