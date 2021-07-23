@@ -109,7 +109,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
 	}
-	observationSource := `
+	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
               data="$(jobRun.logData)"
@@ -118,14 +118,13 @@ vrf          [type=vrf
 			  publicKey="$(jobSpec.publicKey)" 
               requestBlockHash="$(jobRun.logBlockHash)" 
               requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"
-              proofGenerator="$(jobSpec.proofGenerator)"]
+              topics="$(jobRun.logTopics)"]
 encode_tx    [type=ethabiencode
-              abi="fulfillRandomness(bytes proof)"
+              abi="fulfillRandomnessRequest(bytes proof)"
               data=<{"proof": $(vrf)}>]
-submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7" data="$(encode_tx)"]
+submit_tx  [type=ethtx to="%s" data="$(encode_tx)"]
 decode_log->vrf->encode_tx->submit_tx
-`
+`, coordinatorAddress)
 	if params.ObservationSource != "" {
 		publicKey = params.ObservationSource
 	}

@@ -273,16 +273,12 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
-		if tx.Create(jobSpec).Error != nil {
-			return errors.Wrap(err, "failed to create job")
-		}
-		jb, err = o.FindJob(jobSpec.ID)
-		return errors.Wrap(err, "failed to read job back")
+		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
 	})
 	if err != nil {
 		return jb, err
 	}
-	return jb, nil
+	return o.FindJob(jobSpec.ID)
 }
 
 // DeleteJob removes a job that is claimed by this orm

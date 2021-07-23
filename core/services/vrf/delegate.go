@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
@@ -482,11 +480,6 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
-			"proofGenerator": func(inputs []interface{}) (interface{}, error) {
-				return proof.GenerateProofResponse(lsn.vrfks,
-					lsn.job.VRFSpec.PublicKey,
-					inputs[0].(proof.PreSeedData))
-			},
 		},
 		"jobRun": map[string]interface{}{
 			//"meta":           meta,
@@ -544,7 +537,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 			//},
 			CreatedAt:  s,
 			FinishedAt: null.TimeFrom(f),
-		}, trrs, false)
+		}, trrs, true)
 		if err != nil {
 			return errors.Wrap(err, "VRFListener: failed to insert finished run")
 		}

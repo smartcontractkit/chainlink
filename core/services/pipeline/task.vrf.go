@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -20,7 +23,12 @@ type VRFTask struct {
 	RequestBlockHash   string `json:"requestBlockHash"`
 	RequestBlockNumber string `json:"requestBlockNumber"`
 	Topics             string `json:"topics"`
-	ProofGenerator     string `json:"proofGenerator"`
+
+	keyStore VRFKeyStore
+}
+
+type VRFKeyStore interface {
+	GenerateProof(k secp256k1.PublicKey, seed *big.Int) (vrfkey.Proof, error)
 }
 
 var _ Task = (*VRFTask)(nil)
@@ -30,7 +38,6 @@ func (t *VRFTask) Type() TaskType {
 }
 
 func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
-	// TODO: clean up error handling, fix all these hard asserts
 	if len(inputs) != 1 {
 		return Result{Error: errors.New("invalid inputs")}
 	}
@@ -46,14 +53,12 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 		requestBlockHash   BytesParam
 		requestBlockNumber Uint64Param
 		topics             HashSliceParam
-		proofGenerator     FunctionParam
 	)
 	err := multierr.Combine(
 		errors.Wrap(ResolveParam(&pubKey, From(VarExpr(t.PublicKey, vars))), "publicKey"),
 		errors.Wrap(ResolveParam(&requestBlockHash, From(VarExpr(t.RequestBlockHash, vars))), "requestBlockHash"),
 		errors.Wrap(ResolveParam(&requestBlockNumber, From(VarExpr(t.RequestBlockNumber, vars))), "requestBlockNumber"),
 		errors.Wrap(ResolveParam(&topics, From(VarExpr(t.Topics, vars))), "topics"),
-		errors.Wrap(ResolveParam(&proofGenerator, From(VarExpr(t.ProofGenerator, vars))), "proofGenerator"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -76,15 +81,19 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 	if !bytes.Equal(topics[0][:], requestJobID[:]) && !bytes.Equal(topics[1][:], requestJobID[:]) {
 		return Result{Error: fmt.Errorf("request jobID %v doesn't match expected %v or %v", requestJobID[:], topics[0][:], topics[1][:])}
 	}
-	seed := proof.PreSeedData{
+	preSeedData := proof.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: common.BytesToHash(requestBlockHash),
 		BlockNum:  uint64(requestBlockNumber),
 	}
-	solidityProofIntf, err := proofGenerator([]interface{}{seed})
+	finalSeed := proof.FinalSeed(preSeedData)
+	p, err := t.keyStore.GenerateProof(pk, finalSeed)
 	if err != nil {
 		return Result{Error: err}
 	}
-	resp := solidityProofIntf.(proof.MarshaledOnChainResponse)
-	return Result{Value: resp[:]}
+	onChainProof, err := proof.GenerateProofResponseFromProof(p, preSeedData)
+	if err != nil {
+		return Result{Error: err}
+	}
+	return Result{Value: hexutil.Encode(onChainProof[:])}
 }
