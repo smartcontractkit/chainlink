@@ -1915,6 +1915,7 @@ isBootstrapPeer    = true
 	//  latestAnswer:10
 	//  latestAnswer:20
 	//  latestAnswer:30
+	var metaLock sync.Mutex
 	expectedMeta := map[string]struct{}{
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
@@ -1936,7 +1937,9 @@ isBootstrapPeer    = true
 			var m models.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				metaLock.Lock()
 				delete(expectedMeta, m.Meta.LatestAnswer.String())
+				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
