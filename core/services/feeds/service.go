@@ -154,10 +154,11 @@ func (s *service) SyncNodeInfo(id int64) error {
 
 	// Make the remote call to FMS
 	_, err = s.fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
-		JobTypes:         jobtypes,
-		ChainId:          s.cfg.ChainID().Int64(),
-		AccountAddresses: addresses,
-		IsBootstrapPeer:  mgr.IsOCRBootstrapPeer,
+		JobTypes:           jobtypes,
+		ChainId:            s.cfg.ChainID().Int64(),
+		AccountAddresses:   addresses,
+		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
+		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
 	})
 	if err != nil {
 		return err
