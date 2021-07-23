@@ -409,8 +409,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to  requestID
 		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
-			//return meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash
-			return true
+			return meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash
 		}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, nil))
@@ -425,12 +424,9 @@ func TestDelegate_ValidLog(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
 		assert.False(t, runs[0].Errors.HasError())
-		//m, ok := runs[0].Meta.Val.(map[string]interface{})
-		//require.True(t, ok)
-		//_, ok = m["eth_tx_id"]
-		//assert.True(t, ok)
-		//assert.Len(t, runs[0].PipelineTaskRuns, 0)
-		//
+		// Should have 4 tasks.
+		assert.Len(t, runs[0].PipelineTaskRuns, 4)
+
 		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)

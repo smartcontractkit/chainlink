@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/gin-gonic/gin"
@@ -59,7 +61,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
+	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "offChainReportingPipelineRun")
 }
 
 // Create triggers a pipeline run for a job.

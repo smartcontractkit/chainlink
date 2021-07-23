@@ -122,7 +122,10 @@ vrf          [type=vrf
 encode_tx    [type=ethabiencode
               abi="fulfillRandomnessRequest(bytes proof)"
               data=<{"proof": $(vrf)}>]
-submit_tx  [type=ethtx to="%s" data="$(encode_tx)"]
+
+submit_tx  [type=ethtx to="%s" 
+			data="$(encode_tx)" 
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)
 	if params.ObservationSource != "" {
