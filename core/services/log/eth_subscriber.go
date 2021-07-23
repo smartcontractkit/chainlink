@@ -117,6 +117,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_SKIP configuration variable to \"true\")"
 			}
 			logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of logs%s", elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
+			logger.Infof("LogBroadcaster: Fetched a batch of %v logs from %v to %v", len(batchLogs), from, to)
 			if err != nil {
 				if ctx.Err() != nil {
 					logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs. Consider setting EthLogBackfillBatchSize to a lower value", "err", err, "elapsed", elapsed, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())

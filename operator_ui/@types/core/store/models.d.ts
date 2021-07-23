@@ -640,6 +640,12 @@ declare module 'core/store/models' {
     level: LogConfigLevel
     sqlEnabled: boolean
   }
+
+  export interface CSAKey {
+    publicKey: string
+    createdAt: time.Time
+    updatedAt: time.Tome
+  }
 }
 
 export interface PipelineTaskRun {
