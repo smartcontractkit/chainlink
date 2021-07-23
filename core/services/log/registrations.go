@@ -30,12 +30,16 @@ import (
 //
 type (
 	registrations struct {
-		registrations map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
-		decoders      map[common.Address]ParseLogFunc
+		subscribers map[uint64]*subscribers
+		decoders    map[common.Address]ParseLogFunc
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
+	}
+
+	subscribers struct {
+		handlers map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -55,8 +59,8 @@ type (
 
 func newRegistrations() *registrations {
 	return &registrations{
-		registrations: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
-		decoders:      make(map[common.Address]ParseLogFunc),
+		subscribers: make(map[uint64]*subscribers),
+		decoders:    make(map[common.Address]ParseLogFunc),
 	}
 }
 
@@ -68,48 +72,23 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 		reg.opts.NumConfirmations = 1
 	}
 
-	if _, exists := r.registrations[addr]; !exists {
-		r.registrations[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
+	if _, exists := r.subscribers[reg.opts.NumConfirmations]; !exists {
+		r.subscribers[reg.opts.NumConfirmations] = newSubscribers()
 	}
 
-	for topic, topicValueFilters := range reg.opts.LogsWithTopics {
-		if _, exists := r.registrations[addr][topic]; !exists {
-			r.registrations[addr][topic] = make(map[Listener]*listenerMetadata)
-			needsResubscribe = true
-		}
-
-		r.registrations[addr][topic][reg.listener] = &listenerMetadata{
-			opts:    reg.opts,
-			filters: topicValueFilters,
-		}
-	}
+	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
 
 	r.maybeIncreaseHighestNumConfirmations(reg.opts.NumConfirmations)
 	return
 }
 
 func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
-	addr := reg.opts.Contract
-
-	if _, exists := r.registrations[addr]; !exists {
+	l, exists := r.subscribers[reg.opts.NumConfirmations]
+	if !exists {
 		return
 	}
-	for topic := range reg.opts.LogsWithTopics {
-		if _, exists := r.registrations[addr][topic]; !exists {
-			continue
-		}
 
-		delete(r.registrations[addr][topic], reg.listener)
-
-		if len(r.registrations[addr][topic]) == 0 {
-			needsResubscribe = true
-			delete(r.registrations[addr], topic)
-		}
-		if len(r.registrations[addr]) == 0 {
-			delete(r.registrations, addr)
-		}
-	}
-
+	needsResubscribe = l.removeSubscriber(reg)
 	r.resetHighestNumConfirmations()
 	return
 }
@@ -124,14 +103,9 @@ func (r *registrations) maybeIncreaseHighestNumConfirmations(newNumConfirmations
 // reset the highest confirmation number per all current listeners
 func (r *registrations) resetHighestNumConfirmations() {
 	highestNumConfirmations := uint64(0)
-
-	for _, perAddress := range r.registrations {
-		for _, perTopic := range perAddress {
-			for _, listener := range perTopic {
-				if listener.opts.NumConfirmations > highestNumConfirmations {
-					highestNumConfirmations = listener.opts.NumConfirmations
-				}
-			}
+	for numConf := range r.subscribers {
+		if numConf > highestNumConfirmations {
+			highestNumConfirmations = numConf
 		}
 	}
 	r.highestNumConfirmations = highestNumConfirmations
@@ -140,29 +114,50 @@ func (r *registrations) resetHighestNumConfirmations() {
 func (r *registrations) addressesAndTopics() ([]common.Address, []common.Hash) {
 	var addresses []common.Address
 	var topics []common.Hash
-	for addr := range r.registrations {
-		addresses = append(addresses, addr)
-		for topic := range r.registrations[addr] {
-			topics = append(topics, topic)
-		}
+	for _, sub := range r.subscribers {
+		add, t := sub.addressesAndTopics()
+		addresses = append(addresses, add...)
+		topics = append(topics, t...)
 	}
 	return addresses, topics
 }
 
 func (r *registrations) isAddressRegistered(address common.Address) bool {
-	_, exists := r.registrations[address]
-	return exists
+	for _, sub := range r.subscribers {
+		if sub.isAddressRegistered(address) {
+			return true
+		}
+	}
+	return false
 }
 
-func (r *registrations) sendLogs(logs []types.Log, latestHead models.Head, broadcasts []LogBroadcast) {
+func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Head, broadcasts []LogBroadcast) {
 	broadcastsExisting := make(map[LogBroadcastAsKey]struct{})
 	for _, b := range broadcasts {
 
 		broadcastsExisting[b.AsKey()] = struct{}{}
 	}
 
-	for _, log := range logs {
-		r.sendLog(log, latestHead, broadcastsExisting)
+	latestBlockNumber := uint64(latestHead.Number)
+
+	for _, logsPerBlock := range logsToSend {
+		for numConfirmations, subscribers := range r.subscribers {
+			if latestBlockNumber < numConfirmations {
+				// Skipping send because not enough height to send
+				continue
+			}
+			// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
+			// even if the logs are too young
+			// so here we need to see if this particular listener actually should receive it at this depth
+			isOldEnough := (logsPerBlock.BlockNumber + numConfirmations - 1) <= latestBlockNumber
+			if !isOldEnough {
+				continue
+			}
+
+			for _, log := range logsPerBlock.Logs {
+				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders)
+			}
+		}
 	}
 }
 
@@ -184,25 +179,83 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcasts map[LogBroadcastAsKey]struct{}) {
+func newSubscribers() *subscribers {
+	return &subscribers{
+		handlers: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+	}
+}
+
+func (r *subscribers) addSubscriber(reg registration) (needsResubscribe bool) {
+	addr := reg.opts.Contract
+
+	if reg.opts.NumConfirmations <= 0 {
+		reg.opts.NumConfirmations = 1
+	}
+
+	if _, exists := r.handlers[addr]; !exists {
+		r.handlers[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
+	}
+
+	for topic, topicValueFilters := range reg.opts.LogsWithTopics {
+		if _, exists := r.handlers[addr][topic]; !exists {
+			r.handlers[addr][topic] = make(map[Listener]*listenerMetadata)
+			needsResubscribe = true
+		}
+
+		r.handlers[addr][topic][reg.listener] = &listenerMetadata{
+			opts:    reg.opts,
+			filters: topicValueFilters,
+		}
+	}
+	return
+}
+
+func (r *subscribers) removeSubscriber(reg registration) (needsResubscribe bool) {
+	addr := reg.opts.Contract
+
+	if _, exists := r.handlers[addr]; !exists {
+		return
+	}
+	for topic := range reg.opts.LogsWithTopics {
+		if _, exists := r.handlers[addr][topic]; !exists {
+			continue
+		}
+
+		delete(r.handlers[addr][topic], reg.listener)
+
+		if len(r.handlers[addr][topic]) == 0 {
+			needsResubscribe = true
+			delete(r.handlers[addr], topic)
+		}
+		if len(r.handlers[addr]) == 0 {
+			delete(r.handlers, addr)
+		}
+	}
+	return
+}
+
+func (r *subscribers) addressesAndTopics() ([]common.Address, []common.Hash) {
+	var addresses []common.Address
+	var topics []common.Hash
+	for addr := range r.handlers {
+		addresses = append(addresses, addr)
+		for topic := range r.handlers[addr] {
+			topics = append(topics, topic)
+		}
+	}
+	return addresses, topics
+}
+
+func (r *subscribers) isAddressRegistered(address common.Address) bool {
+	_, exists := r.handlers[address]
+	return exists
+}
+
+func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts map[LogBroadcastAsKey]struct{}, decoders map[common.Address]ParseLogFunc) {
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
-	for listener, metadata := range r.registrations[log.Address][log.Topics[0]] {
+	for listener, metadata := range r.handlers[log.Address][log.Topics[0]] {
 		listener := listener
-		numConfirmations := metadata.opts.NumConfirmations
-
-		if latestBlockNumber < numConfirmations {
-			// Skipping send because not enough height to send
-			continue
-		}
-
-		// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
-		// even if the logs are too young
-		// so here we need to see if this particular listener actually should receive it at this depth
-		isOldEnough := (log.BlockNumber + numConfirmations - 1) <= latestBlockNumber
-		if !isOldEnough {
-			continue
-		}
 
 		currentBroadcast := NewLogBroadcastAsKey(log, listener)
 		_, exists := broadcasts[currentBroadcast]
@@ -221,7 +274,7 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcast
 
 		var decodedLog generated.AbigenLog
 		var err error
-		if parseLog := r.decoders[log.Address]; parseLog != nil {
+		if parseLog := decoders[log.Address]; parseLog != nil {
 			decodedLog, err = parseLog(logCopy)
 			if err != nil {
 				logger.Errorw("Could not parse contract log", "error", err)
