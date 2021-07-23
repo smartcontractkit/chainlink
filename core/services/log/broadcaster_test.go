@@ -473,6 +473,9 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	requireBroadcastCount(t, helper.store, 5)
 	helper.stop()
 
+	require.Equal(t, []uint64{1, 2, 3}, listener1.getUniqueLogsBlockNumbers())
+	require.Equal(t, []uint64{1, 2}, listener2.getUniqueLogsBlockNumbers())
+
 	requireEqualLogs(t,
 		addr1SentLogs,
 		listener1.received.uniqueLogs,
