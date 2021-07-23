@@ -144,9 +144,10 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -163,9 +164,10 @@ func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -208,9 +210,10 @@ func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -240,9 +243,10 @@ func TestJobRunsController_Create_Archived(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -260,9 +264,10 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -277,9 +282,10 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -296,9 +302,10 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -315,9 +322,10 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -331,9 +339,10 @@ func TestJobRunsController_Create_InvalidID(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -347,9 +356,10 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -398,9 +408,10 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -427,9 +438,10 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -453,9 +465,10 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -486,9 +499,10 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -514,9 +528,10 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 	client := app.NewHTTPClient()
@@ -617,9 +632,10 @@ func TestJobRunsController_Cancel(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
