@@ -34,6 +34,7 @@ type Config interface {
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint
 	EthHeadTrackerSamplingInterval() time.Duration
+	BlockEmissionIdleWarningThreshold() time.Duration
 	EthereumURL() string
 	EthFinalityDepth() uint
 }
@@ -121,8 +122,8 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 // This should be safe to run concurrently across multiple nodes connected to the same database
 // Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
 func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header models.Head) error) error {
-	noHeadsAlarm := time.Minute
-	t := time.NewTicker(noHeadsAlarm)
+	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
+	t := time.NewTicker(noHeadsAlarmDuration)
 
 	for {
 		select {
@@ -131,7 +132,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 		case blockHeader, open := <-hl.headers:
 			// We've received a head, reset the no heads alarm
 			t.Stop()
-			t = time.NewTicker(noHeadsAlarm)
+			t = time.NewTicker(noHeadsAlarmDuration)
 
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
@@ -157,7 +158,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
-			logger.Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarm))
+			logger.Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarmDuration))
 		}
 	}
 }
