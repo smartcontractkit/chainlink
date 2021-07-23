@@ -37,9 +37,10 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	store := app.Store
 
@@ -55,9 +56,10 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	store := app.Store
 

@@ -43,6 +43,7 @@ func registerExistingProvingKey(
 func TestIntegration_RandomnessRequest(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	key := cltest.MustGenerateRandomKey(t)
 
@@ -131,6 +132,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 func TestIntegration_SharedProvingKey(t *testing.T) {
 	config, _, cfgCleanup := heavyweight.FullTestORM(t, "vrf_shared_proving_key", true, true)
 	defer cfgCleanup()
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	config.Config.Dialect = dialects.PostgresWithoutLock
 
 	key := cltest.MustGenerateRandomKey(t)

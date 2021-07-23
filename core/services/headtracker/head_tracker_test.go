@@ -51,6 +51,7 @@ func TestHeadTracker_New(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 	sub.On("Err").Return(nil)
 
 	orm := headtracker.NewORM(db)
@@ -108,7 +109,7 @@ func TestHeadTracker_Get(t *testing.T) {
 		{"less than", start, cltest.Head(1), big.NewInt(5)},
 		{"zero", start, cltest.Head(0), big.NewInt(5)},
 		{"nil", start, nil, big.NewInt(5)},
-		{"nil no initial", nil, nil, nil},
+		{"nil no initial", nil, nil, big.NewInt(0)},
 	}
 
 	for _, test := range tests {
@@ -126,6 +127,7 @@ func TestHeadTracker_Get(t *testing.T) {
 			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 				Run(func(mock.Arguments) { close(chStarted) }).
 				Return(sub, nil)
+			ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 
 			fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
 			fnCall.RunFn = func(args mock.Arguments) {
@@ -164,6 +166,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
 	chStarted := make(chan struct{})
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { close(chStarted) }).
 		Return(sub, nil)
@@ -231,6 +234,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("cannot reconnect"))
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 	chErr := make(chan error)
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return((<-chan error)(chErr))
@@ -269,6 +273,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -316,6 +321,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 		Return(sub, nil)
 
 	latestHeadByNumber := make(map[int64]*models.Head)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 	fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
 	fnCall.RunFn = func(args mock.Arguments) {
 		num := args.Get(1).(*big.Int)
@@ -388,13 +394,18 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
+	head0 := models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head0, nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
 	checker.On("Connect", mock.MatchedBy(func(h *models.Head) bool {
-		return h == nil
+		return h != nil && h.Number == 0 && h.Hash == head0.Hash
 	})).Return(nil).Once()
+	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
+		return h.Number == 0 && h.Hash == head0.Hash
+	})).Return().Once()
 
 	assert.Nil(t, ht.Start())
 
@@ -402,7 +413,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	blockHeaders := []*models.Head{}
 
 	// First block comes in
-	blockHeaders = append(blockHeaders, &models.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(1, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 1, Hash: utils.NewHash(), ParentHash: head0.Hash, Timestamp: time.Unix(1, 0)})
 	// Blocks 2 and 3 are out of order
 	head2 := &models.Head{Number: 2, Hash: utils.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(2, 0)}
 	head3 := &models.Head{Number: 3, Hash: utils.NewHash(), ParentHash: head2.Hash, Timestamp: time.Unix(3, 0)}
