@@ -24,7 +24,10 @@ import (
 )
 
 func TestMigrateController_Migrate(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	t.Cleanup(cleanup)
 	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
 	require.NoError(t, app.Start())
