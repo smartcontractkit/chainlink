@@ -68,7 +68,7 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 	addr := reg.opts.Contract
 	r.decoders[addr] = reg.opts.ParseLog
 
-	if reg.opts.NumConfirmations <= 0 {
+	if reg.opts.NumConfirmations == 0 {
 		reg.opts.NumConfirmations = 1
 	}
 
@@ -161,7 +161,7 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 	}
 }
 
-// Returns true if there is at least one filter value (or no filters) that matches an actual received value for every index i, or false otherwise
+// Returns true if there is at least one filter value (or no filters at all) that matches an actual received value for every index i, or false otherwise
 func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	for i := 0; i < len(topicValues) && i < len(filters); i++ {
 		filterValues := filters[i]
@@ -270,7 +270,7 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 			}
 		}
 
-		logCopy := gethwrappers.CopyLog(log)
+		logCopy := gethwrappers.DeepCopyLog(log)
 
 		var decodedLog generated.AbigenLog
 		var err error
