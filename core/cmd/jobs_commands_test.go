@@ -353,6 +353,7 @@ func TestClient_Migrate(t *testing.T) {
 
 	app := startNewApplication(t)
 	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	app.Config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	client, _ := app.NewClientAndRenderer()
 	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
 
