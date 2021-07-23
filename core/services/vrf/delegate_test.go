@@ -74,7 +74,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	ks := keystore.New(db, utils.FastScryptParams)
 	txm := new(bptxmmocks.TxManager)
 	t.Cleanup(func() { txm.AssertExpectations(t) })
-	pr := pipeline.NewRunner(prm, cfg, ec, ks.Eth(), txm)
+	pr := pipeline.NewRunner(prm, cfg, ec, ks.Eth(), ks.VRF(), txm)
 	require.NoError(t, ks.Eth().Unlock("blah"))
 	_, err = ks.Eth().CreateNewKey()
 	require.NoError(t, err)
@@ -353,7 +353,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 	listener.reqAdded = func() {
 		added <- struct{}{}
 	}
-	//preSeed := common.BigToHash(big.NewInt(42)).Bytes()
+	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
 	bh := utils.NewHash()
 	var tt = []struct {
 		reqID [32]byte
@@ -424,35 +424,35 @@ func TestDelegate_ValidLog(t *testing.T) {
 		runs, err := vuni.prm.GetAllRuns()
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
-		//assert.False(t, runs[0].Errors.HasError())
+		assert.False(t, runs[0].Errors.HasError())
 		//m, ok := runs[0].Meta.Val.(map[string]interface{})
 		//require.True(t, ok)
 		//_, ok = m["eth_tx_id"]
 		//assert.True(t, ok)
 		//assert.Len(t, runs[0].PipelineTaskRuns, 0)
 		//
-		//p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
-		//require.NoError(t, err)
-		//vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		//vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		//	consumed <- struct{}{}
-		//}).Return(nil).Once()
-		//// If we send a completed log we should the respCount increase
-		//var reqIDBytes []byte
-		//copy(reqIDBytes[:], tc.reqID[:])
-		//listener.HandleLog(log.NewLogBroadcast(types.Log{
-		//	// Data has all the NON-indexed parameters
-		//	Data: bytes.Join([][]byte{reqIDBytes, // output
-		//		p.Output.Bytes(),
-		//	}, []byte{},
-		//	),
-		//	BlockNumber: 10,
-		//	TxHash:      txHash,
-		//}, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
-		//waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
-		//// Should record that we've responded to this request
-		//assert.Equal(t, uint64(1), listener.respCount[tc.reqID])
-		//vuni.Assert(t)
+		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
+		require.NoError(t, err)
+		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			consumed <- struct{}{}
+		}).Return(nil).Once()
+		// If we send a completed log we should the respCount increase
+		var reqIDBytes []byte
+		copy(reqIDBytes[:], tc.reqID[:])
+		listener.HandleLog(log.NewLogBroadcast(types.Log{
+			// Data has all the NON-indexed parameters
+			Data: bytes.Join([][]byte{reqIDBytes, // output
+				p.Output.Bytes(),
+			}, []byte{},
+			),
+			BlockNumber: 10,
+			TxHash:      txHash,
+		}, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
+		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
+		// Should record that we've responded to this request
+		assert.Equal(t, uint64(1), listener.respCount[tc.reqID])
+		vuni.Assert(t)
 	}
 }
 
