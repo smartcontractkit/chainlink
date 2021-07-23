@@ -80,8 +80,6 @@ func TestConfigSchema(t *testing.T) {
 		"FeatureWebhookV2":                           "FEATURE_WEBHOOK_V2",
 		"FlagsContractAddress":                       "FLAGS_CONTRACT_ADDRESS",
 		"GasEstimatorMode":                           "GAS_ESTIMATOR_MODE",
-		"GasUpdaterBatchSize":                        "GAS_UPDATER_BATCH_SIZE",
-		"GasUpdaterBlockDelay":                       "GAS_UPDATER_BLOCK_DELAY",
 		"GasUpdaterBlockHistorySize":                 "GAS_UPDATER_BLOCK_HISTORY_SIZE",
 		"GasUpdaterEnabled":                          "GAS_UPDATER_ENABLED",
 		"GasUpdaterTransactionPercentile":            "GAS_UPDATER_TRANSACTION_PERCENTILE",

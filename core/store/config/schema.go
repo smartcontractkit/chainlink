@@ -87,8 +87,6 @@ type ConfigSchema struct {
 	FeatureWebhookV2                           bool                          `env:"FEATURE_WEBHOOK_V2" default:"false"`
 	FlagsContractAddress                       string                        `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasEstimatorMode                           string                        `env:"GAS_ESTIMATOR_MODE"`
-	GasUpdaterBatchSize                        uint32                        `env:"GAS_UPDATER_BATCH_SIZE"`
-	GasUpdaterBlockDelay                       uint16                        `env:"GAS_UPDATER_BLOCK_DELAY"`
 	GasUpdaterBlockHistorySize                 uint16                        `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	GasUpdaterEnabled                          bool                          `env:"GAS_UPDATER_ENABLED"`
 	GasUpdaterTransactionPercentile            uint16                        `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
