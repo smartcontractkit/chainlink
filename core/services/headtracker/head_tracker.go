@@ -116,9 +116,12 @@ func (ht *HeadTracker) Start() error {
 			initialHead, err := ht.getInitialHead()
 			if err != nil {
 				return err
-			}
-			if err := ht.handleNewHead(context.Background(), initialHead); err != nil {
-				return errors.Wrap(err, "error handling initial head")
+			} else if initialHead != nil {
+				if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
+					return errors.Wrap(err, "error handling initial head")
+				}
+			} else {
+				logger.Debug("HeadTracker: got nil initial head")
 			}
 		}
 
@@ -131,17 +134,19 @@ func (ht *HeadTracker) Start() error {
 	})
 }
 
-func (ht *HeadTracker) getInitialHead() (models.Head, error) {
+func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 	ctx, cancel := eth.DefaultQueryCtx()
 	defer cancel()
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
-		return models.Head{}, errors.Wrap(err, "failed to fetch initial head")
-	} else if head == nil {
-		return models.Head{}, errors.New("initial head was unexpectedly nil")
+		return nil, errors.Wrap(err, "failed to fetch initial head")
 	}
-	ht.logger().Debugw("HeadTracker: got initial current block", "blockNumber", head.Number, "blockHash", head.Hash)
-	return *head, nil
+	loggerFields := []interface{}{"head", head}
+	if head != nil {
+		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
+	}
+	ht.logger().Debugw("HeadTracker: got initial current block", loggerFields...)
+	return head, nil
 }
 
 // Stop unsubscribes all connections and fires Disconnect.

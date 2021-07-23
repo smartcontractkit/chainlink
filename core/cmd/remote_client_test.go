@@ -61,6 +61,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	t.Cleanup(cfgCleanup)
 	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
 	config.Set("MAX_HTTP_ATTEMPTS", "1")
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	for k, v := range sopts.Config {
 		config.Set(k, v)
