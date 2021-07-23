@@ -464,7 +464,6 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 		return
 	}
 	s := time.Now()
-	//vrfCoordinatorPayload, req, err := lsn.ProcessLog(req, lb)
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
@@ -473,7 +472,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 		"blockNumber", req.Raw.BlockNumber,
 		"seed", req.Seed,
 		"fee", req.Fee)
-	// Validate the key against the spec
+
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    lsn.job.ID,
@@ -482,13 +481,11 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 		},
 		"jobRun": map[string]interface{}{
-			//"meta":           meta,
 			"logBlockHash":   req.Raw.BlockHash[:],
 			"logBlockNumber": req.Raw.BlockNumber,
-			//"logTxHash":      req.Raw.TxHash,
-			//"logAddress":     req.Raw.Address,
-			"logTopics": req.Raw.Topics,
-			"logData":   req.Raw.Data,
+			"logTxHash":      req.Raw.TxHash,
+			"logTopics":      req.Raw.Topics,
+			"logData":        req.Raw.Data,
 		},
 	})
 	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
@@ -497,46 +494,14 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 	}
 	f := time.Now()
 	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-		//if err == nil {
-		//	// No errors processing the log, submit a transaction
-		//	var etx bulletprooftxmanager.EthTx
-		//	var from common.Address
-		//	from, err = lsn.gethks.GetRoundRobinAddress()
-		//	if err != nil {
-		//		return err
-		//	}
-		//	etx, err = lsn.txm.CreateEthTransaction(tx,
-		//		from,
-		//		lsn.coordinator.Address(),
-		//		vrfCoordinatorPayload,
-		//		lsn.cfg.EthGasLimitDefault(),
-		//		&models.EthTxMetaV2{
-		//			JobID:         lsn.job.ID,
-		//			RequestID:     req.RequestID,
-		//			RequestTxHash: lb.RawLog().TxHash,
-		//		},
-		//		bulletprooftxmanager.SendEveryStrategy{},
-		//	)
-		//	if err != nil {
-		//		return err
-		//	}
 		_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
 			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: run.PipelineSpecID,
 			Errors:         run.Errors,
 			Outputs:        run.Outputs,
-			//Outputs: pipeline.JSONSerializable{
-			//	Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
-			//		etx.FromAddress,
-			//		etx.ToAddress,
-			//		hex.EncodeToString(etx.EncodedPayload))},
-			//},
-			Meta: run.Meta,
-			//pipeline.JSONSerializable{
-			//	Val: map[string]interface{}{"eth_tx_id": etx.ID},
-			//},
-			CreatedAt:  s,
-			FinishedAt: null.TimeFrom(f),
+			Meta:           run.Meta,
+			CreatedAt:      s,
+			FinishedAt:     null.TimeFrom(f),
 		}, trrs, true)
 		if err != nil {
 			return errors.Wrap(err, "VRFListener: failed to insert finished run")
@@ -548,95 +513,6 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 		lsn.l.Errorw("VRFListener failed to save run", "err", err)
 	}
 }
-
-/*
-func (lsn *listener) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {
-	lsn.l.Infow("VRFListener: received log request",
-		"log", lb.String(),
-		"reqID", hex.EncodeToString(req.RequestID[:]),
-		"keyHash", hex.EncodeToString(req.KeyHash[:]),
-		"txHash", req.Raw.TxHash,
-		"blockNumber", req.Raw.BlockNumber,
-		"seed", req.Seed,
-		"fee", req.Fee)
-	// Validate the key against the spec
-	//inputs, err := GetVRFInputs(lsn.job, req)
-	//var inputs VRFInputs
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    lsn.job.ID,
-			"externalJobID": lsn.job.ExternalJobID,
-			"name":          lsn.job.Name.ValueOrZero(),
-			"publicKey":     lsn.job.VRFSpec.PublicKey,
-		},
-		"jobRun": map[string]interface{}{
-			//"meta":           meta,
-			"logBlockHash":   req.Raw.BlockHash,
-			//"logBlockNumber": req.Raw.BlockNumber,
-			//"logTxHash":      req.Raw.TxHash,
-			//"logAddress":     req.Raw.Address,
-			"logTopics":      req.Raw.Topics,
-			"logData":        req.Raw.Data,
-		},
-	})
-	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
-	/*
-	jb := lsn.job;
-	kh, err := jb.VRFSpec.PublicKey.Hash()
-	if err != nil {
-		return nil, req, err
-	}
-	if !bytes.Equal(req.KeyHash[:], kh[:]) {
-		return nil, req, fmt.Errorf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:]))
-	}
-	preSeed, err := BigToSeed(req.Seed)
-	if err != nil {
-		return nil, req, errors.New("unable to parse preseed")
-	}
-	strJobID := jb.ExternalIDEncodeStringToTopic()
-	bytesJobID := jb.ExternalIDEncodeBytesToTopic()
-	if !bytes.Equal(bytesJobID[:], req.JobID[:]) && !bytes.Equal(strJobID[:], req.JobID[:]) {
-		return nil, req, fmt.Errorf("request jobID %v doesn't match expected %v or %v", req.JobID[:], strJobID, bytesJobID)
-	}
-	//return VRFInputs{
-	pk := jb.VRFSpec.PublicKey
-	seed:= PreSeedData{
-			PreSeed:   preSeed,
-			BlockHash: req.Raw.BlockHash,
-			BlockNum:  req.Raw.BlockNumber,
-	}
-	if err != nil {
-		lsn.l.Errorw("VRFListener: invalid log", "err", err)
-		return nil, req, err
-	}
-
-	solidityProof, err := GenerateProofResponse(lsn.vrfks, pk, seed)
-	if err != nil {
-		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
-		return nil, req, err
-	}
-
-	vrfCoordinatorArgs, err := models.VRFFulfillMethod().Inputs.PackValues(
-		[]interface{}{
-			solidityProof[:], // geth expects slice, even if arg is constant-length
-		})
-	if err != nil {
-		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
-		return nil, req, err
-	}
-
-	return append(lsn.abi.Methods["fulfillRandomnessRequest"].ID, vrfCoordinatorArgs...), req, nil
-}
-*/
-
-//type VRFInputs struct {
-//	pk   secp256k1.PublicKey
-//	seed PreSeedData
-//}
-
-// Check the key hash against the spec's pubkey
-//func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest) (VRFInputs, error) {
-//}
 
 // Close complies with job.Service
 func (lsn *listener) Close() error {

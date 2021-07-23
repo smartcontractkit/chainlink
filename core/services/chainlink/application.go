@@ -1,14 +1,19 @@
 package chainlink
 
 import (
+	"bytes"
 	"context"
 	stderr "errors"
 	"fmt"
+	"math/big"
 	"os"
 	"os/signal"
 	"reflect"
 	"sync"
 	"syscall"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
@@ -678,7 +683,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
-// Only used for testing, not supported by the UI.
+// Only used for local testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
@@ -697,12 +702,46 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !jb.Type.HasPipelineSpec() {
 		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
-		vars := map[string]interface{}{
-			"jobRun": map[string]interface{}{
-				"meta": meta,
-			},
+		var vars map[string]interface{}
+		if jb.Type == job.VRF {
+			// Create a dummy log to trigger a run
+			testLog := types.Log{
+				Data: bytes.Join([][]byte{
+					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
+					common.BigToHash(big.NewInt(42)).Bytes(), // seed
+					utils.NewHash().Bytes(),                  // sender
+					utils.NewHash().Bytes(),                  // fee
+					utils.NewHash().Bytes()},                 // requestID
+					[]byte{}),
+				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+				TxHash:      utils.NewHash(),
+				BlockNumber: 10,
+				BlockHash:   utils.NewHash(),
+			}
+			vars = map[string]interface{}{
+				"jobSpec": map[string]interface{}{
+					"databaseID":    jb.ID,
+					"externalJobID": jb.ExternalJobID,
+					"name":          jb.Name.ValueOrZero(),
+					"publicKey":     jb.VRFSpec.PublicKey[:],
+				},
+				"jobRun": map[string]interface{}{
+					"meta":           meta,
+					"logBlockHash":   testLog.BlockHash[:],
+					"logBlockNumber": testLog.BlockNumber,
+					"logTxHash":      testLog.TxHash,
+					"logTopics":      testLog.Topics,
+					"logData":        testLog.Data,
+				},
+			}
+		} else {
+			vars = map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": meta,
+				},
+			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, true)
 	}
 	return runID, err
 }
