@@ -232,9 +232,10 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 }
 
 func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
-	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 	listener.received.Lock()
 	defer listener.received.Unlock()
+	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
 	consumed := listener.handleLogBroadcast(listener.t, lb)
