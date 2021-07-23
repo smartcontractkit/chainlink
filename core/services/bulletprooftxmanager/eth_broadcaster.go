@@ -226,7 +226,11 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; maximum number of in-flight transactions is %d per key. If this happens a lot, you might need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS. %s`, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "nUnconfirmed", nUnconfirmed)
+				nUnstarted, err := CountUnstartedTransactions(eb.db, fromAddress)
+				if err != nil {
+					return errors.Wrap(err, "CountUnstartedTransactions failed")
+				}
+				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; current queue size is %d but maximum number of in-flight transactions is %d per key. %s`, nUnstarted, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
 				time.Sleep(InFlightTransactionRecheckInterval)
 				continue
 			}

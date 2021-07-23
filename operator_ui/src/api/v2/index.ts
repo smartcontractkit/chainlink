@@ -1,6 +1,7 @@
 import { Api } from 'utils/json-api-client'
 import { BridgeTypes } from './bridgeTypes'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
+import { CSAKeys } from './csaKeys'
 import { Config } from './config'
 import { Runs } from './runs'
 import { Specs } from './specs'
@@ -29,4 +30,5 @@ export class V2 {
   public jobs = new Jobs(this.api)
   public ocrRuns = new OcrRuns(this.api)
   public logConfig = new LogConfig(this.api)
+  public csaKeys = new CSAKeys(this.api)
 }
