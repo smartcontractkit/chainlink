@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"gopkg.in/guregu/null.v4"
 )
 
 // FeedsManagerController manages the feeds managers
@@ -21,11 +22,12 @@ type FeedsManagerController struct {
 // CreateFeedsManagerRequest represents a JSONAPI request for registering a
 // feeds manager
 type CreateFeedsManagerRequest struct {
-	Name      string           `json:"name"`
-	URI       string           `json:"uri"`
-	JobTypes  []string         `json:"jobTypes"`
-	PublicKey crypto.PublicKey `json:"publicKey"`
-	Network   string           `json:"network"`
+	Name                   string           `json:"name"`
+	URI                    string           `json:"uri"`
+	JobTypes               []string         `json:"jobTypes"`
+	PublicKey              crypto.PublicKey `json:"publicKey"`
+	IsBootstrapPeer        bool             `json:"isBootstrapPeer"`
+	BootstrapPeerMultiaddr null.String      `json:"bootstrapPeerMultiaddr"`
 }
 
 // Create registers a new feeds manager.
@@ -39,11 +41,12 @@ func (fmc *FeedsManagerController) Create(c *gin.Context) {
 	}
 
 	ms := &feeds.FeedsManager{
-		URI:       request.URI,
-		Name:      request.Name,
-		PublicKey: request.PublicKey,
-		JobTypes:  request.JobTypes,
-		Network:   request.Network,
+		URI:                       request.URI,
+		Name:                      request.Name,
+		PublicKey:                 request.PublicKey,
+		JobTypes:                  request.JobTypes,
+		IsOCRBootstrapPeer:        request.IsBootstrapPeer,
+		OCRBootstrapPeerMultiaddr: request.BootstrapPeerMultiaddr,
 	}
 
 	feedsService := fmc.App.GetFeedsService()
