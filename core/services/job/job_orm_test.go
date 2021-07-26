@@ -200,7 +200,7 @@ func TestORM(t *testing.T) {
 		eim := webhook.NewExternalInitiatorManager(db)
 		jb, err := webhook.ValidatedWebhookSpec(tree.String(), eim)
 		require.NoError(t, err)
-		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 
 		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 2)

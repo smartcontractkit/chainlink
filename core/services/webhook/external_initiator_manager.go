@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"go.uber.org/multierr"
@@ -124,11 +123,6 @@ func (m externalInitiatorManager) NotifyV2(webhookSpecID int32) error {
 }
 
 func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	var debu []job.Job
-	m.db.Find(&debu)
-	fmt.Println("BALLS 1", debu)
-	debug.PrintStack()
-
 	row := m.db.Raw("SELECT external_job_id FROM jobs WHERE webhook_spec_id = ?", webhookSpecID).Row()
 	err = multierr.Combine(
 		errors.Wrapf(row.Scan(&jobID), "failed to load job ID from job for webhook spec with ID %d", webhookSpecID),
