@@ -41,7 +41,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 		return
 	}
 
-	paginatedResponse(c, "offChainReportingPipelineRun", size, page, pipelineRuns, count, err)
+	paginatedResponse(c, "offChainReportingPipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
 }
 
 // Show returns a specified pipeline run.
