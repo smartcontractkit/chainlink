@@ -86,7 +86,7 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	PipelineORM() pipeline.ORM
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
@@ -96,6 +96,9 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
+
+	// ReplayFromBlock of blocks
+	ReplayFromBlock(number uint64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -150,6 +153,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	if err != nil {
 		return nil, err
 	}
+	gormTxm := postgres.NewGormTransactionManager(store.DB)
 
 	setupConfig(cfg, store.DB)
 
@@ -344,11 +348,11 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), cfg)
+	feedsService := feeds.NewService(feedsORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), cfg)
 
 	app := &ChainlinkApplication{
 		ethClient:                ethClient,
@@ -479,7 +483,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	// EthClient must be dialed first because it is required in subtasks
-	if err := app.ethClient.Dial(context.TODO()); err != nil {
+	if err := app.ethClient.Dial(context.Background()); err != nil {
 		return err
 	}
 
@@ -671,7 +675,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
 	return app.jobSpawner.CreateJob(ctx, j, name)
 }
 
@@ -692,7 +696,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
-	jb, err := app.jobORM.FindJob(jobID)
+	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
@@ -796,4 +800,11 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
+}
+
+func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
+
+	app.LogBroadcaster.ReplayFromBlock(int64(number))
+
+	return nil
 }

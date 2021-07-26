@@ -118,9 +118,10 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 			defer assertMocksCalled()
-			app, cleanup := cltest.NewApplicationWithKey(t,
-				ethClient,
-			)
+			config, cfgCleanup := cltest.NewConfig(t)
+			t.Cleanup(cfgCleanup)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 			defer cleanup()
 
 			js := test.job

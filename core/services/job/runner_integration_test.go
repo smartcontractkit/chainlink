@@ -207,11 +207,9 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
 		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 

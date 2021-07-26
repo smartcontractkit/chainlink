@@ -25,7 +25,7 @@ type (
 	// has 1 or more of these services associated with it.
 	Spawner interface {
 		service.Service
-		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)
+		CreateJob(ctx context.Context, spec Job, name null.String) (Job, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		ActiveJobs() map[int32]Job
 	}
@@ -38,6 +38,7 @@ type (
 		activeJobs                   map[int32]activeJob
 		activeJobsMu                 sync.RWMutex
 		chStopJob                    chan int32
+		txm                          postgres.TransactionManager
 
 		utils.StartStopOnce
 		chStop chan struct{}
@@ -67,11 +68,12 @@ const checkForDeletedJobsPollInterval = 5 * time.Minute
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spawner {
+func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, txm postgres.TransactionManager) *spawner {
 	s := &spawner{
 		orm:              orm,
 		config:           config,
 		jobTypeDelegates: jobTypeDelegates,
+		txm:              txm,
 		activeJobs:       make(map[int32]activeJob),
 		chStopJob:        make(chan int32),
 		chStop:           make(chan struct{}),
@@ -284,27 +286,40 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (Job, error) {
+	var jb Job
+	var err error
 	delegate, exists := js.jobTypeDelegates[spec.Type]
 	if !exists {
 		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
-		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
+		return jb, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
 	}
 
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
 
 	spec.Name = name
-	jb, err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
+
+	ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+	err = js.txm.TransactWithContext(ctx, func(context.Context) error {
+		jb, err = js.orm.CreateJob(ctx, &spec, spec.Pipeline)
+		if err != nil {
+			logger.Errorw("Error creating job", "type", spec.Type, "error", err)
+
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		logger.Errorw("Error creating job", "type", spec.Type, "error", err)
-		return 0, err
+		return jb, err
 	}
 
 	delegate.OnJobCreated(jb)
 
 	logger.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
-	return jb.ID, err
+	return jb, err
 }
 
 func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
