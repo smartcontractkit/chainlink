@@ -444,9 +444,18 @@ func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt EthTxAttempt, repl
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
 func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (count uint32, err error) {
+	return countTransactionsWithState(db, fromAddress, EthTxUnconfirmed)
+}
+
+// CountUnstartedTransactions returns the number of unconfirmed transactions
+func CountUnstartedTransactions(db *gorm.DB, fromAddress common.Address) (count uint32, err error) {
+	return countTransactionsWithState(db, fromAddress, EthTxUnstarted)
+}
+
+func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state EthTxState) (count uint32, err error) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unconfirmed'`, fromAddress).Scan(&count).Error
+	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = ?`, fromAddress, state).Scan(&count).Error
 	return
 }
 

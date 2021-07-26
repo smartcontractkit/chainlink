@@ -142,6 +142,24 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	assert.Equal(t, int(count), 3)
 }
 
+func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewGormDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+
+	cltest.MustInsertUnstartedEthTx(t, db, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, db, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, db, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
+
+	count, err := bulletprooftxmanager.CountUnstartedTransactions(db, fromAddress)
+	require.NoError(t, err)
+	assert.Equal(t, int(count), 2)
+}
 func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
