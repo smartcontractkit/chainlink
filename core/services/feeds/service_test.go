@@ -244,7 +244,7 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 			`,
 		}
 		jb = job.Job{
-			ID:	int32(1),
+			ID: int32(1),
 		}
 	)
 

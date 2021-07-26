@@ -55,6 +55,7 @@ type (
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
+	ErrInputTaskErrored      = errors.New("input task errored")
 	ErrParameterEmpty        = errors.New("parameter is empty")
 	ErrTooManyErrors         = errors.New("too many errors")
 	ErrTimeout               = errors.New("timeout")

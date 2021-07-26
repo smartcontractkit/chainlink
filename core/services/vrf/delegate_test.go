@@ -424,7 +424,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
 		assert.False(t, runs[0].Errors.HasError())
-		// Should have 4 tasks.
+		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 
 		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
