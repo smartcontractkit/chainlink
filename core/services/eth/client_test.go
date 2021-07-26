@@ -256,7 +256,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			require.NoError(t, err)
 			defer ethClient.Close()
 
-			result, err := ethClient.HeaderByNumber(context.Background(), expectedBlockNum)
+			result, err := ethClient.HeadByNumber(context.Background(), expectedBlockNum)
 			if test.error != nil {
 				require.Equal(t, test.error, errors.Cause(err))
 			} else {

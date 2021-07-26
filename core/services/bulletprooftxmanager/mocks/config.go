@@ -15,6 +15,62 @@ type Config struct {
 	mock.Mock
 }
 
+// BlockHistoryEstimatorBatchSize provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorBatchSize() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// BlockHistoryEstimatorBlockDelay provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorBlockDelay() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// BlockHistoryEstimatorBlockHistorySize provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorBlockHistorySize() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// BlockHistoryEstimatorTransactionPercentile provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
 // ChainID provides a mock function with given fields:
 func (_m *Config) ChainID() *big.Int {
 	ret := _m.Called()
@@ -191,6 +247,22 @@ func (_m *Config) EthMaxQueuedTransactions() uint64 {
 	return r0
 }
 
+// EthMinGasPriceWei provides a mock function with given fields:
+func (_m *Config) EthMinGasPriceWei() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
 // EthNonceAutoSync provides a mock function with given fields:
 func (_m *Config) EthNonceAutoSync() bool {
 	ret := _m.Called()
@@ -261,15 +333,15 @@ func (_m *Config) EthTxResendAfterThreshold() time.Duration {
 	return r0
 }
 
-// OptimismGasFees provides a mock function with given fields:
-func (_m *Config) OptimismGasFees() bool {
+// GasEstimatorMode provides a mock function with given fields:
+func (_m *Config) GasEstimatorMode() string {
 	ret := _m.Called()
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

@@ -22,11 +22,6 @@ func (s *SendError) Error() string {
 	return s.err.Error()
 }
 
-func (s *SendError) StrPtr() *string {
-	e := s.err.Error()
-	return &e
-}
-
 // Fatal indicates whether the error should be considered fatal or not
 // Fatal errors mean that no matter how many times the send is retried, no node
 // will ever accept it
@@ -50,6 +45,8 @@ const (
 	TerminallyUnderpriced
 	InsufficientEth
 	TooExpensive
+	FeeTooLow
+	FeeTooHigh
 	Fatal
 )
 
@@ -93,7 +90,12 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum}
+var optimism = ClientErrors{
+	FeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
+	FeeTooHigh: regexp.MustCompile(`(: |^)fee too large: \d+$`),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, optimism}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -146,6 +148,16 @@ func (s *SendError) IsInsufficientEth() bool {
 // succeed.
 func (s *SendError) IsTooExpensive() bool {
 	return s.is(TooExpensive)
+}
+
+// IsFeeTooLow is an optimism-specific error returned when total fee is too low
+func (s *SendError) IsFeeTooLow() bool {
+	return s.is(FeeTooLow)
+}
+
+// IsFeeTooHigh is an optimism-specific error returned when total fee is too high
+func (s *SendError) IsFeeTooHigh() bool {
+	return s.is(FeeTooHigh)
 }
 
 func NewFatalSendErrorS(s string) *SendError {

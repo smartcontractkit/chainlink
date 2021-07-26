@@ -45,7 +45,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		latestBlock, err := sub.ethClient.HeaderByNumber(ctx, nil)
+		latestBlock, err := sub.ethClient.HeadByNumber(ctx, nil)
 		if err != nil {
 			logger.Errorw("LogBroadcaster: backfill - could not fetch latest block header, will retry", "err", err)
 			return true
@@ -217,11 +217,3 @@ func newNoopSubscription() noopSubscription {
 func (b noopSubscription) Err() <-chan error    { return nil }
 func (b noopSubscription) Logs() chan types.Log { return b.chRawLogs }
 func (b noopSubscription) Unsubscribe()         { close(b.chRawLogs) }
-
-// ListenerJobID returns the appropriate job ID for a listener
-func ListenerJobID(listener Listener) interface{} {
-	if listener.IsV2Job() {
-		return listener.JobIDV2()
-	}
-	return listener.JobID()
-}

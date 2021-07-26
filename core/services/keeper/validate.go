@@ -32,5 +32,8 @@ func ValidatedKeeperSpec(tomlString string) (job.Job, error) {
 	if j.SchemaVersion != uint32(1) {
 		return j, errors.Errorf("the only supported schema version is currently 1, got %d", j.SchemaVersion)
 	}
+	if j.Pipeline.HasAsync() {
+		return j, errors.Errorf("async=true tasks are not supported for %v", j.Type)
+	}
 	return j, nil
 }

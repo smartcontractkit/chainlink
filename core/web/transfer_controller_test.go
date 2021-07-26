@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,7 +42,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	count, err := app.GetStore().CountOf(models.EthTx{})
+	count, err := app.GetStore().CountOf(bulletprooftxmanager.EthTx{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 }

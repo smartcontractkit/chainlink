@@ -1,6 +1,7 @@
 package vrf_test
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"testing"
@@ -8,13 +9,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -140,54 +141,71 @@ func TestDelegate_ValidLog(t *testing.T) {
 	txHash := cltest.NewHash()
 	reqID := cltest.NewHash()
 
-	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	a := cltest.NewAwaiter()
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		a.ItHappened()
-	}).Return(nil).Once()
-	// Expect a call to check if the req is already fulfilled.
-	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
-
-	// Ensure we queue up a valid eth transaction
-	// Linked to  requestID
-	vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
-		return meta.JobID > 0 && meta.RequestID == reqID && meta.RequestTxHash == txHash
-	}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(models.EthTx{}, nil)
-
-	// Send a valid log
+	// Send valid logs
 	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
 	require.NoError(t, err)
-	logListener.HandleLog(log.NewLogBroadcast(types.Log{
-		// Data has all the NON-indexed parameters
-		Data: append(append(append(append(
-			pk.MustHash().Bytes(),                        // key hash
-			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
-			cltest.NewHash().Bytes()...), // sender
-			cltest.NewHash().Bytes()...), // fee
-			reqID.Bytes()...), // requestID
-		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
-		Address:     common.Address{},
-		BlockNumber: 0,
-		TxHash:      txHash,
-		TxIndex:     0,
-		BlockHash:   common.Hash{},
-		Index:       0,
-		Removed:     false,
-	}))
-	a.AwaitOrFail(t)
+	var logs = []types.Log{
+		{
+			// Data has all the NON-indexed parameters
+			Data: bytes.Join([][]byte{
+				pk.MustHash().Bytes(),                    // key hash
+				common.BigToHash(big.NewInt(42)).Bytes(), // seed
+				cltest.NewHash().Bytes(),                 // sender
+				cltest.NewHash().Bytes(),                 // fee
+				reqID.Bytes()},                           // requestID
+				[]byte{}),
+			// JobID is indexed, thats why it lives in the Topics.
+			Topics: []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID STRING
+			TxHash: txHash,
+		},
+		{
+			Data: bytes.Join([][]byte{
+				pk.MustHash().Bytes(),                    // key hash
+				common.BigToHash(big.NewInt(42)).Bytes(), // seed
+				cltest.NewHash().Bytes(),                 // sender
+				cltest.NewHash().Bytes(),                 // fee
+				reqID.Bytes()},                           // requestID
+				[]byte{}),
+			Topics: []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+			TxHash: txHash,
+		},
+	}
 
-	// Ensure we created a successful run.
-	runs, err := vuni.jpv2.Prm.GetAllRuns()
-	require.NoError(t, err)
-	require.Equal(t, 1, len(runs))
-	assert.False(t, runs[0].Errors.HasError())
-	m, ok := runs[0].Meta.Val.(map[string]interface{})
-	require.True(t, ok)
-	_, ok = m["eth_tx_id"]
-	assert.True(t, ok)
-	assert.Len(t, runs[0].PipelineTaskRuns, 0)
+	consumed := make(chan struct{})
+	for i, l := range logs {
+		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			consumed <- struct{}{}
+		}).Return(nil).Once()
+		// Expect a call to check if the req is already fulfilled.
+		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
+
+		// Ensure we queue up a valid eth transaction
+		// Linked to  requestID
+		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
+			return meta.JobID > 0 && meta.RequestID == reqID && meta.RequestTxHash == txHash
+		}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
+
+		logListener.HandleLog(log.NewLogBroadcast(l))
+		select {
+		case <-consumed:
+		case <-time.After(2 * time.Second):
+			t.Errorf("failed to consume log %v", l)
+		}
+
+		// Ensure we created a successful run.
+		runs, err := vuni.jpv2.Prm.GetAllRuns()
+		require.NoError(t, err)
+		require.Equal(t, i+1, len(runs))
+		assert.False(t, runs[0].Errors.HasError())
+		m, ok := runs[0].Meta.Val.(map[string]interface{})
+		require.True(t, ok)
+		_, ok = m["eth_tx_id"]
+		assert.True(t, ok)
+		assert.Len(t, runs[0].PipelineTaskRuns, 0)
+	}
 }
+
 func TestDelegate_InvalidLog(t *testing.T) {
 	vuni, logListener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
@@ -208,7 +226,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			cltest.NewHash().Bytes()...), // fee
 			cltest.NewHash().Bytes()...), // requestID
 		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDToTopicHash()}, // jobID
+		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		Address:     common.Address{},
 		BlockNumber: 0,
 		TxHash:      common.Hash{},
@@ -225,7 +243,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	require.Equal(t, len(runs), 0)
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []models.EthTx
+	var ethTxes []bulletprooftxmanager.EthTx
 	err = vuni.jpv2.Prm.DB().Find(&ethTxes).Error
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)

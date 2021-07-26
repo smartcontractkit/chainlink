@@ -28,6 +28,7 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -147,8 +148,8 @@ func (c *Config) Validate() error {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
 
-	if c.GasUpdaterEnabled() && c.GasUpdaterBlockHistorySize() <= 0 {
-		return errors.New("GAS_UPDATER_BLOCK_HISTORY_SIZE must be greater than or equal to 1 if gas updater is enabled")
+	if c.GasEstimatorMode() == "BlockHistory" && c.BlockHistoryEstimatorBlockHistorySize() <= 0 {
+		return errors.New("GAS_UPDATER_BLOCK_HISTORY_SIZE must be greater than or equal to 1 if block history estimator is enabled")
 	}
 
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
@@ -622,7 +623,7 @@ func (c Config) EthGasPriceDefault() *big.Int {
 	return &n
 }
 
-// EthGasLimitMultiplier is a factory by which a transaction's GasLimit is
+// EthGasLimitMultiplier is a factor by which a transaction's GasLimit is
 // multiplied before transmission. So if the value is 1.1, and the GasLimit for
 // a transaction is 10, 10% will be added before transmission.
 //
@@ -816,13 +817,16 @@ func (c Config) FlagsContractAddress() string {
 	return c.viper.GetString(EnvVarName("FlagsContractAddress"))
 }
 
-// GasUpdaterBatchSize sets the maximum number of blocks to fetch in one batch in the gas updater
+// BlockHistoryEstimatorBatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator
 // If the env var GAS_UPDATER_BATCH_SIZE is set to 0, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE
-func (c Config) GasUpdaterBatchSize() (size uint32) {
-	if c.viper.IsSet(EnvVarName("GasUpdaterBatchSize")) {
-		size = c.viper.GetUint32(EnvVarName("GasUpdaterBatchSize"))
+func (c Config) BlockHistoryEstimatorBatchSize() (size uint32) {
+	if c.viper.IsSet(EnvVarName("BlockHistoryEstimatorBatchSize")) {
+		size = c.viper.GetUint32(EnvVarName("BlockHistoryEstimatorBatchSize"))
+	} else if c.viper.IsSet("GAS_UPDATER_BATCH_SIZE") {
+		logger.Warn("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead")
+		size = c.viper.GetUint32("GAS_UPDATER_BATCH_SIZE")
 	} else {
-		size = chainSpecificConfig(c).GasUpdaterBatchSize
+		size = chainSpecificConfig(c).BlockHistoryEstimatorBatchSize
 	}
 	if size > 0 {
 		return size
@@ -830,46 +834,65 @@ func (c Config) GasUpdaterBatchSize() (size uint32) {
 	return c.EthRPCDefaultBatchSize()
 }
 
-// GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
-// E.g. if this is set to 3, and we receive block 10, gas updater will
+// BlockHistoryEstimatorBlockDelay is the number of blocks that the block history estimator trails behind head.
+// E.g. if this is set to 3, and we receive block 10, block history estimator will
 // fetch block 7.
 // CAUTION: You might be tempted to set this to 0 to use the latest possible
 // block, but it is possible to receive a head BEFORE that block is actually
 // available from the connected node via RPC. In this case you will get false
 // "zero" blocks that are missing transactions.
-func (c Config) GasUpdaterBlockDelay() uint16 {
-	if c.viper.IsSet(EnvVarName("GasUpdaterBlockDelay")) {
-		return uint16(c.viper.GetUint32(EnvVarName("GasUpdaterBlockDelay")))
+func (c Config) BlockHistoryEstimatorBlockDelay() uint16 {
+	if c.viper.IsSet(EnvVarName("BlockHistoryEstimatorBlockDelay")) {
+		return uint16(c.viper.GetUint32(EnvVarName("BlockHistoryEstimatorBlockDelay")))
+	} else if c.viper.IsSet("GAS_UPDATER_BLOCK_DELAY") {
+		logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead")
+		return uint16(c.viper.GetUint32("GAS_UPDATER_BLOCK_DELAY"))
 	}
-	return chainSpecificConfig(c).GasUpdaterBlockDelay
+	return chainSpecificConfig(c).BlockHistoryEstimatorBlockDelay
 }
 
-// GasUpdaterBlockHistorySize is the number of past blocks to keep in memory to
+// BlockHistoryEstimatorBlockHistorySize is the number of past blocks to keep in memory to
 // use as a basis for calculating a percentile gas price
-func (c Config) GasUpdaterBlockHistorySize() uint16 {
-	if c.viper.IsSet(EnvVarName("GasUpdaterBlockHistorySize")) {
-		return uint16(c.viper.GetUint32(EnvVarName("GasUpdaterBlockHistorySize")))
+func (c Config) BlockHistoryEstimatorBlockHistorySize() uint16 {
+	if c.viper.IsSet(EnvVarName("BlockHistoryEstimatorBlockHistorySize")) {
+		return uint16(c.viper.GetUint32(EnvVarName("BlockHistoryEstimatorBlockHistorySize")))
+	} else if c.viper.IsSet("GAS_UPDATER_BLOCK_HISTORY_SIZE") {
+		logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead")
+		return uint16(c.viper.GetUint32("GAS_UPDATER_BLOCK_HISTORY_SIZE"))
 	}
-	return chainSpecificConfig(c).GasUpdaterBlockHistorySize
+	return chainSpecificConfig(c).BlockHistoryEstimatorBlockHistorySize
 }
 
-// GasUpdaterTransactionPercentile is the percentile gas price to choose. E.g.
+// BlockHistoryEstimatorTransactionPercentile is the percentile gas price to choose. E.g.
 // if the past transaction history contains four transactions with gas prices:
 // [100, 200, 300, 400], picking 25 for this number will give a value of 200
-func (c Config) GasUpdaterTransactionPercentile() uint16 {
-	return c.getWithFallback("GasUpdaterTransactionPercentile", parseUint16).(uint16)
+func (c Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
+	if c.viper.IsSet(EnvVarName("BlockHistoryEstimatorTransactionPercentile")) {
+		return uint16(c.viper.GetUint32(EnvVarName("BlockHistoryEstimatorTransactionPercentile")))
+	} else if c.viper.IsSet("GAS_UPDATER_TRANSACTION_PERCENTILE") {
+		logger.Warn("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE instead")
+		return uint16(c.viper.GetUint32("GAS_UPDATER_TRANSACTION_PERCENTILE"))
+	}
+	return c.getWithFallback("BlockHistoryEstimatorTransactionPercentile", parseUint16).(uint16)
 }
 
-// GasUpdaterEnabled turns on the automatic gas updater if set to true
-// It is enabled by default on most chains
-func (c Config) GasUpdaterEnabled() bool {
+// GasEstimatorMode controls what type of gas estimator is used
+func (c Config) GasEstimatorMode() string {
 	if c.EthereumDisabled() {
-		return false
+		return "FixedPrice"
 	}
-	if c.viper.IsSet(EnvVarName("GasUpdaterEnabled")) {
-		return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+	if c.viper.IsSet(EnvVarName("GasEstimatorMode")) {
+		return c.viper.GetString(EnvVarName("GasEstimatorMode"))
 	}
-	return chainSpecificConfig(c).GasUpdaterEnabled
+	if c.viper.IsSet("GAS_UPDATER_ENABLED") {
+		if c.viper.GetBool("GAS_UPDATER_ENABLED") {
+			logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead")
+			return "BlockHistory"
+		}
+		logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead")
+		return "FixedPrice"
+	}
+	return chainSpecificConfig(c).GasEstimatorMode
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
@@ -1119,15 +1142,6 @@ func (c Config) OperatorContractAddress() common.Address {
 	return *address
 }
 
-// OptimismGasFees enables asking the network for gas price before submitting
-// transactions, enabling compatibility with Optimism's L2 chain
-func (c Config) OptimismGasFees() bool {
-	if c.viper.IsSet(EnvVarName("OptimismGasFees")) {
-		return c.viper.GetBool(EnvVarName("OptimismGasFees"))
-	}
-	return c.Chain().IsOptimism()
-}
-
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
 	if c.runtimeStore != nil {
@@ -1344,6 +1358,71 @@ func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 	return []string{}, nil
 }
 
+// P2PNetworkingStack returns the preferred networking stack for libocr
+func (c Config) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
+	str := c.P2PNetworkingStackRaw()
+	err := n.UnmarshalText([]byte(str))
+	if err != nil {
+		logger.Fatalf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
+	}
+	return n
+}
+
+// P2PNetworkingStackRaw returns the raw string passed as networking stack
+func (c Config) P2PNetworkingStackRaw() string {
+	return c.viper.GetString(EnvVarName("P2PNetworkingStack"))
+}
+
+// P2PV2ListenAddresses contains the addresses the peer will listen to on the network in <host>:<port> form as
+// accepted by net.Listen, but host and port must be fully specified and cannot be empty.
+func (c Config) P2PV2ListenAddresses() []string {
+	return c.viper.GetStringSlice(EnvVarName("P2PV2ListenAddresses"))
+}
+
+// P2PV2AnnounceAddresses contains the addresses the peer will advertise on the network in <host>:<port> form as
+// accepted by net.Dial. The addresses should be reachable by peers of interest.
+func (c Config) P2PV2AnnounceAddresses() []string {
+	if c.viper.IsSet(EnvVarName("P2PV2AnnounceAddresses")) {
+		return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
+	}
+	return c.P2PV2ListenAddresses()
+}
+
+// P2PV2AnnounceAddressesRaw returns the raw value passed in
+func (c Config) P2PV2AnnounceAddressesRaw() []string {
+	return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
+}
+
+// P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
+// networking stack
+func (c Config) P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator) {
+	bootstrappers := c.P2PV2BootstrappersRaw()
+	for _, s := range bootstrappers {
+		var locator ocrtypes.BootstrapperLocator
+		err := locator.UnmarshalText([]byte(s))
+		if err != nil {
+			logger.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
+		}
+		locators = append(locators, locator)
+	}
+	return
+}
+
+// P2PV2BootstrappersRaw returns the raw strings for v2 bootstrap peers
+func (c Config) P2PV2BootstrappersRaw() []string {
+	return c.viper.GetStringSlice(EnvVarName("P2PV2Bootstrappers"))
+}
+
+// P2PV2DeltaDial controls how far apart Dial attempts are
+func (c Config) P2PV2DeltaDial() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaDial", parseDuration).(time.Duration))
+}
+
+// P2PV2DeltaReconcile controls how often a Reconcile message is sent to every peer.
+func (c Config) P2PV2DeltaReconcile() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaReconcile", parseDuration).(time.Duration))
+}
+
 // Port represents the port Chainlink should listen on for client requests.
 func (c Config) Port() uint16 {
 	return c.getWithFallback("Port", parseUint16).(uint16)
@@ -1485,7 +1564,7 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 
 	v, err := parser(defaultValue)
 	if err != nil {
-		log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
+		log.Fatalf(`Invalid default for %s: "%s" (%s)`, name, defaultValue, err)
 	}
 	return v
 }

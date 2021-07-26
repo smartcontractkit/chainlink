@@ -6,7 +6,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,7 +54,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
 	n++
-	initialEtxs := []models.EthTx{
+	initialEtxs := []bulletprooftxmanager.EthTx{
 		cltest.MustInsertUnstartedEthTx(t, store, fromAddress, subj1),
 		cltest.MustInsertUnstartedEthTx(t, store, fromAddress, subj2),
 		cltest.MustInsertUnstartedEthTx(t, store, otherAddress, subj1),
@@ -73,9 +72,9 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 		assert.Equal(t, int64(2), n)
 
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
-		cltest.AssertCount(t, store, &models.EthTx{}, 7)
+		cltest.AssertCount(t, store, &bulletprooftxmanager.EthTx{}, 7)
 
-		var etxs []models.EthTx
+		var etxs []bulletprooftxmanager.EthTx
 		require.NoError(t, db.Raw(`SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`).Scan(&etxs).Error)
 
 		require.Len(t, etxs, 3)

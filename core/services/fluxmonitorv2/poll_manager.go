@@ -14,6 +14,8 @@ type PollManagerConfig struct {
 	PollTickerDisabled      bool
 	IdleTimerPeriod         time.Duration
 	IdleTimerDisabled       bool
+	DrumbeatSchedule        string
+	DrumbeatEnabled         bool
 	HibernationPollPeriod   time.Duration
 	MinRetryBackoffDuration time.Duration
 	MaxRetryBackoffDuration time.Duration
@@ -51,13 +53,14 @@ type PollManager struct {
 	idleTimer        utils.ResettableTimer
 	roundTimer       utils.ResettableTimer
 	retryTicker      utils.BackoffTicker
+	drumbeat         utils.CronTicker
 	chPoll           chan PollRequest
 
 	logger *logger.Logger
 }
 
 // NewPollManager initializes a new PollManager
-func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
+func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) (*PollManager, error) {
 	minBackoffDuration := cfg.MinRetryBackoffDuration
 	if cfg.IdleTimerPeriod < minBackoffDuration {
 		minBackoffDuration = cfg.IdleTimerPeriod
@@ -73,6 +76,15 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 		idleTimer.Reset(cfg.IdleTimerPeriod)
 	}
 
+	var drumbeatTicker utils.CronTicker
+	var err error
+	if cfg.DrumbeatEnabled {
+		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &PollManager{
 		cfg:    cfg,
 		logger: logger,
@@ -82,8 +94,9 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
+		drumbeat:         drumbeatTicker,
 		chPoll:           make(chan PollRequest),
-	}
+	}, nil
 }
 
 // PollTickerTicks ticks on a given interval
@@ -109,6 +122,11 @@ func (pm *PollManager) RoundTimerTicks() <-chan time.Time {
 // RetryTickerTicks ticks with a backoff when the retry ticker is activated
 func (pm *PollManager) RetryTickerTicks() <-chan time.Time {
 	return pm.retryTicker.Ticks()
+}
+
+// DrumbeatTicks ticks on a cron schedule when the drumbeat ticker is activated
+func (pm *PollManager) DrumbeatTicks() <-chan time.Time {
+	return pm.drumbeat.Ticks()
 }
 
 // Poll returns a channel which the manager will use to send polling requests
@@ -159,6 +177,7 @@ func (pm *PollManager) Reset(roundState flux_aggregator_wrapper.OracleRoundState
 		pm.startPollTicker()
 		pm.startIdleTimer(roundState.StartedAt)
 		pm.startRoundTimer(roundStateTimesOutAt(roundState))
+		pm.startDrumbeat()
 	}
 }
 
@@ -185,6 +204,7 @@ func (pm *PollManager) Stop() {
 	pm.pollTicker.Destroy()
 	pm.idleTimer.Stop()
 	pm.roundTimer.Stop()
+	pm.drumbeat.Stop()
 }
 
 // Hibernate sets hibernation to true, starts the hibernation timer and stops
@@ -200,6 +220,7 @@ func (pm *PollManager) Hibernate() {
 	pm.pollTicker.Pause()
 	pm.idleTimer.Stop()
 	pm.roundTimer.Stop()
+	pm.drumbeat.Stop()
 }
 
 // Awaken sets hibernation to false, stops the hibernation timer and starts all
@@ -215,6 +236,7 @@ func (pm *PollManager) Awaken(roundState flux_aggregator_wrapper.OracleRoundStat
 	pm.startPollTicker()
 	pm.startIdleTimer(roundState.StartedAt)
 	pm.startRoundTimer(roundStateTimesOutAt(roundState))
+	pm.startDrumbeat()
 }
 
 // startPollTicker starts the poll ticker if it is enabled
@@ -296,6 +318,19 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 
 	pm.roundTimer.Reset(timeoutDuration)
 	log.Debugw("updating roundState.TimesOutAt", "value", roundTimesOutAt)
+}
+
+// startDrumbeat starts the drumbeat ticker if it is enabled
+func (pm *PollManager) startDrumbeat() {
+	if !pm.cfg.DrumbeatEnabled {
+		pm.logger.Debug("disabling drumbeat")
+		pm.drumbeat.Stop()
+
+		return
+	}
+
+	pm.logger.Debugw("starting drumbeat ticker", "schedule", pm.cfg.DrumbeatSchedule)
+	pm.drumbeat.Start()
 }
 
 func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {
