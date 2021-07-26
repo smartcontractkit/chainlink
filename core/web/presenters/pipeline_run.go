@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -52,10 +53,13 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 			case *big.Int:
 				s := v.String()
 				outputs = append(outputs, &s)
+			case float64:
+				s := fmt.Sprintf("%f", v)
+				outputs = append(outputs, &s)
 			case nil:
 				outputs = append(outputs, nil)
 			default:
-				logger.Default.Error("PipelineRunResource: unable to process output type", "out", out)
+				logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", out), "out", out )
 			}
 		}
 	}
