@@ -2,9 +2,10 @@ package presenters
 
 import (
 	"encoding/json"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -15,6 +16,7 @@ type PipelineRunResource struct {
 	JAID
 	Outputs      []*string                 `json:"outputs"`
 	Errors       []*string                 `json:"errors"`
+	Inputs       pipeline.JSONSerializable `json:"inputs"`
 	TaskRuns     []PipelineTaskRunResource `json:"taskRuns"`
 	CreatedAt    time.Time                 `json:"createdAt"`
 	FinishedAt   time.Time                 `json:"finishedAt"`
@@ -70,6 +72,7 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 		JAID:         NewJAIDInt64(pr.ID),
 		Outputs:      outputs,
 		Errors:       errors,
+		Inputs:       pr.Inputs,
 		TaskRuns:     trs,
 		CreatedAt:    pr.CreatedAt,
 		FinishedAt:   pr.FinishedAt.ValueOrZero(),
@@ -111,4 +114,14 @@ func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 		Error:      error,
 		DotID:      tr.GetDotID(),
 	}
+}
+
+func NewPipelineRunResources(prs []pipeline.Run) []PipelineRunResource {
+	var out []PipelineRunResource
+
+	for _, pr := range prs {
+		out = append(out, NewPipelineRunResource(pr))
+	}
+
+	return out
 }

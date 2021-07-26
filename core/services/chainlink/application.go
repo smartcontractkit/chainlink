@@ -703,7 +703,9 @@ func (app *ChainlinkApplication) RunJobV2(
 		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
 		var vars map[string]interface{}
+		var saveTasks bool
 		if jb.Type == job.VRF {
+			saveTasks = true
 			// Create a dummy log to trigger a run
 			testLog := types.Log{
 				Data: bytes.Join([][]byte{
@@ -741,7 +743,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, true)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, saveTasks)
 	}
 	return runID, err
 }
