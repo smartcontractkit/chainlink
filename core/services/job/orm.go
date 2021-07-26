@@ -44,6 +44,7 @@ type ORM interface {
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
+	DismissError(ctx context.Context, errorID int32) error
 	UnclaimJob(ctx context.Context, id int32) error
 	CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, err error)
 	Close() error
@@ -403,6 +404,16 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
 }
 
+func (o *orm) DismissError(ctx context.Context, ID int32) error {
+	result := o.db.Exec("DELETE FROM job_spec_errors_v2 WHERE id = ?", ID)
+	if result.Error != nil {
+		return result.Error
+	} else if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 	var count int64
 	var jobs []Job
@@ -417,6 +428,7 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 		}
 
 		err = PreloadAllJobTypes(tx).
+			Preload("JobSpecErrors").
 			Limit(limit).
 			Offset(offset).
 			Order("id ASC").
@@ -475,6 +487,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	var jb Job
 	tx := postgres.TxFromContext(ctx, o.db)
 	err := PreloadAllJobTypes(tx).
+		Preload("JobSpecErrors").
 		First(&jb, "jobs.id = ?", id).
 		Error
 	if err != nil {

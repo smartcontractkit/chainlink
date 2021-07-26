@@ -220,6 +220,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	j := JobSpecsController{app}
 	jsec := JobSpecErrorsController{app}
 	prc := PipelineRunsController{app}
+	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
@@ -330,6 +331,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/pipeline/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
+
+		// PipelineJobSpecErrorsController
+		authv2.DELETE("/pipeline/job_spec_errors/:ID", psec.Destroy)
 
 		lgc := LogController{app}
 		authv2.GET("/log", lgc.Get)
