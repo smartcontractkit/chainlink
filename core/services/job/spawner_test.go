@@ -185,7 +185,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
-		delegateA.jobID =jobA.ID
+		delegateA.jobID = jobA.ID
 
 		spawner.Start()
 

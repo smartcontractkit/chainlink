@@ -40,14 +40,14 @@ func (t *VRFTask) Type() TaskType {
 
 func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	if len(inputs) != 1 {
-		return Result{Error: errors.New("invalid inputs")}
+		return Result{Error: ErrWrongInputCardinality}
 	}
 	if inputs[0].Error != nil {
-		return Result{Error: errors.New("input errored")}
+		return Result{Error: ErrInputTaskErrored}
 	}
 	logValues, ok := inputs[0].Value.(map[string]interface{})
 	if !ok {
-		return Result{Error: errors.New("expected map input")}
+		return Result{Error: errors.Wrap(ErrBadInput, "expected map input")}
 	}
 	var (
 		pubKey             BytesParam
@@ -65,9 +65,18 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 		return Result{Error: err}
 	}
 
-	requestKeyHash := logValues["keyHash"].([32]byte)
-	requestPreSeed := logValues["seed"].(*big.Int)
-	requestJobID := logValues["jobID"].([32]byte)
+	requestKeyHash, ok := logValues["keyHash"].([32]byte)
+	if !ok {
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid keyHash")}
+	}
+	requestPreSeed, ok := logValues["seed"].(*big.Int)
+	if !ok {
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeed")}
+	}
+	requestJobID, ok := logValues["jobID"].([32]byte)
+	if !ok {
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestJobID")}
+	}
 	var pk secp256k1.PublicKey
 	copy(pk[:], pubKey[:])
 	pkh := pk.MustHash()
@@ -77,7 +86,7 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 	}
 	preSeed, err := proof.BigToSeed(requestPreSeed)
 	if err != nil {
-		return Result{Error: errors.New("unable to parse preseed")}
+		return Result{Error: fmt.Errorf("unable to parse preseed %v", preSeed)}
 	}
 	if !bytes.Equal(topics[0][:], requestJobID[:]) && !bytes.Equal(topics[1][:], requestJobID[:]) {
 		return Result{Error: fmt.Errorf("request jobID %v doesn't match expected %v or %v", requestJobID[:], topics[0][:], topics[1][:])}
