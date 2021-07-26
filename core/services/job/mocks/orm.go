@@ -113,20 +113,20 @@ func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
 	return r0
 }
 
-// FindJob provides a mock function with given fields: id
+// FindJob provides a mock function with given fields: ctx, id
 func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
-	ret := _m.Called(id)
+	ret := _m.Called(ctx, id)
 
 	var r0 job.Job
-	if rf, ok := ret.Get(0).(func(int32) job.Job); ok {
-		r0 = rf(id)
+	if rf, ok := ret.Get(0).(func(context.Context, int32) job.Job); ok {
+		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(int32) error); ok {
-		r1 = rf(id)
+	if rf, ok := ret.Get(1).(func(context.Context, int32) error); ok {
+		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -150,6 +150,27 @@ func (_m *ORM) FindJobIDsWithBridge(name string) ([]int32, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindJobTx provides a mock function with given fields: id
+func (_m *ORM) FindJobTx(id int32) (job.Job, error) {
+	ret := _m.Called(id)
+
+	var r0 job.Job
+	if rf, ok := ret.Get(0).(func(int32) job.Job); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(job.Job)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int32) error); ok {
+		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)
 	}
