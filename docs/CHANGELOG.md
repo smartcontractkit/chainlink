@@ -40,6 +40,8 @@ ds -> ds_parse -> ds_multiply;
 
 These external initiators will be notified with the given spec after the job is created, and also at deletion time.
 
+Only the External Initiators listed in the toml spec may trigger a run for that job. Logged in users can always trigger a run for any job.
+
 #### Migrating Jobs
 
 - OCR
