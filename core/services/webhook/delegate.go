@@ -136,6 +136,7 @@ func (r *webhookJobRunner) spec(externalJobID uuid.UUID) (registeredJob, bool) {
 	return spec, exists
 }
 
+var ErrUnauthorized = errors.New("unauthorized")
 var ErrJobNotExists = errors.New("job does not exist")
 
 func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {

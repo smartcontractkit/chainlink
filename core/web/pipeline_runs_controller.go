@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -82,30 +83,50 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	}
 	idStr := c.Param("ID")
 
+	user, isUser := authenticatedUser(c)
+	ei, _ := authenticatedEI(c)
+	authorizer := webhook.NewAuthorizer(prc.App.GetStore().DB, user, ei)
+
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
-		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
+		canRun, err2 := authorizer.CanRun(jobUUID)
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return
 		}
-		respondWithPipelineRun(jobRunID)
+		if canRun {
+			jobRunID, err3 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
+			if errors.Is(err3, webhook.ErrUnauthorized) {
+				jsonAPIError(c, http.StatusUnauthorized, err2)
+			} else if errors.Is(err3, webhook.ErrJobNotExists) {
+				jsonAPIError(c, http.StatusNotFound, err2)
+			} else if err3 != nil {
+				jsonAPIError(c, http.StatusInternalServerError, err2)
+				return
+			}
+			respondWithPipelineRun(jobRunID)
+		} else {
+			jsonAPIError(c, http.StatusUnauthorized, err2)
+		}
 		return
 	}
 
-	// Is it an int32? Then process it regardless of type
-	var jobID int32
-	jobID64, err := strconv.ParseInt(idStr, 10, 32)
-	if err == nil {
-		jobID = int32(jobID64)
-		jobRunID, err := prc.App.RunJobV2(context.Background(), jobID, nil)
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+	// only users are allowed to run jobs using int IDs - EIs not allowed
+	if isUser {
+		// Is it an int32? Then process it regardless of type
+		var jobID int32
+		jobID64, err := strconv.ParseInt(idStr, 10, 32)
+		if err == nil {
+			jobID = int32(jobID64)
+			jobRunID, err := prc.App.RunJobV2(context.Background(), jobID, nil)
+			if err != nil {
+				jsonAPIError(c, http.StatusInternalServerError, err)
+				return
+			}
+			respondWithPipelineRun(jobRunID)
 			return
 		}
-		respondWithPipelineRun(jobRunID)
-		return
 	}
 
 	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))

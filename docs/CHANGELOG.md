@@ -23,6 +23,8 @@ This is useful if the node has been offline for a longer time and after startup 
 
 Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead. Please contact node operator support for more details on how to do this.
 
+- External Initiators for V2 specs now work slightly differently than before. If `external_initiator_name` is provided in the TOML spec, then _only_ the External Initiator with this name may trigger a run for that job. If `external_initiator_name` is left null, then _any_ External Initiator may trigger a run. Logged in users can always trigger a run for any job.
+
 #### Migrating Jobs
 
 - OCR
