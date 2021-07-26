@@ -41,12 +41,21 @@ func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int64, error
 	now := time.Now()
 
 	stmt := `
-		INSERT INTO feeds_managers (name, uri, public_key, job_types, network, is_ocr_bootstrap_peer, created_at, updated_at)
+		INSERT INTO feeds_managers (name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id;
 	`
 
-	row := o.db.Raw(stmt, ms.Name, ms.URI, ms.PublicKey, ms.JobTypes, ms.Network, ms.IsOCRBootstrapPeer, now, now).Row()
+	row := o.db.Raw(stmt,
+		ms.Name,
+		ms.URI,
+		ms.PublicKey,
+		ms.JobTypes,
+		ms.IsOCRBootstrapPeer,
+		ms.OCRBootstrapPeerMultiaddr,
+		now,
+		now,
+	).Row()
 	if row.Err() != nil {
 		return id, row.Err()
 	}
@@ -63,7 +72,7 @@ func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int64, error
 func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 	mgrs := []FeedsManager{}
 	stmt := `
-		SELECT id, name, uri, public_key, job_types, network, is_ocr_bootstrap_peer, created_at, updated_at
+		SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
 		FROM feeds_managers;
 	`
 
@@ -78,7 +87,7 @@ func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 // GetManager gets a feeds manager by id
 func (o *orm) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	stmt := `
-		SELECT id, name, uri, public_key, job_types, network, is_ocr_bootstrap_peer, created_at, updated_at
+		SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
 		FROM feeds_managers
 		WHERE id = ?;
 	`
