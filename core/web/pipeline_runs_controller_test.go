@@ -171,19 +171,19 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	var parsedResponse []pipeline.Run
+	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}},"outputs":["3"]`)
+	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
-	assert.Equal(t, parsedResponse[1].ID, runIDs[0])
+	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	// Successful pipeline runs does not save task runs.
-	require.Len(t, parsedResponse[1].PipelineTaskRuns, 0)
+	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {

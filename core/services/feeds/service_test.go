@@ -243,7 +243,9 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 			"""
 			`,
 		}
-		jobID = int32(1)
+		jb = job.Job{
+			ID:	int32(1),
+		}
 	)
 
 	svc := setupTestService(t)
@@ -260,7 +262,7 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 			}),
 			null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
 		).
-		Return(jobID, nil)
+		Return(jb, nil)
 	svc.orm.On("ApproveJobProposal",
 		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		jp.ID,
