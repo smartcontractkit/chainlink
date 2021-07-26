@@ -40,7 +40,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, uint16(6688), cp.Port)
 	assert.Equal(t, uint16(6689), cp.TLSPort)
 	assert.Equal(t, "", cp.TLSHost)
-	assert.Contains(t, cp.EthereumURL, "ws://127.0.0.1:")
+	assert.Contains(t, cp.EthereumURL, "ws://localhost:8546")
 	assert.Equal(t, big.NewInt(eth.NullClientChainID), cp.ChainID)
 	assert.Contains(t, cp.ClientNodeURL, "http://127.0.0.1:")
 	assert.Equal(t, uint64(6), cp.MinRequiredOutgoingConfirmations)

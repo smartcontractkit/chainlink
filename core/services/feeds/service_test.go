@@ -174,11 +174,13 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	rawKey, err := keystest.NewKey()
 	require.NoError(t, err)
 	var (
-		ctx      = context.Background()
-		feedsMgr = &feeds.FeedsManager{
-			ID:                 1,
-			JobTypes:           pq.StringArray{feeds.JobTypeFluxMonitor},
-			IsOCRBootstrapPeer: true,
+		ctx       = context.Background()
+		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
+		feedsMgr  = &feeds.FeedsManager{
+			ID:                        1,
+			JobTypes:                  pq.StringArray{feeds.JobTypeFluxMonitor},
+			IsOCRBootstrapPeer:        true,
+			OCRBootstrapPeerMultiaddr: null.StringFrom(multiaddr),
 		}
 		chainID    = big.NewInt(1)
 		sendingKey = ethkey.Key{
@@ -196,10 +198,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
-		JobTypes:         []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
-		ChainId:          chainID.Int64(),
-		AccountAddresses: []string{sendingKey.Address.String()},
-		IsBootstrapPeer:  true,
+		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
+		ChainId:            chainID.Int64(),
+		AccountAddresses:   []string{sendingKey.Address.String()},
+		IsBootstrapPeer:    true,
+		BootstrapMultiaddr: multiaddr,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)

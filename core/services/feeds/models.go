@@ -6,6 +6,7 @@ import (
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"gopkg.in/guregu/null.v4"
 )
 
 // We only support OCR and FM for the feeds manager
@@ -15,15 +16,22 @@ const (
 )
 
 type FeedsManager struct {
-	ID                 int64
-	Name               string
-	URI                string
-	PublicKey          crypto.PublicKey
-	JobTypes           pq.StringArray `gorm:"type:text[]"`
-	Network            string
+	ID        int64
+	Name      string
+	URI       string
+	PublicKey crypto.PublicKey
+	JobTypes  pq.StringArray `gorm:"type:text[]"`
+
+	// Determines whether the node will be used as a bootstrap peer. If this is
+	// true, you must have both an OCRBootstrapAddr and OCRBootstrapPeerID.
 	IsOCRBootstrapPeer bool
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+
+	// The libp2p multiaddress which the node operator will assign to this node
+	// for bootstrap peer discovery.
+	OCRBootstrapPeerMultiaddr null.String
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (FeedsManager) TableName() string {
