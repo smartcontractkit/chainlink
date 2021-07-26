@@ -28,20 +28,31 @@ type PipelineRunsController struct {
 // Example:
 // "GET <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
+	id := c.Param("ID")
+
+	var pipelineRuns []pipeline.Run
+	var count int
+	var err error
+
+	if id == "" {
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(offset, size)
+	} else {
+		jobSpec := job.Job{}
+		err = jobSpec.SetID(c.Param("ID"))
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	}
 
-	pipelineRuns, count, err := prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	paginatedResponse(c, "offChainReportingPipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
+	paginatedResponse(c, "pipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
 }
 
 // Show returns a specified pipeline run.
@@ -61,7 +72,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "offChainReportingPipelineRun")
+	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "pipelineRun")
 }
 
 // Create triggers a pipeline run for a job.
@@ -74,7 +85,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
+		jsonAPIResponse(c, pipelineRun, "pipelineRun")
 	}
 
 	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
