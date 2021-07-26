@@ -1,6 +1,8 @@
 package cron
 
 import (
+	"fmt"
+
 	"github.com/robfig/cron/v3"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -31,7 +33,7 @@ func NewCronFromJobSpec(
 	)
 
 	return &Cron{
-		cronRunner:     cron.New(cron.WithSeconds()),
+		cronRunner:     cronRunner(),
 		logger:         cronLogger,
 		jobSpec:        jobSpec,
 		pipelineRunner: pipelineRunner,
@@ -45,7 +47,7 @@ func (cr *Cron) Start() error {
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
-		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobSpec.ID, err)
+		cr.logger.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "error", err, "schedule", cr.jobSpec.CronSpec.CronSchedule, "jobID", cr.jobSpec.ID)
 		return err
 	}
 	cr.cronRunner.Start()
@@ -75,8 +77,14 @@ func (cr *Cron) runPipeline() {
 		},
 	})
 
-	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *cr.jobSpec.PipelineSpec, vars, *cr.logger, false)
+	run := pipeline.NewRun(*cr.jobSpec.PipelineSpec, vars)
+
+	_, err := cr.pipelineRunner.Run(ctx, &run, *cr.logger, false)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}
+}
+
+func cronRunner() *cron.Cron {
+	return cron.New(cron.WithSeconds())
 }

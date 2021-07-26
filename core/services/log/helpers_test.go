@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -8,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
@@ -89,6 +93,11 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener {
 	return newLogListener(helper.t, helper.store, name)
 }
+
+func (helper *broadcasterHelper) newLogListenerWithJobV2(name string) *simpleLogListener {
+	return newLogListenerWithV2Job(helper.t, helper.store, name)
+}
+
 func (helper *broadcasterHelper) start() {
 	err := helper.lb.Start()
 	require.NoError(helper.t, err)
@@ -184,21 +193,44 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 }
 
 type simpleLogListener struct {
-	consumerID models.JobID
-	name       string
-	received   *received
-	t          *testing.T
-	db         *gorm.DB
+	name     string
+	received *received
+	t        *testing.T
+	db       *gorm.DB
+	jobID    log.JobIdSelect
 }
 
 func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
 	var rec received
 	return &simpleLogListener{
-		db:         store.DB,
-		consumerID: createJob(t, store).ID,
-		name:       name,
-		received:   &rec,
-		t:          t,
+		db:       store.DB,
+		jobID:    log.NewJobIdV1(createJob(t, store).ID),
+		name:     name,
+		received: &rec,
+		t:        t,
+	}
+}
+
+func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *simpleLogListener {
+	job := &job.Job{
+		Type:          job.Cron,
+		SchemaVersion: 1,
+		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
+		PipelineSpec:  &pipeline.Spec{},
+		ExternalJobID: uuid.NewV4(),
+	}
+
+	pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestConfig(t), store.DB, nil, nil)
+	err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
+	require.NoError(t, err)
+
+	var rec received
+	return &simpleLogListener{
+		db:       store.DB,
+		name:     name,
+		received: &rec,
+		t:        t,
+		jobID:    log.NewJobIdV2(job.ID),
 	}
 }
 
@@ -220,19 +252,30 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 func (listener simpleLogListener) OnConnect()    {}
 func (listener simpleLogListener) OnDisconnect() {}
 func (listener simpleLogListener) JobID() models.JobID {
-	return listener.consumerID
+	return listener.jobID.JobIDV1
 }
 func (listener simpleLogListener) IsV2Job() bool {
-	return false
+	return listener.jobID.IsV2
 }
 func (listener simpleLogListener) JobIDV2() int32 {
-	return 0
+	return listener.jobID.JobIDV2
 }
 
 func (listener simpleLogListener) getUniqueLogs() []types.Log {
 	return listener.received.uniqueLogs
 }
 
+func (listener simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
+	var blockNums []uint64
+	for _, uniqueLog := range listener.received.uniqueLogs {
+		blockNums = append(blockNums, uniqueLog.BlockNumber)
+	}
+	return blockNums
+}
+
+func (listener simpleLogListener) getLogs() []types.Log {
+	return listener.received.logs
+}
 func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
 	received := listener.received
 	require.Eventually(t, func() bool {
@@ -265,10 +308,10 @@ func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadc
 }
 
 func (listener simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.consumerID)
+	return log.NewORM(listener.db).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 func (listener simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.consumerID)
+	return log.NewORM(listener.db).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {
@@ -337,7 +380,7 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Return(mockEth.sub, nil).
 		Times(expectedCalls.SubscribeFilterLogs)
 
-	mockEth.ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).
+	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
 		Return(&models.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
@@ -360,35 +403,4 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Return().
 		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
 	return mockEth
-}
-
-type blocks struct {
-	t      *testing.T
-	hashes []common.Hash
-}
-
-func (lb *blocks) logOnBlockNum(i uint64, addr common.Address) types.Log {
-	return cltest.RawNewRoundLog(lb.t, addr, lb.hashes[i], i, 0, false)
-}
-
-func (lb *blocks) logOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
-	return cltest.RawNewRoundLogWithTopics(lb.t, addr, lb.hashes[i], i, logIndex, false, topics)
-}
-
-func (lb *blocks) hashesMap() map[int64]common.Hash {
-	h := make(map[int64]common.Hash)
-	for i := 0; i < len(lb.hashes); i++ {
-		h[int64(i)] = lb.hashes[i]
-	}
-	return h
-}
-func newBlocks(t *testing.T, numHashes int) *blocks {
-	hashes := make([]common.Hash, 0)
-	for i := 0; i < numHashes; i++ {
-		hashes = append(hashes, cltest.NewHash())
-	}
-	return &blocks{
-		t:      t,
-		hashes: hashes,
-	}
 }

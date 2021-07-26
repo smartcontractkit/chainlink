@@ -145,7 +145,6 @@ func (hr *headBroadcaster) executeCallbacks() {
 
 	logger.Debugw("HeadBroadcaster initiating callbacks",
 		"headNum", head.Number,
-		"chainLength", head.ChainLength(),
 		"numCallbacks", len(hr.callbacks),
 	)
 

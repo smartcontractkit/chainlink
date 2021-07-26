@@ -2,8 +2,10 @@ package pipeline_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,6 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -376,7 +380,7 @@ a->b2;`,
 	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
 }
 
-func TestPanicTask_Run(t *testing.T) {
+func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := new(mocks.ORM)
@@ -402,4 +406,251 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
 	assert.Equal(t, true, trrs.FinalResult().HasErrors())
 	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().Errors[0])
+}
+
+func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody adapterRequest
+		payload, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		defer r.Body.Close()
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		// TODO: assert finding the id
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Chainlink-Pending", "true")
+		response := map[string]interface{}{}
+		require.NoError(t, json.NewEncoder(w).Encode(response))
+
+	})
+
+	// 1. Setup bridge
+	s1 := httptest.NewServer(handler)
+	defer s1.Close()
+
+	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
+
+	_, bridge := cltest.NewBridgeType(t, "example-bridge")
+	bridge.URL = *bridgeFeedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+
+	// 2. Setup success HTTP
+	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
+	defer s2.Close()
+
+	s4 := httptest.NewServer(fakeStringResponder(t, "foo-index-1"))
+	defer s4.Close()
+	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
+	defer s5.Close()
+
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+
+	s := fmt.Sprintf(`
+ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1_parse [type=jsonparse lax=false  path="data,result"]
+ds1_multiply [type=multiply times=1000000000000000000]
+
+ds2 [type=http method="GET" url="%s" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds2_parse [type=jsonparse lax=false  path="data,result"]
+ds2_multiply [type=multiply times=1000000000000000000]
+
+ds3 [type=http method="GET" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds3_parse [type=jsonparse lax=false  path="data,result"]
+ds3_multiply [type=multiply times=1000000000000000000]
+
+ds1->ds1_parse->ds1_multiply->median;
+ds2->ds2_parse->ds2_multiply->median;
+ds3->ds3_parse->ds3_multiply->median;
+
+median [type=median index=0]
+ds4 [type=http method="GET" url="%s" index=1]
+ds5 [type=http method="GET" url="%s" index=2]
+`, s2.URL, s4.URL, s5.URL)
+	_, err = pipeline.Parse(s)
+	require.NoError(t, err)
+
+	spec := pipeline.Spec{DotDagSource: s}
+
+	// Start a new run
+	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
+	// we should receive a call to CreateRun because it's contains an async task
+	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(1).(*pipeline.Run)
+		run.ID = 1 // give it a valid "id"
+	}).Once()
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
+	require.NoError(t, err)
+	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
+	require.Equal(t, true, incomplete)      // still incomplete
+
+	// TODO: test a pending run that's not marked async=true, that is not allowed
+
+	// Trigger run resumption with no new data
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
+	require.NoError(t, err)
+	require.Equal(t, true, incomplete) // still incomplete
+
+	// Now simulate a new result coming in
+	task := run.ByDotID("ds1")
+	task.Error = null.NewString("", false)
+	task.Output = &pipeline.JSONSerializable{
+		Val:  `{"data":{"result":"9700"}}` + "\n",
+		Null: false,
+	}
+	// Trigger run resumption
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
+	require.NoError(t, err)
+	require.Equal(t, false, incomplete) // done
+	require.Len(t, run.PipelineTaskRuns, 12)
+	require.Equal(t, false, incomplete) // run is complete
+
+	require.Len(t, run.Outputs.Val, 3)
+	require.Len(t, run.Errors, 3)
+	outputs := run.Outputs.Val.([]interface{})
+	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
+	assert.True(t, run.Errors[0].IsZero())
+	assert.Equal(t, "foo-index-1", outputs[1].(string))
+	assert.True(t, run.Errors[1].IsZero())
+	assert.Equal(t, "bar-index-2", outputs[2].(string))
+	assert.True(t, run.Errors[2].IsZero())
+
+	var errorResults []pipeline.TaskRun
+	for _, trr := range run.PipelineTaskRuns {
+		if trr.Result().Error != nil {
+			errorResults = append(errorResults, trr)
+		}
+	}
+	// There are three tasks in the erroring pipeline
+	require.Len(t, errorResults, 3)
+}
+
+func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody adapterRequest
+		payload, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		defer r.Body.Close()
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		require.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Chainlink-Pending", "true")
+		response := map[string]interface{}{}
+		require.NoError(t, json.NewEncoder(w).Encode(response))
+
+	})
+
+	// 1. Setup bridge
+	s1 := httptest.NewServer(handler)
+	defer s1.Close()
+
+	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
+
+	_, bridge := cltest.NewBridgeType(t, "example-bridge")
+	bridge.URL = *bridgeFeedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+
+	// 2. Setup success HTTP
+	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
+	defer s2.Close()
+
+	s4 := httptest.NewServer(fakeStringResponder(t, "foo-index-1"))
+	defer s4.Close()
+	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
+	defer s5.Close()
+
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+
+	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+
+	s := fmt.Sprintf(`
+ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1_parse [type=jsonparse lax=false  path="data,result"]
+ds1_multiply [type=multiply times=1000000000000000000]
+
+ds2 [type=http method="GET" url="%s" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds2_parse [type=jsonparse lax=false  path="data,result"]
+ds2_multiply [type=multiply times=1000000000000000000]
+
+ds3 [type=http method="GET" url="blah://test.invalid" requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds3_parse [type=jsonparse lax=false  path="data,result"]
+ds3_multiply [type=multiply times=1000000000000000000]
+
+ds1->ds1_parse->ds1_multiply->median;
+ds2->ds2_parse->ds2_multiply->median;
+ds3->ds3_parse->ds3_multiply->median;
+
+median [type=median index=0]
+ds4 [type=http method="GET" url="%s" index=1]
+ds5 [type=http method="GET" url="%s" index=2]
+`, s2.URL, s4.URL, s5.URL)
+	_, err = pipeline.Parse(s)
+	require.NoError(t, err)
+
+	spec := pipeline.Spec{DotDagSource: s}
+
+	// Start a new run
+	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
+	// we should receive a call to CreateRun because it's contains an async task
+	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(1).(*pipeline.Run)
+		run.ID = 1 // give it a valid "id"
+	}).Once()
+	// Simulate updated task run data
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
+		run := args.Get(1).(*pipeline.Run)
+		// Now simulate a new result coming in while we were running
+		task := run.ByDotID("ds1")
+		task.Error = null.NewString("", false)
+		task.Output = &pipeline.JSONSerializable{
+			Val:  `{"data":{"result":"9700"}}` + "\n",
+			Null: false,
+		}
+	}).Once()
+	// StoreRun is called again to store the final result
+	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
+	require.NoError(t, err)
+	require.Len(t, run.PipelineTaskRuns, 12)
+	require.Equal(t, false, incomplete) // run is complete
+
+	require.Len(t, run.Outputs.Val, 3)
+	require.Len(t, run.Errors, 3)
+	outputs := run.Outputs.Val.([]interface{})
+	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
+	assert.True(t, run.Errors[0].IsZero())
+	assert.Equal(t, "foo-index-1", outputs[1].(string))
+	assert.True(t, run.Errors[1].IsZero())
+	assert.Equal(t, "bar-index-2", outputs[2].(string))
+	assert.True(t, run.Errors[2].IsZero())
+
+	var errorResults []pipeline.TaskRun
+	for _, trr := range run.PipelineTaskRuns {
+		if trr.Result().Error != nil {
+			errorResults = append(errorResults, trr)
+		}
+	}
+	// There are three tasks in the erroring pipeline
+	require.Len(t, errorResults, 3)
 }

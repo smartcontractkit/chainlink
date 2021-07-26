@@ -67,7 +67,8 @@ func explorerStatus(app chainlink.Application) gin.HandlerFunc {
 			panic(err)
 		}
 
-		c.SetCookie("explorer", (string)(b), 0, "", "", http.SameSiteStrictMode, false, false)
+		c.SetSameSite(http.SameSiteStrictMode)
+		c.SetCookie("explorer", (string)(b), 0, "", "", false, false)
 		c.Next()
 	}
 }
@@ -218,6 +219,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	j := JobSpecsController{app}
 	jsec := JobSpecErrorsController{app}
 	prc := PipelineRunsController{app}
+	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{

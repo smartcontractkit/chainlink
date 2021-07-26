@@ -166,10 +166,12 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		},
 	})
 
-	runID, _, err := r.runner.ExecuteAndInsertFinishedRun(ctx, *spec.PipelineSpec, vars, *logger, true)
+	run := pipeline.NewRun(*spec.PipelineSpec, vars)
+
+	_, err := r.runner.Run(ctx, &run, *logger, true)
 	if err != nil {
 		logger.Errorw("Error running pipeline for webhook job", "error", err)
 		return 0, err
 	}
-	return runID, nil
+	return run.ID, nil
 }

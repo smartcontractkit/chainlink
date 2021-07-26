@@ -2,6 +2,7 @@ package vrf_test
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
@@ -37,7 +38,11 @@ func TestIntegration_VRFV2(t *testing.T) {
 	require.NoError(t, err)
 	vrfkey, err := app.KeyStore.VRF().CreateKey()
 	require.NoError(t, err)
-	jid := uuid.NewV4()
+	// Let's use a real onchain job ID to ensure it'll work with
+	// existing contract state.
+	jid := uuid.FromStringOrNil("96a8a26f-d426-4784-8d8f-fb387d4d8345")
+	expectedOnChainJobID, err := hex.DecodeString("3936613861323666643432363437383438643866666233383764346438333435")
+	require.NoError(t, err)
 	incomingConfs := 2
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:              jid.String(),
@@ -47,12 +52,13 @@ func TestIntegration_VRFV2(t *testing.T) {
 		PublicKey:          vrfkey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
+	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
 	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
 
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
 	_, err = cu.rootContract.RegisterProvingKey(
-		cu.neil, big.NewInt(7), cu.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDToTopicHash())
+		cu.neil, big.NewInt(7), cu.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDEncodeStringToTopic())
 	require.NoError(t, err)
 	cu.backend.Commit()
 	_, err = cu.consumerContract.TestRequestRandomness(cu.carol,

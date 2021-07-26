@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -82,6 +81,7 @@ type Application interface {
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
@@ -159,15 +159,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
-	var gasUpdater gasupdater.GasUpdater
-	if store.Config.GasUpdaterEnabled() {
-		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater = gasupdater.NewGasUpdater(store.EthClient, store.Config)
-		subservices = append(subservices, gasUpdater)
-	} else {
-		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-	}
-
 	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
@@ -196,10 +187,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTracker = &headtracker.NullTracker{}
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
-		if gasUpdater != nil {
-			headBroadcaster.Subscribe(gasUpdater)
-		}
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, store, headBroadcaster)
+		orm := headtracker.NewORM(store.DB)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, config, orm, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
@@ -349,7 +338,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, keyStore.CSA())
+	feedsService := feeds.NewService(feedsORM, keyStore.CSA(), keyStore.Eth(), config)
 
 	app := &ChainlinkApplication{
 		HeadBroadcaster:          headBroadcaster,
@@ -700,6 +689,13 @@ func (app *ChainlinkApplication) RunJobV2(
 		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
 	}
 	return runID, err
+}
+
+func (app *ChainlinkApplication) ResumeJobV2(
+	ctx context.Context,
+	run *pipeline.Run,
+) (bool, error) {
+	return app.pipelineRunner.Run(ctx, run, *logger.Default, false)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.

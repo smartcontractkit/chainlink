@@ -158,7 +158,8 @@ func (lsn *listener) Start() error {
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(): {
 					{
-						log.Topic(lsn.job.ExternalIDToTopicHash()),
+						log.Topic(lsn.job.ExternalIDEncodeStringToTopic()),
+						log.Topic(lsn.job.ExternalIDEncodeBytesToTopic()),
 					},
 				},
 			},
@@ -224,7 +225,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 				err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
 					if err == nil {
 						// No errors processing the log, submit a transaction
-						var etx models.EthTx
+						var etx bulletprooftxmanager.EthTx
 						var from common.Address
 						from, err = lsn.gethks.GetRoundRobinAddress()
 						if err != nil {
@@ -249,6 +250,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 						// and be able to save errored proof generations. Until then only save
 						// successful runs and log errors.
 						_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+							State:          pipeline.RunStatusCompleted,
 							PipelineSpecID: lsn.job.PipelineSpecID,
 							Errors:         []null.String{{}},
 							Outputs: pipeline.JSONSerializable{
@@ -261,7 +263,7 @@ func (lsn *listener) run(unsubscribeLogs func(), minConfs uint32) {
 								Val: map[string]interface{}{"eth_tx_id": etx.ID},
 							},
 							CreatedAt:  s,
-							FinishedAt: &f,
+							FinishedAt: null.TimeFrom(f),
 						}, nil, false)
 						if err != nil {
 							return errors.Wrap(err, "VRFListener: failed to insert finished run")
@@ -335,10 +337,12 @@ func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoo
 	if err != nil {
 		return inputs, errors.New("unable to parse preseed")
 	}
-	expectedJobID := jb.ExternalIDToTopicHash()
-	if !bytes.Equal(expectedJobID[:], request.JobID[:]) {
-		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v", request.JobID[:], jb.ExternalIDToTopicHash().Bytes())
+	strJobID := jb.ExternalIDEncodeStringToTopic()
+	bytesJobID := jb.ExternalIDEncodeBytesToTopic()
+	if !bytes.Equal(bytesJobID[:], request.JobID[:]) && !bytes.Equal(strJobID[:], request.JobID[:]) {
+		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v or %v", request.JobID[:], strJobID, bytesJobID)
 	}
+
 	return VRFInputs{
 		pk: jb.VRFSpec.PublicKey,
 		seed: PreSeedData{

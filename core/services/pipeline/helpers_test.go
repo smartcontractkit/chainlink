@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -30,9 +31,10 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetDependencies(config Config, db *gorm.DB) {
+func (t *BridgeTask) HelperSetDependencies(config Config, db *gorm.DB, id uuid.UUID) {
 	t.config = config
 	t.db = db
+	t.id = id
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config) {

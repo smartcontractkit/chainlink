@@ -362,7 +362,7 @@ func TestJobSpecsController_Create_FluxMonitor_disabled(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "FALSE")
-	config.Set("GAS_UPDATER_ENABLED", false)
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -389,7 +389,7 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
-	config.Set("GAS_UPDATER_ENABLED", false)
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -427,7 +427,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
-	config.Set("GAS_UPDATER_ENABLED", false)
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -471,7 +471,7 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
-	config.Set("GAS_UPDATER_ENABLED", false)
+	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -716,10 +716,10 @@ func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	// Create a task with multiple jobs
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{
-		models.TaskSpec{Type: models.MustNewTaskType("Task1")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task2")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task3")},
-		models.TaskSpec{Type: models.MustNewTaskType("Task4")},
+		{Type: models.MustNewTaskType("Task1")},
+		{Type: models.MustNewTaskType("Task2")},
+		{Type: models.MustNewTaskType("Task3")},
+		{Type: models.MustNewTaskType("Task4")},
 	}
 	assert.NoError(t, app.Store.CreateJob(&j))
 

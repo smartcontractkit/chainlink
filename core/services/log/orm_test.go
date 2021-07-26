@@ -54,7 +54,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, consumed.Consumed)
 
-			err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, log.ListenerJobID(listener))
+			err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, log.NewJobIdFromListener(listener))
 			require.NoError(t, err)
 
 			if listener.IsV2Job() {
@@ -102,14 +102,14 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				was, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
+				was, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, log.NewJobIdFromListener(listener))
 				require.NoError(t, err)
 				require.False(t, was)
 
-				err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, log.ListenerJobID(listener))
+				err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, log.NewJobIdFromListener(listener))
 				require.NoError(t, err)
 
-				was, err = orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
+				was, err = orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, log.NewJobIdFromListener(listener))
 				require.NoError(t, err)
 				require.True(t, was)
 			})
@@ -135,7 +135,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				_, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
+				_, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, log.NewJobIdFromListener(listener))
 				require.NoError(t, err)
 			})
 		}
