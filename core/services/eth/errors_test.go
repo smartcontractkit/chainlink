@@ -186,10 +186,10 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("Optimism Fees errors", func(t *testing.T) {
-		err := eth.NewSendErrorS("fee too large: 10000000000000000000000")
+		err := eth.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
 		assert.True(t, err.IsFeeTooHigh())
 		assert.False(t, err.IsFeeTooLow())
-		err = newSendErrorWrapped("fee too large: 10000000000000000000000")
+		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
 		assert.True(t, err.IsFeeTooHigh())
 		assert.False(t, err.IsFeeTooLow())
 
