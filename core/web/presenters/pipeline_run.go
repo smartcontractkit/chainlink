@@ -59,7 +59,7 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 			case nil:
 				outputs = append(outputs, nil)
 			default:
-				logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", out), "out", out )
+				logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", out), "out", out)
 			}
 		}
 	}
