@@ -206,9 +206,10 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(sub, nil)
 
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	store := app.Store
@@ -234,14 +235,18 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	store := app.Store
+
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(sub, nil).Maybe()
 
 	app.StartAndConnect()
 
@@ -262,11 +267,12 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	store := app.Store
@@ -322,6 +328,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 			defer cfgCleanup()
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
@@ -628,6 +635,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	defer cfgCleanup()
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,

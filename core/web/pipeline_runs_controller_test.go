@@ -291,15 +291,15 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	err = app.GetKeyStore().OCR().Unlock(cltest.Password)
 	require.NoError(t, err)
 
-	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
+	jb, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
 	require.NoError(t, err)
 
-	firstRunID, err := app.RunJobV2(context.Background(), jobID, nil)
+	firstRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
 	require.NoError(t, err)
-	secondRunID, err := app.RunJobV2(context.Background(), jobID, nil)
+	secondRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
 	require.NoError(t, err)
 
-	return client, jobID, []int64{firstRunID, secondRunID}, func() {
+	return client, jb.ID, []int64{firstRunID, secondRunID}, func() {
 		cleanup()
 		cleanupHTTP()
 	}

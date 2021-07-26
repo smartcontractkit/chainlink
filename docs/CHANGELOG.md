@@ -14,6 +14,8 @@ This is useful if the node has been offline for a longer time and after startup 
 
 * Fixes the logging configuration form not displaying the current values
 * Updates the design of the configuration cards to be easier on the eyes
+* View Coordinator Service Authentication keys in the Operator UI. This is hidden
+  behind a feature flag until usage is enabled.
 
 ### Changed
 

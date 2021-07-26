@@ -70,11 +70,13 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -93,6 +95,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 99)
 	config.Set("ETH_FINALITY_DEPTH", 3)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	t.Cleanup(assertMocksCalled)
@@ -163,11 +166,13 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.InstantClock()
 
@@ -185,12 +190,14 @@ func TestIntegration_RunAt(t *testing.T) {
 func TestIntegration_EthLog(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
+	t.Cleanup(cleanup)
 
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
@@ -250,12 +257,11 @@ func TestIntegration_RunLog(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
 			t.Cleanup(cfgCleanup)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 			ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 			defer assertMockCalls()
-			app, cleanup := cltest.NewApplication(t,
-				ethClient,
-			)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 			t.Cleanup(cleanup)
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
@@ -329,12 +335,11 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", 30)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	t.Cleanup(cleanup)
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
@@ -409,13 +414,15 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
 
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -430,11 +437,12 @@ func TestIntegration_StartAt(t *testing.T) {
 func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
@@ -505,11 +513,12 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
@@ -559,11 +568,12 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -610,11 +620,12 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, sub, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
@@ -655,11 +666,12 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 func TestIntegration_MultiplierInt256(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -674,11 +686,12 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 func TestIntegration_MultiplierUint256(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -698,6 +711,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplicationWithConfig(t,
@@ -732,12 +746,13 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	t.Parallel()
 
 	sleepSeconds := 4
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	app.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -755,8 +770,11 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		ethClient,
 		cltest.UseRealExternalInitiatorManager,
 	)
@@ -821,11 +839,12 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -858,12 +877,13 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 func TestIntegration_ExternalInitiator_WithMultiplyAndBridge(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -1136,6 +1156,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	config.Set("ETH_FINALITY_DEPTH", 3)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	app, appCleanup := cltest.NewApplicationWithConfig(t, config,
 		ethClient,
 	)
@@ -1264,6 +1285,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	sub := new(mocks.Subscription)
 
 	cfg, cleanup := cltest.NewConfig(t)
+	cfg.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	defer cleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg,
 		ethClient,
@@ -1413,6 +1435,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	cfg.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg,
 		ethClient,
 	)
@@ -1473,9 +1496,10 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	// Feed the subscriber a block head so the transaction completes.
 	heads := <-headsCh
-	heads <- cltest.Head(safe)
+
 	// Job should complete successfully.
-	_ = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jr, heads, safe)
+
 	jr2, err := app.Store.ORM.FindJobRun(jr.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 9, len(jr2.TaskRuns))
@@ -1537,6 +1561,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	// in a single callback.
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	user, _, _, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	defer cleanup()
@@ -1890,6 +1915,7 @@ isBootstrapPeer    = true
 	//  latestAnswer:10
 	//  latestAnswer:20
 	//  latestAnswer:30
+	var metaLock sync.Mutex
 	expectedMeta := map[string]struct{}{
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
@@ -1911,7 +1937,9 @@ isBootstrapPeer    = true
 			var m models.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				metaLock.Lock()
 				delete(expectedMeta, m.Meta.LatestAnswer.String())
+				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
@@ -1957,9 +1985,9 @@ observationSource = """
 """
 `, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
-		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+		jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
-		jids = append(jids, jid)
+		jids = append(jids, jb.ID)
 	}
 
 	// Assert that all the OCR jobs get a run with valid values eventually.

@@ -114,7 +114,7 @@ func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
 }
 
 // FindJob provides a mock function with given fields: id
-func (_m *ORM) FindJob(id int32) (job.Job, error) {
+func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	ret := _m.Called(id)
 
 	var r0 job.Job

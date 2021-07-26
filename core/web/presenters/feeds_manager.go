@@ -5,17 +5,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"gopkg.in/guregu/null.v4"
 )
 
 // FeedsManagerResource represents a Feeds Manager JSONAPI resource.
 type FeedsManagerResource struct {
 	JAID
-	Name      string           `json:"name"`
-	URI       string           `json:"uri"`
-	PublicKey crypto.PublicKey `json:"publicKey"`
-	JobTypes  []string         `json:"jobTypes"`
-	Network   string           `json:"network"`
-	CreatedAt time.Time        `json:"createdAt"`
+	Name                   string           `json:"name"`
+	URI                    string           `json:"uri"`
+	PublicKey              crypto.PublicKey `json:"publicKey"`
+	JobTypes               []string         `json:"jobTypes"`
+	IsBootstrapPeer        bool             `json:"isBootstrapPeer"`
+	BootstrapPeerMultiaddr null.String      `json:"bootstrapPeerMultiaddr"`
+	CreatedAt              time.Time        `json:"createdAt"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -26,13 +28,14 @@ func (r FeedsManagerResource) GetName() string {
 // NewFeedsManagerResource constructs a new FeedsManagerResource.
 func NewFeedsManagerResource(ms feeds.FeedsManager) *FeedsManagerResource {
 	return &FeedsManagerResource{
-		JAID:      NewJAIDInt64(ms.ID),
-		Name:      ms.Name,
-		URI:       ms.URI,
-		PublicKey: ms.PublicKey,
-		JobTypes:  ms.JobTypes,
-		Network:   ms.Network,
-		CreatedAt: ms.CreatedAt,
+		JAID:                   NewJAIDInt64(ms.ID),
+		Name:                   ms.Name,
+		URI:                    ms.URI,
+		PublicKey:              ms.PublicKey,
+		JobTypes:               ms.JobTypes,
+		IsBootstrapPeer:        ms.IsOCRBootstrapPeer,
+		BootstrapPeerMultiaddr: ms.OCRBootstrapPeerMultiaddr,
+		CreatedAt:              ms.CreatedAt,
 	}
 }
 
