@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_request_id_v08"
 
@@ -314,14 +316,14 @@ func TestRandomnessRequestLog(t *testing.T) {
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	log models.RandomnessRequestLog) vrfkey.Proof {
-	preSeed, err := vrf.BigToSeed(log.Seed)
+	preSeed, err := proof2.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
-	s := vrf.PreSeedData{
+	s := proof2.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}
-	seed := vrf.FinalSeed(s)
+	seed := proof2.FinalSeed(s)
 	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
 	require.NoError(t, err)
 	proofBlob, err := vrf.GenerateProofResponseFromProof(proof, s)
