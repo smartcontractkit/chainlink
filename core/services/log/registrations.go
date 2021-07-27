@@ -18,7 +18,7 @@ import (
 //
 // 3. Information about already consumed logs is fetched from the database and used as a filter
 //
-// 3. The logs are attempted to be sent after every new head arrival:
+// 4. The logs are attempted to be sent after every new head arrival:
 // 		Each stored log is checked against every matched listener and is sent unless:
 //    A) is too young for that listener
 //    B) matches a log already consumed (via the database information from log_broadcasts table)
