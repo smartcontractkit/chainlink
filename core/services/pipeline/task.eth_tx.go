@@ -30,14 +30,14 @@ type ETHTxTask struct {
 
 	db        *gorm.DB
 	config    Config
-	keyStore  KeyStore
+	keyStore  ETHKeyStore
 	txManager TxManager
 }
 
-//go:generate mockery --name KeyStore --output ./mocks/ --case=underscore
+//go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
 //go:generate mockery --name TxManager --output ./mocks/ --case=underscore
 
-type KeyStore interface {
+type ETHKeyStore interface {
 	GetRoundRobinAddress(addrs ...common.Address) (common.Address, error)
 }
 

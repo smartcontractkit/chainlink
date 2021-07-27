@@ -50,7 +50,7 @@ var (
 		FluxMonitor:       true,
 		OffchainReporting: true,
 		Keeper:            false,
-		VRF:               false,
+		VRF:               true,
 		Webhook:           true,
 	}
 )

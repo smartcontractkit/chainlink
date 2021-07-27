@@ -1,14 +1,19 @@
 package chainlink
 
 import (
+	"bytes"
 	"context"
 	stderr "errors"
 	"fmt"
+	"math/big"
 	"os"
 	"os/signal"
 	"reflect"
 	"sync"
 	"syscall"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
@@ -81,7 +86,7 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	PipelineORM() pipeline.ORM
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
@@ -256,7 +261,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.DB)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), txManager)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), keyStore.VRF(), txManager)
 		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
@@ -674,7 +679,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
 	return app.jobSpawner.CreateJob(ctx, j, name)
 }
 
@@ -686,7 +691,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
-// Only used for testing, not supported by the UI.
+// Only used for local testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
@@ -695,7 +700,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
-	jb, err := app.jobORM.FindJob(jobID)
+	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
@@ -706,12 +711,48 @@ func (app *ChainlinkApplication) RunJobV2(
 		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
 		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	} else {
-		vars := map[string]interface{}{
-			"jobRun": map[string]interface{}{
-				"meta": meta,
-			},
+		var vars map[string]interface{}
+		var saveTasks bool
+		if jb.Type == job.VRF {
+			saveTasks = true
+			// Create a dummy log to trigger a run
+			testLog := types.Log{
+				Data: bytes.Join([][]byte{
+					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
+					common.BigToHash(big.NewInt(42)).Bytes(), // seed
+					utils.NewHash().Bytes(),                  // sender
+					utils.NewHash().Bytes(),                  // fee
+					utils.NewHash().Bytes()},                 // requestID
+					[]byte{}),
+				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+				TxHash:      utils.NewHash(),
+				BlockNumber: 10,
+				BlockHash:   utils.NewHash(),
+			}
+			vars = map[string]interface{}{
+				"jobSpec": map[string]interface{}{
+					"databaseID":    jb.ID,
+					"externalJobID": jb.ExternalJobID,
+					"name":          jb.Name.ValueOrZero(),
+					"publicKey":     jb.VRFSpec.PublicKey[:],
+				},
+				"jobRun": map[string]interface{}{
+					"meta":           meta,
+					"logBlockHash":   testLog.BlockHash[:],
+					"logBlockNumber": testLog.BlockNumber,
+					"logTxHash":      testLog.TxHash,
+					"logTopics":      testLog.Topics,
+					"logData":        testLog.Data,
+				},
+			}
+		} else {
+			vars = map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": meta,
+				},
+			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, saveTasks)
 	}
 	return runID, err
 }

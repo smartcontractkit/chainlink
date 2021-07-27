@@ -52,7 +52,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 
-	jobSpec, err = jc.App.JobORM().FindJob(jobSpec.ID)
+	jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
@@ -122,7 +122,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), js, js.Name)
+	jb, err := jc.App.AddJobV2(c.Request.Context(), js, js.Name)
 	if err != nil {
 		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -132,13 +132,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	job, err := jc.App.JobORM().FindJob(jobID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
+	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
 
 // Delete hard deletes a job spec.

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +42,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 		return
 	}
 
-	paginatedResponse(c, "offChainReportingPipelineRun", size, page, pipelineRuns, count, err)
+	paginatedResponse(c, "offChainReportingPipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
 }
 
 // Show returns a specified pipeline run.
@@ -60,7 +62,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
+	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "offChainReportingPipelineRun")
 }
 
 // Create triggers a pipeline run for a job.

@@ -25,7 +25,7 @@ type (
 	// has 1 or more of these services associated with it.
 	Spawner interface {
 		service.Service
-		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)
+		CreateJob(ctx context.Context, spec Job, name null.String) (Job, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		ActiveJobs() map[int32]Job
 	}
@@ -286,11 +286,13 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (Job, error) {
+	var jb Job
+	var err error
 	delegate, exists := js.jobTypeDelegates[spec.Type]
 	if !exists {
 		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
-		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
+		return jb, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
 	}
 
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
@@ -300,8 +302,8 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (i
 
 	ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-	err := js.txm.TransactWithContext(ctx, func(context.Context) error {
-		err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
+	err = js.txm.TransactWithContext(ctx, func(context.Context) error {
+		jb, err = js.orm.CreateJob(ctx, &spec, spec.Pipeline)
 		if err != nil {
 			logger.Errorw("Error creating job", "type", spec.Type, "error", err)
 
@@ -311,13 +313,13 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (i
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return jb, err
 	}
 
-	delegate.OnJobCreated(spec)
+	delegate.OnJobCreated(jb)
 
-	logger.Infow("Created job", "type", spec.Type, "jobID", spec.ID)
-	return spec.ID, err
+	logger.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
+	return jb, err
 }
 
 func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
