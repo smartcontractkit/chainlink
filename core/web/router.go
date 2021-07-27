@@ -319,6 +319,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		jpc := JobProposalsController{app}
 		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
 		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
+		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
 
 		mc := MigrateController{app}
 		authv2.POST("/migrate/:ID", mc.Migrate)
