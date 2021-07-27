@@ -439,6 +439,7 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 	etx.State = EthTxInProgress
 	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
 		err := tx.Create(attempt).Error
+
 		switch e := err.(type) {
 		case *pq.Error:
 			if e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
