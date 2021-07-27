@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -22,6 +23,11 @@ var (
 	promCurrentHead = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
+	})
+
+	promOldHead = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_very_old_head",
+		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
 	})
 )
 
@@ -369,8 +375,19 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
+			promOldHead.Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
+	}
+	return nil
+}
+
+func (ht *HeadTracker) Healthy() error {
+	if atomic.LoadInt32(&ht.headListener.receivesHeads) != 1 {
+		return errors.New("Heads are not being received")
+	}
+	if !ht.headListener.Connected() {
+		return errors.New("Not connected")
 	}
 	return nil
 }
@@ -382,6 +399,9 @@ type NullTracker struct{}
 func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 	return nil, nil
 }
-func (*NullTracker) Start() error             { return nil }
-func (*NullTracker) Stop() error              { return nil }
+func (*NullTracker) Start() error   { return nil }
+func (*NullTracker) Stop() error    { return nil }
+func (*NullTracker) Ready() error   { return nil }
+func (*NullTracker) Healthy() error { return nil }
+
 func (*NullTracker) SetLogger(*logger.Logger) {}
