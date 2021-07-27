@@ -416,6 +416,10 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		}
 	}
 
+	if err = app.HealthChecker.Register(reflect.TypeOf(headTracker).String(), headTracker); err != nil {
+		return nil, err
+	}
+
 	return app, nil
 }
 

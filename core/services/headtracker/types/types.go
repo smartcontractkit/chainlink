@@ -13,6 +13,8 @@ type Tracker interface {
 	Start() error
 	Stop() error
 	SetLogger(logger *logger.Logger)
+	Ready() error
+	Healthy() error
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
