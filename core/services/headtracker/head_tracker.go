@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -381,6 +382,16 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	return nil
 }
 
+func (ht *HeadTracker) Healthy() error {
+	if atomic.LoadInt32(&ht.headListener.receivesHeads) != 1 {
+		return errors.New("Heads are not being received")
+	}
+	if !ht.headListener.Connected() {
+		return errors.New("Not connected")
+	}
+	return nil
+}
+
 var _ httypes.Tracker = &NullTracker{}
 
 type NullTracker struct{}
@@ -388,6 +399,9 @@ type NullTracker struct{}
 func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 	return nil, nil
 }
-func (*NullTracker) Start() error             { return nil }
-func (*NullTracker) Stop() error              { return nil }
+func (*NullTracker) Start() error   { return nil }
+func (*NullTracker) Stop() error    { return nil }
+func (*NullTracker) Ready() error   { return nil }
+func (*NullTracker) Healthy() error { return nil }
+
 func (*NullTracker) SetLogger(*logger.Logger) {}
