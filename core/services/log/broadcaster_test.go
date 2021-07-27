@@ -1234,8 +1234,10 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				// Validate that the ethereum.FilterQuery is specified correctly for the backfill that we expect
 				fromBlock := args.Get(1).(ethereum.FilterQuery).FromBlock
 				expected := big.NewInt(0)
-				if helper.lb.BackfillBlockNumber().Valid && helper.lb.BackfillBlockNumber().Int64 > test.blockHeight2-backfillDepth {
-					expected = big.NewInt(helper.lb.BackfillBlockNumber().Int64)
+
+				blockNumber := helper.lb.(log.BroadcasterInTest).BackfillBlockNumber()
+				if blockNumber.Valid && blockNumber.Int64 > test.blockHeight2-backfillDepth {
+					expected = big.NewInt(blockNumber.Int64)
 				} else if test.blockHeight2 > backfillDepth {
 					expected = big.NewInt(test.blockHeight2 - backfillDepth)
 				}

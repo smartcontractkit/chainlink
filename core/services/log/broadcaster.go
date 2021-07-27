@@ -48,12 +48,16 @@ type (
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		BackfillBlockNumber() null.Int64
 
-		TrackedAddressesCount() uint32
-		// DB interactions
 		WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error)
 		MarkConsumed(db *gorm.DB, lb Broadcast) error
+		// NOTE: WasAlreadyConsumed and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
+	}
+
+	BroadcasterInTest interface {
+		Broadcaster
+		BackfillBlockNumber() null.Int64
+		TrackedAddressesCount() uint32
 	}
 
 	broadcaster struct {
