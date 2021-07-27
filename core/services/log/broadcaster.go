@@ -289,6 +289,10 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		select {
 		case rawLog := <-chRawLogs:
+
+			logger.Debugw("LogBroadcaster: Received a log",
+				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
+
 			b.onNewLog(rawLog)
 
 		case <-b.newHeads.Notify():
