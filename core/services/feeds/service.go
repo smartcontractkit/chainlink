@@ -2,11 +2,8 @@ package feeds
 
 import (
 	"context"
-	"crypto/ed25519"
-	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -15,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/wsrpc"
 )
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
@@ -40,29 +36,22 @@ type Service interface {
 	RejectJobProposal(ctx context.Context, id int64) error
 	SyncNodeInfo(id int64) error
 	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
+	UpdateFeedsManager(mgr FeedsManager) error
 
-	Unsafe_SetFMSClient(pb.FeedsManagerClient)
+	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
 
 type service struct {
 	utils.StartStopOnce
 
-	mu     sync.Mutex
-	chDone chan struct{}
-	wgDone sync.WaitGroup
-
-	// connCtx allows us to cancel any connections which are currently blocking
-	// while waiting to establish a connection to FMS.
-	connCtx       context.Context
-	connCtxCancel context.CancelFunc
-
 	orm         ORM
 	csaKeyStore keystore.CSAKeystoreInterface
 	ethKeyStore keystore.EthKeyStoreInterface
-	fmsClient   pb.FeedsManagerClient
-	jobSpawner  job.Spawner
-	cfg         Config
-	txm         postgres.TransactionManager
+	// fmsClient   pb.FeedsManagerClient
+	jobSpawner job.Spawner
+	cfg        Config
+	txm        postgres.TransactionManager
+	connMgr    ConnectionsManager
 }
 
 // NewService constructs a new feeds service
@@ -74,17 +63,14 @@ func NewService(
 	ethKeyStore keystore.EthKeyStoreInterface,
 	cfg Config,
 ) *service {
-	ctx, cancel := context.WithCancel(context.Background())
 	svc := &service{
-		chDone:        make(chan struct{}),
-		connCtx:       ctx,
-		connCtxCancel: cancel,
-		orm:           orm,
-		txm:           txm,
-		jobSpawner:    jobSpawner,
-		csaKeyStore:   csaKeyStore,
-		ethKeyStore:   ethKeyStore,
-		cfg:           cfg,
+		orm:         orm,
+		txm:         txm,
+		jobSpawner:  jobSpawner,
+		csaKeyStore: csaKeyStore,
+		ethKeyStore: ethKeyStore,
+		cfg:         cfg,
+		connMgr:     newConnectionsManager(),
 	}
 
 	return svc
@@ -114,16 +100,14 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 	}
 
 	// Establish a connection
-	s.connect(mgr.URI, privkey, mgr.PublicKey, id)
+	mgr.ID = id
+	s.connectFeedManager(*mgr, privkey)
 
 	return id, nil
 }
 
 // SyncNodeInfo syncs the node's information with FMS
 func (s *service) SyncNodeInfo(id int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	mgr, err := s.GetManager(id)
 	if err != nil {
 		return err
@@ -153,7 +137,12 @@ func (s *service) SyncNodeInfo(id int64) error {
 	}
 
 	// Make the remote call to FMS
-	_, err = s.fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
+	fmsClient, err := s.connMgr.GetClient(id)
+	if err != nil {
+		return errors.Wrap(err, "could not fetch client")
+	}
+
+	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:           jobtypes,
 		ChainId:            s.cfg.ChainID().Int64(),
 		AccountAddresses:   addresses,
@@ -163,6 +152,29 @@ func (s *service) SyncNodeInfo(id int64) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// UpdateFeedsManager updates the feed manager details, takes down the
+// connection and reestablishes a new connection with the updated public key.
+func (s *service) UpdateFeedsManager(mgr FeedsManager) error {
+	err := s.orm.UpdateManager(context.Background(), mgr)
+	if err != nil {
+		return errors.Wrap(err, "could not update manager")
+	}
+
+	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
+		return errors.Wrap(err, "could not restart the connection")
+	}
+
+	// Establish a new connection
+	privkey, err := s.getCSAPrivateKey()
+	if err != nil {
+		return err
+	}
+
+	s.connectFeedManager(mgr, privkey)
 
 	return nil
 }
@@ -219,13 +231,14 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 }
 
 func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
-	if s.fmsClient == nil {
-		return errors.New("fms rpc client is not connected")
-	}
-
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	fmsClient, err := s.connMgr.GetClient(jp.FeedsManagerID)
+	if err != nil {
+		return errors.Wrap(err, "fms rpc client is not connected")
 	}
 
 	if jp.Status != JobProposalStatusPending {
@@ -253,7 +266,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		}
 
 		// Send to FMS Client
-		if _, err = s.fmsClient.ApprovedJob(ctx, &pb.ApprovedJobRequest{
+		if _, err = fmsClient.ApprovedJob(ctx, &pb.ApprovedJobRequest{
 			Uuid: jp.RemoteUUID.String(),
 		}); err != nil {
 			return err
@@ -269,13 +282,14 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 }
 
 func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
-	if s.fmsClient == nil {
-		return errors.New("fms rpc client is not connected")
-	}
-
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	fmsClient, err := s.connMgr.GetClient(jp.FeedsManagerID)
+	if err != nil {
+		return errors.Wrap(err, "fms rpc client is not connected")
 	}
 
 	if jp.Status != JobProposalStatusPending {
@@ -289,7 +303,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 			return err
 		}
 
-		if _, err = s.fmsClient.RejectedJob(ctx, &pb.RejectedJobRequest{
+		if _, err = fmsClient.RejectedJob(ctx, &pb.RejectedJobRequest{
 			Uuid: jp.RemoteUUID.String(),
 		}); err != nil {
 			return err
@@ -321,8 +335,7 @@ func (s *service) Start() error {
 		}
 
 		mgr := mgrs[0]
-
-		s.connect(mgr.URI, privkey, mgr.PublicKey, mgr.ID)
+		s.connectFeedManager(mgr, privkey)
 
 		return nil
 	})
@@ -330,66 +343,31 @@ func (s *service) Start() error {
 
 func (s *service) Close() error {
 	return s.StopOnce("FeedsService", func() error {
-		// Close any blocking dials
-		s.connCtxCancel()
-		// Close any active connections
-		close(s.chDone)
+		// This blocks until it finishes
+		s.connMgr.Close()
 
-		s.wgDone.Wait()
 		return nil
 	})
 }
 
-// Connect attempts to establish a connection to the Feeds Manager.
-//
-// In the future we will connect to multiple Feeds Managers. Each `connect` call
-// will run in a separate goroutine. Closing the feeds service will shutdown
-// each goroutine.
-func (s *service) connect(uri string, privkey []byte, pubkey []byte, feedsManagerID int64) {
-	s.wgDone.Add(1)
-
-	go gracefulpanic.WrapRecover(func() {
-		defer s.wgDone.Done()
-
-		// Clean up context
-		defer s.connCtxCancel()
-
-		conn, err := wsrpc.DialWithContext(s.connCtx, uri,
-			wsrpc.WithTransportCreds(privkey, ed25519.PublicKey(pubkey)),
-			wsrpc.WithBlock(),
-		)
-		if err != nil {
-			// We only want to log if there was an error that did not occur
-			// from a context cancel.
-			if s.connCtx.Err() == nil {
-				logger.Infof("Error connecting to Feeds Manager server: %v", err)
-			}
-
-			return
-		}
-		defer conn.Close()
-
-		logger.Infow("[Feeds] Connected to Feeds Manager", "feedsManagerID", feedsManagerID)
-
-		// Initialize a new wsrpc client to make RPC calls
-		s.mu.Lock()
-		s.fmsClient = pb.NewFeedsManagerClient(conn)
-		s.mu.Unlock()
-
-		// Initialize RPC call handlers on the client connection
-		pb.RegisterNodeServiceServer(conn, &RPCHandlers{
-			feedsManagerID: feedsManagerID,
+// connectFeedManager connects to a feeds manager
+func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
+	s.connMgr.Connect(ConnectOpts{
+		FeedsManagerID: mgr.ID,
+		URI:            mgr.URI,
+		Privkey:        privkey,
+		Pubkey:         mgr.PublicKey,
+		Handlers: &RPCHandlers{
+			feedsManagerID: mgr.ID,
 			svc:            s,
-		})
-
-		// Sync the node's information with FMS once connected
-		err = s.SyncNodeInfo(feedsManagerID)
-		if err != nil {
-			logger.Infof("[Feeds] Error syncing node info: %v", err)
-		}
-
-		// Wait for close
-		<-s.chDone
+		},
+		OnConnect: func(pb.FeedsManagerClient) {
+			// Sync the node's information with FMS once connected
+			err := s.SyncNodeInfo(mgr.ID)
+			if err != nil {
+				logger.Infof("[Feeds] Error syncing node info: %v", err)
+			}
+		},
 	})
 }
 
@@ -418,8 +396,8 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 // tests.
 //
 // ONLY TO BE USED FOR TESTING.
-func (s *service) Unsafe_SetFMSClient(client pb.FeedsManagerClient) {
-	s.fmsClient = client
+func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
+	s.connMgr = connMgr
 }
 
 func (s *service) generateJob(spec string) (*job.Job, error) {
