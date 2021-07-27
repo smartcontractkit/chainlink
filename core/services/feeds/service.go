@@ -40,6 +40,7 @@ type Service interface {
 	RegisterManager(ms *FeedsManager) (int64, error)
 	RejectJobProposal(ctx context.Context, id int64) error
 	SyncNodeInfo(id int64) error
+	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
 
 	Unsafe_SetFMSClient(pb.FeedsManagerClient)
 }
@@ -190,6 +191,28 @@ func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 // GetJobProposal gets a job proposal by id.
 func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
 	return s.orm.GetJobProposal(context.Background(), id)
+}
+
+func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
+	jp, err := s.orm.GetJobProposal(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	if jp.Status != JobProposalStatusPending {
+		return errors.New("must be a pending job proposal")
+	}
+
+	// Update the spec
+	if err = s.orm.UpdateJobProposalSpec(ctx, id, spec); err != nil {
+		return err
+	}
+
+	if err != nil {
+		return errors.Wrap(err, "could not update job proposal")
+	}
+
+	return nil
 }
 
 func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {

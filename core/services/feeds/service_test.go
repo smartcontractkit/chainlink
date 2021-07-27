@@ -308,6 +308,31 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func Test_Service_UpdateJobProposalSpec(t *testing.T) {
+	var (
+		ctx = context.Background()
+		jp  = &feeds.JobProposal{
+			ID:         1,
+			RemoteUUID: uuid.NewV4(),
+			Status:     feeds.JobProposalStatusPending,
+			Spec:       "spec",
+		}
+		updatedSpec = "updated spec"
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+	svc.orm.On("UpdateJobProposalSpec",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		jp.ID,
+		updatedSpec,
+	).Return(nil)
+
+	err := svc.UpdateJobProposalSpec(ctx, jp.ID, updatedSpec)
+	require.NoError(t, err)
+}
+
 func Test_Service_StartStop(t *testing.T) {
 	_, privkey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)

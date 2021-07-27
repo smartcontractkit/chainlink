@@ -22,6 +22,7 @@ type ORM interface {
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
 	ListJobProposals(ctx context.Context) ([]JobProposal, error)
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
+	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
 	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error
 }
 
@@ -194,6 +195,30 @@ func (o *orm) UpdateJobProposalStatus(ctx context.Context, id int64, status JobP
 	`
 
 	result := tx.Exec(stmt, status, now, id)
+	if result.RowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
+// UpdateJobProposalSpec updates the spec of a job proposal by id.
+func (o *orm) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
+	tx := postgres.TxFromContext(ctx, o.db)
+
+	now := time.Now()
+
+	stmt := `
+		UPDATE job_proposals
+		SET spec = ?,
+		    updated_at = ?
+		WHERE id = ?;
+	`
+
+	result := tx.Exec(stmt, spec, now, id)
 	if result.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}
