@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -46,6 +47,7 @@ type HeadListener struct {
 	headSubscription ethereum.Subscription
 	connectedMutex   sync.RWMutex
 	connected        bool
+	receivesHeads    int32
 	sleeper          utils.Sleeper
 
 	log      *logger.Logger
@@ -133,7 +135,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 			// We've received a head, reset the no heads alarm
 			t.Stop()
 			t = time.NewTicker(noHeadsAlarmDuration)
-
+			atomic.StoreInt32(&hl.receivesHeads, 1)
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
@@ -159,6 +161,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
 			logger.Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarmDuration))
+			atomic.StoreInt32(&hl.receivesHeads, 0)
 		}
 	}
 }
