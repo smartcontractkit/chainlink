@@ -204,6 +204,9 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 	sub := new(mocks.Subscription)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(sub, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	sub.On("Err").Maybe().Return(nil)
+	sub.On("Unsubscribe").Maybe().Return()
 
 	defer assertMocksCalled()
 	config, cfgCleanup := cltest.NewConfig(t)
