@@ -191,8 +191,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       minimumSubscriptionBalance: minimumSubscriptionBalance
     });
-  s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
-  emit ConfigSet(
+    s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
+    emit ConfigSet(
       minimumRequestBlockConfirmations,
       fulfillmentFlatFeeLinkPPM,
       maxGasLimit,
@@ -407,7 +407,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint32  fulfillmentFlatFeeLinkPPM,
       uint256 weiPerUnitGas
   )
-    private
+    internal
     view
     returns (
       uint96
@@ -648,11 +648,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     // Note bounded by MAXIMUM_CONSUMERS
     address[] memory consumers = s_subscriptions[subId].consumers;
+    uint256 lastConsumerIndex = consumers.length-1;
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == consumer) {
-        address last = consumers[consumers.length-1];
+        address last = consumers[lastConsumerIndex];
         // Storage write removed element to the end
-        s_subscriptions[subId].consumers[consumers.length-1] = consumers[i];
+        s_subscriptions[subId].consumers[lastConsumerIndex] = consumers[i];
         // Storage write to preserve last element
         s_subscriptions[subId].consumers[i] = last;
         // Storage remove last element

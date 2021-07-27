@@ -7,6 +7,7 @@ import { randomAddressString } from "hardhat/internal/hardhat-network/provider/f
 
 describe("VRFCoordinatorV2", () => {
   let vrfCoordinatorV2: Contract;
+  let vrfCoordinatorV2TestHelper: Contract;
   let linkToken: Contract;
   let blockHashStore: Contract;
   let mockLinkEth: Contract;
@@ -46,6 +47,12 @@ describe("VRFCoordinatorV2", () => {
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth);
     let vrfCoordinatorV2Factory = await ethers.getContractFactory("VRFCoordinatorV2", accounts[0]);
     vrfCoordinatorV2 = await vrfCoordinatorV2Factory.deploy(
+      linkToken.address,
+      blockHashStore.address,
+      mockLinkEth.address,
+    );
+    let vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory("VRFCoordinatorV2TestHelper", accounts[0]);
+    vrfCoordinatorV2TestHelper = await vrfCoordinatorV2TestHelperFactory.deploy(
       linkToken.address,
       blockHashStore.address,
       mockLinkEth.address,
@@ -696,8 +703,45 @@ describe("VRFCoordinatorV2", () => {
     });
   });
 
+  describe("#calculatePaymentAmount", async function () {
+    it("output within sensible range", async function () {
+      // By default, hardhat sends txes with the block limit as their gas limit.
+      await vrfCoordinatorV2TestHelper.connect(oracle).calculatePaymentAmountTest(
+        BigNumber.from("11450102"), // Start gas
+        BigNumber.from("0"), // Gas after payment
+        0, // Fee PPM
+        BigNumber.from("1000000000"), // Wei per unit gas (gas price)
+      );
+      const paymentAmount = await vrfCoordinatorV2TestHelper.getPaymentAmount();
+      // The gas price is 1gwei and the eth/link price is set to 300000000 wei per unit link.
+      // paymentAmount = 1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / uint256(weiPerUnitLink);
+      // So we expect x to be in the range (few thousand gas for the call)
+      // 1e18*1e9*(1000 gas)/30000000 < x < 1e18*1e9*(5000 gas)/30000000
+      // 3.333333333E22 < x < 1.666666667E23
+      console.log(paymentAmount.toString());
+      const gss = await vrfCoordinatorV2TestHelper.getGasStart();
+      console.log(gss.toString());
+      assert(paymentAmount.gt(BigNumber.from("33333333330000000000000")), "payment too small");
+      assert(paymentAmount.lt(BigNumber.from("166666666600000000000000")), "payment too large");
+    });
+    it("payment too large", async function () {
+      // Set this gas price to be astronomical 1ETH/gas
+      // That means the payment will be (even for 1gas)
+      // 1e18*1e18/30000000
+      // 3.333333333E28 > 1e27 (all link in existence)
+      await expect(
+        vrfCoordinatorV2TestHelper.connect(oracle).calculatePaymentAmountTest(
+          BigNumber.from("11450102"),
+          BigNumber.from("0"), // Gas after payment
+          0, // Fee PPM
+          BigNumber.from("1000000000000000000"),
+        ),
+      ).to.be.revertedWith(`PaymentTooLarge()`);
+    });
+  });
+
   /*
-    Note that all the fulfillment testing is done in Go, to make use of the existing go code to produce
+    Note that all the fulfillment happy path testing is done in Go, to make use of the existing go code to produce
     proofs offchain.
    */
 });
