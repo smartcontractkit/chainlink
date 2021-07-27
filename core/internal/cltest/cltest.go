@@ -168,26 +168,14 @@ func logLevelFromEnv() zapcore.Level {
 type TestConfig struct {
 	t testing.TB
 	*config.Config
-	wsServer *httptest.Server
 }
 
 // NewConfig returns a new TestConfig
 func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
-	wsserver, url, cleanup := newWSServer()
-	config := NewConfigWithWSServer(t, url, wsserver)
-	// Disable block history estimator for application tests
-	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
-	// Disable tx re-sending for application tests
-	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
-	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
-	config.Set("ETH_FINALITY_DEPTH", 15)
-	// Disable the EthTxReaper
-	config.Set("ETH_TX_REAPER_THRESHOLD", 0)
-	// Set low sampling interval to remain within test head waiting timeouts
-	config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
-	return config, cleanup
+	config := NewTestConfig(t)
+	return config, func() {}
 }
 
 func NewRandomInt64() int64 {
@@ -242,6 +230,12 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	// Unique advisory lock is required otherwise all tests will block each other
 	rawConfig.AdvisoryLockID = NewRandomInt64()
 
+	rawConfig.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
+	rawConfig.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
+	rawConfig.Set("ETH_FINALITY_DEPTH", 15)
+	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
+	rawConfig.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
+
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ENABLE_LEGACY_JOB_PIPELINE", false)
 	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
@@ -266,16 +260,6 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
-}
-
-// NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) *TestConfig {
-	t.Helper()
-
-	config := NewTestConfig(t)
-	config.Set("ETH_URL", url)
-	config.wsServer = wsserver
-	return config
 }
 
 type JobPipelineV2TestHelper struct {
@@ -485,7 +469,6 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 
 	ta.Config = tc
 	ta.Server = server
-	ta.wsServer = tc.wsServer
 	return ta, func() {
 		err := ta.StopIfStarted()
 		require.NoError(t, err)
