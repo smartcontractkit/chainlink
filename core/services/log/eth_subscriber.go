@@ -210,6 +210,8 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		ctx2, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 
+		logger.Debugw("Calling SubscribeFilterLogs with params", "addresses", addresses, "topics", topics)
+
 		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
 		if err != nil {
 			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "err", err)
