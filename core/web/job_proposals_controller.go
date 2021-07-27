@@ -16,6 +16,42 @@ type JobProposalsController struct {
 	App chainlink.Application
 }
 
+// Index returns JobProposals
+// Example:
+//  "<application>/job_proposals
+func (jpc *JobProposalsController) Index(c *gin.Context) {
+	feedsSvc := jpc.App.GetFeedsService()
+
+	jps, err := feedsSvc.ListJobProposals()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewJobProposalResources(jps), "job_proposals")
+}
+
+// Show returns a JobProposal
+// Example:
+//  "<application>/job_proposals/:id
+func (jpc *JobProposalsController) Show(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		jsonAPIError(c, http.StatusNotFound, err)
+		return
+	}
+
+	feedsSvc := jpc.App.GetFeedsService()
+
+	jp, err := feedsSvc.GetJobProposal(id)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewJobProposalResource(*jp), "job_proposals")
+}
+
 // Approve approves a job proposal.
 // Example:
 // "POST <application>/job_proposals/<id>/reject"
