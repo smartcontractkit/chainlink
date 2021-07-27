@@ -646,6 +646,26 @@ declare module 'core/store/models' {
     createdAt: time.Time
     updatedAt: time.Tome
   }
+
+  export interface FeedsManager {
+    name: string
+    uri: string
+    jobTypes: string[]
+    publicKey: string
+    isBootstrapPeer: boolean
+    bootstrapPeerMultiaddr?: string
+    createdAt: time.Time
+  }
+
+  export interface CreateFeedsManagerRequest {
+    name: string
+    uri: string
+    jobTypes: string[]
+    publicKey: string
+    isBootstrapPeer: boolean
+    bootstrapPeerMultiaddr?: string
+  }
+
 }
 
 export interface PipelineTaskRun {
@@ -656,3 +676,4 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
+
