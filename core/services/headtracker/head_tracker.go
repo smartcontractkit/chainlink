@@ -24,6 +24,11 @@ var (
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
 	})
+
+	promOldHead = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_very_old_head",
+		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
+	})
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -370,6 +375,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
+			promOldHead.Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
