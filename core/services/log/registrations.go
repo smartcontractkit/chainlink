@@ -282,6 +282,9 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 			}
 		}
 
+		logger.Debugw("LogBroadcaster: Sending out log",
+			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "address", log.Address, "latestBlockNumber", latestBlockNumber)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
