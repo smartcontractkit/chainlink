@@ -50,7 +50,7 @@ func TestORM(t *testing.T) {
 	dbSpec := makeOCRJobSpec(t, address)
 
 	t.Run("it creates job specs", func(t *testing.T) {
-		err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		var returnedSpec job.Job
@@ -58,7 +58,7 @@ func TestORM(t *testing.T) {
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", dbSpec.ID).First(&returnedSpec).Error
 		require.NoError(t, err)
-		compareOCRJobSpecs(t, *dbSpec, returnedSpec)
+		compareOCRJobSpecs(t, jb, returnedSpec)
 	})
 
 	dbURL := config.DatabaseURL()
@@ -87,7 +87,7 @@ func TestORM(t *testing.T) {
 		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
 
 		dbSpec2 := makeOCRJobSpec(t, address)
-		err = orm.CreateJob(context.Background(), dbSpec2, dbSpec2.Pipeline)
+		_, err = orm.CreateJob(context.Background(), dbSpec2, dbSpec2.Pipeline)
 		require.NoError(t, err)
 
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
@@ -149,7 +149,7 @@ func TestORM(t *testing.T) {
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
 		dbSpec3 := makeOCRJobSpec(t, address)
-		err := orm.CreateJob(context.Background(), dbSpec3, dbSpec3.Pipeline)
+		_, err := orm.CreateJob(context.Background(), dbSpec3, dbSpec3.Pipeline)
 		require.NoError(t, err)
 		var jobSpec job.Job
 		err = db.
@@ -188,7 +188,7 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
 		require.NoError(t, err)
-		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 	})
 }
@@ -219,7 +219,8 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	claimedJobs := make([]job.Job, 3)
 	for i := range claimedJobs {
 		dbSpec := makeOCRJobSpec(t, address)
-		require.NoError(t, orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
+		_, err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		require.NoError(t, err)
 		claimedJobs[i] = *dbSpec
 	}
 	job.SetORMClaimedJobs(orm, claimedJobs)
@@ -303,41 +304,37 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		jb, err := offchainreporting.ValidatedOracleSpecToml(config.Config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
 		require.NoError(t, err)
 
-		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 
-		var ocrJob job.Job
-		err = store.DB.First(&ocrJob).Error
-		require.NoError(t, err)
-
-		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 1)
-		cltest.AssertCount(t, store, pipeline.Spec{}, 1)
+		cltest.AssertCount(t, db, job.OffchainReportingOracleSpec{}, 1)
+		cltest.AssertCount(t, db, pipeline.Spec{}, 1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		err = orm.DeleteJob(ctx, ocrJob.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 0)
-		cltest.AssertCount(t, store, pipeline.Spec{}, 0)
-		cltest.AssertCount(t, store, job.Job{}, 0)
+		cltest.AssertCount(t, db, job.OffchainReportingOracleSpec{}, 0)
+		cltest.AssertCount(t, db, pipeline.Spec{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
 		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store, keyStore.Eth())
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-		cltest.AssertCount(t, store, job.KeeperSpec{}, 1)
-		cltest.AssertCount(t, store, keeper.Registry{}, 1)
-		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 1)
+		cltest.AssertCount(t, db, job.KeeperSpec{}, 1)
+		cltest.AssertCount(t, db, keeper.Registry{}, 1)
+		cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		err := orm.DeleteJob(ctx, keeperJob.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, store, job.KeeperSpec{}, 0)
-		cltest.AssertCount(t, store, keeper.Registry{}, 0)
-		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 0)
-		cltest.AssertCount(t, store, job.Job{}, 0)
+		cltest.AssertCount(t, db, job.KeeperSpec{}, 0)
+		cltest.AssertCount(t, db, keeper.Registry{}, 0)
+		cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
 	})
 
 	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
@@ -346,13 +343,13 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
 		require.NoError(t, err)
 
-		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
 		err = orm.DeleteJob(ctx, jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, store, job.VRFSpec{}, 0)
-		cltest.AssertCount(t, store, job.Job{}, 0)
+		cltest.AssertCount(t, db, job.VRFSpec{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
 	})
 }

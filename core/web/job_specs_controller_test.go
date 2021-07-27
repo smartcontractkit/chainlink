@@ -178,9 +178,10 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -195,15 +196,15 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &j)
 	require.NoError(t, err)
 
-	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
+	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM, nil)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1], app.Store.Config, app.Store.ORM)
+	adapter2, _ := adapters.For(j.Tasks[1], app.Store.Config, app.Store.ORM, nil)
 	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
 	assert.Equal(t, []string(jsonParse.Path), []string{"last"})
 
-	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
+	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM, nil)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.ToAddress.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
@@ -219,7 +220,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	require.Len(t, j.Initiators, 1)
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
 
-	adapter1, _ = adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
+	adapter1, _ = adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM, nil)
 	httpGet = adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 }
@@ -229,9 +230,10 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -274,10 +276,10 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-		cltest.UseRealExternalInitiatorManager,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient, cltest.UseRealExternalInitiatorManager)
 	defer cleanup()
 	app.Start()
 
@@ -308,25 +310,26 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/caseinsensitive_hello_world_job.json")
 
-	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
+	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM, nil)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1], app.Store.Config, app.Store.ORM)
+	adapter2, _ := adapters.For(j.Tasks[1], app.Store.Config, app.Store.ORM, nil)
 	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
 	assert.Equal(t, []string(jsonParse.Path), []string{"last"})
 
 	assert.Equal(t, "ethbytes32", j.Tasks[2].Type.String())
 
-	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
+	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM, nil)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.ToAddress.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
@@ -339,9 +342,10 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -363,12 +367,11 @@ func TestJobSpecsController_Create_FluxMonitor_disabled(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "FALSE")
 	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
@@ -390,12 +393,11 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
@@ -428,6 +430,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -472,6 +475,7 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 	config.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -495,9 +499,10 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -518,9 +523,10 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -541,9 +547,10 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -564,9 +571,10 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -588,12 +596,14 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	config.Set("ETH_DISABLED", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	t.Cleanup(cleanup)
-	app.Config.Set("ETH_DISABLED", true)
 	require.NoError(t, app.Start())
+	db := app.Store.DB
 
 	client := app.NewHTTPClient()
 
@@ -603,7 +613,7 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 		t.Cleanup(cleanup)
 
 		assert.Equal(t, 200, resp.StatusCode)
-		cltest.AssertCount(t, app.Store, models.JobSpec{}, 1)
+		cltest.AssertCount(t, db, models.JobSpec{}, 1)
 	})
 
 	t.Run("runlog", func(t *testing.T) {
@@ -612,7 +622,7 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 		t.Cleanup(cleanup)
 
 		assert.Equal(t, 200, resp.StatusCode)
-		cltest.AssertCount(t, app.Store, models.JobSpec{}, 2)
+		cltest.AssertCount(t, db, models.JobSpec{}, 2)
 	})
 
 	t.Run("ethlog", func(t *testing.T) {
@@ -621,7 +631,7 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 		t.Cleanup(cleanup)
 
 		assert.Equal(t, 200, resp.StatusCode)
-		cltest.AssertCount(t, app.Store, models.JobSpec{}, 3)
+		cltest.AssertCount(t, db, models.JobSpec{}, 3)
 	})
 }
 
@@ -823,7 +833,8 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 }
 
 func TestJobSpecsController_DestroyAdd(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, s, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
@@ -856,7 +867,8 @@ func TestJobSpecsController_DestroyAdd(t *testing.T) {
 
 func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	t.Parallel()
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, s, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(s, nil)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,

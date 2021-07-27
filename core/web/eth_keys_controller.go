@@ -170,8 +170,8 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // queries the EthClient for the ETH balance at the address and sets it on the
 // resource.
 func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr common.Address) presenters.NewETHKeyOption {
-	store := ekc.App.GetStore()
-	bal, err := store.EthClient.BalanceAt(ctx, accountAddr, nil)
+	ethClient := ekc.App.GetEthClient()
+	bal, err := ethClient.BalanceAt(ctx, accountAddr, nil)
 
 	return func(r *presenters.ETHKeyResource) error {
 		if err != nil {
@@ -188,9 +188,9 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr com
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
 func (ekc *ETHKeysController) setLinkBalance(accountAddr common.Address) presenters.NewETHKeyOption {
-	store := ekc.App.GetStore()
+	ethClient := ekc.App.GetEthClient()
 	addr := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
-	bal, err := store.EthClient.GetLINKBalance(addr, accountAddr)
+	bal, err := ethClient.GetLINKBalance(addr, accountAddr)
 
 	return func(r *presenters.ETHKeyResource) error {
 		if err != nil {

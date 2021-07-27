@@ -8,11 +8,15 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	coreorm "github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error) {
+type ValidationConfig interface {
+	DefaultHTTPTimeout() models.Duration
+}
+
+func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}

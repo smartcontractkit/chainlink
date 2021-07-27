@@ -72,6 +72,7 @@ var (
 	PolygonMumbai    = new(Chain)
 	XDaiMainnet      = new(Chain)
 	RSKMainnet       = new(Chain)
+	RSKTestnet       = new(Chain)
 	AvalancheFuji    = new(Chain)
 	AvalancheMainnet = new(Chain)
 )
@@ -95,6 +96,7 @@ func init() {
 	chains[80001] = PolygonMumbai
 	chains[100] = XDaiMainnet
 	chains[30] = RSKMainnet
+	chains[31] = RSKTestnet
 	chains[43113] = AvalancheFuji
 	chains[43114] = AvalancheMainnet
 

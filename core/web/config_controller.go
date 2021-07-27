@@ -65,7 +65,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		return
 	}
 
-	if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
+	if err := cc.App.GetConfig().ORM.SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
 		return
 	}

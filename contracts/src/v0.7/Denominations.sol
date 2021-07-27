@@ -17,4 +17,12 @@ library Denominations {
   address public constant CAD = address(124);
   address public constant CHF = address(756);
   address public constant ARS = address(32);
+  address public constant PHP = address(608);
+  address public constant NZD = address(554);
+  address public constant SGD = address(702);
+  address public constant NGN = address(566);
+  address public constant ZAR = address(710);
+  address public constant RUB = address(643);
+  address public constant INR = address(356);
+  address public constant BRL = address(986);
 }

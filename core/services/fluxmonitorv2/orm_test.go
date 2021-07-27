@@ -97,10 +97,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	var roundID uint32 = 1
 
 	j := makeJob(t)
-	err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
-	require.NoError(t, err)
-
-	jb, err := jobORM.FindJob(j.ID)
+	jb, err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
 	require.NoError(t, err)
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {

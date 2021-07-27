@@ -1,4 +1,4 @@
-package orm
+package config
 
 import (
 	"log"
@@ -22,7 +22,8 @@ type ConfigSchema struct {
 	AuthenticatedRateLimit                     int64                         `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod               time.Duration                 `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
 	BalanceMonitorEnabled                      bool                          `env:"BALANCE_MONITOR_ENABLED" default:"true"`
-	BlockBackfillDepth                         string                        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
+	BlockBackfillDepth                         uint64                        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
+	BlockBackfillSkip                          bool                          `env:"BLOCK_BACKFILL_SKIP" default:"false"`
 	BlockHistoryEstimatorBatchSize             uint32                        `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
 	BlockHistoryEstimatorBlockDelay            uint16                        `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
 	BlockHistoryEstimatorBlockHistorySize      uint16                        `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`

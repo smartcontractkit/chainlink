@@ -45,7 +45,7 @@ func setup(t *testing.T) (
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
@@ -94,7 +94,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
-		head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
+		head := models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000)
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
 		assertLastRunHeight(t, store, upkeep, 20)
@@ -174,7 +174,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 		wasCalled.Store(true)
 	})
 
-	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
+	head := models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000)
 	executer.OnNewLongestChain(context.TODO(), head)
 
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))

@@ -8,13 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/datatypes"
 )
 
 type EthTxState string
@@ -59,7 +59,7 @@ type EthTx struct {
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta    postgres.Jsonb
+	Meta    datatypes.JSON
 	Subject uuid.NullUUID
 }
 

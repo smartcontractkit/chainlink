@@ -6,6 +6,7 @@ import (
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"gopkg.in/guregu/null.v4"
 )
 
 // We only support OCR and FM for the feeds manager
@@ -20,7 +21,15 @@ type FeedsManager struct {
 	URI       string
 	PublicKey crypto.PublicKey
 	JobTypes  pq.StringArray `gorm:"type:text[]"`
-	Network   string
+
+	// Determines whether the node will be used as a bootstrap peer. If this is
+	// true, you must have both an OCRBootstrapAddr and OCRBootstrapPeerID.
+	IsOCRBootstrapPeer bool
+
+	// The libp2p multiaddress which the node operator will assign to this node
+	// for bootstrap peer discovery.
+	OCRBootstrapPeerMultiaddr null.String
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -39,10 +48,13 @@ const (
 )
 
 type JobProposal struct {
-	ID             int64
-	Spec           string
-	Status         JobProposalStatus
-	JobID          uuid.NullUUID
+	ID int64
+	// RemoteUUID is the unique id of the proposal in FMS.
+	RemoteUUID uuid.UUID
+	Spec       string
+	Status     JobProposalStatus
+	// ExternalJobID is the external job id in the spec.
+	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

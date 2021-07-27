@@ -52,6 +52,8 @@ type runner struct {
 	orm             ORM
 	config          Config
 	ethClient       eth.Client
+	ethKeyStore     ETHKeyStore
+	vrfKeyStore     VRFKeyStore
 	txManager       TxManager
 	runReaperWorker utils.SleeperTask
 
@@ -90,14 +92,16 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager) *runner {
+func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, vrfks VRFKeyStore, txManager TxManager) *runner {
 	r := &runner{
-		orm:       orm,
-		config:    config,
-		ethClient: ethClient,
-		txManager: txManager,
-		chStop:    make(chan struct{}),
-		wgDone:    sync.WaitGroup{},
+		orm:         orm,
+		config:      config,
+		ethClient:   ethClient,
+		ethKeyStore: ethks,
+		vrfKeyStore: vrfks,
+		txManager:   txManager,
+		chStop:      make(chan struct{}),
+		wgDone:      sync.WaitGroup{},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -222,7 +226,12 @@ func (r *runner) run(
 			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
+		case TaskTypeVRF:
+			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeETHTx:
+			task.(*ETHTxTask).db = r.orm.DB()
+			task.(*ETHTxTask).config = r.config
+			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).txManager = r.txManager
 		default:
 		}
@@ -337,6 +346,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	start := time.Now()
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
+		"taskType", taskRun.task.Type(),
 	}
 
 	// Order of precedence for task timeout:
@@ -355,8 +365,9 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 
 	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
-	loggerFields = append(loggerFields, "result value", result.Value)
-	loggerFields = append(loggerFields, "result error", result.Error)
+	loggerFields = append(loggerFields, "resultValue", result.Value)
+	loggerFields = append(loggerFields, "resultError", result.Error)
+	loggerFields = append(loggerFields, "resultType", fmt.Sprintf("%T", result.Value))
 	switch v := result.Value.(type) {
 	case []byte:
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))

@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -50,7 +49,6 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	resp, cleanup = client.Get("/v2/bridge_types?size=1")
 	t.Cleanup(cleanup)
-	fmt.Println(resp)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links

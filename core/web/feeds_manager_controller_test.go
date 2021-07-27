@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func Test_FeedsManagersController_Create(t *testing.T) {
@@ -25,11 +26,12 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 	pubKey, err := crypto.PublicKeyFromHex("3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808")
 	require.NoError(t, err)
 	body, err := json.Marshal(web.CreateFeedsManagerRequest{
-		Name:      "Chainlink FM",
-		URI:       "wss://127.0.0.1:2000",
-		JobTypes:  []string{"fluxmonitor"},
-		PublicKey: *pubKey,
-		Network:   "mainnet",
+		Name:                   "Chainlink FM",
+		URI:                    "127.0.0.1:2000",
+		JobTypes:               []string{"fluxmonitor"},
+		PublicKey:              *pubKey,
+		IsBootstrapPeer:        true,
+		BootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
 	})
 	require.NoError(t, err)
 
@@ -57,7 +59,8 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 	assert.Equal(t, resource.URI, ms.URI)
 	assert.Equal(t, resource.JobTypes, []string(ms.JobTypes))
 	assert.Equal(t, resource.PublicKey, ms.PublicKey)
-	assert.Equal(t, resource.Network, ms.Network)
+	assert.True(t, ms.IsOCRBootstrapPeer)
+	assert.Equal(t, resource.BootstrapPeerMultiaddr, resource.BootstrapPeerMultiaddr)
 }
 
 func Test_FeedsManagersController_List(t *testing.T) {
@@ -71,11 +74,12 @@ func Test_FeedsManagersController_List(t *testing.T) {
 	// Seed feed managers
 	fsvc := app.GetFeedsService()
 	ms1 := feeds.FeedsManager{
-		Name:      "Chainlink FM",
-		URI:       "wss://127.0.0.1:2000",
-		JobTypes:  []string{"fluxmonitor"},
-		PublicKey: *pubKey,
-		Network:   "mainnet",
+		Name:                      "Chainlink FM",
+		URI:                       "wss://127.0.0.1:2000",
+		JobTypes:                  []string{"fluxmonitor"},
+		PublicKey:                 *pubKey,
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
 	}
 	ms1ID, err := fsvc.RegisterManager(&ms1)
 	require.NoError(t, err)
@@ -93,7 +97,8 @@ func Test_FeedsManagersController_List(t *testing.T) {
 	assert.Equal(t, resources[0].URI, ms1.URI)
 	assert.Equal(t, resources[0].JobTypes, []string(ms1.JobTypes))
 	assert.Equal(t, resources[0].PublicKey, ms1.PublicKey)
-	assert.Equal(t, resources[0].Network, ms1.Network)
+	assert.True(t, resources[0].IsBootstrapPeer)
+	assert.Equal(t, resources[0].BootstrapPeerMultiaddr, ms1.OCRBootstrapPeerMultiaddr)
 }
 
 func Test_FeedsManagersController_Show(t *testing.T) {
@@ -103,11 +108,12 @@ func Test_FeedsManagersController_Show(t *testing.T) {
 	require.NoError(t, err)
 	var (
 		ms1 = feeds.FeedsManager{
-			Name:      "Chainlink FM",
-			URI:       "wss://127.0.0.1:2000",
-			JobTypes:  []string{"fluxmonitor"},
-			PublicKey: *pubKey,
-			Network:   "mainnet",
+			Name:                      "Chainlink FM",
+			URI:                       "wss://127.0.0.1:2000",
+			JobTypes:                  []string{"fluxmonitor"},
+			PublicKey:                 *pubKey,
+			IsOCRBootstrapPeer:        true,
+			OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
 		}
 	)
 
@@ -173,7 +179,8 @@ func Test_FeedsManagersController_Show(t *testing.T) {
 				assert.Equal(t, resource.URI, tc.want.URI)
 				assert.Equal(t, resource.JobTypes, []string(tc.want.JobTypes))
 				assert.Equal(t, resource.PublicKey, tc.want.PublicKey)
-				assert.Equal(t, resource.Network, tc.want.Network)
+				assert.True(t, resource.IsBootstrapPeer)
+				assert.Equal(t, resource.BootstrapPeerMultiaddr, ms1.OCRBootstrapPeerMultiaddr)
 			}
 		})
 	}

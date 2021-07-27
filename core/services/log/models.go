@@ -62,11 +62,11 @@ func (b *broadcast) String() string {
 	return fmt.Sprintf("Broadcast(JobID:%v,LogAddress:%v,Topics(%d):%v)", jobId, b.rawLog.Address, len(b.rawLog.Topics), b.rawLog.Topics)
 }
 
-func NewLogBroadcast(rawLog types.Log) Broadcast {
+func NewLogBroadcast(rawLog types.Log, decodedLog interface{}) Broadcast {
 	return &broadcast{
 		latestBlockNumber: 0,
 		latestBlockHash:   common.Hash{},
-		decodedLog:        nil,
+		decodedLog:        decodedLog,
 		rawLog:            rawLog,
 		jobID:             NewJobIdV1(models.NilJobID),
 	}

@@ -399,11 +399,11 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	require.NoError(t, err)
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec = &ocrSpec
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
+	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
 	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
-	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
+	jb2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
-	return client, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
+	return client, ocrJobSpecFromFileDB, jb.ID, ereJobSpecFromFileDB, jb2.ID
 }

@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	gormpostgres "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -100,7 +100,7 @@ func (ks *Eth) Unlock(password string) (merr error) {
 		return errors.Wrap(merr, "EthKeyStore failed to load keys from database")
 	}
 	for _, k := range keys {
-		dKey, err := keystore.DecryptKey(k.JSON.RawMessage, password)
+		dKey, err := keystore.DecryptKey(k.JSON, password)
 		if err != nil {
 			merr = multierr.Combine(merr, errors.Errorf("invalid password for account %s", k.Address.Hex()), err)
 			continue
@@ -159,7 +159,7 @@ func (ks *Eth) createNewKey(isFunding bool) (k ethkey.Key, err error) {
 	key := ethkey.Key{
 		Address:   ethkey.EIP55AddressFromAddress(dKey.Address),
 		IsFunding: isFunding,
-		JSON:      gormpostgres.Jsonb{RawMessage: exportedJSON},
+		JSON:      datatypes.JSON(exportedJSON),
 	}
 	if err = ks.insertKeyIfNotExists(&key); err != nil {
 		return k, err
@@ -259,7 +259,7 @@ func (ks *Eth) ImportKey(keyJSON []byte, oldPassword string) (key ethkey.Key, er
 	key = ethkey.Key{
 		Address:   ethkey.EIP55AddressFromAddress(dKey.Address),
 		IsFunding: false,
-		JSON:      gormpostgres.Jsonb{RawMessage: exportedJSON},
+		JSON:      datatypes.JSON(exportedJSON),
 	}
 	if err := ks.insertKeyIfNotExists(&key); err != nil {
 		return key, err
@@ -297,7 +297,7 @@ func (ks *Eth) AddKey(key *ethkey.Key) error {
 	if ks.isLocked() {
 		return ErrKeyStoreLocked
 	}
-	dKey, err := keystore.DecryptKey(key.JSON.RawMessage, ks.password)
+	dKey, err := keystore.DecryptKey(key.JSON, ks.password)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt key JSON with keystore password")
 	}
@@ -505,7 +505,7 @@ func (ks *Eth) ImportKeyFileToDB(keyPath string) (k ethkey.Key, err error) {
 // loadDBKeys returns a map of all of the keys saved in the database
 // including the funding key.
 func (ks *Eth) loadDBKeys() (keys []ethkey.Key, err error) {
-	err = postgres.DBWithDefaultContext(ks.db, func(db *gorm.DB) error {
+	err = postgres.GormTransactionWithDefaultContext(ks.db, func(db *gorm.DB) error {
 		return db.Order("created_at ASC, address ASC").Where("deleted_at IS NULL").Find(&keys).Error
 	})
 	return
@@ -521,7 +521,7 @@ func (ks *Eth) insertKeyIfNotExists(k *ethkey.Key) error {
 	if err == nil || err.Error() == "sql: no rows in result set" {
 		return nil
 	}
-	return err
+	return errors.Wrap(err, "insertKeyIfNotExists failed")
 }
 
 // newKey pulled from geth (sadly not exported)

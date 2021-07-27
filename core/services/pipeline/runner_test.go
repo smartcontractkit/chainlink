@@ -56,7 +56,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -233,7 +233,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			orm := new(mocks.ORM)
 			orm.On("DB").Return(store.DB)
 
-			runner := pipeline.NewRunner(orm, store.Config, nil, nil)
+			runner := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
@@ -309,7 +309,7 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
 
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -332,7 +332,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	defer cleanup()
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -361,7 +361,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	defer cleanup()
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -389,7 +389,7 @@ func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(`{"result":10}`))
 	}))
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds1 [type=http url="%s"]
@@ -453,7 +453,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -582,7 +582,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	r := pipeline.NewRunner(orm, store.Config, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]

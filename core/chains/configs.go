@@ -24,6 +24,7 @@ type (
 		EthGasPriceDefault                    big.Int
 		EthHeadTrackerHistoryDepth            uint
 		EthHeadTrackerSamplingInterval        time.Duration
+		BlockEmissionIdleWarningThreshold     time.Duration
 		EthMaxGasPriceWei                     big.Int
 		EthMaxInFlightTransactions            uint32
 		EthMaxQueuedTransactions              uint64
@@ -69,6 +70,7 @@ func setConfigs() {
 		EthGasPriceDefault:                    *assets.GWei(20),
 		EthHeadTrackerHistoryDepth:            100,
 		EthHeadTrackerSamplingInterval:        1 * time.Second,
+		BlockEmissionIdleWarningThreshold:     1 * time.Minute,
 		EthMaxGasPriceWei:                     *assets.GWei(5000),
 		EthMaxInFlightTransactions:            16,
 		EthMaxQueuedTransactions:              250,
@@ -124,6 +126,7 @@ func setConfigs() {
 	bscMainnet.EthGasPriceDefault = *assets.GWei(5)
 	bscMainnet.EthHeadTrackerHistoryDepth = 100
 	bscMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
+	bscMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	bscMainnet.EthMaxGasPriceWei = *assets.GWei(500)
 	bscMainnet.EthMinGasPriceWei = *assets.GWei(1)
 	bscMainnet.EthTxResendAfterThreshold = 1 * time.Minute
@@ -146,6 +149,7 @@ func setConfigs() {
 	polygonMainnet.EthGasPriceDefault = *assets.GWei(1)
 	polygonMainnet.EthHeadTrackerHistoryDepth = 250 // EthFinalityDepth + safety margin
 	polygonMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
+	polygonMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	polygonMainnet.EthMaxGasPriceWei = *assets.GWei(1500)
 	polygonMainnet.EthMaxQueuedTransactions = 2000 // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
 	polygonMainnet.EthMinGasPriceWei = *assets.GWei(1)
@@ -180,6 +184,7 @@ func setConfigs() {
 	optimismMainnet.EthGasBumpThreshold = 0 // Never bump gas on optimism
 	optimismMainnet.EthHeadTrackerHistoryDepth = 10
 	optimismMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
+	optimismMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	optimismMainnet.EthTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.BlockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
 	optimismMainnet.GasEstimatorMode = "Optimism"
@@ -187,8 +192,10 @@ func setConfigs() {
 	optimismMainnet.MinIncomingConfirmations = 1
 	optimismMainnet.MinRequiredOutgoingConfirmations = 0
 	optimismMainnet.OCRContractConfirmations = 1
+	optimismMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismKovan := optimismMainnet
-	optimismKovan.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
+	optimismKovan.LinkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
+	optimismKovan.BlockEmissionIdleWarningThreshold = 30 * time.Minute
 
 	// Fantom
 	fantomMainnet := FallbackConfig
@@ -208,6 +215,8 @@ func setConfigs() {
 	rskMainnet.EthMinGasPriceWei = *big.NewInt(0)
 	rskMainnet.MinimumContractPayment = assets.NewLink(1000000000000000)
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
+	rskTestnet := rskMainnet
+	rskTestnet.LinkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
 	// Avalanche
 	avalancheMainnet := FallbackConfig
@@ -240,6 +249,7 @@ func setConfigs() {
 	PolygonMumbai.config = polygonMumbai
 	XDaiMainnet.config = xDaiMainnet
 	RSKMainnet.config = rskMainnet
+	RSKTestnet.config = rskTestnet
 	AvalancheFuji.config = avalancheFuji
 	AvalancheMainnet.config = avalancheMainnet
 }
