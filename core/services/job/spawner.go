@@ -53,8 +53,8 @@ type (
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
 		ServicesForSpec(spec Job) ([]Service, error)
-		OnJobCreated(spec Job)
-		OnJobDeleted(spec Job)
+		AfterJobCreated(spec Job)
+		BeforeDeleteJob(spec Job)
 	}
 
 	activeJob struct {
@@ -316,7 +316,7 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (J
 		return jb, err
 	}
 
-	delegate.OnJobCreated(jb)
+	delegate.AfterJobCreated(jb)
 
 	logger.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 	return jb, err
@@ -341,6 +341,8 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	// Stop the service if we own the job.
 	js.stopService(jobID)
 
+	aj.delegate.BeforeDeleteJob(aj.spec)
+
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
 	err := js.orm.DeleteJob(ctx, jobID)
@@ -348,8 +350,6 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 		logger.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err
 	}
-
-	aj.delegate.OnJobDeleted(aj.spec)
 
 	logger.Infow("Deleted job", "jobID", jobID)
 
@@ -381,5 +381,5 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []Service, err error) {
 	return
 }
 
-func (*NullDelegate) OnJobCreated(spec Job) {}
-func (*NullDelegate) OnJobDeleted(spec Job) {}
+func (*NullDelegate) AfterJobCreated(spec Job) {}
+func (*NullDelegate) BeforeDeleteJob(spec Job) {}
