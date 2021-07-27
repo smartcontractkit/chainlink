@@ -30,6 +30,7 @@
     "d3": "^6.2.0",
     "d3-dag": "^0.4.7",
     "formik": "^2.2.6",
+    "formik-material-ui": "^3.0.1",
     "graphlib-dot": "^0.6.4",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
@@ -58,7 +59,8 @@
     "stream-browserify": "^3.0.0",
     "title-case": "^3.0.2",
     "url": "^0.11.0",
-    "uuid": "^8.0.0"
+    "uuid": "^8.0.0",
+    "yup": "^0.32.9"
   },
   "devDependencies": {
     "@babel/core": "^7.7.4",

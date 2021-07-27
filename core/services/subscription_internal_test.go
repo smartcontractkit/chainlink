@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -34,6 +36,7 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 	done := make(chan struct{})
 	err := make(chan error)
 	ethClient := new(mocks.Client)
+	callbackCalled := make(chan struct{})
 	s := InitiatorSubscription{
 		done:          done,
 		logSubscriber: ethClient,
@@ -42,12 +45,10 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 			err: err,
 			t:   t,
 		},
+		callback: func(manager RunManager, request models.LogRequest) { callbackCalled <- struct{}{} },
 	}
-	done2 := make(chan struct{})
-	go func() {
-		s.Start()
-		done2 <- struct{}{}
-	}()
+	// Note spawns a goroutine
+	s.Start()
 
 	// Force a reconnect
 	err2 := make(chan error)
@@ -72,10 +73,18 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 		t.Error("log listener did not read logs after reconnecting")
 	}
 
-	// Unsubscribe and we expect the goroutine to close.
+	// The callback should be called for the log passed
+	select {
+	case <-callbackCalled:
+	case <-time.After(1 * time.Second):
+		t.Error("log listener did not read logs after reconnecting")
+	}
+
+	// Unsubscribe and we expect the logs channel to be close
+	// which will end the goroutine.
 	s.Unsubscribe()
 	select {
-	case <-done:
+	case <-s.logs:
 		break
 	case <-time.After(5 * time.Second):
 		t.Error("log listener did not close as expected")

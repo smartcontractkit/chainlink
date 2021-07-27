@@ -95,6 +95,25 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
+			Name:    "blocks",
+			Aliases: []string{},
+			Usage:   "Commands for managing blocks",
+			Subcommands: []cli.Command{
+				{
+					Name:   "replay",
+					Usage:  "Replays block data from the given number",
+					Action: client.ReplayFromBlock,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "block-number",
+							Usage: "Block number to replay from",
+						},
+					},
+				},
+			},
+		},
+
+		{
 			Name:  "bridges",
 			Usage: "Commands for Bridges communicating with External Adapters",
 			Subcommands: []cli.Command{
@@ -580,11 +599,6 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "vrfpassword, vp",
 							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
-						},
-						cli.Int64Flag{
-							Name:  "replay-from-block, r",
-							Usage: "historical block height from which to replay log-initiated jobs",
-							Value: -1,
 						},
 					},
 					Usage:  "Run the chainlink node",

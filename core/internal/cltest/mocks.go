@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -144,7 +145,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -152,7 +153,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -178,7 +179,7 @@ func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *config.Config, string) error {
 	return nil
 }
 
@@ -467,7 +468,7 @@ func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error)
 
 type mockSecretGenerator struct{}
 
-func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
+func (m mockSecretGenerator) Generate(config.Config) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
 

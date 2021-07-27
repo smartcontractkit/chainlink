@@ -726,6 +726,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 
 				decodedLog := flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				tm.logBroadcast.On("DecodedLog").Return(&decodedLog)
+				tm.logBroadcast.On("String").Maybe().Return("")
 				tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 				tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 				fm.HandleLog(tm.logBroadcast)
@@ -845,6 +846,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	// AnswerUpdated comes in, which attempts to reset the timers
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
+	tm.logBroadcast.On("String").Maybe().Return("")
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 	fm.ExportedProcessLogs()
@@ -1111,6 +1113,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		RoundId:   big.NewInt(0),
 		StartedAt: big.NewInt(time.Now().UTC().Unix()),
 	})
+	tm.logBroadcast.On("String").Maybe().Return("")
 	// To mark it consumed, we need to be eligible to submit.
 	fm.HandleLog(tm.logBroadcast)
 
@@ -1164,6 +1167,7 @@ func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
+	tm.logBroadcast.On("String").Maybe().Return("")
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
@@ -1278,7 +1282,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}))
+		}, log.NewLogBroadcast(types.Log{}, nil))
 
 		// Mocks initiated by polling
 		// Now force the node to try to poll and ensure it does not respond this time
@@ -1395,7 +1399,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}))
+		}, log.NewLogBroadcast(types.Log{}, nil))
 	})
 }
 

@@ -1,0 +1,19 @@
+type               = "offchainreporting"
+schemaVersion      = 1
+maxTaskDuration    = "10s"
+contractAddress    = "0x934F3b67915BFbc98d5204122e0BE0ea69F91268"
+p2pBootstrapPeers  = [
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer = false
+monitoringEndpoint = "test:101"
+# Below graph will succeed to run through the pipeline
+observationSource = """
+// data source 1
+ds1          [type=http method=GET url="https://api.coindesk.com/v1/bpi/currentprice.json"];
+jp 			 [type=jsonparse path="bpi,USD,rate_float"];
+ds1->jp;
+"""
+keyBundleID = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+transmitterAddress= "0x2901c8E3BD2D219Ca3c8f4af2f119883b6155219"
+p2pPeerID = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"

@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +18,7 @@ type transmitter interface {
 }
 
 type Delegate struct {
-	config          orm.ConfigReader
+	config          Config
 	db              *gorm.DB
 	txm             transmitter
 	jrm             job.ORM
@@ -39,7 +38,7 @@ func NewDelegate(
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
-	config *orm.Config,
+	config Config,
 ) *Delegate {
 	return &Delegate{
 		config:          config,

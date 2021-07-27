@@ -50,6 +50,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		db := store.DB
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -59,9 +60,9 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		reporter.Start()
 		defer reporter.Close()
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
 		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = ?`, etx.ID).Error)
 
 		var subscribeCalls int32

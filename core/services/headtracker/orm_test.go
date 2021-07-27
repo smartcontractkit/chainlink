@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -84,7 +86,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
 
 	// Returns error if hash has no matches
-	_, err = orm.Chain(context.TODO(), cltest.NewHash(), 12)
+	_, err = orm.Chain(context.TODO(), utils.NewHash(), 12)
 	require.Error(t, err)
 
 	t.Run("depth of 0 returns error", func(t *testing.T) {

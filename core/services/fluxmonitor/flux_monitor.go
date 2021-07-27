@@ -64,6 +64,7 @@ type Service interface {
 type concreteFluxMonitor struct {
 	muLogger       sync.RWMutex
 	store          *store.Store
+	ethClient      eth.Client
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
 	log            *logger.Logger
@@ -89,12 +90,15 @@ func New(
 	ethKeyStore *keystore.Eth,
 	runManager RunManager,
 	logBroadcaster log.Broadcaster,
+	ethClient eth.Client,
 ) Service {
 	return &concreteFluxMonitor{
 		store:          store,
+		ethClient:      ethClient,
 		runManager:     runManager,
 		logBroadcaster: logBroadcaster,
 		checkerFactory: pollingDeviationCheckerFactory{
+			ethClient:      ethClient,
 			store:          store,
 			ethKeyStore:    ethKeyStore,
 			logBroadcaster: logBroadcaster,
@@ -285,6 +289,7 @@ type DeviationCheckerFactory interface {
 
 type pollingDeviationCheckerFactory struct {
 	store          *store.Store
+	ethClient      eth.Client
 	ethKeyStore    *keystore.Eth
 	logBroadcaster log.Broadcaster
 }
@@ -322,7 +327,7 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.store.EthClient)
+	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.ethClient)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +335,7 @@ func (f pollingDeviationCheckerFactory) New(
 	var flagsContract *flags_wrapper.Flags
 	if f.store.Config.FlagsContractAddress() != "" {
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
-		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
+		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.ethClient)
 		errorMsg := fmt.Sprintf("unable to create Flags contract instance, check address: %s", f.store.Config.FlagsContractAddress())
 		logger.ErrorIf(err, errorMsg)
 	}
@@ -757,61 +762,58 @@ func (p *PollingDeviationChecker) processLogs() {
 		if !ok {
 			logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
 		}
+		p.processBroadcast(broadcast)
+	}
+}
 
-		// If the log is a duplicate of one we've seen before, ignore it (this
-		// happens because of the LogBroadcaster's backfilling behavior).
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
-		if err != nil {
-			logger.Errorf("Error determining if log was already consumed: %v", err)
-			continue
-		} else if consumed {
-			logger.Debug("Log was already consumed by Flux Monitor, skipping")
-			continue
+func (p *PollingDeviationChecker) processBroadcast(broadcast log.Broadcast) {
+	// If the log is a duplicate of one we've seen before, ignore it (this
+	// happens because of the LogBroadcaster's backfilling behavior).
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
+
+	if err != nil {
+		logger.Errorf("Error determining if log was already consumed: %v", err)
+		return
+	} else if consumed {
+		logger.Debug("Log was already consumed by Flux Monitor, skipping")
+		return
+	}
+
+	started := time.Now()
+	decodedLog := broadcast.DecodedLog()
+	switch log := decodedLog.(type) {
+	case *flux_aggregator_wrapper.FluxAggregatorNewRound:
+		p.respondToNewRoundLog(*log)
+
+	case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
+		p.respondToAnswerUpdatedLog(*log)
+
+	case *flags_wrapper.FlagsFlagRaised:
+		// check the contract before hibernating, because one flag could be lowered
+		// while the other flag remains raised
+		var isFlagLowered bool
+		isFlagLowered, err = p.isFlagLowered()
+		logger.ErrorIf(err, "Error determining if flag is still raised")
+		if !isFlagLowered {
+			p.hibernate()
 		}
 
-		ctx, cancel = postgres.DefaultQueryCtx()
-		defer cancel()
-		db := p.store.DB.WithContext(ctx)
-		switch log := broadcast.DecodedLog().(type) {
-		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
-			p.respondToNewRoundLog(*log)
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
-			}
-
-		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
-			p.respondToAnswerUpdatedLog(*log)
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			if err != nil {
-				logger.Errorf("Error marking log as consumed: %v", err)
-			}
-
-		case *flags_wrapper.FlagsFlagRaised:
-			// check the contract before hibernating, because one flag could be lowered
-			// while the other flag remains raised
-			var isFlagLowered bool
-			isFlagLowered, err = p.isFlagLowered()
-			logger.ErrorIf(err, "Error determining if flag is still raised")
-			if !isFlagLowered {
-				p.hibernate()
-			}
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			logger.ErrorIf(err, "Error marking log as consumed")
-
-		case *flags_wrapper.FlagsFlagLowered:
-			if p.isHibernating {
-				p.reactivate()
-			}
-
-			err = p.logBroadcaster.MarkConsumed(db, broadcast)
-			logger.ErrorIf(err, "Error marking log as consumed")
-
-		default:
-			logger.Errorf("unknown log %v of type %T", log, log)
+	case *flags_wrapper.FlagsFlagLowered:
+		if p.isHibernating {
+			p.reactivate()
 		}
+
+	default:
+		logger.Errorf("unknown log %v of type %T", log, log)
+		return
+	}
+
+	ctx, cancel = postgres.DefaultQueryCtx()
+	defer cancel()
+	if err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast); err != nil {
+		logger.Errorf("Error marking log %T (%v) as consumed: %v, after processing time: %v", decodedLog, broadcast.String(), err, time.Since(started))
 	}
 }
 

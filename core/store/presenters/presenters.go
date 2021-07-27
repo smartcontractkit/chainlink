@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 )
@@ -39,6 +39,7 @@ type EnvPrinter struct {
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
 	BalanceMonitorEnabled                      bool            `json:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
+	BlockBackfillSkip                          bool            `json:"BLOCK_BACKFILL_SKIP"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
@@ -82,7 +83,7 @@ type EnvPrinter struct {
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
-	LogLevel                                   orm.LogLevel    `json:"LOG_LEVEL"`
+	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
@@ -142,6 +143,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			AllowOrigins:                               config.AllowOrigins(),
 			BalanceMonitorEnabled:                      config.BalanceMonitorEnabled(),
 			BlockBackfillDepth:                         config.BlockBackfillDepth(),
+			BlockBackfillSkip:                          config.BlockBackfillSkip(),
 			BlockHistoryEstimatorBlockDelay:            config.BlockHistoryEstimatorBlockDelay(),
 			BlockHistoryEstimatorBlockHistorySize:      config.BlockHistoryEstimatorBlockHistorySize(),
 			BlockHistoryEstimatorTransactionPercentile: config.BlockHistoryEstimatorTransactionPercentile(),
@@ -233,7 +235,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(orm.ConfigSchema{})
+	schemaT := reflect.TypeOf(config.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 

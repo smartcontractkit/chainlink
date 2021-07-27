@@ -33,7 +33,7 @@ func NewHeadBroadcaster() httypes.HeadBroadcaster {
 	return &headBroadcaster{
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
-		mutex:         &sync.RWMutex{},
+		mutex:         &sync.Mutex{},
 		chClose:       make(chan struct{}),
 		wgDone:        sync.WaitGroup{},
 		StartStopOnce: utils.StartStopOnce{},
@@ -45,10 +45,11 @@ func NewHeadBroadcaster() httypes.HeadBroadcaster {
 type headBroadcaster struct {
 	callbacks callbackSet
 	mailbox   *utils.Mailbox
-	mutex     *sync.RWMutex
+	mutex     *sync.Mutex
 	chClose   chan struct{}
 	wgDone    sync.WaitGroup
 	utils.StartStopOnce
+	latest *models.Head
 }
 
 var _ httypes.HeadTrackable = (*headBroadcaster)(nil)
@@ -74,10 +75,12 @@ func (hr *headBroadcaster) Close() error {
 	})
 }
 
+// TODO: Connect will be removed along with legacy job pipeline
+// See: https://app.clubhouse.io/chainlinklabs/story/13234/remove-jpv1-legacy-pipeline
 func (hr *headBroadcaster) Connect(head *models.Head) error {
-	hr.mutex.RLock()
+	hr.mutex.Lock()
 	callbacks := hr.callbacks.clone()
-	hr.mutex.RUnlock()
+	hr.mutex.Unlock()
 
 	for i, callback := range callbacks {
 		err := callback.Connect(head)
@@ -95,9 +98,10 @@ func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head models.He
 
 // Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
+func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
+	currentLongestChain = hr.latest
 	id, err := newID()
 	if err != nil {
 		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
@@ -128,10 +132,6 @@ func (hr *headBroadcaster) run() {
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
 func (hr *headBroadcaster) executeCallbacks() {
-	hr.mutex.RLock()
-	callbacks := hr.callbacks.clone()
-	hr.mutex.RUnlock()
-
 	item, exists := hr.mailbox.Retrieve()
 	if !exists {
 		logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
@@ -142,6 +142,10 @@ func (hr *headBroadcaster) executeCallbacks() {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
+	hr.mutex.Lock()
+	callbacks := hr.callbacks.clone()
+	hr.latest = &head
+	hr.mutex.Unlock()
 
 	logger.Debugw("HeadBroadcaster initiating callbacks",
 		"headNum", head.Number,
@@ -182,8 +186,8 @@ func (*NullBroadcaster) Start() error                                           
 func (*NullBroadcaster) Close() error                                            { return nil }
 func (*NullBroadcaster) Connect(head *models.Head) error                         { return nil }
 func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {}
-func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (unsubscribe func()) {
-	return func() {}
+func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
+	return nil, func() {}
 }
 func (n *NullBroadcaster) Healthy() error { return nil }
 func (n *NullBroadcaster) Ready() error   { return nil }

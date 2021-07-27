@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_request_id_v08"
 
@@ -24,8 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -91,7 +93,7 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.Key) coor
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
 func newVRFCoordinatorUniverse(t *testing.T, key ethkey.Key) coordinatorUniverse {
-	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON, cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 	var (
@@ -314,14 +316,14 @@ func TestRandomnessRequestLog(t *testing.T) {
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	log models.RandomnessRequestLog) vrfkey.Proof {
-	preSeed, err := vrf.BigToSeed(log.Seed)
+	preSeed, err := proof2.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
-	s := vrf.PreSeedData{
+	s := proof2.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}
-	seed := vrf.FinalSeed(s)
+	seed := proof2.FinalSeed(s)
 	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
 	require.NoError(t, err)
 	proofBlob, err := vrf.GenerateProofResponseFromProof(proof, s)
@@ -332,7 +334,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = orm.NewConfig().EthGasLimitDefault()
+	neil.GasLimit = config.NewConfig().EthGasLimitDefault()
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()

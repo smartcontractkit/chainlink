@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -57,11 +57,10 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	}
 
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
-	store.EthClient = mockEth.ethClient
 
 	dborm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config, nil)
-	store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint64(10))
+	lb := log.NewBroadcaster(dborm, mockEth.ethClient, store.Config, nil)
+	store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
 		lb:            lb,
@@ -76,10 +75,8 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
 	store, cleanup := cltest.NewStore(t)
 
-	store.EthClient = ethClient
-
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config, highestSeenHead)
+	lb := log.NewBroadcaster(orm, ethClient, store.Config, highestSeenHead)
 
 	return &broadcasterHelper{
 		t:             t,
@@ -220,8 +217,8 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 		ExternalJobID: uuid.NewV4(),
 	}
 
-	pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestConfig(t), store.DB, nil, nil)
-	err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
+	pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestConfig(t), store.DB, nil, nil, nil)
+	_, err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
 	require.NoError(t, err)
 
 	var rec received
@@ -235,9 +232,10 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 }
 
 func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
-	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 	listener.received.Lock()
 	defer listener.received.Unlock()
+	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
 	consumed := listener.handleLogBroadcast(listener.t, lb)
@@ -249,8 +247,6 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-func (listener simpleLogListener) OnConnect()    {}
-func (listener simpleLogListener) OnDisconnect() {}
 func (listener simpleLogListener) JobID() models.JobID {
 	return listener.jobID.JobIDV1
 }
@@ -322,8 +318,6 @@ type mockListener struct {
 func (l *mockListener) JobID() models.JobID                                     { return l.jobID }
 func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
 func (l *mockListener) IsV2Job() bool                                           { return l.jobID.IsZero() }
-func (l *mockListener) OnConnect()                                              {}
-func (l *mockListener) OnDisconnect()                                           {}
 func (l *mockListener) HandleLog(log.Broadcast)                                 {}
 func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
 func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }
@@ -384,17 +378,19 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Return(&models.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
-	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			filterQuery := args.Get(1).(ethereum.FilterQuery)
-			fromBlock := filterQuery.FromBlock.Int64()
-			toBlock := filterQuery.ToBlock.Int64()
-			if mockEth.checkFilterLogs != nil {
-				mockEth.checkFilterLogs(fromBlock, toBlock)
-			}
-		}).
-		Return(expectedCalls.FilterLogsResult, nil).
-		Times(expectedCalls.FilterLogs)
+	if expectedCalls.FilterLogs > 0 {
+		mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				filterQuery := args.Get(1).(ethereum.FilterQuery)
+				fromBlock := filterQuery.FromBlock.Int64()
+				toBlock := filterQuery.ToBlock.Int64()
+				if mockEth.checkFilterLogs != nil {
+					mockEth.checkFilterLogs(fromBlock, toBlock)
+				}
+			}).
+			Return(expectedCalls.FilterLogsResult, nil).
+			Times(expectedCalls.FilterLogs)
+	}
 
 	mockEth.sub.On("Err").
 		Return(nil)

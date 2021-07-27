@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -11,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -50,12 +51,12 @@ func TestRandom_Perform(t *testing.T) {
 	out, err := models.VRFFulfillMethod().Inputs.Unpack(proofArg)
 	wireProof = abi.ConvertType(out[0], []byte{}).([]byte)
 	require.NoError(t, err, "failed to unpack VRF proof from random adapter")
-	var onChainResponse vrf.MarshaledOnChainResponse
+	var onChainResponse proof.MarshaledOnChainResponse
 	require.Equal(t, copy(onChainResponse[:], wireProof),
-		vrf.OnChainResponseLength, "wrong response length")
-	response, err := vrf.UnmarshalProofResponse(onChainResponse)
+		proof.OnChainResponseLength, "wrong response length")
+	response, err := proof.UnmarshalProofResponse(onChainResponse)
 	require.NoError(t, err, "random adapter produced bad proof response")
-	actualProof, err := response.CryptoProof(vrf.TestXXXSeedData(t, seed, hash, blockNum))
+	actualProof, err := response.CryptoProof(proof.TestXXXSeedData(t, seed, hash, blockNum))
 	require.NoError(t, err, "could not extract proof from random adapter response")
 	expected := common.HexToHash(
 		"0x71a7c50918feaa753485ae039cb84ddd70c5c85f66b236138dea453a23d0f27e")
@@ -76,7 +77,6 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, store.DB)
 
 	ethMock := new(mocks.Client)
-	store.EthClient = ethMock
 
 	publicKey := cltest.StoredVRFKey(t, keyStore.VRF())
 	address := cltest.NewEIP55Address()
@@ -110,7 +110,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	} {
 		test := test
 		t.Run(test.name, func(tt *testing.T) {
-			adapter := adapters.Random{PublicKey: publicKey.String()}
+			adapter := adapters.Random{PublicKey: publicKey.String(), Backend: ethMock}
 			response := solidity_vrf_coordinator_interface.Callbacks{
 				CallbackContract: cltest.NewAddress(),
 				RandomnessFee:    big.NewInt(100),

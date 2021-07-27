@@ -9,14 +9,25 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 )
 
+type ValidationConfig interface {
+	Dev() bool
+	OCRBlockchainTimeout(override time.Duration) time.Duration
+	OCRContractConfirmations(override uint16) uint16
+	OCRContractPollInterval(override time.Duration) time.Duration
+	OCRContractSubscribeInterval(override time.Duration) time.Duration
+	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRDatabaseTimeout() time.Duration
+	OCRObservationTimeout(override time.Duration) time.Duration
+	OCRObservationGracePeriod() time.Duration
+}
+
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(config ValidationConfig, tomlString string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
@@ -94,7 +105,7 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOracleSpec) error {
+func validateTimingParameters(config ValidationConfig, spec job.OffchainReportingOracleSpec) error {
 	lc := types.LocalConfig{
 		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
 		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
@@ -120,7 +131,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	return validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}

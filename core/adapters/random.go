@@ -3,15 +3,17 @@ package adapters
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -63,6 +65,7 @@ type Random struct {
 	// (See adapters.For function.)
 	PublicKey          string              `json:"publicKey"`
 	CoordinatorAddress ethkey.EIP55Address `json:"coordinatorAddress"`
+	Backend            bind.ContractBackend
 }
 
 // TaskType returns the type of Adapter.
@@ -72,7 +75,7 @@ func (ra *Random) TaskType() models.TaskType {
 
 // Perform returns the the proof for the VRF output given seed, or an error.
 func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *keystore.Master) models.RunOutput {
-	shouldFulfill, err := checkFulfillment(ra, input, store)
+	shouldFulfill, err := checkFulfillment(ra, input, ra.Backend)
 	if err != nil {
 		return models.NewRunOutputError(errors.Wrapf(err, "unable to determine if fulfillment needed"))
 	}
@@ -84,7 +87,7 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *k
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	solidityProof, err := vrf.GenerateProofResponse(keyStore.VRF(), key, i)
+	solidityProof, err := proof.GenerateProofResponse(keyStore.VRF(), key, i)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -104,22 +107,22 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store, keyStore *k
 // getInputs parses the JSON input for the values needed by the random adapter,
 // or returns an error.
 func getInputs(ra *Random, input models.RunInput, store *store.Store) (
-	secp256k1.PublicKey, vrf.PreSeedData, error) {
+	secp256k1.PublicKey, proof.PreSeedData, error) {
 	key, err := getKey(ra, input)
 	if err != nil {
-		return secp256k1.PublicKey{}, vrf.PreSeedData{}, errors.Wrapf(err,
+		return secp256k1.PublicKey{}, proof.PreSeedData{}, errors.Wrapf(err,
 			"bad key for vrf task")
 	}
 	preSeed, err := getPreSeed(input)
 	if err != nil {
-		return secp256k1.PublicKey{}, vrf.PreSeedData{}, errors.Wrap(err,
+		return secp256k1.PublicKey{}, proof.PreSeedData{}, errors.Wrap(err,
 			"bad seed for vrf task")
 	}
 	block, err := getBlockData(input)
 	if err != nil {
-		return secp256k1.PublicKey{}, vrf.PreSeedData{}, err
+		return secp256k1.PublicKey{}, proof.PreSeedData{}, err
 	}
-	s := vrf.PreSeedData{PreSeed: preSeed, BlockHash: block.hash, BlockNum: block.num}
+	s := proof.PreSeedData{PreSeed: preSeed, BlockHash: block.hash, BlockNum: block.num}
 	return key, s, nil
 }
 
@@ -162,17 +165,17 @@ func getBlockData(input models.RunInput) (block, error) {
 }
 
 // getPreSeed returns the numeric seed for the vrf task, or an error
-func getPreSeed(input models.RunInput) (vrf.Seed, error) {
+func getPreSeed(input models.RunInput) (proof.Seed, error) {
 	rawSeed, err := extractHex(input, "seed")
 	if err != nil {
-		return vrf.Seed{}, err
+		return proof.Seed{}, err
 	}
-	rv, err := vrf.BytesToSeed(rawSeed)
+	rv, err := proof.BytesToSeed(rawSeed)
 	if err != nil {
-		return vrf.Seed{}, err
+		return proof.Seed{}, err
 	}
 	if rv == nil {
-		return vrf.Seed{}, errors.Errorf("nil pre-seed from %+v", rawSeed)
+		return proof.Seed{}, errors.Errorf("nil pre-seed from %+v", rawSeed)
 	}
 	return *rv, nil
 }
@@ -232,14 +235,14 @@ func extractHex(input models.RunInput, key string) ([]byte, error) {
 }
 
 // checkFulfillment checks to see if the randomness request has already been fulfilled or not
-func checkFulfillment(ra *Random, input models.RunInput, store *store.Store) (bool, error) {
+func checkFulfillment(ra *Random, input models.RunInput, backend bind.ContractBackend) (bool, error) {
 	if len(ra.CoordinatorAddress) == 0 {
 		return true, nil // only perform this check if the optional address field is present
 	}
 
 	contract, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
 		ra.CoordinatorAddress.Address(),
-		store.EthClient,
+		backend,
 	)
 	if err != nil {
 		return false, errors.Wrapf(
