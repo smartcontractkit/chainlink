@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -199,38 +200,31 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 	ctx, cancel := utils.ContextFromChan(sub.chStop)
 	defer cancel()
 
-	utils.RetryWithBackoff(ctx, func() (retry bool) {
+	syncTicker := time.NewTicker(time.Second)
+	defer syncTicker.Stop()
 
-		filterQuery := ethereum.FilterQuery{
-			Addresses: addresses,
-			Topics:    [][]common.Hash{topics},
+	chann := make(chan types.Log, 10000)
+	subb := noopSubscription{chann}
+
+	var latest *models.Head
+	for {
+		select {
+		case <-sub.chStop:
+			return
+		case <-syncTicker.C:
+
+			var fromBlockOverride null.Int64
+			if latest != nil {
+				fromBlockOverride = null.Int64From(latest.Number)
+			}
+			backfilled, abort, latestHead := sub.backfillLogs(fromBlockOverride, addresses, topics)
+			latest = latestHead
+
+			for log : range backfilled {
+				chann <- log
+			}
 		}
-		chRawLogs := make(chan types.Log)
-
-		ctx2, cancel := context.WithTimeout(ctx, 15*time.Second)
-		defer cancel()
-
-		logger.Debugw("Calling SubscribeFilterLogs with params", "addresses", addresses, "topics", topics)
-
-		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
-		if err != nil {
-			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "err", err)
-			return true
-		}
-
-		subscr = managedSubscriptionImpl{
-			subscription: innerSub,
-			chRawLogs:    chRawLogs,
-		}
-		return false
-	})
-	select {
-	case <-sub.chStop:
-		abort = true
-	default:
-		abort = false
 	}
-	return
 }
 
 // A managedSubscription acts as wrapper for the Subscription. Specifically, the
