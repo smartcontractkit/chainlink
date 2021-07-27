@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"go.uber.org/multierr"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -24,9 +26,9 @@ type (
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec) error
-		NotifyV2(jobID uuid.UUID, initrName string, initrSpec *models.JSON) error
+		NotifyV2(webhookSpecID int32) error
 		DeleteJob(jobID models.JobID) error
-		DeleteJobV2(job job.Job) error
+		DeleteJobV2(webhookSpecID int32) error
 		FindExternalInitiatorByName(name string) (models.ExternalInitiator, error)
 	}
 
@@ -86,42 +88,53 @@ func (m externalInitiatorManager) Notify(js models.JobSpec) error {
 
 // NotifyV2 sends a POST notification to the External Initiator
 // responsible for initiating the Job Spec.
-func (m externalInitiatorManager) NotifyV2(
-	jobID uuid.UUID,
-	initrName string,
-	initrSpec *models.JSON,
-) error {
-	ei, err := m.FindExternalInitiatorByName(initrName)
+func (m externalInitiatorManager) NotifyV2(webhookSpecID int32) error {
+	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
 	if err != nil {
-		return errors.Wrap(err, "external initiator")
-	} else if ei.URL == nil {
-		return nil
-	} else if initrSpec == nil {
-		return errors.New("body must be defined")
+		return err
 	}
-
-	notice := JobSpecNoticeV2{
-		JobID:  jobID,
-		Type:   initrName,
-		Params: *initrSpec,
-	}
-	buf, err := json.Marshal(notice)
-	if err != nil {
-		return errors.Wrap(err, "new Job Spec notification")
-	}
-	req, err := newNotifyHTTPRequest(buf, ei)
-	if err != nil {
-		return errors.Wrap(err, "creating notify HTTP request")
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return errors.Wrap(err, "could not notify '%s' (%s)")
-	}
-	defer logger.ErrorIfCalling(resp.Body.Close)
-	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+	for _, eiWebhookSpec := range eiWebhookSpecs {
+		ei := eiWebhookSpec.ExternalInitiator
+		if ei.URL == nil {
+			continue
+		}
+		notice := JobSpecNoticeV2{
+			JobID:  jobID,
+			Type:   ei.Name,
+			Params: eiWebhookSpec.Spec,
+		}
+		buf, err := json.Marshal(notice)
+		if err != nil {
+			return errors.Wrap(err, "new Job Spec notification")
+		}
+		req, err := newNotifyHTTPRequest(buf, ei)
+		if err != nil {
+			return errors.Wrap(err, "creating notify HTTP request")
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrap(err, "could not notify '%s' (%s)")
+		}
+		defer logger.ErrorIfCalling(resp.Body.Close)
+		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+		}
 	}
 	return nil
+}
+
+func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
+	var debu []job.Job
+	m.db.Find(&debu)
+	fmt.Println("BALLS 1", debu)
+	debug.PrintStack()
+
+	row := m.db.Raw("SELECT external_job_id FROM jobs WHERE webhook_spec_id = ?", webhookSpecID).Row()
+	err = multierr.Combine(
+		errors.Wrapf(row.Scan(&jobID), "failed to load job ID from job for webhook spec with ID %d", webhookSpecID),
+		errors.Wrapf(m.db.Where("webhook_spec_id = ?", webhookSpecID).Preload("ExternalInitiator").Find(&eiWebhookSpecs).Error, "failed to load external_initiator_webhook_specs for webhook_spec_id %d", webhookSpecID),
+	)
+	return
 }
 
 func (m externalInitiatorManager) DeleteJob(jobID models.JobID) error {
@@ -150,24 +163,29 @@ func (m externalInitiatorManager) DeleteJob(jobID models.JobID) error {
 	return nil
 }
 
-func (m externalInitiatorManager) DeleteJobV2(jb job.Job) error {
-	if jb.ExternalInitiator == nil {
-		return errors.Errorf("no external initiator found for job %d", jb.ID)
-	} else if jb.ExternalInitiator.URL == nil {
-		return nil
+func (m externalInitiatorManager) DeleteJobV2(webhookSpecID int32) error {
+	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
+	if err != nil {
+		return err
 	}
+	for _, eiWebhookSpec := range eiWebhookSpecs {
+		ei := eiWebhookSpec.ExternalInitiator
+		if ei.URL == nil {
+			continue
+		}
 
-	req, err := newDeleteJobFromExternalInitiatorHTTPRequest(*jb.ExternalInitiator, jb.ExternalJobID)
-	if err != nil {
-		return errors.Wrap(err, "creating delete HTTP request")
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return errors.Wrapf(err, "could not delete job from remote external initiator at %s", req.URL)
-	}
-	defer logger.ErrorIfCalling(resp.Body.Close)
-	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", jb.ExternalInitiator.Name, jb.ExternalInitiator.URL, resp.Status)
+		req, err := newDeleteJobFromExternalInitiatorHTTPRequest(ei, jobID)
+		if err != nil {
+			return errors.Wrap(err, "creating delete HTTP request")
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrapf(err, "could not delete job from remote external initiator at %s", req.URL)
+		}
+		defer logger.ErrorIfCalling(resp.Body.Close)
+		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+		}
 	}
 	return nil
 }
@@ -246,22 +264,10 @@ type NullExternalInitiatorManager struct{}
 
 var _ ExternalInitiatorManager = (*NullExternalInitiatorManager)(nil)
 
-func (NullExternalInitiatorManager) Notify(models.JobSpec) error {
-	return nil
-}
-
-func (NullExternalInitiatorManager) NotifyV2(jobUUID uuid.UUID, initrName string, initrSpec *models.JSON) error {
-	return nil
-}
-
-func (NullExternalInitiatorManager) DeleteJob(jobID models.JobID) error {
-	return nil
-}
-
-func (NullExternalInitiatorManager) DeleteJobV2(jb job.Job) error {
-	return nil
-}
-
+func (NullExternalInitiatorManager) Notify(models.JobSpec) error        { return nil }
+func (NullExternalInitiatorManager) NotifyV2(int32) error               { return nil }
+func (NullExternalInitiatorManager) DeleteJob(jobID models.JobID) error { return nil }
+func (NullExternalInitiatorManager) DeleteJobV2(int32) error            { return nil }
 func (NullExternalInitiatorManager) FindExternalInitiatorByName(name string) (models.ExternalInitiator, error) {
 	return models.ExternalInitiator{}, nil
 }

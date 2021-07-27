@@ -3,25 +3,31 @@ package webhook
 import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var ErrMissingJobID = errors.New("missing job ID")
 
-func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (job.Job, error) {
-	var jb = job.Job{}
-	tree, err := toml.Load(tomlString)
+type TOMLWebhookSpecExternalInitiator struct {
+	Name string      `toml:"name"`
+	Spec models.JSON `toml:"spec"`
+}
+
+type TOMLWebhookSpec struct {
+	ExternalInitiators []TOMLWebhookSpecExternalInitiator `toml:"externalInitiators"`
+}
+
+func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (jb job.Job, err error) {
+	var tree *toml.Tree
+	tree, err = toml.Load(tomlString)
 	if err != nil {
-		return jb, err
+		return
 	}
 	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return jb, err
-	}
-	if jb.ExternalJobID == (uuid.UUID{}) {
-		return jb, ErrMissingJobID
+		return
 	}
 	if jb.Type != job.Webhook {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
@@ -30,16 +36,28 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 
-	var spec job.WebhookSpec
-	err = tree.Unmarshal(&spec)
+	var tomlSpec TOMLWebhookSpec
+	err = tree.Unmarshal(&tomlSpec)
 	if err != nil {
 		return jb, err
 	}
-	jb.WebhookSpec = &spec
-	if !spec.ExternalInitiatorName.IsZero() {
-		if _, err := externalInitiatorManager.FindExternalInitiatorByName(spec.ExternalInitiatorName.String); err != nil {
-			return jb, err
+	var externalInitiatorWebhookSpecs []job.ExternalInitiatorWebhookSpec
+	for _, eiSpec := range tomlSpec.ExternalInitiators {
+		ei, err := externalInitiatorManager.FindExternalInitiatorByName(eiSpec.Name)
+		if err != nil {
+			return jb, errors.Wrapf(err, "unable to find external initiator named %s", eiSpec.Name)
 		}
+		eiWS := job.ExternalInitiatorWebhookSpec{
+			ExternalInitiatorID: ei.ID,
+			WebhookSpecID:       0, // It will be populated later, on save
+			Spec:                eiSpec.Spec,
+		}
+		externalInitiatorWebhookSpecs = append(externalInitiatorWebhookSpecs, eiWS)
 	}
+
+	jb.WebhookSpec = &job.WebhookSpec{
+		ExternalInitiatorWebhookSpecs: externalInitiatorWebhookSpecs,
+	}
+
 	return jb, nil
 }

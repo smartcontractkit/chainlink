@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 
 	"github.com/pelletier/go-toml"
@@ -201,6 +203,18 @@ func TestORM(t *testing.T) {
 		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 	})
+
+	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
+		tree, err := toml.LoadFile("../../testdata/tomlspecs/webhook-job-spec-external-initiators.toml")
+		require.NoError(t, err)
+		eim := webhook.NewExternalInitiatorManager(db)
+		jb, err := webhook.ValidatedWebhookSpec(tree.String(), eim)
+		require.NoError(t, err)
+		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		require.NoError(t, err)
+
+		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 2)
+	})
 }
 
 func TestORM_CheckForDeletedJobs(t *testing.T) {
@@ -361,5 +375,32 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, job.VRFSpec{}, 0)
 		cltest.AssertCount(t, db, job.Job{}, 0)
+	})
+
+	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
+		ei := cltest.MustInsertExternalInitiator(t, db)
+		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
+		err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		require.NoError(t, err)
+
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		err = orm.DeleteJob(ctx, jb.ID)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, job.WebhookSpec{}, 0)
+		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
+	})
+
+	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
+		// create new db because this will rollback transaction and poison it
+		db2 := pgtest.NewGormDB(t)
+		ei := cltest.MustInsertExternalInitiator(t, db2)
+		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db2)
+		err := db2.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		require.NoError(t, err)
+
+		err = db2.Exec(`DELETE FROM external_initiators`).Error
+		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
 }

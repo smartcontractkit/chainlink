@@ -45,31 +45,23 @@ func (d *Delegate) JobType() job.Type {
 	return job.Webhook
 }
 
-func (d *Delegate) OnJobCreated(spec job.Job) {
-	if !spec.WebhookSpec.ExternalInitiatorName.IsZero() {
-		err := d.externalInitiatorManager.NotifyV2(
-			spec.ExternalJobID,
-			spec.WebhookSpec.ExternalInitiatorName.String,
-			spec.WebhookSpec.ExternalInitiatorSpec,
+func (d *Delegate) AfterJobCreated(jb job.Job) {
+	err := d.externalInitiatorManager.NotifyV2(*jb.WebhookSpecID)
+	if err != nil {
+		logger.Errorw("Webhook delegate AfterJobCreated errored",
+			"error", err,
+			"jobID", jb.ID,
 		)
-		if err != nil {
-			logger.Errorw("Webhook delegate OnJobCreated errored",
-				"error", err,
-				"jobID", spec.ID,
-			)
-		}
 	}
 }
 
-func (d *Delegate) OnJobDeleted(spec job.Job) {
-	if !spec.WebhookSpec.ExternalInitiatorName.IsZero() {
-		err := d.externalInitiatorManager.DeleteJobV2(spec)
-		if err != nil {
-			logger.Errorw("Webhook delegate OnJobDeleted errored",
-				"error", err,
-				"jobID", spec.ID,
-			)
-		}
+func (d *Delegate) BeforeDeleteJob(jb job.Job) {
+	err := d.externalInitiatorManager.DeleteJobV2(*jb.WebhookSpecID)
+	if err != nil {
+		logger.Errorw("Webhook delegate BeforeDeleteJob errored",
+			"error", err,
+			"jobID", jb.ID,
+		)
 	}
 }
 

@@ -305,6 +305,8 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			app := startNewApplication(t)
 			client, _ := app.NewClientAndRenderer()
 
+			initialExis := len(cltest.AllExternalInitiators(t, app.Store))
+
 			set := flag.NewFlagSet("create", 0)
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
@@ -313,7 +315,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			assert.Error(t, err)
 
 			exis := cltest.AllExternalInitiators(t, app.Store)
-			assert.Len(t, exis, 0)
+			assert.Len(t, exis, initialExis)
 		})
 	}
 }

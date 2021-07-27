@@ -64,8 +64,8 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (Delegate) OnJobCreated(spec job.Job) {}
-func (Delegate) OnJobDeleted(spec job.Job) {}
+func (Delegate) AfterJobCreated(spec job.Job) {}
+func (Delegate) BeforeDeleteJob(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err error) {

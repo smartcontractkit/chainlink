@@ -85,8 +85,8 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) OnJobCreated(spec job.Job) {}
-func (d *Delegate) OnJobDeleted(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job) {}
+func (d *Delegate) BeforeDeleteJob(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if jb.VRFSpec == nil {
