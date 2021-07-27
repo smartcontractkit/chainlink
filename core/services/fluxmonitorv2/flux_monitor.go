@@ -371,7 +371,7 @@ func (fm *FluxMonitor) consume() {
 			flux_aggregator_wrapper.FluxAggregatorNewRound{}.Topic():      nil,
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}.Topic(): nil,
 		},
-		NumConfirmations: 1,
+		NumConfirmations: 0,
 	})
 	defer unsubscribe()
 
@@ -383,7 +383,7 @@ func (fm *FluxMonitor) consume() {
 				flags_wrapper.FlagsFlagLowered{}.Topic(): nil,
 				flags_wrapper.FlagsFlagRaised{}.Topic():  nil,
 			},
-			NumConfirmations: 1,
+			NumConfirmations: 0,
 		})
 		defer unsubscribe()
 	}
