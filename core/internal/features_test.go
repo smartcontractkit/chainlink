@@ -1073,10 +1073,14 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 type            = "webhook"
 schemaVersion   = 1
 externalJobID           = "%v"
-externalInitiatorName = "%v"
-externalInitiatorSpec = """
-    %v
+externalInitiators = [
+	{
+		name = "%s",
+		spec = """
+	%s
 """
+	}
+]
 observationSource   = """
     parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]

@@ -12,6 +12,16 @@ type Delegate struct {
 	mock.Mock
 }
 
+// AfterJobCreated provides a mock function with given fields: spec
+func (_m *Delegate) AfterJobCreated(spec job.Job) {
+	_m.Called(spec)
+}
+
+// BeforeDeleteJob provides a mock function with given fields: spec
+func (_m *Delegate) BeforeDeleteJob(spec job.Job) {
+	_m.Called(spec)
+}
+
 // JobType provides a mock function with given fields:
 func (_m *Delegate) JobType() job.Type {
 	ret := _m.Called()
@@ -24,16 +34,6 @@ func (_m *Delegate) JobType() job.Type {
 	}
 
 	return r0
-}
-
-// OnJobCreated provides a mock function with given fields: spec
-func (_m *Delegate) OnJobCreated(spec job.Job) {
-	_m.Called(spec)
-}
-
-// OnJobDeleted provides a mock function with given fields: spec
-func (_m *Delegate) OnJobDeleted(spec job.Job) {
-	_m.Called(spec)
 }
 
 // ServicesForSpec provides a mock function with given fields: spec

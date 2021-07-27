@@ -26,6 +26,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -966,4 +967,13 @@ func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHa
 		Data:        []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 		Removed:     removed,
 	}
+}
+
+func MustInsertExternalInitiator(t *testing.T, db *gorm.DB) (ei models.ExternalInitiator) {
+	ei.Name = fmt.Sprintf("ei-%s", uuid.NewV4())
+	token := auth.NewToken()
+	ei.AccessKey = token.AccessKey
+	err := db.Create(&ei).Error
+	require.NoError(t, err)
+	return ei
 }

@@ -12,6 +12,7 @@ import (
 
 	"gorm.io/gorm/clause"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -91,24 +92,6 @@ func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
 		Preload("VRFSpec")
 }
 
-func PopulateExternalInitiator(db *gorm.DB, jb Job) (Job, error) {
-	if jb.WebhookSpecID != nil {
-		// TODO: Once jpv1 is gone make an FK from external_initiators to jobs.
-		// Populate any external initiators
-		var exi models.ExternalInitiator
-		err := db.Raw(`SELECT * from external_initiators
-				JOIN webhook_specs
-				ON webhook_specs.external_initiator_name = external_initiators.name
-				WHERE webhook_specs.id = ?
-				`, jb.WebhookSpecID).Scan(&exi).Error
-		if err != nil {
-			return jb, err
-		}
-		jb.ExternalInitiator = &exi
-	}
-	return jb, nil
-}
-
 func (o *orm) Close() error {
 	return nil
 }
@@ -161,10 +144,6 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 		}
 
 		for i := range newlyClaimedJobs {
-			newlyClaimedJobs[i], err = PopulateExternalInitiator(tx, newlyClaimedJobs[i])
-			if err != nil {
-				return err
-			}
 			o.claimedJobs[newlyClaimedJobs[i].ID] = newlyClaimedJobs[i]
 		}
 		return nil
@@ -200,6 +179,11 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 				return jb, err
 			}
 		}
+	}
+
+	if jobSpec.ExternalJobID == (uuid.UUID{}) {
+		// automatically populate job external ID here if it was zero
+		jobSpec.ExternalJobID = uuid.NewV4()
 	}
 
 	tx := postgres.TxFromContext(ctx, o.db)
@@ -267,6 +251,13 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 			return jb, errors.Wrap(err, "failed to create WebhookSpec for jobSpec")
 		}
 		jobSpec.WebhookSpecID = &jobSpec.WebhookSpec.ID
+		for i, eiWS := range jobSpec.WebhookSpec.ExternalInitiatorWebhookSpecs {
+			jobSpec.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = jobSpec.WebhookSpec.ID
+			err := tx.Create(&jobSpec.WebhookSpec.ExternalInitiatorWebhookSpecs[i]).Error
+			if err != nil {
+				return jb, errors.Wrapf(err, "failed to create ExternalInitiatorWebhookSpec for WebhookSpec: %#v", eiWS)
+			}
+		}
 	default:
 		logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 	}
@@ -409,10 +400,6 @@ func (o *orm) JobsV2() ([]Job, error) {
 			return err
 		}
 		for i := range jobs {
-			jobs[i], err = PopulateExternalInitiator(tx, jobs[i])
-			if err != nil {
-				return err
-			}
 			if jobs[i].OffchainreportingOracleSpec != nil {
 				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
 			}
@@ -464,10 +451,6 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 		return jb, err
 	}
 
-	jb, err = PopulateExternalInitiator(tx, jb)
-	if err != nil {
-		return jb, err
-	}
 	if jb.OffchainreportingOracleSpec != nil {
 		jb.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
 	}

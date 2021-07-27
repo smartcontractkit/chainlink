@@ -32,3 +32,8 @@ INSERT INTO users (email, hashed_password, token_secret, created_at, updated_at)
     '2019-01-01',
     '2019-01-01'
 );
+
+INSERT INTO external_initiators (name, url, access_key, created_at, updated_at, salt, hashed_secret, outgoing_secret, outgoing_token) VALUES
+    ('foo-ei', 'http://example.com', 'foo-access-key', NOW(), NOW(), 'foo-salt', 'foo-hash', 'foo-outgoing-secret', 'foo-outgoing-token'),
+    ('bar-ei', 'http://example.com', 'bar-access-key', NOW(), NOW(), 'bar-salt', 'bar-hash', 'bar-outgoing-secret', 'bar-outgoing-token')
+;
