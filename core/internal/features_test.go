@@ -1985,9 +1985,9 @@ observationSource = """
 """
 `, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
-		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+		jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
-		jids = append(jids, jid)
+		jids = append(jids, jb.ID)
 	}
 
 	// Assert that all the OCR jobs get a run with valid values eventually.

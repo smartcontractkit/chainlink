@@ -98,16 +98,18 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobSpecB.Type: delegateB,
 		}, txm)
 		spawner.Start()
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
+		jobSpecIDA := jobA.ID
 		delegateA.jobID = jobSpecIDA
 		close(delegateA.chContinueCreatingServices)
 
 		eventuallyA.AwaitOrFail(t, 20*time.Second)
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
-		jobSpecIDB, err := spawner.CreateJob(context.Background(), *jobSpecB, null.String{})
+		jobB, err := spawner.CreateJob(context.Background(), *jobSpecB, null.String{})
 		require.NoError(t, err)
+		jobSpecIDB := jobB.ID
 		delegateB.jobID = jobSpecIDB
 		close(delegateB.chContinueCreatingServices)
 
@@ -150,9 +152,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobSpecA.Type: delegateA,
 		}, txm)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
-		delegateA.jobID = jobSpecIDA
+		delegateA.jobID = jobA.ID
 
 		spawner.Start()
 		defer spawner.Close()
@@ -181,9 +183,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
-		delegateA.jobID = jobSpecIDA
+		delegateA.jobID = jobA.ID
 
 		spawner.Start()
 
@@ -216,8 +218,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobSpecA.Type: delegateA,
 		}, txm)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
+		jobSpecIDA := jobA.ID
 		delegateA.jobID = jobSpecIDA
 
 		spawner.Start()

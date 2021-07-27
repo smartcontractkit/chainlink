@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -365,7 +366,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 		randomSeed := randomUint256(t, r)
 		proof, err := pk.GenerateProofWithNonce(randomSeed, secp256k1.ToInt(nonce))
 		require.NoError(t, err, "failed to generate VRF proof!")
-		mproof, err := vrf.MarshalForSolidityVerifier(&proof)
+		mproof, err := proof2.MarshalForSolidityVerifier(&proof)
 		require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
 		response, err := deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")

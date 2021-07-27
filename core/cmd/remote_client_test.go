@@ -646,10 +646,10 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
+	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})
+	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))

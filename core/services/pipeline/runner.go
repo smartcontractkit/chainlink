@@ -52,7 +52,8 @@ type runner struct {
 	orm             ORM
 	config          Config
 	ethClient       eth.Client
-	keyStore        KeyStore
+	ethKeyStore     ETHKeyStore
+	vrfKeyStore     VRFKeyStore
 	txManager       TxManager
 	runReaperWorker utils.SleeperTask
 
@@ -91,15 +92,16 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, ethClient eth.Client, keyStore KeyStore, txManager TxManager) *runner {
+func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, vrfks VRFKeyStore, txManager TxManager) *runner {
 	r := &runner{
-		orm:       orm,
-		config:    config,
-		ethClient: ethClient,
-		keyStore:  keyStore,
-		txManager: txManager,
-		chStop:    make(chan struct{}),
-		wgDone:    sync.WaitGroup{},
+		orm:         orm,
+		config:      config,
+		ethClient:   ethClient,
+		ethKeyStore: ethks,
+		vrfKeyStore: vrfks,
+		txManager:   txManager,
+		chStop:      make(chan struct{}),
+		wgDone:      sync.WaitGroup{},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -224,10 +226,12 @@ func (r *runner) run(
 			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
+		case TaskTypeVRF:
+			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).config = r.config
-			task.(*ETHTxTask).keyStore = r.keyStore
+			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).txManager = r.txManager
 		default:
 		}
