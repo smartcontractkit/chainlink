@@ -74,7 +74,7 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	// cancel the context, the transaction state gets poisoned or lost somehow
 	// and subsequent queries fail with "sql: transaction has already been
 	// committed or rolled back" (although postgres does not log any errors).
-  
+
 	// Calling SELECT 1 here seems to reliably fix it. Created an issue to track here:
 	// https://github.com/DATA-DOG/go-txdb/issues/43
 	// TODO: Experiment with removing this after gorm is removed
