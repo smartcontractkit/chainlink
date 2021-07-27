@@ -13,6 +13,7 @@ import { OcrKeys } from './ocrKeys'
 import { P2PKeys } from './p2pKeys'
 import { OcrRuns } from './ocrRuns'
 import { Jobs } from './jobs'
+import { JobProposals } from './job_proposals'
 import { LogConfig } from './logConfig'
 
 export class V2 {
@@ -24,6 +25,7 @@ export class V2 {
   public feedsManagers = new FeedsManagers(this.api)
   public runs = new Runs(this.api)
   public specs = new Specs(this.api)
+  public jobProposals = new JobProposals(this.api)
   public jobSpecErrors = new JobSpecErrors(this.api)
   public transactions = new Transactions(this.api)
   public user = new User(this.api)
