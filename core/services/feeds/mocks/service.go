@@ -132,6 +132,29 @@ func (_m *Service) GetManager(id int64) (*feeds.FeedsManager, error) {
 	return r0, r1
 }
 
+// ListJobProposals provides a mock function with given fields:
+func (_m *Service) ListJobProposals() ([]feeds.JobProposal, error) {
+	ret := _m.Called()
+
+	var r0 []feeds.JobProposal
+	if rf, ok := ret.Get(0).(func() []feeds.JobProposal); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListManagers provides a mock function with given fields:
 func (_m *Service) ListManagers() ([]feeds.FeedsManager, error) {
 	ret := _m.Called()

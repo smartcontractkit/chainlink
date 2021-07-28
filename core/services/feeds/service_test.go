@@ -134,7 +134,7 @@ func Test_Service_ListManagers(t *testing.T) {
 	assert.Equal(t, actual, mss)
 }
 
-func Test_Service_GetManagers(t *testing.T) {
+func Test_Service_GetManager(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -207,6 +207,42 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
 	require.NoError(t, err)
+}
+
+func Test_Service_ListJobProposals(t *testing.T) {
+	t.Parallel()
+
+	var (
+		jp  = feeds.JobProposal{}
+		jps = []feeds.JobProposal{jp}
+	)
+	svc := setupTestService(t)
+
+	svc.orm.On("ListJobProposals", context.Background()).
+		Return(jps, nil)
+
+	actual, err := svc.ListJobProposals()
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, jps)
+}
+
+func Test_Service_GetJobProposal(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id = int64(1)
+		ms = feeds.JobProposal{ID: id}
+	)
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposal", context.Background(), id).
+		Return(&ms, nil)
+
+	actual, err := svc.GetJobProposal(id)
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, &ms)
 }
 
 func Test_Service_ApproveJobProposal(t *testing.T) {
