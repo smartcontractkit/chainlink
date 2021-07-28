@@ -929,7 +929,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	if roundState.RoundId > 1 {
-		l.Infow("deviation > threshold, starting new round")
+		l.Infow("deviation > threshold, submitting")
 	} else {
 		l.Infow("starting first round")
 	}
