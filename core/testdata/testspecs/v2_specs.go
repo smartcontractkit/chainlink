@@ -2,6 +2,9 @@ package testspecs
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
 var (
@@ -223,4 +226,43 @@ observationSource = """
 		Name:               name,
 		TransmitterAddress: transmitterAddress,
 	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress)}
+}
+
+type WebhookSpecParams struct {
+	ExternalInitiators []webhook.TOMLWebhookSpecExternalInitiator
+}
+
+type WebhookSpec struct {
+	WebhookSpecParams
+	toml string
+}
+
+func (ws WebhookSpec) Toml() string {
+	return ws.toml
+}
+
+func GenerateWebhookSpec(params WebhookSpecParams) (ws WebhookSpec) {
+	var externalInitiatorsTOMLs []string
+	for _, wsEI := range params.ExternalInitiators {
+		s := fmt.Sprintf(`{ name = "%s", spec = '%s' }`, wsEI.Name, wsEI.Spec)
+		externalInitiatorsTOMLs = append(externalInitiatorsTOMLs, s)
+	}
+	externalInitiatorsTOML := strings.Join(externalInitiatorsTOMLs, ",\n")
+	template := `
+type            = "webhook"
+schemaVersion   = 1
+externalInitiators = [
+	%s
+]
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`
+	ws.toml = fmt.Sprintf(template, externalInitiatorsTOML)
+	ws.WebhookSpecParams = params
+
+	return ws
 }

@@ -103,8 +103,8 @@ func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (Delegate) OnJobCreated(spec job.Job) {}
-func (Delegate) OnJobDeleted(spec job.Job) {}
+func (Delegate) AfterJobCreated(spec job.Job)  {}
+func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
 	if jobSpec.OffchainreportingOracleSpec == nil {

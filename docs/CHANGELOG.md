@@ -21,6 +21,27 @@ This is useful if the node has been offline for a longer time and after startup 
 
 Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead. Please contact node operator support for more details on how to do this.
 
+The format for V2 Webhook job specs has changed. They now allow specifying 0 or more external initiators. Example below:
+
+```toml
+type            = "webhook"
+schemaVersion   = 1
+externalInitiators = [
+    { name = "foo-ei", spec = '{"foo": 42}' },
+    { name = "bar-ei", spec = '{"bar": 42}' }
+]
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+```
+
+These external initiators will be notified with the given spec after the job is created, and also at deletion time.
+
+Only the External Initiators listed in the toml spec may trigger a run for that job. Logged in users can always trigger a run for any job.
+
 #### Migrating Jobs
 
 - OCR
