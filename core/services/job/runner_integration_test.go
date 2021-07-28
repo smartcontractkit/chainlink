@@ -810,10 +810,14 @@ func TestRunner_AsyncJob(t *testing.T) {
 type            = "webhook"
 schemaVersion   = 1
 externalJobID           = "%v"
-externalInitiatorName = "%v"
-externalInitiatorSpec = """
-    %v
+externalInitiators = [
+	{
+		name = "%s",
+		spec = """
+	%s
 """
+	}
+]
 observationSource   = """
     parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
 	ds1 [type=bridge async=true name="bridge" timeout=0 requestData=<{"value": $(parse)}>]
