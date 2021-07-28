@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Note: This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
-
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
 This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
 
@@ -47,7 +45,6 @@ Automigration is not supported for VRF jobs. They must be manually converted int
 - Ethlog/Runlog/Cron/web
 All other job types must also be manually converted into v2 format. Please contact node operator support for help with this.
 
-
 #### Technical details
 
 Why are we doing this?
@@ -56,27 +53,11 @@ To give some background, the legacy job pipeline has been around since before Ch
 
 The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
 
-### Fixed
+## [0.10.10] - 2021-07-19
 
-- Fix inability to create jobs with a cron schedule.
+### Changed 
 
-## [0.10.9] - 2021-07-05
-
-### Changed
-
-#### Transaction Strategies
-
-FMv2, Keeper and OCR jobs now use a new strategy for sending transactions. By default, if multiple transactions are queued up, only the latest one will be sent. This should greatly reduce the number of stale rounds and reverted transactions, and help node operators to save significant gas especially during times of high congestion or when catching up on a deep backlog.
-
-Defaults should work well, but it can be controlled if necessary using the following new env vars:
-
-`FM_DEFAULT_TRANSACTION_QUEUE_DEPTH`
-`KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH`
-`OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH`
-
-Setting to 0 will disable (the old behaviour). Setting to 1 (the default) will keep only the latest transaction queued up at any given time. Setting to 2, 3 etc will allow this many transactions to be queued before starting to drop older items.
-
-Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to FMv2 to take advantage of this feature.
+This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
 
 #### Gas Estimation
 
@@ -126,6 +107,28 @@ P2PV2_LISTEN_ADDRESSES
 ```
 
 All of these are currently optional, by default OCR will continue to use the existing V1 stack. The new env vars will be used internally for OCR testing.
+
+### Fixed
+
+- Fix inability to create jobs with a cron schedule.
+
+## [0.10.9] - 2021-07-05
+
+### Changed
+
+#### Transaction Strategies
+
+FMv2, Keeper and OCR jobs now use a new strategy for sending transactions. By default, if multiple transactions are queued up, only the latest one will be sent. This should greatly reduce the number of stale rounds and reverted transactions, and help node operators to save significant gas especially during times of high congestion or when catching up on a deep backlog.
+
+Defaults should work well, but it can be controlled if necessary using the following new env vars:
+
+`FM_DEFAULT_TRANSACTION_QUEUE_DEPTH`
+`KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH`
+`OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH`
+
+Setting to 0 will disable (the old behaviour). Setting to 1 (the default) will keep only the latest transaction queued up at any given time. Setting to 2, 3 etc will allow this many transactions to be queued before starting to drop older items.
+
+Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to FMv2 to take advantage of this feature.
 
 ## [0.10.8] - 2021-06-21
 
