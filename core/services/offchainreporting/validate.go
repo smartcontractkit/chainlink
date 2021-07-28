@@ -3,8 +3,6 @@ package offchainreporting
 import (
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -28,9 +26,7 @@ type ValidationConfig interface {
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(config ValidationConfig, tomlString string) (job.Job, error) {
-	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
-	}
+	var jb = job.Job{}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
