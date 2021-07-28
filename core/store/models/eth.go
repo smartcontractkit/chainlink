@@ -23,9 +23,10 @@ type EthTxMeta struct {
 }
 
 type EthTxMetaV2 struct {
-	JobID         int32
-	RequestID     common.Hash
-	RequestTxHash common.Hash
+	JobID            int32
+	RequestID        common.Hash
+	RequestTxHash    common.Hash
+	MinConfirmations null.Uint32
 }
 
 // Head represents a BlockNumber, BlockHash.

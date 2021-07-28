@@ -12,6 +12,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
@@ -55,6 +56,9 @@ type EthTx struct {
 	// at send time.
 	Meta    datatypes.JSON
 	Subject uuid.NullUUID
+
+	PipelineTaskRunID uuid.NullUUID
+	MinConfirmations  cnull.Uint32
 }
 
 func (e EthTx) GetError() error {

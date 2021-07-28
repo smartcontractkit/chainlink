@@ -418,9 +418,15 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to  requestID
-		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
-			return meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash
-		}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
+		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
+				meta := newTx.Meta.(*models.EthTxMetaV2)
+				return newTx.FromAddress == vuni.submitter &&
+					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+					newTx.GasLimit == uint64(500000) &&
+					(meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash)
+			}),
+		).Once().Return(bulletprooftxmanager.EthTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, nil))
 		// Wait until the log is present

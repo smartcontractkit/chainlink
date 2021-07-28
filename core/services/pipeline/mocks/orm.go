@@ -13,7 +13,7 @@ import (
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	sql "database/sql"
+	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	time "time"
 
@@ -148,20 +148,20 @@ func (_m *ORM) GetUnfinishedRuns(now time.Time, fn func(pipeline.Run) error) err
 	return r0
 }
 
-// InsertFinishedRun provides a mock function with given fields: db, run, trrs, saveSuccessfulTaskRuns
-func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
-	ret := _m.Called(db, run, trrs, saveSuccessfulTaskRuns)
+// InsertFinishedRun provides a mock function with given fields: db, run, saveSuccessfulTaskRuns
+func (_m *ORM) InsertFinishedRun(db postgres.Queryer, run pipeline.Run, saveSuccessfulTaskRuns bool) (int64, error) {
+	ret := _m.Called(db, run, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(*gorm.DB, pipeline.Run, []pipeline.TaskRunResult, bool) int64); ok {
-		r0 = rf(db, run, trrs, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(0).(func(postgres.Queryer, pipeline.Run, bool) int64); ok {
+		r0 = rf(db, run, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*gorm.DB, pipeline.Run, []pipeline.TaskRunResult, bool) error); ok {
-		r1 = rf(db, run, trrs, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(1).(func(postgres.Queryer, pipeline.Run, bool) error); ok {
+		r1 = rf(db, run, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -170,18 +170,18 @@ func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.
 }
 
 // StoreRun provides a mock function with given fields: db, run
-func (_m *ORM) StoreRun(db *sql.DB, run *pipeline.Run) (bool, error) {
+func (_m *ORM) StoreRun(db postgres.Queryer, run *pipeline.Run) (bool, error) {
 	ret := _m.Called(db, run)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*sql.DB, *pipeline.Run) bool); ok {
+	if rf, ok := ret.Get(0).(func(postgres.Queryer, *pipeline.Run) bool); ok {
 		r0 = rf(db, run)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*sql.DB, *pipeline.Run) error); ok {
+	if rf, ok := ret.Get(1).(func(postgres.Queryer, *pipeline.Run) error); ok {
 		r1 = rf(db, run)
 	} else {
 		r1 = ret.Error(1)
@@ -190,27 +190,27 @@ func (_m *ORM) StoreRun(db *sql.DB, run *pipeline.Run) (bool, error) {
 	return r0, r1
 }
 
-// UpdateTaskRunResult provides a mock function with given fields: db, taskID, result
-func (_m *ORM) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (pipeline.Run, bool, error) {
-	ret := _m.Called(db, taskID, result)
+// UpdateTaskRunResult provides a mock function with given fields: taskID, result
+func (_m *ORM) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (pipeline.Run, bool, error) {
+	ret := _m.Called(taskID, result)
 
 	var r0 pipeline.Run
-	if rf, ok := ret.Get(0).(func(*sql.DB, uuid.UUID, interface{}) pipeline.Run); ok {
-		r0 = rf(db, taskID, result)
+	if rf, ok := ret.Get(0).(func(uuid.UUID, interface{}) pipeline.Run); ok {
+		r0 = rf(taskID, result)
 	} else {
 		r0 = ret.Get(0).(pipeline.Run)
 	}
 
 	var r1 bool
-	if rf, ok := ret.Get(1).(func(*sql.DB, uuid.UUID, interface{}) bool); ok {
-		r1 = rf(db, taskID, result)
+	if rf, ok := ret.Get(1).(func(uuid.UUID, interface{}) bool); ok {
+		r1 = rf(taskID, result)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(*sql.DB, uuid.UUID, interface{}) error); ok {
-		r2 = rf(db, taskID, result)
+	if rf, ok := ret.Get(2).(func(uuid.UUID, interface{}) error); ok {
+		r2 = rf(taskID, result)
 	} else {
 		r2 = ret.Error(2)
 	}

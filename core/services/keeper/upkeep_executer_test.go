@@ -87,7 +87,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 		ethTxCreated := cltest.NewAwaiter()
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
+		txm.On("CreateEthTransaction",
+			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
@@ -116,7 +118,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 		}
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
+		txm.On("CreateEthTransaction",
+			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
@@ -145,7 +149,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// head 40 triggers a new run
 		head = *cltest.Head(40)
 
-		txm.On("CreateEthTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, gasLimit, nil, mock.Anything).
+		txm.On("CreateEthTransaction",
+			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[1].ItHappened() })

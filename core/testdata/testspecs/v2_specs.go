@@ -128,6 +128,7 @@ encode_tx    [type=ethabiencode
               data="{\\"proof\\": $(vrf)}"]
 submit_tx  [type=ethtx to="%s" 
 			data="$(encode_tx)" 
+			minConfirmations="0"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)

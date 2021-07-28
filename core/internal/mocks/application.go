@@ -314,25 +314,18 @@ func (_m *Application) ReplayFromBlock(number uint64) error {
 	return r0
 }
 
-// ResumeJobV2 provides a mock function with given fields: ctx, run
-func (_m *Application) ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error) {
-	ret := _m.Called(ctx, run)
+// ResumeJobV2 provides a mock function with given fields: ctx, taskID, result
+func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result interface{}) error {
+	ret := _m.Called(ctx, taskID, result)
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run) bool); ok {
-		r0 = rf(ctx, run)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, interface{}) error); ok {
+		r0 = rf(ctx, taskID, result)
 	} else {
-		r0 = ret.Get(0).(bool)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run) error); ok {
-		r1 = rf(ctx, run)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // RunJobV2 provides a mock function with given fields: ctx, jobID, meta

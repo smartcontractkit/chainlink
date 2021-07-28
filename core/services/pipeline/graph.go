@@ -121,8 +121,16 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 
 func (p *Pipeline) HasAsync() bool {
 	for _, task := range p.Tasks {
-		if t, ok := task.(*BridgeTask); ok && t.Async == "true" {
-			return true
+		switch task.Type() {
+		case TaskTypeBridge:
+			if task.(*BridgeTask).Async == "true" {
+				return true
+			}
+		case TaskTypeETHTx:
+			if task.(*ETHTxTask).MinConfirmations != "0" {
+				return true
+			}
+		default:
 		}
 	}
 	return false

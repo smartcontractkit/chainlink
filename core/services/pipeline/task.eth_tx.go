@@ -8,10 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -21,15 +23,17 @@ import (
 //     nil
 //
 type ETHTxTask struct {
-	BaseTask `mapstructure:",squash"`
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Data     string `json:"data"`
-	GasLimit string `json:"gasLimit"`
-	TxMeta   string `json:"txMeta"`
+	BaseTask         `mapstructure:",squash"`
+	From             string `json:"from"`
+	To               string `json:"to"`
+	Data             string `json:"data"`
+	GasLimit         string `json:"gasLimit"`
+	TxMeta           string `json:"txMeta"`
+	MinConfirmations string `json:"minConfirmations"`
 
 	db        *gorm.DB
 	config    Config
+	id        uuid.UUID
 	keyStore  ETHKeyStore
 	txManager TxManager
 }
@@ -42,7 +46,7 @@ type ETHKeyStore interface {
 }
 
 type TxManager interface {
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -58,11 +62,12 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	}
 
 	var (
-		fromAddrs AddressSliceParam
-		toAddr    AddressParam
-		data      BytesParam
-		gasLimit  Uint64Param
-		txMetaMap MapParam
+		fromAddrs             AddressSliceParam
+		toAddr                AddressParam
+		data                  BytesParam
+		gasLimit              Uint64Param
+		txMetaMap             MapParam
+		maybeMinConfirmations MaybeUint64Param
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
@@ -70,9 +75,17 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), t.config.EvmGasLimitDefault())), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
+		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
 	)
 	if err != nil {
 		return Result{Error: err}
+	}
+
+	var minConfirmations uint64
+	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
+		minConfirmations = min
+	} else {
+		minConfirmations = t.config.MinRequiredOutgoingConfirmations()
 	}
 
 	var txMeta models.EthTxMetaV2
@@ -113,11 +126,31 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
 	strategy := bulletprooftxmanager.SendEveryStrategy{}
 
-	_, err = t.txManager.CreateEthTransaction(t.db, fromAddr, common.Address(toAddr), []byte(data), uint64(gasLimit), &txMeta, strategy)
+	var id uuid.NullUUID
+	var confirmations null.Uint32
+	if minConfirmations > 0 {
+		// Store the task run ID so we can resume the pipeline when tx is confirmed
+		confirmations = null.Uint32From(uint32(minConfirmations))
+		id = uuid.NullUUID{UUID: t.id, Valid: true}
+	}
+
+	_, err = t.txManager.CreateEthTransaction(t.db, bulletprooftxmanager.NewTx{
+		FromAddress:       fromAddr,
+		ToAddress:         common.Address(toAddr),
+		EncodedPayload:    []byte(data),
+		GasLimit:          uint64(gasLimit),
+		Meta:              &txMeta,
+		Strategy:          strategy,
+		PipelineTaskRunID: id,
+		MinConfirmations:  confirmations,
+	})
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}
 	}
-	// TODO(spook): once @archseer's "async jobs" work is merged, return the tx hash of
-	// the successful EthTxAttempt
+
+	if minConfirmations > 0 {
+		return Result{Error: ErrPending}
+	}
+
 	return Result{Value: nil}
 }
