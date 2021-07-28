@@ -365,6 +365,8 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
+		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
+		// without comparing their block numbers to the current head's block number.
 		if b.registrations.lowestNumConfirmations == 0 && b.registrations.highestNumConfirmations == 0 {
 			logs, lowest, highest := b.logPool.getAndDeleteAll()
 			if len(logs) > 0 {

@@ -57,19 +57,17 @@ type (
 
 func newRegistrations() *registrations {
 	return &registrations{
-		registrations:          make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
-		decoders:               make(map[common.Address]ParseLogFunc),
-		lowestNumConfirmations: uint64(math.MaxUint64), // a very high value until first subscriber
+		registrations: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+		decoders:      make(map[common.Address]ParseLogFunc),
+
+		// a high value is set until first subscriber, to avoid a special case in comparison to its NumConfirmations
+		lowestNumConfirmations: uint64(math.MaxUint64),
 	}
 }
 
 func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) {
 	addr := reg.opts.Contract
 	r.decoders[addr] = reg.opts.ParseLog
-
-	if reg.opts.NumConfirmations < 0 {
-		reg.opts.NumConfirmations = 0
-	}
 
 	if _, exists := r.registrations[addr]; !exists {
 		r.registrations[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
@@ -129,7 +127,10 @@ func (r *registrations) maybeUpdateNumConfirmationsRange(newNumConfirmations uin
 
 // reset the numbers tracking highest and lowest num confirmations
 func (r *registrations) resetNumConfirmationsRange(removedNumConfirmations uint64) {
-	if removedNumConfirmations <= r.lowestNumConfirmations && removedNumConfirmations >= r.highestNumConfirmations {
+
+	// update only if the removed value was on the boundary of the range
+	if removedNumConfirmations == r.lowestNumConfirmations || removedNumConfirmations == r.highestNumConfirmations {
+
 		lowestNumConfirmations := uint64(math.MaxUint64)
 		highestNumConfirmations := uint64(0)
 
