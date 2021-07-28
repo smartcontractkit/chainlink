@@ -144,7 +144,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	// (because Postgres events don't seem to work here)
 	time.Sleep(3 * time.Second)
 
-	// Make the request
+	// Make the request (authorized as user)
 	{
 		client := app.NewHTTPClient()
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
@@ -154,7 +154,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		var parsedResponse pipeline.Run
 		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
-		fmt.Println(string(bs))
+		t.Log(string(bs))
 		assert.NoError(t, err)
 		assert.NotNil(t, parsedResponse.ID)
 		assert.NotNil(t, parsedResponse.CreatedAt)

@@ -2177,3 +2177,9 @@ func MustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
 	require.NoError(t, err)
 	return id
 }
+
+func MustWebURL(t *testing.T, s string) *models.WebURL {
+	uri, err := url.Parse(s)
+	require.NoError(t, err)
+	return (*models.WebURL)(uri)
+}
