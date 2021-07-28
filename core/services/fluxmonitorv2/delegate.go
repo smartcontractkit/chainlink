@@ -56,8 +56,8 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
-func (Delegate) AfterJobCreated(spec job.Job) {}
-func (Delegate) BeforeDeleteJob(spec job.Job) {}
+func (Delegate) AfterJobCreated(spec job.Job)  {}
+func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {

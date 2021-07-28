@@ -84,7 +84,7 @@ func TestValidatedWebJobSpec(t *testing.T) {
 			toml: `
             type            = "webhook"
             schemaVersion   = 1
-            externalJobID   = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			externalJobID   = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 			externalInitiators = [
 				{ name = "foo", spec = '{"foo": 42}' },
 				{ name = "bar", spec = '{"bar": 42}' }
@@ -118,13 +118,14 @@ func TestValidatedWebJobSpec(t *testing.T) {
 			},
 		},
 		{
-			name: "with an external initiator that does not exist",
+			name: "with external initiators that do not exist",
 			toml: `
             type            = "webhook"
             schemaVersion   = 1
 			externalInitiators = [
 				{ name = "foo", spec = '{"foo": 42}' },
-				{ name = "bar", spec = '{"bar": 42}' }
+				{ name = "bar", spec = '{"bar": 42}' },
+				{ name = "baz", spec = '{"baz": 42}' }
 			]
             observationSource   = """
                 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
@@ -135,9 +136,10 @@ func TestValidatedWebJobSpec(t *testing.T) {
 			mock: func(t *testing.T, eim *webhookmocks.ExternalInitiatorManager) {
 				eim.On("FindExternalInitiatorByName", "foo").Return(models.ExternalInitiator{ID: 42}, nil).Once()
 				eim.On("FindExternalInitiatorByName", "bar").Return(models.ExternalInitiator{}, errors.New("something exploded")).Once()
+				eim.On("FindExternalInitiatorByName", "baz").Return(models.ExternalInitiator{}, errors.New("something exploded")).Once()
 			},
 			assertion: func(t *testing.T, s job.Job, err error) {
-				require.EqualError(t, err, "unable to find external initiator named bar: something exploded")
+				require.EqualError(t, err, "unable to find external initiator named bar: something exploded; unable to find external initiator named baz: something exploded")
 			},
 		},
 	}

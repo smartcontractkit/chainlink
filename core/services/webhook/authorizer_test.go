@@ -1,6 +1,7 @@
 package webhook_test
 
 import (
+	"context"
 	"testing"
 
 	uuid "github.com/satori/go.uuid"
@@ -32,13 +33,13 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db, nil, nil)
 
-		can, err := a.CanRun(jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(context.Background(), jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(uuid.NewV4())
+		can, err = a.CanRun(context.Background(), uuid.NewV4())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})
@@ -46,13 +47,13 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db, &models.User{}, nil)
 
-		can, err := a.CanRun(jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(context.Background(), jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(uuid.NewV4())
+		can, err = a.CanRun(context.Background(), uuid.NewV4())
 		require.NoError(t, err)
 		assert.True(t, can)
 	})
@@ -60,16 +61,16 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db, nil, &eiFoo)
 
-		can, err := a.CanRun(jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(context.Background(), jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(jobWithBarEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), jobWithBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(uuid.NewV4())
+		can, err = a.CanRun(context.Background(), uuid.NewV4())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})

@@ -205,11 +205,17 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		tree, err := toml.LoadFile("../../testdata/tomlspecs/webhook-job-spec-external-initiators.toml")
-		require.NoError(t, err)
+		eiFoo := cltest.MustInsertExternalInitiator(t, db)
+		eiBar := cltest.MustInsertExternalInitiator(t, db)
+
+		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
+			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
+			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
+		}
 		eim := webhook.NewExternalInitiatorManager(db)
-		jb, err := webhook.ValidatedWebhookSpec(tree.String(), eim)
+		jb, err := webhook.ValidatedWebhookSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
 		require.NoError(t, err)
+
 		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 
