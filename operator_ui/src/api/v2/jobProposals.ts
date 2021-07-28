@@ -4,6 +4,8 @@ import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/job_proposals'
 export const SHOW_ENDPOINT = `${ENDPOINT}/:id`
+export const REJECT_ENDPOINT = `${ENDPOINT}/:id/reject`
+export const APPROVE_ENDPOINT = `${ENDPOINT}/:id/approve`
 
 // Job Proposals represents the job proposals
 export class JobProposals {
@@ -21,6 +23,20 @@ export class JobProposals {
     return this.show({}, { id })
   }
 
+  @boundMethod
+  public approveJobProposal(
+    id: string,
+  ): Promise<jsonapi.ApiResponse<models.JobProposal>> {
+    return this.approve({}, { id })
+  }
+
+  @boundMethod
+  public rejectJobProposal(
+    id: string,
+  ): Promise<jsonapi.ApiResponse<models.JobProposal>> {
+    return this.reject({}, { id })
+  }
+
   private index = this.api.fetchResource<{}, models.JobProposal[]>(ENDPOINT)
   private show = this.api.fetchResource<
     {},
@@ -29,4 +45,20 @@ export class JobProposals {
       id: string
     }
   >(SHOW_ENDPOINT)
+
+  private reject = this.api.createResource<
+    {},
+    models.JobProposal,
+    {
+      id: string
+    }
+  >(REJECT_ENDPOINT)
+
+  private approve = this.api.createResource<
+    {},
+    models.JobProposal,
+    {
+      id: string
+    }
+  >(APPROVE_ENDPOINT)
 }
