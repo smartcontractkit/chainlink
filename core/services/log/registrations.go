@@ -1,6 +1,7 @@
 package log
 
 import (
+	"math"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -36,6 +37,7 @@ type (
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
+		lowestNumConfirmations  uint64
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -57,16 +59,15 @@ func newRegistrations() *registrations {
 	return &registrations{
 		registrations: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
 		decoders:      make(map[common.Address]ParseLogFunc),
+
+		// a high value is set until first subscriber, to avoid a special case in comparison to its NumConfirmations
+		lowestNumConfirmations: uint64(math.MaxUint64),
 	}
 }
 
 func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) {
 	addr := reg.opts.Contract
 	r.decoders[addr] = reg.opts.ParseLog
-
-	if reg.opts.NumConfirmations <= 0 {
-		reg.opts.NumConfirmations = 1
-	}
 
 	if _, exists := r.registrations[addr]; !exists {
 		r.registrations[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
@@ -84,7 +85,7 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 		}
 	}
 
-	r.maybeIncreaseHighestNumConfirmations(reg.opts.NumConfirmations)
+	r.maybeUpdateNumConfirmationsRange(reg.opts.NumConfirmations)
 	return
 }
 
@@ -110,31 +111,44 @@ func (r *registrations) removeSubscriber(reg registration) (needsResubscribe boo
 		}
 	}
 
-	r.resetHighestNumConfirmations()
+	r.resetNumConfirmationsRange(reg.opts.NumConfirmations)
 	return
 }
 
-// increase the highestNumConfirmations stored if the new listener has a higher value
-func (r *registrations) maybeIncreaseHighestNumConfirmations(newNumConfirmations uint64) {
+// maybe update the numbers tracking highest and lowest num confirmations
+func (r *registrations) maybeUpdateNumConfirmationsRange(newNumConfirmations uint64) {
 	if newNumConfirmations > r.highestNumConfirmations {
 		r.highestNumConfirmations = newNumConfirmations
 	}
+	if newNumConfirmations < r.lowestNumConfirmations {
+		r.lowestNumConfirmations = newNumConfirmations
+	}
 }
 
-// reset the highest confirmation number per all current listeners
-func (r *registrations) resetHighestNumConfirmations() {
-	highestNumConfirmations := uint64(0)
+// reset the numbers tracking highest and lowest num confirmations
+func (r *registrations) resetNumConfirmationsRange(removedNumConfirmations uint64) {
 
-	for _, perAddress := range r.registrations {
-		for _, perTopic := range perAddress {
-			for _, listener := range perTopic {
-				if listener.opts.NumConfirmations > highestNumConfirmations {
-					highestNumConfirmations = listener.opts.NumConfirmations
+	// update only if the removed value was on the boundary of the range
+	if removedNumConfirmations == r.lowestNumConfirmations || removedNumConfirmations == r.highestNumConfirmations {
+
+		lowestNumConfirmations := uint64(math.MaxUint64)
+		highestNumConfirmations := uint64(0)
+
+		for _, perAddress := range r.registrations {
+			for _, perTopic := range perAddress {
+				for _, listener := range perTopic {
+					if listener.opts.NumConfirmations > highestNumConfirmations {
+						highestNumConfirmations = listener.opts.NumConfirmations
+					}
+					if listener.opts.NumConfirmations < lowestNumConfirmations {
+						lowestNumConfirmations = listener.opts.NumConfirmations
+					}
 				}
 			}
 		}
+		r.highestNumConfirmations = highestNumConfirmations
+		r.lowestNumConfirmations = lowestNumConfirmations
 	}
-	r.highestNumConfirmations = highestNumConfirmations
 }
 
 func (r *registrations) addressesAndTopics() ([]common.Address, []common.Hash) {
@@ -191,7 +205,7 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcast
 		listener := listener
 		numConfirmations := metadata.opts.NumConfirmations
 
-		if latestBlockNumber < numConfirmations {
+		if numConfirmations != 0 && latestBlockNumber < numConfirmations {
 			// Skipping send because not enough height to send
 			continue
 		}
@@ -199,7 +213,7 @@ func (r *registrations) sendLog(log types.Log, latestHead models.Head, broadcast
 		// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
 		// even if the logs are too young
 		// so here we need to see if this particular listener actually should receive it at this depth
-		isOldEnough := (log.BlockNumber + numConfirmations - 1) <= latestBlockNumber
+		isOldEnough := numConfirmations == 0 || (log.BlockNumber+numConfirmations-1) <= latestBlockNumber
 		if !isOldEnough {
 			continue
 		}
