@@ -422,7 +422,7 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations, "address", reg.opts.Contract)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -442,7 +442,7 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations, "address", reg.opts.Contract)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true

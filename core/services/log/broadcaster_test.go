@@ -33,11 +33,12 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	const blockHeight int64 = 123
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.lb.AddDependents(2)
-	helper.start()
-	defer helper.stop()
 
 	var listener = helper.newLogListenerWithJobV2("A")
 	helper.register(listener, newMockContract(), 1)
+
+	helper.start()
+	defer helper.stop()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, 5*time.Second, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(0)))
@@ -96,12 +97,13 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	listener := helper.newLogListenerWithJobV2("initial")
 	helper.register(listener, newMockContract(), numConfirmations)
-	helper.start()
 
 	for i := 0; i < numContracts; i++ {
 		listener := helper.newLogListenerWithJobV2("")
 		helper.register(listener, newMockContract(), 1)
 	}
+
+	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
@@ -354,7 +356,6 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	listener := helper.newLogListenerWithJobV2("initial")
 	helper.register(listener, newMockContract(), 1)
 	helper.start()
-
 	defer helper.stop()
 
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == expectedBatches }, 5*time.Second, 10*time.Millisecond)
@@ -371,7 +372,6 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
 	require.NoError(t, err)
@@ -394,6 +394,8 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	listener2 := helper.newLogListenerWithJobV2("listener 2")
 	listener3 := helper.newLogListenerWithJobV2("listener 3")
 	listener4 := helper.newLogListenerWithJobV2("listener 4")
+
+	helper.start()
 
 	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
