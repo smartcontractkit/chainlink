@@ -110,7 +110,7 @@ export const JobProposalsCard = withStyles(styles)(({ classes }: Props) => {
 
         <TableBody>
           {filteredProposals?.map((proposal) => (
-            <JobProposalRow proposal={proposal} />
+            <JobProposalRow key={proposal.id} proposal={proposal} />
           ))}
         </TableBody>
       </Table>

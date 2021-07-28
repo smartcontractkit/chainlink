@@ -13,7 +13,7 @@ import { OcrKeys } from './ocrKeys'
 import { P2PKeys } from './p2pKeys'
 import { OcrRuns } from './ocrRuns'
 import { Jobs } from './jobs'
-import { JobProposals } from './job_proposals'
+import { JobProposals } from './jobProposals'
 import { LogConfig } from './logConfig'
 
 export class V2 {
