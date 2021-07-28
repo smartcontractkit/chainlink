@@ -21,26 +21,30 @@ import (
 
 //go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore
 
-type (
-	// ExternalInitiatorManager manages HTTP requests to remote external initiators
-	ExternalInitiatorManager interface {
-		Notify(models.JobSpec) error
-		NotifyV2(webhookSpecID int32) error
-		DeleteJob(jobID models.JobID) error
-		DeleteJobV2(webhookSpecID int32) error
-		FindExternalInitiatorByName(name string) (models.ExternalInitiator, error)
-	}
+// ExternalInitiatorManager manages HTTP requests to remote external initiators
+type ExternalInitiatorManager interface {
+	Notify(models.JobSpec) error
+	NotifyV2(webhookSpecID int32) error
+	DeleteJob(jobID models.JobID) error
+	DeleteJobV2(webhookSpecID int32) error
+	FindExternalInitiatorByName(name string) (models.ExternalInitiator, error)
+}
 
-	externalInitiatorManager struct {
-		db *gorm.DB
-	}
-)
+//go:generate mockery --name HTTPClient --output ./mocks/ --case=underscore
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+type externalInitiatorManager struct {
+	db         *gorm.DB
+	httpclient HTTPClient
+}
 
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *gorm.DB) *externalInitiatorManager {
-	return &externalInitiatorManager{db: db}
+func NewExternalInitiatorManager(db *gorm.DB, httpclient HTTPClient) *externalInitiatorManager {
+	return &externalInitiatorManager{db, httpclient}
 }
 
 // Notify sends a POST notification to the External Initiator
@@ -74,7 +78,7 @@ func (m externalInitiatorManager) Notify(js models.JobSpec) error {
 	if err != nil {
 		return errors.Wrap(err, "creating notify HTTP request")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := m.httpclient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "could not notify '%s' (%s)")
 	}
@@ -110,7 +114,7 @@ func (m externalInitiatorManager) NotifyV2(webhookSpecID int32) error {
 		if err != nil {
 			return errors.Wrap(err, "creating notify HTTP request")
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := m.httpclient.Do(req)
 		if err != nil {
 			return errors.Wrap(err, "could not notify '%s' (%s)")
 		}
@@ -146,7 +150,7 @@ func (m externalInitiatorManager) DeleteJob(jobID models.JobID) error {
 	if err != nil {
 		return errors.Wrap(err, "creating delete HTTP request")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := m.httpclient.Do(req)
 	if err != nil {
 		return errors.Wrapf(err, "could not delete job from remote external initiator at %s", req.URL)
 	}
@@ -172,7 +176,7 @@ func (m externalInitiatorManager) DeleteJobV2(webhookSpecID int32) error {
 		if err != nil {
 			return errors.Wrap(err, "creating delete HTTP request")
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := m.httpclient.Do(req)
 		if err != nil {
 			return errors.Wrapf(err, "could not delete job from remote external initiator at %s", req.URL)
 		}
