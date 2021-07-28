@@ -2,6 +2,7 @@ package vrf_test
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"math/big"
 	"strconv"
 	"strings"
@@ -166,7 +167,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		PublicKey:          vrfkey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
+	jb, err = app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
 
 	// Register a proving key associated with the VRF job.
 	p, err := vrfkey.Point()
@@ -423,9 +425,9 @@ func TestFulfillmentCost(t *testing.T) {
 	}
 
 	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey)
-	s, err := vrf.BigToSeed(requestLog.PreSeedAndRequestId)
+	s, err := proof.BigToSeed(requestLog.PreSeedAndRequestId)
 	require.NoError(t, err)
-	proof, err := vrf.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, vrf.PreSeedDataV2{
+	proof, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, proof.PreSeedDataV2{
 		PreSeed:          s,
 		BlockHash:        requestLog.Raw.BlockHash,
 		BlockNum:         requestLog.Raw.BlockNumber,

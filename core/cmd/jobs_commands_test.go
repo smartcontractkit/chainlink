@@ -318,6 +318,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+	require.NotEmpty(t, r.Renders)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
@@ -352,6 +353,7 @@ func TestClient_Migrate(t *testing.T) {
 
 	app := startNewApplication(t)
 	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	app.Config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	client, _ := app.NewClientAndRenderer()
 	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
 

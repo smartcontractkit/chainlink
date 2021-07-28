@@ -719,6 +719,12 @@ func (c Config) EthHeadTrackerSamplingInterval() time.Duration {
 	return chainSpecificConfig(c).EthHeadTrackerSamplingInterval
 }
 
+// BlockEmissionIdleWarningThreshold is the duration of time since last received head
+// to print a warning log message indicating not receiving heads
+func (c Config) BlockEmissionIdleWarningThreshold() time.Duration {
+	return chainSpecificConfig(c).BlockEmissionIdleWarningThreshold
+}
+
 // EthTxResendAfterThreshold controls how long the ethResender will wait before
 // re-sending the latest eth_tx_attempt. This is designed a as a fallback to
 // protect against the eth nodes dropping txes (it has been anecdotally

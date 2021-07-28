@@ -1,4 +1,4 @@
-package vrf
+package proof
 
 import (
 	"math/big"

@@ -1,6 +1,9 @@
 package vrf
 
 import (
+	"encoding/hex"
+	"strings"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 
 	"github.com/theodesp/go-heaps/pairing"
@@ -71,8 +74,8 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) OnJobCreated(spec job.Job) {}
-func (d *Delegate) OnJobDeleted(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if jb.VRFSpec == nil {
@@ -140,4 +143,37 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			waitOnStop:      make(chan struct{}),
 		},
 	}, nil
+}
+
+func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint64 {
+	respCounts := make(map[[32]byte]uint64)
+	var counts []struct {
+		RequestID string
+		Count     int
+	}
+	// Allow any state, not just confirmed, on purpose.
+	// We assume once a ethtx is queued it will go through.
+	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count 
+			FROM eth_txes 
+			WHERE meta->'RequestID' IS NOT NULL 
+		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		l.Errorw("vrf.Delegate unable to read previous fulfillments", "err", err)
+		return respCounts
+	}
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			l.Errorw("vrf.Delegate unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
+		}
+		var reqID [32]byte
+		copy(reqID[:], b[:])
+		respCounts[reqID] = uint64(c.Count)
+	}
+	return respCounts
 }

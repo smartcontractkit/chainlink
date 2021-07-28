@@ -1,11 +1,9 @@
 package vrf
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	heaps "github.com/theodesp/go-heaps"
@@ -30,6 +27,17 @@ import (
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
+
+var (
+	_ log.Listener = &listenerV1{}
+	_ job.Service  = &listenerV1{}
+)
+
+type request struct {
+	confirmedAtBlock uint64
+	req              *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
+	lb               log.Broadcast
+}
 
 type listenerV1 struct {
 	utils.StartStopOnce
@@ -52,7 +60,8 @@ type listenerV1 struct {
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
-	latestHead      uint64 // Only one writer and one reader, no lock needed
+	latestHead      uint64
+	latestHeadMu    sync.RWMutex
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
@@ -70,62 +79,32 @@ type listenerV1 struct {
 	blockNumberToReqID *pairing.PairHeap
 }
 
-func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint64 {
-	respCounts := make(map[[32]byte]uint64)
-	var counts []struct {
-		RequestID string
-		Count     int
-	}
-	// Allow any state, not just confirmed, on purpose.
-	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count 
-			FROM eth_txes 
-			WHERE meta->'RequestID' IS NOT NULL 
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
-	if err != nil {
-		// Continue with an empty map, do not block job on this.
-		l.Errorw("vrf.Delegate unable to read previous fulfillments", "err", err)
-		return respCounts
-	}
-	for _, c := range counts {
-		// Remove the quotes from the json
-		req := strings.Replace(c.RequestID, `"`, ``, 2)
-		// Remove the 0x prefix
-		b, err := hex.DecodeString(req[2:])
-		if err != nil {
-			l.Errorw("vrf.Delegate unable to read fulfillment", "err", err, "reqID", c.RequestID)
-			continue
-		}
-		var reqID [32]byte
-		copy(reqID[:], b[:])
-		respCounts[reqID] = uint64(c.Count)
-	}
-	return respCounts
-}
-
-var (
-	_ log.Listener = &listenerV1{}
-	_ job.Service  = &listenerV1{}
-)
-
-type request struct {
-	confirmedAtBlock uint64
-	req              *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
-	lb               log.Broadcast
-}
-
 func (lsn *listenerV1) Connect(head *models.Head) error {
-	lsn.latestHead = uint64(head.Number)
 	return nil
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(ctx context.Context, head models.Head) {
-	lsn.latestHead = uint64(head.Number)
+func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head models.Head) {
+	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
 	default:
 	}
+}
+
+func (lsn *listenerV1) setLatestHead(h models.Head) {
+	lsn.latestHeadMu.Lock()
+	defer lsn.latestHeadMu.Unlock()
+	num := uint64(h.Number)
+	if num > lsn.latestHead {
+		lsn.latestHead = num
+	}
+}
+
+func (lsn *listenerV1) getLatestHead() uint64 {
+	lsn.latestHeadMu.RLock()
+	defer lsn.latestHeadMu.RUnlock()
+	return lsn.latestHead
 }
 
 // Start complies with job.Service
@@ -159,7 +138,10 @@ func (lsn *listenerV1) Start() error {
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
-		_, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		if latestHead != nil {
+			lsn.setLatestHead(*latestHead)
+		}
 		go gracefulpanic.WrapRecover(func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
@@ -177,7 +159,7 @@ func (lsn *listenerV1) extractConfirmedLogs() []request {
 	defer lsn.reqsMu.Unlock()
 	var toProcess, toKeep []request
 	for i := 0; i < len(lsn.reqs); i++ {
-		if lsn.reqs[i].confirmedAtBlock <= lsn.latestHead {
+		if lsn.reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
 			toProcess = append(toProcess, lsn.reqs[i])
 		} else {
 			toKeep = append(toKeep, lsn.reqs[i])
@@ -213,7 +195,7 @@ func (lsn *listenerV1) pruneConfirmedRequestCounts() {
 	min := lsn.blockNumberToReqID.FindMin()
 	for min != nil {
 		m := min.(fulfilledReq)
-		if m.blockNumber > (lsn.latestHead - 10000) {
+		if m.blockNumber > (lsn.getLatestHead() - 10000) {
 			break
 		}
 		delete(lsn.respCount, m.reqID)
@@ -276,7 +258,8 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
 		})
-
+		lsn.markLogAsConsumed(lb)
+		return
 	}
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
@@ -310,6 +293,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
+
 	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
 	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListener: unable to mark log %v as consumed", lb.String()))
 }
@@ -344,64 +328,6 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 		return
 	}
 	s := time.Now()
-	vrfCoordinatorPayload, req, err := lsn.ProcessLog(req, lb)
-	f := time.Now()
-	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-		if err == nil {
-			// No errors processing the log, submit a transaction
-			var etx bulletprooftxmanager.EthTx
-			var from common.Address
-			from, err = lsn.gethks.GetRoundRobinAddress()
-			if err != nil {
-				return err
-			}
-			etx, err = lsn.txm.CreateEthTransaction(tx,
-				from,
-				lsn.coordinator.Address(),
-				vrfCoordinatorPayload,
-				lsn.cfg.EthGasLimitDefault(),
-				&models.EthTxMetaV2{
-					JobID:         lsn.job.ID,
-					RequestID:     req.RequestID,
-					RequestTxHash: lb.RawLog().TxHash,
-				},
-				bulletprooftxmanager.SendEveryStrategy{},
-			)
-			if err != nil {
-				return err
-			}
-			// TODO: Once we have eth tasks supported, we can use the pipeline directly
-			// and be able to save errored proof generations. Until then only save
-			// successful runs and log errors.
-			_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-				State:          pipeline.RunStatusCompleted,
-				PipelineSpecID: lsn.job.PipelineSpecID,
-				Errors:         []null.String{{}},
-				Outputs: pipeline.JSONSerializable{
-					Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
-						etx.FromAddress,
-						etx.ToAddress,
-						hex.EncodeToString(etx.EncodedPayload))},
-				},
-				Meta: pipeline.JSONSerializable{
-					Val: map[string]interface{}{"eth_tx_id": etx.ID},
-				},
-				CreatedAt:  s,
-				FinishedAt: null.TimeFrom(f),
-			}, nil, false)
-			if err != nil {
-				return errors.Wrap(err, "VRFListener: failed to insert finished run")
-			}
-		}
-		// Always mark consumed regardless of whether the proof failed or not.
-		return lsn.logBroadcaster.MarkConsumed(tx, lb)
-	})
-	if err != nil {
-		lsn.l.Errorw("VRFListener failed to save run", "err", err)
-	}
-}
-
-func (lsn *listenerV1) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) ([]byte, *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, error) {
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
@@ -410,63 +336,46 @@ func (lsn *listenerV1) ProcessLog(req *solidity_vrf_coordinator_interface.VRFCoo
 		"blockNumber", req.Raw.BlockNumber,
 		"seed", req.Seed,
 		"fee", req.Fee)
-	// Validate the key against the spec
-	inputs, err := GetVRFInputs(lsn.job, req)
-	if err != nil {
-		lsn.l.Errorw("VRFListener: invalid log", "err", err)
-		return nil, req, err
-	}
 
-	solidityProof, err := GenerateProofResponse(lsn.vrfks, inputs.pk, inputs.seed)
-	if err != nil {
-		lsn.l.Errorw("VRFListener: error generating proof", "err", err)
-		return nil, req, err
-	}
-
-	vrfCoordinatorArgs, err := models.VRFFulfillMethod().Inputs.PackValues(
-		[]interface{}{
-			solidityProof[:], // geth expects slice, even if arg is constant-length
-		})
-	if err != nil {
-		lsn.l.Errorw("VRFListener: error building fulfill args", "err", err)
-		return nil, req, err
-	}
-
-	return append(lsn.abi.Methods["fulfillRandomnessRequest"].ID, vrfCoordinatorArgs...), req, nil
-}
-
-type VRFInputs struct {
-	pk   secp256k1.PublicKey
-	seed PreSeedData
-}
-
-// Check the key hash against the spec's pubkey
-func GetVRFInputs(jb job.Job, request *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest) (VRFInputs, error) {
-	var inputs VRFInputs
-	kh, err := jb.VRFSpec.PublicKey.Hash()
-	if err != nil {
-		return inputs, err
-	}
-	if !bytes.Equal(request.KeyHash[:], kh[:]) {
-		return inputs, fmt.Errorf("invalid key hash %v expected %v", hex.EncodeToString(request.KeyHash[:]), hex.EncodeToString(kh[:]))
-	}
-	preSeed, err := BigToSeed(request.Seed)
-	if err != nil {
-		return inputs, errors.New("unable to parse preseed")
-	}
-	strJobID := jb.ExternalIDEncodeStringToTopic()
-	bytesJobID := jb.ExternalIDEncodeBytesToTopic()
-	if !bytes.Equal(bytesJobID[:], request.JobID[:]) && !bytes.Equal(strJobID[:], request.JobID[:]) {
-		return inputs, fmt.Errorf("request jobID %v doesn't match expected %v or %v", request.JobID[:], strJobID, bytesJobID)
-	}
-	return VRFInputs{
-		pk: jb.VRFSpec.PublicKey,
-		seed: PreSeedData{
-			PreSeed:   preSeed,
-			BlockHash: request.Raw.BlockHash,
-			BlockNum:  request.Raw.BlockNumber,
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    lsn.job.ID,
+			"externalJobID": lsn.job.ExternalJobID,
+			"name":          lsn.job.Name.ValueOrZero(),
+			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 		},
-	}, nil
+		"jobRun": map[string]interface{}{
+			"logBlockHash":   req.Raw.BlockHash[:],
+			"logBlockNumber": req.Raw.BlockNumber,
+			"logTxHash":      req.Raw.TxHash,
+			"logTopics":      req.Raw.Topics,
+			"logData":        req.Raw.Data,
+		},
+	})
+	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
+	if err != nil {
+		logger.Errorw("VRFListener: failed executing run", "err", err)
+	}
+	f := time.Now()
+	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
+		_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+			State:          pipeline.RunStatusCompleted,
+			PipelineSpecID: run.PipelineSpecID,
+			Errors:         run.Errors,
+			Outputs:        run.Outputs,
+			Meta:           run.Meta,
+			CreatedAt:      s,
+			FinishedAt:     null.TimeFrom(f),
+		}, trrs, true)
+		if err != nil {
+			return errors.Wrap(err, "VRFListener: failed to insert finished run")
+		}
+		// Always mark consumed regardless of whether the proof failed or not.
+		return lsn.logBroadcaster.MarkConsumed(tx, lb)
+	})
+	if err != nil {
+		lsn.l.Errorw("VRFListener failed to save run", "err", err)
+	}
 }
 
 // Close complies with job.Service

@@ -28,6 +28,7 @@ import BaseLink from '../components/BaseLink'
 import LoadingBar from '../components/LoadingBar'
 import MainLogo from '../components/Logos/Main'
 import fetchCountSelector from '../selectors/fetchCount'
+import { Feature, useFeature } from 'src/lib/featureFlags'
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
@@ -143,6 +144,7 @@ interface NavProps extends WithStyles<typeof navStyles> {
 
 const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
   const { pathname } = useLocation()
+  const isFeedsManagerFeatureEnabled = useFeature(Feature.FeedsManager)
 
   return (
     <Typography variant="body1" component="div">
@@ -160,6 +162,19 @@ const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
             </BaseLink>
           </ListItem>
         ))}
+        {/* Feeds Manager link hidden behind a feature flag. This is temporary until we
+        enable this for everyone */}
+        {isFeedsManagerFeatureEnabled && (
+          <BaseLink
+            href={'/feeds_manager'}
+            className={classNames(
+              classes.horizontalNavLink,
+              pathname.includes('/feeds_manager') && classes.activeNavLink,
+            )}
+          >
+            Feeds Manager
+          </BaseLink>
+        )}
         {authenticated && (
           <ListItem className={classes.horizontalNavItem}>
             <AvatarMenu />

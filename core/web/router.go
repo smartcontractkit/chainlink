@@ -275,6 +275,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		bdc := BulkDeletesController{app}
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 
+		rc := ReplayController{app}
+		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
+
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
@@ -314,7 +317,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/jobs/:ID", jc.Delete)
 
 		jpc := JobProposalsController{app}
+		authv2.GET("/job_proposals", jpc.Index)
+		authv2.GET("/job_proposals/:id", jpc.Show)
+		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
 		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
+		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
 
 		mc := MigrateController{app}
 		authv2.POST("/migrate/:ID", mc.Migrate)

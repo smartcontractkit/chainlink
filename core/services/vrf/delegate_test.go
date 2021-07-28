@@ -71,8 +71,10 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	prm := pipeline.NewORM(db)
 	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
-	pr := pipeline.NewRunner(prm, cfg, ec, nil, nil)
 	ks := keystore.New(db, utils.FastScryptParams)
+	txm := new(bptxmmocks.TxManager)
+	t.Cleanup(func() { txm.AssertExpectations(t) })
+	pr := pipeline.NewRunner(prm, cfg, ec, ks.Eth(), ks.VRF(), txm)
 	require.NoError(t, ks.Eth().Unlock("blah"))
 	_, err = ks.Eth().CreateNewKey()
 	require.NoError(t, err)
@@ -82,8 +84,6 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	require.NoError(t, err)
 	vrfkey, err := ks.VRF().CreateKey()
 	require.NoError(t, err)
-	txm := new(bptxmmocks.TxManager)
-	t.Cleanup(func() { txm.AssertExpectations(t) })
 
 	return vrfUniverse{
 		jrm:       jrm,
@@ -143,10 +143,10 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.ec,
 		c)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
-	t.Log(vs)
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	require.NoError(t, vuni.jrm.CreateJob(context.Background(), &jb, pipeline.Pipeline{}))
+	jb, err = vuni.jrm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 2)
@@ -424,11 +424,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
 		assert.False(t, runs[0].Errors.HasError())
-		m, ok := runs[0].Meta.Val.(map[string]interface{})
-		require.True(t, ok)
-		_, ok = m["eth_tx_id"]
-		assert.True(t, ok)
-		assert.Len(t, runs[0].PipelineTaskRuns, 0)
+		// Should have 4 tasks all completed
+		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 
 		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
@@ -493,10 +490,19 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
-	// Ensure we have not created a run.
+	// Should create a run that errors in the vrf task
 	runs, err := vuni.prm.GetAllRuns()
 	require.NoError(t, err)
-	require.Equal(t, len(runs), 0)
+	require.Equal(t, len(runs), 1)
+	for _, tr := range runs[0].PipelineTaskRuns {
+		if tr.Type == pipeline.TaskTypeVRF {
+			assert.Contains(t, tr.Error.String, "invalid key hash")
+		}
+		// Log parsing task itself should succeed.
+		if tr.Type != pipeline.TaskTypeETHABIDecodeLog {
+			assert.Nil(t, tr.Output)
+		}
+	}
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx

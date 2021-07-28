@@ -67,7 +67,7 @@ func TempDir(dirPrefix string) (string, func()) {
 	}
 }
 
-func CopyLog(l types.Log) types.Log {
+func DeepCopyLog(l types.Log) types.Log {
 	var cpy types.Log
 	cpy.Address = l.Address
 	if l.Topics != nil {

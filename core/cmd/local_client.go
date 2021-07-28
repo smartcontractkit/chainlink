@@ -58,7 +58,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
+	updateConfig(cli.Config, c.Bool("debug"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 	if cli.Config.Dev() {
@@ -219,12 +219,9 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func updateConfig(cfg *config.Config, debug bool, replayFromBlock int64) {
+func updateConfig(cfg *config.Config, debug bool) {
 	if debug {
 		cfg.Set("LOG_LEVEL", zapcore.DebugLevel.String())
-	}
-	if replayFromBlock >= 0 {
-		cfg.Set(config.EnvVarName("ReplayFromBlock"), replayFromBlock)
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
 	"github.com/ethereum/go-ethereum"
@@ -272,11 +274,11 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 	}
 
 	// req.PreSeed is uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
-	preSeed, err := BigToSeed(req.PreSeedAndRequestId)
+	preSeed, err := proof.BigToSeed(req.PreSeedAndRequestId)
 	if err != nil {
 		return nil, errors.New("unable to parse preseed")
 	}
-	seed := PreSeedDataV2{
+	seed := proof.PreSeedDataV2{
 		PreSeed:          preSeed,
 		BlockHash:        req.Raw.BlockHash,
 		BlockNum:         req.Raw.BlockNumber,
@@ -285,7 +287,7 @@ func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2Random
 		NumWords:         req.NumWords,
 		Sender:           req.Sender,
 	}
-	solidityProof, err := GenerateProofResponseV2(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
+	solidityProof, err := proof.GenerateProofResponseV2(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: error generating proof", "err", err)
 		return nil, err

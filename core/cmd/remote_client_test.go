@@ -61,6 +61,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	t.Cleanup(cfgCleanup)
 	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
 	config.Set("MAX_HTTP_ATTEMPTS", "1")
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	for k, v := range sopts.Config {
 		config.Set(k, v)
@@ -181,6 +182,18 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
+func TestClient_ReplayBlocks(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("flagset", 0)
+	set.Int64("block-number", 42, "")
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ReplayFromBlock(c))
+}
+
 func TestClient_IndexJobRuns(t *testing.T) {
 	t.Parallel()
 
@@ -292,6 +305,8 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			app := startNewApplication(t)
 			client, _ := app.NewClientAndRenderer()
 
+			initialExis := len(cltest.AllExternalInitiators(t, app.Store))
+
 			set := flag.NewFlagSet("create", 0)
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
@@ -300,7 +315,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			assert.Error(t, err)
 
 			exis := cltest.AllExternalInitiators(t, app.Store)
-			assert.Len(t, exis, 0)
+			assert.Len(t, exis, initialExis)
 		})
 	}
 }
@@ -633,10 +648,10 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
+	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})
+	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
