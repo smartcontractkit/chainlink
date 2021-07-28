@@ -1073,10 +1073,14 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 type            = "webhook"
 schemaVersion   = 1
 externalJobID           = "%v"
-externalInitiatorName = "%v"
-externalInitiatorSpec = """
-    %v
+externalInitiators = [
+	{
+		name = "%s",
+		spec = """
+	%s
 """
+	}
+]
 observationSource   = """
     parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
@@ -1093,8 +1097,24 @@ observationSource   = """
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
 
-	// Simulate request from EI -> Core node
-	{
+	t.Run("calling webhook_spec with non-matching external_initiator_id returns unauthorized", func(t *testing.T) {
+		eiaWrong := auth.NewToken()
+		body := cltest.MustJSONMarshal(t, eiRequest)
+		headers := make(map[string]string)
+		headers[static.ExternalInitiatorAccessKeyHeader] = eiaWrong.AccessKey
+		headers[static.ExternalInitiatorSecretHeader] = eiaWrong.Secret
+
+		url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobUUID.String() + "/runs"
+		bodyBuf := bytes.NewBufferString(body)
+		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, 401)
+
+		cltest.AssertCountStays(t, app.Store, &pipeline.Run{}, 0)
+	})
+
+	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
+		// Simulate request from EI -> Core node
 		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
@@ -1110,7 +1130,7 @@ observationSource   = """
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 
 		assert.True(t, bridgeCalled, "expected bridge server to be called")
-	}
+	})
 
 	// Delete the job
 	{

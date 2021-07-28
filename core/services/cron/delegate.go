@@ -23,8 +23,8 @@ func (d *Delegate) JobType() job.Type {
 	return job.Cron
 }
 
-func (Delegate) OnJobCreated(spec job.Job) {}
-func (Delegate) OnJobDeleted(spec job.Job) {}
+func (Delegate) AfterJobCreated(spec job.Job)  {}
+func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the scheduler to be used for running cron jobs
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
