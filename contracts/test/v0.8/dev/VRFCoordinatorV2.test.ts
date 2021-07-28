@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { Signer, Contract, BigNumber } from "ethers";
+import { Signer, Contract, BigNumber, utils } from "ethers";
 import { assert, expect } from "chai";
 import { defaultAbiCoder } from "ethers/utils";
-import { publicAbi } from "../../test-helpers/helpers";
+import { publicAbi, hexToBuf } from "../../test-helpers/helpers";
 import { randomAddressString } from "hardhat/internal/hardhat-network/provider/fork/random";
 
 describe("VRFCoordinatorV2", () => {
@@ -740,6 +740,48 @@ describe("VRFCoordinatorV2", () => {
     });
   });
 
+  describe("#fulfillRandomWords", async function () {
+    it("invalid proof length", async function () {
+      const proof = new Uint8Array([0, 0, 0, 0]);
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof)).to.be.revertedWith(
+        `InvalidProofLength(4, 576)`,
+      );
+    });
+    it("no corresponding request", async function () {
+      const proof = new Uint8Array(576);
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof)).to.be.revertedWith(
+        `NoCorrespondingRequest(0)`,
+      );
+    });
+    it("incorrect commitment", async function () {
+      let subId = await createSubscription();
+      await linkToken.connect(subOwner).transferAndCall(
+        vrfCoordinatorV2.address,
+        BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
+        defaultAbiCoder.encode(["uint64"], [subId]),
+      );
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      const tx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
+        kh, // keyhash
+        subId, // subId
+        1, // minReqConf
+        1000, // callbackGasLimit
+        1, // numWords
+      );
+      const reqReceipt = await tx.wait();
+      // We give it the right proof length and a valid requestID (preSeed)
+      // but an invalid commitment
+      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeedAndRequestId"].toHexString());
+      const proof = new Uint8Array(576);
+      for (let i = 0; i < 32; i++) {
+        // Seed is the 6th word
+        proof[i + 32 * 6] = preSeedBytes[i];
+      }
+      const p = utils.solidityPack(["bytes"], [proof]);
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(p)).to.be.revertedWith(`IncorrectCommitment()`);
+    });
+  });
   /*
     Note that all the fulfillment happy path testing is done in Go, to make use of the existing go code to produce
     proofs offchain.

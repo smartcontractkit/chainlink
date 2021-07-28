@@ -71,7 +71,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidFeedResponse(int256 linkWei);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error InvalidProofLength(uint256 have, uint256 want);
-  error NoCorrespondingRequest();
+  error NoCorrespondingRequest(uint256 preSeed);
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
@@ -466,7 +466,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 commitment = s_commitments[preSeed];
     requestId = preSeed;
     if (commitment == 0) {
-      revert NoCorrespondingRequest();
+      revert NoCorrespondingRequest(preSeed);
     }
     if (commitment != keccak256(abi.encodePacked(
         requestId,
