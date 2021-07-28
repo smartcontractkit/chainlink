@@ -96,12 +96,13 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	listener := helper.newLogListenerWithJobV2("initial")
 	helper.register(listener, newMockContract(), numConfirmations)
-	helper.start()
 
 	for i := 0; i < numContracts; i++ {
 		listener := helper.newLogListenerWithJobV2("")
 		helper.register(listener, newMockContract(), 1)
 	}
+
+	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))

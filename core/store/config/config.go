@@ -770,6 +770,11 @@ func (c Config) EthLogBackfillBatchSize() uint32 {
 	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
 }
 
+// EthLogPollingEnabled controls injestion mode of logs from the chain
+func (c Config) EthLogPollingEnabled() bool {
+	return c.viper.GetBool(EnvVarName("EthLogPollingEnabled"))
+}
+
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))

@@ -61,6 +61,7 @@ type ConfigSchema struct {
 	EthHeadTrackerMaxBufferSize                uint                          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
 	EthHeadTrackerSamplingInterval             time.Duration                 `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL" default:"1s"`
 	EthLogBackfillBatchSize                    uint32                        `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
+	EthLogPollingEnabled                       bool                          `env:"ETH_LOG_POLLING_ENABLED" default:"false"`
 	EthMaxGasPriceWei                          big.Int                       `env:"ETH_MAX_GAS_PRICE_WEI"`
 	EthMaxInFlightTransactions                 uint64                        `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
 	EthMaxQueuedTransactions                   uint64                        `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
