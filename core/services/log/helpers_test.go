@@ -400,3 +400,37 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expe
 		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
 	return mockEth
 }
+
+func newMockEthClientForPolling(chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
+	mockEth := &mockEth{
+		ethClient:       new(mocks.Client),
+		sub:             new(mocks.Subscription),
+		checkFilterLogs: nil,
+	}
+
+	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&models.Head{Number: blockHeight}, nil).
+		Times(expectedCalls.HeaderByNumber)
+
+	//if expectedCalls.FilterLogs > 0 {
+	//	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+	//		Run(func(args mock.Arguments) {
+	//			filterQuery := args.Get(1).(ethereum.FilterQuery)
+	//			fromBlock := filterQuery.FromBlock.Int64()
+	//			toBlock := filterQuery.ToBlock.Int64()
+	//			if mockEth.checkFilterLogs != nil {
+	//				mockEth.checkFilterLogs(fromBlock, toBlock)
+	//			}
+	//		}).
+	//		Return(expectedCalls.FilterLogsResult, nil).
+	//		Times(expectedCalls.FilterLogs)
+	//}
+
+	//mockEth.sub.On("Err").
+	//	Return(nil)
+	//
+	//mockEth.sub.On("Unsubscribe").
+	//	Return().
+	//	Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
+	return mockEth
+}

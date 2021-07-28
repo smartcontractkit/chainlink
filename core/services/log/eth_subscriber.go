@@ -35,12 +35,12 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 // backfillLogs - fetches earlier logs either from a relatively recent block (latest minus BlockBackfillDepth) or from the given fromBlockOverride
 // note that the whole operation has no timeout - it relies on BlockBackfillSkip (set outside) to optionally prevent very deep, long backfills
 // Max runtime is: (10 sec + 1 min * numBlocks/batchSize) * 3 retries
-func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool, latestHead *models.Head) {
 	if len(addresses) == 0 {
 		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
 		ch := make(chan types.Log)
 		close(ch)
-		return ch, false
+		return ch, false, nil
 	}
 
 	ctxParent, cancel := utils.ContextFromChan(sub.chStop)
@@ -65,6 +65,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 			return true
 		}
 		latestHeight := uint64(latestBlock.Number)
+		latestHead = latestBlock
 
 		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
 		// filter out logs they've already dealt with.
@@ -118,7 +119,6 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_SKIP configuration variable to \"true\")"
 			}
 			logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of logs%s", elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
-			logger.Infof("LogBroadcaster: Fetched a batch of %v logs from %v to %v", len(batchLogs), from, to)
 			if err != nil {
 				if ctx.Err() != nil {
 					logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs. Consider setting EthLogBackfillBatchSize to a lower value", "err", err, "elapsed", elapsed, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
@@ -163,6 +163,33 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 	return
 }
 
+func (sub *ethSubscriber) FetchLatestHead() (latestHead *models.Head, err error) {
+	ctxParent, cancel := utils.ContextFromChan(sub.chStop)
+	defer cancel()
+
+	var retryCount int32
+	utils.RetryWithBackoff(ctxParent, func() (retry bool) {
+		if retryCount > 3 {
+			return false
+		}
+		retryCount++
+
+		ctx, cancel := context.WithTimeout(ctxParent, 10*time.Second)
+		defer cancel()
+
+		latestHead, err = sub.ethClient.HeadByNumber(ctx, nil)
+		if err != nil {
+			logger.Errorw("LogBroadcaster: Could not fetch latest block header, will retry", "err", err)
+			return true
+		} else if latestHead == nil {
+			logger.Warn("LogBroadcaster: Got nil block header, will retry")
+			return true
+		}
+		return
+	})
+	return
+}
+
 func (sub *ethSubscriber) fetchLogBatch(ctxParent context.Context, query ethereum.FilterQuery, start time.Time) ([]types.Log, error) {
 	var errOuter error
 	var result []types.Log
@@ -192,39 +219,83 @@ func (sub *ethSubscriber) fetchLogBatch(ctxParent context.Context, query ethereu
 // createSubscription creates a new log subscription starting at the current block.  If previous logs
 // are needed, they must be obtained through backfilling, as subscriptions can only be started from
 // the current head.
-func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics []common.Hash) (subscr managedSubscription, abort bool) {
+func (sub *ethSubscriber) createSubscription(fromBlock null.Int64, addresses []common.Address, topics []common.Hash) (subscr managedSubscription, abort bool) {
 	if len(addresses) == 0 {
 		return newNoopSubscription(), false
 	}
 
-	ctx, cancel := utils.ContextFromChan(sub.chStop)
-	defer cancel()
+	if sub.config.EthLogPollingEnabled() {
+		pollingSub := newPollingSubscription()
+		subscr = pollingSub
 
-	syncTicker := time.NewTicker(time.Second)
-	defer syncTicker.Stop()
+		go func() {
+			//latestHead, err := sub.FetchLatestHead()
+			//if err != nil || latestHead == nil {
+			//	return
+			//}
+			backfillFrom := fromBlock
 
-	chann := make(chan types.Log, 10000)
-	subb := noopSubscription{chann}
+			currentBackfilled := make(chan types.Log)
+			pollTicker := time.NewTicker(time.Second)
+			defer pollTicker.Stop()
+			for {
+				select {
+				case <-sub.chStop:
+					return
+				case <-pollingSub.unsubscribed:
+					return
+				case log, open := <-currentBackfilled:
+					if !open {
+						return
+					}
+					logger.Warnf("Pushing log")
+					pollingSub.chRawLogs <- log
+				case <-pollTicker.C:
+					logger.Warnf("Ticker fired")
 
-	var latest *models.Head
-	for {
+					backfilled, _, latestHead := sub.backfillLogs(backfillFrom, addresses, topics)
+					if latestHead != nil {
+						backfillFrom = null.Int64From(latestHead.Number)
+					}
+					currentBackfilled = backfilled
+				}
+			}
+		}()
+	} else {
+		ctx, cancel := utils.ContextFromChan(sub.chStop)
+		defer cancel()
+
+		utils.RetryWithBackoff(ctx, func() (retry bool) {
+
+			filterQuery := ethereum.FilterQuery{
+				Addresses: addresses,
+				Topics:    [][]common.Hash{topics},
+			}
+			chRawLogs := make(chan types.Log)
+
+			ctx2, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+
+			innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
+			if err != nil {
+				logger.Errorw("Log subscriber could not create subscription to Ethereum node", "err", err)
+				return true
+			}
+
+			subscr = managedSubscriptionImpl{
+				subscription: innerSub,
+				chRawLogs:    chRawLogs,
+			}
+			return false
+		})
 		select {
 		case <-sub.chStop:
-			return
-		case <-syncTicker.C:
-
-			var fromBlockOverride null.Int64
-			if latest != nil {
-				fromBlockOverride = null.Int64From(latest.Number)
-			}
-			backfilled, abort, latestHead := sub.backfillLogs(fromBlockOverride, addresses, topics)
-			latest = latestHead
-
-			for log : range backfilled {
-				chann <- log
-			}
+			abort = true
+		default:
+			abort = false
 		}
 	}
+	return
 }
 
 // A managedSubscription acts as wrapper for the Subscription. Specifically, the
@@ -264,3 +335,30 @@ func newNoopSubscription() noopSubscription {
 func (b noopSubscription) Err() <-chan error    { return nil }
 func (b noopSubscription) Logs() chan types.Log { return b.chRawLogs }
 func (b noopSubscription) Unsubscribe()         { close(b.chRawLogs) }
+
+type pollingSubscription struct {
+	chRawLogs    chan types.Log
+	unsubscribed chan struct{}
+}
+
+func newPollingSubscription() pollingSubscription {
+	return pollingSubscription{make(chan types.Log), make(chan struct{}, 1)}
+}
+func (b pollingSubscription) Err() <-chan error {
+	return nil
+}
+func (b pollingSubscription) Logs() chan types.Log {
+	return b.chRawLogs
+}
+func (b pollingSubscription) Unsubscribe() {
+	b.unsubscribed <- struct{}{}
+	close(b.chRawLogs)
+}
+
+//type LogsEthClient struct {
+//	ethClient eth.Client
+//}
+//
+//func (client LogsEthClient) subscribe() managedSubscription {
+//	return client.ethClient
+//}

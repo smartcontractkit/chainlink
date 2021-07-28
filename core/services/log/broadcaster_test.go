@@ -62,6 +62,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 
 func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	t.Parallel()
+	g := gomega.NewGomegaWithT(t)
 
 	const (
 		numConfirmations            = 1
@@ -104,9 +105,9 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	helper.start()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(0)))
+	g.Eventually(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
+	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
+	g.Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(0)))
 
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
 	helper.unsubscribeAll()
@@ -120,15 +121,91 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	listenerLast := helper.newLogListenerWithJobV2("last")
 	helper.register(listenerLast, newMockContract(), 1)
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(2)))
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
+	g.Eventually(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.BeNumerically(">=", 1))
+	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(2)))
+	g.Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
 
 	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 2 }, 5*time.Second, 10*time.Millisecond)
 
 	helper.stop()
 	helper.mockEth.assertExpectations(t)
 }
+
+//func TestBroadcaster_ResubscribesWithPolling(t *testing.T) {
+//	t.Parallel()
+//	g := gomega.NewGomegaWithT(t)
+//
+//	const (
+//		numConfirmations            = 1
+//		numContracts                = 3
+//		blockHeight           int64 = 123
+//		lastStoredBlockHeight       = blockHeight - 25
+//	)
+//
+//	backfillTimes := 2
+//	expectedCalls := mockEthClientExpectedCalls{
+//		SubscribeFilterLogs: backfillTimes,
+//		HeaderByNumber:      backfillTimes,
+//		FilterLogs:          backfillTimes,
+//	}
+//
+//	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+//	mockEth := newMockEthClientForPolling(chchRawLogs, blockHeight, expectedCalls)
+//	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+//	helper.mockEth = mockEth
+//	helper.store.Config.Set(config.EnvVarName("EthLogPollingEnabled"), true)
+//
+//	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
+//
+//	var backfillCount int64
+//	var backfillCountPtr = &backfillCount
+//
+//	// the first backfill should use the height of last head saved to the db,
+//	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
+//	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+//		atomic.StoreInt64(backfillCountPtr, 1)
+//		require.Equal(t, lastStoredBlockHeight-numConfirmations-int64(blockBackfillDepth), fromBlock)
+//	}
+//
+//	listener := helper.newLogListenerWithJobV2("initial")
+//	helper.register(listener, newMockContract(), numConfirmations)
+//
+//	for i := 0; i < numContracts; i++ {
+//		listener := helper.newLogListenerWithJobV2("")
+//		helper.register(listener, newMockContract(), 1)
+//	}
+//
+//	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+//		Return(append(addr1SentLogs, addr2SentLogs...), nil).
+//		Times(1)
+//
+//	helper.start()
+//
+//	//g.Eventually(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
+//	//g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
+//	g.Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(0)))
+//
+//	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+//	helper.unsubscribeAll()
+//
+//	// now the backfill must use the blockBackfillDepth
+//	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+//		require.Equal(t, blockHeight-int64(blockBackfillDepth), fromBlock)
+//		atomic.StoreInt64(backfillCountPtr, 2)
+//	}
+//
+//	listenerLast := helper.newLogListenerWithJobV2("last")
+//	helper.register(listenerLast, newMockContract(), 1)
+//
+//	g.Eventually(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.BeNumerically(">=", 1))
+//	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(2)))
+//	g.Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
+//
+//	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 2 }, 5*time.Second, 10*time.Millisecond)
+//
+//	helper.stop()
+//	helper.mockEth.assertExpectations(t)
+//}
 
 func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	t.Parallel()
@@ -418,6 +495,77 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	for _, log := range addr2SentLogs {
 		chRawLogs <- log
 	}
+
+	requireBroadcastCount(t, helper.store, 12)
+
+	requireEqualLogs(t, addr1SentLogs, listener1.received.uniqueLogs)
+	requireEqualLogs(t, addr1SentLogs, listener2.received.uniqueLogs)
+
+	requireEqualLogs(t, addr2SentLogs, listener3.received.uniqueLogs)
+	requireEqualLogs(t, addr2SentLogs, listener4.received.uniqueLogs)
+
+	helper.unsubscribeAll()
+	helper.stop()
+	helper.mockEth.assertExpectations(t)
+}
+
+func TestBroadcaster_PollingBroadcastsToCorrectRecipients(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 0
+	backfillTimes := 1
+	expectedCalls := mockEthClientExpectedCalls{
+		HeaderByNumber: backfillTimes,
+		FilterLogs:     backfillTimes,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, 1)
+	mockEth := newMockEthClientForPolling(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, nil)
+	helper.mockEth = mockEth
+	helper.store.Config.Set(config.EnvVarName("EthLogPollingEnabled"), true)
+
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+	contract2, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := cltest.NewBlocks(t, 20)
+	addr1SentLogs := []types.Log{
+		blocks.LogOnBlockNum(1, contract1.Address()),
+		blocks.LogOnBlockNum(2, contract1.Address()),
+		blocks.LogOnBlockNum(3, contract1.Address()),
+	}
+	addr2SentLogs := []types.Log{
+		blocks.LogOnBlockNum(4, contract2.Address()),
+		blocks.LogOnBlockNum(5, contract2.Address()),
+		blocks.LogOnBlockNum(6, contract2.Address()),
+	}
+
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
+	listener2 := helper.newLogListenerWithJobV2("listener 2")
+	listener3 := helper.newLogListenerWithJobV2("listener 3")
+	listener4 := helper.newLogListenerWithJobV2("listener 4")
+
+	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       10,
+		BackfillDepth:  10,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+	})
+	defer cleanup()
+
+	helper.register(listener1, contract1, 1)
+	helper.register(listener2, contract1, 1)
+	helper.register(listener3, contract2, 1)
+	helper.register(listener4, contract2, 1)
+
+	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+		Return(append(addr1SentLogs, addr2SentLogs...), nil).
+		Times(1)
 
 	requireBroadcastCount(t, helper.store, 12)
 

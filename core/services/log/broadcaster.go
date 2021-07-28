@@ -87,6 +87,7 @@ type (
 		BlockBackfillSkip() bool
 		EthFinalityDepth() uint
 		EthLogBackfillBatchSize() uint32
+		EthLogPollingEnabled() bool
 	}
 
 	ListenerOpts struct {
@@ -237,11 +238,6 @@ func (b *broadcaster) startResubscribeLoop() {
 		logger.Debug("LogBroadcaster: Resubscribing and backfilling logs...")
 		addresses, topics := b.registrations.addressesAndTopics()
 
-		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
-		if abort {
-			return
-		}
-
 		if b.config.BlockBackfillSkip() && b.highestSavedHead != nil {
 			logger.Warn("LogBroadcaster: BlockBackfillSkip is set to true, preventing a deep backfill - some earlier chain events might be missed.")
 			b.highestSavedHead = nil
@@ -272,9 +268,18 @@ func (b *broadcaster) startResubscribeLoop() {
 			)
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.backfillBlockNumber, addresses, topics)
+		newSubscription, abort := b.ethSubscriber.createSubscription(b.backfillBlockNumber, addresses, topics)
 		if abort {
 			return
+		}
+
+		var chBackfilledLogs chan types.Log
+		if !b.config.EthLogPollingEnabled() {
+			backfilled, abort, _ := b.ethSubscriber.backfillLogs(b.backfillBlockNumber, addresses, topics)
+			if abort {
+				return
+			}
+			chBackfilledLogs = backfilled
 		}
 
 		b.backfillBlockNumber.Valid = false
