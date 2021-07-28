@@ -365,18 +365,30 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
-		logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
-
-		if len(logs) > 0 {
-			broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
-			if err != nil {
-				logger.Errorf("Failed to query for log broadcasts, %v", err)
-				return
+		if b.registrations.lowestNumConfirmations == 0 && b.registrations.highestNumConfirmations == 0 {
+			logs, lowest, highest := b.logPool.getAndDeleteAll()
+			if len(logs) > 0 {
+				broadcasts, err := b.orm.FindConsumedLogs(lowest, highest)
+				if err != nil {
+					logger.Errorf("Failed to query for log broadcasts, %v", err)
+					return
+				}
+				b.registrations.sendLogs(logs, *latestHead, broadcasts)
 			}
+		} else {
+			logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
 
-			b.registrations.sendLogs(logs, *latestHead, broadcasts)
+			if len(logs) > 0 {
+				broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
+				if err != nil {
+					logger.Errorf("Failed to query for log broadcasts, %v", err)
+					return
+				}
+
+				b.registrations.sendLogs(logs, *latestHead, broadcasts)
+			}
+			b.logPool.deleteOlderLogs(uint64(keptDepth))
 		}
-		b.logPool.deleteOlderLogs(uint64(keptDepth))
 	}
 }
 
