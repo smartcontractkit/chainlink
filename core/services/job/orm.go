@@ -7,19 +7,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgconn"
-	"github.com/lib/pq"
-
-	"gorm.io/gorm/clause"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
+	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -203,6 +201,11 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 	}
 
 	tx := postgres.TxFromContext(ctx, o.db)
+
+	// Autogenerate a job ID if not specified
+	if jobSpec.ExternalJobID == (uuid.UUID{}) {
+		jobSpec.ExternalJobID = uuid.NewV4()
+	}
 
 	switch jobSpec.Type {
 	case DirectRequest:
