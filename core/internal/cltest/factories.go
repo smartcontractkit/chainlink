@@ -970,7 +970,20 @@ func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHa
 }
 
 func MustInsertExternalInitiator(t *testing.T, db *gorm.DB) (ei models.ExternalInitiator) {
+	return MustInsertExternalInitiatorWithOpts(t, db, ExternalInitiatorOpts{})
+}
+
+type ExternalInitiatorOpts struct {
+	URL            *models.WebURL
+	OutgoingSecret string
+	OutgoingToken  string
+}
+
+func MustInsertExternalInitiatorWithOpts(t *testing.T, db *gorm.DB, opts ExternalInitiatorOpts) (ei models.ExternalInitiator) {
 	ei.Name = fmt.Sprintf("ei-%s", uuid.NewV4())
+	ei.URL = opts.URL
+	ei.OutgoingSecret = opts.OutgoingSecret
+	ei.OutgoingToken = opts.OutgoingToken
 	token := auth.NewToken()
 	ei.AccessKey = token.AccessKey
 	err := db.Create(&ei).Error

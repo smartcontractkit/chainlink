@@ -335,7 +335,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB, utils.UnrestrictedClient)
 
 	var webhookJobRunner webhook.JobRunner
 	if cfg.Dev() || cfg.FeatureWebhookV2() {
