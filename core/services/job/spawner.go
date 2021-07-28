@@ -54,7 +54,7 @@ type (
 		// and stopped in reverse order.
 		ServicesForSpec(spec Job) ([]Service, error)
 		AfterJobCreated(spec Job)
-		BeforeDeleteJob(spec Job)
+		BeforeJobDeleted(spec Job)
 	}
 
 	activeJob struct {
@@ -341,7 +341,7 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	// Stop the service if we own the job.
 	js.stopService(jobID)
 
-	aj.delegate.BeforeDeleteJob(aj.spec)
+	aj.delegate.BeforeJobDeleted(aj.spec)
 
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
@@ -381,5 +381,5 @@ func (n *NullDelegate) ServicesForSpec(spec Job) (s []Service, err error) {
 	return
 }
 
-func (*NullDelegate) AfterJobCreated(spec Job) {}
-func (*NullDelegate) BeforeDeleteJob(spec Job) {}
+func (*NullDelegate) AfterJobCreated(spec Job)  {}
+func (*NullDelegate) BeforeJobDeleted(spec Job) {}

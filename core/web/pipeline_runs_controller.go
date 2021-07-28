@@ -92,13 +92,13 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
-		canRun, err2 := authorizer.CanRun(jobUUID)
+		canRun, err2 := authorizer.CanRun(c.Request.Context(), jobUUID)
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return
 		}
 		if canRun {
-			jobRunID, err3 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
+			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
 			if errors.Is(err3, webhook.ErrJobNotExists) {
 				jsonAPIError(c, http.StatusNotFound, err3)
 				return
@@ -120,7 +120,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		jobID64, err := strconv.ParseInt(idStr, 10, 32)
 		if err == nil {
 			jobID = int32(jobID64)
-			jobRunID, err := prc.App.RunJobV2(context.Background(), jobID, nil)
+			jobRunID, err := prc.App.RunJobV2(c.Request.Context(), jobID, nil)
 			if err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return

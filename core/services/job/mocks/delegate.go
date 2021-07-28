@@ -17,8 +17,8 @@ func (_m *Delegate) AfterJobCreated(spec job.Job) {
 	_m.Called(spec)
 }
 
-// BeforeDeleteJob provides a mock function with given fields: spec
-func (_m *Delegate) BeforeDeleteJob(spec job.Job) {
+// BeforeJobDeleted provides a mock function with given fields: spec
+func (_m *Delegate) BeforeJobDeleted(spec job.Job) {
 	_m.Called(spec)
 }
 

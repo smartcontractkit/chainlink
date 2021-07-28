@@ -55,10 +55,10 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 	}
 }
 
-func (d *Delegate) BeforeDeleteJob(jb job.Job) {
+func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 	err := d.externalInitiatorManager.DeleteJobV2(*jb.WebhookSpecID)
 	if err != nil {
-		logger.Errorw("Webhook delegate BeforeDeleteJob errored",
+		logger.Errorw("Webhook delegate BeforeJobDeleted errored",
 			"error", err,
 			"jobID", jb.ID,
 		)
