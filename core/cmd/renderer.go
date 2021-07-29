@@ -71,6 +71,8 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderServiceAgreement(*typed)
 	case *presenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
+	case *[]presenters.ExternalInitiatorResource:
+		return rt.renderExternalInitiatorResource(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
@@ -324,6 +326,27 @@ func (rt RendererTable) renderExternalInitiatorAuthentication(eia presenters.Ext
 		eia.OutgoingSecret,
 	})
 	render("External Initiator Credentials:", table)
+	return nil
+}
+
+func (rt RendererTable) renderExternalInitiatorResource(eis []presenters.ExternalInitiatorResource) error {
+	table := rt.newTable([]string{"ID", "Name", "URL", "AccessKey", "OutgoingToken", "CreatedAt", "UpdatedAt"})
+	for _, ei := range eis {
+		var urlS string
+		if ei.URL != nil {
+			urlS = ei.URL.String()
+		}
+		table.Append([]string{
+			fmt.Sprintf("%d", ei.ID),
+			ei.Name,
+			urlS,
+			ei.AccessKey,
+			ei.OutgoingToken,
+			ei.CreatedAt.String(),
+			ei.UpdatedAt.String(),
+		})
+	}
+	render("External Initiators:", table)
 	return nil
 }
 

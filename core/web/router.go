@@ -231,6 +231,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
 		eia := ExternalInitiatorsController{app}
+		authv2.GET("/external_initiators", paginatedRequest(eia.Index))
 		authv2.POST("/external_initiators", eia.Create)
 		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
 

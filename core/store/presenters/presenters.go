@@ -599,3 +599,36 @@ func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
 	ei.Name = name
 	return nil
 }
+
+type ExternalInitiatorResource struct {
+	ID            int64          `json:"id"`
+	Name          string         `json:"name"`
+	URL           *models.WebURL `json:"url"`
+	AccessKey     string         `json:"accessKey"`
+	OutgoingToken string         `json:"outgoingToken"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+}
+
+func NewExternalInitiatorResource(ei models.ExternalInitiator) ExternalInitiatorResource {
+	return ExternalInitiatorResource{
+		ID:            ei.ID,
+		Name:          ei.Name,
+		URL:           ei.URL,
+		AccessKey:     ei.AccessKey,
+		OutgoingToken: ei.OutgoingToken,
+		CreatedAt:     ei.CreatedAt,
+		UpdatedAt:     ei.UpdatedAt,
+	}
+}
+
+// GetID generates a new ID for jsonapi serialization.
+func (er ExternalInitiatorResource) GetID() string {
+	return er.Name
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (er *ExternalInitiatorResource) SetID(value string) error {
+	return nil
+}

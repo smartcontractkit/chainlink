@@ -103,7 +103,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
-		canRun, err2 := authorizer.CanRun(c.Request.Context(), jobUUID)
+		canRun, err2 := authorizer.CanRun(c.Request.Context(), prc.App.GetConfig(), jobUUID)
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return

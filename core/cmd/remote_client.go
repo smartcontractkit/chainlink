@@ -54,6 +54,11 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
 	return err
 }
 
+// IndexExternalInitiators lists external initiators
+func (cli *Client) IndexExternalInitiators(c *clipkg.Context) (err error) {
+	return cli.getPage("/v2/external_initiators", c.Int("page"), &[]presenters.ExternalInitiatorResource{})
+}
+
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 	if c.NArg() != 1 && c.NArg() != 2 {

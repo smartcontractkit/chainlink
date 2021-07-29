@@ -175,6 +175,7 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
 	config := NewTestConfig(t)
+	// FIXME: The returned function is totally pointless and ought to be removed from all tests
 	return config, func() {}
 }
 
@@ -360,6 +361,22 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 
 	return server, u.String(), func() {
 		server.Close()
+	}
+}
+
+// NewApplicationEthereumDisabled creates a new application with default config but ethereum disabled
+// Useful for testing controllers
+func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
+	t.Helper()
+
+	c, cfgCleanup := NewConfig(t)
+	c.Set("ETH_DISABLED", true)
+
+	app, cleanup := NewApplicationWithConfig(t, c)
+
+	return app, func() {
+		cleanup()
+		cfgCleanup()
 	}
 }
 
