@@ -1122,7 +1122,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	}
 
 	if roundState.RoundId > 1 {
-		l.Infow("deviation > threshold, starting new round")
+		l.Infow("deviation > threshold, submitting")
 	} else {
 		l.Infow("starting first round")
 	}
