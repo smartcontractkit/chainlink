@@ -2080,7 +2080,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("if more than one attempt has a receipt (unlikely but allowed within constraints of system, and possible in the event of forks) unconfirms and rebroadcasts only the attempt with the highest gas price", func(t *testing.T) {
+	t.Run("if more than one attempt has a receipt (should not be possible but isn't prevented by database constraints) unconfirms and rebroadcasts only the attempt with the highest gas price", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 6, 1, fromAddress)
 		require.Len(t, etx.EthTxAttempts, 1)
 		// Sanity check to assert the included attempt has the lowest gas price
@@ -2117,6 +2117,25 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt2.State)
 		attempt3 = etx.EthTxAttempts[2]
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt3.State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("if receipt has a block number that is in the future, does not mark for rebroadcast (the safe thing to do is simply wait until heads catches up)", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 7, 1, fromAddress)
+		attempt := etx.EthTxAttempts[0]
+		// Add receipt that is higher than head
+		cltest.MustInsertEthReceipt(t, db, head.Number+1, utils.NewHash(), attempt.Hash)
+
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+
+		etx, err := cltest.FindEthTxWithAttempts(db, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		require.Len(t, etx.EthTxAttempts, 1)
+		attempt = etx.EthTxAttempts[0]
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
+		assert.Len(t, attempt.EthReceipts, 1)
 
 		ethClient.AssertExpectations(t)
 	})
