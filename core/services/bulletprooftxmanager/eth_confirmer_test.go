@@ -2108,6 +2108,25 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		ethClient.AssertExpectations(t)
 	})
+
+	t.Run("if receipt has a block number that is in the future, does not mark for rebroadcast (the safe thing to do is simply wait until heads catches up)", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 7, 1, fromAddress)
+		attempt := etx.EthTxAttempts[0]
+		// Add receipt that is higher than head
+		cltest.MustInsertEthReceipt(t, store, head.Number+1, cltest.NewHash(), attempt.Hash)
+
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+
+		etx, err := store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		require.Len(t, etx.EthTxAttempts, 1)
+		attempt = etx.EthTxAttempts[0]
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
+		assert.Len(t, attempt.EthReceipts, 1)
+
+		ethClient.AssertExpectations(t)
+	})
 }
 
 func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
