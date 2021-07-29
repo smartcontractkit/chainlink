@@ -200,7 +200,7 @@ func setConfigs() {
 	// Fantom
 	fantomMainnet := FallbackConfig
 	fantomMainnet.EthGasPriceDefault = *assets.GWei(15)
-	fantomMainnet.EthMaxGasPriceWei = *assets.GWei(100)
+	fantomMainnet.EthMaxGasPriceWei = *assets.GWei(500)
 	fantomMainnet.LinkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.MinIncomingConfirmations = 3
 	fantomMainnet.MinRequiredOutgoingConfirmations = 2
