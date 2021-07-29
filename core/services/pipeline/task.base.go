@@ -6,10 +6,11 @@ type BaseTask struct {
 	outputs []Task
 	inputs  []Task
 
-	id      int
-	dotID   string
-	Index   int32         `mapstructure:"index" json:"-" `
-	Timeout time.Duration `mapstructure:"timeout"`
+	id        int
+	dotID     string
+	Index     int32         `mapstructure:"index" json:"-" `
+	Timeout   time.Duration `mapstructure:"timeout"`
+	FailEarly string        `mapstructure:"failEarly"`
 }
 
 func NewBaseTask(id int, dotID string, inputs, outputs []Task, index int32) BaseTask {

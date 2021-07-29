@@ -29,14 +29,18 @@ type JobsController struct {
 // Index lists all jobs
 // Example:
 // "GET <application>/jobs"
-func (jc *JobsController) Index(c *gin.Context) {
-	jobs, err := jc.App.JobORM().JobsV2()
+func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
+	jobs, count, err := jc.App.JobORM().JobsV2(offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	var resources []presenters.JobResource
+	for _, job := range jobs {
+		resources = append(resources, *presenters.NewJobResource(job))
+	}
 
-	jsonAPIResponse(c, presenters.NewJobResources(jobs), "jobs")
+	paginatedResponse(c, "jobs", size, page, resources, count, err)
 }
 
 // Show returns the details of a job
