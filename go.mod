@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink
 
-go 1.15
+go 1.16
 
 require (
 	github.com/DATA-DOG/go-txdb v0.1.4

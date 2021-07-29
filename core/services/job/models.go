@@ -43,6 +43,10 @@ func (t Type) HasPipelineSpec() bool {
 	return hasPipelineSpec[t]
 }
 
+func (t Type) SupportsAsync() bool {
+	return supportsAsync[t]
+}
+
 var (
 	hasPipelineSpec = map[Type]bool{
 		Cron:              true,
@@ -51,6 +55,15 @@ var (
 		OffchainReporting: true,
 		Keeper:            false,
 		VRF:               true,
+		Webhook:           true,
+	}
+	supportsAsync = map[Type]bool{
+		Cron:              false,
+		DirectRequest:     false,
+		FluxMonitor:       false,
+		OffchainReporting: false,
+		Keeper:            false,
+		VRF:               false,
 		Webhook:           true,
 	}
 )
