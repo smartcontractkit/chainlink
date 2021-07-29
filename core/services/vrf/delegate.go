@@ -389,7 +389,7 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 
 func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
-		if should := lsn.shouldProcessLog(lb); !should {
+		if !lsn.shouldProcessLog(lb) {
 			return
 		}
 		lsn.respCountMu.Lock()
@@ -406,7 +406,7 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
 		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-		if should := lsn.shouldProcessLog(lb); !should {
+		if !lsn.shouldProcessLog(lb) {
 			return
 		}
 		lsn.markLogAsConsumed(lb)
@@ -418,7 +418,7 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	if err != nil {
 		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-		if should := lsn.shouldProcessLog(lb); !should {
+		if !lsn.shouldProcessLog(lb) {
 			return
 		}
 		// If seedAndBlockNumber is zero then the response has been fulfilled
@@ -480,7 +480,7 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
-	if should := lsn.shouldProcessLog(lb); !should {
+	if !lsn.shouldProcessLog(lb) {
 		return
 	}
 	s := time.Now()
