@@ -11,9 +11,10 @@ import "./interfaces/FlagsInterface.sol";
 /**
  * @title The Flags contract
  * @notice Allows flags to signal to any reader on the access control list.
- * The owner can set flags, or designate other addresses to set flags. The
- * owner must turn the flags off, other setters cannot. An expected pattern is
- * to allow addresses to raise flags on themselves, so if you are subscribing to
+ * The owner can set flags, or designate other addresses to set flags. 
+ * Raise flag actions are controlled by its own access controller.
+ * Lower flag actions are controlled by its own access controller.
+ * An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
 contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessController {
