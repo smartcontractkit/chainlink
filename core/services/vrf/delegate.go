@@ -145,7 +145,7 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("vrf.Delegate unable to read previous fulfillments", "err", err)
+		l.Errorw("VRFListener: unable to read previous fulfillments", "err", err)
 		return respCounts
 	}
 	for _, c := range counts {
@@ -154,7 +154,7 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 		// Remove the 0x prefix
 		b, err := hex.DecodeString(req[2:])
 		if err != nil {
-			l.Errorw("vrf.Delegate unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			l.Errorw("VRFListener: unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
 		var reqID [32]byte
@@ -389,7 +389,12 @@ func (lsn *listener) runLogListener(unsubscribes []func(), minConfs uint32) {
 
 func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
+		if should := lsn.shouldProcessLog(lb); !should {
+			return
+		}
+		lsn.respCountMu.Lock()
 		lsn.respCount[v.RequestId]++
+		lsn.respCountMu.Unlock()
 		lsn.blockNumberToReqID.Insert(fulfilledReq{
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
@@ -397,9 +402,13 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.markLogAsConsumed(lb)
 		return
 	}
+
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
 		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		if should := lsn.shouldProcessLog(lb); !should {
+			return
+		}
 		lsn.markLogAsConsumed(lb)
 		return
 	}
@@ -409,6 +418,9 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	if err != nil {
 		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		if should := lsn.shouldProcessLog(lb); !should {
+			return
+		}
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
 		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
@@ -426,6 +438,18 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	lsn.reqsMu.Unlock()
 }
 
+func (lsn *listener) shouldProcessLog(lb log.Broadcast) bool {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		// Do not process, let lb resend it as a retry mechanism.
+		return false
+	}
+	return !consumed
+}
+
 func (lsn *listener) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
@@ -435,6 +459,8 @@ func (lsn *listener) markLogAsConsumed(lb log.Broadcast) {
 }
 
 func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
+	lsn.respCountMu.Lock()
+	defer lsn.respCountMu.Unlock()
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestID])
 	// We cap this at 200 because solidity only supports the most recent 256 blocks
 	// in the contract so if it was older than that, fulfillments would start failing
@@ -454,13 +480,7 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
-	alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
-	if err != nil {
-		// If we cannot determine if its consumed, we don't process it
-		// but we also don't mark it consumed which means the lb will resend it.
-		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
-		return
-	} else if alreadyConsumed {
+	if should := lsn.shouldProcessLog(lb); !should {
 		return
 	}
 	s := time.Now()
