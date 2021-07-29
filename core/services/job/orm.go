@@ -38,15 +38,17 @@ type ORM interface {
 	ListenForDeletedJobs() (postgres.Subscription, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]Job, error)
 	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) (Job, error)
-	JobsV2() ([]Job, error)
+	JobsV2(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
+	DismissError(ctx context.Context, errorID int32) error
 	UnclaimJob(ctx context.Context, id int32) error
 	CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, err error)
 	Close() error
+	PipelineRuns(offset, size int) ([]pipeline.Run, int, error)
 	PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error)
 }
 
@@ -392,10 +394,34 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
 }
 
-func (o *orm) JobsV2() ([]Job, error) {
+func (o *orm) DismissError(ctx context.Context, ID int32) error {
+	result := o.db.Exec("DELETE FROM job_spec_errors_v2 WHERE id = ?", ID)
+	if result.Error != nil {
+		return result.Error
+	} else if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
+	var count int64
 	var jobs []Job
 	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
-		err := PreloadAllJobTypes(tx).
+		err := tx.
+			Model(Job{}).
+			Count(&count).
+			Error
+
+		if err != nil {
+			return err
+		}
+
+		err = PreloadAllJobTypes(tx).
+			Preload("JobSpecErrors").
+			Limit(limit).
+			Offset(offset).
+			Order("id ASC").
 			Find(&jobs).
 			Error
 		if err != nil {
@@ -408,7 +434,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 		}
 		return nil
 	})
-	return jobs, err
+	return jobs, int(count), err
 }
 
 func loadDynamicConfigVars(cfg Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
@@ -447,6 +473,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	var jb Job
 	tx := postgres.TxFromContext(ctx, o.db)
 	err := PreloadAllJobTypes(tx).
+		Preload("JobSpecErrors").
 		First(&jb, "jobs.id = ?", id).
 		Error
 	if err != nil {
@@ -480,6 +507,34 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 		}
 	}
 	return jids, nil
+}
+
+// PipelineRunsByJobID returns all pipeline runs
+func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
+	var pipelineRuns []pipeline.Run
+	var count int64
+	err := o.db.
+		Model(pipeline.Run{}).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return pipelineRuns, 0, err
+	}
+
+	err = o.db.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Order("created_at ASC, id ASC")
+		}).
+		Limit(size).
+		Offset(offset).
+		Order("created_at DESC, id DESC").
+		Find(&pipelineRuns).
+		Error
+
+	return pipelineRuns, int(count), err
 }
 
 // PipelineRunsByJobID returns pipeline runs for a job

@@ -50,8 +50,9 @@ type Run struct {
 	PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
 	State            RunStatus        `json:"state"`
 
-	Async   bool `gorm:"-"`
-	Pending bool `gorm:"-"`
+	Async     bool `gorm:"-"`
+	Pending   bool `gorm:"-"`
+	FailEarly bool `gorm:"-"`
 }
 
 func (Run) TableName() string {

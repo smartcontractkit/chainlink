@@ -66,6 +66,10 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
+	// TODO: we need to fill these out manually, find a better fix
+	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
+	spec.PipelineSpec.JobID = spec.ID
+
 	service := &pseudoService{
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,
