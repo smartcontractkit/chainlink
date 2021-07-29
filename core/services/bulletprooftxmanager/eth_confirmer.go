@@ -402,10 +402,16 @@ func (ec *EthConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
 	//
 	// # Receipts insert
 	// Conflict on (tx_hash, block_hash) shouldn't be possible because there
-	// should only ever be one receipt for an eth_tx, and if it exists then the
-	// transaction is marked confirmed which means we can never get here.
-	// However, even so, it still shouldn't be an error to upsert a receipt
-	// we already have.
+	// should only ever be one receipt for an eth_tx.
+	//
+	// ASIDE: This is because we mark confirmed atomically with receipt insert
+	// in this query, and delete receipts upon marking unconfirmed - see
+	// markForRebroadcast.
+	//
+	// If a receipt with the same (tx_hash, block_hash) exists then the
+	// transaction is marked confirmed which means we _should_ never get here.
+	// However, even so, it still shouldn't be an error to upsert a receipt we
+	// already have.
 	//
 	// # EthTxAttempts update
 	// It should always be safe to mark the attempt as broadcast here because
@@ -1003,9 +1009,9 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *EthTxAttempt, broadcastAt 
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head models.Head) error {
-	etxs, err := findTransactionsConfirmedAtOrAboveBlockHeight(ec.db, head.EarliestInChain().Number)
+	etxs, err := findTransactionsConfirmedInBlockRange(ec.db, head.Number, head.EarliestInChain().Number)
 	if err != nil {
-		return errors.Wrap(err, "findTransactionsConfirmedAtOrAboveBlockHeight failed")
+		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 	}
 
 	for _, etx := range etxs {
@@ -1040,7 +1046,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	return multierr.Combine(errors...)
 }
 
-func findTransactionsConfirmedAtOrAboveBlockHeight(db *gorm.DB, blockNumber int64) ([]EthTx, error) {
+func findTransactionsConfirmedInBlockRange(db *gorm.DB, highBlockNumber, lowBlockNumber int64) ([]EthTx, error) {
 	var etxs []EthTx
 	err := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
@@ -1050,9 +1056,9 @@ func findTransactionsConfirmedAtOrAboveBlockHeight(db *gorm.DB, blockNumber int6
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'broadcast'").
 		Joins("INNER JOIN eth_receipts ON eth_receipts.tx_hash = eth_tx_attempts.hash").
 		Order("nonce ASC").
-		Where("eth_txes.state IN ('confirmed', 'confirmed_missing_receipt') AND block_number >= ?", blockNumber).
+		Where("eth_txes.state IN ('confirmed', 'confirmed_missing_receipt') AND block_number BETWEEN ? AND ?", lowBlockNumber, highBlockNumber).
 		Find(&etxs).Error
-	return etxs, errors.Wrap(err, "findTransactionsConfirmedAtOrAboveBlockHeight failed")
+	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
 func hasReceiptInLongestChain(etx EthTx, head models.Head) bool {

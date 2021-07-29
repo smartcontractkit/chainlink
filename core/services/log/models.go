@@ -17,7 +17,6 @@ type (
 	Broadcast interface {
 		DecodedLog() interface{}
 		RawLog() types.Log
-		SetDecodedLog(interface{})
 		String() string
 		LatestBlockNumber() uint64
 		LatestBlockHash() common.Hash
@@ -47,10 +46,6 @@ func (b *broadcast) LatestBlockHash() common.Hash {
 
 func (b *broadcast) RawLog() types.Log {
 	return b.rawLog
-}
-
-func (b *broadcast) SetDecodedLog(newLog interface{}) {
-	b.decodedLog = newLog
 }
 
 func (b *broadcast) JobID() JobIdSelect {
