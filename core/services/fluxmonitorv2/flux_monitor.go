@@ -721,7 +721,9 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
 		logger.Errorw("can't fetch answer", "err", err, "result", result)
-		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
 	answer, err := utils.ToDecimal(result.Value)
@@ -894,14 +896,18 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 
 	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, *fm.logger)
 	if err != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
 		l.Errorw("can't fetch answer", "err", err)
-		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
 	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
 		l.Errorw("can't fetch answer", "err", err, "result", result)
-		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
 	answer, err := utils.ToDecimal(result.Value)
@@ -929,7 +935,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	if roundState.RoundId > 1 {
-		l.Infow("deviation > threshold, starting new round")
+		l.Infow("deviation > threshold, submitting")
 	} else {
 		l.Infow("starting first round")
 	}
