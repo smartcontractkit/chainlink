@@ -54,7 +54,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		retryCount++
 
 		if latestHeight < 0 {
-			ctx, cancel := context.WithTimeout(ctxParent, 10*time.Second)
+			ctx, cancel := eth.DefaultQueryCtx(ctxParent)
 			defer cancel()
 
 			latestBlock, err := sub.ethClient.HeadByNumber(ctx, nil)
@@ -100,11 +100,11 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		// On matic its 5MB [https://github.com/maticnetwork/bor/blob/3de2110886522ab17e0b45f3c4a6722da72b7519/rpc/http.go#L35]
 		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
 		batchSize := int64(sub.config.EthLogBackfillBatchSize())
-		for from := q.FromBlock.Int64(); from <= int64(latestHeight); from += batchSize {
+		for from := q.FromBlock.Int64(); from <= latestHeight; from += batchSize {
 
 			to := from + batchSize - 1
-			if to > int64(latestHeight) {
-				to = int64(latestHeight)
+			if to > latestHeight {
+				to = latestHeight
 			}
 			q.FromBlock = big.NewInt(from)
 			q.ToBlock = big.NewInt(to)
@@ -169,7 +169,7 @@ func (sub *ethSubscriber) fetchLogBatch(ctxParent context.Context, query ethereu
 	var errOuter error
 	var result []types.Log
 	utils.RetryWithBackoff(ctxParent, func() (retry bool) {
-		ctx, cancel := context.WithTimeout(ctxParent, 20*time.Second)
+		ctx, cancel := eth.DefaultQueryCtx(ctxParent)
 		defer cancel()
 		batchLogs, err := sub.ethClient.FilterLogs(ctx, query)
 
@@ -210,7 +210,7 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		}
 		chRawLogs := make(chan types.Log)
 
-		ctx2, cancel := context.WithTimeout(ctx, 15*time.Second)
+		ctx2, cancel := eth.DefaultQueryCtx(ctx)
 		defer cancel()
 
 		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)

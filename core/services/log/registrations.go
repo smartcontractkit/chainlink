@@ -90,7 +90,8 @@ func (r *registrations) removeSubscriber(reg registration) (needsResubscribe boo
 
 	needsResubscribe = l.removeSubscriber(reg)
 
-	if reg.opts.NumConfirmations >= r.highestNumConfirmations {
+	// we only need to re-evaluate highestNumConfirmations if the removed value was highest
+	if reg.opts.NumConfirmations == r.highestNumConfirmations {
 		r.resetHighestNumConfirmations()
 	}
 	return

@@ -84,6 +84,7 @@ type (
 		trackedAddressesCount uint32
 		replayChannel         chan int64
 		highestSavedHead      *models.Head
+		lastSeenHeadNumber    int64
 	}
 
 	Config interface {
@@ -353,6 +354,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 func (b *broadcaster) onNewLog(log types.Log) {
+	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
+
 	if log.Removed {
 		b.logPool.removeLog(log)
 		return
@@ -384,6 +387,8 @@ func (b *broadcaster) onNewHeads() {
 	if latestHead != nil {
 		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
 			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
+
+		atomic.StoreInt64(&b.lastSeenHeadNumber, latestHead.Number)
 
 		keptLogsDepth := uint64(b.config.EthFinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
@@ -481,6 +486,20 @@ func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 	}()
 
 	return chCombined
+}
+
+func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64) {
+	lastSeenHeadNumber := atomic.LoadInt64(&b.lastSeenHeadNumber)
+	diff := logBlockNumber - lastSeenHeadNumber
+	if diff < 0 {
+		diff = -diff
+	}
+
+	if lastSeenHeadNumber > 0 && diff > 1000 {
+		logger.Warnw("LogBroadcaster: Detected a large block number difference between a log and recently seen head. "+
+			"This may indicate a problem with data received from the chain or major network delays.",
+			"lastSeenHeadNumber", lastSeenHeadNumber, "logBlockNumber", logBlockNumber, "diff", diff)
+	}
 }
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
