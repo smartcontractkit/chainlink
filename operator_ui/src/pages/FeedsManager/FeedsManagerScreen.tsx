@@ -1,5 +1,5 @@
 import React from 'react'
-import { Redirect, Route, Switch, useRouteMatch } from 'react-router-dom'
+import { Redirect, Route, useRouteMatch } from 'react-router-dom'
 
 import { v2 } from 'api'
 import Content from 'components/Content'
@@ -43,43 +43,41 @@ export const FeedsManagerScreen: React.FC = () => {
 
   return (
     <Content>
-      <Switch>
-        <Route
-          exact
-          path={`${path}/new`}
-          render={({ location }) =>
-            manager ? (
-              <Redirect
-                to={{
-                  pathname: '/feeds_manager',
-                  state: { from: location },
-                }}
-              />
-            ) : (
-              <RegisterFeedsManagerView
-                onSuccess={(manager) => setManager(manager)}
-              />
-            )
-          }
-        />
+      <Route
+        exact
+        path={`${path}/new`}
+        render={({ location }) =>
+          manager ? (
+            <Redirect
+              to={{
+                pathname: '/feeds_manager',
+                state: { from: location },
+              }}
+            />
+          ) : (
+            <RegisterFeedsManagerView
+              onSuccess={(manager) => setManager(manager)}
+            />
+          )
+        }
+      />
 
-        <Route
-          exact
-          path={path}
-          render={({ location }) =>
-            manager ? (
-              <FeedsManagerView manager={manager} />
-            ) : (
-              <Redirect
-                to={{
-                  pathname: '/feeds_manager/new',
-                  state: { from: location },
-                }}
-              />
-            )
-          }
-        />
-      </Switch>
+      <Route
+        exact
+        path={path}
+        render={({ location }) =>
+          manager ? (
+            <FeedsManagerView manager={manager} />
+          ) : (
+            <Redirect
+              to={{
+                pathname: '/feeds_manager/new',
+                state: { from: location },
+              }}
+            />
+          )
+        }
+      />
     </Content>
   )
 }
