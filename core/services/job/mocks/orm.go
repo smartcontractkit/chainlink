@@ -113,6 +113,20 @@ func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
 	return r0
 }
 
+// DismissError provides a mock function with given fields: ctx, errorID
+func (_m *ORM) DismissError(ctx context.Context, errorID int32) error {
+	ret := _m.Called(ctx, errorID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+		r0 = rf(ctx, errorID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // FindJob provides a mock function with given fields: ctx, id
 func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	ret := _m.Called(ctx, id)
@@ -178,27 +192,34 @@ func (_m *ORM) FindJobTx(id int32) (job.Job, error) {
 	return r0, r1
 }
 
-// JobsV2 provides a mock function with given fields:
-func (_m *ORM) JobsV2() ([]job.Job, error) {
-	ret := _m.Called()
+// JobsV2 provides a mock function with given fields: offset, limit
+func (_m *ORM) JobsV2(offset int, limit int) ([]job.Job, int, error) {
+	ret := _m.Called(offset, limit)
 
 	var r0 []job.Job
-	if rf, ok := ret.Get(0).(func() []job.Job); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(int, int) []job.Job); ok {
+		r0 = rf(offset, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]job.Job)
 		}
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	var r1 int
+	if rf, ok := ret.Get(1).(func(int, int) int); ok {
+		r1 = rf(offset, limit)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(int)
 	}
 
-	return r0, r1
+	var r2 error
+	if rf, ok := ret.Get(2).(func(int, int) error); ok {
+		r2 = rf(offset, limit)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // ListenForDeletedJobs provides a mock function with given fields:
@@ -245,6 +266,36 @@ func (_m *ORM) ListenForNewJobs() (postgres.Subscription, error) {
 	}
 
 	return r0, r1
+}
+
+// PipelineRuns provides a mock function with given fields: offset, size
+func (_m *ORM) PipelineRuns(offset int, size int) ([]pipeline.Run, int, error) {
+	ret := _m.Called(offset, size)
+
+	var r0 []pipeline.Run
+	if rf, ok := ret.Get(0).(func(int, int) []pipeline.Run); ok {
+		r0 = rf(offset, size)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]pipeline.Run)
+		}
+	}
+
+	var r1 int
+	if rf, ok := ret.Get(1).(func(int, int) int); ok {
+		r1 = rf(offset, size)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(int, int) error); ok {
+		r2 = rf(offset, size)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // PipelineRunsByJobID provides a mock function with given fields: jobID, offset, size
