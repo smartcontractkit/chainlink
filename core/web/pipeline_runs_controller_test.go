@@ -144,7 +144,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	// (because Postgres events don't seem to work here)
 	time.Sleep(3 * time.Second)
 
-	// Make the request
+	// Make the request (authorized as user)
 	{
 		client := app.NewHTTPClient()
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
@@ -154,13 +154,36 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		var parsedResponse pipeline.Run
 		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
-		fmt.Println(string(bs))
+		t.Log(string(bs))
 		assert.NoError(t, err)
 		assert.NotNil(t, parsedResponse.ID)
 		assert.NotNil(t, parsedResponse.CreatedAt)
 		assert.NotNil(t, parsedResponse.FinishedAt)
 		require.Len(t, parsedResponse.PipelineTaskRuns, 4)
 	}
+}
+
+func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
+	client, _, runIDs, cleanup := setupPipelineRunsControllerTests(t)
+	defer cleanup()
+
+	response, cleanup := client.Get("/v2/pipeline/runs")
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	var parsedResponse []presenters.PipelineRunResource
+	responseBytes := cltest.ParseResponseBody(t, response)
+	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}}`)
+
+	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
+	assert.NoError(t, err)
+
+	require.Len(t, parsedResponse, 2)
+	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
+	assert.NotNil(t, parsedResponse[1].CreatedAt)
+	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	// Successful pipeline runs does not save task runs.
+	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {

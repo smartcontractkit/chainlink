@@ -654,3 +654,29 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// There are three tasks in the erroring pipeline
 	require.Len(t, errorResults, 3)
 }
+
+func Test_PipelineRunner_FailEarly(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		require.Fail(t, "ds1 shouldn't have been called")
+	}))
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	spec := pipeline.Spec{
+		DotDagSource: fmt.Sprintf(`
+ds_panic [type=panic msg="oh no" failEarly=true]
+ds1 [type=http url="%s"]
+ds_parse [type=jsonparse path="result"]
+ds_multiply [type=multiply times=10]
+ds_panic->ds1->ds_parse->ds_multiply;`, s.URL),
+	}
+	vars := pipeline.NewVarsFrom(nil)
+
+	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	require.NoError(t, err)
+	require.True(t, run.FailEarly)
+	require.Equal(t, 1, len(trrs))
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs[0].Result.Error)
+}

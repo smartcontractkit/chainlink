@@ -35,7 +35,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const hibernationPollPeriod = 48 * time.Hour
+const hibernationPollPeriod = 168 * time.Hour
 
 var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 

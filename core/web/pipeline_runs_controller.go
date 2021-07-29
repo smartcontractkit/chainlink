@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -28,20 +29,31 @@ type PipelineRunsController struct {
 // Example:
 // "GET <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
+	id := c.Param("ID")
+
+	var pipelineRuns []pipeline.Run
+	var count int
+	var err error
+
+	if id == "" {
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(offset, size)
+	} else {
+		jobSpec := job.Job{}
+		err = jobSpec.SetID(c.Param("ID"))
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	}
 
-	pipelineRuns, count, err := prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	paginatedResponse(c, "offChainReportingPipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
+	paginatedResponse(c, "pipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
 }
 
 // Show returns a specified pipeline run.
@@ -61,7 +73,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "offChainReportingPipelineRun")
+	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "pipelineRun")
 }
 
 // Create triggers a pipeline run for a job.
@@ -74,7 +86,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
+		jsonAPIResponse(c, pipelineRun, "pipelineRun")
 	}
 
 	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
@@ -84,30 +96,49 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	}
 	idStr := c.Param("ID")
 
+	user, isUser := authenticatedUser(c)
+	ei, _ := authenticatedEI(c)
+	authorizer := webhook.NewAuthorizer(prc.App.GetStore().DB, user, ei)
+
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
-		jobRunID, err2 := prc.App.RunWebhookJobV2(context.Background(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
+		canRun, err2 := authorizer.CanRun(c.Request.Context(), jobUUID)
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return
 		}
-		respondWithPipelineRun(jobRunID)
+		if canRun {
+			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
+			if errors.Is(err3, webhook.ErrJobNotExists) {
+				jsonAPIError(c, http.StatusNotFound, err3)
+				return
+			} else if err3 != nil {
+				jsonAPIError(c, http.StatusInternalServerError, err3)
+				return
+			}
+			respondWithPipelineRun(jobRunID)
+		} else {
+			jsonAPIError(c, http.StatusUnauthorized, err2)
+		}
 		return
 	}
 
-	// Is it an int32? Then process it regardless of type
-	var jobID int32
-	jobID64, err := strconv.ParseInt(idStr, 10, 32)
-	if err == nil {
-		jobID = int32(jobID64)
-		jobRunID, err := prc.App.RunJobV2(context.Background(), jobID, nil)
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+	// only users are allowed to run jobs using int IDs - EIs not allowed
+	if isUser {
+		// Is it an int32? Then process it regardless of type
+		var jobID int32
+		jobID64, err := strconv.ParseInt(idStr, 10, 32)
+		if err == nil {
+			jobID = int32(jobID64)
+			jobRunID, err := prc.App.RunJobV2(c.Request.Context(), jobID, nil)
+			if err != nil {
+				jsonAPIError(c, http.StatusInternalServerError, err)
+				return
+			}
+			respondWithPipelineRun(jobRunID)
 			return
 		}
-		respondWithPipelineRun(jobRunID)
-		return
 	}
 
 	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))

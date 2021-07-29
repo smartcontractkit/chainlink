@@ -5,28 +5,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-
-	gormpostgres "gorm.io/driver/postgres"
-
-	"github.com/pelletier/go-toml"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+
+	"github.com/pelletier/go-toml"
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func TestORM(t *testing.T) {
@@ -61,6 +60,19 @@ func TestORM(t *testing.T) {
 		compareOCRJobSpecs(t, jb, returnedSpec)
 	})
 
+	t.Run("autogenerates external job ID if missing", func(t *testing.T) {
+		job2 := makeOCRJobSpec(t, address)
+		job2.ExternalJobID = uuid.UUID{}
+		_, err := orm.CreateJob(context.Background(), job2, job2.Pipeline)
+		require.NoError(t, err)
+
+		var returnedSpec job.Job
+		err = db.Where("id = ?", job2.ID).First(&returnedSpec).Error
+		require.NoError(t, err)
+
+		assert.NotEqual(t, uuid.UUID{}, returnedSpec.ExternalJobID)
+	})
+
 	dbURL := config.DatabaseURL()
 	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		DSN: dbURL.String(),
@@ -79,7 +91,7 @@ func TestORM(t *testing.T) {
 
 		unclaimed, err := orm.ClaimUnclaimedJobs(ctx)
 		require.NoError(t, err)
-		require.Len(t, unclaimed, 1)
+		require.Len(t, unclaimed, 2)
 		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
 		require.Equal(t, int32(1), unclaimed[0].ID)
 		require.Equal(t, int32(1), *unclaimed[0].OffchainreportingOracleSpecID)
@@ -97,10 +109,10 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, unclaimed, 1)
 		compareOCRJobSpecs(t, *dbSpec2, unclaimed[0])
-		require.Equal(t, int32(2), unclaimed[0].ID)
-		require.Equal(t, int32(2), *unclaimed[0].OffchainreportingOracleSpecID)
-		require.Equal(t, int32(2), unclaimed[0].PipelineSpecID)
-		require.Equal(t, int32(2), unclaimed[0].OffchainreportingOracleSpec.ID)
+		require.Equal(t, int32(3), unclaimed[0].ID)
+		require.Equal(t, int32(3), *unclaimed[0].OffchainreportingOracleSpecID)
+		require.Equal(t, int32(3), unclaimed[0].PipelineSpecID)
+		require.Equal(t, int32(3), unclaimed[0].OffchainreportingOracleSpec.ID)
 	})
 
 	t.Run("it can delete jobs claimed by other nodes", func(t *testing.T) {
@@ -113,7 +125,7 @@ func TestORM(t *testing.T) {
 		var dbSpecs []job.Job
 		err = db.Find(&dbSpecs).Error
 		require.NoError(t, err)
-		require.Len(t, dbSpecs, 1)
+		require.Len(t, dbSpecs, 2)
 	})
 
 	t.Run("it deletes its own claimed jobs from the DB", func(t *testing.T) {
@@ -134,17 +146,17 @@ func TestORM(t *testing.T) {
 		var dbSpecs []job.Job
 		err = db.Find(&dbSpecs).Error
 		require.NoError(t, err)
-		require.Len(t, dbSpecs, 1)
+		require.Len(t, dbSpecs, 2)
 
 		var oracleSpecs []job.OffchainReportingOracleSpec
 		err = db.Find(&oracleSpecs).Error
 		require.NoError(t, err)
-		require.Len(t, oracleSpecs, 1)
+		require.Len(t, oracleSpecs, 2)
 
 		var pipelineSpecs []pipeline.Spec
 		err = db.Find(&pipelineSpecs).Error
 		require.NoError(t, err)
-		require.Len(t, pipelineSpecs, 1)
+		require.Len(t, pipelineSpecs, 2)
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
@@ -190,6 +202,24 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
+	})
+
+	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
+		eiFoo := cltest.MustInsertExternalInitiator(t, db)
+		eiBar := cltest.MustInsertExternalInitiator(t, db)
+
+		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
+			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
+			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
+		}
+		eim := webhook.NewExternalInitiatorManager(db, nil)
+		jb, err := webhook.ValidatedWebhookSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
+		require.NoError(t, err)
+
+		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		require.NoError(t, err)
+
+		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 2)
 	})
 }
 
@@ -351,5 +381,32 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, job.VRFSpec{}, 0)
 		cltest.AssertCount(t, db, job.Job{}, 0)
+	})
+
+	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
+		ei := cltest.MustInsertExternalInitiator(t, db)
+		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
+		err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		require.NoError(t, err)
+
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		err = orm.DeleteJob(ctx, jb.ID)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, job.WebhookSpec{}, 0)
+		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 0)
+		cltest.AssertCount(t, db, job.Job{}, 0)
+	})
+
+	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
+		// create new db because this will rollback transaction and poison it
+		db2 := pgtest.NewGormDB(t)
+		ei := cltest.MustInsertExternalInitiator(t, db2)
+		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db2)
+		err := db2.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		require.NoError(t, err)
+
+		err = db2.Exec(`DELETE FROM external_initiators`).Error
+		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
 }
