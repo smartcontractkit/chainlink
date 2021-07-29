@@ -82,6 +82,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 gasLimitL2,
     address refundableAddress
   ) {
+    require(inboxAddress != address(0), "Invalid Inbox contract address");
     require(l2FlagsAddress != address(0), "Invalid Flags contract address");
     s_inbox = IInbox(inboxAddress);
     s_gasConfigAccessController = AccessControllerInterface(gasConfigAccessControllerAddress);
@@ -215,7 +216,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @notice validate method updates the state of an L2 Flag in case of change on the Arbitrum Sequencer.
-   * A zero answer considers the service as offline.
+   * A one answer considers the service as offline.
    * In case the previous answer is the same as the current it does not trigger any tx on L2. In other case,
    * a retryable ticket is created on the Arbitrum L1 Inbox contract. The tx gas fee can be paid from this
    * contract providing a value, or the same address on L2.
@@ -239,6 +240,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       return true;
     }
 
+    int isServiceOffline = 1;
     // NOTICE: if gasCostL2 is zero the payment is processed on L2 so the L2 address needs to be funded, as it will
     // paying the fee. We also ignore the returned msg number, that can be queried via the InboxMessageDelivered event.
     s_inbox.createRetryableTicket{value: s_gasConfig.gasCostL2}(
@@ -252,7 +254,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       s_gasConfig.refundableAddress, // callValueRefundAddress
       s_gasConfig.gasLimitL2,
       s_gasConfig.maxGasPrice,
-      currentAnswer == 0 ? CALL_LOWER_FLAG : CALL_RAISE_FLAG
+      currentAnswer == isServiceOffline ? CALL_RAISE_FLAG : CALL_LOWER_FLAG
     );
     return true;
   }
