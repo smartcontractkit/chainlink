@@ -10,6 +10,12 @@ declare module 'core/store/models' {
 
   //#region job_spec.go
 
+  export interface Resource<T> {
+    id: string
+    type: string
+    attributes: T
+  }
+
   export interface JobSpecError {
     id: string
     description: string
@@ -666,6 +672,12 @@ declare module 'core/store/models' {
     bootstrapPeerMultiaddr?: string
   }
 
+  export interface JobProposal {
+    spec: string
+    status: string
+    external_job_id: string | null
+    createdAt: time.Time
+  }
 }
 
 export interface PipelineTaskRun {
