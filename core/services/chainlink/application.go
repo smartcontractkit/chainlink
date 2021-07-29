@@ -389,6 +389,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
+		HeadTracker:              headTracker,
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -411,7 +412,6 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 			return nil
 		}})
 	}
-	app.HeadTracker = headTracker
 
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
