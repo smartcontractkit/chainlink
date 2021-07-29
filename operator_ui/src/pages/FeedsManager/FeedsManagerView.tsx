@@ -14,7 +14,7 @@ export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
   return (
     <Grid container>
       <Grid item xs={12} lg={8}>
-        <JobProposalsCard proposals={[]} />
+        <JobProposalsCard />
       </Grid>
       <Grid item xs={12} lg={4}>
         <FeedsManagerCard manager={manager} />
