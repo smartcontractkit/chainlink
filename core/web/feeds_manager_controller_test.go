@@ -27,7 +27,7 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 	require.NoError(t, err)
 	body, err := json.Marshal(web.CreateFeedsManagerRequest{
 		Name:                   "Chainlink FM",
-		URI:                    "wss://127.0.0.1:2000",
+		URI:                    "127.0.0.1:2000",
 		JobTypes:               []string{"fluxmonitor"},
 		PublicKey:              *pubKey,
 		IsBootstrapPeer:        true,

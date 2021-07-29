@@ -85,9 +85,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()
-	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(*spec)
+	serviceArray, err := delegate.ServicesForSpec(jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
@@ -155,7 +155,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -370,7 +370,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
 		require.NotNil(t, drJob.DirectRequestSpec)

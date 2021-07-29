@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -109,17 +110,17 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.NoError(t, err)
 	proof, ok := proofContainer["_proof"].([]byte)
 	require.True(t, ok)
-	require.Len(t, proof, vrf.OnChainResponseLength)
+	require.Len(t, proof, proof2.OnChainResponseLength)
 	publicPoint, err := provingKey.PublicKey.Point()
 	require.NoError(t, err)
 	require.Equal(t, proof[:64], secp256k1.LongMarshal(publicPoint))
-	mProof := vrf.MarshaledOnChainResponse{}
-	require.Equal(t, copy(mProof[:], proof), vrf.OnChainResponseLength)
-	goProof, err := vrf.UnmarshalProofResponse(mProof)
+	mProof := proof2.MarshaledOnChainResponse{}
+	require.Equal(t, copy(mProof[:], proof), proof2.OnChainResponseLength)
+	goProof, err := proof2.UnmarshalProofResponse(mProof)
 	require.NoError(t, err, "problem parsing solidity proof")
-	preSeed, err := vrf.BigToSeed(r.Seed)
+	preSeed, err := proof2.BigToSeed(r.Seed)
 	require.NoError(t, err, "seed %x out of range", seed)
-	_, err = goProof.CryptoProof(vrf.PreSeedData{
+	_, err = goProof.CryptoProof(proof2.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: r.Raw.Raw.BlockHash,
 		BlockNum:  uint64(r.Raw.Raw.BlockNumber),

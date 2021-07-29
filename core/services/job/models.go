@@ -50,7 +50,7 @@ var (
 		FluxMonitor:       true,
 		OffchainReporting: true,
 		Keeper:            false,
-		VRF:               false,
+		VRF:               true,
 		Webhook:           true,
 	}
 )
@@ -72,7 +72,6 @@ type Job struct {
 	VRFSpec                       *VRFSpec
 	WebhookSpecID                 *int32
 	WebhookSpec                   *WebhookSpec
-	ExternalInitiator             *models.ExternalInitiator `toml:"-" gorm:"-"`
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -188,12 +187,19 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+type ExternalInitiatorWebhookSpec struct {
+	ExternalInitiatorID int64
+	ExternalInitiator   models.ExternalInitiator `gorm:"foreignkey:ExternalInitiatorID;->"`
+	WebhookSpecID       int32
+	WebhookSpec         WebhookSpec `gorm:"foreignkey:WebhookSpecID;->"`
+	Spec                models.JSON
+}
+
 type WebhookSpec struct {
-	ID                    int32        `toml:"-" gorm:"primary_key"`
-	ExternalInitiatorName null.String  `toml:"externalInitiatorName"`
-	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
-	CreatedAt             time.Time    `json:"createdAt" toml:"-"`
-	UpdatedAt             time.Time    `json:"updatedAt" toml:"-"`
+	ID                            int32 `toml:"-" gorm:"primary_key"`
+	ExternalInitiatorWebhookSpecs []ExternalInitiatorWebhookSpec
+	CreatedAt                     time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
 }
 
 func (w WebhookSpec) GetID() string {
@@ -206,17 +212,6 @@ func (w *WebhookSpec) SetID(value string) error {
 		return err
 	}
 	w.ID = int32(ID)
-	return nil
-}
-
-func (w *WebhookSpec) BeforeCreate(db *gorm.DB) error {
-	w.CreatedAt = time.Now()
-	w.UpdatedAt = time.Now()
-	return nil
-}
-
-func (w *WebhookSpec) BeforeSave(db *gorm.DB) error {
-	w.UpdatedAt = time.Now()
 	return nil
 }
 

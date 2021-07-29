@@ -134,7 +134,7 @@ func Test_Service_ListManagers(t *testing.T) {
 	assert.Equal(t, actual, mss)
 }
 
-func Test_Service_GetManagers(t *testing.T) {
+func Test_Service_GetManager(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -209,6 +209,42 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func Test_Service_ListJobProposals(t *testing.T) {
+	t.Parallel()
+
+	var (
+		jp  = feeds.JobProposal{}
+		jps = []feeds.JobProposal{jp}
+	)
+	svc := setupTestService(t)
+
+	svc.orm.On("ListJobProposals", context.Background()).
+		Return(jps, nil)
+
+	actual, err := svc.ListJobProposals()
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, jps)
+}
+
+func Test_Service_GetJobProposal(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id = int64(1)
+		ms = feeds.JobProposal{ID: id}
+	)
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposal", context.Background(), id).
+		Return(&ms, nil)
+
+	actual, err := svc.GetJobProposal(id)
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, &ms)
+}
+
 func Test_Service_ApproveJobProposal(t *testing.T) {
 	var (
 		ctx = context.Background()
@@ -243,7 +279,9 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 			"""
 			`,
 		}
-		jobID = int32(1)
+		jb = job.Job{
+			ID: int32(1),
+		}
 	)
 
 	svc := setupTestService(t)
@@ -260,7 +298,7 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 			}),
 			null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
 		).
-		Return(jobID, nil)
+		Return(jb, nil)
 	svc.orm.On("ApproveJobProposal",
 		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		jp.ID,
@@ -305,6 +343,31 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 	).Return(&proto.RejectedJobResponse{}, nil)
 
 	err := svc.RejectJobProposal(ctx, jp.ID)
+	require.NoError(t, err)
+}
+
+func Test_Service_UpdateJobProposalSpec(t *testing.T) {
+	var (
+		ctx = context.Background()
+		jp  = &feeds.JobProposal{
+			ID:         1,
+			RemoteUUID: uuid.NewV4(),
+			Status:     feeds.JobProposalStatusPending,
+			Spec:       "spec",
+		}
+		updatedSpec = "updated spec"
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+	svc.orm.On("UpdateJobProposalSpec",
+		mock.MatchedBy(func(ctx context.Context) bool { return true }),
+		jp.ID,
+		updatedSpec,
+	).Return(nil)
+
+	err := svc.UpdateJobProposalSpec(ctx, jp.ID, updatedSpec)
 	require.NoError(t, err)
 }
 

@@ -269,11 +269,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.KeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, tc, db)
 	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config, ethClient, keyStore, txManager)
+	pr := pipeline.NewRunner(prm, tc.Config, ethClient, keyStore, nil, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -2176,4 +2176,10 @@ func MustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
 	id, err := p2ppeer.IDFromPrivateKey(p2pPrivkey)
 	require.NoError(t, err)
 	return id
+}
+
+func MustWebURL(t *testing.T, s string) *models.WebURL {
+	uri, err := url.Parse(s)
+	require.NoError(t, err)
+	return (*models.WebURL)(uri)
 }

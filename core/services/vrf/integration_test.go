@@ -53,7 +53,8 @@ func TestIntegration_VRFV2(t *testing.T) {
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
-	require.NoError(t, app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline))
+	jb, err = app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
 
 	p, err := vrfkey.Point()
 	require.NoError(t, err)
@@ -83,7 +84,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 		return len(runs) == 1
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].Errors)
-	assert.Equal(t, 0, len(runs[0].PipelineTaskRuns))
+	assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
 	assert.NotNil(t, 0, runs[0].Outputs.Val)
 
 	// Ensure the eth transaction gets confirmed on chain.
