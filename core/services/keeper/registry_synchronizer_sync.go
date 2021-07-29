@@ -101,7 +101,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) error {
-	upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(int64(upkeepID)))
+	upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(upkeepID))
 	if err != nil {
 		return err
 	}
