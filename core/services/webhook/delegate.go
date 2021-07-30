@@ -46,7 +46,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 func (d *Delegate) AfterJobCreated(jb job.Job) {
-	err := d.externalInitiatorManager.NotifyV2(*jb.WebhookSpecID)
+	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
 	if err != nil {
 		logger.Errorw("Webhook delegate AfterJobCreated errored",
 			"error", err,
@@ -56,7 +56,7 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 }
 
 func (d *Delegate) BeforeJobDeleted(jb job.Job) {
-	err := d.externalInitiatorManager.DeleteJobV2(*jb.WebhookSpecID)
+	err := d.externalInitiatorManager.DeleteJob(*jb.WebhookSpecID)
 	if err != nil {
 		logger.Errorw("Webhook delegate BeforeJobDeleted errored",
 			"error", err,

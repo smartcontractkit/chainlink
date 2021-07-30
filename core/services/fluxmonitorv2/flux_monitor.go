@@ -300,23 +300,7 @@ func (fm *FluxMonitor) Close() error {
 }
 
 // JobID implements the listener.Listener interface.
-//
-// Since we don't have a v1 ID, we return a new v1 job id to satisfy the
-// interface. This should not cause a problem as the log broadcaster will check
-// if it is a v2 job before attempting to use this job id
-func (fm *FluxMonitor) JobID() models.JobID {
-	return models.NewJobID()
-}
-
-// JobIDV2 implements the listener.Listener interface.
-//
-// Returns the v2 job id
-func (fm *FluxMonitor) JobIDV2() int32 { return fm.spec.JobID }
-
-// IsV2Job implements the listener.Listener interface.
-//
-// Returns true as this is a v2 job
-func (fm *FluxMonitor) IsV2Job() bool { return true }
+func (fm *FluxMonitor) JobID() int32 { return fm.spec.JobID }
 
 // HandleLog processes the contract logs
 func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {

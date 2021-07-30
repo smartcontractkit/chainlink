@@ -64,8 +64,8 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.Stri
 	return r0, r1
 }
 
-// DeleteJobV2 provides a mock function with given fields: ctx, jobID
-func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
+// DeleteJob provides a mock function with given fields: ctx, jobID
+func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 	ret := _m.Called(ctx, jobID)
 
 	var r0 error

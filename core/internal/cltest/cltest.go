@@ -196,13 +196,6 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
-func MustJobIDFromString(t *testing.T, s string) models.JobID {
-	t.Helper()
-	id, err := models.NewJobIDFromString(s)
-	require.NoError(t, err)
-	return id
-}
-
 func MustBigIntFromString(t *testing.T, s string) *big.Int {
 	t.Helper()
 	x, ok := big.NewInt(0).SetString(s, 10)
@@ -1757,4 +1750,11 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	uri, err := url.Parse(s)
 	require.NoError(t, err)
 	return (*models.WebURL)(uri)
+}
+
+func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
 }

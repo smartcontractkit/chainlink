@@ -32,7 +32,7 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
         SELECT consumed FROM log_broadcasts
         WHERE block_hash = ?
         AND log_index = ?
-        AND job_id_v2 = ?
+        AND job_id = ?
     `
 	args := []interface{}{
 		blockHash,
@@ -50,7 +50,7 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error) {
 	var broadcasts []LogBroadcast
 	query := `
-		SELECT block_hash, log_index, job_id_v2 FROM log_broadcasts
+		SELECT block_hash, log_index, job_id FROM log_broadcasts
 		WHERE block_number >= ?
 		AND block_number <= ?
 		AND consumed = true
@@ -64,7 +64,7 @@ func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroad
 
 func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32) error {
 	query := tx.Exec(`
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, created_at, consumed) VALUES (?, ?, ?, ?, NOW(), true)
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, consumed) VALUES (?, ?, ?, ?, NOW(), true)
     `, blockHash, blockNumber, logIndex, jobID)
 	if query.Error != nil {
 		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
@@ -78,14 +78,14 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 type LogBroadcast struct {
 	BlockHash common.Hash
 	LogIndex  uint
-	JobIDV2   int32
+	JobID     int32
 }
 
 func (b LogBroadcast) AsKey() LogBroadcastAsKey {
 	return LogBroadcastAsKey{
 		b.BlockHash,
 		b.LogIndex,
-		b.JobIDV2,
+		b.JobID,
 	}
 }
 
@@ -100,6 +100,6 @@ func NewLogBroadcastAsKey(log types.Log, listener Listener) LogBroadcastAsKey {
 	return LogBroadcastAsKey{
 		log.BlockHash,
 		log.Index,
-		listener.JobIDV2(),
+		listener.JobID(),
 	}
 }

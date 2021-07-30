@@ -309,24 +309,6 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 	return err
 }
 
-// CancelJobRun cancels a running job,
-// Run ID must be passed
-func (cli *Client) CancelJobRun(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the run id to be cancelled"))
-	}
-
-	response, err := cli.HTTP.Put(fmt.Sprintf("/v2/runs/%s/cancellation", c.Args().First()), nil)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "HTTP.Put"))
-	}
-	_, err = cli.parseResponse(response)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "cli.parseResponse"))
-	}
-	return nil
-}
-
 func normalizePassword(password string) string {
 	return url.PathEscape(strings.TrimSpace(password))
 }

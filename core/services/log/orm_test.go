@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestORM_MarkBroadcastConsumed(t *testing.T) {
@@ -26,7 +25,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 		name     string
 		listener log.Listener
 	}{
-		{"v2", &mockListener{models.NilJobID, specV2.ID}},
+		{"v2", &mockListener{specV2.ID}},
 	}
 
 	for _, test := range tests {
@@ -40,18 +39,18 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 			var err error
 			err = store.DB.Raw(`
 				SELECT consumed FROM log_broadcasts
-				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id_v2 = ?
-			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobIDV2()).Scan(&consumed).Error
+				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
+			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
 			require.NoError(t, err)
 			require.False(t, consumed.Consumed)
 
-			err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobIDV2())
+			err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
 			require.NoError(t, err)
 
 			err = store.DB.Raw(`
 				SELECT consumed FROM log_broadcasts
-				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id_v2 = ?
-			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobIDV2()).Scan(&consumed).Error
+				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
+			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
 			require.NoError(t, err)
 			require.True(t, consumed.Consumed)
 		})
@@ -75,7 +74,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 			name     string
 			listener log.Listener
 		}{
-			{"v2", &mockListener{models.NilJobID, specV2.ID}},
+			{"v2", &mockListener{specV2.ID}},
 		}
 
 		for _, test := range tests {
@@ -84,14 +83,14 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				was, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobIDV2())
+				was, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 				require.False(t, was)
 
-				err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobIDV2())
+				err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 
-				was, err = orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobIDV2())
+				was, err = orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 				require.True(t, was)
 			})
@@ -106,7 +105,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 			name     string
 			listener log.Listener
 		}{
-			{"v2", &mockListener{models.NilJobID, specV2.ID}},
+			{"v2", &mockListener{specV2.ID}},
 		}
 
 		for _, test := range tests {
@@ -115,7 +114,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				_, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobIDV2())
+				_, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 			})
 		}

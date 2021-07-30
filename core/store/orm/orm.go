@@ -179,52 +179,6 @@ func (orm *ORM) FindBridge(name models.TaskType) (bt models.BridgeType, err erro
 	return bt, orm.DB.First(&bt, "name = ?", name.String()).Error
 }
 
-func (orm *ORM) preloadJobs() *gorm.DB {
-	return orm.DB.
-		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Order(`"id" asc`)
-		}).
-		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Order("id asc")
-		})
-}
-
-func preloadTaskRuns(db *gorm.DB) *gorm.DB {
-	return db.
-		Preload("Result").
-		Preload("TaskSpec", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		})
-}
-
-func (orm *ORM) preloadJobRuns() *gorm.DB {
-	return orm.DB.
-		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		}).
-		Preload("RunRequest").
-		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
-			return preloadTaskRuns(db).Order("task_spec_id asc")
-		}).
-		Preload("Result")
-}
-
-func (orm *ORM) preloadJobRunsUnscoped() *gorm.DB {
-	return preloadJobRunsUnscoped(orm.DB)
-}
-
-func preloadJobRunsUnscoped(db *gorm.DB) *gorm.DB {
-	return db.Unscoped().
-		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped()
-		}).
-		Preload("RunRequest").
-		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
-			return preloadTaskRuns(db).Order("task_spec_id asc")
-		}).
-		Preload("Result")
-}
-
 func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
 	return orm.convenientTransaction(fc)
 }
@@ -309,16 +263,6 @@ func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]bulletprooftxm
 		Find(&txs).Error
 
 	return txs, int(count), err
-}
-
-// FindEthTaskRunTxByTaskRunID finds the EthTaskRunTx with its EthTxes and EthTxAttempts preloaded
-func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*bulletprooftxmanager.EthTaskRunTx, error) {
-	etrt := &bulletprooftxmanager.EthTaskRunTx{}
-	err := orm.DB.Preload("EthTx").First(etrt, "task_run_id = ?", &taskRunID).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return etrt, err
 }
 
 // EthTxAttempts returns the last tx attempts sorted by created_at descending.

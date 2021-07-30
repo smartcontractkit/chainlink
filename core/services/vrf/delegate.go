@@ -559,17 +559,7 @@ func (lsn *listener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-// JobID complies with log.Listener
-func (*listener) JobID() models.JobID {
-	return models.NilJobID
-}
-
 // Job complies with log.Listener
-func (lsn *listener) JobIDV2() int32 {
+func (lsn *listener) JobID() int32 {
 	return lsn.job.ID
-}
-
-// IsV2Job complies with log.Listener
-func (*listener) IsV2Job() bool {
-	return true
 }

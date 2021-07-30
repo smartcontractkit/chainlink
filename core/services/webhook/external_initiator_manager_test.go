@@ -59,7 +59,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	assert.Equal(t, jb2.ExternalJobID, jobID)
 }
 
-func Test_ExternalInitiatorManager_NotifyV2(t *testing.T) {
+func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
@@ -82,7 +82,7 @@ func Test_ExternalInitiatorManager_NotifyV2(t *testing.T) {
 	eim := webhook.NewExternalInitiatorManager(db, client)
 
 	// Does nothing with no EI
-	eim.NotifyV2(webhookSpecNoEIs.ID)
+	eim.Notify(webhookSpecNoEIs.ID)
 
 	client.On("Do", mock.MatchedBy(func(r *http.Request) bool {
 		body, err := r.GetBody()
@@ -96,12 +96,12 @@ func Test_ExternalInitiatorManager_NotifyV2(t *testing.T) {
 
 		return r.Method == "POST" && r.URL.String() == eiWithURL.URL.String() && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
 	})).Once().Return(&http.Response{Body: io.NopCloser(strings.NewReader(""))}, nil)
-	eim.NotifyV2(webhookSpecTwoEIs.ID)
+	eim.Notify(webhookSpecTwoEIs.ID)
 
 	client.AssertExpectations(t)
 }
 
-func Test_ExternalInitiatorManager_DeleteJobV2(t *testing.T) {
+func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
@@ -124,13 +124,13 @@ func Test_ExternalInitiatorManager_DeleteJobV2(t *testing.T) {
 	eim := webhook.NewExternalInitiatorManager(db, client)
 
 	// Does nothing with no EI
-	eim.DeleteJobV2(webhookSpecNoEIs.ID)
+	eim.DeleteJob(webhookSpecNoEIs.ID)
 
 	client.On("Do", mock.MatchedBy(func(r *http.Request) bool {
 		expectedURL := fmt.Sprintf("%s/%s", eiWithURL.URL.String(), jb.ExternalJobID.String())
 		return r.Method == "DELETE" && r.URL.String() == expectedURL && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
 	})).Once().Return(&http.Response{Body: io.NopCloser(strings.NewReader(""))}, nil)
-	eim.DeleteJobV2(webhookSpecTwoEIs.ID)
+	eim.DeleteJob(webhookSpecTwoEIs.ID)
 
 	client.AssertExpectations(t)
 }

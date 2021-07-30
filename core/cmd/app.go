@@ -219,17 +219,12 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:   "delete",
 					Usage:  "Delete a V2 job",
-					Action: client.DeleteJobV2,
+					Action: client.DeleteJob,
 				},
 				{
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
-				},
-				{
-					Name:   "migrate",
-					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
-					Action: client.Migrate,
 				},
 			},
 		},

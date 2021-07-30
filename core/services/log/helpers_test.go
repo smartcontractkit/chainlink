@@ -89,8 +89,8 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	}
 }
 
-func (helper *broadcasterHelper) newLogListenerWithJobV2(name string) *simpleLogListener {
-	return newLogListenerWithV2Job(helper.t, helper.store, name)
+func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogListener {
+	return newLogListenerWithJob(helper.t, helper.store, name)
 }
 
 func (helper *broadcasterHelper) start() {
@@ -196,7 +196,7 @@ type simpleLogListener struct {
 	skipMarkingConsumed bool
 }
 
-func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *simpleLogListener {
+func newLogListenerWithJob(t *testing.T, store *store.Store, name string) *simpleLogListener {
 	job := &job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
@@ -297,11 +297,10 @@ func (listener *simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broad
 }
 
 type mockListener struct {
-	jobID   models.JobID
-	jobIDV2 int32
+	jobID int32
 }
 
-func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
+func (l *mockListener) JobID() int32                                            { return l.jobID }
 func (l *mockListener) HandleLog(log.Broadcast)                                 {}
 func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
 func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }

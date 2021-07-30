@@ -20,6 +20,9 @@ DROP TABLE job_specs;
 DROP TABLE run_results;
 DROP TABLE run_requests;
 DROP TABLE sync_events;
+
+ALTER TABLE log_broadcasts RENAME COLUMN job_id_v2 TO job_id;
+ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 `
 
 func init() {
@@ -39,7 +42,7 @@ func init() {
 
 func checkNoLegacyJobs(db *gorm.DB) error {
 	var count int
-	if err := db.Raw(`SELECT COUNT(*) FROM job_specs`).Scan(&count).Error; err != nil {
+	if err := db.Raw(`SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {

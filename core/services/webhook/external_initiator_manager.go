@@ -23,8 +23,8 @@ import (
 
 // ExternalInitiatorManager manages HTTP requests to remote external initiators
 type ExternalInitiatorManager interface {
-	NotifyV2(webhookSpecID int32) error
-	DeleteJobV2(webhookSpecID int32) error
+	Notify(webhookSpecID int32) error
+	DeleteJob(webhookSpecID int32) error
 	FindExternalInitiatorByName(name string) (models.ExternalInitiator, error)
 }
 
@@ -45,9 +45,9 @@ func NewExternalInitiatorManager(db *gorm.DB, httpclient HTTPClient) *externalIn
 	return &externalInitiatorManager{db, httpclient}
 }
 
-// NotifyV2 sends a POST notification to the External Initiator
+// Notify sends a POST notification to the External Initiator
 // responsible for initiating the Job Spec.
-func (m externalInitiatorManager) NotifyV2(webhookSpecID int32) error {
+func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (m externalInitiatorManager) NotifyV2(webhookSpecID int32) error {
 		if ei.URL == nil {
 			continue
 		}
-		notice := JobSpecNoticeV2{
+		notice := JobSpecNotice{
 			JobID:  jobID,
 			Type:   ei.Name,
 			Params: eiWebhookSpec.Spec,
@@ -91,7 +91,7 @@ func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []jo
 	return
 }
 
-func (m externalInitiatorManager) DeleteJobV2(webhookSpecID int32) error {
+func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (mode
 }
 
 // JobSpecNotice is sent to the External Initiator when JobSpecs are created.
-type JobSpecNoticeV2 struct {
+type JobSpecNotice struct {
 	JobID  uuid.UUID   `json:"jobId"`
 	Type   string      `json:"type"`
 	Params models.JSON `json:"params,omitempty"`
@@ -160,8 +160,8 @@ type NullExternalInitiatorManager struct{}
 
 var _ ExternalInitiatorManager = (*NullExternalInitiatorManager)(nil)
 
-func (NullExternalInitiatorManager) NotifyV2(int32) error    { return nil }
-func (NullExternalInitiatorManager) DeleteJobV2(int32) error { return nil }
+func (NullExternalInitiatorManager) Notify(int32) error    { return nil }
+func (NullExternalInitiatorManager) DeleteJob(int32) error { return nil }
 func (NullExternalInitiatorManager) FindExternalInitiatorByName(name string) (models.ExternalInitiator, error) {
 	return models.ExternalInitiator{}, nil
 }

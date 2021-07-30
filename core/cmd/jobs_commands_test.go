@@ -307,7 +307,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 	assert.Equal(t, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", output.OffChainReportingSpec.ContractAddress.String())
 }
 
-func TestClient_DeleteJobV2(t *testing.T) {
+func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfig(map[string]interface{}{"TRIGGER_FALLBACK_DB_POLL_INTERVAL": "10ms"}))
@@ -332,12 +332,12 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
 	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, "must pass the job id to be archived", client.DeleteJobV2(c).Error())
+	require.Equal(t, "must pass the job id to be archived", client.DeleteJob(c).Error())
 
 	set = flag.NewFlagSet("test", 0)
 	set.Parse([]string{output.ID})
 	c = cli.NewContext(nil, set, nil)
-	require.NoError(t, client.DeleteJobV2(c))
+	require.NoError(t, client.DeleteJob(c))
 
 	requireJobsCount(t, app.JobORM(), 0)
 }

@@ -17,8 +17,8 @@ func (_m *Listener) HandleLog(b log.Broadcast) {
 	_m.Called(b)
 }
 
-// JobIDV2 provides a mock function with given fields:
-func (_m *Listener) JobIDV2() int32 {
+// JobID provides a mock function with given fields:
+func (_m *Listener) JobID() int32 {
 	ret := _m.Called()
 
 	var r0 int32

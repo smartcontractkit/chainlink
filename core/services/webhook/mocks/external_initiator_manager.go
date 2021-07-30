@@ -12,8 +12,8 @@ type ExternalInitiatorManager struct {
 	mock.Mock
 }
 
-// DeleteJobV2 provides a mock function with given fields: webhookSpecID
-func (_m *ExternalInitiatorManager) DeleteJobV2(webhookSpecID int32) error {
+// DeleteJob provides a mock function with given fields: webhookSpecID
+func (_m *ExternalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 	ret := _m.Called(webhookSpecID)
 
 	var r0 error
@@ -47,8 +47,8 @@ func (_m *ExternalInitiatorManager) FindExternalInitiatorByName(name string) (mo
 	return r0, r1
 }
 
-// NotifyV2 provides a mock function with given fields: webhookSpecID
-func (_m *ExternalInitiatorManager) NotifyV2(webhookSpecID int32) error {
+// Notify provides a mock function with given fields: webhookSpecID
+func (_m *ExternalInitiatorManager) Notify(webhookSpecID int32) error {
 	ret := _m.Called(webhookSpecID)
 
 	var r0 error

@@ -76,7 +76,7 @@ type Application interface {
 	JobORM() job.ORM
 	PipelineORM() pipeline.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
-	DeleteJobV2(ctx context.Context, jobID int32) error
+	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
 	// Testing only
@@ -588,7 +588,7 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name n
 	return app.jobSpawner.CreateJob(ctx, j, name)
 }
 
-func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) error {
+func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
