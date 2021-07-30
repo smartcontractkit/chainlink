@@ -86,7 +86,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		jsonAPIResponse(c, pipelineRun, "pipelineRun")
+		jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "pipelineRun")
 	}
 
 	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
