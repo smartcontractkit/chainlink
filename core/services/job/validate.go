@@ -48,7 +48,7 @@ func ValidateSpec(ts string) (Type, error) {
 	if jb.SchemaVersion != 1 {
 		return "", ErrInvalidSchemaVersion
 	}
-	if jb.Type.HasPipelineSpec() && (jb.Pipeline.Source == "") {
+	if jb.Type.RequiresPipelineSpec() && (jb.Pipeline.Source == "") {
 		return "", ErrNoPipelineSpec
 	}
 	if jb.Pipeline.HasAsync() && !jb.Type.SupportsAsync() {

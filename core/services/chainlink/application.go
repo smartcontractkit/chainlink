@@ -707,7 +707,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	if !jb.Type.HasPipelineSpec() {
+	if !jb.Type.RequiresPipelineSpec() {
 		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
 		// TODO: Once all jobs have a pipeline this can be removed
 		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
