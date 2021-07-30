@@ -470,7 +470,8 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 		newConfs = 200
 	}
 	if lsn.respCount[req.RequestID] > 0 {
-		lsn.l.Warn("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
+		lsn.l.Warnw("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
+			"txHash", req.Raw.TxHash,
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 	}
