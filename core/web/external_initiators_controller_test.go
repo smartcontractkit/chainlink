@@ -2,14 +2,15 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +54,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, eis, 1)
-	assert.Equal(t, eiBar.ID, eis[0].ID)
+	assert.Equal(t, fmt.Sprintf("%d", eiBar.ID), eis[0].ID)
 	assert.Equal(t, eiBar.Name, eis[0].Name)
 	assert.Nil(t, eis[0].URL)
 	assert.Equal(t, eiBar.AccessKey, eis[0].AccessKey)
@@ -70,7 +71,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["prev"])
 
 	assert.Len(t, eis, 1)
-	assert.Equal(t, eiFoo.ID, eis[0].ID)
+	assert.Equal(t, fmt.Sprintf("%d", eiFoo.ID), eis[0].ID)
 	assert.Equal(t, eiFoo.Name, eis[0].Name)
 	assert.Equal(t, eiFoo.URL.String(), eis[0].URL.String())
 	assert.Equal(t, eiFoo.AccessKey, eis[0].AccessKey)
