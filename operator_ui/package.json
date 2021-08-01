@@ -98,7 +98,7 @@
     "enzyme-adapter-react-16": "^1.15.5",
     "fetch-mock": "^9.0.0",
     "file-loader": "^6.2.0",
-    "html-webpack-plugin": "^5.3.1",
+    "html-webpack-plugin": "^5.3.2",
     "jest": "^26.6.3",
     "jest-silent-reporter": "^0.2.1",
     "mock-local-storage": "^1.1.11",
