@@ -3498,15 +3498,6 @@
   resolved "https://registry.npmjs.org/@istanbuljs/schema/-/schema-0.1.2.tgz#26520bf09abe4a5644cd5414e37125a8954241dd"
   integrity sha512-tsAQNx32a8CoFhjhijUIhI4kccIAgmGhy8LZMZgGfmXcpMbPRUqn5LWmgRttILi6yeGmBJd2xsPkFMs0PzgPCw==
 
-"@jest/console@^24.9.0":
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/@jest/console/-/console-24.9.0.tgz#79b1bc06fb74a8cfb01cbdedf945584b1b9707f0"
-  integrity sha512-Zuj6b8TnKXi3q4ymac8EQfc3ea/uhLeCGThFqXeC8H9/raaH8ARPUTdId+XyGd03Z4In0/VjD2OYFcBF09fNLQ==
-  dependencies:
-    "@jest/source-map" "^24.9.0"
-    chalk "^2.0.1"
-    slash "^2.0.0"
-
 "@jest/console@^25.1.0":
   version "25.1.0"
   resolved "https://registry.npmjs.org/@jest/console/-/console-25.1.0.tgz#1fc765d44a1e11aec5029c08e798246bd37075ab"
@@ -3582,15 +3573,6 @@
     "@types/node" "*"
     jest-mock "^26.6.2"
 
-"@jest/fake-timers@^24.9.0":
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/@jest/fake-timers/-/fake-timers-24.9.0.tgz#ba3e6bf0eecd09a636049896434d306636540c93"
-  integrity sha512-eWQcNa2YSwzXWIMC5KufBh3oWRIijrQFROsIqt6v/NS9Io/gknw1jsAC9c+ih/RQX4A3O7SeWAhQeN0goKhT9A==
-  dependencies:
-    "@jest/types" "^24.9.0"
-    jest-message-util "^24.9.0"
-    jest-mock "^24.9.0"
-
 "@jest/fake-timers@^25.1.0":
   version "25.1.0"
   resolved "https://registry.npmjs.org/@jest/fake-timers/-/fake-timers-25.1.0.tgz#a1e0eff51ffdbb13ee81f35b52e0c1c11a350ce8"
@@ -3655,15 +3637,6 @@
   optionalDependencies:
     node-notifier "^8.0.0"
 
-"@jest/source-map@^24.9.0":
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/@jest/source-map/-/source-map-24.9.0.tgz#0e263a94430be4b41da683ccc1e6bffe2a191714"
-  integrity sha512-/Xw7xGlsZb4MJzNDgB7PW5crou5JqWiBQaz6xyPd3ArOg2nfn/PunV8+olXbbEZzNl591o5rWKE9BRDaFAuIBg==
-  dependencies:
-    callsites "^3.0.0"
-    graceful-fs "^4.1.15"
-    source-map "^0.6.0"
-
 "@jest/source-map@^25.1.0":
   version "25.1.0"
   resolved "https://registry.npmjs.org/@jest/source-map/-/source-map-25.1.0.tgz#b012e6c469ccdbc379413f5c1b1ffb7ba7034fb0"
@@ -3681,15 +3654,6 @@
     callsites "^3.0.0"
     graceful-fs "^4.2.4"
     source-map "^0.6.0"
-
-"@jest/test-result@^24.9.0":
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/@jest/test-result/-/test-result-24.9.0.tgz#11796e8aa9dbf88ea025757b3152595ad06ba0ca"
-  integrity sha512-XEFrHbBonBJ8dGp2JmF8kP/nQI/ImPpygKHwQ/SY+es59Z3L5PI4Qb9TQQMAEeYsThG1xF0k6tmG0tIKATNiiA==
-  dependencies:
-    "@jest/console" "^24.9.0"
-    "@jest/types" "^24.9.0"
-    "@types/istanbul-lib-coverage" "^2.0.0"
 
 "@jest/test-result@^25.1.0":
   version "25.1.0"
@@ -7902,7 +7866,7 @@ chalk@2.4.1:
     escape-string-regexp "^1.0.5"
     supports-color "^5.3.0"
 
-chalk@2.4.2, chalk@^2.0.0, chalk@^2.0.1, chalk@^2.1.0, chalk@^2.3.0, chalk@^2.3.1, chalk@^2.3.2, chalk@^2.4.1, chalk@^2.4.2:
+chalk@2.4.2, chalk@^2.0.0, chalk@^2.0.1, chalk@^2.1.0, chalk@^2.3.0, chalk@^2.3.2, chalk@^2.4.1, chalk@^2.4.2:
   version "2.4.2"
   resolved "https://registry.npmjs.org/chalk/-/chalk-2.4.2.tgz#cd42541677a54333cf541a49108c1432b44c9424"
   integrity sha512-Mti+f9lpJNcwF4tWV8/OrTTtF1gZi+f8FqlyAdouralcFWFQWF2+NgCHShjkCb+IFBLq9buZwE1xckQU4peSuQ==
@@ -14424,20 +14388,6 @@ jest-matcher-utils@^26.6.2:
     jest-get-type "^26.3.0"
     pretty-format "^26.6.2"
 
-jest-message-util@^24.9.0:
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/jest-message-util/-/jest-message-util-24.9.0.tgz#527f54a1e380f5e202a8d1149b0ec872f43119e3"
-  integrity sha512-oCj8FiZ3U0hTP4aSui87P4L4jC37BtQwUMqk+zk/b11FR19BJDeZsZAvIHutWnmtw7r85UmR3CEWZ0HWU2mAlw==
-  dependencies:
-    "@babel/code-frame" "^7.0.0"
-    "@jest/test-result" "^24.9.0"
-    "@jest/types" "^24.9.0"
-    "@types/stack-utils" "^1.0.1"
-    chalk "^2.0.1"
-    micromatch "^3.1.10"
-    slash "^2.0.0"
-    stack-utils "^1.0.1"
-
 jest-message-util@^25.1.0:
   version "25.1.0"
   resolved "https://registry.npmjs.org/jest-message-util/-/jest-message-util-25.1.0.tgz#702a9a5cb05c144b9aa73f06e17faa219389845e"
@@ -14466,13 +14416,6 @@ jest-message-util@^26.6.2:
     pretty-format "^26.6.2"
     slash "^3.0.0"
     stack-utils "^2.0.2"
-
-jest-mock@^24.9.0:
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/jest-mock/-/jest-mock-24.9.0.tgz#c22835541ee379b908673ad51087a2185c13f1c6"
-  integrity sha512-3BEYN5WbSq9wd+SyLDES7AHnjH9A/ROBwmz7l2y+ol+NtSFO8DYiEBzoO1CeFc9a8DYy10EO4dDFVv/wN3zl1w==
-  dependencies:
-    "@jest/types" "^24.9.0"
 
 jest-mock@^25.1.0:
   version "25.1.0"
@@ -14615,13 +14558,13 @@ jest-serializer@^26.6.2:
     "@types/node" "*"
     graceful-fs "^4.2.4"
 
-jest-silent-reporter@^0.2.1:
-  version "0.2.1"
-  resolved "https://registry.npmjs.org/jest-silent-reporter/-/jest-silent-reporter-0.2.1.tgz#554dd62b800989cdbcfba22bf30a1c0db6ad289c"
-  integrity sha512-nEO3oOFHtEXFjlRCbJOlvEWA7ZHyyyvMsU4WHuAhinYBOI4PiX1EIbsZfQZ/cxHcYliHBU9zY8bPxMPdBGksYw==
+jest-silent-reporter@^0.5.0:
+  version "0.5.0"
+  resolved "https://registry.npmjs.org/jest-silent-reporter/-/jest-silent-reporter-0.5.0.tgz#5fd8ccd61665227e3bf19d908b7350719d06ff38"
+  integrity sha512-epdLt8Oj0a1AyRiR6F8zx/1SVT1Mi7VU3y4wB2uOBHs/ohIquC7v2eeja7UN54uRPyHInIKWdL+RdG228n5pJQ==
   dependencies:
-    chalk "^2.3.1"
-    jest-util "^24.0.0"
+    chalk "^4.0.0"
+    jest-util "^26.0.0"
 
 jest-snapshot@^25.1.0:
   version "25.1.0"
@@ -14664,24 +14607,6 @@ jest-snapshot@^26.6.2:
     pretty-format "^26.6.2"
     semver "^7.3.2"
 
-jest-util@^24.0.0:
-  version "24.9.0"
-  resolved "https://registry.npmjs.org/jest-util/-/jest-util-24.9.0.tgz#7396814e48536d2e85a37de3e4c431d7cb140162"
-  integrity sha512-x+cZU8VRmOJxbA1K5oDBdxQmdq0OIdADarLxk0Mq+3XS4jgvhG/oKGWcIDCtPG0HgjxOYvF+ilPJQsAyXfbNOg==
-  dependencies:
-    "@jest/console" "^24.9.0"
-    "@jest/fake-timers" "^24.9.0"
-    "@jest/source-map" "^24.9.0"
-    "@jest/test-result" "^24.9.0"
-    "@jest/types" "^24.9.0"
-    callsites "^3.0.0"
-    chalk "^2.0.1"
-    graceful-fs "^4.1.15"
-    is-ci "^2.0.0"
-    mkdirp "^0.5.1"
-    slash "^2.0.0"
-    source-map "^0.6.0"
-
 jest-util@^25.1.0:
   version "25.1.0"
   resolved "https://registry.npmjs.org/jest-util/-/jest-util-25.1.0.tgz#7bc56f7b2abd534910e9fa252692f50624c897d9"
@@ -14692,7 +14617,7 @@ jest-util@^25.1.0:
     is-ci "^2.0.0"
     mkdirp "^0.5.1"
 
-jest-util@^26.1.0, jest-util@^26.6.2:
+jest-util@^26.0.0, jest-util@^26.1.0, jest-util@^26.6.2:
   version "26.6.2"
   resolved "https://registry.npmjs.org/jest-util/-/jest-util-26.6.2.tgz#907535dbe4d5a6cb4c47ac9b926f6af29576cbc1"
   integrity sha512-MDW0fKfsn0OI7MS7Euz6h8HNDXVQ0gaM9uW6RjfDmd1DAFcaxX9OqIakHIqhbnmF08Cf2DLDG+ulq8YQQ0Lp0Q==
