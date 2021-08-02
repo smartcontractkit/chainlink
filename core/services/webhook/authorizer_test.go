@@ -14,6 +14,14 @@ import (
 	"go.uber.org/multierr"
 )
 
+type eiEnabledCfg struct{}
+
+func (eiEnabledCfg) FeatureExternalInitiators() bool { return true }
+
+type eiDisabledCfg struct{}
+
+func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
+
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
@@ -33,13 +41,13 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db, nil, nil)
 
-		can, err := a.CanRun(context.Background(), jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), uuid.NewV4())
+		can, err = a.CanRun(context.Background(), nil, uuid.NewV4())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})
@@ -47,13 +55,13 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db, &models.User{}, nil)
 
-		can, err := a.CanRun(context.Background(), jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(context.Background(), jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(context.Background(), uuid.NewV4())
+		can, err = a.CanRun(context.Background(), nil, uuid.NewV4())
 		require.NoError(t, err)
 		assert.True(t, can)
 	})
@@ -61,16 +69,19 @@ func Test_Authorizer(t *testing.T) {
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
 		a := webhook.NewAuthorizer(db, nil, &eiFoo)
 
-		can, err := a.CanRun(context.Background(), jobWithFooAndBarEI.ExternalJobID)
+		can, err := a.CanRun(context.Background(), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(context.Background(), jobWithBarEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), eiDisabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), jobWithNoEI.ExternalJobID)
+		can, err = a.CanRun(context.Background(), eiEnabledCfg{}, jobWithBarEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(context.Background(), uuid.NewV4())
+		can, err = a.CanRun(context.Background(), eiEnabledCfg{}, jobWithNoEI.ExternalJobID)
+		require.NoError(t, err)
+		assert.False(t, can)
+		can, err = a.CanRun(context.Background(), eiEnabledCfg{}, uuid.NewV4())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})

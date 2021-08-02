@@ -700,8 +700,13 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "destroy",
-					Usage:  "Remove an authentication key by name",
+					Usage:  "Remove an external initiator by name",
 					Action: client.DeleteExternalInitiator,
+				},
+				{
+					Name:   "list",
+					Usage:  "List all external initiators",
+					Action: client.IndexExternalInitiators,
 				},
 			},
 		},
