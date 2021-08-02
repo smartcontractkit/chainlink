@@ -61,8 +61,11 @@ type (
 
 func newRegistrations() *registrations {
 	return &registrations{
-		subscribers:            make(map[uint64]*subscribers),
-		decoders:               make(map[common.Address]ParseLogFunc), // a high value is set until first subscriber, to avoid a special case in comparison to its NumConfirmations
+		subscribers: make(map[uint64]*subscribers),
+		decoders:    make(map[common.Address]ParseLogFunc),
+
+		// a high value for lowestNumConfirmations is set until first subscriber,
+		// to avoid a special case in comparison to its NumConfirmations
 		lowestNumConfirmations: uint64(math.MaxUint64),
 	}
 }
@@ -167,12 +170,11 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 		for numConfirmations, subscribers := range r.subscribers {
 
 			if numConfirmations != 0 && latestBlockNumber < numConfirmations {
-				// Skipping send because not enough height to send
+				// Skipping send because the block is definitely too young
 				continue
 			}
 
-			// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
-			// even if the logs are too young
+			// We attempt the send multiple times per log
 			// so here we need to see if this particular listener actually should receive it at this depth
 			isOldEnough := numConfirmations == 0 || (logsPerBlock.BlockNumber+numConfirmations-1) <= latestBlockNumber
 			if !isOldEnough {
