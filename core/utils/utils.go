@@ -818,11 +818,11 @@ type CronTicker struct {
 	ch chan time.Time
 }
 
-func NewCronTicker(schedule string, jitterWithin time.Duration) (CronTicker, error) {
+func NewCronTicker(schedule string, randomDelay time.Duration) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
-		delay := time.Duration(mrand.Int63n(int64(jitterWithin)))
+		delay := time.Duration(mrand.Int63n(int64(randomDelay)))
 		time.AfterFunc(delay, func() {
 			select {
 			case ch <- time.Now():
