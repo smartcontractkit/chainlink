@@ -2,9 +2,11 @@ package cmd_test
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"strconv"
 	"testing"
@@ -709,6 +711,38 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
 	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+}
+
+func TestClient_AutoLogin_AuthFails(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = FailingAuthenticator{}
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
+
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	require.Error(t, err)
+}
+
+type FailingAuthenticator struct{}
+
+func (FailingAuthenticator) Cookie() (*http.Cookie, error) {
+	return &http.Cookie{}, nil
+}
+
+// Authenticate retrieves a session ID via a cookie and saves it to disk.
+func (FailingAuthenticator) Authenticate(sessionRequest models.SessionRequest) (*http.Cookie, error) {
+	return nil, errors.New("no luck")
 }
 
 func TestClient_SetLogConfig(t *testing.T) {
