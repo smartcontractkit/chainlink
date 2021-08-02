@@ -974,13 +974,20 @@ func MustInsertExternalInitiator(t *testing.T, db *gorm.DB) (ei models.ExternalI
 }
 
 type ExternalInitiatorOpts struct {
+	NamePrefix     string
 	URL            *models.WebURL
 	OutgoingSecret string
 	OutgoingToken  string
 }
 
 func MustInsertExternalInitiatorWithOpts(t *testing.T, db *gorm.DB, opts ExternalInitiatorOpts) (ei models.ExternalInitiator) {
-	ei.Name = fmt.Sprintf("ei-%s", uuid.NewV4())
+	var prefix string
+	if opts.NamePrefix != "" {
+		prefix = opts.NamePrefix
+	} else {
+		prefix = "ei"
+	}
+	ei.Name = fmt.Sprintf("%s-%s", prefix, uuid.NewV4())
 	ei.URL = opts.URL
 	ei.OutgoingSecret = opts.OutgoingSecret
 	ei.OutgoingToken = opts.OutgoingToken
