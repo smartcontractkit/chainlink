@@ -132,13 +132,13 @@ func setupMocks(t *testing.T) *testMocks {
 }
 
 type setupOptions struct {
-	pollTickerDisabled         bool
-	idleTimerDisabled          bool
-	idleTimerPeriod            time.Duration
-	drumbeatEnabled            bool
-	drumbeatSchedule           string
-	drumbeatJitterWithinPeriod time.Duration
-	orm                        fluxmonitorv2.ORM
+	pollTickerDisabled  bool
+	idleTimerDisabled   bool
+	idleTimerPeriod     time.Duration
+	drumbeatEnabled     bool
+	drumbeatSchedule    string
+	drumbeatRandomDelay time.Duration
+	orm                 fluxmonitorv2.ORM
 }
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
@@ -158,16 +158,16 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 
 	pollManager, err := fluxmonitorv2.NewPollManager(
 		fluxmonitorv2.PollManagerConfig{
-			PollTickerInterval:         time.Minute,
-			PollTickerDisabled:         options.pollTickerDisabled,
-			IdleTimerPeriod:            options.idleTimerPeriod,
-			IdleTimerDisabled:          options.idleTimerDisabled,
-			DrumbeatEnabled:            options.drumbeatEnabled,
-			DrumbeatSchedule:           options.drumbeatSchedule,
-			DrumbeatJitterWithinPeriod: options.drumbeatJitterWithinPeriod,
-			HibernationPollPeriod:      24 * time.Hour,
-			MinRetryBackoffDuration:    1 * time.Minute,
-			MaxRetryBackoffDuration:    1 * time.Hour,
+			PollTickerInterval:      time.Minute,
+			PollTickerDisabled:      options.pollTickerDisabled,
+			IdleTimerPeriod:         options.idleTimerPeriod,
+			IdleTimerDisabled:       options.idleTimerDisabled,
+			DrumbeatEnabled:         options.drumbeatEnabled,
+			DrumbeatSchedule:        options.drumbeatSchedule,
+			DrumbeatRandomDelay:     options.drumbeatRandomDelay,
+			HibernationPollPeriod:   24 * time.Hour,
+			MinRetryBackoffDuration: 1 * time.Minute,
+			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
 		logger.Default,
 	)
@@ -213,11 +213,11 @@ func disableIdleTimer(disabled bool) func(*setupOptions) {
 }
 
 // enableDrumbeatTicker is an option to enable the drumbeat ticker during setup
-func enableDrumbeatTicker(schedule string, jitter time.Duration) func(*setupOptions) {
+func enableDrumbeatTicker(schedule string, randomDelay time.Duration) func(*setupOptions) {
 	return func(opts *setupOptions) {
 		opts.drumbeatEnabled = true
 		opts.drumbeatSchedule = schedule
-		opts.drumbeatJitterWithinPeriod = jitter
+		opts.drumbeatRandomDelay = randomDelay
 	}
 }
 
