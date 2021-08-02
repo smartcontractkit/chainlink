@@ -278,17 +278,16 @@ type FluxMonitorSpec struct {
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   float32       `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
-	PollTimerPeriod     time.Duration `gorm:"type:jsonb"`
-	PollTimerDisabled   bool          `gorm:"type:jsonb"`
-	IdleTimerPeriod     time.Duration `gorm:"type:jsonb"`
-	IdleTimerDisabled   bool          `gorm:"type:jsonb"`
-	DrumbeatSchedule    string
-	DrumbeatRandomDelay time.Duration `gorm:"type:jsonb"`
-	DrumbeatEnabled     bool          `gorm:"type:jsonb"`
-	MinPayment          *assets.Link
-	CreatedAt           time.Time `toml:"-"`
-	UpdatedAt           time.Time `toml:"-"`
+	AbsoluteThreshold float32       `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
+	PollTimerPeriod   time.Duration `gorm:"type:jsonb"`
+	PollTimerDisabled bool          `gorm:"type:jsonb"`
+	IdleTimerPeriod   time.Duration `gorm:"type:jsonb"`
+	IdleTimerDisabled bool          `gorm:"type:jsonb"`
+	DrumbeatSchedule  string
+	DrumbeatEnabled   bool `gorm:"type:jsonb"`
+	MinPayment        *assets.Link
+	CreatedAt         time.Time `toml:"-"`
+	UpdatedAt         time.Time `toml:"-"`
 }
 
 type KeeperSpec struct {

@@ -217,7 +217,7 @@ func NewFromJobSpec(
 			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
 			DrumbeatSchedule:        fmSpec.DrumbeatSchedule,
 			DrumbeatEnabled:         fmSpec.DrumbeatEnabled,
-			DrumbeatRandomDelay:     fmSpec.DrumbeatRandomDelay,
+			DrumbeatRandomDelay:     time.Second,
 			HibernationPollPeriod:   24 * time.Hour, // Not currently configurable
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
