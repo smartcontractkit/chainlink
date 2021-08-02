@@ -74,3 +74,8 @@ func NewExternalInitiatorResource(ei models.ExternalInitiator) ExternalInitiator
 		UpdatedAt:     ei.UpdatedAt,
 	}
 }
+
+// GetName returns the collection name for jsonapi.
+func (ExternalInitiatorResource) GetName() string {
+	return "externalInitiators"
+}
