@@ -210,15 +210,16 @@ func NewFromJobSpec(
 
 	pollManager, err := NewPollManager(
 		PollManagerConfig{
-			PollTickerInterval:      fmSpec.PollTimerPeriod,
-			PollTickerDisabled:      fmSpec.PollTimerDisabled,
-			IdleTimerPeriod:         fmSpec.IdleTimerPeriod,
-			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
-			DrumbeatSchedule:        fmSpec.DrumbeatSchedule,
-			DrumbeatEnabled:         fmSpec.DrumbeatEnabled,
-			HibernationPollPeriod:   168 * time.Hour, // Not currently configurable
-			MinRetryBackoffDuration: 1 * time.Minute,
-			MaxRetryBackoffDuration: 1 * time.Hour,
+			PollTickerInterval:         fmSpec.PollTimerPeriod,
+			PollTickerDisabled:         fmSpec.PollTimerDisabled,
+			IdleTimerPeriod:            fmSpec.IdleTimerPeriod,
+			IdleTimerDisabled:          fmSpec.IdleTimerDisabled,
+			DrumbeatSchedule:           fmSpec.DrumbeatSchedule,
+			DrumbeatEnabled:            fmSpec.DrumbeatEnabled,
+			DrumbeatJitterWithinPeriod: fmSpec.DrumbeatJitterWithinPeriod,
+			HibernationPollPeriod:      168 * time.Hour, // Not currently configurable
+			MinRetryBackoffDuration:    1 * time.Minute,
+			MaxRetryBackoffDuration:    1 * time.Hour,
 		},
 		fmLogger,
 	)

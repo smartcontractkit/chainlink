@@ -822,20 +822,13 @@ func NewCronTicker(schedule string, jitterWithin time.Duration) (CronTicker, err
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
-		if jitterWithin > 0 {
-			delay := time.Duration(mrand.Int63n(int64(jitterWithin)))
-			time.AfterFunc(delay, func() {
-				select {
-				case ch <- time.Now():
-				default:
-				}
-			})
-		} else {
+		delay := time.Duration(mrand.Int63n(int64(jitterWithin)))
+		time.AfterFunc(delay, func() {
 			select {
 			case ch <- time.Now():
 			default:
 			}
-		}
+		})
 	})
 	if err != nil {
 		return CronTicker{}, err

@@ -1,6 +1,7 @@
 package fluxmonitorv2
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -9,16 +10,17 @@ import (
 )
 
 type PollManagerConfig struct {
-	IsHibernating           bool
-	PollTickerInterval      time.Duration
-	PollTickerDisabled      bool
-	IdleTimerPeriod         time.Duration
-	IdleTimerDisabled       bool
-	DrumbeatSchedule        string
-	DrumbeatEnabled         bool
-	HibernationPollPeriod   time.Duration
-	MinRetryBackoffDuration time.Duration
-	MaxRetryBackoffDuration time.Duration
+	IsHibernating              bool
+	PollTickerInterval         time.Duration
+	PollTickerDisabled         bool
+	IdleTimerPeriod            time.Duration
+	IdleTimerDisabled          bool
+	DrumbeatSchedule           string
+	DrumbeatEnabled            bool
+	DrumbeatJitterWithinPeriod time.Duration
+	HibernationPollPeriod      time.Duration
+	MinRetryBackoffDuration    time.Duration
+	MaxRetryBackoffDuration    time.Duration
 }
 
 // PollManager manages the tickers/timers which cause the Flux Monitor to start
@@ -79,7 +81,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) (*PollManager,
 	var drumbeatTicker utils.CronTicker
 	var err error
 	if cfg.DrumbeatEnabled {
-		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule, 5*time.Second)
+		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule, cfg.DrumbeatJitterWithinPeriod)
 		if err != nil {
 			return nil, err
 		}
@@ -329,7 +331,7 @@ func (pm *PollManager) startDrumbeat() {
 		return
 	}
 
-	pm.logger.Debugw("starting drumbeat ticker", "schedule", pm.cfg.DrumbeatSchedule)
+	pm.logger.Debugw("starting drumbeat ticker", "schedule", pm.cfg.DrumbeatSchedule, "jitterWithin", fmt.Sprintf("%v", pm.cfg.DrumbeatJitterWithinPeriod))
 	pm.drumbeat.Start()
 }
 

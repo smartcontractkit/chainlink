@@ -132,12 +132,13 @@ func setupMocks(t *testing.T) *testMocks {
 }
 
 type setupOptions struct {
-	pollTickerDisabled bool
-	idleTimerDisabled  bool
-	idleTimerPeriod    time.Duration
-	drumbeatEnabled    bool
-	drumbeatSchedule   string
-	orm                fluxmonitorv2.ORM
+	pollTickerDisabled         bool
+	idleTimerDisabled          bool
+	idleTimerPeriod            time.Duration
+	drumbeatEnabled            bool
+	drumbeatSchedule           string
+	drumbeatJitterWithinPeriod time.Duration
+	orm                        fluxmonitorv2.ORM
 }
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
@@ -157,15 +158,16 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 
 	pollManager, err := fluxmonitorv2.NewPollManager(
 		fluxmonitorv2.PollManagerConfig{
-			PollTickerInterval:      time.Minute,
-			PollTickerDisabled:      options.pollTickerDisabled,
-			IdleTimerPeriod:         options.idleTimerPeriod,
-			IdleTimerDisabled:       options.idleTimerDisabled,
-			DrumbeatEnabled:         options.drumbeatEnabled,
-			DrumbeatSchedule:        options.drumbeatSchedule,
-			HibernationPollPeriod:   24 * time.Hour,
-			MinRetryBackoffDuration: 1 * time.Minute,
-			MaxRetryBackoffDuration: 1 * time.Hour,
+			PollTickerInterval:         time.Minute,
+			PollTickerDisabled:         options.pollTickerDisabled,
+			IdleTimerPeriod:            options.idleTimerPeriod,
+			IdleTimerDisabled:          options.idleTimerDisabled,
+			DrumbeatEnabled:            options.drumbeatEnabled,
+			DrumbeatSchedule:           options.drumbeatSchedule,
+			DrumbeatJitterWithinPeriod: options.drumbeatJitterWithinPeriod,
+			HibernationPollPeriod:      24 * time.Hour,
+			MinRetryBackoffDuration:    1 * time.Minute,
+			MaxRetryBackoffDuration:    1 * time.Hour,
 		},
 		logger.Default,
 	)
@@ -211,10 +213,11 @@ func disableIdleTimer(disabled bool) func(*setupOptions) {
 }
 
 // enableDrumbeatTicker is an option to enable the drumbeat ticker during setup
-func enableDrumbeatTicker(schedule string) func(*setupOptions) {
+func enableDrumbeatTicker(schedule string, jitter time.Duration) func(*setupOptions) {
 	return func(opts *setupOptions) {
 		opts.drumbeatEnabled = true
 		opts.drumbeatSchedule = schedule
+		opts.drumbeatJitterWithinPeriod = jitter
 	}
 }
 
@@ -1409,7 +1412,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	store, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
-	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 1s"))
+	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
 
@@ -1502,9 +1505,11 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	fm.Start()
 	defer fm.Close()
 
-	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.orm, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, 10*time.Second, 10*time.Millisecond)
+	waitTime := 15 * time.Second
+	interval := 50 * time.Millisecond
+	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.orm, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
 }
