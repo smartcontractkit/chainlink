@@ -26,7 +26,7 @@ func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offse
 		resources = append(resources, presenters.NewExternalInitiatorResource(ei))
 	}
 
-	paginatedResponse(c, "ExternalInitiators", size, page, resources, count, err)
+	paginatedResponse(c, "externalInitiators", size, page, resources, count, err)
 }
 
 // Create builds and saves a new external initiator
