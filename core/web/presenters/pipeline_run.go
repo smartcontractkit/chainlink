@@ -36,7 +36,8 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 	}
 	// The UI expects all outputs to be strings.
 	var outputs []*string
-	if !pr.Outputs.Null {
+	// Note for async jobs, the output can be nil.
+	if !pr.Outputs.Null && pr.Outputs.Val != nil {
 		outs := pr.Outputs.Val.([]interface{})
 		for _, out := range outs {
 			switch v := out.(type) {

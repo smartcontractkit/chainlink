@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"sync"
 
-	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/wsrpc"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
@@ -214,10 +212,6 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 
 	// Update the spec
 	if err = s.orm.UpdateJobProposalSpec(ctx, id, spec); err != nil {
-		return err
-	}
-
-	if err != nil {
 		return errors.Wrap(err, "could not update job proposal")
 	}
 
@@ -428,21 +422,14 @@ func (s *service) Unsafe_SetFMSClient(client pb.FeedsManagerClient) {
 	s.fmsClient = client
 }
 
-type GenericJobSpec struct {
-	Type          job.Type    `toml:"type"`
-	SchemaVersion uint32      `toml:"schemaVersion"`
-	Name          null.String `toml:"name"`
-}
-
 func (s *service) generateJob(spec string) (*job.Job, error) {
-	genericJS := GenericJobSpec{}
-	err := toml.Unmarshal([]byte(spec), &genericJS)
+	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse job spec TOML")
 	}
 
 	var js job.Job
-	switch genericJS.Type {
+	switch jobType {
 	case job.OffchainReporting:
 		js, err = offchainreporting.ValidatedOracleSpecToml(s.cfg, spec)
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
@@ -451,7 +438,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
-		return nil, errors.Errorf("unknown job type: %s", genericJS.Type)
+		return nil, errors.Errorf("unknown job type: %s", jobType)
 
 	}
 	if err != nil {

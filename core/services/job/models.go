@@ -39,18 +39,31 @@ func (t Type) String() string {
 	return string(t)
 }
 
-func (t Type) HasPipelineSpec() bool {
-	return hasPipelineSpec[t]
+func (t Type) RequiresPipelineSpec() bool {
+	return requiresPipelineSpec[t]
+}
+
+func (t Type) SupportsAsync() bool {
+	return supportsAsync[t]
 }
 
 var (
-	hasPipelineSpec = map[Type]bool{
+	requiresPipelineSpec = map[Type]bool{
 		Cron:              true,
 		DirectRequest:     true,
 		FluxMonitor:       true,
-		OffchainReporting: true,
+		OffchainReporting: false, // bootstrap jobs do not require it
 		Keeper:            false,
 		VRF:               true,
+		Webhook:           true,
+	}
+	supportsAsync = map[Type]bool{
+		Cron:              false,
+		DirectRequest:     false,
+		FluxMonitor:       false,
+		OffchainReporting: false,
+		Keeper:            false,
+		VRF:               false,
 		Webhook:           true,
 	}
 )
