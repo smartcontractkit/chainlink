@@ -226,7 +226,11 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 			return errors.Wrap(err, "failed to set last run height for upkeep")
 		}
 
-		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+		sdb, errdb := dbtx.DB()
+		if errdb != nil {
+			return errors.Wrap(errdb, "unable to open sql db")
+		}
+		_, err = executer.pr.InsertFinishedRun(ctxQuery, postgres.WrapDbWithSqlx(sdb), pipeline.Run{
 			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: executer.job.PipelineSpecID,
 			Meta: pipeline.JSONSerializable{

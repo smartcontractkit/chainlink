@@ -15,6 +15,8 @@ import (
 
 	sql "database/sql"
 
+	sqlx "github.com/jmoiron/sqlx"
+
 	time "time"
 
 	uuid "github.com/satori/go.uuid"
@@ -148,20 +150,20 @@ func (_m *ORM) GetUnfinishedRuns(now time.Time, fn func(pipeline.Run) error) err
 	return r0
 }
 
-// InsertFinishedRun provides a mock function with given fields: db, run, trrs, saveSuccessfulTaskRuns
-func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
-	ret := _m.Called(db, run, trrs, saveSuccessfulTaskRuns)
+// InsertFinishedRun provides a mock function with given fields: ctx, tx, run, saveSuccessfulTaskRuns
+func (_m *ORM) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run pipeline.Run, saveSuccessfulTaskRuns bool) (int64, error) {
+	ret := _m.Called(ctx, tx, run, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(*gorm.DB, pipeline.Run, []pipeline.TaskRunResult, bool) int64); ok {
-		r0 = rf(db, run, trrs, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(0).(func(context.Context, sqlx.ExtContext, pipeline.Run, bool) int64); ok {
+		r0 = rf(ctx, tx, run, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*gorm.DB, pipeline.Run, []pipeline.TaskRunResult, bool) error); ok {
-		r1 = rf(db, run, trrs, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(1).(func(context.Context, sqlx.ExtContext, pipeline.Run, bool) error); ok {
+		r1 = rf(ctx, tx, run, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -170,18 +172,18 @@ func (_m *ORM) InsertFinishedRun(db *gorm.DB, run pipeline.Run, trrs []pipeline.
 }
 
 // StoreRun provides a mock function with given fields: db, run
-func (_m *ORM) StoreRun(db *sql.DB, run *pipeline.Run) (bool, error) {
+func (_m *ORM) StoreRun(db *sqlx.DB, run *pipeline.Run) (bool, error) {
 	ret := _m.Called(db, run)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*sql.DB, *pipeline.Run) bool); ok {
+	if rf, ok := ret.Get(0).(func(*sqlx.DB, *pipeline.Run) bool); ok {
 		r0 = rf(db, run)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*sql.DB, *pipeline.Run) error); ok {
+	if rf, ok := ret.Get(1).(func(*sqlx.DB, *pipeline.Run) error); ok {
 		r1 = rf(db, run)
 	} else {
 		r1 = ret.Error(1)

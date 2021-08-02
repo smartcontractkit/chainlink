@@ -2,13 +2,13 @@ package pipeline
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,10 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -37,7 +37,7 @@ type Runner interface {
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
-	InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
+	InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
 	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
@@ -45,7 +45,7 @@ type Runner interface {
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 
 	// Test method for inserting completed non-pipeline job runs
-	TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error)
+	TestInsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, jobID int32, jobName string, jobType string, specID int32) (int64, error)
 }
 
 type runner struct {
@@ -426,7 +426,13 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, nil
 	}
 
-	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
+	db, err := r.orm.DB().DB()
+	if err != nil {
+		return 0, finalResult, errors.Wrap(err, "unable to retrieve sql.DB")
+	}
+	sdb := postgres.WrapDbWithSqlx(db)
+
+	if runID, err = r.orm.InsertFinishedRun(context.Background(), sdb, run, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return runID, finalResult, nil
@@ -435,21 +441,22 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error) {
 	for {
-		trrs, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
+		// TODO: are trrs now unused?
+		_, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 		if err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
-		if run.Async {
-			var db *sql.DB
-			db, err = r.orm.DB().DB()
-			if err != nil {
-				return false, errors.Wrap(err, "unable to retrieve sql.DB")
-			}
+		db, err := r.orm.DB().DB()
+		if err != nil {
+			return false, errors.Wrap(err, "unable to retrieve sql.DB")
+		}
+		sdb := postgres.WrapDbWithSqlx(db)
 
+		if run.Async {
 			var restart bool
 
-			restart, err = r.orm.StoreRun(db, run)
+			restart, err = r.orm.StoreRun(sdb, run)
 			if err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
@@ -466,7 +473,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			if run.FailEarly {
 				return false, nil
 			}
-			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, saveSuccessfulTaskRuns); err != nil {
+			if _, err = r.orm.InsertFinishedRun(context.Background(), sdb, *run, saveSuccessfulTaskRuns); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
@@ -475,13 +482,18 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 }
 
-func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
-	return r.orm.InsertFinishedRun(db, run, trrs, saveSuccessfulTaskRuns)
+func (r *runner) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+	d, err := r.orm.DB().DB()
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to retrieve sql.DB")
+	}
+	sdb := postgres.WrapDbWithSqlx(d)
+	return r.orm.InsertFinishedRun(ctx, sdb, run, saveSuccessfulTaskRuns)
 }
 
-func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
+func (r *runner) TestInsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
 	t := time.Now()
-	runID, err := r.InsertFinishedRun(db, Run{
+	runID, err := r.InsertFinishedRun(ctx, tx, Run{
 		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},

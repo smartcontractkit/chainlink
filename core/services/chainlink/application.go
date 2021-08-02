@@ -224,6 +224,8 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
 	subservices = append(subservices, eventBroadcaster)
 
+	db := store.Sqlx()
+
 	var txManager bulletprooftxmanager.TxManager
 	var logBroadcaster log.Broadcaster
 	if cfg.EthereumDisabled() {
@@ -236,7 +238,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 			return nil, err2
 		}
 
-		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, cfg, highestSeenHead)
+		logBroadcaster = log.NewBroadcaster(log.NewORM(db), ethClient, cfg, highestSeenHead)
 		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, cfg, keyStore.Eth(), advisoryLocker, eventBroadcaster)
 		subservices = append(subservices, logBroadcaster, txManager)
 	}
@@ -272,7 +274,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				pipelineORM,
 				ethClient,
-				store.DB,
+				db,
 				cfg,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, ethClient, headBroadcaster, logBroadcaster, cfg),
@@ -709,6 +711,13 @@ func (app *ChainlinkApplication) RunJobV2(
 	// Some jobs are special in that they do not have a task graph.
 	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
+	if !jb.Type.HasPipelineSpec() {
+		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
+		// TODO: Once all jobs have a pipeline this can be removed
+		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+		db := app.Store.Sqlx()
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(ctx, db, jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
+	} else {
 		var vars map[string]interface{}
 		var saveTasks bool
 		if jb.Type == job.VRF {

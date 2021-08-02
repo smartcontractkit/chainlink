@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
@@ -17,9 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -105,12 +103,19 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 
 	vorm := keystore.NewVRFORM(d.db)
 
+	sdb, errdb := d.db.DB()
+	if errdb != nil {
+		return nil, errors.Wrap(errdb, "unable to open sql db")
+	}
+
+	db := postgres.WrapDbWithSqlx(sdb)
+
 	logListener := &listener{
 		cfg:                d.cfg,
 		l:                  *l,
 		headBroadcaster:    d.hb,
 		logBroadcaster:     d.lb,
-		db:                 d.db,
+		db:                 db,
 		txm:                d.txm,
 		abi:                abi,
 		coordinator:        coordinator,
@@ -124,14 +129,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		chStop:             make(chan struct{}),
 		waitOnStop:         make(chan struct{}),
 		newHead:            make(chan struct{}, 1),
-		respCount:          getStartingResponseCounts(d.db, l),
+		respCount:          getStartingResponseCounts(db, l),
 		blockNumberToReqID: pairing.New(),
 		reqAdded:           func() {},
 	}
 	return []job.Service{logListener}, nil
 }
 
-func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint64 {
+func getStartingResponseCounts(db *sqlx.DB, l *logger.Logger) map[[32]byte]uint64 {
 	respCounts := make(map[[32]byte]uint64)
 	var counts []struct {
 		RequestID string
@@ -139,10 +144,10 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 	}
 	// Allow any state, not just confirmed, on purpose.
 	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count 
+	err := db.Select(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count 
 			FROM eth_txes 
 			WHERE meta->'RequestID' IS NOT NULL 
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+		    GROUP BY meta->'RequestID'`)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("VRFListener: unable to read previous fulfillments", "err", err)
@@ -187,7 +192,7 @@ type listener struct {
 	pipelineORM     pipeline.ORM
 	vorm            keystore.VRFORM
 	job             job.Job
-	db              *gorm.DB
+	db              *sqlx.DB
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
 	vrfks           *keystore.VRF
@@ -439,9 +444,7 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 }
 
 func (lsn *listener) shouldProcessLog(lb log.Broadcast) bool {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
+	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
 	if err != nil {
 		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
@@ -451,10 +454,7 @@ func (lsn *listener) shouldProcessLog(lb log.Broadcast) bool {
 }
 
 func (lsn *listener) markLogAsConsumed(lb log.Broadcast) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
-	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
+	err := lsn.logBroadcaster.MarkConsumed(lsn.db, lb)
 	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListener: unable to mark log %v as consumed", lb.String()))
 }
 
@@ -486,7 +486,6 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 	if !lsn.shouldProcessLog(lb) {
 		return
 	}
-	s := time.Now()
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
@@ -516,17 +515,10 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 	if err != nil {
 		logger.Errorw("VRFListener: failed executing run", "err", err)
 	}
-	f := time.Now()
-	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-		_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-			State:          pipeline.RunStatusCompleted,
-			PipelineSpecID: run.PipelineSpecID,
-			Errors:         run.Errors,
-			Outputs:        run.Outputs,
-			Meta:           run.Meta,
-			CreatedAt:      s,
-			FinishedAt:     null.TimeFrom(f),
-		}, trrs, true)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.SqlxTransaction(ctx, lsn.db.DB, func(tx *sqlx.Tx) error {
+		_, err = lsn.pipelineRunner.InsertFinishedRun(ctx, tx, run, trrs, true)
 		if err != nil {
 			return errors.Wrap(err, "VRFListener: failed to insert finished run")
 		}

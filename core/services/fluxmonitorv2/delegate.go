@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
 )
 
@@ -67,9 +68,14 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 
 	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, d.cfg.FMDefaultTransactionQueueDepth)
 
+	sdb, errdb := d.db.DB()
+	if errdb != nil {
+		return nil, errors.Wrap(errdb, "unable to open sql db")
+	}
+
 	fm, err := NewFromJobSpec(
 		spec,
-		d.db,
+		postgres.WrapDbWithSqlx(sdb),
 		NewORM(d.db, d.txm, strategy),
 		d.jobORM,
 		d.pipelineORM,

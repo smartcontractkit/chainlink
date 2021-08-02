@@ -5,7 +5,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
+	"github.com/jmoiron/sqlx"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -24,6 +26,14 @@ type ORM struct {
 	txm      transmitter
 	config   Config
 	strategy bulletprooftxmanager.TxStrategy
+}
+
+func (korm *ORM) Sqlx() *sqlx.DB {
+	db, err := korm.DB.DB()
+	if err != nil {
+		panic(err)
+	}
+	return postgres.WrapDbWithSqlx(db)
 }
 
 func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error) {

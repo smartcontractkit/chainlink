@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
@@ -38,7 +37,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minIncomingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
+	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.Sqlx(), config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -81,7 +80,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 		jobORM.Close()
 	}
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
+	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.Sqlx(), drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()
@@ -147,7 +146,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Once()
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 		}).Once().Return(int64(1), nil)
 
@@ -202,7 +201,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 		}).Once().Return(int64(1), nil)
 
@@ -308,13 +307,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runCancelledAwaiter := cltest.NewAwaiter()
 		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			db := args[0].(*gorm.DB)
+			ctx := args[0].(context.Context)
 			select {
 			case <-time.After(timeout):
 				t.Fatalf("Timed out waiting for Run to be canceled (%v)", timeout)
-			case <-db.Statement.Context.Done():
+			case <-ctx.Done():
 				runCancelledAwaiter.ItHappened()
 			}
 		}).Once().Return(int64(0), nil)

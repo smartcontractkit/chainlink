@@ -1,8 +1,8 @@
 package offchainreporting
 
 import (
+	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
@@ -14,14 +14,14 @@ import (
 type RunResultSaver struct {
 	utils.StartStopOnce
 
-	db             *gorm.DB
+	db             *sqlx.DB
 	runResults     <-chan pipeline.RunWithResults
 	pipelineRunner pipeline.Runner
 	done           chan struct{}
 	logger         logger.Logger
 }
 
-func NewResultRunSaver(db *gorm.DB, runResults <-chan pipeline.RunWithResults, pipelineRunner pipeline.Runner, done chan struct{},
+func NewResultRunSaver(db *sqlx.DB, runResults <-chan pipeline.RunWithResults, pipelineRunner pipeline.Runner, done chan struct{},
 	logger logger.Logger,
 ) *RunResultSaver {
 	return &RunResultSaver{
@@ -44,7 +44,7 @@ func (r *RunResultSaver) Start() error {
 					// are produced and the successful TaskRuns do not provide value.
 					ctx, cancel := postgres.DefaultQueryCtx()
 					defer cancel()
-					_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
+					_, err := r.pipelineRunner.InsertFinishedRun(ctx, r.db, rr.Run, rr.TaskRunResults, false)
 					if err != nil {
 						r.logger.Errorw("error inserting finished results", "err", err)
 					}
@@ -69,7 +69,7 @@ func (r *RunResultSaver) Close() error {
 				r.logger.Infow("RunSaver: saving job run before exiting", "run", rr.Run, "task results", rr.TaskRunResults)
 				ctx, cancel := postgres.DefaultQueryCtx()
 				defer cancel()
-				_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
+				_, err := r.pipelineRunner.InsertFinishedRun(ctx, r.db, rr.Run, rr.TaskRunResults, false)
 				if err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}

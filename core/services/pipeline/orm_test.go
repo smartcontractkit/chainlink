@@ -115,6 +115,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 
 	sdb, err := orm.DB().DB()
 	require.NoError(t, err)
+	d := postgres.WrapDbWithSqlx(sdb)
 
 	now := time.Now()
 
@@ -139,7 +140,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err := orm.StoreRun(sdb, run)
+	restart, err := orm.StoreRun(d, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
@@ -170,7 +171,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err = orm.StoreRun(sdb, run)
+	restart, err = orm.StoreRun(d, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
@@ -203,6 +204,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	sdb, err := orm.DB().DB()
 	require.NoError(t, err)
+	d := postgres.WrapDbWithSqlx(sdb)
 
 	ds1_id := uuid.NewV4()
 
@@ -245,7 +247,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		},
 	}
 
-	restart, err := orm.StoreRun(sdb, run)
+	restart, err := orm.StoreRun(d, run)
 	require.NoError(t, err)
 	// new data available! immediately restart the run
 	require.Equal(t, true, restart)
@@ -266,6 +268,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	sdb, err := orm.DB().DB()
 	require.NoError(t, err)
+	d := postgres.WrapDbWithSqlx(sdb)
 
 	now := time.Now()
 
@@ -295,7 +298,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 
 	// Now store a partial run
-	restart, err := orm.StoreRun(sdb, run)
+	restart, err := orm.StoreRun(d, run)
 	require.NoError(t, err)
 	require.False(t, restart)
 	// assert that run should be in "paused" state

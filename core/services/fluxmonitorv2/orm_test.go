@@ -103,7 +103,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
 		runID, err := pipelineORM.InsertFinishedRun(
-			corestore.DB,
+			context.Background(),
+			corestore.Sqlx(),
 			pipeline.Run{
 				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
@@ -112,18 +113,19 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				Errors:         pipeline.RunErrors{null.String{}},
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
-			}, pipeline.TaskRunResults{
-				{
-					ID:         uuid.NewV4(),
-					Task:       &pipeline.HTTPTask{},
-					Result:     pipeline.Result{Value: 10},
-					CreatedAt:  f,
-					FinishedAt: null.TimeFrom(f),
+				PipelineTaskRuns: []pipeline.TaskRun{
+					{
+						ID:         uuid.NewV4(),
+						Type:       pipeline.TaskTypeHTTP,
+						Output:     &pipeline.JSONSerializable{Val: 10, Null: false},
+						CreatedAt:  f,
+						FinishedAt: null.TimeFrom(f),
+					},
 				},
 			}, true)
 		require.NoError(t, err)
 
-		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID)
+		err = orm.UpdateFluxMonitorRoundStats(corestore.Sqlx(), address, roundID, runID)
 		require.NoError(t, err)
 
 		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -54,7 +55,7 @@ type FluxMonitor struct {
 	jobSpec           job.Job
 	spec              pipeline.Spec
 	runner            pipeline.Runner
-	db                *gorm.DB
+	db                *sqlx.DB
 	orm               ORM
 	jobORM            job.ORM
 	pipelineORM       pipeline.ORM
@@ -83,7 +84,7 @@ func NewFluxMonitor(
 	pipelineRunner pipeline.Runner,
 	jobSpec job.Job,
 	spec pipeline.Spec,
-	db *gorm.DB,
+	db *sqlx.DB,
 	orm ORM,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
@@ -138,7 +139,7 @@ func NewFluxMonitor(
 // validation.
 func NewFromJobSpec(
 	jobSpec job.Job,
-	db *gorm.DB,
+	db *sqlx.DB,
 	orm ORM,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
@@ -493,9 +494,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 
 	// If the log is a duplicate of one we've seen before, ignore it (this
 	// happens because of the LogBroadcaster's backfilling behavior).
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db.WithContext(ctx), broadcast)
+	consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db, broadcast)
 
 	if err != nil {
 		fm.logger.Errorf("Error determining if log was already consumed: %v", err)
@@ -535,9 +534,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 }
 
 func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog interface{}, started time.Time) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	if err := fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+	if err := fm.logBroadcaster.MarkConsumed(fm.db, broadcast); err != nil {
 		fm.logger.Errorw("FluxMonitor: failed to mark log as consumed",
 			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
 	}
@@ -740,8 +737,10 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
-		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, false)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.SqlxTransaction(ctx, fm.db.DB, func(tx *sqlx.Tx) error {
+		runID, err2 := fm.runner.InsertFinishedRun(ctx, tx, run, results, false)
 		if err2 != nil {
 			return err2
 		}
@@ -944,8 +943,10 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
-		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, true)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.SqlxTransaction(ctx, fm.db.DB, func(tx *sqlx.Tx) error {
+		runID, err2 := fm.runner.InsertFinishedRun(ctx, tx, run, results, true)
 		if err2 != nil {
 			return err2
 		}
@@ -1027,14 +1028,14 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 }
 
 func (fm *FluxMonitor) queueTransactionForBPTXM(
-	db *gorm.DB,
+	tx sqlx.Execer,
 	runID int64,
 	answer decimal.Decimal,
 	roundID uint32,
 ) error {
 	// Submit the Eth Tx
 	err := fm.contractSubmitter.Submit(
-		db,
+		nil, // TODO:
 		new(big.Int).SetInt64(int64(roundID)),
 		answer.BigInt(),
 	)
@@ -1044,7 +1045,7 @@ func (fm *FluxMonitor) queueTransactionForBPTXM(
 
 	// Update the flux monitor round stats
 	err = fm.orm.UpdateFluxMonitorRoundStats(
-		db,
+		tx,
 		fm.contractAddress,
 		roundID,
 		runID,

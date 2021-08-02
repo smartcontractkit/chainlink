@@ -3,8 +3,6 @@ package pipeline
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -25,9 +23,9 @@ var (
 type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
 	CreateRun(db *gorm.DB, run *Run) (err error)
-	StoreRun(db *sql.DB, run *Run) (restart bool, err error)
+	StoreRun(db *sqlx.DB, run *Run) (restart bool, err error)
 	UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
-	InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
+	InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
@@ -70,9 +68,9 @@ func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 
 // StoreRun will persist a partially executed run before suspending, or finish a run.
 // If `restart` is true, then new task run data is available and the run should be resumed immediately.
-func (o *orm) StoreRun(db *sql.DB, run *Run) (restart bool, err error) {
+func (o *orm) StoreRun(db *sqlx.DB, run *Run) (restart bool, err error) {
 	finished := run.FinishedAt.Valid
-	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+	err = postgres.SqlxTransaction(context.Background(), db.DB, func(tx *sqlx.Tx) error {
 		if !finished {
 			// Lock the current run. This prevents races with /v2/resume
 			sql := `SELECT id FROM pipeline_runs WHERE id = $1 FOR UPDATE;`
@@ -192,7 +190,7 @@ func (o *orm) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface
 // If saveSuccessfulTaskRuns = false, we only save errored runs.
 // That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
 // which do not provide much value.
-func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error) {
+func (o *orm) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error) {
 	if run.CreatedAt.IsZero() {
 		return 0, errors.New("run.CreatedAt must be set")
 	}
@@ -202,34 +200,40 @@ func (o *orm) InsertFinishedRun(db *gorm.DB, run Run, trrs []TaskRunResult, save
 	if run.Outputs.Val == nil || len(run.Errors) == 0 {
 		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
-	if len(trrs) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
+	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return 0, errors.New("must provide task run results")
 	}
 
-	err = postgres.GormTransactionWithoutContext(db, func(tx *gorm.DB) error {
-		if err = tx.Create(&run).Error; err != nil {
-			return errors.Wrap(err, "error inserting finished pipeline_run")
-		}
+	sql := `
+		INSERT INTO pipeline_runs (pipeline_spec_id, meta, errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :meta, :errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		RETURNING *
+	`
 
-		if !saveSuccessfulTaskRuns && !run.HasErrors() {
-			return nil
-		}
+	query, args, err := tx.BindNamed(sql, &run)
+	if err != nil {
+		return 0, err
+	}
 
-		sql := `
+	if err := sqlx.GetContext(ctx, tx, &run, query, args...); err != nil {
+		return 0, errors.Wrap(err, "error inserting finished pipeline_run")
+	}
+
+	// update the ID key everywhere
+	for i := range run.PipelineTaskRuns {
+		run.PipelineTaskRuns[i].PipelineRunID = run.ID
+	}
+
+	if !saveSuccessfulTaskRuns && !run.HasErrors() {
+		return run.ID, nil
+	}
+
+	sql = `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
-		VALUES %s
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 		`
-		valueStrings := []string{}
-		valueArgs := []interface{}{}
-		for _, trr := range trrs {
-			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?,?)")
-			valueArgs = append(valueArgs, run.ID, trr.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
-		}
-
-		/* #nosec G201 */
-		stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-		return tx.Exec(stmt, valueArgs...).Error
-	})
+	// TODO: use context
+	_, err = sqlx.NamedExecContext(ctx, tx, sql, run.PipelineTaskRuns)
 	return run.ID, err
 }
 

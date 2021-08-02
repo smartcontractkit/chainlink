@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
-	"gorm.io/gorm"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -61,7 +61,7 @@ type (
 		jobID            int32
 		logger           logger.Logger
 		db               OCRContractTrackerDB
-		gdb              *gorm.DB
+		sdb              *sqlx.DB
 		blockTranslator  BlockTranslator
 		chain            *chains.Chain
 
@@ -103,7 +103,7 @@ func NewOCRContractTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
-	gdb *gorm.DB,
+	sdb *sqlx.DB,
 	db OCRContractTrackerDB,
 	chain *chains.Chain,
 	headBroadcaster httypes.HeadBroadcaster,
@@ -119,7 +119,7 @@ func NewOCRContractTracker(
 		jobID,
 		logger,
 		db,
-		gdb,
+		sdb,
 		NewBlockTranslator(chain, ethClient),
 		chain,
 		headBroadcaster,
@@ -240,7 +240,7 @@ func (t *OCRContractTracker) processLogs() {
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
-	was, err := t.logBroadcaster.WasAlreadyConsumed(t.gdb, lb)
+	was, err := t.logBroadcaster.WasAlreadyConsumed(t.sdb, lb)
 	if err != nil {
 		t.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
 		return
@@ -251,12 +251,12 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.sdb, lb) })
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.sdb, lb) })
 		return
 	}
 
@@ -267,7 +267,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		configSet, err = t.contractFilterer.ParseConfigSet(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
-			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.sdb, lb) })
 			return
 		}
 		configSet.Raw = lb.RawLog()
@@ -282,12 +282,14 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
-			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+			t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.sdb, lb) })
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = postgres.GormTransactionWithDefaultContext(t.gdb, func(tx *gorm.DB) error {
-				if err = t.db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), *rr); err != nil {
+			ctx, cancel := postgres.DefaultQueryCtx()
+			defer cancel()
+			err = postgres.SqlxTransaction(ctx, t.sdb.DB, func(tx *sqlx.Tx) error {
+				if err = t.db.SaveLatestRoundRequested(tx.Tx, *rr); err != nil {
 					return err
 				}
 				return t.logBroadcaster.MarkConsumed(tx, lb)
@@ -308,9 +310,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb.WithContext(ctx), lb) })
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.sdb, lb) })
 	}
 }
 

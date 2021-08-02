@@ -6,9 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -17,21 +19,21 @@ import (
 
 type ORM interface {
 	FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
-	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (bool, error)
-	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error
+	WasBroadcastConsumed(q sqlx.QueryerContext, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (bool, error)
+	MarkBroadcastConsumed(e sqlx.ExecerContext, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error
 }
 
 type orm struct {
-	db *gorm.DB
+	db *sqlx.DB
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB) *orm {
+func NewORM(db *sqlx.DB) *orm {
 	return &orm{db}
 }
 
-func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (consumed bool, err error) {
+func (o *orm) WasBroadcastConsumed(q sqlx.QueryerContext, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (consumed bool, err error) {
 	var jobIDValue interface{}
 	var jobIDName = "job_id"
 	if jobID.IsV2 {
@@ -40,11 +42,11 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 	} else {
 		jobIDValue = jobID.JobIDV1
 	}
-	q := `
+	query := `
         SELECT consumed FROM log_broadcasts
-        WHERE block_hash = ?
-        AND log_index = ?
-        AND %s = ?
+        WHERE block_hash = $1
+        AND log_index = $2
+        AND %s = $3
     `
 	args := []interface{}{
 		blockHash,
@@ -52,8 +54,10 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 		jobIDValue,
 	}
 
-	stmt := fmt.Sprintf(q, jobIDName)
-	err = tx.Raw(stmt, args...).Row().Scan(&consumed)
+	stmt := fmt.Sprintf(query, jobIDName)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = sqlx.GetContext(ctx, q, &consumed, stmt, args...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -64,18 +68,18 @@ func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroad
 	var broadcasts []LogBroadcast
 	query := `
 		SELECT block_hash, log_index, job_id, job_id_v2 FROM log_broadcasts
-		WHERE block_number >= ?
-		AND block_number <= ?
+		WHERE block_number >= $1
+		AND block_number <= $2
 		AND consumed = true
 	`
-	err := o.db.Raw(query, fromBlockNum, toBlockNum).Find(&broadcasts).Error
+	err := o.db.Select(&broadcasts, query, fromBlockNum, toBlockNum)
 	if err != nil {
 		return make([]LogBroadcast, 0), err
 	}
 	return broadcasts, err
 }
 
-func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error {
+func (o *orm) MarkBroadcastConsumed(e sqlx.ExecerContext, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error {
 	var jobID1Value interface{}
 	var jobID2Value interface{}
 
@@ -85,12 +89,15 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 		jobID1Value = jobID.JobIDV1
 	}
 
-	query := tx.Exec(`
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, job_id_v2, created_at, consumed) VALUES (?, ?, ?, ?, ?, NOW(), true)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	query, err := e.ExecContext(ctx, `
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, job_id_v2, created_at, consumed) VALUES ($1, $2, $3, $4, $5, NOW(), true)
     `, blockHash, blockNumber, logIndex, jobID1Value, jobID2Value)
-	if query.Error != nil {
-		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
-	} else if query.RowsAffected == 0 {
+	if err != nil {
+		return errors.Wrap(err, "while marking log broadcast as consumed")
+	}
+	if rows, err := query.RowsAffected(); rows == 0 || err != nil {
 		return errors.Errorf("cannot mark log broadcast as consumed: does not exist")
 	}
 	return nil
@@ -101,7 +108,7 @@ type LogBroadcast struct {
 	BlockHash common.Hash
 	LogIndex  uint
 
-	JobId   models.JobID
+	JobId   uuid.NullUUID
 	JobIdV2 null.Int64
 }
 
@@ -109,7 +116,7 @@ func (b LogBroadcast) JobID() JobIdSelect {
 	if b.JobIdV2.Valid {
 		return NewJobIdV2(int32(b.JobIdV2.Int64))
 	}
-	return NewJobIdV1(b.JobId)
+	return NewJobIdV1(models.JobID(b.JobId.UUID))
 }
 
 func (b LogBroadcast) AsKey() LogBroadcastAsKey {

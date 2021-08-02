@@ -34,7 +34,7 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	}
 	txHash := broadcast.RawLog().TxHash.Hex()
 	logger.Debugw("RegistrySynchronizer: processing SyncRegistry log", "jobID", rs.job.ID, "txHash", txHash)
-	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.Sqlx(), broadcast)
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 		return
@@ -47,9 +47,7 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 		logger.Error(errors.Wrapf(err, "RegistrySynchronizer: unable to sync registry, jobID: %d", rs.job.ID))
 		return
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast)
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.Sqlx(), broadcast)
 	logger.ErrorIf(errors.Wrapf(err, "RegistrySynchronizer: unable to mark SyncRegistryLog log as consumed, jobID: %d, log: %v", rs.job.ID, broadcast.String()))
 }
 
@@ -72,7 +70,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	txHash := broadcast.RawLog().TxHash.Hex()
 	logger.Debugw("RegistrySynchronizer: processing UpkeepCanceled log", "jobID", rs.job.ID, "txHash", txHash)
-	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.Sqlx(), broadcast)
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 		return
@@ -94,9 +92,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	}
 	logger.Debugw(fmt.Sprintf("RegistrySynchronizer: deleted %v upkeep registrations", affected), "jobID", rs.job.ID, "txHash", txHash)
 
-	ctx, cancel = postgres.DefaultQueryCtx()
-	defer cancel()
-	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast)
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.Sqlx(), broadcast)
 	logger.ErrorIf(errors.Wrapf(err, "RegistrySynchronizer: unable to mark KeeperRegistryUpkeepCanceled log as consumed, jobID: %d, log: %v", rs.job.ID, broadcast.String()))
 }
 
@@ -126,7 +122,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, registry Registry) {
 	txHash := broadcast.RawLog().TxHash.Hex()
 	logger.Debugw("RegistrySynchronizer: processing UpkeepRegistered log", "jobID", rs.job.ID, "txHash", txHash)
-	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.Sqlx(), broadcast)
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 		return
@@ -144,9 +140,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 		logger.Error(err)
 		return
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast)
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.Sqlx(), broadcast)
 	logger.ErrorIf(errors.Wrapf(err, "RegistrySynchronizer: unable to mark KeeperRegistryUpkeepRegistered log as consumed, jobID: %d, log: %v", rs.job.ID, broadcast.String()))
 }
 
@@ -169,7 +163,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	txHash := broadcast.RawLog().TxHash.Hex()
 	logger.Debugw("RegistrySynchronizer: processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
-	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.Sqlx(), broadcast)
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
 		return
@@ -191,8 +185,6 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		logger.Error(err)
 		return
 	}
-	ctx, cancel = postgres.DefaultQueryCtx()
-	defer cancel()
-	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast)
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.Sqlx(), broadcast)
 	logger.ErrorIf(errors.Wrapf(err, "RegistrySynchronizer: unable to mark KeeperRegistryUpkeepPerformed log as consumed, jobID: %d, log: %v", rs.job.ID, broadcast.String()))
 }

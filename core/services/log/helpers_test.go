@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -58,7 +59,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 
-	dborm := log.NewORM(store.DB)
+	dborm := log.NewORM(store.Sqlx())
 	lb := log.NewBroadcaster(dborm, mockEth.ethClient, store.Config, nil)
 	store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
@@ -75,7 +76,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
 	store, cleanup := cltest.NewStore(t)
 
-	orm := log.NewORM(store.DB)
+	orm := log.NewORM(store.Sqlx())
 	lb := log.NewBroadcaster(orm, ethClient, store.Config, highestSeenHead)
 
 	return &broadcasterHelper{
@@ -193,14 +194,14 @@ type simpleLogListener struct {
 	name     string
 	received *received
 	t        *testing.T
-	db       *gorm.DB
+	db       *sqlx.DB
 	jobID    log.JobIdSelect
 }
 
 func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
 	var rec received
 	return &simpleLogListener{
-		db:       store.DB,
+		db:       store.Sqlx(),
 		jobID:    log.NewJobIdV1(createJob(t, store).ID),
 		name:     name,
 		received: &rec,
@@ -223,7 +224,7 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 
 	var rec received
 	return &simpleLogListener{
-		db:       store.DB,
+		db:       store.Sqlx(),
 		name:     name,
 		received: &rec,
 		t:        t,
@@ -303,11 +304,11 @@ func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadc
 	return consumed
 }
 
-func (listener simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+func (listener simpleLogListener) WasAlreadyConsumed(tx sqlx.QueryerContext, broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db).WasBroadcastConsumed(tx, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
-func (listener simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+func (listener simpleLogListener) MarkConsumed(tx sqlx.ExecerContext, broadcast log.Broadcast) error {
+	return log.NewORM(listener.db).MarkBroadcastConsumed(tx, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

@@ -29,6 +29,7 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -171,11 +172,15 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 	)
 	require.NoError(t, err)
 
+	sdb, err := db.DB()
+	require.NoError(t, err)
+	sqlxDB := postgres.WrapDbWithSqlx(sdb)
+
 	fm, err := fluxmonitorv2.NewFluxMonitor(
 		tm.pipelineRunner,
 		job.Job{},
 		pipelineSpec,
-		db,
+		sqlxDB,
 		options.orm,
 		tm.jobORM,
 		tm.pipelineORM,
@@ -418,7 +423,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			}
 
 			if tc.expectedToSubmit {
-				tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Return(int64(1), nil).
 					Once()
 				tm.contractSubmitter.
@@ -552,7 +557,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			},
 		}, nil)
 	tm.pipelineRunner.
-		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(int64(1), nil)
 	tm.contractSubmitter.
 		On("Submit", mock.Anything, big.NewInt(1), big.NewInt(fetchedValue)).
@@ -587,7 +592,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			},
 		}, nil)
 	tm.pipelineRunner.
-		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(int64(2), nil)
 	tm.contractSubmitter.
 		On("Submit", mock.Anything, big.NewInt(3), big.NewInt(fetchedValue)).
@@ -622,7 +627,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			},
 		}, nil)
 	tm.pipelineRunner.
-		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(int64(3), nil)
 	tm.contractSubmitter.
 		On("Submit", mock.Anything, big.NewInt(4), big.NewInt(fetchedValue)).
@@ -1247,7 +1252,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				},
 			}, nil)
 		tm.pipelineRunner.
-			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(int64(1), nil)
 		tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
@@ -1366,7 +1371,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				},
 			}, nil)
 		tm.pipelineRunner.
-			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(int64(1), nil)
 		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
 		tm.orm.
@@ -1475,7 +1480,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			}, nil).
 			Once()
 
-		tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(runID, nil).
 			Once()
 		tm.contractSubmitter.

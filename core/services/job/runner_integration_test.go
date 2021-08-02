@@ -572,6 +572,10 @@ ds1 -> ds1_parse;
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
 
+		sdb, err := db.DB()
+		require.NoError(t, err)
+		sqlxDB := postgres.WrapDbWithSqlx(sdb)
+
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
@@ -580,7 +584,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
+			log.NewBroadcaster(log.NewORM(sqlxDB), ethClient, config, nil),
 			pw,
 			monitoringEndpoint,
 			chains.EthMainnet,

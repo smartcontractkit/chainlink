@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
@@ -207,4 +208,12 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 	}
 	dbOrm.SetLogging(cfg.LogSQLStatements())
 	return dbOrm, nil
+}
+
+func (s *Store) Sqlx() *sqlx.DB {
+	db, err := s.DB.DB()
+	if err != nil {
+		panic(err)
+	}
+	return postgres.WrapDbWithSqlx(db)
 }

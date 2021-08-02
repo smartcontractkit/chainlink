@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -127,11 +128,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	gormdb, errdb := d.db.DB()
+	sdb, errdb := d.db.DB()
 	if errdb != nil {
 		return nil, errors.Wrap(errdb, "unable to open sql db")
 	}
-	ocrdb := NewDB(gormdb, concreteSpec.ID)
+	ocrdb := NewDB(sdb, concreteSpec.ID)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -141,7 +142,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.logBroadcaster,
 		jobSpec.ID,
 		*logger.Default,
-		d.db,
+		postgres.WrapDbWithSqlx(sdb),
 		ocrdb,
 		d.chain,
 		d.headBroadcaster,
@@ -273,7 +274,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
 		services = append([]job.Service{NewResultRunSaver(
-			d.db,
+			postgres.WrapDbWithSqlx(sdb),
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),

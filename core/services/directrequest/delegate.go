@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type (
@@ -27,7 +27,7 @@ type (
 		logBroadcaster log.Broadcaster
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
-		db             *gorm.DB
+		db             *sqlx.DB
 		ethClient      eth.Client
 		chHeads        chan models.Head
 		config         Config
@@ -46,7 +46,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
 	ethClient eth.Client,
-	db *gorm.DB,
+	db *sqlx.DB,
 	config Config,
 ) *Delegate {
 	return &Delegate{
@@ -112,7 +112,7 @@ type listener struct {
 	logBroadcaster           log.Broadcaster
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
-	db                       *gorm.DB
+	db                       *sqlx.DB
 	pipelineORM              pipeline.ORM
 	job                      job.Job
 	runs                     sync.Map
@@ -194,9 +194,7 @@ func (l *listener) handleReceivedLogs() {
 		if !ok {
 			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
 		}
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
+		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db, lb)
 		if err != nil {
 			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
 			return
@@ -262,9 +260,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"minimumContractPayment", minimumContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
-			ctx, cancel := postgres.DefaultQueryCtx()
-			defer cancel()
-			if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+			if err := l.logBroadcaster.MarkConsumed(l.db, lb); err != nil {
 				logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
 			}
 			return
@@ -316,8 +312,8 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		}
 		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 		defer cancel()
-		err = postgres.GormTransaction(ctx, l.db, func(tx *gorm.DB) error {
-			_, err = l.pipelineRunner.InsertFinishedRun(tx, run, trrs, true)
+		err = postgres.SqlxTransaction(context.Background(), l.db.DB, func(tx *sqlx.Tx) error {
+			_, err = l.pipelineRunner.InsertFinishedRun(ctx, tx, run, trrs, true)
 			if err != nil {
 				return err
 			}
@@ -337,9 +333,7 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	if loaded {
 		close(runCloserChannelIf.(chan struct{}))
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+	if err := l.logBroadcaster.MarkConsumed(l.db, lb); err != nil {
 		logger.Errorw("DirectRequest: failed to mark log consumed", "log", lb.String())
 	}
 }

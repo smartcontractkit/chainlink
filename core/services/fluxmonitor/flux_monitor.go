@@ -767,11 +767,16 @@ func (p *PollingDeviationChecker) processLogs() {
 }
 
 func (p *PollingDeviationChecker) processBroadcast(broadcast log.Broadcast) {
+	sdb, err := p.store.DB.DB()
+	if err != nil {
+		logger.Debug(err, "unable to open sql db")
+		return
+	}
+	db := postgres.WrapDbWithSqlx(sdb)
+
 	// If the log is a duplicate of one we've seen before, ignore it (this
 	// happens because of the LogBroadcaster's backfilling behavior).
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	consumed, err := p.logBroadcaster.WasAlreadyConsumed(p.store.DB.WithContext(ctx), broadcast)
+	consumed, err := p.logBroadcaster.WasAlreadyConsumed(db, broadcast)
 
 	if err != nil {
 		logger.Errorf("Error determining if log was already consumed: %v", err)
@@ -810,9 +815,7 @@ func (p *PollingDeviationChecker) processBroadcast(broadcast log.Broadcast) {
 		return
 	}
 
-	ctx, cancel = postgres.DefaultQueryCtx()
-	defer cancel()
-	if err = p.logBroadcaster.MarkConsumed(p.store.DB.WithContext(ctx), broadcast); err != nil {
+	if err = p.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
 		logger.Errorf("Error marking log %T (%v) as consumed: %v, after processing time: %v", decodedLog, broadcast.String(), err, time.Since(started))
 	}
 }
