@@ -131,7 +131,7 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	t.Parallel()
 
-	eia := presenters.ExternalInitiatorAuthentication{
+	eia := webpresenters.ExternalInitiatorAuthentication{
 		Name:           "bitcoin",
 		URL:            cltest.WebURL(t, "http://localhost:8888"),
 		AccessKey:      "accesskey",

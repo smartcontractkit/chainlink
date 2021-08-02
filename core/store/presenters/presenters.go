@@ -17,7 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
@@ -553,49 +552,4 @@ func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
 // readable format.
 func (sa ServiceAgreement) FriendlyAggregatorFulfillMethod() string {
 	return sa.Encumbrance.AggFulfillSelector.String()
-}
-
-// ExternalInitiatorAuthentication includes initiator and authentication details.
-type ExternalInitiatorAuthentication struct {
-	Name           string        `json:"name,omitempty"`
-	URL            models.WebURL `json:"url,omitempty"`
-	AccessKey      string        `json:"incomingAccessKey,omitempty"`
-	Secret         string        `json:"incomingSecret,omitempty"`
-	OutgoingToken  string        `json:"outgoingToken,omitempty"`
-	OutgoingSecret string        `json:"outgoingSecret,omitempty"`
-}
-
-// NewExternalInitiatorAuthentication creates an instance of ExternalInitiatorAuthentication.
-func NewExternalInitiatorAuthentication(
-	ei models.ExternalInitiator,
-	eia auth.Token,
-) *ExternalInitiatorAuthentication {
-	var result = &ExternalInitiatorAuthentication{
-		Name:           ei.Name,
-		AccessKey:      ei.AccessKey,
-		Secret:         eia.Secret,
-		OutgoingToken:  ei.OutgoingToken,
-		OutgoingSecret: ei.OutgoingSecret,
-	}
-	if ei.URL != nil {
-		result.URL = *ei.URL
-	}
-	return result
-}
-
-// GetID returns the jsonapi ID.
-func (ei *ExternalInitiatorAuthentication) GetID() string {
-	return ei.Name
-}
-
-// GetName returns the collection name for jsonapi.
-func (*ExternalInitiatorAuthentication) GetName() string {
-	return "external initiators"
-}
-
-// SetID is used to conform to the UnmarshallIdentifier interface for
-// deserializing from jsonapi documents.
-func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
-	ei.Name = name
-	return nil
 }

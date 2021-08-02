@@ -69,7 +69,7 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobRun(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
-	case *presenters.ExternalInitiatorAuthentication:
+	case *webpresenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
@@ -313,7 +313,7 @@ func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) e
 	return nil
 }
 
-func (rt RendererTable) renderExternalInitiatorAuthentication(eia presenters.ExternalInitiatorAuthentication) error {
+func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.ExternalInitiatorAuthentication) error {
 	table := rt.newTable([]string{"Name", "URL", "AccessKey", "Secret", "OutgoingToken", "OutgoingSecret"})
 	table.Append([]string{
 		eia.Name,
