@@ -180,11 +180,6 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		}
 	}
 
-	if jobSpec.ExternalJobID == (uuid.UUID{}) {
-		// automatically populate job external ID here if it was zero
-		jobSpec.ExternalJobID = uuid.NewV4()
-	}
-
 	tx := postgres.TxFromContext(ctx, o.db)
 
 	// Autogenerate a job ID if not specified

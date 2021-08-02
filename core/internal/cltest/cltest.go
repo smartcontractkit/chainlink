@@ -988,7 +988,7 @@ func CreateJobRunViaExternalInitiatorV2(
 	jobID uuid.UUID,
 	eia auth.Token,
 	body string,
-) pipeline.Run {
+) webpresenters.PipelineRunResource {
 	t.Helper()
 
 	headers := make(map[string]string)
@@ -1000,7 +1000,7 @@ func CreateJobRunViaExternalInitiatorV2(
 	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	var pr pipeline.Run
+	var pr webpresenters.PipelineRunResource
 	err := ParseJSONAPIResponse(t, resp, &pr)
 	require.NoError(t, err)
 

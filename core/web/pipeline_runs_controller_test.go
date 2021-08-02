@@ -21,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
@@ -80,7 +79,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
 
-		var parsedResponse pipeline.Run
+		var parsedResponse presenters.PipelineRunResource
 		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
 		fmt.Println(string(bs))
@@ -88,7 +87,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		assert.NotNil(t, parsedResponse.ID)
 		assert.NotNil(t, parsedResponse.CreatedAt)
 		assert.NotNil(t, parsedResponse.FinishedAt)
-		require.Len(t, parsedResponse.PipelineTaskRuns, 3)
+		require.Len(t, parsedResponse.TaskRuns, 3)
 	}
 }
 
@@ -151,7 +150,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
 
-		var parsedResponse pipeline.Run
+		var parsedResponse presenters.PipelineRunResource
 		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
 		t.Log(string(bs))
@@ -159,7 +158,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		assert.NotNil(t, parsedResponse.ID)
 		assert.NotNil(t, parsedResponse.CreatedAt)
 		assert.NotNil(t, parsedResponse.FinishedAt)
-		require.Len(t, parsedResponse.PipelineTaskRuns, 4)
+		require.Len(t, parsedResponse.TaskRuns, 4)
 	}
 }
 

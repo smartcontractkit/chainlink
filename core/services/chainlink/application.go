@@ -707,12 +707,8 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	if !jb.Type.HasPipelineSpec() {
-		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
-		// TODO: Once all jobs have a pipeline this can be removed
-		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
-		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
-	} else {
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
 		var vars map[string]interface{}
 		var saveTasks bool
 		if jb.Type == job.VRF {
@@ -755,6 +751,11 @@ func (app *ChainlinkApplication) RunJobV2(
 			}
 		}
 		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, saveTasks)
+	} else {
+		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
+		// TODO: Once all jobs have a pipeline this can be removed
+		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	}
 	return runID, err
 }
