@@ -175,6 +175,7 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
 	config := NewTestConfig(t)
+	// FIXME: The returned function is totally pointless and ought to be removed from all tests
 	return config, func() {}
 }
 
@@ -360,6 +361,22 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 
 	return server, u.String(), func() {
 		server.Close()
+	}
+}
+
+// NewApplicationEthereumDisabled creates a new application with default config but ethereum disabled
+// Useful for testing controllers
+func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
+	t.Helper()
+
+	c, cfgCleanup := NewConfig(t)
+	c.Set("ETH_DISABLED", true)
+
+	app, cleanup := NewApplicationWithConfig(t, c)
+
+	return app, func() {
+		cleanup()
+		cfgCleanup()
 	}
 }
 
@@ -971,7 +988,7 @@ func CreateJobRunViaExternalInitiatorV2(
 	jobID uuid.UUID,
 	eia auth.Token,
 	body string,
-) pipeline.Run {
+) webpresenters.PipelineRunResource {
 	t.Helper()
 
 	headers := make(map[string]string)
@@ -983,7 +1000,7 @@ func CreateJobRunViaExternalInitiatorV2(
 	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	var pr pipeline.Run
+	var pr webpresenters.PipelineRunResource
 	err := ParseJSONAPIResponse(t, resp, &pr)
 	require.NoError(t, err)
 
@@ -1079,7 +1096,7 @@ func CreateExternalInitiatorViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	payload string,
-) *presenters.ExternalInitiatorAuthentication {
+) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -1089,7 +1106,7 @@ func CreateExternalInitiatorViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusCreated)
-	ei := &presenters.ExternalInitiatorAuthentication{}
+	ei := &webpresenters.ExternalInitiatorAuthentication{}
 	err := ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
 

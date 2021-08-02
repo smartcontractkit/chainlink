@@ -89,7 +89,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var ei presenters.ExternalInitiatorAuthentication
+	var ei webpresenters.ExternalInitiatorAuthentication
 	err = cli.renderAPIResponse(resp, &ei)
 	return err
 }
