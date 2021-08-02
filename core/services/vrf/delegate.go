@@ -423,7 +423,7 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 		}
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
+		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
 		lsn.markLogAsConsumed(lb)
 		return
 	}
@@ -472,6 +472,8 @@ func (lsn *listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 	if lsn.respCount[req.RequestID] > 0 {
 		lsn.l.Warnw("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
+			"blockNumber", req.Raw.BlockNumber,
+			"blockHash", req.Raw.BlockHash,
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 	}
@@ -491,6 +493,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,
 		"blockNumber", req.Raw.BlockNumber,
+		"blockHash", req.Raw.BlockHash,
 		"seed", req.Seed,
 		"fee", req.Fee)
 
