@@ -465,7 +465,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
 		Blocks:         blocks,
 		Interval:       250 * time.Millisecond,
-	})
+	}DirectRequestRename)
 	defer cleanup()
 
 	chRawLogs := <-helper.chchRawLogs
@@ -565,14 +565,14 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	for i := 0; i < len(addr1SentLogs); i++ {
 		select {
 		case <-broadcastsToListener1:
-		case <-time.After(time.Second):
+		case <-time.After(5*time.Second):
 			t.Error("failed to get broadcast to listener 1")
 		}
 	}
 	for i := 0; i < len(addr1SentLogs); i++ {
 		select {
 		case <-broadcastsToListener2:
-		case <-time.After(time.Second):
+		case <-time.After(5*time.Second):
 			t.Error("failed to get broadcast to listener 2")
 		}
 	}
