@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up53 = `
+const up54 = `
 ALTER TABLE log_broadcasts DROP COLUMN job_id;
 DROP TABLE service_agreements;
 DROP TABLE eth_task_run_txes;
@@ -27,12 +27,12 @@ ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0053_remove_legacy_pipeline",
+		ID: "0054_remove_legacy_pipeline",
 		Migrate: func(db *gorm.DB) error {
 			if err := checkNoLegacyJobs(db); err != nil {
 				return err
 			}
-			return db.Exec(up53).Error
+			return db.Exec(up54).Error
 		},
 		Rollback: func(db *gorm.DB) error {
 			return errors.New("irreversible migration")
