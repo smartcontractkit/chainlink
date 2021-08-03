@@ -42,7 +42,6 @@ type broadcasterHelper struct {
 	// each received channel corresponds to one eth subscription
 	chchRawLogs chan chan<- types.Log
 
-	sentLogs      chan types.Log
 	toUnsubscribe []func()
 	storeCleanup  func()
 }
@@ -89,8 +88,8 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	}
 }
 
-func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener {
-	return newLogListener(helper.t, helper.store, name)
+func (helper *broadcasterHelper) newLogListener(name string, logBroadcasts chan<- log.Broadcast) *simpleLogListener {
+	return newLogListener(helper.t, helper.store, name, logBroadcasts)
 }
 
 func (helper *broadcasterHelper) newLogListenerWithJobV2(name string) *simpleLogListener {
@@ -192,21 +191,23 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 }
 
 type simpleLogListener struct {
-	name     string
-	received *received
-	t        *testing.T
-	db       *gorm.DB
-	jobID    log.JobIdSelect
+	name          string
+	received      *received
+	t             *testing.T
+	db            *gorm.DB
+	jobID         log.JobIdSelect
+	logBroadcasts chan<- log.Broadcast
 }
 
-func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
+func newLogListener(t *testing.T, store *store.Store, name string, logBroadcasts chan<- log.Broadcast) *simpleLogListener {
 	var rec received
 	return &simpleLogListener{
-		db:       store.DB,
-		jobID:    log.NewJobIdV1(createJob(t, store).ID),
-		name:     name,
-		received: &rec,
-		t:        t,
+		logBroadcasts: logBroadcasts,
+		db:            store.DB,
+		jobID:         log.NewJobIdV1(createJob(t, store).ID),
+		name:          name,
+		received:      &rec,
+		t:             t,
 	}
 }
 
@@ -247,6 +248,7 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	} else {
 		logger.Warnf("Listener %v: Log was already consumed!", listener.name)
 	}
+	listener.logBroadcasts <- lb
 }
 
 func (listener simpleLogListener) JobID() models.JobID {
