@@ -1206,7 +1206,7 @@ func WaitForJobRunStatus(
 		st := jr.GetStatus()
 		if wantStatus != models.RunStatusErrored {
 			if st == models.RunStatusErrored {
-				t.Fatalf("waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
+				t.Fatalf("--- FAIL: waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
 			}
 		}
 		return st

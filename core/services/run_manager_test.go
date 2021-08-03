@@ -231,7 +231,8 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 	run.TaskRuns[0].Status = models.RunStatusPendingConnection
 	require.NoError(t, store.CreateJobRun(&run))
 
-	app.RunManager.ResumeAllPendingConnection()
+	err := app.RunManager.ResumeAllPendingConnection()
+	assert.NoError(t, err)
 
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, store, run)
 }
