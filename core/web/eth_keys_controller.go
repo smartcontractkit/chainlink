@@ -3,10 +3,12 @@ package web
 import (
 	"context"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -199,10 +201,19 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // queries the EthClient for the ETH balance at the address and sets it on the
 // resource.
 func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr common.Address) presenters.NewETHKeyOption {
-	ethClient := ekc.App.GetEthClient()
-	bal, err := ethClient.BalanceAt(ctx, accountAddr, nil)
-
+	// FIXME: This doesn't work if multiple chains are specified
+	// See: https://app.clubhouse.io/chainlinklabs/story/14623/showing-balance-in-ui-and-cli-should-work-for-all-chains-regression
+	var bal *big.Int
+	chain, err := ekc.App.GetChainSet().Default()
+	if err == nil {
+		ethClient := chain.Client()
+		bal, err = ethClient.BalanceAt(ctx, accountAddr, nil)
+	}
 	return func(r *presenters.ETHKeyResource) error {
+		if errors.Cause(err) == evm.ErrNoChains {
+			return nil
+		}
+
 		if err != nil {
 			return errors.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		}
@@ -217,11 +228,20 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr com
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
 func (ekc *ETHKeysController) setLinkBalance(accountAddr common.Address) presenters.NewETHKeyOption {
-	ethClient := ekc.App.GetEthClient()
-	addr := common.HexToAddress(ekc.App.GetEVMConfig().LinkContractAddress())
-	bal, err := ethClient.GetLINKBalance(addr, accountAddr)
+	// FIXME: This doesn't work if multiple chains are specified
+	// See: https://app.clubhouse.io/chainlinklabs/story/14623/showing-balance-in-ui-and-cli-should-work-for-all-chains-regression
+	var bal *assets.Link
+	chain, err := ekc.App.GetChainSet().Default()
+	if err == nil {
+		ethClient := chain.Client()
+		addr := common.HexToAddress(chain.Config().LinkContractAddress())
+		bal, err = ethClient.GetLINKBalance(addr, accountAddr)
+	}
 
 	return func(r *presenters.ETHKeyResource) error {
+		if errors.Cause(err) == evm.ErrNoChains {
+			return nil
+		}
 		if err != nil {
 			return errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		}

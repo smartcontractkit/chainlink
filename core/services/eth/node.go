@@ -21,18 +21,20 @@ type rawclient struct {
 	uri  url.URL
 }
 
-// node represents one ethereum node.
+// Node represents one ethereum node.
 // It must have a ws url and may have a http url
-type node struct {
+type Node struct {
 	ws     rawclient
 	http   *rawclient
 	log    *logger.Logger
+	name   string
 	dialed bool
 }
 
-func newNode(wsuri url.URL, httpuri *url.URL, name string) (n *node) {
-	n = new(node)
-	n.log = logger.Default.With(
+func NewNode(lggr *logger.Logger, wsuri url.URL, httpuri *url.URL, name string) (n *Node) {
+	n = new(Node)
+	n.name = name
+	n.log = lggr.With(
 		"nodeName", name,
 		"nodeTier", "primary",
 	)
@@ -43,7 +45,7 @@ func newNode(wsuri url.URL, httpuri *url.URL, name string) (n *node) {
 	return
 }
 
-func (n *node) Dial(ctx context.Context) error {
+func (n *Node) Dial(ctx context.Context) error {
 	if n.dialed {
 		panic("eth.Client.Dial(...) should only be called once during the node's lifetime.")
 	}
@@ -82,7 +84,7 @@ func (n *node) Dial(ctx context.Context) error {
 
 // RPC wrappers
 
-func (n node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (n Node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	n.log.Debugw("eth.Client#Call(...)",
 		"method", method,
 		"args", args,
@@ -94,7 +96,7 @@ func (n node) CallContext(ctx context.Context, result interface{}, method string
 	return n.wrapWS(n.ws.rpc.CallContext(ctx, result, method, args...))
 }
 
-func (n node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+func (n Node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	n.log.Debugw("eth.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 		"mode", switching(n),
@@ -105,18 +107,18 @@ func (n node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return n.wrapWS(n.ws.rpc.BatchCallContext(ctx, b))
 }
 
-func (n node) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+func (n Node) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
 	n.log.Debugw("eth.Client#EthSubscribe", "mode", "websocket")
 	return n.ws.rpc.EthSubscribe(ctx, channel, args...)
 }
 
-func (n node) Close() {
+func (n Node) Close() {
 	n.ws.rpc.Close()
 }
 
 // GethClient wrappers
 
-func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+func (n Node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
 	n.log.Debugw("eth.Client#TransactionReceipt(...)",
 		"txHash", txHash,
 		"mode", switching(n),
@@ -133,15 +135,7 @@ func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (recei
 	return
 }
 
-// NOTE: ChainID may need a bit of rethinking if we implement multiple clients since in theory they could have different ChainIDs
-func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	n.log.Debugw("eth.Client#ChainID(...)", "mode", "websocket")
-	chainID, err = n.ws.geth.ChainID(ctx)
-	err = n.wrapWS(err)
-	return
-}
-
-func (n node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
+func (n Node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
 	n.log.Debugw("eth.Client#HeaderByNumber(...)",
 		"number", n,
 		"mode", switching(n),
@@ -156,7 +150,7 @@ func (n node) HeaderByNumber(ctx context.Context, number *big.Int) (header *type
 	return
 }
 
-func (n node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (n Node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	n.log.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 		"mode", switching(n),
@@ -167,7 +161,7 @@ func (n node) SendTransaction(ctx context.Context, tx *types.Transaction) error 
 	return n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
 }
 
-func (n node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
+func (n Node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
 	n.log.Debugw("eth.Client#PendingNonceAt(...)",
 		"account", account,
 		"mode", switching(n),
@@ -182,7 +176,7 @@ func (n node) PendingNonceAt(ctx context.Context, account common.Address) (nonce
 	return
 }
 
-func (n node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
+func (n Node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
 	n.log.Debugw("eth.Client#NonceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -198,7 +192,7 @@ func (n node) NonceAt(ctx context.Context, account common.Address, blockNumber *
 	return
 }
 
-func (n node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
+func (n Node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
 	n.log.Debugw("eth.Client#PendingCodeAt(...)",
 		"account", account,
 		"mode", switching(n),
@@ -213,7 +207,7 @@ func (n node) PendingCodeAt(ctx context.Context, account common.Address) (code [
 	return
 }
 
-func (n node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
+func (n Node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
 	n.log.Debugw("eth.Client#CodeAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -229,7 +223,7 @@ func (n node) CodeAt(ctx context.Context, account common.Address, blockNumber *b
 	return
 }
 
-func (n node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+func (n Node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
 	n.log.Debugw("eth.Client#EstimateGas(...)",
 		"call", call,
 		"mode", switching(n),
@@ -244,14 +238,14 @@ func (n node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint6
 	return
 }
 
-func (n node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
+func (n Node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
 	n.log.Debugw("eth.Client#SuggestGasPrice()", "mode", "websocket")
 	price, err = n.ws.geth.SuggestGasPrice(ctx)
 	err = n.wrapWS(err)
 	return
 }
 
-func (n node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
+func (n Node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
 	n.log.Debugw("eth.Client#CallContract()",
 		"mode", switching(n),
 	)
@@ -266,7 +260,7 @@ func (n node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumbe
 
 }
 
-func (n node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
+func (n Node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
 	n.log.Debugw("eth.Client#BlockByNumber(...)",
 		"number", number,
 		"mode", switching(n),
@@ -281,7 +275,7 @@ func (n node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Bloc
 	return
 }
 
-func (n node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
+func (n Node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
 	n.log.Debugw("eth.Client#BalanceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -297,7 +291,7 @@ func (n node) BalanceAt(ctx context.Context, account common.Address, blockNumber
 	return
 }
 
-func (n node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
+func (n Node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
 	n.log.Debugw("eth.Client#FilterLogs(...)",
 		"q", q,
 		"mode", switching(n),
@@ -312,14 +306,14 @@ func (n node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types
 	return
 }
 
-func (n node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
+func (n Node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
 	n.log.Debugw("eth.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	err = n.wrapWS(err)
 	return
 }
 
-func (n node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+func (n Node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	n.log.Debugw("eth.Client#SuggestGasTipCap(...)",
 		"mode", switching(n),
 	)
@@ -333,11 +327,11 @@ func (n node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error)
 	return
 }
 
-func (n node) wrapWS(err error) error {
+func (n Node) wrapWS(err error) error {
 	return wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
 }
 
-func (n node) wrapHTTP(err error) error {
+func (n Node) wrapHTTP(err error) error {
 	return wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.String()))
 }
 
@@ -351,7 +345,7 @@ func wrap(err error, tp string) error {
 	return errors.Wrapf(err, "%s call failed", tp)
 }
 
-func switching(n node) string {
+func switching(n Node) string {
 	if n.http != nil {
 		return "http"
 	}

@@ -30,11 +30,11 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	cfg.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
-	cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
-	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
+	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	defer cleanup()
@@ -97,11 +97,11 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	cfg.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
-	cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
-	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
+	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	defer cleanup()

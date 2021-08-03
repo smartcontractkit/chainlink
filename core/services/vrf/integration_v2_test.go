@@ -20,7 +20,8 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/chains"
+
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
@@ -61,7 +62,6 @@ type coordinatorV2Universe struct {
 }
 
 var (
-	gasPrice       = decimal.RequireFromString(chains.FallbackConfig.GasPriceDefault.String()) // Nodes default
 	weiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
 
@@ -88,7 +88,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 	coordinatorABI, err := abi.JSON(strings.NewReader(
 		vrf_coordinator_v2.VRFCoordinatorV2ABI))
 	require.NoError(t, err)
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	// Deploy link
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
@@ -156,11 +156,13 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true, false)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.EvmGasLimitDefault = null.IntFrom(2000000)
+	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
+
+	gasPrice := decimal.NewFromBigInt(evmconfig.DefaultGasPrice, 0)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()
@@ -428,7 +430,7 @@ func TestRequestCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -469,7 +471,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -502,7 +504,7 @@ func TestFulfillmentCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())

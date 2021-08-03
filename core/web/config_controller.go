@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -31,12 +33,14 @@ func (cc *ConfigController) Show(c *gin.Context) {
 
 type configPatchRequest struct {
 	EvmGasPriceDefault *utils.Big `json:"ethGasPriceDefault"`
+	EVMChainID         *utils.Big `json:"evmChainID"`
 }
 
 // ConfigPatchResponse represents the change to the configuration made due to a
 // PATCH to the config endpoint
 type ConfigPatchResponse struct {
-	EvmGasPriceDefault Change `json:"ethGasPriceDefault"`
+	EvmGasPriceDefault Change     `json:"ethGasPriceDefault"`
+	EVMChainID         *utils.Big `json:"evmChainID"`
 }
 
 // Change represents the old value and the new value after a PATH request has
@@ -65,18 +69,34 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		return
 	}
 
-	// TODO: Remove this from the configurations ORM after multichain
-	// See: https://app.clubhouse.io/chainlinklabs/story/12739/generalise-necessary-models-tables-on-the-send-side-to-support-the-concept-of-multiple-chains
-	if err := cc.App.GetEVMConfig().SetEvmGasPriceDefault(request.EvmGasPriceDefault.ToInt()); err != nil {
+	var chain evm.Chain
+	var err error
+	chainSet := cc.App.GetChainSet()
+	if request.EVMChainID != nil {
+		chain, err = chainSet.Get(request.EVMChainID.ToInt())
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	} else if chainSet.ChainCount() <= 1 {
+		chain, err = chainSet.Default()
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	} else {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("%d chains available, you must specify evmChainID parameter", chainSet.ChainCount()))
+		return
+	}
+	if err := chain.Config().SetEvmGasPriceDefault(request.EvmGasPriceDefault.ToInt()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
 		return
 	}
-
 	response := &ConfigPatchResponse{
 		EvmGasPriceDefault: Change{
-			From: cc.App.GetEVMConfig().EvmGasPriceDefault().String(),
+			From: chain.Config().EvmGasPriceDefault().String(),
 			To:   request.EvmGasPriceDefault.String(),
-		},
+		}, EVMChainID: utils.NewBig(chain.ID()),
 	}
 	jsonAPIResponse(c, response, "config")
 }
