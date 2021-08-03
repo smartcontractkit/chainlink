@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -52,11 +53,14 @@ func setupRegistrySync(t *testing.T) (
 ) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lbMock := new(logmocks.Broadcaster)
-	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	cfg := cltest.NewTestEVMConfig(t)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
+	lbMock.Test(t)
+	lbMock.On("AddDependents", 1).Maybe()
+	j := cltest.MustInsertKeeperJob(t, store.DB, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+	cfg := cltest.NewTestGeneralConfig(t)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: store.DB, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,

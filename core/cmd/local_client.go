@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
-	"go.uber.org/zap/zapcore"
 
 	gormpostgres "gorm.io/driver/postgres"
 
@@ -30,10 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/health"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -52,12 +48,13 @@ const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+
 	err := cli.Config.Validate()
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 	if cli.Config.Dev() {
 		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
@@ -71,15 +68,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
 
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
-	}
-
-	err = cli.Config.SetLogLevel(context.Background(), zapcore.DebugLevel.String())
-	if err != nil {
-		return cli.errorOut(err)
 	}
 
 	store := app.GetStore()
@@ -132,21 +123,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	defer loggedStop(app)
 	err = logConfigVariables(cli.Config)
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
-
-	if !store.Config.EthereumDisabled() {
-		key, currentBalance, err := setupFundingKey(context.TODO(), app.GetEthClient(), keyStore.Eth(), keyStorePwd)
-		if err != nil {
-			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
-		}
-		if store.Config.Dev() {
-			if currentBalance.Cmp(big.NewInt(0)) == 0 {
-				logger.Infow("The backup funding address does not have sufficient funds", "address", key.Address.Hex(), "balance", currentBalance)
-			} else {
-				logger.Infow("Funding address ready", "address", key.Address.Hex(), "current-balance", currentBalance)
-			}
-		}
+	key, existed, err := app.GetKeyStore().Eth().EnsureFundingKey()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if !existed {
+		logger.Infow("New funding address created", "address", key.Address.Hex(), "balance", 0)
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
@@ -234,24 +218,6 @@ func logConfigVariables(cfg config.GeneralConfig) error {
 	return nil
 }
 
-func setupFundingKey(ctx context.Context,
-	etClient eth.Client,
-	ethKeyStore *keystore.Eth,
-	pwd string,
-) (key ethkey.Key, balance *big.Int, err error) {
-	key, existed, err := ethKeyStore.EnsureFundingKey()
-	if err != nil {
-		return key, nil, err
-	}
-	if existed {
-		// TODO How to make sure the EthClient is connected?
-		balance, ethErr := etClient.BalanceAt(ctx, key.Address.Address(), nil)
-		return key, balance, ethErr
-	}
-	logger.Infow("New funding address created", "address", key.Address.Hex(), "balance", 0)
-	return key, big.NewInt(0), nil
-}
-
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
@@ -260,6 +226,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint64("gasLimit")
 	addressHex := c.String("address")
+	chainIDStr := c.String("evmChainID")
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
@@ -267,10 +234,18 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
+	var chainID *big.Int
+	if chainIDStr != "" {
+		var ok bool
+		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
+		if !ok {
+			return cli.errorOut(errors.Wrap(err, "invalid evmChainID"))
+		}
+	}
+
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cli.Config.SetDialect(dialects.PostgresWithoutLock)
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -279,10 +254,15 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, serr)
 		}
 	}()
+	chain, err := app.GetChainSet().Get(chainID)
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	store := app.GetStore()
 	keyStore := app.GetKeyStore()
 
-	ethClient := app.GetEthClient()
+	ethClient := chain.Client()
+
 	err = ethClient.Dial(context.TODO())
 	if err != nil {
 		return err
@@ -308,7 +288,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, evmcfg, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil, nil, logger.Default)
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, chain.Config(), keyStore.Eth(), store.AdvisoryLocker, allKeys, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -526,8 +506,7 @@ func insertFixtures(config config.GeneralConfig) (err error) {
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -583,8 +562,7 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 // If you do run it concurrently, it will not take effect until the next reboot.
 func (cli *Client) ImportKey(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}

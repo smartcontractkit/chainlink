@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -100,7 +101,9 @@ func TestETHCallTask(t *testing.T) {
 
 			ethClient := new(ethmocks.Client)
 			test.setupClientMock(ethClient)
-			task.HelperSetDependencies(ethClient)
+
+			cc := cltest.NewChainSetMockWithOneChain(t, ethClient, nil)
+			task.HelperSetDependencies(cc)
 
 			result := task.Run(context.Background(), test.vars, test.inputs)
 

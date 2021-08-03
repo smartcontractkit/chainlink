@@ -17,20 +17,37 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	null "gopkg.in/guregu/null.v4"
+	"gorm.io/gorm/clause"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint64) *backends.SimulatedBackend {
+	backend := backends.NewSimulatedBackend(alloc, gasLimit)
+	// NOTE: Make sure to finish closing any application/client before
+	// backend.Close or they can hang
+	t.Cleanup(func() {
+		logger.ErrorIfCalling(backend.Close)
+	})
+	return backend
+}
+
+const SimulatedBackendEVMChainID int64 = 1337
 
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
 // interacting with contract golang wrappers
@@ -42,26 +59,53 @@ func NewSimulatedBackendIdentity(t *testing.T) *bind.TransactOpts {
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
-	tc *configtest.TestEVMConfig,
+	cfg *configtest.TestGeneralConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
 ) (app *TestApplication, cleanup func()) {
-	chainId := backend.Blockchain().Config().ChainID.Int64()
-	tc.GeneralConfig.Overrides.SetChainID(chainId)
+	chainId := backend.Blockchain().Config().ChainID
+	cfg.Overrides.DefaultChainID = chainId
 
-	client := &SimulatedBackendClient{b: backend, t: t, chainId: int(chainId)}
-	flagsAndDeps = append(flagsAndDeps, client)
+	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 
-	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	ht := models.MustMakeDuration(10 * time.Millisecond)
+	zero := models.MustMakeDuration(0 * time.Millisecond)
+	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
+	simulatedBackendChain := evmtypes.Chain{
+		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
+		Cfg: evmtypes.ChainCfg{
+			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
+			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval:   &ht,
+			EthTxResendAfterThreshold:        &zero,
+			EvmFinalityDepth:                 null.IntFrom(15),
+			EthTxReaperThreshold:             &reaperThreshold,
+			MinIncomingConfirmations:         null.IntFrom(1),
+			MinRequiredOutgoingConfirmations: null.IntFrom(1),
+			MinimumContractPayment:           assets.NewLinkFromJuels(100),
+		},
+		Enabled: true,
+	}
+
+	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, simulatedBackendChain)
+
+	app, appCleanup := NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 	err := app.KeyStore.Eth().Unlock(Password)
 	require.NoError(t, err)
 
-	return app, func() { appCleanup(); client.Close() }
+	require.NoError(t, app.GetDB().Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoNothing: true,
+	}).Create(&simulatedBackendChain).Error)
+
+	// appCleanup calls app.Stop() which will client.Close on the simulated backend
+	return app, appCleanup
 }
 
 func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
 	t.Helper()
-	return MustNewKeyedTransactor(t, key, 1337)
+	return MustNewKeyedTransactor(t, key, SimulatedBackendEVMChainID)
 }
 
 func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
@@ -76,7 +120,7 @@ func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) 
 type SimulatedBackendClient struct {
 	b       *backends.SimulatedBackend
 	t       testing.TB
-	chainId int
+	chainId *big.Int
 }
 
 var _ eth.Client = (*SimulatedBackendClient)(nil)
@@ -85,10 +129,9 @@ func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
 
-// Close terminates the underlying blockchain's update loop.
-func (c *SimulatedBackendClient) Close() {
-	c.b.Close()
-}
+// Close does nothing. We ought not close the underlying backend here since
+// other simulated clients might still be using it
+func (c *SimulatedBackendClient) Close() {}
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
@@ -267,6 +310,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		return nil, ethereum.NotFound
 	}
 	return &models.Head{
+		EVMChainID: utils.NewBigI(SimulatedBackendEVMChainID),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
@@ -278,10 +322,8 @@ func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) 
 }
 
 // GetChainID returns the ethereum ChainID.
-func (c *SimulatedBackendClient) ChainID(context.Context) (*big.Int, error) {
-	// The actual chain ID is c.b.Blockchain().Config().ChainID, but here we need
-	// to match the chain ID used by the testing harness.
-	return big.NewInt(int64(c.chainId)), nil
+func (c *SimulatedBackendClient) ChainID() *big.Int {
+	return c.chainId
 }
 
 func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -305,7 +347,7 @@ var _ ethereum.Subscription = (*headSubscription)(nil)
 
 func (h *headSubscription) Unsubscribe() {
 	h.subscription.Unsubscribe()
-	h.close <- struct{}{}
+	close(h.close)
 }
 
 func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
@@ -359,7 +401,7 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	sender, err := types.Sender(types.NewEIP155Signer(big.NewInt(int64(c.chainId))), tx)
+	sender, err := types.Sender(types.NewEIP155Signer(c.chainId), tx)
 	if err != nil {
 		logger.Panic(fmt.Errorf("invalid transaction: %v", err))
 	}

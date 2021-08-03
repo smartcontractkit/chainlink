@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -56,8 +55,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	}
 
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
-	defer backend.Close()
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
 	stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 	defer stopMining()
@@ -93,22 +91,22 @@ func TestKeeperEthIntegration(t *testing.T) {
 	defer cfgCleanup()
 	d := 24 * time.Hour
 	// disable full sync ticker for test
-	config.GeneralConfig.Overrides.KeeperRegistrySyncInterval = &d
+	config.Overrides.KeeperRegistrySyncInterval = &d
 	// backfill will trigger sync on startup
-	config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(0)
+	config.Overrides.BlockBackfillDepth = null.IntFrom(0)
 	// disable reorg protection for this test
-	config.GeneralConfig.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
+	config.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
 	// avoid waiting to re-submit for upkeeps
-	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	// helps prevent missed heads
-	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
 	require.NoError(t, app.Start())
 
 	// create job
 	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
-	cltest.MustInsertKeeperJob(t, app.Store, nodeAddressEIP55, regAddrEIP55)
+	cltest.MustInsertKeeperJob(t, app.Store.DB, nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {

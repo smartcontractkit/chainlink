@@ -20,6 +20,7 @@ import (
 )
 
 var (
+	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
 	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "tx_manager_num_gas_bumps",
 		Help: "Number of gas bumps",
@@ -31,15 +32,15 @@ var (
 	})
 )
 
-func NewEstimator(ethClient eth.Client, config Config) Estimator {
+func NewEstimator(lggr *logger.Logger, ethClient eth.Client, config Config) Estimator {
 	s := config.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(ethClient, config)
+		return NewBlockHistoryEstimator(lggr, ethClient, config, *ethClient.ChainID())
 	case "FixedPrice":
 		return NewFixedPriceEstimator(config)
 	case "Optimism":
-		return NewOptimismEstimator(config, ethClient)
+		return NewOptimismEstimator(lggr, config, ethClient)
 	default:
 		logger.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(config)
@@ -75,8 +76,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
-	ChainID() *big.Int
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpWei() *big.Int
 	EvmGasLimitMultiplier() float32

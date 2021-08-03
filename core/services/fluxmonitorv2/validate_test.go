@@ -78,7 +78,7 @@ answer1 [type=median index=0];
 				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
 				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
 				assert.Equal(t, false, spec.PollTimerDisabled)
-				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
+				assert.Equal(t, assets.NewLinkFromJuels(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
 			},
 		},

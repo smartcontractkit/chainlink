@@ -38,8 +38,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
-	ChainID() *big.Int
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
@@ -71,6 +70,7 @@ type KeyStore interface {
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 var (
+	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
 	promRevertedTxCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain",
@@ -100,6 +100,7 @@ type BulletproofTxManager struct {
 	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
 	gasEstimator     gas.Estimator
+	chainID          big.Int
 
 	chHeads        chan models.Head
 	trigger        chan common.Address
@@ -116,32 +117,32 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, valu
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore,
-	advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, logger *logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
-		logger:           logger,
+		logger:           lggr,
 		db:               db,
 		ethClient:        ethClient,
 		config:           config,
 		keyStore:         keyStore,
 		advisoryLocker:   advisoryLocker,
 		eventBroadcaster: eventBroadcaster,
+		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
+		chainID:          *ethClient.ChainID(),
 		chHeads:          make(chan models.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 	}
 	if config.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(db, ethClient, defaultResenderPollInterval, config)
+		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, config)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
 	if config.EthTxReaperThreshold() > 0 {
-		b.reaper = NewReaper(db, config)
+		b.reaper = NewReaper(lggr, db, config, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}
-	b.gasEstimator = gas.NewEstimator(ethClient, config)
 
 	return &b
 }
@@ -278,7 +279,7 @@ type NewTx struct {
 
 // CreateEthTransaction inserts a new transaction
 func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error) {
-	err = CheckEthTxQueueCapacity(db, newTx.FromAddress, b.config.EvmMaxQueuedTransactions())
+	err = CheckEthTxQueueCapacity(db, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 	}
@@ -286,7 +287,7 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 	value := 0
 	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
 		if newTx.PipelineTaskRunID != nil {
-			err = tx.Raw(`SELECT * FROM eth_txes WHERE pipeline_task_run_id = ?`, newTx.PipelineTaskRunID).Scan(&etx).Error
+			err = tx.Raw(`SELECT * FROM eth_txes WHERE pipeline_task_run_id = ? AND evm_chain_id = ?`, newTx.PipelineTaskRunID, b.chainID.String()).Scan(&etx).Error
 			if err != nil {
 				return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 			}
@@ -297,12 +298,12 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 			}
 		}
 		res := tx.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, min_confirmations, pipeline_task_run_id)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?,?,?
+?,?,?,?,?,'unstarted',NOW(),?,?,?,?,?
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), newTx.MinConfirmations, newTx.PipelineTaskRunID).Scan(&etx)
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID).Scan(&etx)
 		err = res.Error
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
@@ -326,7 +327,7 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -337,12 +338,13 @@ func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit 
 		Value:          value,
 		GasLimit:       gasLimit,
 		State:          EthTxUnstarted,
+		EVMChainID:     *utils.NewBig(chainID),
 	}
 	err = db.Create(&etx).Error
 	return etx, err
 }
 
-func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
+func newAttempt(ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
 	attempt := EthTxAttempt{}
 
 	tx := newLegacyTransaction(
@@ -355,7 +357,7 @@ func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx EthTx, 
 	)
 
 	transaction := gethTypes.NewTx(&tx)
-	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, chainID)
+	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, &chainID)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -463,30 +465,30 @@ func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt EthTxAttempt, repl
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address) (count uint32, err error) {
-	return countTransactionsWithState(db, fromAddress, EthTxUnconfirmed)
+func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
+	return countTransactionsWithState(db, fromAddress, EthTxUnconfirmed, chainID)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func CountUnstartedTransactions(db *gorm.DB, fromAddress common.Address) (count uint32, err error) {
-	return countTransactionsWithState(db, fromAddress, EthTxUnstarted)
+func CountUnstartedTransactions(db *gorm.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
+	return countTransactionsWithState(db, fromAddress, EthTxUnstarted, chainID)
 }
 
-func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state EthTxState) (count uint32, err error) {
+func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = ?`, fromAddress, state).Scan(&count).Error
+	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = ? AND evm_chain_id = ?`, fromAddress, state, chainID.String()).Scan(&count).Error
 	return
 }
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
-func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedTransactions uint64) (err error) {
+func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
 	var count uint64
-	err = db.Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unstarted'`, fromAddress).Scan(&count).Error
+	err = db.Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unstarted' AND evm_chain_id = ?`, fromAddress, chainID.String()).Scan(&count).Error
 	if err != nil {
 		err = errors.Wrap(err, "bulletprooftxmanager.CheckEthTxQueueCapacity query failed")
 		return
@@ -505,8 +507,8 @@ type NullTxManager struct {
 }
 
 func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
-func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
-func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }
+func (n *NullTxManager) Start() error                                   { return nil }
+func (n *NullTxManager) Close() error                                   { return nil }
 func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)

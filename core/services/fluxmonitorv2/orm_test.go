@@ -10,6 +10,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -77,7 +78,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	corestore, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	t.Cleanup(cleanup)
 
@@ -89,9 +90,11 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		corestore.Config.DatabaseListenerMaxReconnectDuration(),
 	)
 	pipelineORM := pipeline.NewORM(corestore.DB)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: corestore.ORM.DB})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(corestore.ORM.DB, cfg, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(corestore.ORM.DB, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()

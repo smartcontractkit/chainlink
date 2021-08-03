@@ -37,7 +37,7 @@ type (
 		logger         *logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
-		ethKeyStore    *keystore.Eth
+		ethKeyStore    keystore.EthKeyStoreInterface
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -47,7 +47,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth, logger *logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.EthKeyStoreInterface, logger *logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		logger,
 		db,
@@ -176,6 +176,7 @@ func (*NullBalanceMonitor) Ready() error                                        
 func (*NullBalanceMonitor) Healthy() error                                          { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
 
+// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
 var promETHBalance = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "eth_balance",

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -33,32 +33,50 @@ const (
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
-	KeeperRegistrySyncInterval         *time.Duration
-	BlockBackfillDepth                 null.Int
-	KeeperMinimumRequiredConfirmations null.Int
-	KeeperMaximumGracePeriod           null.Int
-
-	LogLevel         *config.LogLevel
-	LogSQLStatements null.Bool
-
-	BlockBackfillSkip null.Bool
-	P2PPeerIDError    error
-	AllowOrigins      null.String
-
 	AdminCredentialsFile                      null.String
 	AdvisoryLockID                            null.Int
-	chainID                                   null.Int
-	chain                                     *chains.Chain
+	AllowOrigins                              null.String
+	BlockBackfillDepth                        null.Int
+	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
-	DatabaseURL                               null.String
 	DatabaseTimeout                           *time.Duration
+	DatabaseURL                               null.String
+	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
 	DefaultMaxHTTPAttempts                    null.Int
 	Dev                                       null.Bool
 	Dialect                                   dialects.DialectName
+	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
 	FeatureExternalInitiators                 null.Bool
+	GlobalBalanceMonitorEnabled               null.Bool
+	GlobalEthTxReaperThreshold                *time.Duration
+	GlobalEthTxResendAfterThreshold           *time.Duration
+	GlobalEvmFinalityDepth                    null.Int
+	GlobalEvmGasBumpPercent                   null.Int
+	GlobalEvmGasBumpTxDepth                   null.Int
+	GlobalEvmGasBumpWei                       *big.Int
+	GlobalEvmGasLimitDefault                  null.Int
+	GlobalEvmGasLimitMultiplier               null.Float
+	GlobalEvmGasPriceDefault                  *big.Int
+	GlobalEvmHeadTrackerHistoryDepth          null.Int
+	GlobalEvmHeadTrackerMaxBufferSize         null.Int
+	GlobalEvmHeadTrackerSamplingInterval      *time.Duration
+	GlobalEvmLogBackfillBatchSize             null.Int
+	GlobalEvmMaxGasPriceWei                   *big.Int
+	GlobalEvmNonceAutoSync                    null.Bool
+	GlobalEvmRPCDefaultBatchSize              null.Int
+	GlobalFlagsContractAddress                null.String
+	GlobalGasEstimatorMode                    null.String
+	GlobalMinIncomingConfirmations            null.Int
+	GlobalMinRequiredOutgoingConfirmations    null.Int
+	GlobalMinimumContractPayment              *assets.Link
+	KeeperMaximumGracePeriod                  null.Int
+	KeeperMinimumRequiredConfirmations        null.Int
+	KeeperRegistrySyncInterval                *time.Duration
+	LogLevel                                  *config.LogLevel
+	LogSQLStatements                          null.Bool
 	LogToDisk                                 null.Bool
 	OCRBootstrapCheckInterval                 *time.Duration
 	OCRKeyBundleID                            *models.Sha256Hash
@@ -68,10 +86,12 @@ type GeneralConfigOverrides struct {
 	P2PBootstrapPeers                         []string
 	P2PListenPort                             null.Int
 	P2PPeerID                                 *p2pkey.PeerID
+	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 }
 
+// FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
 func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duration) {
 	o.TriggerFallbackDBPollInterval = &d
 }
@@ -86,10 +106,6 @@ func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 }
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
-}
-func (o *GeneralConfigOverrides) SetChainID(id int64) {
-	o.chainID = null.IntFrom(id)
-	o.chain = chains.ChainFromID(big.NewInt(id))
 }
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
@@ -137,18 +153,11 @@ func (c *TestGeneralConfig) BridgeResponseURL() *url.URL {
 	return uri
 }
 
-func (c *TestGeneralConfig) ChainID() *big.Int {
-	if c.Overrides.chainID.Valid {
-		return big.NewInt(c.Overrides.chainID.Int64)
+func (c *TestGeneralConfig) DefaultChainID() *big.Int {
+	if c.Overrides.DefaultChainID != nil {
+		return c.Overrides.DefaultChainID
 	}
 	return big.NewInt(eth.NullClientChainID)
-}
-
-func (c *TestGeneralConfig) Chain() *chains.Chain {
-	if c.Overrides.chain != nil {
-		return c.Overrides.chain
-	}
-	return c.GeneralConfig.Chain()
 }
 
 func (c *TestGeneralConfig) Dev() bool {
@@ -421,4 +430,164 @@ func (c *TestGeneralConfig) LogSQLStatements() bool {
 		return c.Overrides.LogSQLStatements.Bool
 	}
 	return c.GeneralConfig.LogSQLStatements()
+}
+
+func (c *TestGeneralConfig) EVMDisabled() bool {
+	if c.Overrides.EVMDisabled.Valid {
+		return c.Overrides.EVMDisabled.Bool
+	}
+	return c.GeneralConfig.EVMDisabled()
+}
+
+func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
+	if c.Overrides.GlobalGasEstimatorMode.Valid {
+		return c.Overrides.GlobalGasEstimatorMode.String, true
+	}
+	return c.GeneralConfig.GlobalGasEstimatorMode()
+}
+
+func (c *TestGeneralConfig) GlobalEvmNonceAutoSync() (bool, bool) {
+	if c.Overrides.GlobalEvmNonceAutoSync.Valid {
+		return c.Overrides.GlobalEvmNonceAutoSync.Bool, true
+	}
+	return c.GeneralConfig.GlobalEvmNonceAutoSync()
+}
+func (c *TestGeneralConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
+	if c.Overrides.GlobalBalanceMonitorEnabled.Valid {
+		return c.Overrides.GlobalBalanceMonitorEnabled.Bool, true
+	}
+	return c.GeneralConfig.GlobalBalanceMonitorEnabled()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitDefault.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitDefault()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
+	if c.Overrides.GlobalEvmGasLimitMultiplier.Valid {
+		return float32(c.Overrides.GlobalEvmGasLimitMultiplier.Float64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitMultiplier()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasBumpWei != nil {
+		return c.Overrides.GlobalEvmGasBumpWei, true
+	}
+	return c.GeneralConfig.GlobalEvmGasBumpWei()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasBumpPercent() (uint16, bool) {
+	if c.Overrides.GlobalEvmGasBumpPercent.Valid {
+		return uint16(c.Overrides.GlobalEvmGasBumpPercent.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasBumpPercent()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasPriceDefault != nil {
+		return c.Overrides.GlobalEvmGasPriceDefault, true
+	}
+	return c.GeneralConfig.GlobalEvmGasPriceDefault()
+}
+
+func (c *TestGeneralConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
+	if c.Overrides.GlobalEvmRPCDefaultBatchSize.Valid {
+		return uint32(c.Overrides.GlobalEvmRPCDefaultBatchSize.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmRPCDefaultBatchSize()
+}
+
+func (c *TestGeneralConfig) GlobalEvmFinalityDepth() (uint32, bool) {
+	if c.Overrides.GlobalEvmFinalityDepth.Valid {
+		return uint32(c.Overrides.GlobalEvmFinalityDepth.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmFinalityDepth()
+}
+
+func (c *TestGeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
+	if c.Overrides.GlobalEvmLogBackfillBatchSize.Valid {
+		return uint32(c.Overrides.GlobalEvmLogBackfillBatchSize.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
+}
+
+func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmMaxGasPriceWei != nil {
+		return c.Overrides.GlobalEvmMaxGasPriceWei, true
+	}
+	return c.GeneralConfig.GlobalEvmMaxGasPriceWei()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
+	if c.Overrides.GlobalEvmGasBumpTxDepth.Valid {
+		return uint16(c.Overrides.GlobalEvmGasBumpTxDepth.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasBumpTxDepth()
+}
+
+func (c *TestGeneralConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) {
+	if c.Overrides.GlobalEthTxResendAfterThreshold != nil {
+		return *c.Overrides.GlobalEthTxResendAfterThreshold, true
+	}
+	return c.GeneralConfig.GlobalEthTxResendAfterThreshold()
+}
+
+func (c *TestGeneralConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
+	if c.Overrides.GlobalMinIncomingConfirmations.Valid {
+		return uint32(c.Overrides.GlobalMinIncomingConfirmations.Int64), true
+	}
+	return c.GeneralConfig.GlobalMinIncomingConfirmations()
+}
+
+func (c *TestGeneralConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
+	if c.Overrides.GlobalMinimumContractPayment != nil {
+		return c.Overrides.GlobalMinimumContractPayment, true
+	}
+	return c.GeneralConfig.GlobalMinimumContractPayment()
+}
+
+func (c *TestGeneralConfig) GlobalFlagsContractAddress() (string, bool) {
+	if c.Overrides.GlobalFlagsContractAddress.Valid {
+		return c.Overrides.GlobalFlagsContractAddress.String, true
+	}
+	return c.GeneralConfig.GlobalFlagsContractAddress()
+}
+
+func (c *TestGeneralConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
+	if c.Overrides.GlobalMinRequiredOutgoingConfirmations.Valid {
+		return uint64(c.Overrides.GlobalMinRequiredOutgoingConfirmations.Int64), true
+	}
+	return c.GeneralConfig.GlobalMinRequiredOutgoingConfirmations()
+}
+
+func (c *TestGeneralConfig) GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool) {
+	if c.Overrides.GlobalEvmHeadTrackerMaxBufferSize.Valid {
+		return uint32(c.Overrides.GlobalEvmHeadTrackerMaxBufferSize.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmHeadTrackerMaxBufferSize()
+}
+
+func (c *TestGeneralConfig) GlobalEvmHeadTrackerHistoryDepth() (uint32, bool) {
+	if c.Overrides.GlobalEvmHeadTrackerHistoryDepth.Valid {
+		return uint32(c.Overrides.GlobalEvmHeadTrackerHistoryDepth.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmHeadTrackerHistoryDepth()
+}
+
+func (c *TestGeneralConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool) {
+	if c.Overrides.GlobalEvmHeadTrackerSamplingInterval != nil {
+		return *c.Overrides.GlobalEvmHeadTrackerSamplingInterval, true
+	}
+	return c.GeneralConfig.GlobalEvmHeadTrackerSamplingInterval()
+}
+
+func (c *TestGeneralConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
+	if c.Overrides.GlobalEthTxReaperThreshold != nil {
+		return *c.Overrides.GlobalEthTxReaperThreshold, true
+	}
+	return c.GeneralConfig.GlobalEthTxReaperThreshold()
 }

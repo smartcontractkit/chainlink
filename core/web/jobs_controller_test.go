@@ -236,7 +236,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -53,6 +54,7 @@ type service struct {
 	cfg         Config
 	txm         postgres.TransactionManager
 	connMgr     ConnectionsManager
+	chainSet    evm.ChainSet
 }
 
 // NewService constructs a new feeds service
@@ -64,6 +66,7 @@ func NewService(
 	csaKeyStore keystore.CSAKeystoreInterface,
 	ethKeyStore keystore.EthKeyStoreInterface,
 	cfg Config,
+	chainSet evm.ChainSet,
 ) *service {
 	svc := &service{
 		orm:         orm,
@@ -74,6 +77,7 @@ func NewService(
 		ethKeyStore: ethKeyStore,
 		cfg:         cfg,
 		connMgr:     newConnectionsManager(),
+		chainSet:    chainSet,
 	}
 
 	return svc
@@ -149,6 +153,8 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return errors.Wrap(err, "could not fetch client")
 	}
 
+	// TODO: Update to support multiple chains
+	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes: jobtypes,
 		// ChainID is deprecated but we still need to pass it in for backwards
@@ -462,7 +468,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	var js job.Job
 	switch jobType {
 	case job.OffchainReporting:
-		js, err = offchainreporting.ValidatedOracleSpecToml(s.cfg, spec)
+		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
 		}

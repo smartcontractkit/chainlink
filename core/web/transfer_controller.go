@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -27,9 +29,29 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	store := tc.App.GetStore()
+	var chain evm.Chain
+	var err error
+	chainSet := tc.App.GetChainSet()
+	if chainSet.ChainCount() <= 1 {
+		chain, err = chainSet.Default()
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	} else if tr.EVMChainID != nil {
+		chain, err = chainSet.Get(tr.EVMChainID.ToInt())
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	} else {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("%d chains available, you must specify evmChainID parameter", chainSet.ChainCount()))
+		return
+	}
 
-	etx, err := bulletprooftxmanager.SendEther(store.DB, tr.FromAddress, tr.DestinationAddress, tr.Amount, tc.App.GetEVMConfig().EvmGasLimitTransfer())
+	db := tc.App.GetStore().DB
+
+	etx, err := bulletprooftxmanager.SendEther(db, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return

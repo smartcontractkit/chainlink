@@ -36,7 +36,7 @@ var (
 
 type startOptions struct {
 	// Set the config options
-	SetConfig func(cfg *configtest.TestEVMConfig)
+	SetConfig func(cfg *configtest.TestGeneralConfig)
 	// Use to set up mocks on the app
 	FlagsAndDeps []interface{}
 	// Add a key on start up
@@ -54,10 +54,16 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	}
 
 	// Setup config
-	config := cltest.NewTestEVMConfig(t)
-	config.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
-	config.GeneralConfig.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
+	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+
+	// Generally speaking, most tests that use startNewApplication don't
+	// actually need ChainSets loaded. We can greatly reduce test
+	// overhead by setting EVM_DISABLED here. If you need EVM interactions in
+	// your tests, you can manually override and turn it on using
+	// withConfigSet.
+	config.Overrides.EVMDisabled = null.BoolFrom(true)
 
 	if sopts.SetConfig != nil {
 		sopts.SetConfig(config)
@@ -65,9 +71,11 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 
 	var app *cltest.TestApplication
 	var cleanup func()
+	l := config.CreateProductionLogger().With("testname", t.Name())
+	sopts.FlagsAndDeps = append(sopts.FlagsAndDeps, l)
 	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
 	t.Cleanup(cleanup)
-	app.Logger = app.Config.CreateProductionLogger()
+	app.Logger = l
 	app.Logger.SetDB(app.GetStore().DB)
 
 	require.NoError(t, app.Start())
@@ -76,7 +84,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 }
 
 // withConfig is a function option which sets config on the app
-func withConfigSet(cfgSet func(*configtest.TestEVMConfig)) func(opts *startOptions) {
+func withConfigSet(cfgSet func(*configtest.TestGeneralConfig)) func(opts *startOptions) {
 	return func(opts *startOptions) {
 		opts.SetConfig = cfgSet
 	}
@@ -120,7 +128,13 @@ func deleteKeyExportFile(t *testing.T) {
 func TestClient_ReplayBlocks(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t,
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+			c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+		}))
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("flagset", 0)
@@ -237,8 +251,8 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestEVMConfig) {
-		c.GeneralConfig.Overrides.AdminCredentialsFile = null.StringFrom("")
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.AdminCredentialsFile = null.StringFrom("")
 	}))
 
 	tests := []struct {
@@ -307,47 +321,89 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.Contains(t, err.Error(), "Unauthorized")
 }
 
-func TestClient_SetMinimumGasPrice(t *testing.T) {
+func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(newEthMock(t)),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
 	)
 	client, _ := app.NewClientAndRenderer()
 
-	set := flag.NewFlagSet("setgasprice", 0)
-	set.Parse([]string{"8616460799"})
+	t.Run("without specifying chain id setting value", func(t *testing.T) {
+		set := flag.NewFlagSet("setgasprice", 0)
+		set.Parse([]string{"8616460799"})
 
-	c := cli.NewContext(nil, set, nil)
+		c := cli.NewContext(nil, set, nil)
 
-	assert.NoError(t, client.SetMinimumGasPrice(c))
-	assert.Equal(t, big.NewInt(8616460799), app.GetEVMConfig().EvmGasPriceDefault())
+		assert.NoError(t, client.SetEvmGasPriceDefault(c))
+		ch, err := app.GetChainSet().Default()
+		require.NoError(t, err)
+		cfg := ch.Config()
+		assert.Equal(t, big.NewInt(8616460799), cfg.EvmGasPriceDefault())
 
-	client, _ = app.NewClientAndRenderer()
-	set = flag.NewFlagSet("setgasprice", 0)
-	set.String("amount", "861.6460799", "")
-	set.Bool("gwei", true, "")
-	set.Parse([]string{"-gwei", "861.6460799"})
+		client, _ = app.NewClientAndRenderer()
+		set = flag.NewFlagSet("setgasprice", 0)
+		set.String("amount", "", "")
+		set.Bool("gwei", true, "")
+		set.Parse([]string{"-gwei", "861.6460799"})
 
-	c = cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.SetMinimumGasPrice(c))
-	assert.Equal(t, big.NewInt(861646079900), app.GetEVMConfig().EvmGasPriceDefault())
+		c = cli.NewContext(nil, set, nil)
+		assert.NoError(t, client.SetEvmGasPriceDefault(c))
+		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
+	})
+
+	t.Run("specifying wrong chain id", func(t *testing.T) {
+		set := flag.NewFlagSet("setgasprice", 0)
+		set.String("evmChainID", "", "")
+		set.Parse([]string{"-evmChainID", "985435435435", "8616460799"})
+
+		c := cli.NewContext(nil, set, nil)
+
+		err := client.SetEvmGasPriceDefault(c)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "chain not found with id 985435435435")
+
+		ch, err := app.GetChainSet().Default()
+		require.NoError(t, err)
+		cfg := ch.Config()
+		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
+	})
+
+	t.Run("specifying correct chain id", func(t *testing.T) {
+		set := flag.NewFlagSet("setgasprice", 0)
+		set.String("evmChainID", "", "")
+		set.Parse([]string{"-evmChainID", "0", "12345678900"})
+
+		c := cli.NewContext(nil, set, nil)
+
+		assert.NoError(t, client.SetEvmGasPriceDefault(c))
+		ch, err := app.GetChainSet().Default()
+		require.NoError(t, err)
+		cfg := ch.Config()
+
+		assert.Equal(t, big.NewInt(12345678900), cfg.EvmGasPriceDefault())
+	})
 }
 
 func TestClient_GetConfiguration(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	cfg := app.GetEVMConfig()
 	client, r := app.NewClientAndRenderer()
+	cfg := app.GetConfig()
 
 	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 
 	cp := *r.Renders[0].(*presenters.ConfigPrinter)
 	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
-	assert.Equal(t, cp.EnvPrinter.ChainID, cfg.ChainID())
+	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
 	assert.Equal(t, cp.EnvPrinter.LogLevel, cfg.LogLevel())
 	assert.Equal(t, cp.EnvPrinter.LogSQLStatements, cfg.LogSQLStatements())
@@ -358,7 +414,10 @@ func TestClient_GetConfiguration(t *testing.T) {
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+	}))
 	client, _ := app.NewClientAndRenderer()
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -428,7 +487,7 @@ func TestClient_AutoLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetEVMConfig(), &cmd.MemoryCookieStore{})
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)

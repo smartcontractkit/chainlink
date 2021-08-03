@@ -20,6 +20,7 @@ import (
 )
 
 var (
+	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
 	promCurrentHead = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
@@ -38,6 +39,7 @@ type HeadTracker struct {
 	log             *logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	ethClient       eth.Client
+	chainID         big.Int
 	config          Config
 
 	backfillMB   utils.Mailbox
@@ -67,6 +69,7 @@ func NewHeadTracker(
 	return &HeadTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
+		chainID:         *ethClient.ChainID(),
 		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
@@ -97,7 +100,7 @@ func (ht *HeadTracker) logger() *logger.Logger {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.logger().Debug("Starting HeadTracker")
+		ht.logger().Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
 		highestSeenHead, err := ht.headSaver.SetHighestSeenHeadFromDB()
 		if err != nil {
 			return err
@@ -155,7 +158,6 @@ func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker: Stopping - disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -225,7 +227,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.config.EvmFinalityDepth())
+					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -337,13 +339,13 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to save head: %#v", head)
 	}
 
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EvmFinalityDepth())
+		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, uint(ht.config.EvmFinalityDepth()))
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {

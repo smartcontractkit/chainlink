@@ -9,6 +9,127 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### New env vars
+
+`CLOBBER_NODES_FROM_ENV` - Defaulting to true, this env var when set will autocreate database rows for chain and nodes. It will upsert a new chain using the DefaultChainID and upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS. It is recommended, after the initial population, to set this env var to false and thereafter to use the CLI commands or API to manage chains/nodes.
+
+`EVM_DISABLED` - If set to true, will prevent any chains from being loaded at all, and any jobs that interact with the EVM cannot be created/loaded/run. Distinct from `ETHEREUM_DISABLED` which continue to work as before and will load chains, but will not connect to any nodes and still allows you to create jobs. This is a new recommended setting (replacing `ETH_DISABLED`) for jobs that don't need the EVM at all, e.g. Cron jobs on DYDX.
+
+`BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
+
+`ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
+
+#### Multichain support added
+
+Chainlink now supports connecting to multiple different EVM chains simultaneously.
+
+This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example).
+
+Extensive efforts have been made to make this as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
+
+The overall summary of changes is such:
+
+##### Chains/Ethereum Nodes
+
+EVM chains are now represented as a first class object within the chainlink node. You can create/delete/list them using the CLI or API.
+
+Currently only a single primary node is supported, and one is required in order for a chain to connect. You may specify zero or more send-only nodes for a chain. In future, support for multiple primaries will be added.
+
+###### Creation
+
+```bash
+chainlink chains evm create -id 42 # creates an evm chain with chain ID 42 (see: https://chainlist.org/)
+chainlink nodes create -chain-id 42 -name 'my-primary-kovan-full-node' -type primary -ws-url ws://node.example/ws -http-url http://node.example/rpc # http-url is optional but recommended for primaries
+chainlink nodes create -chain-id 42 -name 'my-send-only-backup-kovan-node' -type sendonly -http-url http://some-public-node.example/rpc
+```
+
+###### Listing
+
+```bash
+chainlink chains evm list
+chainlink nodes list
+```
+
+###### Deletion
+
+```bash
+chainlink nodes delete 'my-send-only-backup-kovan-node'
+chainlink chains evm delete 42
+```
+
+###### CLOBBER_NODES_FROM_ENV
+
+The old way of specifying chains using environment variables is still supported but discouraged. It works as follows:
+
+If you specify `CLOBBER_NODES_FROM_ENV` (default: true) then the values of `ETH_CHAIN_ID`, `ETH_URL`, `ETH_HTTP_URL` and `ETH_SECONDARY_URLS` will be used to create/update chains and nodes representing these values in the database. If an existing chain/node is found it will be overwritten. This environment variable is used mainly to ease the process of upgrading, and on subsequent runs (once your old settings have been written to the database) it is recommended to run with `CLOBBER_NODES_FROM_ENV=false` and use the API commands exclusively to administer chains and nodes.
+
+##### Jobs/tasks
+
+By default, all jobs/tasks will continue to use the default chain (specified by `ETH_CHAIN_ID`). However, the following jobs now allow an additional `evmChainID` key in their TOML:
+
+- VRF
+- DirectRequest
+- Keeper
+- OCR
+- Fluxmonitor
+
+You can pin individual jobs to a particular chain by specifying the `evmChainID` explicitly. Here is an example job to demonstrate:
+
+```toml
+type            = "keeper"
+evmChainID      = 3 
+schemaVersion   = 1
+name            = "example keeper spec"
+contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49"
+fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+```
+
+The above keeper job will _always_ run on chain ID 3 (Ropsten) regardless of the `ETH_CHAIN_ID` setting. If no chain matching this ID has been added to the chainlink node, the job cannot be created (you must create the chain first).
+
+In addition, you can also specify `evmChainID` on certain pipeline tasks. This allows for cross-chain requests, for example:
+
+```toml
+type                = "directrequest"
+schemaVersion       = 1
+evmChainID          = 42
+name                = "example cross chain spec"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F90"
+observationSource   = """
+    decode_log   [type=ethabidecodelog ... ]
+    ...
+    submit [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)" minConfirmations="2" evmChainID="3"]
+    decode_log-> ... ->submit;
+"""
+```
+
+In the example above (which excludes irrelevant pipeline steps for brevity) a log can be read from the chain with ID 42 (Kovan) and a transaction emitted on chain with ID 3 (Ropsten).
+
+Tasks that support the `evmChainID` parameter are as follows:
+
+- `ethcall`
+- `estimategaslimit`
+- `ethtx`
+
+###### Defaults
+
+If the job- or task-specific `evmChainID` is _not_ given, the job/task will simply use the default as specified by the `ETH_CHAIN_ID` env variable.
+
+Generally speaking, the default config values for each chain are good enough. But in some cases it is necessary to be able to override the defaults on a per-chain basis.
+
+This used to be done via environment variables e.g. `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS`.
+
+These still work, but if set they will override that value for _all_ chains. This may not always be what you want. Consider a node that runs both Matic and Mainnet. You may want to set a higher value for `MINIMUM_CONTRACT_PAYMENT` on Mainnet, due to the more expensive gas costs. However, setting `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS` using env variables will set that value for _all_ chains including matic.
+
+To help you work around this, Chainlink now supports setting per-chain configuration options.
+
+(the full list of chain-specific configuration options can be found in `core/chains/evm/config.go`)
+
+TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
+
+#### Legacy pipeline removed
+
 **Legacy job pipeline (JSON specs) are no longer supported**
 
 This version will refuse to migrate the database if job specs are still present. You must manually delete or migrate all V1 job specs before upgrading.
@@ -27,6 +148,8 @@ GAS_UPDATER_BLOCK_HISTORY_SIZE
 GAS_UPDATER_TRANSACTION_PERCENTILE
 MINIMUM_CONTRACT_PAYMENT
 ```
+
+They have been replaced by better named variables, see 0.10.10 release notes.
 
 
 ## [Unreleased]

@@ -17,13 +17,14 @@ func TestConfigSchema(t *testing.T) {
 		"BalanceMonitorEnabled":                      "BALANCE_MONITOR_ENABLED",
 		"BlockBackfillDepth":                         "BLOCK_BACKFILL_DEPTH",
 		"BlockBackfillSkip":                          "BLOCK_BACKFILL_SKIP",
+		"BlockEmissionIdleWarningThreshold":          "BLOCK_EMISSION_IDLE_WARNING_THRESHOLD",
 		"BlockHistoryEstimatorBatchSize":             "BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE",
 		"BlockHistoryEstimatorBlockDelay":            "BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY",
 		"BlockHistoryEstimatorBlockHistorySize":      "BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE",
 		"BlockHistoryEstimatorTransactionPercentile": "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                          "BRIDGE_RESPONSE_URL",
-		"ChainID":                                    "ETH_CHAIN_ID",
 		"ClientNodeURL":                              "CLIENT_NODE_URL",
+		"ClobberNodesFromEnv":                        "CLOBBER_NODES_FROM_ENV",
 		"DatabaseBackupDir":                          "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                    "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                         "DATABASE_BACKUP_MODE",
@@ -33,12 +34,23 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseMaximumTxDuration":                  "DATABASE_MAXIMUM_TX_DURATION",
 		"DatabaseTimeout":                            "DATABASE_TIMEOUT",
 		"DatabaseURL":                                "DATABASE_URL",
+		"DefaultChainID":                             "ETH_CHAIN_ID",
 		"DefaultHTTPAllowUnrestrictedNetworkAccess":  "DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS",
 		"DefaultHTTPLimit":                           "DEFAULT_HTTP_LIMIT",
 		"DefaultHTTPTimeout":                         "DEFAULT_HTTP_TIMEOUT",
 		"DefaultMaxHTTPAttempts":                     "MAX_HTTP_ATTEMPTS",
 		"Dev":                                        "CHAINLINK_DEV",
+		"EVMDisabled":                                "EVM_DISABLED",
+		"EthTxReaperInterval":                        "ETH_TX_REAPER_INTERVAL",
+		"EthTxReaperThreshold":                       "ETH_TX_REAPER_THRESHOLD",
+		"EthTxResendAfterThreshold":                  "ETH_TX_RESEND_AFTER_THRESHOLD",
+		"EthereumDisabled":                           "ETH_DISABLED",
+		"EthereumHTTPURL":                            "ETH_HTTP_URL",
+		"EthereumSecondaryURL":                       "ETH_SECONDARY_URL",
+		"EthereumSecondaryURLs":                      "ETH_SECONDARY_URLS",
+		"EthereumURL":                                "ETH_URL",
 		"EvmBalanceMonitorBlockDelay":                "ETH_BALANCE_MONITOR_BLOCK_DELAY",
+		"EvmDefaultBatchSize":                        "ETH_DEFAULT_BATCH_SIZE",
 		"EvmFinalityDepth":                           "ETH_FINALITY_DEPTH",
 		"EvmGasBumpPercent":                          "ETH_GAS_BUMP_PERCENT",
 		"EvmGasBumpThreshold":                        "ETH_GAS_BUMP_THRESHOLD",
@@ -58,14 +70,6 @@ func TestConfigSchema(t *testing.T) {
 		"EvmMinGasPriceWei":                          "ETH_MIN_GAS_PRICE_WEI",
 		"EvmNonceAutoSync":                           "ETH_NONCE_AUTO_SYNC",
 		"EvmRPCDefaultBatchSize":                     "ETH_RPC_DEFAULT_BATCH_SIZE",
-		"EthTxReaperInterval":                        "ETH_TX_REAPER_INTERVAL",
-		"EthTxReaperThreshold":                       "ETH_TX_REAPER_THRESHOLD",
-		"EthTxResendAfterThreshold":                  "ETH_TX_RESEND_AFTER_THRESHOLD",
-		"EthereumDisabled":                           "ETH_DISABLED",
-		"EthereumHTTPURL":                            "ETH_HTTP_URL",
-		"EthereumSecondaryURL":                       "ETH_SECONDARY_URL",
-		"EthereumSecondaryURLs":                      "ETH_SECONDARY_URLS",
-		"EthereumURL":                                "ETH_URL",
 		"ExplorerAccessKey":                          "EXPLORER_ACCESS_KEY",
 		"ExplorerSecret":                             "EXPLORER_SECRET",
 		"ExplorerURL":                                "EXPLORER_URL",
@@ -187,7 +191,7 @@ func TestConfigSchema(t *testing.T) {
 2. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
    think this variable needs to be shown in the UI
 3. Make a PR into the documentation page if node operators might need to use
-   this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%20Operators/configuration-variables.md).
+   this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%%20Operators/configuration-variables.md).
    Don't forget to update TOC.
 4. Add your new config variable to this test`, field.Name)
 		assert.True(t, found, msg)

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -24,13 +24,11 @@ import (
 
 type (
 	Delegate struct {
-		logBroadcaster log.Broadcaster
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		db             *gorm.DB
-		ethClient      eth.Client
 		chHeads        chan models.Head
-		config         Config
+		chainSet       evm.ChainSet
 	}
 
 	Config interface {
@@ -42,21 +40,17 @@ type (
 var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
-	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	ethClient eth.Client,
 	db *gorm.DB,
-	config Config,
+	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
-		logBroadcaster,
 		pipelineRunner,
 		pipelineORM,
 		db,
-		ethClient,
 		make(chan models.Head, 1),
-		config,
+		chainSet,
 	}
 }
 
@@ -73,21 +67,25 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		return nil, errors.Errorf("directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", job)
 	}
 	concreteSpec := job.DirectRequestSpec
+	chain, err := d.chainSet.Get(job.DirectRequestSpec.EVMChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
 
-	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), d.ethClient)
+	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return
 	}
 
-	minIncomingConfirmations := d.config.MinIncomingConfirmations()
+	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
 
 	if concreteSpec.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
 		minIncomingConfirmations = concreteSpec.MinIncomingConfirmations.Uint32
 	}
 
 	logListener := &listener{
-		config:                   d.config,
-		logBroadcaster:           d.logBroadcaster,
+		config:                   chain.Config(),
+		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
 		db:                       d.db,
@@ -255,10 +253,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	)
 
 	minimumContractPayment := l.config.MinimumContractPayment()
-	if minimumContractPayment != nil {
+	if minimumContractPayment != nil && request.Payment != nil {
 		requestPayment := assets.Link(*request.Payment)
 		if minimumContractPayment.Cmp(&requestPayment) > 0 {
-			logger.Infow("Rejected run for insufficient payment",
+			logger.Warnw("Rejected run for insufficient payment",
 				"minimumContractPayment", minimumContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)

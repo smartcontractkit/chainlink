@@ -34,12 +34,12 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
-	ChainID                                    *big.Int        `json:"ETH_CHAIN_ID"`
 	ClientNodeURL                              string          `json:"CLIENT_NODE_URL"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
 	DatabaseMaximumTxDuration                  time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
 	DatabaseTimeout                            models.Duration `json:"DATABASE_TIMEOUT"`
+	DefaultChainID                             string          `json:"ETH_CHAIN_ID"`
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
@@ -121,12 +121,12 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 			AllowOrigins:                          config.AllowOrigins(),
 			BlockBackfillDepth:                    config.BlockBackfillDepth(),
 			BridgeResponseURL:                     config.BridgeResponseURL().String(),
-			ChainID:                               config.ChainID(),
 			ClientNodeURL:                         config.ClientNodeURL(),
 			DatabaseBackupFrequency:               config.DatabaseBackupFrequency(),
 			DatabaseBackupMode:                    string(config.DatabaseBackupMode()),
 			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
 			DatabaseTimeout:                       config.DatabaseTimeout(),
+			DefaultChainID:                        config.DefaultChainID().String(),
 			DefaultHTTPLimit:                      config.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
 			Dev:                                   config.Dev(),

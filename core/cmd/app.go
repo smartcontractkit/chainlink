@@ -143,12 +143,16 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "setgasprice",
-					Usage:  "Set the minimum gas price to use for outgoing transactions",
-					Action: client.SetMinimumGasPrice,
+					Usage:  "Set the default gas price to use for outgoing transactions",
+					Action: client.SetEvmGasPriceDefault,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "gwei",
 							Usage: "Specify amount in gwei",
+						},
+						cli.StringFlag{
+							Name:  "evmChainID",
+							Usage: "(optional) specify the chain ID for which to make the update",
 						},
 					},
 				},
@@ -577,6 +581,10 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "address, a",
 							Usage: "The address (in hex format) for the key which we want to rebroadcast transactions",
+						},
+						cli.StringFlag{
+							Name:  "evmChainID",
+							Usage: "Chain ID for which to rebroadcast transactions. If left blank, ETH_CHAIN_ID will be used.",
 						},
 						cli.Uint64Flag{
 							Name:  "gasLimit",

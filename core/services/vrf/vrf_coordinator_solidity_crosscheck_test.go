@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -116,7 +117,7 @@ func newVRFCoordinatorUniverse(t *testing.T, key ethkey.Key) coordinatorUniverse
 	coordinatorABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_coordinator_interface.VRFCoordinatorABI))
 	require.NoError(t, err)
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
@@ -313,8 +314,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 }
 
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
-func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
-	log models.RandomnessRequestLog) vrfkey.Proof {
+func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log models.RandomnessRequestLog) vrfkey.Proof {
 	preSeed, err := proof2.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
 	s := proof2.PreSeedData{
@@ -333,7 +333,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = cltest.NewTestEVMConfig(t).EvmGasLimitDefault()
+	neil.GasLimit = evmconfig.DefaultGasLimit
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()
