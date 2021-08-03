@@ -195,6 +195,19 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	return postgres.GormTransactionWithDefaultContext(orm.DB, callback)
 }
 
+// ExternalInitiatorsSorted returns many ExternalInitiators sorted by Name from the store adhering
+// to the passed parameters.
+func (orm *ORM) ExternalInitiatorsSorted(offset int, limit int) ([]models.ExternalInitiator, int, error) {
+	count, err := orm.CountOf(&models.ExternalInitiator{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var exis []models.ExternalInitiator
+	err = orm.getRecords(&exis, "name asc", offset, limit)
+	return exis, count, err
+}
+
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
