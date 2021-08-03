@@ -1,10 +1,10 @@
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
-import { OcrJobRun } from 'core/store/models'
+import { JobRunV2 } from 'core/store/models'
 
 export function jobRunV2(
-  config: Partial<OcrJobRun & { id?: string; dotDagSource?: string }> = {},
-): OcrJobRun {
-  return partialAsFull<OcrJobRun>({
+  config: Partial<JobRunV2 & { id?: string; dotDagSource?: string }> = {},
+): JobRunV2 {
+  return partialAsFull<JobRunV2>({
     outputs: config.outputs || [null],
     errors: config.errors || [],
     pipelineSpec: {
