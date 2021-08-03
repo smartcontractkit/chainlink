@@ -12,13 +12,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/service"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -54,10 +54,9 @@ type Runner interface {
 type runner struct {
 	orm             ORM
 	config          Config
-	ethClient       eth.Client
+	chainCollection evm.ChainCollection
 	ethKeyStore     ETHKeyStore
 	vrfKeyStore     VRFKeyStore
-	txManager       TxManager
 	runReaperWorker utils.SleeperTask
 
 	// test helper
@@ -98,17 +97,16 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, vrfks VRFKeyStore, txManager TxManager) *runner {
+func NewRunner(orm ORM, config Config, chainCollection evm.ChainCollection, ethks ETHKeyStore, vrfks VRFKeyStore) *runner {
 	r := &runner{
-		orm:         orm,
-		config:      config,
-		ethClient:   ethClient,
-		ethKeyStore: ethks,
-		vrfKeyStore: vrfks,
-		txManager:   txManager,
-		chStop:      make(chan struct{}),
-		wgDone:      sync.WaitGroup{},
-		runFinished: func(*Run) {},
+		orm:             orm,
+		config:          config,
+		chainCollection: chainCollection,
+		ethKeyStore:     ethks,
+		vrfKeyStore:     vrfks,
+		chStop:          make(chan struct{}),
+		wgDone:          sync.WaitGroup{},
+		runFinished:     func(*Run) {},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -229,6 +227,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		return nil, err
 	}
 
+	// TODO: Add per-task parameter to specify chain ID and pass in the
+	// collection to each task to allow each task to specify a different chain
+	// ID
+	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
+	defaultChain, err := r.chainCollection.Default()
+	if err != nil {
+		return nil, err
+	}
+
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
 		task.Base().uuid = uuid.NewV4()
@@ -240,19 +247,18 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
 		case TaskTypeETHCall:
-			task.(*ETHCallTask).ethClient = r.ethClient
+			task.(*ETHCallTask).ethClient = defaultChain.Client()
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
-			task.(*EstimateGasLimitTask).EvmGasLimit = r.config.EvmGasLimitDefault()
+			task.(*EstimateGasLimitTask).GasEstimator = defaultChain.Client()
+			task.(*EstimateGasLimitTask).EvmGasLimit = defaultChain.Config().EvmGasLimitDefault()
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
-			task.(*ETHTxTask).config = r.config
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
-			task.(*ETHTxTask).txManager = r.txManager
+			task.(*ETHTxTask).chainCollection = r.chainCollection
 		default:
 		}
 	}

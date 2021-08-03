@@ -46,7 +46,7 @@ func checkNoLegacyJobs(db *gorm.DB) error {
 		return err
 	}
 	if count > 0 {
-		return errors.Errorf("cannot migrate; this release removes support for legacy job specs but there are still %d in the database. Please migrate these jobs specs to the V2 pipeline and make sure job_specs table is empty, then run the migration again", count)
+		return errors.Errorf("cannot migrate; this release removes support for legacy job specs but there are still %d in the database. Please migrate these job specs to the V2 pipeline and make sure all V1 job_specs are deleted or archived, then run the migration again. Migration instructions found here: https://docs.chain.link/docs/jobs/migration-v1-v2/", count)
 	}
 	return nil
 

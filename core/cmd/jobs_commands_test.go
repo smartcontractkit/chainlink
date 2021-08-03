@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestJobPresenter_RenderTable(t *testing.T) {
@@ -290,7 +291,13 @@ func TestClient_ListJobsV2(t *testing.T) {
 func TestClient_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	requireJobsCount(t, app.JobORM(), 0)
@@ -311,8 +318,12 @@ func TestClient_CreateJobV2(t *testing.T) {
 func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestEVMConfig) {
-		c.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
 	}))
 	client, r := app.NewClientAndRenderer()
 

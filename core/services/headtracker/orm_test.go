@@ -18,7 +18,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	orm := headtracker.NewORM(db)
+	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
 	// A competing chain existed from block num 3 to 4
 	var baseOfForkHash common.Hash
@@ -99,7 +99,7 @@ func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	orm := headtracker.NewORM(db)
+	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
 	// Returns nil when inserting first head
 	head := *cltest.Head(0)

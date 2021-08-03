@@ -20,18 +20,20 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.Dev = null.BoolFrom(true)
-	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.Dev = null.BoolFrom(true)
+	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
-	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
+	_, addr1 := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
+	_, addr2 := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), false)
 
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(1), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(256), nil).Twice()
+	ethClient.On("BalanceAt", mock.Anything, addr2, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
 
 	require.NoError(t, app.Start())
 
@@ -64,16 +66,17 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
-	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.Dev = null.BoolFrom(false)
+	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
 	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
 
 	require.NoError(t, app.Start())
 
@@ -122,8 +125,9 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestEVMConfig(t)
-	ethClient := cltest.NewEthClientMock(t)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 	t.Cleanup(cleanup)
 
@@ -132,7 +136,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	ethBalanceInt := big.NewInt(100)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
-	linkBalance := assets.NewLink(42)
+	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
 	client := app.NewHTTPClient()

@@ -24,6 +24,8 @@ type HeadTrackable interface {
 	OnNewLongestChain(ctx context.Context, head models.Head)
 }
 
+type SubscribeFunc func(callback HeadTrackable) (unsubscribe func())
+
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *models.Head, unsubscribe func())
 }

@@ -2,52 +2,42 @@ package fluxmonitorv2
 
 import (
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gorm.io/gorm"
 )
 
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
-	db             *gorm.DB
-	txm            transmitter
-	ethKeyStore    *keystore.Eth
-	jobORM         job.ORM
-	pipelineORM    pipeline.ORM
-	pipelineRunner pipeline.Runner
-	ethClient      eth.Client
-	logBroadcaster log.Broadcaster
-	cfg            Config
+	db              *gorm.DB
+	ethKeyStore     *keystore.Eth
+	jobORM          job.ORM
+	pipelineORM     pipeline.ORM
+	pipelineRunner  pipeline.Runner
+	chainCollection evm.ChainCollection
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
 // NewDelegate constructs a new delegate
 func NewDelegate(
-	txm transmitter,
 	ethKeyStore *keystore.Eth,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *gorm.DB,
-	ethClient eth.Client,
-	logBroadcaster log.Broadcaster,
-	cfg Config,
+	chainCollection evm.ChainCollection,
 ) *Delegate {
 	return &Delegate{
 		db,
-		txm,
 		ethKeyStore,
 		jobORM,
 		pipelineORM,
 		pipelineRunner,
-		ethClient,
-		logBroadcaster,
-		cfg,
+		chainCollection,
 	}
 }
 
@@ -64,20 +54,24 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	if spec.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", spec)
 	}
-
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, d.cfg.FMDefaultTransactionQueueDepth)
+	// TODO: Fix with https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
+	chain, err := d.chainCollection.Default()
+	if err != nil {
+		return nil, err
+	}
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
 
 	fm, err := NewFromJobSpec(
 		spec,
 		d.db,
-		NewORM(d.db, d.txm, strategy),
+		NewORM(d.db, chain.TxManager(), strategy),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),
-		d.ethClient,
-		d.logBroadcaster,
+		chain.Client(),
+		chain.LogBroadcaster(),
 		d.pipelineRunner,
-		d.cfg,
+		chain.Config(),
 	)
 	if err != nil {
 		return nil, err

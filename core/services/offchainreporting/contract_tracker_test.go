@@ -8,10 +8,12 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
@@ -46,12 +48,12 @@ type contractTrackerUni struct {
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
-	var chain *chains.Chain
+	var chain evmtypes.Chain
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
 	for _, opt := range opts {
 		switch v := opt.(type) {
-		case *chains.Chain:
+		case evmtypes.Chain:
 			chain = v
 		case *offchainaggregator.OffchainAggregatorFilterer:
 			filterer = v
@@ -60,9 +62,6 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		default:
 			t.Fatalf("unrecognised option type %T", v)
 		}
-	}
-	if chain == nil {
-		chain = chains.EthMainnet
 	}
 	if filterer == nil {
 		filterer = mustNewFilterer(t, cltest.NewAddress())
@@ -105,7 +104,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
 
 	t.Run("on L2 chains, always returns 0", func(t *testing.T) {
-		uni := newContractTrackerUni(t, chains.OptimismMainnet)
+		uni := newContractTrackerUni(t, evmtest.ChainOptimismMainnet())
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
 

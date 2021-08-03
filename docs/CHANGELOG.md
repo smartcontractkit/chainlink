@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### New env vars
+
+`BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - controls global override for the time after which node will start logging warnings if no heads are received.
+`EVM_DISABLED` - will prevent any chains from being loaded at all, and any jobs that interact with the EVM cannot be created/loaded/run. Distinct from `ETHEREUM_DISABLED` which continue to work as before and will load chains, but will not connect to any nodes and still allows you to create jobs.
+`ETH_DEFAULT_BATCH_SIZE` - EvmDefaultBatchSize controls the number of receipts fetched in each request in the EvmConfirmer
+`CLOBBER_NODES_FROM_ENV` - Defaulting to true, this env var when set will autocreate database rows for chain and nodes. It will upsert a new chain using the DefaultChainID and upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS. It is recommended, after the initial population, to set this env var to false and thereafter to use the CLI commands or API to manage chains/nodes.
+
+#### Multichain support added
+
+Chainlink now supports multiple chains.
+
+TODO: Write a bunch more documentation here
+
+#### Legacy pipeline removed
+
 **Legacy job pipeline (JSON specs) are no longer supported**
 
 This version will refuse to migrate the database if job specs are still present. You must manually delete or migrate all V1 job specs before upgrading.

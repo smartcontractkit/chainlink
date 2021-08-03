@@ -59,12 +59,12 @@ func NewBigI(i int64) *Big {
 }
 
 // MarshalText marshals this instance to base 10 number as string.
-func (b *Big) MarshalText() ([]byte, error) {
-	return []byte((*big.Int)(b).Text(base10)), nil
+func (b Big) MarshalText() ([]byte, error) {
+	return []byte((*big.Int)(&b).Text(base10)), nil
 }
 
 // MarshalJSON marshals this instance to base 10 number as string.
-func (b *Big) MarshalJSON() ([]byte, error) {
+func (b Big) MarshalJSON() ([]byte, error) {
 	text, err := b.MarshalText()
 	if err != nil {
 		return nil, err
@@ -143,6 +143,14 @@ func (b *Big) String() string {
 // Hex returns the hex encoding of b.
 func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
+}
+
+func (b *Big) Cmp(c *Big) int {
+	return b.ToInt().Cmp(c.ToInt())
+}
+
+func (b *Big) Equal(c *Big) bool {
+	return b.Cmp(c) == 0
 }
 
 // BigIntSlice attaches the methods of sort.Interface to []*big.Int, sorting in increasing order.

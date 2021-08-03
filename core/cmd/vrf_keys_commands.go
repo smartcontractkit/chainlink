@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"go.uber.org/multierr"
 
@@ -255,8 +254,7 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}

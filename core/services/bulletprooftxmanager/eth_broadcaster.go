@@ -47,6 +47,7 @@ type EthBroadcaster struct {
 	logger         *logger.Logger
 	db             *gorm.DB
 	ethClient      eth.Client
+	chainID        big.Int
 	config         Config
 	keystore       KeyStore
 	advisoryLocker postgres.AdvisoryLocker
@@ -80,6 +81,7 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 		logger:           logger,
 		db:               db,
 		ethClient:        ethClient,
+		chainID:          *ethClient.ChainID(),
 		config:           config,
 		keystore:         keystore,
 		advisoryLocker:   advisoryLocker,
@@ -162,7 +164,11 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	defer eb.wg.Done()
 	for {
 		select {
-		case ev := <-eb.ethTxInsertListener.Events():
+		case ev, ok := <-eb.ethTxInsertListener.Events():
+			if !ok {
+				eb.logger.Debug("EthBroadcaster: ethTxInsertListener channel closed, exiting trigger loop")
+				return
+			}
 			hexAddr := ev.Payload
 			address := gethCommon.HexToAddress(hexAddr)
 			eb.Trigger(address)
@@ -226,12 +232,12 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
-			nUnconfirmed, err := CountUnconfirmedTransactions(eb.db, fromAddress)
+			nUnconfirmed, err := CountUnconfirmedTransactions(eb.db, fromAddress, eb.chainID)
 			if err != nil {
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				nUnstarted, err := CountUnstartedTransactions(eb.db, fromAddress)
+				nUnstarted, err := CountUnstartedTransactions(eb.db, fromAddress, eb.chainID)
 				if err != nil {
 					return errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
@@ -252,7 +258,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to estimate gas")
 		}
-		a, err := newAttempt(eb.ethClient, eb.keystore, eb.config.ChainID(), *etx, gasPrice, gasLimit)
+		a, err := newAttempt(eb.ethClient, eb.keystore, eb.chainID, *etx, gasPrice, gasLimit)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -418,7 +424,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 // Returns nil if no transactions are in queue
 func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*EthTx, error) {
 	etx := &EthTx{}
-	if err := findNextUnstartedTransactionFromAddress(eb.db, etx, fromAddress); err != nil {
+	if err := findNextUnstartedTransactionFromAddress(eb.db, etx, fromAddress, eb.chainID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Finish. No more transactions left to process. Hoorah!
 			return nil, nil
@@ -463,9 +469,9 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *EthTx, fromAddress gethCommon.Address) error {
+func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *EthTx, fromAddress gethCommon.Address, chainID big.Int) error {
 	return db.
-		Where("from_address = ? AND state = 'unstarted'", fromAddress).
+		Where("from_address = ? AND state = 'unstarted' AND evm_chain_id = ?", fromAddress, chainID.String()).
 		Order("value ASC, created_at ASC, id ASC").
 		First(etx).
 		Error
@@ -528,7 +534,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
-	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.config.ChainID(), etx, newGasPrice, newGasLimit)
+	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.chainID, etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
@@ -558,6 +564,7 @@ func saveFatallyErroredTransaction(db *gorm.DB, etx *EthTx) error {
 
 // GetNextNonce returns keys.next_nonce for the given address
 func GetNextNonce(db *gorm.DB, address gethCommon.Address) (int64, error) {
+	// FIXME: Needs to be chain-scoped
 	var nonce int64
 	row := db.Raw("SELECT next_nonce FROM keys WHERE address = ?", address).Row()
 	if err := row.Scan(&nonce); err != nil {
@@ -568,6 +575,7 @@ func GetNextNonce(db *gorm.DB, address gethCommon.Address) (int64, error) {
 
 // IncrementNextNonce increments keys.next_nonce by 1
 func IncrementNextNonce(db *gorm.DB, address gethCommon.Address, currentNonce int64) error {
+	// FIXME: Needs to be chain-scoped
 	res := db.Exec("UPDATE keys SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = ? AND next_nonce = ?", address.Bytes(), currentNonce)
 	if res.Error != nil {
 		return errors.Wrap(res.Error, "IncrementNextNonce failed to update keys")

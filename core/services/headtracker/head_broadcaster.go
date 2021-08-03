@@ -84,6 +84,9 @@ func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head models.He
 // Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
 func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
+	if callback == nil {
+		panic("callback must be non-nil func")
+	}
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
 	currentLongestChain = hr.latest

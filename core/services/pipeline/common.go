@@ -47,9 +47,6 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		EvmGasLimitDefault() uint64
-		EvmMaxQueuedTransactions() uint64
-		MinRequiredOutgoingConfirmations() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration

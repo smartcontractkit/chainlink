@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink
 
 go 1.16
 
+// replace github.com/ethereum/go-ethereum => /Users/sam/code/smartcontractkit/go-ethereum
+
 require (
 	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
@@ -39,7 +41,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.14.0
 	github.com/pelletier/go-toml v1.9.3
-	github.com/peterh/liner v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rivo/uniseg v0.2.0 // indirect
@@ -50,7 +51,7 @@ require (
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20210803133922-ddddd3dce7e5
-	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
+	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.3.2
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0

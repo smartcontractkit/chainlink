@@ -1,12 +1,14 @@
 package web
 
 import (
+	"math/big"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type ReplayController struct {
@@ -17,7 +19,6 @@ type ReplayController struct {
 // Example:
 //  "<application>/v2/replay_from_block/:number"
 func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
-
 	if c.Param("number") == "" {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))
 		return
@@ -32,19 +33,42 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("block number cannot be negative: %v", blockNumber))
 		return
 	}
-	if err := bdc.App.ReplayFromBlock(uint64(blockNumber)); err != nil {
+	var chainID *big.Int
+	if bdc.App.GetChainCollection().ChainCount() > 1 {
+		if c.Param("evmChainID") == "" {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("more than one chain available, you must specify evmChainID parameter"))
+			return
+		}
+		var ok bool
+		chainID, ok = big.NewInt(0).SetString(c.Param("evmChainID"), 10)
+		if !ok {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("invalid evmChainID"))
+			return
+		}
+	} else {
+		chain, err := bdc.App.GetChainCollection().Default()
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		chainID = chain.ID()
+	}
+
+	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber)); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	response := ReplayResponse{
-		Message: "Replay started",
+		Message:    "Replay started",
+		EVMChainID: utils.NewBig(chainID),
 	}
 	jsonAPIResponse(c, &response, "response")
 }
 
 type ReplayResponse struct {
-	Message string `json:"message"`
+	Message    string     `json:"message"`
+	EVMChainID *utils.Big `json:"evmChainID"`
 }
 
 // GetID returns the jsonapi ID.

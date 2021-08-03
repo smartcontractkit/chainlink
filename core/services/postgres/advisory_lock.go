@@ -141,6 +141,10 @@ func (lock *postgresAdvisoryLock) WithAdvisoryLock(ctx context.Context, classID 
 
 var _ AdvisoryLocker = &NullAdvisoryLocker{}
 
+func NewNullAdvisoryLocker() *NullAdvisoryLocker {
+	return &NullAdvisoryLocker{}
+}
+
 type NullAdvisoryLocker struct {
 	mu     sync.Mutex
 	closed bool

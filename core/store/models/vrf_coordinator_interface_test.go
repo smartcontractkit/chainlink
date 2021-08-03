@@ -19,7 +19,7 @@ var (
 	jobID     = common.BytesToHash([]byte("1234567890abcdef1234567890abcdef"))
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
-	fee       = assets.NewLink(100)
+	fee       = assets.NewLinkFromJuels(100)
 	requestID = common.HexToHash("0xcafe")
 	raw       = models.RawRandomnessRequestLog{
 		KeyHash:   keyHash,
