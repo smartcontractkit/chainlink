@@ -413,20 +413,6 @@ func (lsn *listener) handleLog(lb log.Broadcast, minConfs uint32) {
 		return
 	}
 
-	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
-	if err != nil {
-		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-		if !lsn.shouldProcessLog(lb) {
-			return
-		}
-		// If seedAndBlockNumber is zero then the response has been fulfilled
-		// and we should skip it
-		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
-		lsn.markLogAsConsumed(lb)
-		return
-	}
 	confirmedAt := lsn.getConfirmedAt(req, minConfs)
 	lsn.reqsMu.Lock()
 	lsn.reqs = append(lsn.reqs, request{
@@ -486,6 +472,28 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 	if !lsn.shouldProcessLog(lb) {
 		return
 	}
+
+	// Check if the vrf req has already been fulfilled
+	// Note we have to do this after the log has been confirmed.
+	// If not, the following problematic (example) scenario can arise:
+	// 1. Request log comes in block 100
+	// 2. Fulfill the request in block 110
+	// 3. Reorg both request and fulfillment, now request lives at
+	// block 101 and fulfillment lives at block 115
+	// 4. The eth node sees the request reorg and tells us about it. We do our fulfillment
+	// check and the node says its already fulfilled (hasn't seen the fulfillment reorged yet),
+	// so we don't process the request.
+	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// If seedAndBlockNumber is zero then the response has been fulfilled
+		// and we should skip it
+		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+
 	s := time.Now()
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
