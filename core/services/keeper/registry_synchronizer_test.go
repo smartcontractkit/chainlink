@@ -51,7 +51,7 @@ func setupRegistrySync(t *testing.T) (
 ) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethMock := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	lbMock := new(logmocks.Broadcaster)
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg, cleanup := cltest.NewConfig(t)
@@ -60,7 +60,7 @@ func setupRegistrySync(t *testing.T) (
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
-		ethMock,
+		ethClient,
 	)
 	require.NoError(t, err)
 

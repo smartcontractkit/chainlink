@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -36,6 +36,7 @@ func TestSubscriptionListenToLogs(t *testing.T) {
 	done := make(chan struct{})
 	err := make(chan error)
 	ethClient := new(mocks.Client)
+	ethClient.Test(t)
 	callbackCalled := make(chan struct{})
 	s := InitiatorSubscription{
 		done:          done,

@@ -336,9 +336,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 
-			ethClient := new(mocks.Client)
-
-			sub := new(mocks.Subscription)
+			ethClient, sub := NewEthClientAndSubMock(t)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config,
 				ethClient,
 			)
@@ -891,7 +889,7 @@ func TestRunManager_NewRun(t *testing.T) {
 	assert.Len(t, job.Tasks, 1)
 
 	t.Run("creates a run with a block height and all adapters", func(t *testing.T) {
-		run, adapters := services.NewRun(&job, &job.Initiators[0], big.NewInt(0), &models.RunRequest{}, store.Config, store.ORM, new(mocks.Client), now)
+		run, adapters := services.NewRun(&job, &job.Initiators[0], big.NewInt(0), &models.RunRequest{}, store.Config, store.ORM, NewEthClientMock(t), now)
 		assert.NotNil(t, run.ID)
 		assert.NotNil(t, run.JobSpecID)
 		assert.Equal(t, run.GetStatus(), models.RunStatusInProgress)
@@ -903,7 +901,7 @@ func TestRunManager_NewRun(t *testing.T) {
 	})
 
 	t.Run("with no block height creates a run with all adapters", func(t *testing.T) {
-		run, adapters := services.NewRun(&job, &job.Initiators[0], nil, &models.RunRequest{}, store.Config, store.ORM, new(mocks.Client), now)
+		run, adapters := services.NewRun(&job, &job.Initiators[0], nil, &models.RunRequest{}, store.Config, store.ORM, NewEthClientMock(t), now)
 		assert.NotNil(t, run.ID)
 		assert.NotNil(t, run.JobSpecID)
 		assert.Equal(t, run.GetStatus(), models.RunStatusInProgress)

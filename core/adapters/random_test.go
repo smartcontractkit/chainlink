@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -76,7 +75,7 @@ func TestRandom_Perform_CheckFulfillment(t *testing.T) {
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
 
-	ethMock := new(mocks.Client)
+	ethMock := cltest.NewEthClientMock(t)
 
 	publicKey := cltest.StoredVRFKey(t, keyStore.VRF())
 	address := cltest.NewEIP55Address()

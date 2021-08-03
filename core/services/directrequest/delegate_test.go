@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -28,7 +27,7 @@ import (
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
@@ -65,7 +64,7 @@ type DirectRequestUniverse struct {
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *DirectRequestUniverse {
-	gethClient := new(mocks.Client)
+	gethClient := cltest.NewEthClientMock(t)
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 

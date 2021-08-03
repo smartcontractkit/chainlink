@@ -29,7 +29,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethClient := new(mocks.Client)
+	ethClient := NewEthClientMock(t)
 	defer ethClient.AssertExpectations(t)
 
 	job := cltest.NewJobWithLogInitiator()
@@ -62,7 +62,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethClient := new(mocks.Client)
+	ethClient := NewEthClientMock(t)
 	defer ethClient.AssertExpectations(t)
 
 	job := cltest.NewJobWithLogInitiator()
@@ -109,7 +109,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ethClient := new(mocks.Client)
+	ethClient := NewEthClientMock(t)
 	defer ethClient.AssertExpectations(t)
 
 	job := cltest.NewJobWithLogInitiator()
@@ -384,7 +384,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			ethClient := new(mocks.Client)
+			ethClient := NewEthClientMock(t)
 			defer ethClient.AssertExpectations(t)
 
 			store.Config.Set(config.EnvVarName("ReplayFromBlock"), 10)
@@ -445,7 +445,7 @@ func TestServices_NewInitiatorSubscription_EthLog_NilHead(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			ethClient := new(mocks.Client)
+			ethClient := NewEthClientMock(t)
 			defer ethClient.AssertExpectations(t)
 
 			store.Config.Set(config.EnvVarName("BlockBackfillDepth"), 20)
@@ -504,7 +504,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			ethClient := new(mocks.Client)
+			ethClient := NewEthClientMock(t)
 
 			currentHead := cltest.Head(test.currentHead)
 

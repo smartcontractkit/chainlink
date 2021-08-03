@@ -54,7 +54,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()

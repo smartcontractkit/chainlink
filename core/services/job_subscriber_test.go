@@ -25,7 +25,8 @@ func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager, new(mocks.Client))
+	ethClient := NewEthClientMock(t)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, ethClient)
 	defer jobSubscriber.Close()
 
 	wg := sync.WaitGroup{}
@@ -127,7 +128,8 @@ func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager, new(mocks.Client))
+	ethClient := NewEthClientMock(t)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, ethClient)
 	defer jobSubscriber.Close()
 
 	job := models.JobSpec{}
@@ -142,7 +144,8 @@ func TestJobSubscriber_RemoveJob_NotFoundError(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager, new(mocks.Client))
+	ethClient := NewEthClientMock(t)
+	jobSubscriber := services.NewJobSubscriber(store, runManager, ethClient)
 	defer jobSubscriber.Close()
 
 	err := jobSubscriber.RemoveJob(models.NewJobID())
@@ -156,7 +159,7 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	ethClient := new(mocks.Client)
+	ethClient := NewEthClientMock(t)
 	defer ethClient.AssertExpectations(t)
 	jobSubscriber := services.NewJobSubscriber(store, runManager, ethClient)
 

@@ -287,7 +287,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	config := new(bptxmmocks.Config)
 	kst := new(ksmocks.EthKeyStoreInterface)
 	advisoryLocker := &postgres.NullAdvisoryLocker{}

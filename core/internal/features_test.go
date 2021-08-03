@@ -1169,10 +1169,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 }
 
 func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
-	ethClient := new(mocks.Client)
-
-	sub := new(mocks.Subscription)
-
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	config.Set("ETH_FINALITY_DEPTH", 3)
@@ -1300,9 +1297,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
-	ethClient := new(mocks.Client)
-
-	sub := new(mocks.Subscription)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 
 	cfg, cleanup := cltest.NewConfig(t)
 	cfg.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
@@ -1449,10 +1444,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 func TestIntegration_MultiwordV1(t *testing.T) {
 	t.Parallel()
 
-	ethClient := new(mocks.Client)
-
-	sub := new(mocks.Subscription)
-
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	cfg.Set("ENABLE_LEGACY_JOB_PIPELINE", true)

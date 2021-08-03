@@ -202,7 +202,7 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 
 	rr := models.NewRunRequest(models.JSON{})
 	currentHeight := big.NewInt(0)
-	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, new(mocks.Client), time.Now())
+	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, cltest.NewEthClientMock(t), time.Now())
 	require.NoError(t, store.CreateJobRun(run))
 
 	requestCount, err := store.ORM.CountOf(&models.RunRequest{})
@@ -220,7 +220,7 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 		require.NoError(t, store.CreateJob(&job))
 		rr := models.NewRunRequest(models.JSON{})
 		currentHeight := big.NewInt(0)
-		run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, new(mocks.Client), time.Now())
+		run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, cltest.NewEthClientMock(t), time.Now())
 		require.NoError(t, store.CreateJobRun(run))
 		run.TaskRuns = []models.TaskRun{}
 
@@ -231,7 +231,7 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 	rr := models.NewRunRequest(models.JSON{})
 	currentHeight := big.NewInt(0)
-	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, new(mocks.Client), time.Now())
+	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, cltest.NewEthClientMock(t), time.Now())
 	require.NoError(t, store.CreateJobRun(run))
 
 	t.Run("if no results exist already, inserts them", func(t *testing.T) {
@@ -856,7 +856,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	executor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
+	executor := services.NewRunExecutor(store, cltest.NewEthClientMock(t), keyStore, pusher)
 	require.NoError(t, executor.Execute(run.ID))
 
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
