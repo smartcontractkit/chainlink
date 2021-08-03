@@ -233,7 +233,9 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 				Val: map[string]interface{}{"eth_tx_id": etx.ID},
 			},
 			Errors:     runErrors,
-			Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
+			Outputs:    pipeline.JSONSerializable{Val: []interface{}{
+				fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload)),
+			}},
 			CreatedAt:  start,
 			FinishedAt: null.TimeFrom(f),
 		}, nil, false)
