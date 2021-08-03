@@ -128,7 +128,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 	// Insert bridge
 	_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -185,7 +185,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		RequestData: ethUSDPairing,
 		Async:       "true",
 	}
-	task.HelperSetDependencies(store.Config, store.DB, id)
+	task.HelperSetDependencies(store.Config, store.Sqlx(), id)
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -359,7 +359,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 				RequestData:       test.requestData,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -421,7 +421,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t)
 	bridge.URL = *feedWebURL
@@ -465,7 +465,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 			// Insert bridge
 			feedURL, err := url.ParseRequestURI(s1.URL)
@@ -518,7 +518,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -553,7 +553,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
@@ -575,7 +575,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Nil(t, result.Value)

@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/jmoiron/sqlx/reflectx"
 	"github.com/pkg/errors"
-	"github.com/scylladb/go-reflectx"
+	mapper "github.com/scylladb/go-reflectx"
 	"gorm.io/gorm"
 )
 
@@ -96,8 +97,21 @@ func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
 
 func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
 	db := sqlx.NewDb(rdb, "postgres")
-	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	db.MapperFunc(mapper.CamelToSnakeASCII)
 	return db
+}
+
+func WrapTx(tx *sql.Tx) *sqlx.Tx {
+	mapper := reflectx.NewMapperFunc("db", mapper.CamelToSnakeASCII)
+	return &sqlx.Tx{Tx: tx, Mapper: mapper}
+}
+
+func WrapGorm(db *gorm.DB) *sqlx.DB {
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic(err)
+	}
+	return WrapDbWithSqlx(sqlDB)
 }
 
 func SqlxTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {

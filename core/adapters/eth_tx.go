@@ -175,7 +175,12 @@ func (e *EthTx) insertEthTx(
 		gasLimit = e.GasLimit
 	}
 
-	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(store.DB, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
+	db, err := store.DB.DB()
+	if err != nil {
+		return models.NewRunOutputError(err)
+	}
+
+	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
 		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", static.EthMaxQueuedTransactionsLabel)
 		logger.Error(err)
 		return models.NewRunOutputError(err)

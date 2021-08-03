@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -149,5 +150,7 @@ func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistra
 	from := upkeep.Registry.FromAddress.Address()
 	to := upkeep.Registry.ContractAddress.Address()
 	gasLimit := upkeep.ExecuteGas + korm.config.KeeperRegistryPerformGasOverhead()
-	return korm.txm.CreateEthTransaction(tx, from, to, payload, gasLimit, nil, korm.strategy)
+
+	sqlxTx := postgres.WrapTx(tx.Statement.ConnPool.(*sql.Tx))
+	return korm.txm.CreateEthTransaction(sqlxTx, from, to, payload, gasLimit, nil, korm.strategy)
 }

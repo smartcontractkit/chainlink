@@ -5,8 +5,6 @@ package mocks
 import (
 	common "github.com/ethereum/go-ethereum/common"
 	fluxmonitorv2 "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	gorm "gorm.io/gorm"
-
 	mock "github.com/stretchr/testify/mock"
 
 	sqlx "github.com/jmoiron/sqlx"
@@ -17,13 +15,13 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateEthTransaction provides a mock function with given fields: db, fromAddress, toAddress, payload, gasLimit
-func (_m *ORM) CreateEthTransaction(db *gorm.DB, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64) error {
-	ret := _m.Called(db, fromAddress, toAddress, payload, gasLimit)
+// CreateEthTransaction provides a mock function with given fields: tx, fromAddress, toAddress, payload, gasLimit
+func (_m *ORM) CreateEthTransaction(tx *sqlx.Tx, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64) error {
+	ret := _m.Called(tx, fromAddress, toAddress, payload, gasLimit)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*gorm.DB, common.Address, common.Address, []byte, uint64) error); ok {
-		r0 = rf(db, fromAddress, toAddress, payload, gasLimit)
+	if rf, ok := ret.Get(0).(func(*sqlx.Tx, common.Address, common.Address, []byte, uint64) error); ok {
+		r0 = rf(tx, fromAddress, toAddress, payload, gasLimit)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -88,11 +86,11 @@ func (_m *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, 
 }
 
 // UpdateFluxMonitorRoundStats provides a mock function with given fields: tx, aggregator, roundID, runID
-func (_m *ORM) UpdateFluxMonitorRoundStats(tx sqlx.Execer, aggregator common.Address, roundID uint32, runID int64) error {
+func (_m *ORM) UpdateFluxMonitorRoundStats(tx *sqlx.Tx, aggregator common.Address, roundID uint32, runID int64) error {
 	ret := _m.Called(tx, aggregator, roundID, runID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(sqlx.Execer, common.Address, uint32, int64) error); ok {
+	if rf, ok := ret.Get(0).(func(*sqlx.Tx, common.Address, uint32, int64) error); ok {
 		r0 = rf(tx, aggregator, roundID, runID)
 	} else {
 		r0 = ret.Error(0)

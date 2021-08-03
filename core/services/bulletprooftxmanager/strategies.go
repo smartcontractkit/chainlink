@@ -1,8 +1,8 @@
 package bulletprooftxmanager
 
 import (
+	"github.com/jmoiron/sqlx"
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -11,7 +11,7 @@ type TxStrategy interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
-	PruneQueue(tx *gorm.DB) (n int64, err error)
+	PruneQueue(tx *sqlx.Tx) (n int64, err error)
 }
 
 var _ TxStrategy = SendEveryStrategy{}
@@ -29,7 +29,7 @@ func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy TxStra
 type SendEveryStrategy struct{}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID             { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(*gorm.DB) (int64, error) { return 0, nil }
+func (SendEveryStrategy) PruneQueue(*sqlx.Tx) (int64, error) { return 0, nil }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -48,18 +48,22 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(tx *gorm.DB) (n int64, err error) {
-	res := tx.Exec(`
+func (s DropOldestStrategy) PruneQueue(tx *sqlx.Tx) (n int64, err error) {
+	res, err := tx.Exec(`
 DELETE FROM eth_txes
 WHERE state = 'unstarted' AND subject = ? AND
 id < (
 	SELECT min(id) FROM (
 		SELECT id
 		FROM eth_txes
-		WHERE state = 'unstarted' AND subject = ?
+		WHERE state = 'unstarted' AND subject = $1
 		ORDER BY id DESC
-		LIMIT ?
+		LIMIT $2
 	) numbers
 )`, s.subject, s.subject, s.queueSize)
-	return res.RowsAffected, res.Error
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }

@@ -9,7 +9,7 @@ import (
 )
 
 type transmitter interface {
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -19,8 +19,8 @@ type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
-	UpdateFluxMonitorRoundStats(tx sqlx.Execer, aggregator common.Address, roundID uint32, runID int64) error
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
+	UpdateFluxMonitorRoundStats(tx *sqlx.Tx, aggregator common.Address, roundID uint32, runID int64) error
+	CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
 }
 
 type orm struct {
@@ -73,7 +73,7 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (o *orm) UpdateFluxMonitorRoundStats(tx sqlx.Execer, aggregator common.Address, roundID uint32, runID int64) error {
+func (o *orm) UpdateFluxMonitorRoundStats(tx *sqlx.Tx, aggregator common.Address, roundID uint32, runID int64) error {
 	_, err := tx.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
@@ -97,12 +97,12 @@ func (o *orm) CountFluxMonitorRoundStats() (int, error) {
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
 func (o *orm) CreateEthTransaction(
-	db *gorm.DB,
+	tx *sqlx.Tx,
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
 	gasLimit uint64,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, o.strategy)
+	_, err = o.txm.CreateEthTransaction(tx, fromAddress, toAddress, payload, gasLimit, nil, o.strategy)
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }

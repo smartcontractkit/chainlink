@@ -1028,14 +1028,14 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 }
 
 func (fm *FluxMonitor) queueTransactionForBPTXM(
-	tx sqlx.Execer,
+	tx *sqlx.Tx,
 	runID int64,
 	answer decimal.Decimal,
 	roundID uint32,
 ) error {
 	// Submit the Eth Tx
 	err := fm.contractSubmitter.Submit(
-		nil, // TODO:
+		tx,
 		new(big.Int).SetInt64(int64(roundID)),
 		answer.BigInt(),
 	)

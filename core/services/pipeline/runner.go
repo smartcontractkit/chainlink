@@ -220,6 +220,12 @@ func (r *runner) run(
 		return nil, err
 	}
 
+	db, err := r.orm.DB().DB()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to retrieve sql.DB")
+	}
+	sdb := postgres.WrapDbWithSqlx(db)
+
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
 		switch task.Type() {
@@ -227,14 +233,14 @@ func (r *runner) run(
 			task.(*HTTPTask).config = r.config
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).db = r.orm.DB()
+			task.(*BridgeTask).db = sdb
 			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeETHTx:
-			task.(*ETHTxTask).db = r.orm.DB()
+			task.(*ETHTxTask).db = sdb
 			task.(*ETHTxTask).config = r.config
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).txManager = r.txManager

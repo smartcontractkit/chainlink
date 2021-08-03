@@ -6,13 +6,14 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -28,7 +29,7 @@ type ETHTxTask struct {
 	GasLimit string `json:"gasLimit"`
 	TxMeta   string `json:"txMeta"`
 
-	db        *gorm.DB
+	db        *sqlx.DB
 	config    Config
 	keyStore  ETHKeyStore
 	txManager TxManager
@@ -42,7 +43,7 @@ type ETHKeyStore interface {
 }
 
 type TxManager interface {
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -113,7 +114,12 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
 	strategy := bulletprooftxmanager.SendEveryStrategy{}
 
-	_, err = t.txManager.CreateEthTransaction(t.db, fromAddr, common.Address(toAddr), []byte(data), uint64(gasLimit), &txMeta, strategy)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	postgres.SqlxTransaction(ctx, t.db.DB, func(tx *sqlx.Tx) error {
+		_, err = t.txManager.CreateEthTransaction(tx, fromAddr, common.Address(toAddr), []byte(data), uint64(gasLimit), &txMeta, strategy)
+		return err
+	})
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}
 	}

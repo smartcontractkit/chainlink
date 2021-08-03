@@ -211,9 +211,5 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 }
 
 func (s *Store) Sqlx() *sqlx.DB {
-	db, err := s.DB.DB()
-	if err != nil {
-		panic(err)
-	}
-	return postgres.WrapDbWithSqlx(db)
+	return postgres.WrapGorm(s.DB)
 }

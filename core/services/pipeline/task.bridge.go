@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -27,7 +27,7 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 
-	db     *gorm.DB
+	db     *sqlx.DB
 	config Config
 	id     uuid.UUID
 }
@@ -146,12 +146,12 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	var bt models.BridgeType
-	err := t.db.First(&bt, "name = ?", string(name)).Error
+	var url models.WebURL
+	err := t.db.Get(url, `SELECT url FROM bridge_types WHERE name = $1 LIMIT 1`)
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
-	return URLParam(bt.URL), nil
+	return URLParam(url), nil
 }
 
 func withMeta(request MapParam, meta MapParam) MapParam {
