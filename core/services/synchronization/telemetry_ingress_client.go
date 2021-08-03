@@ -60,8 +60,6 @@ type telemetryIngressClient struct {
 	wsrpcClient telemPb.TelemClient
 	logging     bool
 
-	mu               *sync.RWMutex
-	isReady          bool
 	wgDone           sync.WaitGroup
 	chDone           chan struct{}
 	dropMessageCount uint32
@@ -84,7 +82,6 @@ func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, wsrpcDial W
 		newTelemClient:  newTelemClient,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
-		mu:              new(sync.RWMutex),
 		chTelemetry:     make(chan TelemPayload, SendIngressBufferSize),
 		chDone:          make(chan struct{}),
 	}
@@ -130,14 +127,10 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		// Initialize a new wsrpc client caller
 		// This is used to call RPC methods on the server
-		tc.mu.Lock()
 		tc.wsrpcClient = tc.newTelemClient(conn)
 
 		// Start handler for telemetry
 		tc.handleTelemetry()
-
-		tc.isReady = true
-		tc.mu.Unlock()
 
 		// Wait for close
 		<-tc.chDone
@@ -209,14 +202,6 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 // Also stores telemetry in a small buffer in case of backpressure from wsrpc,
 // throwing away messages once buffer is full
 func (tc *telemetryIngressClient) Send(payload TelemPayload) {
-	tc.mu.RLock()
-	defer tc.mu.RUnlock()
-
-	if !tc.isReady {
-		logger.Error("Could not send telemetry, client is not ready")
-		return
-	}
-
 	select {
 	case tc.chTelemetry <- payload:
 		atomic.StoreUint32(&tc.dropMessageCount, 0)
