@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 )
 
+//go:generate mockery --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
+
 // SendIngressBufferSize is the number of messages to keep in the buffer before dropping additional ones
 const SendIngressBufferSize = 100
 
@@ -28,36 +30,25 @@ type TelemetryIngressClient interface {
 	Start() error
 	Close() error
 	Send(TelemPayload)
-}
-
-//go:generate mockery --name NewTelemClient --output ./mocks/ --case=underscore --structname NewTelemClient
-type NewTelemClient func(wsrpc.ClientInterface) telemPb.TelemClient
-
-//go:generate mockery --name WsrpcDial --output ./mocks/ --case=underscore --structname WsrpcDial
-type WsrpcDial func(string, ...wsrpc.DialOption) (*wsrpc.ClientConn, error)
-
-//go:generate mockery --name TelemClient --output ./mocks/ --case=underscore --structname TelemClient
-type TelemClient interface {
-	Telem(ctx context.Context, in *telemPb.TelemRequest) (*telemPb.TelemResponse, error)
+	Unsafe_SetTelemClient(telemPb.TelemClient) bool
 }
 
 type NoopTelemetryIngressClient struct{}
 
-func (NoopTelemetryIngressClient) Start() error      { return nil }
-func (NoopTelemetryIngressClient) Close() error      { return nil }
-func (NoopTelemetryIngressClient) Send(TelemPayload) {}
-func (NoopTelemetryIngressClient) Healthy() error    { return nil }
-func (NoopTelemetryIngressClient) Ready() error      { return nil }
+func (NoopTelemetryIngressClient) Start() error                                   { return nil }
+func (NoopTelemetryIngressClient) Close() error                                   { return nil }
+func (NoopTelemetryIngressClient) Send(TelemPayload)                              {}
+func (NoopTelemetryIngressClient) Healthy() error                                 { return nil }
+func (NoopTelemetryIngressClient) Ready() error                                   { return nil }
+func (NoopTelemetryIngressClient) Unsafe_SetTelemClient(telemPb.TelemClient) bool { return true }
 
 type telemetryIngressClient struct {
 	utils.StartStopOnce
 	url             *url.URL
 	ks              keystore.CSAKeystoreInterface
 	serverPubKeyHex string
-	wsrpcDial       WsrpcDial
-	newTelemClient  NewTelemClient
 
-	wsrpcClient telemPb.TelemClient
+	telemClient telemPb.TelemClient
 	logging     bool
 
 	wgDone           sync.WaitGroup
@@ -74,12 +65,10 @@ type TelemPayload struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, wsrpcDial WsrpcDial, newTelemClient NewTelemClient, ks keystore.CSAKeystoreInterface, logging bool) TelemetryIngressClient {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSAKeystoreInterface, logging bool) TelemetryIngressClient {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
-		wsrpcDial:       wsrpcDial,
-		newTelemClient:  newTelemClient,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
 		chTelemetry:     make(chan TelemPayload, SendIngressBufferSize),
@@ -118,7 +107,7 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := tc.wsrpcDial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 		if err != nil {
 			logger.Errorf("Error connecting to telemetry ingress server: %v", err)
 			return
@@ -127,7 +116,7 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		// Initialize a new wsrpc client caller
 		// This is used to call RPC methods on the server
-		tc.wsrpcClient = tc.newTelemClient(conn)
+		tc.telemClient = telemPb.NewTelemClient(conn)
 
 		// Start handler for telemetry
 		tc.handleTelemetry()
@@ -145,7 +134,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 			case p := <-tc.chTelemetry:
 				// Send telemetry to the ingress server, log any errors
 				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractAddress.String()}
-				_, err := tc.wsrpcClient.Telem(p.Ctx, telemReq)
+				_, err := tc.telemClient.Telem(p.Ctx, telemReq)
 				if err != nil {
 					logger.Errorf("Could not send telemetry: %v", err)
 					continue
@@ -210,4 +199,19 @@ func (tc *telemetryIngressClient) Send(payload TelemPayload) {
 	default:
 		tc.logBufferFullWithExpBackoff(payload)
 	}
+}
+
+// Unsafe_SetTelemClient sets the TelemClient on the service.
+//
+// We need to be able to inject a mock for the client to facilitate integration
+// tests.
+//
+// ONLY TO BE USED FOR TESTING.
+func (tc *telemetryIngressClient) Unsafe_SetTelemClient(client telemPb.TelemClient) bool {
+	if tc.telemClient == nil {
+		return false
+	}
+
+	tc.telemClient = client
+	return true
 }
