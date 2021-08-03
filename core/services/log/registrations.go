@@ -1,7 +1,6 @@
 package log
 
 import (
-	"math"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +36,6 @@ type (
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
-		lowestNumConfirmations  uint64
 	}
 
 	subscribers struct {
@@ -63,10 +61,6 @@ func newRegistrations() *registrations {
 	return &registrations{
 		subscribers: make(map[uint64]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
-
-		// a high value for lowestNumConfirmations is set until first subscriber,
-		// to avoid a special case in comparison to its NumConfirmations
-		lowestNumConfirmations: uint64(math.MaxUint64),
 	}
 }
 
@@ -80,7 +74,11 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 
 	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
 
-	r.maybeUpdateNumConfirmationsRange(reg.opts.NumConfirmations)
+	// increase the variable for highest number of confirmations among all subscribers,
+	// if the new subscriber has a higher value
+	if reg.opts.NumConfirmations > r.highestNumConfirmations {
+		r.highestNumConfirmations = reg.opts.NumConfirmations
+	}
 	return
 }
 
@@ -94,47 +92,21 @@ func (r *registrations) removeSubscriber(reg registration) (needsResubscribe boo
 
 	if len(r.subscribers[reg.opts.NumConfirmations].handlers) == 0 {
 		delete(r.subscribers, reg.opts.NumConfirmations)
-		r.resetNumConfirmationsRange()
+		r.resetHighestNumConfirmationsValue()
 	}
 	return
 }
 
-// maybe update the numbers tracking highest and lowest num confirmations
-func (r *registrations) maybeUpdateNumConfirmationsRange(newNumConfirmations uint64) {
-	if newNumConfirmations > r.highestNumConfirmations {
-		r.highestNumConfirmations = newNumConfirmations
-	}
-	if newNumConfirmations < r.lowestNumConfirmations {
-		r.lowestNumConfirmations = newNumConfirmations
-	}
-}
-
-// reset the highest confirmation number per all current listeners
-func (r *registrations) resetHighestNumConfirmations() {
-	highestNumConfirmations := uint64(0)
-	for numConf := range r.subscribers {
-		if numConf > highestNumConfirmations {
-			highestNumConfirmations = numConf
-		}
-	}
-	r.highestNumConfirmations = highestNumConfirmations
-}
-
-// reset the numbers tracking highest and lowest num confirmations
-func (r *registrations) resetNumConfirmationsRange() {
-	lowestNumConfirmations := uint64(math.MaxUint64)
+// reset the number tracking highest num confirmations among all subscribers
+func (r *registrations) resetHighestNumConfirmationsValue() {
 	highestNumConfirmations := uint64(0)
 
 	for numConfirmations := range r.subscribers {
 		if numConfirmations > highestNumConfirmations {
 			highestNumConfirmations = numConfirmations
 		}
-		if numConfirmations < lowestNumConfirmations {
-			lowestNumConfirmations = numConfirmations
-		}
 	}
 	r.highestNumConfirmations = highestNumConfirmations
-	r.lowestNumConfirmations = lowestNumConfirmations
 }
 
 func (r *registrations) addressesAndTopics() ([]common.Address, []common.Hash) {
