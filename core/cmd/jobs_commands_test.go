@@ -34,12 +34,12 @@ func TestJobPresenter_RenderTable(t *testing.T) {
 
 	p := cmd.JobPresenter{
 		JobResource: presenters.JobResource{
-			JAID:              presenters.NewJAID(id),
-			Name:              name,
-			Type:              presenters.JobSpecType(jobSpecType),
-			SchemaVersion:     schemaVersion,
-			MaxTaskDuration:   maxTaskDuration,
-			DirectRequestSpec: nil,
+			JAID:            presenters.NewJAID(id),
+			Name:            name,
+			Type:            presenters.JobSpecType(jobSpecType),
+			SchemaVersion:   schemaVersion,
+			MaxTaskDuration: maxTaskDuration,
+			EthLogSpec:      nil,
 			FluxMonitorSpec: &presenters.FluxMonitorSpec{
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
@@ -152,8 +152,8 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 			"gets the direct request spec created at timestamp",
 			&cmd.JobPresenter{
 				JobResource: presenters.JobResource{
-					Type: presenters.DirectRequestJobSpec,
-					DirectRequestSpec: &presenters.DirectRequestSpec{
+					Type: presenters.EthLogJobSpec,
+					EthLogSpec: &presenters.EthLogSpec{
 						CreatedAt: now,
 					},
 				},
@@ -221,7 +221,7 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 			"no spec exists",
 			&cmd.JobPresenter{
 				JobResource: presenters.JobResource{
-					Type: presenters.DirectRequestJobSpec,
+					Type: presenters.EthLogJobSpec,
 				},
 			},
 			"N/A",
@@ -244,8 +244,8 @@ func TestJob_ToRows(t *testing.T) {
 		JAID: cmd.NewJAID("1"),
 		JobResource: presenters.JobResource{
 			Name: "Test Job",
-			Type: presenters.DirectRequestJobSpec,
-			DirectRequestSpec: &presenters.DirectRequestSpec{
+			Type: presenters.EthLogJobSpec,
+			EthLogSpec: &presenters.EthLogSpec{
 				CreatedAt: now,
 			},
 			PipelineSpec: presenters.PipelineSpec{
@@ -255,15 +255,15 @@ func TestJob_ToRows(t *testing.T) {
 	}
 
 	assert.Equal(t, [][]string{
-		{"1", "Test Job", "directrequest", "ds1 http", now.Format(time.RFC3339)},
-		{"1", "Test Job", "directrequest", "ds1_parse jsonparse", now.Format(time.RFC3339)},
-		{"1", "Test Job", "directrequest", "ds1_multiply multiply", now.Format(time.RFC3339)},
+		{"1", "Test Job", "ethlog", "ds1 http", now.Format(time.RFC3339)},
+		{"1", "Test Job", "ethlog", "ds1_parse jsonparse", now.Format(time.RFC3339)},
+		{"1", "Test Job", "ethlog", "ds1_multiply multiply", now.Format(time.RFC3339)},
 	}, job.ToRows())
 
 	// Produce a single row even if there is not DAG
 	job.PipelineSpec.DotDAGSource = ""
 	assert.Equal(t, [][]string{
-		{"1", "Test Job", "directrequest", "", now.Format(time.RFC3339)},
+		{"1", "Test Job", "ethlog", "", now.Format(time.RFC3339)},
 	}, job.ToRows())
 }
 

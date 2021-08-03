@@ -187,7 +187,7 @@ func TestIntegration_RunAt(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
 
-func TestIntegration_EthLog(t *testing.T) {
+func TestIntegration_EthLogV1(t *testing.T) {
 	t.Parallel()
 
 	config, cfgCleanup := cltest.NewConfig(t)
@@ -2052,7 +2052,7 @@ observationSource = """
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 }
 
-func TestIntegration_DirectRequest(t *testing.T) {
+func TestIntegration_EthLog(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 
@@ -2105,16 +2105,16 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	pipelineORM := pipeline.NewORM(store.DB)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
-	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
-	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
-	request := web.CreateJobRequest{TOML: directRequestSpec}
+	ethLogSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/eth-log-spec.toml"))
+	ethLogSpec = strings.Replace(ethLogSpec, "http://example.com", httpServer.URL, 1)
+	request := web.CreateJobRequest{TOML: ethLogSpec}
 	output, err := json.Marshal(request)
 	require.NoError(t, err)
 	job := cltest.CreateJobViaWeb(t, app, output)
 
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
-	runLog := cltest.NewRunLog(t, job.ExternalIDEncodeStringToTopic(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	runLog := cltest.NewRunLog(t, job.ExternalIDEncodeStringToTopic(), job.EthLogSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
 	runLog.BlockHash = blocks.Head(1).Hash
 	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {

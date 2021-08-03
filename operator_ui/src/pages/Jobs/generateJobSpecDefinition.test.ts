@@ -186,7 +186,7 @@ describe('generateTOMLDefinition', () => {
       type: 'offchainreporting',
       fluxMonitorSpec: null,
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      directRequestSpec: null,
+      ethLogSpec: null,
       keeperSpec: null,
       cronSpec: null,
       webhookSpec: null,
@@ -272,7 +272,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       keeperSpec: null,
       cronSpec: null,
       webhookSpec: null,
-      directRequestSpec: null,
+      ethLogSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -311,14 +311,14 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
     const jobSpecAttributesInput = {
       name: 'DR Job Spec',
       schemaVersion: 1,
-      type: 'directrequest',
+      type: 'ethlog',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
       vrfSpec: null,
       webhookSpec: null,
-      directRequestSpec: {
+      ethLogSpec: {
         initiator: 'runlog',
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
         minIncomingConfirmations: 3,
@@ -333,7 +333,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       errors: [],
     } as JobSpecV2
 
-    const expectedOutput = `type = "directrequest"
+    const expectedOutput = `type = "ethlog"
 schemaVersion = 1
 name = "DR Job Spec"
 minIncomingConfirmations = 3
@@ -368,7 +368,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       cronSpec: null,
       vrfSpec: null,
       webhookSpec: null,
-      directRequestSpec: null,
+      ethLogSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -405,7 +405,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
       webhookSpec: null,
-      directRequestSpec: null,
+      ethLogSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -446,7 +446,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
-      directRequestSpec: null,
+      ethLogSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -489,7 +489,7 @@ observationSource = """
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
-      directRequestSpec: null,
+      ethLogSpec: null,
       pipelineSpec: {
         id: '1',
         dotDagSource: '',

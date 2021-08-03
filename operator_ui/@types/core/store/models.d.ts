@@ -483,10 +483,10 @@ declare module 'core/store/models' {
     externalJobID: string
   }
 
-  export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
-    type: 'directrequest'
-    directRequestSpec: {
-      initiator: 'runlog'
+  export type EthLogJobV2Spec = BaseJobSpecV2 & {
+    type: 'ethlog'
+    ethLogSpec: {
+      // initiator: 'runlog'
       contractAddress: common.Address
       minIncomingConfirmations: number | null
       createdAt: time.Time
@@ -515,7 +515,7 @@ declare module 'core/store/models' {
     }
     cronSpec: null
     webhookSpec: null
-    directRequestSpec: null
+    ethLogSpec: null
     offChainReportingOracleSpec: null
     keeperSpec: null
     vrfSpec: null
@@ -542,7 +542,7 @@ declare module 'core/store/models' {
     cronSpec: null
     webhookSpec: null
     vrfSpec: null
-    directRequestSpec: null
+    ethLogSpec: null
     fluxMonitorSpec: null
     keeperSpec: null
   }
@@ -558,7 +558,7 @@ declare module 'core/store/models' {
     cronSpec: null
     webhookSpec: null
     vrfSpec: null
-    directRequestSpec: null
+    ethLogSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
   }
@@ -572,7 +572,7 @@ declare module 'core/store/models' {
       updatedAt: time.Time
     }
     webhookSpec: null
-    directRequestSpec: null
+    ethLogSpec: null
     vrfSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -587,7 +587,7 @@ declare module 'core/store/models' {
     }
     cronSpec: null
     vrfSpec: null
-    directRequestSpec: null
+    ethLogSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
   }
@@ -603,14 +603,14 @@ declare module 'core/store/models' {
       updatedAt: time.Time
     }
     cronSpec: null
-    directRequestSpec: null
+    ethLogSpec: null
     fluxMonitorSpec: null
     webhookSpec: null
     offChainReportingOracleSpec: null
   }
 
   export type JobSpecV2 =
-    | DirectRequestJobV2Spec
+    | EthLogJobV2Spec
     | FluxMonitorJobV2Spec
     | OffChainReportingOracleJobV2Spec
     | KeeperV2Spec

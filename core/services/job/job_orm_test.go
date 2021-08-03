@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/ethlog"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -198,7 +198,7 @@ func TestORM(t *testing.T) {
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
 		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
 		require.NoError(t, err)
-		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
+		jb, err := ethlog.ValidatedEthLogSpec(tree.String())
 		require.NoError(t, err)
 		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)

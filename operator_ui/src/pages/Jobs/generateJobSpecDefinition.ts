@@ -1,6 +1,6 @@
 import { ApiResponse } from 'utils/json-api-client'
 import {
-  DirectRequestJobV2Spec,
+  EthLogJobV2Spec,
   FluxMonitorJobV2Spec,
   JobSpec,
   JobSpecV2,
@@ -102,7 +102,7 @@ export const generateJSONDefinition = (
 export const generateTOMLDefinition = (
   jobSpecAttributes: ApiResponse<JobSpecV2>['data']['attributes'],
 ): string => {
-  if (jobSpecAttributes.type === 'directrequest') {
+  if (jobSpecAttributes.type === 'ethlog') {
     return generateDirectRequestDefinition(jobSpecAttributes)
   }
 
@@ -202,10 +202,10 @@ function generateFluxMonitorDefinition(
 }
 
 function generateDirectRequestDefinition(
-  attrs: ApiResponse<DirectRequestJobV2Spec>['data']['attributes'],
+  attrs: ApiResponse<EthLogJobV2Spec>['data']['attributes'],
 ) {
   const {
-    directRequestSpec,
+    ethLogSpec,
     name,
     pipelineSpec,
     schemaVersion,
@@ -213,7 +213,7 @@ function generateDirectRequestDefinition(
     maxTaskDuration,
     externalJobID,
   } = attrs
-  const { contractAddress, minIncomingConfirmations } = directRequestSpec
+  const { contractAddress, minIncomingConfirmations } = ethLogSpec
 
   return stringifyJobSpec({
     value: {

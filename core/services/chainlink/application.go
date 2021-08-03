@@ -36,8 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/ethlog"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -267,7 +267,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 
 	var (
 		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: directrequest.NewDelegate(
+			job.EthLog: ethlog.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
 				pipelineORM,

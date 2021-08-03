@@ -53,8 +53,8 @@ function isJobSpecV2(job: CombinedJobs): job is JobSpecV2 {
   return job.type === JobSpecTypes.v2
 }
 
-function isDirectRequestJobSpecV2(job: JobSpecV2) {
-  return job.attributes.type === 'directrequest'
+function isEthLogJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'ethlog'
 }
 
 function isFluxMonitorJobSpecV2(job: JobSpecV2) {
@@ -88,8 +88,8 @@ function getCreatedAt(job: CombinedJobs) {
       case 'fluxmonitor':
         return job.attributes.fluxMonitorSpec.createdAt
 
-      case 'directrequest':
-        return job.attributes.directRequestSpec.createdAt
+      case 'ethlog':
+        return job.attributes.ethLogSpec.createdAt
 
       case 'keeper':
         return job.attributes.keeperSpec.createdAt
@@ -144,8 +144,8 @@ export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
   }
 
   if (isJobSpecV2(job)) {
-    if (isDirectRequestJobSpecV2(job)) {
-      return matchDirectRequest(job, search)
+    if (isEthLogJobSpecV2(job)) {
+      return matchEthLog(job, search)
     }
 
     if (isFluxMonitorJobSpecV2(job)) {
@@ -192,19 +192,19 @@ function matchV1Job(job: DirectRequest, term: string) {
 }
 
 /**
- * matchDirectRequest determines whether the V2 Direct Request job matches the search
+ * matchEthLog determines whether the V2 Direct Request job matches the search
  * terms.
  *
  * @param job {JobSpecV2} The V2 Job Spec
  * @param term {string} The search term
  */
-function matchDirectRequest(job: JobSpecV2, term: string) {
+function matchEthLog(job: JobSpecV2, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [
     job.id,
     job.attributes.name || '',
-    'direct request', // Hardcoded to match the type column
+    'ethlog', // Hardcoded to match the type column
   ]
 
   return dataset.some(match)

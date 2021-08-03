@@ -82,7 +82,7 @@ func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
 	return db.
 		Preload("PipelineSpec").
 		Preload("FluxMonitorSpec").
-		Preload("DirectRequestSpec").
+		Preload("EthLogSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("KeeperSpec").
 		Preload("PipelineSpec").
@@ -188,12 +188,12 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 	}
 
 	switch jobSpec.Type {
-	case DirectRequest:
-		err := tx.Create(&jobSpec.DirectRequestSpec).Error
+	case EthLog:
+		err := tx.Create(&jobSpec.EthLogSpec).Error
 		if err != nil {
-			return jb, errors.Wrap(err, "failed to create DirectRequestSpec for jobSpec")
+			return jb, errors.Wrap(err, "failed to create EthLogSpec for jobSpec")
 		}
-		jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
+		jobSpec.EthLogSpecID = &jobSpec.EthLogSpec.ID
 	case FluxMonitor:
 		err := tx.Create(&jobSpec.FluxMonitorSpec).Error
 		if err != nil {

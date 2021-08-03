@@ -11,7 +11,7 @@ var (
 	ErrInvalidSchemaVersion = errors.New("invalid schema version")
 	jobTypes                = map[Type]struct{}{
 		Cron:              {},
-		DirectRequest:     {},
+		EthLog:            {},
 		FluxMonitor:       {},
 		OffchainReporting: {},
 		Keeper:            {},

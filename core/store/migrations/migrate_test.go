@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
 	uuid "github.com/satori/go.uuid"
@@ -526,4 +528,61 @@ func TestMigrate_CascadeDeletes(t *testing.T) {
 	t.Cleanup(cleanup)
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0037_cascade_deletes"))
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0037_cascade_deletes"))
+}
+
+func TestMigrate_DirectRequestRename(t *testing.T) {
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrate_dr_jobs", false)
+	t.Cleanup(cleanup)
+	type DirectRequestSpec struct {
+		ID                       int32               `toml:"-" gorm:"primary_key"`
+		ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
+		MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
+		CreatedAt                time.Time           `toml:"-"`
+		UpdatedAt                time.Time           `toml:"-"`
+	}
+	type Job struct {
+		ID                            int32 `toml:"-" gorm:"primary_key"`
+		OffchainreportingOracleSpecID *int32
+		CronSpecID                    *int32
+		DirectRequestSpecID           *int32
+		DirectRequestSpec             *DirectRequestSpec
+		FluxMonitorSpecID             *int32
+		KeeperSpecID                  *int32
+		VRFSpecID                     *int32
+		WebhookSpecId                 *int32
+		PipelineSpecID                int32
+		PipelineSpec                  *pipeline.Spec
+		JobSpecErrors                 []job.SpecError `gorm:"foreignKey:JobID"`
+		Type                          string
+		SchemaVersion                 uint32
+		Name                          null.String
+		MaxTaskDuration               models.Interval
+		Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
+		ExternalJobID                 uuid.UUID         `toml:"externalJobID"`
+	}
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0053_add_fmv2_drumbeat_random_delay"))
+	var dr = DirectRequestSpec{
+		ContractAddress: cltest.NewEIP55Address(),
+	}
+	require.NoError(t, orm.DB.Create(&dr).Error)
+	var ps = pipeline.Spec{}
+	require.NoError(t, orm.DB.Create(&ps).Error)
+	var jbV1 = Job{
+		DirectRequestSpecID: &dr.ID,
+		Type:                "directrequest",
+		SchemaVersion:       1,
+		ExternalJobID:       uuid.NewV4(),
+		PipelineSpecID:      ps.ID,
+	}
+	require.NoError(t, orm.DB.Create(&jbV1).Error)
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0054_direct_request_rename_eth_log"))
+	var jb job.Job
+	require.NoError(t, orm.DB.Preload("EthLogSpec").First(&jb, "id = ?", jbV1.ID).Error)
+	assert.Equal(t, dr.ContractAddress, jb.EthLogSpec.ContractAddress)
+	assert.Equal(t, jb.Type, job.EthLog)
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0054_direct_request_rename_eth_log"))
+	var jb2 Job
+	require.NoError(t, orm.DB.Preload("EthLogSpec").First(&jb2, "id = ?", jbV1.ID).Error)
+	assert.Equal(t, dr.ContractAddress, jb2.DirectRequestSpec.ContractAddress)
+	assert.Equal(t, "directrequest", jb2.Type)
 }

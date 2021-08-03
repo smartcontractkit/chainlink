@@ -28,7 +28,7 @@ export type BaseJob = {
 }
 
 export type JobSpecType =
-  | 'directrequest'
+  | 'ethlog'
   | 'fluxmonitor'
   | 'offchainreporting'
   | 'keeper'

@@ -14,7 +14,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/ethlog"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -167,19 +167,19 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			},
 		},
 		{
-			name: "directrequest",
-			toml: testspecs.DirectRequestSpec,
+			name: "ethlog",
+			toml: testspecs.EthLogSpec,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb, "type = ?", job.DirectRequest).Error)
+				require.NoError(t, app.Store.DB.Preload("EthLogSpec").First(&jb, "type = ?", job.EthLog).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 				assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.EthLogSpec.ContractAddress)
 				require.NotZero(t, jb.ExternalJobID[:])
 			},
 		},
@@ -282,7 +282,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	require.Len(t, resources, 2)
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[0])
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[1])
+	runEthLogJobSpecAssertions(t, ereJobSpecFromFile, resources[1])
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
@@ -306,7 +306,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
 	assert.NoError(t, err)
 
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
+	runEthLogJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
@@ -348,14 +348,14 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobS
 	assert.Contains(t, ocrJobSpecFromServer.OffChainReportingSpec.UpdatedAt.String(), "20")
 }
 
-func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job, ereJobSpecFromServer presenters.JobResource) {
-	assert.Equal(t, ereJobSpecFromFile.DirectRequestSpec.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
+func runEthLogJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job, ereJobSpecFromServer presenters.JobResource) {
+	assert.Equal(t, ereJobSpecFromFile.EthLogSpec.ContractAddress, ereJobSpecFromServer.EthLogSpec.ContractAddress)
 	assert.Equal(t, ereJobSpecFromFile.Pipeline.Source, ereJobSpecFromServer.PipelineSpec.DotDAGSource)
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
 	// millenia and century characters to be present
-	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.CreatedAt.String(), "20")
-	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
+	assert.Contains(t, ereJobSpecFromServer.EthLogSpec.CreatedAt.String(), "20")
+	assert.Contains(t, ereJobSpecFromServer.EthLogSpec.UpdatedAt.String(), "20")
 }
 
 func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
@@ -401,7 +401,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
 	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	ereJobSpecFromFileDB, err := ethlog.ValidatedEthLogSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
 	jb2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 

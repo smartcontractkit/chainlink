@@ -75,7 +75,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	txm := postgres.NewGormTransactionManager(db)
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
+		jobSpecA := cltest.MakeEthLogJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
 
 		orm := job.NewORM(db, config.Config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{})

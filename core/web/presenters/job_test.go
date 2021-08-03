@@ -56,7 +56,7 @@ func TestJob(t *testing.T) {
 			name: "direct request spec",
 			job: job.Job{
 				ID: 1,
-				DirectRequestSpec: &job.DirectRequestSpec{
+				EthLogSpec: &job.EthLogSpec{
 					ContractAddress: contractAddress,
 					CreatedAt:       timestamp,
 					UpdatedAt:       timestamp,
@@ -66,7 +66,7 @@ func TestJob(t *testing.T) {
 					ID:           1,
 					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
 				},
-				Type:            job.Type("directrequest"),
+				Type:            job.EthLog,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
 				MaxTaskDuration: models.Interval(1 * time.Minute),
@@ -79,14 +79,14 @@ func TestJob(t *testing.T) {
 					"attributes":{
 						"name": "test",
 						"schemaVersion": 1,
-						"type": "directrequest",
+						"type": "ethlog",
 						"maxTaskDuration": "1m0s",
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
 						},
-						"directRequestSpec": {
+						"ethLogSpec": {
 							"contractAddress": "%s",
 							"minIncomingConfirmations": null,
 							"initiator": "runlog",
@@ -157,7 +157,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"offChainReportingOracleSpec": null,
-						"directRequestSpec": null,
+						"ethLogSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
@@ -227,7 +227,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"fluxMonitorSpec": null,
-						"directRequestSpec": null,
+						"ethLogSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
@@ -279,7 +279,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"fluxMonitorSpec": null,
-						"directRequestSpec": null,
+						"ethLogSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
@@ -330,7 +330,7 @@ func TestJob(t *testing.T) {
                             "updatedAt":"2000-01-01T00:00:00Z"
                         },
                         "fluxMonitorSpec": null,
-                        "directRequestSpec": null,
+                        "ethLogSpec": null,
                         "keeperSpec": null,
                         "offChainReportingOracleSpec": null,
 						"vrfSpec": null,
@@ -378,7 +378,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"fluxMonitorSpec": null,
-						"directRequestSpec": null,
+						"ethLogSpec": null,
 						"keeperSpec": null,
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
@@ -440,7 +440,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"fluxMonitorSpec": null,
-						"directRequestSpec": null,
+						"ethLogSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,

@@ -798,16 +798,16 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitte
 	return spec
 }
 
-func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
+func MakeEthLogJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{}
+	drs := &job.EthLogSpec{}
 	spec := &job.Job{
-		Type:              job.DirectRequest,
-		SchemaVersion:     1,
-		ExternalJobID:     uuid.NewV4(),
-		DirectRequestSpec: drs,
-		Pipeline:          pipeline.Pipeline{},
-		PipelineSpec:      &pipeline.Spec{},
+		Type:          job.EthLog,
+		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
+		EthLogSpec:    drs,
+		Pipeline:      pipeline.Pipeline{},
+		PipelineSpec:  &pipeline.Spec{},
 	}
 	return spec
 }
@@ -882,53 +882,11 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 	return upkeep
 }
 
-func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
-	return flux_aggregator_wrapper.OracleRoundState{
-		RoundId:          roundID,
-		EligibleToSubmit: true,
-		LatestSubmission: latestSubmission,
-		AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
-		PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
-	}
-}
-
-func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
-	run := pipeline.Run{
-		State:      pipeline.RunStatusRunning,
-		Outputs:    pipeline.JSONSerializable{Null: true},
-		Errors:     pipeline.RunErrors{},
-		FinishedAt: null.Time{},
-	}
-	require.NoError(t, db.Create(&run).Error)
-	return run
-}
-
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
 	/* #nosec G404 */
 	p := pipeline.TaskRun{DotID: strconv.Itoa(mathrand.Int()), PipelineRunID: pipelineRunID, ID: uuid.NewV4()}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
-}
-
-func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.Job {
-	t.Helper()
-
-	pspec := pipeline.Spec{DotDagSource: `
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
-`}
-
-	require.NoError(t, db.Create(&pspec).Error)
-
-	drspec := job.DirectRequestSpec{}
-	require.NoError(t, db.Create(&drspec).Error)
-
-	job := job.Job{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
-	require.NoError(t, db.Create(&job).Error)
-
-	return job
 }
 
 func RandomLog(t *testing.T) types.Log {

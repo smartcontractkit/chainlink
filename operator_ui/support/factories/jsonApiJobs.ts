@@ -3,7 +3,7 @@ import { ResourceObject } from 'json-api-normalizer'
 import { JobSpecV2 } from 'core/store/models'
 import {
   cronJobV2,
-  directRequestJobV2,
+  ethLogJobV2,
   fluxMonitorJobV2,
   keeperJobV2,
   ocrJobSpecV2,
@@ -28,7 +28,7 @@ export const jsonApiJobSpecsV2 = (
 }
 
 export const directRequestResource = (
-  job: Partial<JobSpecV2['directRequestSpec'] & { id?: string; name?: string }>,
+  job: Partial<JobSpecV2['ethLogSpec'] & { id?: string; name?: string }>,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
@@ -36,7 +36,7 @@ export const directRequestResource = (
     type: 'jobs',
     id,
     attributes: {
-      ...directRequestJobV2(job),
+      ...ethLogJobV2(job),
       name: job.name,
     },
   } as ResourceObject<JobSpecV2>

@@ -1,10 +1,12 @@
-package directrequest_test
+package ethlog_test
 
 import (
 	"context"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/ethlog"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
@@ -38,23 +39,23 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minIncomingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
+	delegate := ethlog.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
 
-	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
+	t.Run("Spec without EthLogSpec", func(t *testing.T) {
 		spec := job.Job{}
 		_, err := delegate.ServicesForSpec(spec)
-		assert.Error(t, err, "expects a *job.DirectRequestSpec to be present")
+		assert.Error(t, err, "expects a *job.EthLogSpec to be present")
 	})
 
-	t.Run("Spec with DirectRequestSpec", func(t *testing.T) {
-		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{}, PipelineSpec: &pipeline.Spec{}}
+	t.Run("Spec with EthLogSpec", func(t *testing.T) {
+		spec := job.Job{EthLogSpec: &job.EthLogSpec{}, PipelineSpec: &pipeline.Spec{}}
 		services, err := delegate.ServicesForSpec(spec)
 		require.NoError(t, err)
 		assert.Len(t, services, 1)
 	})
 }
 
-type DirectRequestUniverse struct {
+type EthLogUniverse struct {
 	spec           *job.Job
 	runner         *pipeline_mocks.Runner
 	service        job.Service
@@ -64,7 +65,7 @@ type DirectRequestUniverse struct {
 	cleanup        func()
 }
 
-func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *DirectRequestUniverse {
+func NewEthLogUniverseWithConfig(t *testing.T, drConfig testConfig) *EthLogUniverse {
 	gethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
@@ -81,9 +82,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 		jobORM.Close()
 	}
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
+	delegate := ethlog.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
 
-	spec := cltest.MakeDirectRequestJobSpec(t)
+	spec := cltest.MakeEthLogJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()
 	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
@@ -92,7 +93,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
 
-	uni := &DirectRequestUniverse{
+	uni := &EthLogUniverse{
 		spec:           spec,
 		runner:         runner,
 		service:        service,
@@ -109,21 +110,21 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	return uni
 }
 
-func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
+func NewEthLogUniverse(t *testing.T) *EthLogUniverse {
 	drConfig := testConfig{
 		minIncomingConfirmations: 1,
 	}
-	return NewDirectRequestUniverseWithConfig(t, drConfig)
+	return NewEthLogUniverseWithConfig(t, drConfig)
 }
 
-func (uni *DirectRequestUniverse) Cleanup() {
+func (uni *EthLogUniverse) Cleanup() {
 	uni.cleanup()
 }
 
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
-		uni := NewDirectRequestUniverse(t)
+		uni := NewEthLogUniverse(t)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -158,7 +159,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
-		require.NotNil(t, drJob.DirectRequestSpec)
+		require.NotNil(t, drJob.EthLogSpec)
 
 		uni.listener.HandleLog(log)
 
@@ -170,7 +171,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log is not consumed, as it's too young", func(t *testing.T) {
-		uni := NewDirectRequestUniverse(t)
+		uni := NewEthLogUniverse(t)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -216,7 +217,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log has wrong jobID", func(t *testing.T) {
-		uni := NewDirectRequestUniverse(t)
+		uni := NewEthLogUniverse(t)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -239,7 +240,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log is a CancelOracleRequest with no matching run", func(t *testing.T) {
-		uni := NewDirectRequestUniverse(t)
+		uni := NewEthLogUniverse(t)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -268,7 +269,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log is a CancelOracleRequest with a matching run", func(t *testing.T) {
-		uni := NewDirectRequestUniverse(t)
+		uni := NewEthLogUniverse(t)
 		defer uni.Cleanup()
 
 		runLog := new(log_mocks.Broadcast)
@@ -338,7 +339,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			minIncomingConfirmations: 1,
 			minimumContractPayment:   assets.NewLink(100),
 		}
-		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
+		uni := NewEthLogUniverseWithConfig(t, drConfig)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -373,7 +374,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
-		require.NotNil(t, drJob.DirectRequestSpec)
+		require.NotNil(t, drJob.EthLogSpec)
 
 		uni.listener.HandleLog(log)
 
@@ -389,7 +390,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			minIncomingConfirmations: 1,
 			minimumContractPayment:   assets.NewLink(100),
 		}
-		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
+		uni := NewEthLogUniverseWithConfig(t, drConfig)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)

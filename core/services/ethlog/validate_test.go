@@ -1,4 +1,4 @@
-package directrequest
+package ethlog
 
 import (
 	"testing"
@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidatedDirectRequestSpec(t *testing.T) {
+func TestValidatedEthLogSpec(t *testing.T) {
 	toml := `
-type                = "directrequest"
+type                = "ethlog"
 schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
@@ -23,14 +23,14 @@ observationSource   = """
 """
 `
 
-	s, err := ValidatedDirectRequestSpec(toml)
+	s, err := ValidatedEthLogSpec(toml)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(0), s.ID)
-	assert.Equal(t, "0x613a38AC1659769640aaE063C651F48E0250454C", s.DirectRequestSpec.ContractAddress.Hex())
+	assert.Equal(t, "0x613a38AC1659769640aaE063C651F48E0250454C", s.EthLogSpec.ContractAddress.Hex())
 	assert.Equal(t, "0x6135616331346538373632393437323662316631316165303533666338323965", s.ExternalIDEncodeStringToTopic().String())
 	assert.Equal(t, "0xa5ac14e876294726b1f11ae053fc829e00000000000000000000000000000000", s.ExternalIDEncodeBytesToTopic().String())
 	assert.NotZero(t, s.ExternalJobID.Bytes()[:])
-	assert.Equal(t, time.Time{}, s.DirectRequestSpec.CreatedAt)
-	assert.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
+	assert.Equal(t, time.Time{}, s.EthLogSpec.CreatedAt)
+	assert.Equal(t, time.Time{}, s.EthLogSpec.UpdatedAt)
 }

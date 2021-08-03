@@ -24,7 +24,7 @@ import (
 
 const (
 	Cron              Type = "cron"
-	DirectRequest     Type = "directrequest"
+	EthLog            Type = "ethlog"
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
 	Keeper            Type = "keeper"
@@ -50,7 +50,7 @@ func (t Type) SupportsAsync() bool {
 var (
 	requiresPipelineSpec = map[Type]bool{
 		Cron:              true,
-		DirectRequest:     true,
+		EthLog:            true,
 		FluxMonitor:       true,
 		OffchainReporting: false, // bootstrap jobs do not require it
 		Keeper:            false,
@@ -59,7 +59,7 @@ var (
 	}
 	supportsAsync = map[Type]bool{
 		Cron:              false,
-		DirectRequest:     false,
+		EthLog:            false,
 		FluxMonitor:       false,
 		OffchainReporting: false,
 		Keeper:            false,
@@ -75,8 +75,8 @@ type Job struct {
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
 	CronSpecID                    *int32
 	CronSpec                      *CronSpec
-	DirectRequestSpecID           *int32
-	DirectRequestSpec             *DirectRequestSpec
+	EthLogSpecID                  *int32
+	EthLogSpec                    *EthLogSpec
 	FluxMonitorSpecID             *int32
 	FluxMonitorSpec               *FluxMonitorSpec
 	KeeperSpecID                  *int32
@@ -232,7 +232,7 @@ func (WebhookSpec) TableName() string {
 	return "webhook_specs"
 }
 
-type DirectRequestSpec struct {
+type EthLogSpec struct {
 	ID                       int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
@@ -240,8 +240,8 @@ type DirectRequestSpec struct {
 	UpdatedAt                time.Time           `toml:"-"`
 }
 
-func (DirectRequestSpec) TableName() string {
-	return "direct_request_specs"
+func (EthLogSpec) TableName() string {
+	return "eth_log_specs"
 }
 
 type CronSpec struct {

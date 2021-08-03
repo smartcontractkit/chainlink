@@ -1,4 +1,4 @@
-package directrequest
+package ethlog
 
 import (
 	"context"
@@ -61,7 +61,7 @@ func NewDelegate(
 }
 
 func (d *Delegate) JobType() job.Type {
-	return job.DirectRequest
+	return job.EthLog
 }
 
 func (Delegate) AfterJobCreated(spec job.Job)  {}
@@ -69,10 +69,10 @@ func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
 func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err error) {
-	if job.DirectRequestSpec == nil {
-		return nil, errors.Errorf("directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", job)
+	if job.EthLogSpec == nil {
+		return nil, errors.Errorf("ethlog.Delegate expects a *job.EthLogSpec to be present, got %v", job)
 	}
-	concreteSpec := job.DirectRequestSpec
+	concreteSpec := job.EthLogSpec
 
 	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -125,7 +125,7 @@ type listener struct {
 
 // Start complies with job.Service
 func (l *listener) Start() error {
-	return l.StartOnce("DirectRequestListener", func() error {
+	return l.StartOnce("EthLogListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,
@@ -150,7 +150,7 @@ func (l *listener) Start() error {
 
 // Close complies with job.Service
 func (l *listener) Close() error {
-	return l.StopOnce("DirectRequestListener", func() error {
+	return l.StopOnce("EthLogListener", func() error {
 		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
 			runCloserChannel, _ := runCloserChannelIf.(chan struct{})
 			close(runCloserChannel)
@@ -168,7 +168,7 @@ func (l *listener) Close() error {
 func (l *listener) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := l.mbLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("DirectRequestListener: log mailbox is over capacity - dropped the oldest log")
+		logger.Error("EthLogListener: log mailbox is over capacity - dropped the oldest log")
 	}
 }
 
@@ -192,13 +192,13 @@ func (l *listener) handleReceivedLogs() {
 		}
 		lb, ok := i.(log.Broadcast)
 		if !ok {
-			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
+			panic(errors.Errorf("EthLogListener: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
 		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
 		if err != nil {
-			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
+			logger.Errorw("EthLogListener: could not determine if log was already consumed", "error", err)
 			return
 		} else if was {
 			return
@@ -206,13 +206,13 @@ func (l *listener) handleReceivedLogs() {
 
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
-			logger.Debugw("DirectRequestListener: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.job.ExternalJobID)
+			logger.Debugw("EthLogListener: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.job.ExternalJobID)
 			return
 		}
 
 		log := lb.DecodedLog()
 		if log == nil || reflect.ValueOf(log).IsNil() {
-			logger.Error("DirectRequestListener: HandleLog: ignoring nil value")
+			logger.Error("EthLogListener: HandleLog: ignoring nil value")
 			return
 		}
 
@@ -265,7 +265,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			ctx, cancel := postgres.DefaultQueryCtx()
 			defer cancel()
 			if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
-				logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
+				logger.Errorw("EthLog: unable to mark log consumed", "err", err, "log", lb.String())
 			}
 			return
 		}
@@ -312,7 +312,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {
-			logger.Errorw("DirectRequest failed to create run", "err", err)
+			logger.Errorw("EthLog failed to create run", "err", err)
 		}
 		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 		defer cancel()
@@ -326,7 +326,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {
-			logger.Errorw("DirectRequest failed to create run", "err", err)
+			logger.Errorw("EthLog failed to create run", "err", err)
 		}
 	}()
 }
@@ -340,7 +340,7 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
-		logger.Errorw("DirectRequest: failed to mark log consumed", "log", lb.String())
+		logger.Errorw("EthLog: failed to mark log consumed", "log", lb.String())
 	}
 }
 

@@ -1,4 +1,4 @@
-package directrequest
+package ethlog
 
 import (
 	"github.com/pelletier/go-toml"
@@ -7,11 +7,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
-type DirectRequestToml struct {
+type EthLogToml struct {
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 }
 
-func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
+func ValidatedEthLogSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -21,14 +21,14 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, err
 	}
-	var spec DirectRequestToml
+	var spec EthLogToml
 	err = tree.Unmarshal(&spec)
 	if err != nil {
 		return jb, err
 	}
-	jb.DirectRequestSpec = &job.DirectRequestSpec{ContractAddress: spec.ContractAddress}
+	jb.EthLogSpec = &job.EthLogSpec{ContractAddress: spec.ContractAddress}
 
-	if jb.Type != job.DirectRequest {
+	if jb.Type != job.EthLog {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 	return jb, nil

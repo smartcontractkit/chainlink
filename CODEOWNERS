@@ -1,7 +1,7 @@
 # Services
 /core/services/bulletprooftxmanager @PiotrTrzpil @samsondav @archseer
 /core/services/cron @spooktheducks @samsondav
-/core/services/directrequest @PiotrTrzpil @spooktheducks @j16r @connorwstein @samsondav
+/core/services/ethlog @PiotrTrzpil @spooktheducks @j16r @connorwstein @samsondav
 /core/services/eth @PiotrTrzpil @spooktheducks @samsondav
 /core/services/feeds @jkongie
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein

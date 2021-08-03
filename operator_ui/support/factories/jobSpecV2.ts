@@ -1,7 +1,7 @@
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import {
   JobSpecV2,
-  DirectRequestJobV2Spec,
+  EthLogJobV2Spec,
   FluxMonitorJobV2Spec,
   KeeperV2Spec,
   OffChainReportingOracleJobV2Spec,
@@ -48,7 +48,7 @@ export function ocrJobSpecV2(
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46',
     offChainReportingOracleSpec,
     fluxMonitorSpec: null,
-    directRequestSpec: null,
+    ethLogSpec: null,
     keeperSpec: null,
     vrfSpec: null,
     cronSpec: null,
@@ -86,7 +86,7 @@ export function fluxMonitorJobV2(
     type: 'fluxmonitor',
     schemaVersion: 1,
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47',
-    directRequestSpec: null,
+    ethLogSpec: null,
     offChainReportingOracleSpec: null,
     keeperSpec: null,
     cronSpec: null,
@@ -104,8 +104,8 @@ export function fluxMonitorJobV2(
   }
 }
 
-export function directRequestJobV2(
-  spec: Partial<DirectRequestJobV2Spec['directRequestSpec']> = {},
+export function ethLogJobV2(
+  spec: Partial<EthLogJobV2Spec['ethLogSpec']> = {},
   config: Partial<
     {
       name?: string
@@ -116,17 +116,15 @@ export function directRequestJobV2(
     }
   > = {},
 ): JobSpecV2 {
-  const directRequestSpec = partialAsFull<
-    DirectRequestJobV2Spec['directRequestSpec']
-  >({
+  const ethLogSpec = partialAsFull<EthLogJobV2Spec['ethLogSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {
-    name: config.name || 'Direct Request V2 job',
-    type: 'directrequest',
+    name: config.name || 'Eth Log V2 job',
+    type: 'ethlog',
     schemaVersion: 1,
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49',
-    directRequestSpec,
+    ethLogSpec,
     offChainReportingOracleSpec: null,
     keeperSpec: null,
     cronSpec: null,
@@ -158,7 +156,7 @@ export function keeperJobV2(
     name: config.name || 'Keeper V2 job',
     type: 'keeper',
     schemaVersion: 1,
-    directRequestSpec: null,
+    ethLogSpec: null,
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F50',
     keeperSpec,
     offChainReportingOracleSpec: null,
@@ -189,7 +187,7 @@ export function cronJobV2(
     type: 'cron',
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F51',
     schemaVersion: 1,
-    directRequestSpec: null,
+    ethLogSpec: null,
     keeperSpec: null,
     vrfSpec: null,
     offChainReportingOracleSpec: null,
@@ -219,7 +217,7 @@ export function webhookJobV2(
     type: 'webhook',
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F52',
     schemaVersion: 1,
-    directRequestSpec: null,
+    ethLogSpec: null,
     vrfSpec: null,
     keeperSpec: null,
     offChainReportingOracleSpec: null,
@@ -249,7 +247,7 @@ export function vrfJobV2(
     type: 'vrf',
     externalJobID: '0EEC7E1D-D0D2-476C-A1A8-72DFB6633F52',
     schemaVersion: 1,
-    directRequestSpec: null,
+    ethLogSpec: null,
     keeperSpec: null,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,

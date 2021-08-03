@@ -92,8 +92,8 @@ export const JobsShow = () => {
               case 'fluxmonitor':
                 createdAt = jobSpec.attributes.fluxMonitorSpec.createdAt
                 break
-              case 'directrequest':
-                createdAt = jobSpec.attributes.directRequestSpec.createdAt
+              case 'ethlog':
+                createdAt = jobSpec.attributes.ethLogSpec.createdAt
                 break
               case 'keeper':
                 createdAt = jobSpec.attributes.keeperSpec.createdAt

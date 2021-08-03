@@ -23,7 +23,7 @@ func (t JobSpecType) String() string {
 }
 
 const (
-	DirectRequestJobSpec     JobSpecType = "directrequest"
+	EthLogJobSpec            JobSpecType = "ethlog"
 	FluxMonitorJobSpec       JobSpecType = "fluxmonitor"
 	OffChainReportingJobSpec JobSpecType = "offchainreporting"
 	KeeperJobSpec            JobSpecType = "keeper"
@@ -32,24 +32,24 @@ const (
 	WebhookJobSpec           JobSpecType = "webhook"
 )
 
-// DirectRequestSpec defines the spec details of a DirectRequest Job
-type DirectRequestSpec struct {
+// EthLogSpec defines the spec details of a EthLog Job
+type EthLogSpec struct {
 	ContractAddress          ethkey.EIP55Address `json:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
-	Initiator                string              `json:"initiator"`
-	CreatedAt                time.Time           `json:"createdAt"`
-	UpdatedAt                time.Time           `json:"updatedAt"`
+	//Initiator                string              `json:"initiator"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// NewDirectRequestSpec initializes a new DirectRequestSpec from a
-// job.DirectRequestSpec
-func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
-	return &DirectRequestSpec{
+// NewEthLogSpec initializes a new EthLogSpec from a
+// job.EthLogSpec
+func NewEthLogSpec(spec *job.EthLogSpec) *EthLogSpec {
+	return &EthLogSpec{
 		ContractAddress:          spec.ContractAddress,
 		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
-		Initiator: "runlog",
+		//Initiator: "runlog",
 		CreatedAt: spec.CreatedAt,
 		UpdatedAt: spec.UpdatedAt,
 	}
@@ -230,7 +230,7 @@ type JobResource struct {
 	SchemaVersion         uint32                 `json:"schemaVersion"`
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
 	ExternalJobID         uuid.UUID              `json:"externalJobID"`
-	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
+	EthLogSpec            *EthLogSpec            `json:"ethLogSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	CronSpec              *CronSpec              `json:"cronSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
@@ -254,8 +254,8 @@ func NewJobResource(j job.Job) *JobResource {
 	}
 
 	switch j.Type {
-	case job.DirectRequest:
-		resource.DirectRequestSpec = NewDirectRequestSpec(j.DirectRequestSpec)
+	case job.EthLog:
+		resource.EthLogSpec = NewEthLogSpec(j.EthLogSpec)
 	case job.FluxMonitor:
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
 	case job.Cron:

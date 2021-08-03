@@ -28,8 +28,8 @@ ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
 """
 `
-	DirectRequestSpec = `
-type                = "directrequest"
+	EthLogSpec = `
+type                = "ethlog"
 schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"

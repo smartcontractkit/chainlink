@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/ethlog"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -95,8 +95,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
 		}
-	case job.DirectRequest:
-		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
+	case job.EthLog:
+		jb, err = ethlog.ValidatedEthLogSpec(request.TOML)
 	case job.FluxMonitor:
 		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	case job.Keeper:

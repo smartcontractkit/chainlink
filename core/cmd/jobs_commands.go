@@ -81,9 +81,9 @@ func (p JobPresenter) FriendlyTasks() []string {
 // type in RFC3339 format.
 func (p JobPresenter) FriendlyCreatedAt() string {
 	switch p.Type {
-	case presenters.DirectRequestJobSpec:
-		if p.DirectRequestSpec != nil {
-			return p.DirectRequestSpec.CreatedAt.Format(time.RFC3339)
+	case presenters.EthLogJobSpec:
+		if p.EthLogSpec != nil {
+			return p.EthLogSpec.CreatedAt.Format(time.RFC3339)
 		}
 	case presenters.FluxMonitorJobSpec:
 		if p.FluxMonitorSpec != nil {
