@@ -216,6 +216,7 @@ func NewFromJobSpec(
 			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
 			DrumbeatSchedule:        fmSpec.DrumbeatSchedule,
 			DrumbeatEnabled:         fmSpec.DrumbeatEnabled,
+			DrumbeatRandomDelay:     fmSpec.DrumbeatRandomDelay,
 			HibernationPollPeriod:   168 * time.Hour, // Not currently configurable
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
@@ -574,6 +575,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		"round", log.RoundId,
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
+		"startedAtUtc", time.Unix(log.StartedAt.Int64(), 0).UTC().Format(time.RFC3339),
 	)
 	var markConsumed = true
 	defer func() {
@@ -661,6 +663,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		//     - The chain experienced a shallow reorg that unstarted the current round.
 		// If our previous attempt is still pending, return early and don't re-submit
 		// If our previous attempt is already over (completed or errored), we should retry
+		newRoundLogger.Debugf("There are already %v existing submissions to this round, while job run status is: %v", roundStats.NumSubmissions, jobRunStatus)
 		if !jobRunStatus.Finished() {
 			newRoundLogger.Debug("Ignoring new round request: started round simultaneously with another node")
 			return
