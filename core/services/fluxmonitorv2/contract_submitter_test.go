@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -36,6 +34,6 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	fluxAggregator.On("Address").Return(toAddress)
 	orm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit).Return(nil)
 
-	err = submitter.Submit(&gorm.DB{}, roundID, submission)
+	err = submitter.Submit(nil, roundID, submission)
 	assert.NoError(t, err)
 }

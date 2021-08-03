@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -37,7 +36,7 @@ type Runner interface {
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
-	InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
+	InsertFinishedRun(ctx context.Context, tx postgres.Queryer, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
 	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
@@ -45,7 +44,7 @@ type Runner interface {
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 
 	// Test method for inserting completed non-pipeline job runs
-	TestInsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, jobID int32, jobName string, jobType string, specID int32) (int64, error)
+	TestInsertFinishedRun(ctx context.Context, tx postgres.Queryer, jobID int32, jobName string, jobType string, specID int32) (int64, error)
 }
 
 type runner struct {
@@ -488,7 +487,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 }
 
-func (r *runner) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+func (r *runner) InsertFinishedRun(ctx context.Context, tx postgres.Queryer, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	d, err := r.orm.DB().DB()
 	if err != nil {
 		return 0, errors.Wrap(err, "unable to retrieve sql.DB")
@@ -497,7 +496,7 @@ func (r *runner) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run 
 	return r.orm.InsertFinishedRun(ctx, sdb, run, saveSuccessfulTaskRuns)
 }
 
-func (r *runner) TestInsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
+func (r *runner) TestInsertFinishedRun(ctx context.Context, tx postgres.Queryer, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
 	t := time.Now()
 	runID, err := r.InsertFinishedRun(ctx, tx, Run{
 		State:          RunStatusCompleted,

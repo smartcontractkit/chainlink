@@ -13,6 +13,8 @@ import (
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
+	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	sql "database/sql"
 
 	sqlx "github.com/jmoiron/sqlx"
@@ -151,18 +153,18 @@ func (_m *ORM) GetUnfinishedRuns(now time.Time, fn func(pipeline.Run) error) err
 }
 
 // InsertFinishedRun provides a mock function with given fields: ctx, tx, run, saveSuccessfulTaskRuns
-func (_m *ORM) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run pipeline.Run, saveSuccessfulTaskRuns bool) (int64, error) {
+func (_m *ORM) InsertFinishedRun(ctx context.Context, tx postgres.Queryer, run pipeline.Run, saveSuccessfulTaskRuns bool) (int64, error) {
 	ret := _m.Called(ctx, tx, run, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, sqlx.ExtContext, pipeline.Run, bool) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, postgres.Queryer, pipeline.Run, bool) int64); ok {
 		r0 = rf(ctx, tx, run, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, sqlx.ExtContext, pipeline.Run, bool) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, postgres.Queryer, pipeline.Run, bool) error); ok {
 		r1 = rf(ctx, tx, run, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Error(1)

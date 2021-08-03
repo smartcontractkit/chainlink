@@ -19,8 +19,8 @@ import (
 
 type ORM interface {
 	FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
-	WasBroadcastConsumed(q sqlx.QueryerContext, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (bool, error)
-	MarkBroadcastConsumed(e sqlx.ExecerContext, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error
+	WasBroadcastConsumed(q postgres.Queryer, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (bool, error)
+	MarkBroadcastConsumed(e postgres.Queryer, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error
 }
 
 type orm struct {
@@ -33,7 +33,7 @@ func NewORM(db *sqlx.DB) *orm {
 	return &orm{db}
 }
 
-func (o *orm) WasBroadcastConsumed(q sqlx.QueryerContext, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (consumed bool, err error) {
+func (o *orm) WasBroadcastConsumed(q postgres.Queryer, blockHash common.Hash, logIndex uint, jobID JobIdSelect) (consumed bool, err error) {
 	var jobIDValue interface{}
 	var jobIDName = "job_id"
 	if jobID.IsV2 {
@@ -79,7 +79,7 @@ func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroad
 	return broadcasts, err
 }
 
-func (o *orm) MarkBroadcastConsumed(e sqlx.ExecerContext, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error {
+func (o *orm) MarkBroadcastConsumed(e postgres.Queryer, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID JobIdSelect) error {
 	var jobID1Value interface{}
 	var jobID2Value interface{}
 

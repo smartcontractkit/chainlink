@@ -25,7 +25,7 @@ type ORM interface {
 	CreateRun(db *gorm.DB, run *Run) (err error)
 	StoreRun(db *sqlx.DB, run *Run) (restart bool, err error)
 	UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
-	InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
+	InsertFinishedRun(ctx context.Context, tx postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
@@ -70,7 +70,7 @@ func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
 // If `restart` is true, then new task run data is available and the run should be resumed immediately.
 func (o *orm) StoreRun(db *sqlx.DB, run *Run) (restart bool, err error) {
 	finished := run.FinishedAt.Valid
-	err = postgres.SqlxTransaction(context.Background(), db.DB, func(tx *sqlx.Tx) error {
+	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		if !finished {
 			// Lock the current run. This prevents races with /v2/resume
 			sql := `SELECT id FROM pipeline_runs WHERE id = $1 FOR UPDATE;`
@@ -148,7 +148,7 @@ func (o *orm) StoreRun(db *sqlx.DB, run *Run) (restart bool, err error) {
 }
 
 func (o *orm) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
-	err = postgres.SqlxTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
 		FROM pipeline_runs
@@ -190,7 +190,7 @@ func (o *orm) UpdateTaskRunResult(db *sql.DB, taskID uuid.UUID, result interface
 // If saveSuccessfulTaskRuns = false, we only save errored runs.
 // That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
 // which do not provide much value.
-func (o *orm) InsertFinishedRun(ctx context.Context, tx sqlx.ExtContext, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error) {
+func (o *orm) InsertFinishedRun(ctx context.Context, tx postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error) {
 	if run.CreatedAt.IsZero() {
 		return 0, errors.New("run.CreatedAt must be set")
 	}

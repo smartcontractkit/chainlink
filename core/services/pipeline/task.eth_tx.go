@@ -43,7 +43,7 @@ type ETHKeyStore interface {
 }
 
 type TxManager interface {
-	CreateEthTransaction(db *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db postgres.Queryer, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -116,7 +116,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	postgres.SqlxTransaction(ctx, t.db.DB, func(tx *sqlx.Tx) error {
+	postgres.SqlTransaction(ctx, t.db.DB, func(tx *sqlx.Tx) error {
 		_, err = t.txManager.CreateEthTransaction(tx, fromAddr, common.Address(toAddr), []byte(data), uint64(gasLimit), &txMeta, strategy)
 		return err
 	})

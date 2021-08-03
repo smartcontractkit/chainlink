@@ -13,6 +13,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
@@ -304,10 +305,10 @@ func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadc
 	return consumed
 }
 
-func (listener simpleLogListener) WasAlreadyConsumed(tx sqlx.QueryerContext, broadcast log.Broadcast) (bool, error) {
+func (listener simpleLogListener) WasAlreadyConsumed(tx postgres.Queryer, broadcast log.Broadcast) (bool, error) {
 	return log.NewORM(listener.db).WasBroadcastConsumed(tx, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
-func (listener simpleLogListener) MarkConsumed(tx sqlx.ExecerContext, broadcast log.Broadcast) error {
+func (listener simpleLogListener) MarkConsumed(tx postgres.Queryer, broadcast log.Broadcast) error {
 	return log.NewORM(listener.db).MarkBroadcastConsumed(tx, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 

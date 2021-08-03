@@ -161,7 +161,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        "foo",
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(store.Config, store.Sqlx(), uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)

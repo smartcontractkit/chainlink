@@ -114,36 +114,57 @@ func WrapGorm(db *gorm.DB) *sqlx.DB {
 	return WrapDbWithSqlx(sqlDB)
 }
 
-func SqlxTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
-	opts := &DefaultSqlTxOptions
-	if len(txOpts) > 0 {
-		opts = &txOpts[0]
-	}
-	db := WrapDbWithSqlx(rdb)
+func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	return SqlxTransaction(ctx, WrapDbWithSqlx(rdb), fc, txOpts...)
+}
 
-	tx, err := db.BeginTxx(ctx, opts)
-	panicked := false
+type Queryer interface {
+	sqlx.Ext
+	sqlx.ExtContext
+	QueryRow(query string, args ...interface{}) *sql.Row
+}
 
-	defer func() {
-		// Make sure to rollback when panic, Block error or Commit error
-		if panicked || err != nil {
-			if perr := tx.Rollback(); perr != nil {
-				panic(perr)
-			}
+func SqlxTransaction(ctx context.Context, q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	switch q.(type) {
+	case *sqlx.Tx:
+		// nested transaction: just use the outer transaction
+		tx := q.(*sqlx.Tx)
+		err = fc(tx)
+
+	case *sqlx.DB:
+		db := q.(*sqlx.DB)
+
+		opts := &DefaultSqlTxOptions
+		if len(txOpts) > 0 {
+			opts = &txOpts[0]
 		}
-	}()
 
-	_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds()))
-	if err != nil {
-		return errors.Wrap(err, "error setting transaction timeouts")
-	}
+		tx, err := db.BeginTxx(ctx, opts)
+		panicked := false
 
-	panicked = true
-	err = fc(tx)
-	panicked = false
+		defer func() {
+			// Make sure to rollback when panic, Block error or Commit error
+			if panicked || err != nil {
+				if perr := tx.Rollback(); perr != nil {
+					panic(perr)
+				}
+			}
+		}()
 
-	if err == nil {
-		err = errors.WithStack(tx.Commit())
+		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds()))
+		if err != nil {
+			return errors.Wrap(err, "error setting transaction timeouts")
+		}
+
+		panicked = true
+		err = fc(tx)
+		panicked = false
+
+		if err == nil {
+			err = errors.WithStack(tx.Commit())
+		}
+	default:
+		errors.Errorf("invalid db type")
 	}
 
 	return

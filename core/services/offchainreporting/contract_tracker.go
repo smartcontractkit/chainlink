@@ -288,7 +288,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
 			ctx, cancel := postgres.DefaultQueryCtx()
 			defer cancel()
-			err = postgres.SqlxTransaction(ctx, t.sdb.DB, func(tx *sqlx.Tx) error {
+			err = postgres.SqlTransaction(ctx, t.sdb.DB, func(tx *sqlx.Tx) error {
 				if err = t.db.SaveLatestRoundRequested(tx.Tx, *rr); err != nil {
 					return err
 				}

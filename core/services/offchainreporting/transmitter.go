@@ -12,7 +12,7 @@ import (
 )
 
 type txManager interface {
-	CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(tx postgres.Queryer, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 type transmitter struct {
@@ -39,7 +39,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 	if err != nil {
 		return err
 	}
-	return postgres.SqlxTransaction(ctx, db, func(tx *sqlx.Tx) error {
+	return postgres.SqlTransaction(ctx, db, func(tx *sqlx.Tx) error {
 		_, err := t.txm.CreateEthTransaction(tx, t.fromAddress, toAddress, payload, t.gasLimit, nil, t.strategy)
 		return errors.Wrap(err, "Skipped OCR transmission")
 	})

@@ -517,7 +517,7 @@ func (lsn *listener) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFC
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	err = postgres.SqlxTransaction(ctx, lsn.db.DB, func(tx *sqlx.Tx) error {
+	err = postgres.SqlTransaction(ctx, lsn.db.DB, func(tx *sqlx.Tx) error {
 		_, err = lsn.pipelineRunner.InsertFinishedRun(ctx, tx, run, trrs, true)
 		if err != nil {
 			return errors.Wrap(err, "VRFListener: failed to insert finished run")

@@ -309,7 +309,7 @@ func TestETHTxTask(t *testing.T) {
 			defer cleanup()
 
 			test.setupClientMocks(config, keyStore, txManager)
-			task.HelperSetDependencies(store.DB, config, keyStore, txManager)
+			task.HelperSetDependencies(store.Sqlx(), config, keyStore, txManager)
 
 			result := task.Run(context.Background(), test.vars, test.inputs)
 

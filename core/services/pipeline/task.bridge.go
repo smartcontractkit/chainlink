@@ -147,7 +147,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
 	var url models.WebURL
-	err := t.db.Get(url, `SELECT url FROM bridge_types WHERE name = $1 LIMIT 1`)
+	err := t.db.Get(&url, `SELECT url FROM bridge_types WHERE name = $1 LIMIT 1`, name)
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

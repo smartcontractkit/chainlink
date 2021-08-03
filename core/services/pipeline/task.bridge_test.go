@@ -580,7 +580,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Nil(t, result.Value)
 	require.Error(t, result.Error)
-	require.Equal(t, "could not find bridge with name 'foo': record not found", result.Error.Error())
+	require.Equal(t, "could not find bridge with name 'foo': sql: no rows in result set", result.Error.Error())
 }
 
 // Sample input taken from

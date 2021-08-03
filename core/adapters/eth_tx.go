@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -180,7 +181,7 @@ func (e *EthTx) insertEthTx(
 		return models.NewRunOutputError(err)
 	}
 
-	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
+	if err := bulletprooftxmanager.CheckEthTxQueueCapacity(postgres.WrapDbWithSqlx(db), fromAddress, store.Config.EthMaxQueuedTransactions()); err != nil {
 		err = errors.Wrapf(err, "number of unconfirmed transactions exceeds ETH_MAX_QUEUED_TRANSACTIONS. %s", static.EthMaxQueuedTransactionsLabel)
 		logger.Error(err)
 		return models.NewRunOutputError(err)

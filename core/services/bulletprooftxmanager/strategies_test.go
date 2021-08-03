@@ -38,6 +38,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 	db := store.DB
+	sqlxDB := store.Sqlx()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	subj1 := uuid.NewV4()
@@ -66,7 +67,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := bulletprooftxmanager.NewDropOldestStrategy(subj1, 2)
 
-		n, err := s.PruneQueue(db)
+		n, err := s.PruneQueue(sqlxDB)
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 

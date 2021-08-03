@@ -2,14 +2,14 @@ package fluxmonitorv2
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
 )
 
 type transmitter interface {
-	CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(tx postgres.Queryer, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -19,8 +19,8 @@ type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
-	UpdateFluxMonitorRoundStats(tx *sqlx.Tx, aggregator common.Address, roundID uint32, runID int64) error
-	CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
+	UpdateFluxMonitorRoundStats(tx postgres.Queryer, aggregator common.Address, roundID uint32, runID int64) error
+	CreateEthTransaction(tx postgres.Queryer, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
 }
 
 type orm struct {
@@ -73,7 +73,7 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (o *orm) UpdateFluxMonitorRoundStats(tx *sqlx.Tx, aggregator common.Address, roundID uint32, runID int64) error {
+func (o *orm) UpdateFluxMonitorRoundStats(tx postgres.Queryer, aggregator common.Address, roundID uint32, runID int64) error {
 	_, err := tx.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
@@ -97,7 +97,7 @@ func (o *orm) CountFluxMonitorRoundStats() (int, error) {
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
 func (o *orm) CreateEthTransaction(
-	tx *sqlx.Tx,
+	tx postgres.Queryer,
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,

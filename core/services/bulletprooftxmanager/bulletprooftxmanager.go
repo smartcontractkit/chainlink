@@ -3,7 +3,6 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -85,7 +84,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	service.Service
 	Trigger(addr common.Address)
-	CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error)
+	CreateEthTransaction(tx postgres.Queryer, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 }
 
@@ -261,8 +260,8 @@ func (b *BulletproofTxManager) Connect(*models.Head) error {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(tx *sqlx.Tx, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error) {
-	err = CheckEthTxQueueCapacity(tx.Tx, fromAddress, b.config.EthMaxQueuedTransactions())
+func (b *BulletproofTxManager) CreateEthTransaction(db postgres.Queryer, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error) {
+	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EthMaxQueuedTransactions())
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 	}
@@ -277,7 +276,10 @@ func (b *BulletproofTxManager) CreateEthTransaction(tx *sqlx.Tx, fromAddress, to
 	}
 
 	value := 0
-	err = tx.Get(&etx, `
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.SqlxTransaction(ctx, db, func(tx *sqlx.Tx) error {
+		tx.Get(&etx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject)
 VALUES (
 		$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7
@@ -285,19 +287,22 @@ VALUES (
 RETURNING "eth_txes".*
 `, fromAddress, toAddress, payload, value, gasLimit, metaBytes, strategy.Subject())
 
-	if err != nil {
-		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
-	}
+		if err != nil {
+			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
+		}
 
-	pruned, err := strategy.PruneQueue(tx)
-	if err != nil {
-		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
-	}
-	if pruned > 0 {
-		logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
-	}
+		pruned, err := strategy.PruneQueue(tx)
+		if err != nil {
+			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
+		}
+		if pruned > 0 {
+			logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
+		}
+		return nil
 
-	return etx, nil
+	})
+
+	return
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
@@ -459,19 +464,14 @@ func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state E
 	return
 }
 
-type Queryer interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-}
-
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
-func CheckEthTxQueueCapacity(db Queryer, fromAddress common.Address, maxQueuedTransactions uint64) (err error) {
+func CheckEthTxQueueCapacity(db postgres.Queryer, fromAddress common.Address, maxQueuedTransactions uint64) (err error) {
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
 	var count uint64
-	row := db.QueryRow(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unstarted'`, fromAddress)
+	row := db.QueryRow(`SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted'`, fromAddress)
 	if err = row.Scan(&count); err != nil {
 		err = errors.Wrap(err, "bulletprooftxmanager.CheckEthTxQueueCapacity query failed")
 		return
@@ -494,7 +494,7 @@ func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
 func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(*sqlx.Tx, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx EthTx, err error) {
+func (n *NullTxManager) CreateEthTransaction(postgres.Queryer, common.Address, common.Address, []byte, uint64, interface{}, TxStrategy) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                 { return nil }

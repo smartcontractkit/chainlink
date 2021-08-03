@@ -179,7 +179,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
-	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
+	orm.CreateEthTransaction(corestore.Sqlx(), from, to, payload, gasLimit)
 
 	txm.AssertExpectations(t)
 }

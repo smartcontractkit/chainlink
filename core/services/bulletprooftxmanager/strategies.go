@@ -1,8 +1,8 @@
 package bulletprooftxmanager
 
 import (
-	"github.com/jmoiron/sqlx"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -11,7 +11,7 @@ type TxStrategy interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
-	PruneQueue(tx *sqlx.Tx) (n int64, err error)
+	PruneQueue(tx postgres.Queryer) (n int64, err error)
 }
 
 var _ TxStrategy = SendEveryStrategy{}
@@ -28,8 +28,8 @@ func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy TxStra
 // SendEveryStrategy will always send the tx
 type SendEveryStrategy struct{}
 
-func (SendEveryStrategy) Subject() uuid.NullUUID             { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(*sqlx.Tx) (int64, error) { return 0, nil }
+func (SendEveryStrategy) Subject() uuid.NullUUID                     { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(postgres.Queryer) (int64, error) { return 0, nil }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -48,7 +48,7 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(tx *sqlx.Tx) (n int64, err error) {
+func (s DropOldestStrategy) PruneQueue(tx postgres.Queryer) (n int64, err error) {
 	res, err := tx.Exec(`
 DELETE FROM eth_txes
 WHERE state = 'unstarted' AND subject = ? AND

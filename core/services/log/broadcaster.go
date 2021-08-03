@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/chainlink/core/null"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -49,8 +49,8 @@ type (
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 
-		WasAlreadyConsumed(q sqlx.QueryerContext, lb Broadcast) (bool, error)
-		MarkConsumed(e sqlx.ExecerContext, lb Broadcast) error
+		WasAlreadyConsumed(q postgres.Queryer, lb Broadcast) (bool, error)
+		MarkConsumed(e postgres.Queryer, lb Broadcast) error
 		// NOTE: WasAlreadyConsumed and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
 	}
 
@@ -503,12 +503,12 @@ func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64
 }
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
-func (b *broadcaster) WasAlreadyConsumed(q sqlx.QueryerContext, lb Broadcast) (bool, error) {
+func (b *broadcaster) WasAlreadyConsumed(q postgres.Queryer, lb Broadcast) (bool, error) {
 	return b.orm.WasBroadcastConsumed(q, lb.RawLog().BlockHash, lb.RawLog().Index, lb.JobID())
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
-func (b *broadcaster) MarkConsumed(e sqlx.ExecerContext, lb Broadcast) error {
+func (b *broadcaster) MarkConsumed(e postgres.Queryer, lb Broadcast) error {
 	return b.orm.MarkBroadcastConsumed(e, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
 
@@ -528,10 +528,10 @@ func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
 }
-func (n *NullBroadcaster) WasAlreadyConsumed(tx sqlx.QueryerContext, lb Broadcast) (bool, error) {
+func (n *NullBroadcaster) WasAlreadyConsumed(tx postgres.Queryer, lb Broadcast) (bool, error) {
 	return false, errors.New(n.ErrMsg)
 }
-func (n *NullBroadcaster) MarkConsumed(tx sqlx.ExecerContext, lb Broadcast) error {
+func (n *NullBroadcaster) MarkConsumed(tx postgres.Queryer, lb Broadcast) error {
 	return errors.New(n.ErrMsg)
 }
 

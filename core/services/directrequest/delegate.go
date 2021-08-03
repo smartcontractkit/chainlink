@@ -312,7 +312,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		}
 		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 		defer cancel()
-		err = postgres.SqlxTransaction(context.Background(), l.db.DB, func(tx *sqlx.Tx) error {
+		err = postgres.SqlTransaction(context.Background(), l.db.DB, func(tx *sqlx.Tx) error {
 			_, err = l.pipelineRunner.InsertFinishedRun(ctx, tx, run, trrs, true)
 			if err != nil {
 				return err

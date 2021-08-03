@@ -739,7 +739,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	err = postgres.SqlxTransaction(ctx, fm.db.DB, func(tx *sqlx.Tx) error {
+	err = postgres.SqlTransaction(ctx, fm.db.DB, func(tx *sqlx.Tx) error {
 		runID, err2 := fm.runner.InsertFinishedRun(ctx, tx, run, results, false)
 		if err2 != nil {
 			return err2
@@ -945,7 +945,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	err = postgres.SqlxTransaction(ctx, fm.db.DB, func(tx *sqlx.Tx) error {
+	err = postgres.SqlTransaction(ctx, fm.db.DB, func(tx *sqlx.Tx) error {
 		runID, err2 := fm.runner.InsertFinishedRun(ctx, tx, run, results, true)
 		if err2 != nil {
 			return err2
