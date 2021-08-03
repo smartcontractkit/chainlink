@@ -42,7 +42,7 @@ type Run struct {
 	// DB example: [null, null, "my error"]
 	Errors RunErrors        `json:"errors" gorm:"type:jsonb"`
 	Inputs JSONSerializable `json:"inputs" gorm:"type:jsonb"`
-	// The outputs can be anything.
+	// Its expected that Output.Val is of type []interface{}.
 	// DB example: [1234, {"a": 10}, null]
 	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
 	CreatedAt        time.Time        `json:"createdAt"`
