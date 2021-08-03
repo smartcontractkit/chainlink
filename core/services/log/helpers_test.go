@@ -248,7 +248,10 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	} else {
 		logger.Warnf("Listener %v: Log was already consumed!", listener.name)
 	}
-	listener.logBroadcasts <- lb
+	select {
+		case listener.logBroadcasts <- lb:
+		default:
+	}
 }
 
 func (listener simpleLogListener) JobID() models.JobID {
