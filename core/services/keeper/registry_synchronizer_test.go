@@ -71,7 +71,7 @@ func setupRegistrySync(t *testing.T) (
 
 	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1)
-	return store, synchronizer, ethMock, lbMock, j
+	return store, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int64) {
