@@ -28,9 +28,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+const SimulatedBackendEVMChainID int64 = 1337
 
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
 // interacting with contract golang wrappers
@@ -42,17 +45,18 @@ func NewSimulatedBackendIdentity(t *testing.T) *bind.TransactOpts {
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
-	tc *configtest.TestEVMConfig,
+	cfg *configtest.TestGeneralConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
 ) (app *TestApplication, cleanup func()) {
-	chainId := backend.Blockchain().Config().ChainID.Int64()
-	tc.GeneralConfig.Overrides.SetChainID(chainId)
+	chainId := backend.Blockchain().Config().ChainID
+	cfg.Overrides.DefaultChainID = chainId
 
-	client := &SimulatedBackendClient{b: backend, t: t, chainId: int(chainId)}
-	flagsAndDeps = append(flagsAndDeps, client)
+	client := &SimulatedBackendClient{b: backend, t: t, chainId: int(chainId.Int64())}
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
+	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster)
 
-	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	app, appCleanup := NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 	err := app.KeyStore.Eth().Unlock(Password)
 	require.NoError(t, err)
 
@@ -61,7 +65,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
 	t.Helper()
-	return MustNewKeyedTransactor(t, key, 1337)
+	return MustNewKeyedTransactor(t, key, SimulatedBackendEVMChainID)
 }
 
 func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
@@ -267,6 +271,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		return nil, ethereum.NotFound
 	}
 	return &models.Head{
+		EVMChainID: utils.NewBigI(SimulatedBackendEVMChainID),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
@@ -278,10 +283,8 @@ func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) 
 }
 
 // GetChainID returns the ethereum ChainID.
-func (c *SimulatedBackendClient) ChainID(context.Context) (*big.Int, error) {
-	// The actual chain ID is c.b.Blockchain().Config().ChainID, but here we need
-	// to match the chain ID used by the testing harness.
-	return big.NewInt(int64(c.chainId)), nil
+func (c *SimulatedBackendClient) ChainID() big.Int {
+	return *big.NewInt(int64(c.chainId))
 }
 
 func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {

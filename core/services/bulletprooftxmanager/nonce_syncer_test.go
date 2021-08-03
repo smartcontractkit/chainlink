@@ -21,7 +21,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -49,7 +49,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -75,7 +75,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		k1 := cltest.MustInsertRandomKey(t, store.DB, int64(32))
@@ -102,7 +102,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
@@ -139,7 +139,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		cltest.MustInsertInProgressEthTxWithAttempt(t, db, 1, key1)
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// key1 has chain nonce of 1 which is ahead of keys.next_nonce (0)
 			// by 1, but does not need to change when taking into account the in_progress tx
@@ -153,7 +153,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ethClient.AssertExpectations(t)
 
-		ethClient = cltest.NewEthClientMock(t)
+		ethClient = cltest.NewEthClientMockWithDefaultChain(t)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// key1 has chain nonce of 2 which is ahead of keys.next_nonce (0)
 			// by 2, but only ahead by 1 if we count the in_progress tx as +1

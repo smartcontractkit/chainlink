@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -25,7 +26,7 @@ import (
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
@@ -40,7 +41,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetEthClient").Return(ethClient).Maybe()
+	app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, ethClient, nil)).Maybe()
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
 
@@ -114,7 +115,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
+			app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, cltest.NewEthClientMock(t), nil)).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
@@ -172,7 +173,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
+	app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, cltest.NewEthClientMock(t), nil)).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 
@@ -225,7 +226,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := cltest.NewTestEVMConfig(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 			// Clear out fixture
@@ -236,16 +237,16 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			_, err := keyStore.Eth().CreateNewKey()
 			require.NoError(t, err)
 
-			app := new(mocks.Application)
-			app.On("GetStore").Return(store)
-			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
-			app.On("Start").Maybe().Return(nil)
-			app.On("Stop").Maybe().Return(nil)
-
 			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("GetKeyStore").Return(keyStore)
+			app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, ethClient, nil)).Maybe()
+			app.On("Start").Maybe().Return(nil)
+			app.On("Stop").Maybe().Return(nil)
 
 			callback := func(*keystore.Eth, string) (string, error) { return "", nil }
 			noauth := cltest.CallbackAuthenticator{Callback: callback}
@@ -282,6 +283,7 @@ func TestClient_ImportKey(t *testing.T) {
 	kst := cltest.NewKeyStore(t, store.DB).Eth()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
+	ethClient.On("ChainID").Return(*big.NewInt(eth.NullClientChainID))
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t, ethClient, kst)
 	defer cleanup()
@@ -307,9 +309,9 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := cltest.NewTestEVMConfig(t)
-			config.GeneralConfig.Overrides.Dev = null.BoolFrom(true)
-			config.GeneralConfig.Overrides.LogToDisk = null.BoolFrom(tt.logToDiskValue)
+			config := cltest.NewTestGeneralConfig(t)
+			config.Overrides.Dev = null.BoolFrom(true)
+			config.Overrides.LogToDisk = null.BoolFrom(tt.logToDiskValue)
 			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
@@ -366,8 +368,9 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	ethClient := cltest.NewEthClientMock(t)
-	app.On("GetEthClient").Return(ethClient).Maybe()
+	app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, ethClient, nil)).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("ChainID", mock.Anything).Return(*config.DefaultChainID())
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 	client := cmd.Client{
@@ -452,7 +455,8 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("Stop").Return(nil)
 			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetEthClient").Return(ethClient).Maybe()
+			ethClient.On("ChainID", mock.Anything).Return(*config.DefaultChainID())
+			app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, ethClient, nil)).Maybe()
 
 			auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 			client := cmd.Client{

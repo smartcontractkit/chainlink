@@ -10,6 +10,8 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -42,6 +44,7 @@ type TestService struct {
 	csaKeystore *ksmocks.CSAKeystoreInterface
 	ethKeystore *ksmocks.EthKeyStoreInterface
 	cfg         *mocks.Config
+	cc          evm.ChainCollection
 }
 
 func setupTestService(t *testing.T) *TestService {
@@ -71,7 +74,8 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg)
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{})
+	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -85,6 +89,7 @@ func setupTestService(t *testing.T) *TestService {
 		csaKeystore: csaKeystore,
 		ethKeystore: ethKeystore,
 		cfg:         cfg,
+		cc:          cc,
 	}
 }
 

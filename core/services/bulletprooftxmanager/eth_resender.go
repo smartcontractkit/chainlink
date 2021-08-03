@@ -2,6 +2,7 @@ package bulletprooftxmanager
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -89,7 +90,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 
 	olderThan := time.Now().Add(-ageThreshold)
-	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions)
+	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions, er.ethClient.ChainID())
 	if err != nil {
 		return errors.Wrap(err, "failed to findEthTxAttemptsRequiringReceiptFetch")
 	}
@@ -143,7 +144,7 @@ func (er *EthResender) resendUnconfirmed() error {
 
 // FindEthTxesRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func FindEthTxesRequiringResend(db *gorm.DB, olderThan time.Time, maxInFlightTransactions uint32) (attempts []EthTxAttempt, err error) {
+func FindEthTxesRequiringResend(db *gorm.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int) (attempts []EthTxAttempt, err error) {
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
@@ -152,10 +153,10 @@ func FindEthTxesRequiringResend(db *gorm.DB, olderThan time.Time, maxInFlightTra
 SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
 FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
-WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= ?
+WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= ? AND evm_chain_id = ?
 ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC
 LIMIT ?
-`, olderThan, limit).
+`, olderThan, chainID.String(), limit).
 		Find(&attempts).Error
 
 	return

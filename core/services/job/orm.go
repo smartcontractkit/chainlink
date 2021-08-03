@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -54,7 +55,7 @@ type ORM interface {
 
 type orm struct {
 	db                  *gorm.DB
-	config              Config
+	chainCollection     evm.ChainCollection
 	advisoryLocker      postgres.AdvisoryLocker
 	advisoryLockClassID int32
 	pipelineORM         pipeline.ORM
@@ -65,10 +66,10 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, cfg Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
+func NewORM(db *gorm.DB, chainCollection evm.ChainCollection, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
 	return &orm{
 		db:                  db,
-		config:              cfg,
+		chainCollection:     chainCollection,
 		advisoryLocker:      advisoryLocker,
 		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
 		pipelineORM:         pipelineORM,
@@ -424,7 +425,7 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 		}
 		for i := range jobs {
 			if jobs[i].OffchainreportingOracleSpec != nil {
-				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.chainCollection, *jobs[i].OffchainreportingOracleSpec)
 			}
 		}
 		return nil
@@ -432,8 +433,15 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 	return jobs, int(count), err
 }
 
-func loadDynamicConfigVars(cfg Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+func loadDynamicConfigVars(chainCollection evm.ChainCollection, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	// Load dynamic variables
+	// This should scope based on chain_id in OCR job - See:
+	// https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
+	chain, err := chainCollection.Default()
+	if err != nil {
+		logger.Fatal(err)
+	}
+	cfg := chain.Config()
 	return &OffchainReportingOracleSpec{
 		ID:                                     os.ID,
 		ContractAddress:                        os.ContractAddress,
@@ -476,7 +484,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	}
 
 	if jb.OffchainreportingOracleSpec != nil {
-		jb.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
+		jb.OffchainreportingOracleSpec = loadDynamicConfigVars(o.chainCollection, *jb.OffchainreportingOracleSpec)
 	}
 	return jb, nil
 }

@@ -38,14 +38,18 @@ func (_m *Config) BlockBackfillSkip() bool {
 }
 
 // EvmFinalityDepth provides a mock function with given fields:
+<<<<<<< HEAD
 func (_m *Config) EvmFinalityDepth() uint {
+=======
+func (_m *Config) EvmFinalityDepth() uint32 {
+>>>>>>> d54ad8e7f (Multichain)
 	ret := _m.Called()
 
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint)
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0

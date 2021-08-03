@@ -38,6 +38,9 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -73,6 +76,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
@@ -109,6 +114,7 @@ var (
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	FixtureChainID              = *big.NewInt(0)
 	source                      rand.Source
 )
 
@@ -184,11 +190,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.EVMConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainCollection, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
+	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, cfg, ethClient, keyStore, nil, txManager)
+	pr := pipeline.NewRunner(prm, cfg, cc, keyStore, nil)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -207,7 +213,7 @@ func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeli
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config config.EVMConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
@@ -217,7 +223,7 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
@@ -272,24 +278,22 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 	}
 }
 
-func NewTestEVMConfig(t testing.TB) *configtest.TestEVMConfig {
+func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator: MockSecretGenerator{},
 		Dialect:         dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:  null.IntFrom(NewRandomInt64()),
 	}
-	cfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
-	evmcfg := configtest.NewTestEVMConfig(t, cfg)
-	return evmcfg
+	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
-// NewApplicationEthereumDisabled creates a new application with default config but ethereum disabled
+// NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
 // Useful for testing controllers
-func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
+func NewApplicationEVMDisabled(t *testing.T) (*TestApplication, func()) {
 	t.Helper()
 
-	c := NewTestEVMConfig(t)
-	c.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
+	c := NewTestGeneralConfig(t)
+	c.Overrides.EVMDisabled = null.BoolFrom(true)
 
 	app, cleanup := NewApplicationWithConfig(t, c)
 
@@ -301,7 +305,7 @@ func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	c := NewTestEVMConfig(t)
+	c := NewTestGeneralConfig(t)
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
@@ -313,14 +317,14 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication
 func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	config := NewTestEVMConfig(t)
+	config := NewTestGeneralConfig(t)
 	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 	return app, cleanup
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestEVMConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
@@ -345,15 +349,24 @@ const (
 	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
 )
 
-// NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, c *configtest.TestEVMConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+// NewApplicationWithConfig creates a New TestApplication with specified test config.
+// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
+func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
-	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
-	var externalInitiatorManager webhook.ExternalInitiatorManager = &webhook.NullExternalInitiatorManager{}
-	var useRealExternalInitiatorManager bool
 
+	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
+	shutdownSignal := &testShutdownSignal{t}
+	store, err := strpkg.NewInsecureStore(cfg, advisoryLocker, shutdownSignal)
+	require.NoError(t, err)
+	db := store.DB
+
+	var externalInitiatorManager webhook.ExternalInitiatorManager
+	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
+	var useRealExternalInitiatorManager bool
+	var chainToInsert evmtypes.Chain
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -362,23 +375,65 @@ func NewApplicationWithConfig(t testing.TB, c *configtest.TestEVMConfig, flagsAn
 			advisoryLocker = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
+		case evmtypes.Chain:
+			chainToInsert = dep
+		case postgres.EventBroadcaster:
+			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				useRealExternalInitiatorManager = true
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
 			}
 
 		}
 	}
+	lggr := cfg.CreateProductionLogger()
+	lggr.SetDB(db)
+	cfg.SetDB(db)
+
+	if chainToInsert.ID.ToInt().Int64() != int64(0) {
+		evmtest.MustInsertChainWithNode(t, db, chainToInsert)
+	}
+	keyStore := keystore.New(db, utils.FastScryptParams)
+	chainCollection, err := evm.LoadChainCollection(evm.ChainCollectionOpts{
+		Config:           cfg,
+		Logger:           lggr,
+		DB:               db,
+		KeyStore:         keyStore.Eth(),
+		AdvisoryLocker:   advisoryLocker,
+		EventBroadcaster: eventBroadcaster,
+		GenEthClient: func(c evmtypes.Chain) eth.Client {
+			cid := ethClient.ChainID()
+			if (&cid).Cmp(cfg.DefaultChainID()) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", &cid, cfg.DefaultChainID())
+			}
+			return ethClient
+		},
+	})
+	if err != nil {
+		logger.Fatal(err)
+	}
 
 	ta := &TestApplication{t: t}
-	appInstance, err := chainlink.NewApplication(logger.Default, c, ethClient, advisoryLocker)
+	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
+		Config:                   cfg,
+		AdvisoryLocker:           advisoryLocker,
+		EventBroadcaster:         eventBroadcaster,
+		ShutdownSignal:           shutdownSignal,
+		Store:                    store,
+		DB:                       db,
+		ClobberNodesFromEnv:      false, // No need to clobber since the fixture already includes it
+		KeyStore:                 keyStore,
+		ChainCollection:          chainCollection,
+		Logger:                   lggr,
+		ExternalInitiatorManager: externalInitiatorManager,
+	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	server := newServer(ta)
 
-	c.GeneralConfig.Overrides.ClientNodeURL = null.StringFrom(server.URL)
+	cfg.Overrides.ClientNodeURL = null.StringFrom(server.URL)
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
@@ -420,10 +475,22 @@ func NewEthClientAndSubMock(t mock.TestingT) (*mocks.Client, *mocks.Subscription
 	return mockEth, mockSub
 }
 
+func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+	mockEth, mockSub := NewEthClientAndSubMock(t)
+	mockEth.On("ChainID").Return(FixtureChainID).Maybe()
+	return mockEth, mockSub
+}
+
 func NewEthClientMock(t mock.TestingT) *mocks.Client {
 	mockEth := new(mocks.Client)
 	mockEth.Test(t)
 	return mockEth
+}
+
+func NewEthClientMockWithDefaultChain(t testing.TB) *mocks.Client {
+	c := NewEthClientMock(t)
+	c.On("ChainID").Return(FixtureChainID).Maybe()
+	return c
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
@@ -432,7 +499,8 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
-	c.On("ChainID", mock.Anything).Maybe().Return(big.NewInt(eth.NullClientChainID), nil)
+	c.On("ChainID").Maybe().Return(*big.NewInt(eth.NullClientChainID))
+	c.On("Close").Maybe().Return()
 
 	block := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(100),
@@ -527,7 +595,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:   r,
-		Config:     ta.GetEVMConfig(),
+		Config:     ta.GetConfig(),
 		AppFactory: seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator: CallbackAuthenticator{
 			Callback: func(*keystore.Eth, string) (string, error) {
@@ -549,7 +617,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
-		Config:                         ta.GetEVMConfig(),
+		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
@@ -588,7 +656,7 @@ func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...in
 func NewStore(t *testing.T, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
-	c := NewTestEVMConfig(t)
+	c := NewTestGeneralConfig(t)
 	store, storeCleanup := NewStoreWithConfig(t, c, flagsAndDeps...)
 	return store, storeCleanup
 }
@@ -1369,6 +1437,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
+// TODO: This needs to be removed probably
 func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mocks.Client) (verify func()) {
 	t.Helper()
 
@@ -1377,7 +1446,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	sub := new(mocks.Subscription)
 	sub.On("Err").Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
-	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 
@@ -1664,4 +1733,9 @@ func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 	for i, run := range runs {
 		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
 	}
+}
+
+func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
+	cfg := config.NewGeneralConfig()
+	return evmtest.NewChainScopedConfig(t, cfg)
 }

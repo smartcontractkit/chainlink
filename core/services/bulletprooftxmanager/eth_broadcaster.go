@@ -162,7 +162,11 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	defer eb.wg.Done()
 	for {
 		select {
-		case ev := <-eb.ethTxInsertListener.Events():
+		case ev, ok := <-eb.ethTxInsertListener.Events():
+			if !ok {
+				// If the listener channel closed the application is probably shutting down
+				return
+			}
 			hexAddr := ev.Payload
 			address := gethCommon.HexToAddress(hexAddr)
 			eb.Trigger(address)
@@ -252,7 +256,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to estimate gas")
 		}
-		a, err := newAttempt(eb.ethClient, eb.keystore, eb.config.ChainID(), *etx, gasPrice, gasLimit)
+		a, err := newAttempt(eb.ethClient, eb.keystore, eb.ethClient.ChainID(), *etx, gasPrice, gasLimit)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -528,7 +532,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
-	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.config.ChainID(), etx, newGasPrice, newGasLimit)
+	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.ethClient.ChainID(), etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}

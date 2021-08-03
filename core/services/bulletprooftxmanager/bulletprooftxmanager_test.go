@@ -3,6 +3,7 @@ package bulletprooftxmanager_test
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	_, err := bulletprooftxmanager.SendEther(db, from, to, *value, 21000)
+	_, err := bulletprooftxmanager.SendEther(db, big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
@@ -175,8 +176,9 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, nil, config, nil, nil, nil, logger.Default)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, nil, logger.Default)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -273,7 +275,8 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, nil, config, nil, nil, nil, logger.Default)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, nil, logger.Default)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -349,8 +352,9 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	config := new(bptxmmocks.Config)
+	config.Test(t)
 	kst := new(ksmocks.EthKeyStoreInterface)
 	advisoryLocker := &postgres.NullAdvisoryLocker{}
 	eventBroadcaster := new(pgmocks.EventBroadcaster)
@@ -359,7 +363,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 	config.On("EthTxReaperInterval").Return(1 * time.Hour)
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
-	config.On("EvmFinalityDepth").Maybe().Return(uint(42))
+	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	kst.On("AllKeys").Return([]ethkey.Key{}, nil).Once()
 

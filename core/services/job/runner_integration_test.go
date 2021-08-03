@@ -18,10 +18,11 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/chains"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -44,16 +45,21 @@ var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAg
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
 	defer cleanupDB()
-	config.GeneralConfig.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
+	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
+	ethClient, _, _ := cltest.NewEthMocks(t)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
+	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
+
 	pipelineORM := pipeline.NewORM(db)
-	runner := pipeline.NewRunner(pipelineORM, config, nil, nil, nil, nil)
-	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{Client: ethClient, GeneralConfig: config})
+	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
+	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
 	runner.Start()
@@ -61,10 +67,6 @@ func TestRunner(t *testing.T) {
 
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
-
-	ethClient, _, _ := cltest.NewEthMocks(t)
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
-	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -187,7 +189,7 @@ func TestRunner(t *testing.T) {
 			errors.Cause(err))
 	})
 
-	config.GeneralConfig.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)
+	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)
 
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
 		var httpURL string
@@ -343,7 +345,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		os, err := offchainreporting.ValidatedOracleSpecToml(config, s)
+		os, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -351,20 +353,15 @@ ds1 -> ds1_parse;
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		// Required to create job spawner delegate.
-		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		sd := offchainreporting.NewDelegate(
 			db,
-			nil,
 			jobORM,
-			config,
 			keyStore,
 			nil,
-			ethClient,
 			nil,
 			nil,
-			monitoringEndpoint,
-			nil,
-			nil,
+			cc,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -382,9 +379,9 @@ ds1 -> ds1_parse;
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
 `
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.Overrides.P2PPeerID = &ek.PeerID
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -392,7 +389,7 @@ ds1 -> ds1_parse;
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		// Required to create job spawner delegate.
-		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())

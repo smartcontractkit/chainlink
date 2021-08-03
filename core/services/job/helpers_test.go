@@ -10,6 +10,7 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -182,8 +183,8 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 		ExternalJobID: uuid.NewV4(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
-	c := cltest.NewTestEVMConfig(t)
-	_, err := offchainreporting.ValidatedOracleSpecToml(c, s)
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{})
+	_, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)

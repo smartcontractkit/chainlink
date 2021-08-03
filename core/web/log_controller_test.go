@@ -70,7 +70,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()

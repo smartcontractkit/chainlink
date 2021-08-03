@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -33,8 +34,6 @@ CREATE TABLE nodes (
 
 CREATE INDEX idx_nodes_evm_chain_id ON nodes (evm_chain_id);
 CREATE UNIQUE INDEX idx_nodes_unique_name ON nodes (lower(name));
-
-INSERT INTO evm_chains (id, created_at, updated_at) VALUES (%[1]s, NOW(), NOW());
 `
 
 const down56 = `
@@ -46,17 +45,22 @@ func init() {
 	Migrations = append(Migrations, &Migration{
 		ID: "0056_multichain",
 		Migrate: func(db *gorm.DB) error {
-			chainIDStr := os.Getenv("ETH_CHAIN_ID")
-			if chainIDStr == "" {
-				chainIDStr = "1"
+			if err := db.Exec(up56).Error; err != nil {
+				return err
 			}
-			chainID, ok := new(big.Int).SetString(chainIDStr, 10)
-			if !ok {
-				panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
+			dbURL := os.Getenv("DATABASE_URL")
+			if !strings.Contains(dbURL, "_test") {
+				chainIDStr := os.Getenv("ETH_CHAIN_ID")
+				if chainIDStr == "" {
+					chainIDStr = "1"
+				}
+				chainID, ok := new(big.Int).SetString(chainIDStr, 10)
+				if !ok {
+					panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
+				}
+				return db.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (?, NOW(), NOW());", chainID.String()).Error
 			}
-
-			sql := fmt.Sprintf(up56, chainID.String())
-			return db.Exec(sql).Error
+			return nil
 		},
 		Rollback: func(db *gorm.DB) error {
 			return db.Exec(down56).Error

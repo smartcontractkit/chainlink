@@ -24,7 +24,8 @@ type Head struct {
 	Number        int64
 	L1BlockNumber null.Int64
 	ParentHash    common.Hash
-	Parent        *Head `gorm:"-"`
+	Parent        *Head      `gorm:"-"`
+	EVMChainID    *utils.Big `gorm:"column:evm_chain_id"`
 	Timestamp     time.Time
 	CreatedAt     time.Time
 }

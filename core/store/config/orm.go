@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"strconv"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gorm.io/gorm"
 )
@@ -59,4 +60,10 @@ func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value strin
 	return orm.db.WithContext(ctx).Where(models.Configuration{Name: name}).
 		Assign(models.Configuration{Name: name, Value: value}).
 		FirstOrCreate(&models.Configuration{}).Error
+}
+
+// LoadChains loads all evm.Chain from the database
+func (orm *ORM) LoadChains(ctx context.Context) (chains []evmtypes.Chain, err error) {
+	err = orm.db.WithContext(ctx).Find(&chains).Error
+	return
 }

@@ -37,7 +37,7 @@ type (
 		logger         *logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
-		ethKeyStore    *keystore.Eth
+		ethKeyStore    keystore.EthKeyStoreInterface
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -47,7 +47,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth, logger *logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.EthKeyStoreInterface, logger *logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		logger,
 		db,

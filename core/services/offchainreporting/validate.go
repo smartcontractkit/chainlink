@@ -6,6 +6,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -25,7 +26,7 @@ type ValidationConfig interface {
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config ValidationConfig, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(chainCollection evm.ChainCollection, tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
@@ -56,14 +57,23 @@ func ValidatedOracleSpecToml(config ValidationConfig, tomlString string) (job.Jo
 			return jb, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
 		}
 	}
+
+	// FIXME: This should be adjusted to work with the chainID given in the
+	// TOML, and in all cases to save the chainID onto the OCR spec
+	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-jobs-pipeline-tasks-and-services-that-interact-with-evm
+	chain, err := chainCollection.Default()
+	if err != nil {
+		return jb, err
+	}
+
 	if spec.IsBootstrapPeer {
 		if err := validateBootstrapSpec(tree, jb); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, config, jb); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, chain.Config(), jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(config, spec); err != nil {
+	if err := validateTimingParameters(chain.Config(), spec); err != nil {
 		return jb, err
 	}
 	return jb, nil

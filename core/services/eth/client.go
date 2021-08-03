@@ -31,6 +31,7 @@ import (
 type Client interface {
 	Dial(ctx context.Context) error
 	Close()
+	ChainID() big.Int
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -50,7 +51,6 @@ type Client interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
-	ChainID(ctx context.Context) (*big.Int, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
@@ -92,14 +92,28 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 // multiple ethereum nodes
 type client struct {
 	logger      *logger.Logger
-	primary     *node
-	secondaries []*secondarynode
+	primary     *Node
+	secondaries []*SecondaryNode
+	chainID     big.Int
 	mocked      bool
 
 	roundRobinCount uint32
 }
 
 var _ Client = (*client)(nil)
+
+// NewClientWithNodes instantiates a client from a list of nodes
+// Currently only supports one primary
+func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SecondaryNode, chainID big.Int) (*client, error) {
+	return &client{
+		logger,
+		primaryNode,
+		sendOnlyNodes,
+		chainID,
+		false,
+		0,
+	}, nil
+}
 
 func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
@@ -114,18 +128,20 @@ func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, second
 	c := client{logger: logger}
 
 	// for now only one primary is supported
-	c.primary = newNode(*parsed, rpcHTTPURL, "eth-primary-0")
+	c.primary = NewNode(*parsed, rpcHTTPURL, "eth-primary-0")
 
 	for i, url := range secondaryRPCURLs {
 		if url.Scheme != "http" && url.Scheme != "https" {
 			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", url.String())
 		}
-		s := newSecondaryNode(url, fmt.Sprintf("eth-secondary-%d", i))
+		s := NewSecondaryNode(url, fmt.Sprintf("eth-secondary-%d", i))
 		c.secondaries = append(c.secondaries, s)
 	}
 	return &c, nil
 }
 
+// Dial opens websocket connections if necessary and sanity-checks that tthe
+// node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
 	if client.mocked {
 		return nil
@@ -133,11 +149,42 @@ func (client *client) Dial(ctx context.Context) error {
 	if err := client.primary.Dial(ctx); err != nil {
 		return err
 	}
+	if chainID, err := client.primary.ws.geth.ChainID(ctx); err != nil {
+		return err
+	} else if chainID.Cmp(&client.chainID) != 0 {
+		return errors.Errorf(
+			"websocket rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
+			chainID,
+			&client.chainID,
+			client.primary.name,
+		)
+	}
+	if client.primary.http != nil {
+		if chainID, err := client.primary.http.geth.ChainID(ctx); err != nil {
+			return err
+		} else if chainID.Cmp(&client.chainID) != 0 {
+			return errors.Errorf(
+				"http rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
+				chainID,
+				&client.chainID,
+				client.primary.name,
+			)
+		}
+	}
 
 	for _, s := range client.secondaries {
-		err := s.Dial()
-		if err != nil {
+		if err := s.Dial(); err != nil {
 			return err
+		}
+		if chainID, err := s.ChainID(ctx); err != nil {
+			return err
+		} else if chainID.Cmp(&client.chainID) != 0 {
+			return errors.Errorf(
+				"secondary rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
+				chainID,
+				&client.chainID,
+				s.name,
+			)
 		}
 	}
 	return nil
@@ -201,8 +248,8 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return
 }
 
-func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
-	return client.primary.ChainID(ctx)
+func (client *client) ChainID() big.Int {
+	return client.chainID
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -216,7 +263,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 	for _, s := range client.secondaries {
 		// Parallel send to secondary node
 		wg.Add(1)
-		go func(s *secondarynode) {
+		go func(s *SecondaryNode) {
 			defer wg.Done()
 			err := NewSendError(s.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
@@ -269,6 +316,7 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 	if err == nil && head == nil {
 		err = ethereum.NotFound
 	}
+	head.EVMChainID = utils.NewBig(&client.chainID)
 	return
 }
 
@@ -295,6 +343,7 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
+	// TODO: Need some way to intercept heads and inject the chain ID?
 	return client.primary.EthSubscribe(ctx, ch, "newHeads")
 }
 

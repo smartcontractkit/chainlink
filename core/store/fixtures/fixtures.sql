@@ -32,3 +32,15 @@ INSERT INTO users (email, hashed_password, token_secret, created_at, updated_at)
     '2019-01-01',
     '2019-01-01'
 );
+
+INSERT INTO evm_chains (id, created_at, updated_at) VALUES (0, NOW(), NOW());
+
+INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at) VALUES (
+    'eth-test-ws-only-0',
+    0,
+    'ws://example.invalid',
+    null,
+    false,
+    NOW(),
+    NOW()
+);

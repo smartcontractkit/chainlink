@@ -14,7 +14,11 @@ import (
 )
 
 // NullClient satisfies the Client but has no side effects
-type NullClient struct{}
+type NullClient struct{ CID *big.Int }
+
+func NewNullClient() *NullClient {
+	return &NullClient{big.NewInt(NullClientChainID)}
+}
 
 // NullClientChainID the ChainID that nullclient will return
 // 0 is never used as a real chain ID so makes sense as a dummy value here
@@ -88,9 +92,12 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 // GethClient methods
 //
 
-func (nc *NullClient) ChainID(ctx context.Context) (*big.Int, error) {
+func (nc *NullClient) ChainID() big.Int {
 	logger.Debug("NullClient#ChainID")
-	return big.NewInt(NullClientChainID), nil
+	if nc.CID != nil {
+		return *nc.CID
+	}
+	return *big.NewInt(NullClientChainID)
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {

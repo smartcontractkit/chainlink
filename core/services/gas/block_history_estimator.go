@@ -53,6 +53,7 @@ type (
 	BlockHistoryEstimator struct {
 		utils.StartStopOnce
 		ethClient           eth.Client
+		chainID             big.Int
 		config              Config
 		rollingBlockHistory []Block
 		mb                  *utils.Mailbox
@@ -70,11 +71,12 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(ethClient eth.Client, config Config) Estimator {
+func NewBlockHistoryEstimator(ethClient eth.Client, config Config, chainID big.Int) Estimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		utils.StartStopOnce{},
 		ethClient,
+		chainID,
 		config,
 		make([]Block, 0),
 		utils.NewMailbox(1),
@@ -98,7 +100,7 @@ func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head mode
 func (b *BlockHistoryEstimator) Start() error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Debugw("BlockHistoryEstimator: starting")
-		if uint(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EvmFinalityDepth() {
+		if uint32(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EvmFinalityDepth() {
 			b.logger.Warnf("BlockHistoryEstimator: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every block history estimator cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", b.config.BlockHistoryEstimatorBlockHistorySize(), b.config.EvmFinalityDepth())
 		}
 
@@ -339,11 +341,10 @@ var (
 
 func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, error) {
 	minGasPriceWei := b.config.EvmMinGasPriceWei()
-	chainID := b.config.ChainID()
 	gasPrices := make([]*big.Int, 0)
 	for _, block := range b.rollingBlockHistory {
 		for _, tx := range block.Transactions {
-			if isUsableTx(tx, minGasPriceWei, chainID) {
+			if isUsableTx(tx, minGasPriceWei, &b.chainID) {
 				gasPrices = append(gasPrices, tx.GasPrice)
 			}
 		}

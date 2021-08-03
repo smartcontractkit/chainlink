@@ -90,7 +90,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	config := jc.App.GetStore().Config
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetEVMConfig(), request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChainCollection(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return

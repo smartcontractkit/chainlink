@@ -35,7 +35,7 @@ func NewEstimator(ethClient eth.Client, config Config) Estimator {
 	s := config.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(ethClient, config)
+		return NewBlockHistoryEstimator(ethClient, config, ethClient.ChainID())
 	case "FixedPrice":
 		return NewFixedPriceEstimator(config)
 	case "Optimism":
@@ -75,8 +75,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
-	ChainID() *big.Int
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpWei() *big.Int
 	EvmGasLimitMultiplier() float32

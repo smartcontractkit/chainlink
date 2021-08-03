@@ -17,7 +17,7 @@ import (
 type ReaperConfig interface {
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 }
 
 // Reaper handles periodic database cleanup for BPTXM

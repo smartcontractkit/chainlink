@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -45,6 +44,10 @@ import (
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+)
+
+var (
+	DefaultMinimumContractPayment = assets.NewLink(100)
 )
 
 // NewAddress return a random new address
@@ -182,7 +185,7 @@ func StringToVersionedLogData20190207withoutIndexes(
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf.Write(requestID)
 
-	payment := hexutil.MustDecode(configtest.MinimumContractPayment.ToHash().Hex())
+	payment := hexutil.MustDecode(DefaultMinimumContractPayment.ToHash().Hex())
 	buf.Write(payment)
 
 	callbackAddr := utils.EVMWordUint64(0)
@@ -562,16 +565,16 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, db *gorm.DB, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
 	pipelineSpec := pipeline.Spec{}
-	err := store.DB.Create(&pipelineSpec).Error
+	err := db.Create(&pipelineSpec).Error
 	require.NoError(t, err)
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
 	}
-	err = store.DB.Create(&keeperSpec).Error
+	err = db.Create(&keeperSpec).Error
 	require.NoError(t, err)
 	specDB := job.Job{
 		KeeperSpec:     &keeperSpec,
@@ -582,17 +585,17 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from ethkey.EIP55Add
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
-	err = store.DB.Create(&specDB).Error
+	err = db.Create(&specDB).Error
 	require.NoError(t, err)
 	return specDB
 }
 
-func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *keystore.Eth) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, db *gorm.DB, ethKeyStore *keystore.Eth) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, store, from, contractAddress)
+	job := MustInsertKeeperJob(t, db, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,
@@ -602,14 +605,14 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *ke
 		KeeperIndex:       0,
 		NumKeepers:        1,
 	}
-	err := store.DB.Create(&registry).Error
+	err := db.Create(&registry).Error
 	require.NoError(t, err)
 	return registry, job
 }
 
-func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
+func MustInsertUpkeepForRegistry(t *testing.T, db *gorm.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
 	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{}).LowestUnsyncedID(ctx, registry.ID)
+	upkeepID, err := keeper.NewORM(db, nil, cfg, bulletprooftxmanager.SendEveryStrategy{}).LowestUnsyncedID(ctx, registry.ID)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
@@ -621,7 +624,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	require.NoError(t, err)
 	upkeep.PositioningConstant = positioningConstant
-	err = store.DB.Create(&upkeep).Error
+	err = db.Create(&upkeep).Error
 	require.NoError(t, err)
 	return upkeep
 }
@@ -631,8 +634,8 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 		RoundId:          roundID,
 		EligibleToSubmit: true,
 		LatestSubmission: latestSubmission,
-		AvailableFunds:   configtest.MinimumContractPayment.ToInt(),
-		PaymentAmount:    configtest.MinimumContractPayment.ToInt(),
+		AvailableFunds:   DefaultMinimumContractPayment.ToInt(),
+		PaymentAmount:    DefaultMinimumContractPayment.ToInt(),
 	}
 }
 

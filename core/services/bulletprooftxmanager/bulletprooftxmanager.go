@@ -38,8 +38,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
-	ChainID() *big.Int
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
@@ -100,6 +99,7 @@ type BulletproofTxManager struct {
 	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
 	gasEstimator     gas.Estimator
+	chainID          big.Int
 
 	chHeads        chan models.Head
 	trigger        chan common.Address
@@ -127,6 +127,8 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		keyStore:         keyStore,
 		advisoryLocker:   advisoryLocker,
 		eventBroadcaster: eventBroadcaster,
+		gasEstimator:     gas.NewEstimator(ethClient, config),
+		chainID:          ethClient.ChainID(),
 		chHeads:          make(chan models.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
@@ -136,12 +138,12 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
+	// TODO: Move the reaper up a level?
 	if config.EthTxReaperThreshold() > 0 {
 		b.reaper = NewReaper(db, config)
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}
-	b.gasEstimator = gas.NewEstimator(ethClient, config)
 
 	return &b
 }
@@ -297,12 +299,12 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 			}
 		}
 		res := tx.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, min_confirmations, pipeline_task_run_id)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?,?,?
+?,?,?,?,?,'unstarted',NOW(),?,?,?,?,?
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), newTx.MinConfirmations, newTx.PipelineTaskRunID).Scan(&etx)
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID, newTx.MinConfirmations, newTx.PipelineTaskRunID).Scan(&etx)
 		err = res.Error
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
@@ -326,7 +328,7 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -337,12 +339,13 @@ func SendEther(db *gorm.DB, from, to common.Address, value assets.Eth, gasLimit 
 		Value:          value,
 		GasLimit:       gasLimit,
 		State:          EthTxUnstarted,
+		EVMChainID:     *utils.NewBig(chainID),
 	}
 	err = db.Create(&etx).Error
 	return etx, err
 }
 
-func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
+func newAttempt(ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
 	attempt := EthTxAttempt{}
 
 	tx := newLegacyTransaction(
@@ -355,7 +358,7 @@ func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx EthTx, 
 	)
 
 	transaction := gethTypes.NewTx(&tx)
-	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, chainID)
+	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, &chainID)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}

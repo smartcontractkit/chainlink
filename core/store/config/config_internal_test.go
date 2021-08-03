@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -198,14 +196,14 @@ func TestStore_urlParser(t *testing.T) {
 }
 
 func TestStore_boolParser(t *testing.T) {
-	val, err := parseBool("true")
+	val, err := ParseBool("true")
 	assert.NoError(t, err)
 	assert.Equal(t, true, val)
 
-	val, err = parseBool("false")
+	val, err = ParseBool("false")
 	assert.NoError(t, err)
 	assert.Equal(t, false, val)
 
-	_, err = parseBool("")
+	_, err = ParseBool("")
 	assert.Error(t, err)
 }
