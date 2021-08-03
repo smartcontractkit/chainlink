@@ -520,6 +520,93 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	helper.mockEth.assertExpectations(t)
 }
 
+func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 10
+	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := cltest.NewBlocks(t, 10)
+	addr1SentLogs := []types.Log{
+		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 100, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 101, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 105, 0, false),
+	}
+
+	listener1 := helper.newLogListener("listener 1")
+	listener2 := helper.newLogListener("listener 2")
+
+	helper.register(listener1, contract1, 0)
+	helper.register(listener2, contract1, 0)
+
+	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       9,
+		BackfillDepth:  10,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	chRawLogs := <-helper.chchRawLogs
+
+	for _, log := range addr1SentLogs {
+		chRawLogs <- log
+	}
+
+	requireBroadcastCount(t, helper.store, 6)
+	helper.stop()
+
+	requireEqualLogs(t,
+		addr1SentLogs,
+		listener1.received.uniqueLogs,
+	)
+	requireEqualLogs(t,
+		addr1SentLogs,
+		listener2.received.uniqueLogs,
+	)
+
+	// unique sends should be equal to sends overall
+	requireEqualLogs(t,
+		listener1.received.uniqueLogs,
+		listener1.received.logs,
+	)
+	requireEqualLogs(t,
+		listener2.received.uniqueLogs,
+		listener2.received.logs,
+	)
+
+	// the logs should have been received at much earlier heights than logs' block numbers
+	logsOnBlocks := listener2.received.logsOnBlocks()
+	expectedLogsOnBlocks := []logOnBlock{
+		{
+			logBlockNumber: 100,
+			blockNumber:    4,
+			blockHash:      blocks.Hashes[4],
+		},
+		{
+			logBlockNumber: 101,
+			blockNumber:    4,
+			blockHash:      blocks.Hashes[4],
+		},
+		{
+			logBlockNumber: 105,
+			blockNumber:    4,
+			blockHash:      blocks.Hashes[4],
+		},
+	}
+
+	require.Equal(t, logsOnBlocks, expectedLogsOnBlocks)
+
+	helper.mockEth.assertExpectations(t)
+}
+
 func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	t.Parallel()
 
