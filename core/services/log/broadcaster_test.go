@@ -465,7 +465,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
 		Blocks:         blocks,
 		Interval:       250 * time.Millisecond,
-	}DirectRequestRename)
+	})
 	defer cleanup()
 
 	chRawLogs := <-helper.chchRawLogs
