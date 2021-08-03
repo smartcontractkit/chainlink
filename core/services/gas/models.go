@@ -76,13 +76,13 @@ type Config interface {
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
-	EthFinalityDepth() uint
-	EthGasBumpPercent() uint16
-	EthGasBumpWei() *big.Int
-	EthGasLimitMultiplier() float32
-	EthGasPriceDefault() *big.Int
-	EthMaxGasPriceWei() *big.Int
-	EthMinGasPriceWei() *big.Int
+	EvmFinalityDepth() uint
+	EvmGasBumpPercent() uint16
+	EvmGasBumpWei() *big.Int
+	EvmGasLimitMultiplier() float32
+	EvmGasPriceDefault() *big.Int
+	EvmMaxGasPriceWei() *big.Int
+	EvmMinGasPriceWei() *big.Int
 	GasEstimatorMode() string
 }
 
@@ -227,7 +227,7 @@ func BumpGasPriceOnly(config Config, originalGasPrice *big.Int, originalGasLimit
 	if err != nil {
 		return nil, 0, err
 	}
-	chainSpecificGasLimit = applyMultiplier(originalGasLimit, config.EthGasLimitMultiplier())
+	chainSpecificGasLimit = applyMultiplier(originalGasLimit, config.EvmGasLimitMultiplier())
 	return
 }
 
@@ -236,20 +236,20 @@ func BumpGasPriceOnly(config Config, originalGasPrice *big.Int, originalGasLimit
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
 func bumpGasPrice(config Config, originalGasPrice *big.Int) (*big.Int, error) {
-	baselinePrice := max(originalGasPrice, config.EthGasPriceDefault())
+	baselinePrice := max(originalGasPrice, config.EvmGasPriceDefault())
 
 	var priceByPercentage = new(big.Int)
-	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EthGasBumpPercent())))
+	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EvmGasBumpPercent())))
 	priceByPercentage.Div(priceByPercentage, big.NewInt(100))
 
 	var priceByIncrement = new(big.Int)
-	priceByIncrement.Add(baselinePrice, config.EthGasBumpWei())
+	priceByIncrement.Add(baselinePrice, config.EvmGasBumpWei())
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
-	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
+	if bumpedGasPrice.Cmp(config.EvmMaxGasPriceWei()) > 0 {
 		promGasBumpExceedsLimit.Inc()
-		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
-			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String(), static.EthNodeConnectivityProblemLabel)
+		return config.EvmMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
+			bumpedGasPrice.String(), config.EvmMaxGasPriceWei(), originalGasPrice.String(), static.EthNodeConnectivityProblemLabel)
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -310,7 +311,9 @@ func TestClient_CreateJobV2(t *testing.T) {
 func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfig(map[string]interface{}{"TRIGGER_FALLBACK_DB_POLL_INTERVAL": "10ms"}))
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestEVMConfig) {
+		c.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job

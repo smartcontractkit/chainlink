@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
@@ -19,9 +20,10 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.GeneralConfig.Overrides.Dev = null.BoolFrom(true)
+	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
 	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
@@ -62,9 +64,10 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
 	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
@@ -73,7 +76,6 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
 
 	require.NoError(t, app.Start())
-	app.Config.Set("CHAINLINK_DEV", false)
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/keys/eth")
@@ -120,7 +122,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig(t)
+	config := cltest.NewTestEVMConfig(t)
 	ethClient := cltest.NewEthClientMock(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 	t.Cleanup(cleanup)
