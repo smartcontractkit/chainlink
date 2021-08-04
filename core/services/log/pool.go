@@ -11,7 +11,7 @@ import (
 
 type (
 	logPool struct {
-		hashesByBlockNumbers map[uint64][]common.Hash
+		hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
 		logsByBlockHash      map[common.Hash][]types.Log
 		heap                 *pairingHeap.PairHeap
 	}
@@ -19,14 +19,18 @@ type (
 
 func newLogPool() *logPool {
 	return &logPool{
-		hashesByBlockNumbers: make(map[uint64][]common.Hash),
+		hashesByBlockNumbers: make(map[uint64]map[common.Hash]struct{}),
 		logsByBlockHash:      make(map[common.Hash][]types.Log),
 		heap:                 pairingHeap.New(),
 	}
 }
 
 func (pool *logPool) addLog(log types.Log) {
-	pool.hashesByBlockNumbers[log.BlockNumber] = append(pool.hashesByBlockNumbers[log.BlockNumber], log.BlockHash)
+	_, exists := pool.hashesByBlockNumbers[log.BlockNumber]
+	if !exists {
+		pool.hashesByBlockNumbers[log.BlockNumber] = make(map[common.Hash]struct{})
+	}
+	pool.hashesByBlockNumbers[log.BlockNumber][log.BlockHash] = struct{}{}
 	pool.logsByBlockHash[log.BlockHash] = append(pool.logsByBlockHash[log.BlockHash], log)
 	pool.heap.Insert(Uint64(log.BlockNumber))
 }
@@ -43,7 +47,7 @@ func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
 		}
 
 		blockNum := uint64(item.(Uint64))
-		logs, exists := pool.hashesByBlockNumbers[blockNum]
+		hashes, exists := pool.hashesByBlockNumbers[blockNum]
 		if exists {
 			if int64(blockNum) < lowest {
 				lowest = int64(blockNum)
@@ -51,10 +55,9 @@ func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
 			if int64(blockNum) > highest {
 				highest = int64(blockNum)
 			}
-			for _, hash := range logs {
+			for hash := range hashes {
 				logsToReturn = append(logsToReturn, logsOnBlock{blockNum, pool.logsByBlockHash[hash]})
-			}
-			for _, hash := range pool.hashesByBlockNumbers[blockNum] {
+				delete(pool.hashesByBlockNumbers[blockNum], hash)
 				delete(pool.logsByBlockHash, hash)
 			}
 		}
@@ -75,7 +78,7 @@ func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) 
 	minBlockNumToSend := int64(minBlockNumToSendItem.(Uint64))
 
 	for num := minBlockNumToSend; num <= latestBlockNum; num++ {
-		for _, hash := range pool.hashesByBlockNumbers[uint64(num)] {
+		for hash := range pool.hashesByBlockNumbers[uint64(num)] {
 			logsToReturn = append(logsToReturn, logsOnBlock{uint64(num), pool.logsByBlockHash[hash]})
 		}
 	}
@@ -96,7 +99,7 @@ func (pool *logPool) deleteOlderLogs(keptDepth uint64) {
 		}
 		pool.heap.DeleteMin()
 
-		for _, hash := range pool.hashesByBlockNumbers[blockNum] {
+		for hash := range pool.hashesByBlockNumbers[blockNum] {
 			delete(pool.logsByBlockHash, hash)
 		}
 		delete(pool.hashesByBlockNumbers, blockNum)
@@ -106,14 +109,9 @@ func (pool *logPool) deleteOlderLogs(keptDepth uint64) {
 func (pool *logPool) removeLog(log types.Log) {
 	// deleting all logs for this log's block hash
 	delete(pool.logsByBlockHash, log.BlockHash)
-
-	for i, hash := range pool.hashesByBlockNumbers[log.BlockNumber] {
-		num := i
-		if hash == log.BlockHash {
-			pool.hashesByBlockNumbers[log.BlockNumber] =
-				append(pool.hashesByBlockNumbers[log.BlockNumber][:num], pool.hashesByBlockNumbers[log.BlockNumber][num+1:]...)
-			break
-		}
+	delete(pool.hashesByBlockNumbers[log.BlockNumber], log.BlockHash)
+	if len(pool.hashesByBlockNumbers[log.BlockNumber]) == 0 {
+		delete(pool.hashesByBlockNumbers, log.BlockNumber)
 	}
 }
 

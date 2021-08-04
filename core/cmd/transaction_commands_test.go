@@ -111,7 +111,6 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 			"OPERATOR_CONTRACT_ADDRESS": &oca,
 		}),
 		withMocks(newEthMock(t)),
-		startAndConnect(),
 	)
 	client, r := app.NewClientAndRenderer()
 	s := app.GetStore()

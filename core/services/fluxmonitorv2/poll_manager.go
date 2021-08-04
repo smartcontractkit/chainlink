@@ -81,11 +81,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) (*PollManager,
 	var drumbeatTicker utils.CronTicker
 	var err error
 	if cfg.DrumbeatEnabled {
-		drumbeatRandomDelay := cfg.DrumbeatRandomDelay
-		if drumbeatRandomDelay == 0 {
-			drumbeatRandomDelay = time.Second
-		}
-		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule, drumbeatRandomDelay)
+		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule, cfg.DrumbeatRandomDelay)
 		if err != nil {
 			return nil, err
 		}

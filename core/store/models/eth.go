@@ -19,9 +19,7 @@ import (
 )
 
 type EthTxMeta struct {
-	TaskRunID        uuid.UUID
-	RunRequestID     *common.Hash
-	RunRequestTxHash *common.Hash
+	TaskRunID uuid.UUID
 }
 
 type EthTxMetaV2 struct {

@@ -14,7 +14,6 @@ type (
 		BlockHistoryEstimatorBatchSize        uint32
 		BlockHistoryEstimatorBlockDelay       uint16
 		BlockHistoryEstimatorBlockHistorySize uint16
-		EnableLegacyJobPipeline               bool
 		EthBalanceMonitorBlockDelay           uint16
 		EthFinalityDepth                      uint
 		EthGasBumpThreshold                   uint64
@@ -60,7 +59,6 @@ func setConfigs() {
 		BlockHistoryEstimatorBatchSize:        4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		BlockHistoryEstimatorBlockDelay:       1,
 		BlockHistoryEstimatorBlockHistorySize: 24,
-		EnableLegacyJobPipeline:               false,
 		EthBalanceMonitorBlockDelay:           1,
 		EthFinalityDepth:                      50,
 		EthGasBumpThreshold:                   3,
@@ -86,7 +84,6 @@ func setConfigs() {
 	}
 
 	mainnet := FallbackConfig
-	mainnet.EnableLegacyJobPipeline = true
 	mainnet.LinkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	mainnet.MinimumContractPayment = assets.NewLink(1000000000000000000) // 1 LINK
 	// NOTE: There are probably other variables we can tweak for Kovan and other
@@ -107,7 +104,6 @@ func setConfigs() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := FallbackConfig
-	xDaiMainnet.EnableLegacyJobPipeline = true
 	xDaiMainnet.EthGasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.EthGasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.EthMinGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
@@ -118,7 +114,6 @@ func setConfigs() {
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := FallbackConfig
-	bscMainnet.EnableLegacyJobPipeline = true
 	bscMainnet.EthBalanceMonitorBlockDelay = 2
 	bscMainnet.EthFinalityDepth = 50   // Keeping this >> 11 because it's not expensive and gives us a safety margin
 	bscMainnet.EthGasBumpThreshold = 5 // 15s delay since feeds update every minute in volatile situations
@@ -140,7 +135,6 @@ func setConfigs() {
 	// Polygon has a 1s block time and looser finality guarantees than Ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := FallbackConfig
-	polygonMainnet.EnableLegacyJobPipeline = true
 	polygonMainnet.EthBalanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
 	polygonMainnet.EthFinalityDepth = 200           // A sprint is 64 blocks long and doesn't guarantee finality. To be safe we take three sprints (192 blocks) plus a safety margin
 	polygonMainnet.EthGasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
