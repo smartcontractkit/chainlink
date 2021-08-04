@@ -244,13 +244,13 @@ func (_m *Service) Unsafe_SetConnectionsManager(_a0 feeds.ConnectionsManager) {
 	_m.Called(_a0)
 }
 
-// UpdateFeedsManager provides a mock function with given fields: mgr
-func (_m *Service) UpdateFeedsManager(mgr feeds.FeedsManager) error {
-	ret := _m.Called(mgr)
+// UpdateFeedsManager provides a mock function with given fields: ctx, mgr
+func (_m *Service) UpdateFeedsManager(ctx context.Context, mgr feeds.FeedsManager) error {
+	ret := _m.Called(ctx, mgr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(feeds.FeedsManager) error); ok {
-		r0 = rf(mgr)
+	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
+		r0 = rf(ctx, mgr)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -36,7 +36,7 @@ type Service interface {
 	RejectJobProposal(ctx context.Context, id int64) error
 	SyncNodeInfo(id int64) error
 	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
-	UpdateFeedsManager(mgr FeedsManager) error
+	UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error
 
 	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
@@ -47,11 +47,10 @@ type service struct {
 	orm         ORM
 	csaKeyStore keystore.CSAKeystoreInterface
 	ethKeyStore keystore.EthKeyStoreInterface
-	// fmsClient   pb.FeedsManagerClient
-	jobSpawner job.Spawner
-	cfg        Config
-	txm        postgres.TransactionManager
-	connMgr    ConnectionsManager
+	jobSpawner  job.Spawner
+	cfg         Config
+	txm         postgres.TransactionManager
+	connMgr     ConnectionsManager
 }
 
 // NewService constructs a new feeds service
@@ -158,10 +157,17 @@ func (s *service) SyncNodeInfo(id int64) error {
 
 // UpdateFeedsManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
-func (s *service) UpdateFeedsManager(mgr FeedsManager) error {
-	err := s.orm.UpdateManager(context.Background(), mgr)
+func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
+	err := s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
+		err := s.orm.UpdateManager(ctx, mgr)
+		if err != nil {
+			return errors.Wrap(err, "could not update manager")
+		}
+
+		return nil
+	})
 	if err != nil {
-		return errors.Wrap(err, "could not update manager")
+		return err
 	}
 
 	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
