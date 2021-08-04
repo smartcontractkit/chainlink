@@ -136,7 +136,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()

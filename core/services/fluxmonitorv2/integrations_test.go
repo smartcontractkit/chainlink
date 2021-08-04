@@ -408,7 +408,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// Create mock server
 	// We expect metadata of:
@@ -540,7 +540,7 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	initialBalance := currentBalance(t, &fa).Int64()
 
@@ -645,7 +645,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// Create mock server
 	reportPrice := int64(1)
@@ -755,7 +755,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 		cfg.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
 		cfg.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", "100")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// Report a price that is above the maximum allowed value,
 	// causing it to revert.
@@ -829,7 +829,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
 	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+

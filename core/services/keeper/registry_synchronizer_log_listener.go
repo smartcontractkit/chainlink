@@ -6,19 +6,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func (rs *RegistrySynchronizer) JobID() models.JobID {
-	return models.JobID{}
-}
-
-func (rs *RegistrySynchronizer) JobIDV2() int32 {
+func (rs *RegistrySynchronizer) JobID() int32 {
 	return rs.job.ID
-}
-
-func (rs *RegistrySynchronizer) IsV2Job() bool {
-	return true
 }
 
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {

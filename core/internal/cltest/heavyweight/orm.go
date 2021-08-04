@@ -36,7 +36,7 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) 
 	require.NoError(t, err)
 	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	require.NoError(t, err)
-	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+	orm.SetLogging(config.LogSQLMigrations())
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
 		require.NoError(t, migrations.Migrate(orm.DB))
@@ -52,6 +52,7 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) 
 		err = orm.DB.Exec(string(fixturesSQL)).Error
 		require.NoError(t, err)
 	}
+	orm.SetLogging(config.LogSQLStatements())
 
 	return tc, orm, func() {
 		assert.NoError(t, orm.Close())

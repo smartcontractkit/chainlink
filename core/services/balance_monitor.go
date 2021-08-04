@@ -60,11 +60,6 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.
 	return bm
 }
 
-// Connect complies with HeadTrackable
-func (bm *balanceMonitor) Connect(_ *models.Head) error {
-	return nil
-}
-
 func (bm *balanceMonitor) Start() error {
 	// Always query latest balance on start
 	bm.checkBalance(nil)
@@ -174,13 +169,10 @@ func (w *worker) checkAccountBalance(k ethkey.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error   { return nil }
-func (*NullBalanceMonitor) Close() error   { return nil }
-func (*NullBalanceMonitor) Ready() error   { return nil }
-func (*NullBalanceMonitor) Healthy() error { return nil }
-func (*NullBalanceMonitor) Connect(head *models.Head) error {
-	return nil
-}
+func (*NullBalanceMonitor) Start() error                                            { return nil }
+func (*NullBalanceMonitor) Close() error                                            { return nil }
+func (*NullBalanceMonitor) Ready() error                                            { return nil }
+func (*NullBalanceMonitor) Healthy() error                                          { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
 
 var promETHBalance = promauto.NewGaugeVec(
