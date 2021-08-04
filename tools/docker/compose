@@ -68,9 +68,6 @@ Commands:
 
     acceptance            Run the services required to perform an acceptance test
 
-    test                  Run integration test suite
-    test:down             Cleanup resources that may have been left over by ./compose test, used for CI
-    test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
     test:ts               Run integration test suite in typescript (WIP)
     test:ts:down          Cleanup resources that may have been left over by ./compose test:ts, used for CI
     test:ts:dev           Run integration test suite with /tools/ci-ts bind-mounted (WIP)

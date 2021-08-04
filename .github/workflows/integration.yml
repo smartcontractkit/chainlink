@@ -53,7 +53,7 @@ jobs:
     strategy:
       max-parallel: 2
       matrix:
-        test: ['test', 'test:ts']
+        test: ['test:ts']
         node: ['geth', 'parity']
     env:
       GETH_MODE: ${{ matrix.node == 'geth' }}

@@ -4,4 +4,3 @@ services:
   integration:
     volumes:
       - ../../integration:$SRCROOT/integration
-      - ../ci/ethereum_test:$SRCROOT/tools/ci/ethereum_test
