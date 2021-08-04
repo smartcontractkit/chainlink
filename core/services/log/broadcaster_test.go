@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -519,109 +517,6 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 
 	require.Equal(t, logsOnBlocks, expectedLogsOnBlocks)
 
-	helper.mockEth.assertExpectations(t)
-}
-
-func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
-	t.Parallel()
-
-	const blockHeight int64 = 10
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
-	// Start the logbroadcaster, its now waiting for subscribers
-	helper.start()
-
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
-	require.NoError(t, err)
-
-	addr1SentLogs := []types.Log{
-		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 100, 0, false),
-		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 101, 0, false),
-		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 105, 0, false),
-	}
-
-	broadcastsToListener1 := make(chan log.Broadcast, 3) // Each should get 3
-	broadcastsToListener2 := make(chan log.Broadcast, 3) // Each should get 3
-	listener1 := helper.newLogListener("listener 1", broadcastsToListener1)
-	listener2 := helper.newLogListener("listener 2", broadcastsToListener2)
-
-	helper.register(listener1, contract1, 0)
-	helper.register(listener2, contract1, 0)
-	chRawLogs := <-helper.chchRawLogs
-
-	for _, log := range addr1SentLogs {
-		select {
-		case chRawLogs <- log:
-		case <-time.After(time.Second):
-			t.Error("failed to send log to log broadcaster")
-		}
-	}
-
-	// All logs should be sitting in the the lb
-	// Send a head to fire them off
-	helper.lb.OnNewLongestChain(context.Background(), models.Head{
-		Number: 1,
-	})
-	for i := 0; i < len(addr1SentLogs); i++ {
-		select {
-		case <-broadcastsToListener1:
-		case <-time.After(5*time.Second):
-			t.Error("failed to get broadcast to listener 1")
-		}
-	}
-	for i := 0; i < len(addr1SentLogs); i++ {
-		select {
-		case <-broadcastsToListener2:
-		case <-time.After(5*time.Second):
-			t.Error("failed to get broadcast to listener 2")
-		}
-	}
-
-	var count int
-	err = helper.store.DB.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
-	require.NoError(t, err)
-	assert.Equal(t, 6, count)
-	helper.stop()
-
-	requireEqualLogs(t,
-		addr1SentLogs,
-		listener1.received.uniqueLogs,
-	)
-	requireEqualLogs(t,
-		addr1SentLogs,
-		listener2.received.uniqueLogs,
-	)
-
-	// unique sends should be equal to sends overall
-	requireEqualLogs(t,
-		listener1.received.uniqueLogs,
-		listener1.received.logs,
-	)
-	requireEqualLogs(t,
-		listener2.received.uniqueLogs,
-		listener2.received.logs,
-	)
-
-	// the logs should have been received at much earlier heights than logs' block numbers
-	logsOnBlocks := listener2.received.logsOnBlocks()
-	expectedLogsOnBlocks := []logOnBlock{
-		{
-			logBlockNumber: 100,
-			blockNumber:    1,
-			blockHash:      common.Hash{},
-		},
-		{
-			logBlockNumber: 101,
-			blockNumber:    1,
-			blockHash:      common.Hash{},
-		},
-		{
-			logBlockNumber: 105,
-			blockNumber:    1,
-			blockHash:      common.Hash{},
-		},
-	}
-	require.Equal(t, expectedLogsOnBlocks, logsOnBlocks)
 	helper.mockEth.assertExpectations(t)
 }
 
