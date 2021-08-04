@@ -213,6 +213,37 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func Test_Service_UpdateFeedsManager(t *testing.T) {
+	_, privkey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	var (
+		ctx = context.Background()
+		mgr = feeds.FeedsManager{
+			ID: 1,
+		}
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+	var pubKey crypto.PublicKey
+	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+	key := csakey.Key{
+		PublicKey: pubKey,
+	}
+
+	svc := setupTestService(t)
+
+	ctx = mockTransactWithContext(ctx, svc.txm)
+	svc.orm.On("UpdateManager", ctx, mgr).Return(nil)
+	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
+	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
+	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
+
+	err = svc.UpdateFeedsManager(ctx, mgr)
+	require.NoError(t, err)
+}
+
 func Test_Service_ListJobProposals(t *testing.T) {
 	t.Parallel()
 
