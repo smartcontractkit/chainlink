@@ -192,7 +192,7 @@ type simpleLogListener struct {
 	received            *received
 	t                   *testing.T
 	db                  *gorm.DB
-	jobID               log.JobIdSelect
+	jobID               int32
 	skipMarkingConsumed bool
 }
 
