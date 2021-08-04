@@ -6,8 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	"github.com/bmizerany/assert"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
