@@ -289,7 +289,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 				flux_monitor_spec_id,
 				vrf_spec_id,
 				webhook_spec_id,
-				direct_request_spec_id
+				eth_log_spec_id
 		),
 		deleted_oracle_specs AS (
 			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
@@ -310,7 +310,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 			DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)
 		),
 		deleted_dr_specs AS (
-			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
+			DELETE FROM eth_log_specs WHERE id IN (SELECT eth_log_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
 	`, id).Error
