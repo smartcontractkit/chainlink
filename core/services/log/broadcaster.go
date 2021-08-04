@@ -211,8 +211,6 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) Connect(head *models.Head) error { return nil }
-
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
@@ -320,6 +318,10 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		select {
 		case rawLog := <-chRawLogs:
+
+			logger.Debugw("LogBroadcaster: Received a log",
+				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
+
 			b.onNewLog(rawLog)
 
 		case <-b.newHeads.Notify():
@@ -401,18 +403,32 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
-		logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
-
-		if len(logs) > 0 {
-			broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
-			if err != nil {
-				logger.Errorf("LogBroadcaster: Failed to query for log broadcasts, %v", err)
-				return
+		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
+		// without comparing their block numbers to the current head's block number.
+		if b.registrations.highestNumConfirmations == 0 {
+			logs, lowest, highest := b.logPool.getAndDeleteAll()
+			if len(logs) > 0 {
+				broadcasts, err := b.orm.FindConsumedLogs(lowest, highest)
+				if err != nil {
+					logger.Errorf("Failed to query for log broadcasts, %v", err)
+					return
+				}
+				b.registrations.sendLogs(logs, *latestHead, broadcasts)
 			}
+		} else {
+			logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
 
-			b.registrations.sendLogs(logs, *latestHead, broadcasts)
+			if len(logs) > 0 {
+				broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
+				if err != nil {
+					logger.Errorf("LogBroadcaster: Failed to query for log broadcasts, %v", err)
+					return
+				}
+
+				b.registrations.sendLogs(logs, *latestHead, broadcasts)
+			}
+			b.logPool.deleteOlderLogs(uint64(keptDepth))
 		}
-		b.logPool.deleteOlderLogs(uint64(keptDepth))
 	}
 }
 
@@ -546,5 +562,4 @@ func (n *NullBroadcaster) Start() error                                   { retu
 func (n *NullBroadcaster) Close() error                                   { return nil }
 func (n *NullBroadcaster) Healthy() error                                 { return nil }
 func (n *NullBroadcaster) Ready() error                                   { return nil }
-func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}

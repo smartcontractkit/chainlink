@@ -344,19 +344,9 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	}
 }
 
-// JobID complies with log.Listener
-func (*listener) JobID() models.JobID {
-	return models.NilJobID
-}
-
 // Job complies with log.Listener
-func (l *listener) JobIDV2() int32 {
+func (l *listener) JobID() int32 {
 	return l.job.ID
-}
-
-// IsV2Job complies with log.Listener
-func (*listener) IsV2Job() bool {
-	return true
 }
 
 func formatRequestId(requestId [32]byte) string {

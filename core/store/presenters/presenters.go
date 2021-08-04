@@ -5,15 +5,11 @@ package presenters
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/url"
 	"reflect"
-	"strings"
 	"time"
-
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -23,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/tidwall/gjson"
 )
 
 // ConfigPrinter are the non-secret values of the node
@@ -53,8 +48,6 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
-	EnableExperimentalAdapters                 bool            `json:"ENABLE_EXPERIMENTAL_ADAPTERS"`
-	EnableLegacyJobPipeline                    bool            `json:"ENABLE_LEGACY_JOB_PIPELINE"`
 	EthBalanceMonitorBlockDelay                uint16          `json:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
 	EthFinalityDepth                           uint            `json:"ETH_FINALITY_DEPTH"`
 	EthGasBumpThreshold                        uint64          `json:"ETH_GAS_BUMP_THRESHOLD"`
@@ -73,7 +66,6 @@ type EnvPrinter struct {
 	ExplorerURL                                string          `json:"EXPLORER_URL"`
 	FMDefaultTransactionQueueDepth             uint32          `json:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	FeatureExternalInitiators                  bool            `json:"FEATURE_EXTERNAL_INITIATORS"`
-	FeatureFluxMonitor                         bool            `json:"FEATURE_FLUX_MONITOR"`
 	FeatureOffchainReporting                   bool            `json:"FEATURE_OFFCHAIN_REPORTING"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	GasEstimatorMode                           string          `json:"GAS_ESTIMATOR_MODE"`
@@ -157,8 +149,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			DefaultHTTPLimit:                           config.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                         config.DefaultHTTPTimeout(),
 			Dev:                                        config.Dev(),
-			EnableExperimentalAdapters:                 config.EnableExperimentalAdapters(),
-			EnableLegacyJobPipeline:                    config.EnableLegacyJobPipeline(),
 			EthBalanceMonitorBlockDelay:                config.EthBalanceMonitorBlockDelay(),
 			EthFinalityDepth:                           config.EthFinalityDepth(),
 			EthGasBumpThreshold:                        config.EthGasBumpThreshold(),
@@ -177,7 +167,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			ExplorerURL:                                explorerURL,
 			FMDefaultTransactionQueueDepth:             config.FMDefaultTransactionQueueDepth(),
 			FeatureExternalInitiators:                  config.FeatureExternalInitiators(),
-			FeatureFluxMonitor:                         config.FeatureFluxMonitor(),
 			FeatureOffchainReporting:                   config.FeatureOffchainReporting(),
 			FlagsContractAddress:                       config.FlagsContractAddress(),
 			GasEstimatorMode:                           config.GasEstimatorMode(),
@@ -285,274 +274,10 @@ func mapToStringA(in []url.URL) (out []string) {
 	return
 }
 
-// JobSpec holds the JobSpec definition together with
-// the total link earned from that job
-type JobSpec struct {
-	models.JobSpec
-	Errors   []models.JobSpecError `json:"errors"`
-	Earnings *assets.Link          `json:"earnings"`
-}
-
-// MarshalJSON returns the JSON data of the Job and its Initiators.
-func (job JobSpec) MarshalJSON() ([]byte, error) {
-	type Alias JobSpec
-	pis := make([]Initiator, len(job.Initiators))
-	for i, modelInitr := range job.Initiators {
-		pis[i] = Initiator{modelInitr}
-	}
-	return json.Marshal(&struct {
-		Initiators []Initiator `json:"initiators"`
-		Alias
-	}{
-		pis,
-		Alias(job),
-	})
-}
-
-// FriendlyCreatedAt returns a human-readable string of the Job's
-// CreatedAt field.
-func (job JobSpec) FriendlyCreatedAt() string {
-	return utils.ISO8601UTC(job.CreatedAt)
-}
-
-// FriendlyStartAt returns a human-readable string of the Job's
-// StartAt field.
-func (job JobSpec) FriendlyStartAt() string {
-	if job.StartAt.Valid {
-		return utils.ISO8601UTC(job.StartAt.Time)
-	}
-	return ""
-}
-
-// FriendlyEndAt returns a human-readable string of the Job's
-// EndAt field.
-func (job JobSpec) FriendlyEndAt() string {
-	if job.EndAt.Valid {
-		return utils.ISO8601UTC(job.EndAt.Time)
-	}
-	return ""
-}
-
-// FriendlyMinPayment returns a formatted string of the Job's
-// Minimum Link Payment threshold
-func (job JobSpec) FriendlyMinPayment() string {
-	return job.MinPayment.Text(10)
-}
-
-// FriendlyInitiators returns the list of Initiator types as
-// a comma separated string.
-func (job JobSpec) FriendlyInitiators() string {
-	var initrs []string
-	for _, i := range job.Initiators {
-		initrs = append(initrs, i.Type)
-	}
-	return strings.Join(initrs, "\n")
-}
-
-// FriendlyTasks returns the list of Task types as a comma
-// separated string.
-func (job JobSpec) FriendlyTasks() string {
-	var tasks []string
-	for _, t := range job.Tasks {
-		tasks = append(tasks, t.Type.String())
-	}
-
-	return strings.Join(tasks, "\n")
-}
-
-// Initiator holds the Job definition's Initiator.
-type Initiator struct {
-	models.Initiator
-}
-
-// MarshalJSON returns the JSON data of the Initiator based
-// on its Initiator Type.
-func (i Initiator) MarshalJSON() ([]byte, error) {
-	p, err := initiatorParams(i)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return json.Marshal(&struct {
-		ID     int64       `json:"id"`
-		JobID  uuid.UUID   `json:"jobSpecId"`
-		Type   string      `json:"type"`
-		Params interface{} `json:"params"`
-	}{i.ID, i.JobSpecID.UUID(), i.Type, p})
-}
-
-func initiatorParams(i Initiator) (interface{}, error) {
-	switch i.Type {
-	case models.InitiatorWeb:
-		return struct{}{}, nil
-	case models.InitiatorCron:
-		return struct {
-			Schedule models.Cron `json:"schedule"`
-		}{i.Schedule}, nil
-	case models.InitiatorRunAt:
-		return struct {
-			Time models.AnyTime `json:"time"`
-			Ran  bool           `json:"ran"`
-		}{models.NewAnyTime(i.Time.Time), i.Ran}, nil
-	case models.InitiatorEthLog:
-		fallthrough
-	case models.InitiatorRunLog:
-		return struct {
-			Address common.Address `json:"address"`
-		}{i.Address}, nil
-	case models.InitiatorExternal:
-		return struct {
-			Name string `json:"name"`
-		}{i.Name}, nil
-	case models.InitiatorFluxMonitor:
-		return struct {
-			Address           common.Address         `json:"address"`
-			RequestData       models.JSON            `json:"requestData"`
-			Feeds             models.JSON            `json:"feeds"`
-			Threshold         float32                `json:"threshold"`
-			AbsoluteThreshold float32                `json:"absoluteThreshold"`
-			Precision         int32                  `json:"precision"`
-			PollTimer         models.PollTimerConfig `json:"pollTimer,omitempty"`
-			IdleTimer         models.IdleTimerConfig `json:"idleTimer,omitempty"`
-		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.AbsoluteThreshold,
-			i.Precision, i.PollTimer, i.IdleTimer}, nil
-	case models.InitiatorRandomnessLog:
-		return struct {
-			Address          common.Address `json:"address"`
-			JobIDTopicFilter models.JobID   `json:"jobIDTopicFilter"`
-		}{
-			i.Address,
-			i.JobIDTopicFilter,
-		}, nil
-	default:
-		return nil, fmt.Errorf("cannot marshal unsupported initiator type '%v'", i.Type)
-	}
-}
-
-// FriendlyRunAt returns a human-readable string for Cron Initiator types.
-func (i Initiator) FriendlyRunAt() string {
-	if i.Type == models.InitiatorRunAt {
-		return utils.ISO8601UTC(i.Time.Time)
-	}
-	return ""
-}
-
-// FriendlyAddress returns the Ethereum address if present, and a blank
-// string if not.
-func (i Initiator) FriendlyAddress() string {
-	if i.IsLogInitiated() {
-		return utils.LogListeningAddress(i.Address)
-	}
-	return ""
-}
-
-// JobRun presents an API friendly version of the data.
-type JobRun struct {
-	models.JobRun
-}
-
-// MarshalJSON returns the JSON data of the JobRun and its Initiator.
-func (jr JobRun) MarshalJSON() ([]byte, error) {
-	type Alias JobRun
-	return json.Marshal(&struct {
-		Alias
-		Initiator Initiator `json:"initiator"`
-	}{
-		Alias(jr),
-		Initiator{jr.Initiator},
-	})
-}
-
-// TaskSpec holds a task specified in the Job definition.
-type TaskSpec struct {
-	models.TaskSpec
-}
-
-// FriendlyParams returns a map of the TaskSpec's parameters.
-func (t TaskSpec) FriendlyParams() (string, string) {
-	keys := []string{}
-	values := []string{}
-	t.Params.ForEach(func(key, value gjson.Result) bool {
-		if key.String() != "type" {
-			keys = append(keys, key.String())
-			values = append(values, value.String())
-		}
-		return true
-	})
-	return strings.Join(keys, "\n"), strings.Join(values, "\n")
-}
-
 // FriendlyBigInt returns a string printing the integer in both
 // decimal and hexadecimal formats.
 func FriendlyBigInt(n *big.Int) string {
 	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
-}
-
-// ServiceAgreement presents an API friendly version of the data.
-type ServiceAgreement struct {
-	models.ServiceAgreement
-}
-
-type ServiceAgreementPresentation struct {
-	ID            string             `json:"id"`
-	CreatedAt     string             `json:"createdAt"`
-	Encumbrance   models.Encumbrance `json:"encumbrance"`
-	EncumbranceID int64              `json:"encumbranceID"`
-	RequestBody   string             `json:"requestBody"`
-	Signature     string             `json:"signature"`
-	JobSpec       models.JobSpec     `json:"jobSpec"`
-	JobSpecID     string             `json:"jobSpecId"`
-}
-
-// MarshalJSON presents the ServiceAgreement as public JSON data
-func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
-	return json.Marshal(ServiceAgreementPresentation{
-		ID:            sa.ID,
-		CreatedAt:     utils.ISO8601UTC(sa.CreatedAt),
-		Encumbrance:   sa.Encumbrance,
-		EncumbranceID: sa.EncumbranceID,
-		RequestBody:   sa.RequestBody,
-		Signature:     sa.Signature.String(),
-		JobSpec:       sa.JobSpec,
-		JobSpecID:     sa.JobSpecID.String(),
-	})
-}
-
-// FriendlyCreatedAt returns the ServiceAgreement's created at time in a human
-// readable format.
-func (sa ServiceAgreement) FriendlyCreatedAt() string {
-	return utils.ISO8601UTC(sa.CreatedAt)
-}
-
-// FriendlyExpiration returns the ServiceAgreement's Encumbrance expiration time
-// in a human readable format.
-func (sa ServiceAgreement) FriendlyExpiration() string {
-	return fmt.Sprintf("%v seconds", sa.Encumbrance.Expiration)
-}
-
-// FriendlyPayment returns the ServiceAgreement's Encumbrance payment amount in
-// a human readable format.
-func (sa ServiceAgreement) FriendlyPayment() string {
-	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.Link())
-}
-
-// FriendlyAggregator returns the ServiceAgreement's aggregator address,
-// in a human readable format.
-func (sa ServiceAgreement) FriendlyAggregator() string {
-	return sa.Encumbrance.Aggregator.String()
-}
-
-// FriendlyAggregator returns the ServiceAgreement's aggregator initialization
-// method's function selector, in a human readable format.
-func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
-	return sa.Encumbrance.AggInitiateJobSelector.String()
-}
-
-// FriendlyAggregatorFulfillMethod returns the ServiceAgreement's aggregator
-// fulfillment (orcale reporting) method's function selector, in a human
-// readable format.
-func (sa ServiceAgreement) FriendlyAggregatorFulfillMethod() string {
-	return sa.Encumbrance.AggFulfillSelector.String()
 }
 
 // ExternalInitiatorAuthentication includes initiator and authentication details.

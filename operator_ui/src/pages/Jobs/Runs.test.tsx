@@ -2,15 +2,15 @@ import React from 'react'
 import { Route } from 'react-router-dom'
 import { JobsShow } from 'pages/Jobs/Show'
 import { jsonApiOcrJobSpec } from 'factories/jsonApiJob'
-import { jsonApiOcrJobRuns } from 'factories/jsonApiOcrJobRuns'
+import { jobRunsAPIResponse } from 'factories/jsonApiOcrJobRun'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
-const JOB_SPEC_ID = '1'
+const JOB_ID = '1'
 
 describe('pages/Jobs/Runs', () => {
-  it('adds pagination info to the URL and renders job runs', async () => {
+  it('renders job runs', async () => {
     const runs = []
     const RUNS_COUNT = 100
 
@@ -19,20 +19,20 @@ describe('pages/Jobs/Runs', () => {
     }
 
     global.fetch.getOnce(
-      globPath(`/v2/jobs/${JOB_SPEC_ID}/runs?page=1&size=10`),
-      jsonApiOcrJobRuns(runs.slice(0, 10), RUNS_COUNT),
+      globPath(`/v2/jobs/${JOB_ID}/runs?page=1&size=10`),
+      jobRunsAPIResponse(runs.slice(0, 10), RUNS_COUNT),
     )
     global.fetch.getOnce(
-      globPath(`/v2/jobs/${JOB_SPEC_ID}`),
+      globPath(`/v2/jobs/${JOB_ID}`),
       jsonApiOcrJobSpec({
-        id: JOB_SPEC_ID,
+        id: JOB_ID,
       }),
     )
 
     const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobSpecId" component={JobsShow} />,
+      <Route path="/jobs/:jobId" component={JobsShow} />,
       {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}/runs`],
+        initialEntries: [`/jobs/${JOB_ID}/runs`],
       },
     )
     await syncFetch(wrapper)

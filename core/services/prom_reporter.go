@@ -116,11 +116,6 @@ func (pr *promReporter) Close() error {
 	})
 }
 
-// Do nothing on connect, simply wait for the next head
-func (pr *promReporter) Connect(*models.Head) error {
-	return nil
-}
-
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	pr.newHeads.Deliver(head)
 }

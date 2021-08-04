@@ -159,7 +159,7 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("vrf.Delegate unable to read previous fulfillments", "err", err)
+		l.Errorw("VRFListener: unable to read previous fulfillments", "err", err)
 		return respCounts
 	}
 	for _, c := range counts {
@@ -168,7 +168,7 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 		// Remove the 0x prefix
 		b, err := hex.DecodeString(req[2:])
 		if err != nil {
-			l.Errorw("vrf.Delegate unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			l.Errorw("VRFListener: unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
 		var reqID [32]byte

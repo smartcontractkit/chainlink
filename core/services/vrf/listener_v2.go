@@ -43,6 +43,11 @@ const (
 		7748 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
+var (
+	_ log.Listener = &listenerV2{}
+	_ job.Service  = &listenerV2{}
+)
+
 type pendingRequest struct {
 	confirmedAtBlock uint64
 	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
@@ -332,17 +337,7 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	}
 }
 
-// JobID complies with log.Listener
-func (*listenerV2) JobID() models.JobID {
-	return models.NilJobID
-}
-
 // Job complies with log.Listener
-func (lsn *listenerV2) JobIDV2() int32 {
+func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
-}
-
-// IsV2Job complies with log.Listener
-func (*listenerV2) IsV2Job() bool {
-	return true
 }

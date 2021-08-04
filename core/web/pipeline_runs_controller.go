@@ -31,6 +31,11 @@ type PipelineRunsController struct {
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
+	// Temporary: if no size is passed in, use a large page size. Remove once frontend can handle pagination
+	if c.Query("size") == "" {
+		size = 1000
+	}
+
 	var pipelineRuns []pipeline.Run
 	var count int
 	var err error
@@ -86,7 +91,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		jsonAPIResponse(c, pipelineRun, "pipelineRun")
+		jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "pipelineRun")
 	}
 
 	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
@@ -103,7 +108,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
 	if err == nil {
-		canRun, err2 := authorizer.CanRun(c.Request.Context(), jobUUID)
+		canRun, err2 := authorizer.CanRun(c.Request.Context(), prc.App.GetConfig(), jobUUID)
 		if err2 != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err2)
 			return

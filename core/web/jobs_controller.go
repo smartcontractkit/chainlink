@@ -16,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
 )
 
 // JobsController manages jobs
@@ -68,12 +66,6 @@ func (jc *JobsController) Show(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(jobSpec), "jobs")
 }
 
-type GenericJobSpec struct {
-	Type          job.Type    `toml:"type"`
-	SchemaVersion uint32      `toml:"schemaVersion"`
-	Name          null.String `toml:"name"`
-}
-
 // CreateJobRequest represents a request to create and start a job (V2).
 type CreateJobRequest struct {
 	TOML string `json:"toml"`
@@ -89,15 +81,14 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	genericJS := GenericJobSpec{}
-	err := toml.Unmarshal([]byte(request.TOML), &genericJS)
+	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
 	}
 
 	var jb job.Job
 	config := jc.App.GetStore().Config
-	switch genericJS.Type {
+	switch jobType {
 	case job.OffchainReporting:
 		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
@@ -117,7 +108,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
 	default:
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -148,7 +139,7 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = jc.App.DeleteJobV2(c.Request.Context(), jobSpec.ID)
+	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return

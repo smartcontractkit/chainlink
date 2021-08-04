@@ -31,7 +31,6 @@ type ConfigReader interface {
 	DefaultHTTPTimeout() models.Duration
 	DefaultMaxHTTPAttempts() uint
 	Dev() bool
-	EnableExperimentalAdapters() bool
 	EthBalanceMonitorBlockDelay() uint16
 	EthFinalityDepth() uint
 	EthGasBumpPercent() uint16
@@ -56,7 +55,6 @@ type ConfigReader interface {
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FeatureExternalInitiators() bool
-	FeatureFluxMonitor() bool
 	FeatureOffchainReporting() bool
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16

@@ -79,10 +79,6 @@ type listenerV1 struct {
 	blockNumberToReqID *pairing.PairHeap
 }
 
-func (lsn *listenerV1) Connect(head *models.Head) error {
-	return nil
-}
-
 // Note that we have 2 seconds to do this processing
 func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head models.Head) {
 	lsn.setLatestHead(head)
@@ -252,8 +248,14 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 }
 
 func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
+	fmt.Println("log received", lb.String(), lb.DecodedLog())
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
+		if !lsn.shouldProcessLog(lb) {
+			return
+		}
+		lsn.respCountMu.Lock()
 		lsn.respCount[v.RequestId]++
+		lsn.respCountMu.Unlock()
 		lsn.blockNumberToReqID.Insert(fulfilledReq{
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
@@ -261,24 +263,17 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.markLogAsConsumed(lb)
 		return
 	}
+
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
 		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		if !lsn.shouldProcessLog(lb) {
+			return
+		}
 		lsn.markLogAsConsumed(lb)
 		return
 	}
 
-	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
-	if err != nil {
-		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
-	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
-		// If seedAndBlockNumber is zero then the response has been fulfilled
-		// and we should skip it
-		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash)
-		lsn.markLogAsConsumed(lb)
-		return
-	}
 	confirmedAt := lsn.getConfirmedAt(req, minConfs)
 	lsn.reqsMu.Lock()
 	lsn.reqs = append(lsn.reqs, request{
@@ -290,6 +285,18 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	lsn.reqsMu.Unlock()
 }
 
+func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		// Do not process, let lb resend it as a retry mechanism.
+		return false
+	}
+	return !consumed
+}
+
 func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
@@ -299,6 +306,8 @@ func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
 }
 
 func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
+	lsn.respCountMu.Lock()
+	defer lsn.respCountMu.Unlock()
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestID])
 	// We cap this at 200 because solidity only supports the most recent 256 blocks
 	// in the contract so if it was older than that, fulfillments would start failing
@@ -308,7 +317,10 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 		newConfs = 200
 	}
 	if lsn.respCount[req.RequestID] > 0 {
-		lsn.l.Warn("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
+		lsn.l.Warnw("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
+			"txHash", req.Raw.TxHash,
+			"blockNumber", req.Raw.BlockNumber,
+			"blockHash", req.Raw.BlockHash,
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 	}
@@ -318,15 +330,31 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
-	alreadyConsumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db, lb)
-	if err != nil {
-		// If we cannot determine if its consumed, we don't process it
-		// but we also don't mark it consumed which means the lb will resend it.
-		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
-		return
-	} else if alreadyConsumed {
+	if !lsn.shouldProcessLog(lb) {
 		return
 	}
+
+	// Check if the vrf req has already been fulfilled
+	// Note we have to do this after the log has been confirmed.
+	// If not, the following problematic (example) scenario can arise:
+	// 1. Request log comes in block 100
+	// 2. Fulfill the request in block 110
+	// 3. Reorg both request and fulfillment, now request lives at
+	// block 101 and fulfillment lives at block 115
+	// 4. The eth node sees the request reorg and tells us about it. We do our fulfillment
+	// check and the node says its already fulfilled (hasn't seen the fulfillment reorged yet),
+	// so we don't process the request.
+	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
+	if err != nil {
+		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// If seedAndBlockNumber is zero then the response has been fulfilled
+		// and we should skip it
+		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+
 	s := time.Now()
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
@@ -334,6 +362,7 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,
 		"blockNumber", req.Raw.BlockNumber,
+		"blockHash", req.Raw.BlockHash,
 		"seed", req.Seed,
 		"fee", req.Fee)
 
@@ -382,8 +411,8 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 func (lsn *listenerV1) Close() error {
 	return lsn.StopOnce("VRFListener", func() error {
 		close(lsn.chStop)
-		<-lsn.waitOnStop // Log listener
-		<-lsn.waitOnStop // Head listener
+		<-lsn.waitOnStop // Log listenerV1
+		<-lsn.waitOnStop // Head listenerV1
 		return nil
 	})
 }
@@ -395,17 +424,7 @@ func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	}
 }
 
-// JobID complies with log.Listener
-func (*listenerV1) JobID() models.JobID {
-	return models.NilJobID
-}
-
 // Job complies with log.Listener
-func (lsn *listenerV1) JobIDV2() int32 {
+func (lsn *listenerV1) JobID() int32 {
 	return lsn.job.ID
-}
-
-// IsV2Job complies with log.Listener
-func (*listenerV1) IsV2Job() bool {
-	return true
 }

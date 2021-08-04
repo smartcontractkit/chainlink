@@ -36,8 +36,11 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 	}
 	// The UI expects all outputs to be strings.
 	var outputs []*string
-	if !pr.Outputs.Null {
-		outs := pr.Outputs.Val.([]interface{})
+	// Note for async jobs, the output can be nil.
+	outs, ok := pr.Outputs.Val.([]interface{})
+	if !ok {
+		logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", pr.Outputs.Val), "out", pr.Outputs)
+	} else if !pr.Outputs.Null && pr.Outputs.Val != nil {
 		for _, out := range outs {
 			switch v := out.(type) {
 			case string:

@@ -104,13 +104,22 @@ func (v vrfUniverse) Assert(t *testing.T) {
 	v.ec.AssertExpectations(t)
 }
 
-func generateCallbackReturnValues(t *testing.T) []byte {
+func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
 	callback, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "callback_contract", Type: "address"},
 		{Name: "randomness_fee", Type: "int256"},
 		{Name: "seed_and_block_num", Type: "bytes32"}})
 	require.NoError(t, err)
 	var args abi.Arguments = []abi.Argument{{Type: callback}}
+	if fulfilled {
+		// Empty callback
+		b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
+			RandomnessFee:   big.NewInt(10),
+			SeedAndBlockNum: utils.EmptyHash,
+		})
+		require.NoError(t, err)
+		return b
+	}
 	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 		RandomnessFee:   big.NewInt(10),
 		SeedAndBlockNum: utils.NewHash(),
@@ -151,7 +160,7 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	require.NoError(t, err)
 	require.Len(t, vl, 2)
 	listener := vl[0].(*listenerV1)
-	// Start the listener
+	// Start the listenerV1
 	go func() {
 		listener.runLogListener([]func(){}, 6)
 	}()
@@ -320,7 +329,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 	}).Return(nil).Once()
-	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
+	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
@@ -404,7 +413,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 			consumed <- struct{}{}
 		}).Return(nil).Once()
 		// Expect a call to check if the req is already fulfilled.
-		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
+		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to  requestID
@@ -460,7 +469,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		done <- struct{}{}
 	}).Return(nil).Once()
 	// Expect a call to check if the req is already fulfilled.
-	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t), nil)
+	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
 	added := make(chan struct{})
 	listener.reqAdded = func() {
@@ -509,4 +518,48 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	err = vuni.prm.DB().Find(&ethTxes).Error
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
+}
+
+func TestFulfilledCheck(t *testing.T) {
+	vuni, listener, jb := setup(t)
+	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+	done := make(chan struct{})
+	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		done <- struct{}{}
+	}).Return(nil).Once()
+	// Expect a call to check if the req is already fulfilled.
+	// We return already fulfilled
+	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, true), nil)
+
+	added := make(chan struct{})
+	listener.reqAdded = func() {
+		added <- struct{}{}
+	}
+	// Send a invalid log (keyhash doesnt match)
+	listener.HandleLog(log.NewLogBroadcast(
+		types.Log{
+			// Data has all the NON-indexed parameters
+			Data: bytes.Join([][]byte{
+				vuni.vrfkey.MustHash().Bytes(),           // key hash
+				common.BigToHash(big.NewInt(42)).Bytes(), // seed
+				utils.NewHash().Bytes(),                  // sender
+				utils.NewHash().Bytes(),                  // fee
+				utils.NewHash().Bytes()},                 // requestID
+				[]byte{}),
+			// JobID is indexed, thats why it lives in the Topics.
+			Topics: []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID STRING
+			//TxHash:      utils.NewHash().Bytes(),
+			BlockNumber: 10,
+			//BlockHash:   utils.NewHash().Bytes(),
+		}, nil))
+
+	// Should queue the request, even though its already fulfilled
+	waitForChannel(t, added, time.Second, "request not queued")
+	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	waitForChannel(t, done, time.Second, "log not consumed")
+
+	// Should consume the log with no run
+	runs, err := vuni.prm.GetAllRuns()
+	require.NoError(t, err)
+	require.Equal(t, len(runs), 0)
 }

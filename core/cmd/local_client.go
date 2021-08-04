@@ -313,34 +313,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	return cli.errorOut(err)
 }
 
-// HardReset will remove all non-started transactions if any are found.
-func (cli *Client) HardReset(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-
-	fmt.Print("/// WARNING WARNING WARNING ///\n\n\n")
-	fmt.Print("Do not run this while a Chainlink node is currently using the DB as it could cause undefined behavior.\n\n")
-	if !confirmAction(c) {
-		return nil
-	}
-
-	app, cleanupFn, err := cli.makeApp()
-	if err != nil {
-		logger.Errorw("error while creating application", "error", err)
-		return err
-	}
-	defer cleanupFn()
-	storeInstance := app.GetStore()
-	ormInstance := storeInstance.ORM
-
-	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
-		logger.Errorw("failed to remove unstarted transactions", "error", err)
-		return err
-	}
-
-	logger.Info("successfully reset the node state in the database")
-	return nil
-}
-
 type HealthCheckPresenter struct {
 	webPresenters.Check
 }

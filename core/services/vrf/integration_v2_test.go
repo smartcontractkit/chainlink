@@ -150,7 +150,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
@@ -319,7 +319,7 @@ func TestRequestCost(t *testing.T) {
 	cfg := cltest.NewTestConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
@@ -362,7 +362,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	cfg := cltest.NewTestConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 	_, err := uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
@@ -396,7 +396,7 @@ func TestFulfillmentCost(t *testing.T) {
 	cfg := cltest.NewTestConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
