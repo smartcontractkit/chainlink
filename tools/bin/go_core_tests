@@ -5,7 +5,7 @@ set +e
 echo "Failed tests and panics: ---------------------"
 echo ""
 go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL "
-EXITCODE=$?
+EXITCODE=${PIPESTATUS[0]}
 echo ""
 echo "----------------------------------------------"
 
