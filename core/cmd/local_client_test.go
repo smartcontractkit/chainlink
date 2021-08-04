@@ -38,7 +38,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
 	store.Config.Set("CHAINLINK_PORT", 6688)
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -128,11 +128,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetEthClient").Return(new(mocks.Client)).Maybe()
+			app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
-			ethClient := new(mocks.Client)
+			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -186,11 +186,11 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetEthClient").Return(new(mocks.Client)).Maybe()
+	app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	_, err = keyStore.Eth().CreateNewKey()
@@ -253,11 +253,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetEthClient").Return(new(mocks.Client)).Maybe()
+			app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
-			ethClient := new(mocks.Client)
+			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -379,7 +379,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	app.On("GetEthClient").Return(ethClient).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
@@ -464,7 +464,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
-			ethClient := new(mocks.Client)
+			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetEthClient").Return(ethClient).Maybe()
 

@@ -51,7 +51,7 @@ func setupRegistrySync(t *testing.T) (
 ) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethMock := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	lbMock := new(logmocks.Broadcaster)
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg, cleanup := cltest.NewConfig(t)
@@ -60,7 +60,7 @@ func setupRegistrySync(t *testing.T) (
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
-		ethMock,
+		ethClient,
 	)
 	require.NoError(t, err)
 
@@ -71,7 +71,7 @@ func setupRegistrySync(t *testing.T) (
 
 	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1)
-	return store, synchronizer, ethMock, lbMock, j
+	return store, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int64) {
