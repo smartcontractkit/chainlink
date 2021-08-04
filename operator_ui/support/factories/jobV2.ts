@@ -1,19 +1,20 @@
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import {
-  JobSpecV2,
-  DirectRequestJobV2Spec,
-  FluxMonitorJobV2Spec,
-  KeeperV2Spec,
-  OffChainReportingOracleJobV2Spec,
-  CronV2Spec,
-  WebhookV2Spec,
-  VRFV2Spec,
+  Job,
+  JobSpecError,
+  DirectRequestJob,
+  FluxMonitorJob,
+  KeeperJob,
+  OffChainReportingJob,
+  CronJob,
+  WebhookJob,
+  VRFJob,
 } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
-export function ocrJobSpecV2(
+export function ocrJob(
   config: Partial<
-    JobSpecV2['offChainReportingOracleSpec'] & {
+    Job['offChainReportingOracleSpec'] & {
       name?: string
       id?: string
       maxTaskDuration?: string
@@ -21,9 +22,9 @@ export function ocrJobSpecV2(
       dotDagSource?: string
     }
   > = {},
-): JobSpecV2 {
+): Job {
   const offChainReportingOracleSpec = partialAsFull<
-    OffChainReportingOracleJobV2Spec['offChainReportingOracleSpec']
+    OffChainReportingJob['offChainReportingOracleSpec']
   >({
     contractAddress: config.contractAddress || generateUuid(),
     p2pPeerID: config.p2pPeerID || generateUuid(),
@@ -65,22 +66,22 @@ export function ocrJobSpecV2(
 }
 
 export function fluxMonitorJobV2(
-  spec: Partial<FluxMonitorJobV2Spec['fluxMonitorSpec']> = {},
+  spec: Partial<FluxMonitorJob['fluxMonitorSpec']> = {},
   config: Partial<
     {
       name?: string
       id?: string
       maxTaskDuration?: string
+      errors: JobSpecError[]
     } & {
       dotDagSource?: string
     }
   > = {},
-): JobSpecV2 {
-  const fluxMonitorSpec = partialAsFull<
-    FluxMonitorJobV2Spec['fluxMonitorSpec']
-  >({
+): Job {
+  const fluxMonitorSpec = partialAsFull<FluxMonitorJob['fluxMonitorSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
+
   return {
     name: config.name || 'Flux Monitor V2 job',
     type: 'fluxmonitor',
@@ -93,7 +94,7 @@ export function fluxMonitorJobV2(
     webhookSpec: null,
     vrfSpec: null,
     fluxMonitorSpec,
-    errors: [],
+    errors: config.errors || [],
     maxTaskDuration: '',
     pipelineSpec: {
       dotDagSource:
@@ -105,7 +106,7 @@ export function fluxMonitorJobV2(
 }
 
 export function directRequestJobV2(
-  spec: Partial<DirectRequestJobV2Spec['directRequestSpec']> = {},
+  spec: Partial<DirectRequestJob['directRequestSpec']> = {},
   config: Partial<
     {
       name?: string
@@ -115,9 +116,9 @@ export function directRequestJobV2(
       dotDagSource?: string
     }
   > = {},
-): JobSpecV2 {
+): Job {
   const directRequestSpec = partialAsFull<
-    DirectRequestJobV2Spec['directRequestSpec']
+    DirectRequestJob['directRequestSpec']
   >({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
@@ -145,13 +146,13 @@ export function directRequestJobV2(
 }
 
 export function keeperJobV2(
-  spec: Partial<KeeperV2Spec['keeperSpec']> = {},
+  spec: Partial<KeeperJob['keeperSpec']> = {},
   config: Partial<{
     name?: string
     id?: string
   }> = {},
-): JobSpecV2 {
-  const keeperSpec = partialAsFull<KeeperV2Spec['keeperSpec']>({
+): Job {
+  const keeperSpec = partialAsFull<KeeperJob['keeperSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {
@@ -175,13 +176,13 @@ export function keeperJobV2(
 }
 
 export function cronJobV2(
-  spec: Partial<CronV2Spec['cronSpec']> = {},
+  spec: Partial<CronJob['cronSpec']> = {},
   config: Partial<{
     name?: string
     id?: string
   }> = {},
-): JobSpecV2 {
-  const cronSpec = partialAsFull<CronV2Spec['cronSpec']>({
+): Job {
+  const cronSpec = partialAsFull<CronJob['cronSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {
@@ -205,13 +206,13 @@ export function cronJobV2(
 }
 
 export function webhookJobV2(
-  spec: Partial<WebhookV2Spec['webhookSpec']> = {},
+  spec: Partial<WebhookJob['webhookSpec']> = {},
   config: Partial<{
     name?: string
     id?: string
   }> = {},
-): JobSpecV2 {
-  const webhookSpec = partialAsFull<WebhookV2Spec['webhookSpec']>({
+): Job {
+  const webhookSpec = partialAsFull<WebhookJob['webhookSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {
@@ -235,13 +236,13 @@ export function webhookJobV2(
 }
 
 export function vrfJobV2(
-  spec: Partial<VRFV2Spec['vrfSpec']> = {},
+  spec: Partial<VRFJob['vrfSpec']> = {},
   config: Partial<{
     name?: string
     id?: string
   }> = {},
-): JobSpecV2 {
-  const vrfSpec = partialAsFull<VRFV2Spec['vrfSpec']>({
+): Job {
+  const vrfSpec = partialAsFull<VRFJob['vrfSpec']>({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {
