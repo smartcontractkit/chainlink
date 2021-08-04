@@ -28,8 +28,6 @@ deploy_contracts
 heading 'Running tests...'
 cd $SRCROOT/integration
 
-./runlog_test
-./ethlog_test
 deploy_v05_contracts
 
 title 'End to end tests.'
