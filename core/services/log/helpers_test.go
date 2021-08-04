@@ -89,12 +89,8 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	}
 }
 
-func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener {
-	return newLogListener(helper.t, helper.store, name)
-}
-
-func (helper *broadcasterHelper) newLogListenerWithJobV2(name string) *simpleLogListener {
-	return newLogListenerWithV2Job(helper.t, helper.store, name)
+func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogListener {
+	return newLogListenerWithJob(helper.t, helper.store, name)
 }
 
 func (helper *broadcasterHelper) start() {
@@ -196,22 +192,11 @@ type simpleLogListener struct {
 	received            *received
 	t                   *testing.T
 	db                  *gorm.DB
-	jobID               log.JobIdSelect
+	jobID               int32
 	skipMarkingConsumed bool
 }
 
-func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
-	var rec received
-	return &simpleLogListener{
-		db:       store.DB,
-		jobID:    log.NewJobIdV1(createJob(t, store).ID),
-		name:     name,
-		received: &rec,
-		t:        t,
-	}
-}
-
-func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *simpleLogListener {
+func newLogListenerWithJob(t *testing.T, store *store.Store, name string) *simpleLogListener {
 	job := &job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
@@ -230,7 +215,7 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 		name:     name,
 		received: &rec,
 		t:        t,
-		jobID:    log.NewJobIdV2(job.ID),
+		jobID:    job.ID,
 	}
 }
 
@@ -254,14 +239,8 @@ func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-func (listener *simpleLogListener) JobID() models.JobID {
-	return listener.jobID.JobIDV1
-}
-func (listener *simpleLogListener) IsV2Job() bool {
-	return listener.jobID.IsV2
-}
-func (listener *simpleLogListener) JobIDV2() int32 {
-	return listener.jobID.JobIDV2
+func (listener simpleLogListener) JobID() int32 {
+	return listener.jobID
 }
 
 func (listener *simpleLogListener) getUniqueLogs() []types.Log {
@@ -318,25 +297,13 @@ func (listener *simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broad
 }
 
 type mockListener struct {
-	jobID   models.JobID
-	jobIDV2 int32
+	jobID int32
 }
 
-func (l *mockListener) JobID() models.JobID                                     { return l.jobID }
-func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
-func (l *mockListener) IsV2Job() bool                                           { return l.jobID.IsZero() }
+func (l *mockListener) JobID() int32                                            { return l.jobID }
 func (l *mockListener) HandleLog(log.Broadcast)                                 {}
 func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
 func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }
-
-func createJob(t *testing.T, store *store.Store) models.JobSpec {
-	t.Helper()
-
-	job := cltest.NewJob()
-	err := store.ORM.CreateJob(&job)
-	require.NoError(t, err)
-	return job
-}
 
 type mockEth struct {
 	ethClient        *mocks.Client

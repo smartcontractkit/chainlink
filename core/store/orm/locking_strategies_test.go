@@ -110,7 +110,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+		return db.Save(cltest.Head(0)).Error
 	})
 	require.NoError(t, err)
 
@@ -119,7 +119,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	require.NoError(t, dbErr)
 
 	err = store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+		return db.Save(cltest.Head(0)).Error
 	})
 	require.NoError(t, err)
 
@@ -141,7 +141,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+		return db.Save(cltest.Head(0)).Error
 	})
 	require.NoError(t, err)
 
@@ -156,7 +156,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	defer orm2.Close()
 
 	err = orm2.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+		return db.Save(cltest.Head(0)).Error
 	})
 	require.NoError(t, err)
 
@@ -174,7 +174,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+		return db.Save(cltest.Head(0)).Error
 	})
 	require.NoError(t, err)
 

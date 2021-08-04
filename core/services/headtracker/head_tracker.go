@@ -110,29 +110,26 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
-		// NOTE: In an ideal world we want to always start the head tracker off
-		// with whatever the latest head is, without waiting for the
-		// subscription to send us one.
+		// NOTE: Always try to start the head tracker off with whatever the
+		// latest head is, without waiting for the subscription to send us one.
 		//
-		// This does not play nicely with the legacy pipeline for reasons that
-		// are difficult to understand, so for now we leave it disabled in case
-		// the legacy pipeline is turned on. We can remove this once legacy
-		// pipeline is removed
-		if !ht.config.EnableLegacyJobPipeline() {
-			initialHead, err := ht.getInitialHead()
-			if err != nil {
-				return err
-			} else if initialHead != nil {
-				if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
-					return errors.Wrap(err, "error handling initial head")
-				}
-			} else {
-				logger.Debug("HeadTracker: got nil initial head")
+		// In some cases the subscription will send us the most recent head
+		// anyway when we connect (but we should not rely on this because it is
+		// not specced). If it happens this is fine, and the head will be
+		// ignored as a duplicate.
+		initialHead, err := ht.getInitialHead()
+		if err != nil {
+			return err
+		} else if initialHead != nil {
+			if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
+				return errors.Wrap(err, "error handling initial head")
 			}
+		} else {
+			logger.Debug("HeadTracker: got nil initial head")
 		}
 
 		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.handleConnected)
+		go ht.headListener.ListenForNewHeads(ht.handleNewHead)
 		go ht.backfiller()
 		go ht.headSampler()
 
@@ -158,7 +155,7 @@ func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.config.EthereumURL()))
+		ht.logger().Info(fmt.Sprintf("HeadTracker: Stopping - disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -180,16 +177,6 @@ func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 // Connected returns whether or not this HeadTracker is connected.
 func (ht *HeadTracker) Connected() bool {
 	return ht.headListener.Connected()
-}
-
-func (ht *HeadTracker) handleConnected() {
-	ht.connect(ht.headSaver.HighestSeenHead())
-}
-
-func (ht *HeadTracker) connect(bn *models.Head) {
-	if err := ht.headBroadcaster.Connect(bn); err != nil {
-		ht.logger().Warn(err)
-	}
 }
 
 func (ht *HeadTracker) headSampler() {

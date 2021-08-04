@@ -121,11 +121,13 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
-		require.NoError(t, spawner.DeleteJob(ctx, jobSpecIDA))
+		err = spawner.DeleteJob(ctx, jobSpecIDA)
+		require.NoError(t, err)
 
 		serviceB1.On("Close").Return(nil).Once()
 		serviceB2.On("Close").Return(nil).Once()
-		require.NoError(t, spawner.DeleteJob(ctx, jobSpecIDB))
+		err = spawner.DeleteJob(ctx, jobSpecIDB)
+		require.NoError(t, err)
 
 		require.NoError(t, spawner.Close())
 		serviceA1.AssertExpectations(t)

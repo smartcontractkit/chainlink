@@ -33,12 +33,6 @@ const (
 	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
 )
 
-type EthTaskRunTx struct {
-	TaskRunID uuid.UUID
-	EthTxID   int64
-	EthTx     EthTx
-}
-
 type EthTx struct {
 	ID             int64
 	Nonce          *int64

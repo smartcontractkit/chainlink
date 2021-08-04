@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -37,27 +36,6 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	assert.NoError(t, r.Render(&keys))
 }
 
-func TestRendererJSON_RenderJobs(t *testing.T) {
-	t.Parallel()
-	r := cmd.RendererJSON{Writer: ioutil.Discard}
-	job := cltest.NewJob()
-	jobs := []models.JobSpec{job}
-	assert.NoError(t, r.Render(&jobs))
-}
-
-func TestRendererTable_RenderJobs(t *testing.T) {
-	t.Parallel()
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-	job := cltest.NewJob()
-	jobs := []models.JobSpec{job}
-	assert.NoError(t, r.Render(&jobs))
-
-	output := buffer.String()
-	assert.Contains(t, output, "noop")
-}
-
 func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
@@ -77,42 +55,6 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	assert.NoError(t, r.Render(&cp))
-}
-
-func TestRendererTable_RenderShowJob(t *testing.T) {
-	t.Parallel()
-	r := cmd.RendererTable{Writer: ioutil.Discard}
-	job := cltest.NewJobWithWebInitiator()
-	p := presenters.JobSpec{JobSpec: job}
-	assert.NoError(t, r.Render(&p))
-}
-
-func TestRenderer_RenderJobRun(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		renderer cmd.Renderer
-	}{
-		{"json", cmd.RendererJSON{Writer: ioutil.Discard}},
-		{"table", cmd.RendererTable{Writer: ioutil.Discard}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			job := cltest.NewJobWithWebInitiator()
-			run := cltest.NewJobRun(job)
-			assert.NoError(t, test.renderer.Render(&presenters.JobRun{JobRun: run}))
-		})
-	}
-}
-
-func TestRendererTable_RenderJobRun(t *testing.T) {
-	t.Parallel()
-	r := cmd.RendererTable{Writer: ioutil.Discard}
-	job := cltest.NewJob()
-	jobs := []models.JobSpec{job}
-	assert.NoError(t, r.Render(&jobs))
 }
 
 type testWriter struct {
@@ -162,26 +104,6 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 }
 
 func checkPresence(t *testing.T, s, output string) { assert.Regexp(t, regexp.MustCompile(s), output) }
-
-func TestRendererTable_ServiceAgreementShow(t *testing.T) {
-	t.Parallel()
-
-	sa, err := cltest.ServiceAgreementFromString(string(cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_agreement.json")))
-	assert.NoError(t, err)
-	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-
-	require.NoError(t, r.Render(&psa))
-	output := buffer.String()
-	checkPresence(t, "0x[0-9a-zA-Z]{64}", output)
-	checkPresence(t, "1.000000000000000000 LINK", output)
-	checkPresence(t, "300 seconds", output)
-	checkPresence(t, "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", output) // Aggregator address
-	checkPresence(t, "0xd0771e55", output)                                 // AggInitiateJobSelector
-	checkPresence(t, "0xbadc0de5", output)                                 // AggFulfillSelector
-}
 
 func TestRendererTable_PatchResponse(t *testing.T) {
 	t.Parallel()

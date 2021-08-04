@@ -36,20 +36,6 @@ func (_m *TxManager) Close() error {
 	return r0
 }
 
-// Connect provides a mock function with given fields: head
-func (_m *TxManager) Connect(head *models.Head) error {
-	ret := _m.Called(head)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(head)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // CreateEthTransaction provides a mock function with given fields: db, fromAddress, toAddress, payload, gasLimit, meta, strategy
 func (_m *TxManager) CreateEthTransaction(db *gorm.DB, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (bulletprooftxmanager.EthTx, error) {
 	ret := _m.Called(db, fromAddress, toAddress, payload, gasLimit, meta, strategy)
