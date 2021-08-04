@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [v1.0.0]
+
+**Legacy job pipeline (JSON specs) are no longer supported**
+
+This version will refuse to migrate the database if job specs are still present. You must manually delete or migrate all V1 job specs before upgrading.
+
+For more information on migrating, see [the docs](https://docs.chain.link/chainlink-nodes/).
+
+This release will DROP legacy job tables so please take a backup before upgrading.
+
+
 ## [Unreleased]
 
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.

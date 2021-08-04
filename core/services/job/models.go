@@ -133,7 +133,7 @@ type SpecError struct {
 }
 
 func (SpecError) TableName() string {
-	return "job_spec_errors_v2"
+	return "job_spec_errors"
 }
 
 type PipelineRun struct {
