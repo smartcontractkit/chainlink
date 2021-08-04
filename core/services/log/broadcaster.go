@@ -211,8 +211,6 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) Connect(head *models.Head) error { return nil }
-
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
@@ -564,5 +562,4 @@ func (n *NullBroadcaster) Start() error                                   { retu
 func (n *NullBroadcaster) Close() error                                   { return nil }
 func (n *NullBroadcaster) Healthy() error                                 { return nil }
 func (n *NullBroadcaster) Ready() error                                   { return nil }
-func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}

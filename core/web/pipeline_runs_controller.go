@@ -31,6 +31,11 @@ type PipelineRunsController struct {
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
+	// Temporary: if no size is passed in, use a large page size. Remove once frontend can handle pagination
+	if c.Query("size") == "" {
+		size = 1000
+	}
+
 	var pipelineRuns []pipeline.Run
 	var count int
 	var err error

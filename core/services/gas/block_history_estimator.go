@@ -89,10 +89,6 @@ func NewBlockHistoryEstimator(ethClient eth.Client, config Config) Estimator {
 	return b
 }
 
-func (b *BlockHistoryEstimator) Connect(bn *models.Head) error {
-	return nil
-}
-
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
 func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head models.Head) {

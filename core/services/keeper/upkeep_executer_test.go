@@ -41,7 +41,7 @@ func setup(t *testing.T) (
 	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-	ethMock := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	cfg, cleanup := cltest.NewConfig(t)
 	t.Cleanup(cleanup)
@@ -49,12 +49,12 @@ func setup(t *testing.T) (
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, headBroadcaster, store.Config)
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, headBroadcaster, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
 	require.NoError(t, err)
-	return store, ethMock, executer, registry, upkeep, job, jpv2, txm
+	return store, ethClient, executer, registry, upkeep, job, jpv2, txm
 }
 
 var checkUpkeepResponse = struct {
