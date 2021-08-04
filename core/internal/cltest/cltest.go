@@ -482,8 +482,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 }
 
 func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
-	c := new(mocks.Client)
-	s := new(mocks.Subscription)
+	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
@@ -495,6 +494,20 @@ func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 		assertMocksCalled = func() {}
 	}
 	return c, s, assertMocksCalled
+}
+
+func NewEthClientAndSubMock(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+	mockSub := new(mocks.Subscription)
+	mockSub.Test(t)
+	mockEth := new(mocks.Client)
+	mockEth.Test(t)
+	return mockEth, mockSub
+}
+
+func NewEthClientMock(t mock.TestingT) *mocks.Client {
+	mockEth := new(mocks.Client)
+	mockEth.Test(t)
+	return mockEth
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {

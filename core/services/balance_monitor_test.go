@@ -10,7 +10,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +28,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-		ethClient := new(mocks.Client)
+		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
@@ -60,7 +59,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-		ethClient := new(mocks.Client)
+		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
@@ -82,7 +81,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-		ethClient := new(mocks.Client)
+		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
@@ -107,7 +106,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-		ethClient := new(mocks.Client)
+		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
@@ -161,7 +160,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	ethClient := new(mocks.Client)
+	ethClient := NewEthClientMock(t)
 	ethClient.AssertExpectations(t)
 
 	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)

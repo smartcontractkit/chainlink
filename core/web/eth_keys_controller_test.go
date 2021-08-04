@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -122,7 +121,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 	t.Cleanup(cleanup)
 
