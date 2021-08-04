@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -41,16 +43,8 @@ func (l listener) HandleLog(b Broadcast) {
 	l.logs <- b
 }
 
-func (l listener) JobID() models.JobID {
-	return models.NewJobID()
-}
-
-func (l listener) JobIDV2() int32 {
+func (l listener) JobID() int32 {
 	return 1
-}
-
-func (l listener) IsV2Job() bool {
-	return true
 }
 
 type sub struct {
@@ -64,6 +58,7 @@ func (s sub) Err() <-chan error {
 }
 
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
+	gm := gomega.NewGomegaWithT(t)
 	logsChCh := make(chan chan<- types.Log)
 	ec := new(ethmocks.Client)
 	ec.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
@@ -79,13 +74,13 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	dborm := NewORM(db)
 	lb := NewBroadcaster(dborm, ec, tc{}, nil)
 	lb.Start()
-	// TODO: make this not hang
-	//defer lb.Close()
+	defer lb.Close()
 
 	addr := common.HexToAddress("0xf0d54349aDdcf704F77AE15b96510dEA15cb7952")
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(addr, nil)
 	require.NoError(t, err)
 
+	// 3 logs all in the same block
 	bh := utils.NewHash()
 	addr1SentLogs := []types.Log{
 		{
@@ -126,8 +121,10 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		},
 	}
 
-	broadcastsToListener1 := make(chan Broadcast, 3)
-	broadcastsToListener2 := make(chan Broadcast, 3)
+	// Give these listeners a big buffer of logs
+	// in case the log broadcaster erroneously sends logs more than once.
+	broadcastsToListener1 := make(chan Broadcast, 100)
+	broadcastsToListener2 := make(chan Broadcast, 100)
 	lt := make(map[common.Hash][][]Topic)
 	lt[flux_aggregator_wrapper.FluxAggregatorNewRound{}.Topic()] = nil
 	lt[flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}.Topic()] = nil
@@ -152,25 +149,24 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 			t.Error("failed to send log to log broadcaster")
 		}
 	}
-	for i := 0; i < 10; i++ {
-		if len(lb.logPool.logsByBlockHash[bh]) == len(addr1SentLogs) {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	// All logs should be sitting in the the lb
-	// Send a head to fire them off
+	// Wait until the logpool has the 3 logs
+	gm.Eventually(func() bool {
+		return len(lb.logPool.logsByBlockHash[bh]) == len(addr1SentLogs)
+	}, 2*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+
+	// Send a block to trigger sending the logs from the pool
+	// to the subscribers
 	lb.OnNewLongestChain(context.Background(), models.Head{
 		Number: 2,
 	})
-	for i := 0; i < 2*len(addr1SentLogs); i++ {
-		select {
-		case <-broadcastsToListener1:
-		case <-broadcastsToListener2:
-		case <-time.After(5 * time.Second):
-			t.Error("failed to get broadcasts")
-		}
-	}
-	// TODO: I think there may be a bug in getLogsToSend
-	// I'm seeing 14 "sending logs" debugs when there should only be 6?
+
+	// The subs should each get exactly 3 broadcasts each
+	// If we do not receive a broadcast for 1 second
+	// we assume the log broadcaster is done sending.
+	gm.Eventually(func() bool {
+		return len(broadcastsToListener1) == len(addr1SentLogs) && len(broadcastsToListener1) == len(addr1SentLogs)
+	}, 2*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+	gm.Consistently(func() bool {
+		return len(broadcastsToListener1) == len(addr1SentLogs) && len(broadcastsToListener2) == len(addr1SentLogs)
+	}, 1*time.Second).Should(gomega.BeTrue())
 }

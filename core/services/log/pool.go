@@ -9,13 +9,17 @@ import (
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 )
 
-type (
-	logPool struct {
-		hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
-		logsByBlockHash      map[common.Hash][]types.Log
-		heap                 *pairingHeap.PairHeap
-	}
-)
+type logPool struct {
+	// A mapping of block numbers to a set of block hashes for all
+	// the logs in the pool.
+	hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
+	// A mapping of blockhashes to logs
+	logsByBlockHash map[common.Hash][]types.Log
+	// This min-heap maintains block numbers of logs in the pool.
+	// it helps us easily determine the minimum log block number
+	// in the pool (while the set of log block numbers is dynamically changing).
+	heap *pairingHeap.PairHeap
+}
 
 func newLogPool() *logPool {
 	return &logPool{
