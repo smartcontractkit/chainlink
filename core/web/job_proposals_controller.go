@@ -141,7 +141,7 @@ type UpdateSpecRequest struct {
 
 // UpdateSpec updates the spec of a job proposal
 // Example:
-// "POST <application>/job_proposals/<id>/reject"
+// "PATCH <application>/job_proposals/<id>/spec"
 func (jpc *JobProposalsController) UpdateSpec(c *gin.Context) {
 	request := UpdateSpecRequest{}
 	if err := c.ShouldBindJSON(&request); err != nil {
