@@ -1,102 +1,38 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
-import WarningIcon from '@material-ui/icons/Warning'
-import { withStyles, WithStyles, Theme } from '@material-ui/core/styles'
 import Activity from 'components/Dashboards/Activity'
 import TokenBalanceCard from 'components/Cards/TokenBalance'
-import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
 import Content from 'components/Content'
-import Paper from '@material-ui/core/Paper'
-import {
-  fetchRecentJobRuns,
-  fetchRecentlyCreatedJobs,
-  fetchAccountBalance,
-} from 'actionCreators'
+import { fetchAccountBalance } from 'actionCreators'
 import accountBalanceSelector from 'selectors/accountBalance'
-import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
-import recentJobRunsSelector from 'selectors/recentJobRuns'
-import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
-
-const styles = (theme: Theme) => ({
-  root: {
-    ...theme.mixins.gutters(),
-    paddingTop: theme.spacing.unit * 2,
-    paddingBottom: theme.spacing.unit * 2,
-    backgroundColor: 'rgb(255, 213, 153)',
-  },
-})
 
 type Props = {
   recentJobRunsCount: number
   recentlyCreatedPageSize: number
-  classes: WithStyles<typeof styles>['classes']
 }
 
-export const Index = ({
-  recentJobRunsCount = 2,
-  recentlyCreatedPageSize = 2,
-  classes,
-}: Props) => {
+// NOTE - The Recent job runs shown in activity and recent jobs do not have a
+// JPV2 equivalent. These have been removed for now.
+export const Index = ({ recentJobRunsCount = 2 }: Props) => {
   const dispatch = useDispatch()
   const accountBalance = useSelector(accountBalanceSelector)
-  const jobRunsCount = useSelector(dashboardJobRunsCountSelector)
-  const recentJobRuns = useSelector(recentJobRunsSelector)
-  const recentlyCreatedJobs = useSelector(recentlyCreatedJobsSelector)
 
-  useEffect(() => {
+  React.useEffect(() => {
     document.title = 'Dashboard'
   }, [])
 
-  useEffect(() => {
+  React.useEffect(() => {
     dispatch(fetchAccountBalance())
   }, [dispatch])
-
-  useEffect(() => {
-    dispatch(fetchRecentJobRuns(recentJobRunsCount))
-  }, [dispatch, recentJobRunsCount])
-
-  useEffect(() => {
-    dispatch(fetchRecentlyCreatedJobs(recentlyCreatedPageSize))
-  }, [dispatch, recentlyCreatedPageSize])
 
   return (
     <Content>
       <Grid container>
-        {recentlyCreatedJobs && recentlyCreatedJobs.length > 0 && (
-          <Grid item xs={12}>
-            <Paper className={classes.root}>
-              <p
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  margin: 0,
-                  marginBottom: 8,
-                }}
-              >
-                <WarningIcon style={{ marginRight: 8, color: '#ff9800' }} />
-                <Typography variant="h5">Found legacy job specs</Typography>
-              </p>
-              <Typography>
-                The JSON style of job spec is now deprecated and support for
-                jobs using this format will be REMOVED in an upcoming release.
-                You should migrate all these jobs to V2 (TOML) format. For help
-                doing this, please check the{' '}
-                <a href="https://docs.chain.link/docs/jobs/">docs</a>. To test
-                your node to see how it would behave after support for these
-                jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false
-              </Typography>
-            </Paper>
-          </Grid>
-        )}
         <Grid item xs={9}>
-          <Activity
-            runs={recentJobRuns}
-            pageSize={recentJobRunsCount}
-            count={jobRunsCount}
-          />
+          {/* We don't have a JPV2 equivalent for this yet */}
+          <Activity runs={[]} pageSize={recentJobRunsCount} count={0} />
         </Grid>
         <Grid item xs={3}>
           <Grid container>
@@ -112,9 +48,11 @@ export const Index = ({
                 value={accountBalance?.ethBalance}
               />
             </Grid>
-            <Grid item xs={12}>
+
+            {/* We don't have a JPV2 equivalent for this yet */}
+            {/* <Grid item xs={12}>
               <RecentlyCreatedJobs jobs={recentlyCreatedJobs} />
-            </Grid>
+            </Grid> */}
           </Grid>
         </Grid>
       </Grid>
@@ -123,4 +61,4 @@ export const Index = ({
   )
 }
 
-export default withStyles(styles)(Index)
+export default Index

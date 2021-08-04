@@ -122,9 +122,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Earlier
-		h := gethCommon.HexToHash("0x4ea4bb19d0847a0465d003ea11bcaef62935cec3c673238d057f6cacb3e7a405")
 		tr := uuid.NewV4()
-		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr, RunRequestID: &h, RunRequestTxHash: &h})
+		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr})
 		require.NoError(t, err)
 		earlierEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -195,8 +194,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		err = json.Unmarshal(earlierEthTx.Meta, &m)
 		require.NoError(t, err)
 		assert.Equal(t, tr, m.TaskRunID)
-		assert.Equal(t, h.String(), m.RunRequestTxHash.String())
-		assert.Equal(t, h.String(), m.RunRequestID.String())
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -748,9 +745,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			State:          bulletprooftxmanager.EthTxUnstarted,
 		}
 		require.NoError(t, db.Save(&etx).Error)
-		taskRunID, _ := cltest.MustInsertTaskRun(t, store)
-		_, err = store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
-		require.NoError(t, err)
 
 		// First send, replacement underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {

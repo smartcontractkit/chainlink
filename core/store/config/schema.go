@@ -45,8 +45,6 @@ type ConfigSchema struct {
 	DefaultHTTPTimeout                         models.Duration               `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	DefaultMaxHTTPAttempts                     uint                          `env:"MAX_HTTP_ATTEMPTS" default:"5"`
 	Dev                                        bool                          `env:"CHAINLINK_DEV" default:"false"`
-	EnableExperimentalAdapters                 bool                          `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
-	EnableLegacyJobPipeline                    bool                          `env:"ENABLE_LEGACY_JOB_PIPELINE" default:"true"`
 	EthBalanceMonitorBlockDelay                uint16                        `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
 	EthFinalityDepth                           uint                          `env:"ETH_FINALITY_DEPTH"`
 	EthGasBumpPercent                          uint16                        `env:"ETH_GAS_BUMP_PERCENT" default:"20"`
@@ -81,7 +79,6 @@ type ConfigSchema struct {
 	FMDefaultTransactionQueueDepth             uint32                        `env:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
 	FeatureCronV2                              bool                          `env:"FEATURE_CRON_V2" default:"true"`
 	FeatureExternalInitiators                  bool                          `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	FeatureFluxMonitor                         bool                          `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureFluxMonitorV2                       bool                          `env:"FEATURE_FLUX_MONITOR_V2" default:"true"`
 	FeatureOffchainReporting                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	FeatureWebhookV2                           bool                          `env:"FEATURE_WEBHOOK_V2" default:"false"`

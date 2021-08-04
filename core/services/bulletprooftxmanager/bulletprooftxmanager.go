@@ -253,11 +253,6 @@ func (b *BulletproofTxManager) Trigger(addr common.Address) {
 	}
 }
 
-// Connect solely exists to conform to HeadTrackable
-func (b *BulletproofTxManager) Connect(*models.Head) error {
-	return nil
-}
-
 // CreateEthTransaction inserts a new transaction
 func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error) {
 	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EthMaxQueuedTransactions())
@@ -484,7 +479,6 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) Connect(*models.Head) error                     { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
 func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
 func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }

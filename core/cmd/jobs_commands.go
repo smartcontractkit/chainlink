@@ -194,8 +194,8 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 	return err
 }
 
-// DeleteJobV2 deletes a V2 job
-func (cli *Client) DeleteJobV2(c *cli.Context) error {
+// DeleteJob deletes a V2 job
+func (cli *Client) DeleteJob(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("must pass the job id to be archived"))
 	}
@@ -209,32 +209,6 @@ func (cli *Client) DeleteJobV2(c *cli.Context) error {
 	}
 
 	fmt.Printf("Job %v Deleted\n", c.Args().First())
-	return nil
-}
-
-// Migrate jobs from the v1 (json) to v2 (toml) format.
-func (cli *Client) Migrate(c *cli.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the job id to be migrated"))
-	}
-	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/migrate/%s", c.Args().First()), nil)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	if resp.StatusCode != 200 {
-		b, errRead := ioutil.ReadAll(resp.Body)
-		if errRead != nil {
-			return cli.errorOut(errRead)
-		}
-		return cli.errorOut(errors.Errorf("error migrating job %v", string(b)))
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var presenter JobPresenter
-	err = cli.renderAPIResponse(resp, &presenter, "V2 job created from V1 job")
 	return nil
 }
 

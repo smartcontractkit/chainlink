@@ -3,100 +3,14 @@ package synchronization
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	null "gopkg.in/guregu/null.v4"
 )
-
-// SyncJobRunPresenter presents a JobRun for synchronization purposes
-type SyncJobRunPresenter struct {
-	*models.JobRun
-}
-
-// MarshalJSON returns the JobRun as JSON
-func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
-	tasks, err := p.tasks()
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return json.Marshal(&struct {
-		ID         string                 `json:"id"`
-		JobID      string                 `json:"jobId"`
-		RunID      string                 `json:"runId"`
-		Status     string                 `json:"status"`
-		Error      null.String            `json:"error"`
-		CreatedAt  string                 `json:"createdAt"`
-		Payment    *assets.Link           `json:"payment"`
-		FinishedAt null.Time              `json:"finishedAt"`
-		Initiator  syncInitiatorPresenter `json:"initiator"`
-		Tasks      []syncTaskRunPresenter `json:"tasks"`
-	}{
-		ID:         p.ID.String(),
-		RunID:      p.ID.String(),
-		JobID:      p.JobSpecID.String(),
-		Status:     string(p.GetStatus()),
-		Error:      p.Result.ErrorMessage,
-		CreatedAt:  utils.ISO8601UTC(p.CreatedAt),
-		Payment:    p.Payment,
-		FinishedAt: p.FinishedAt,
-		Initiator:  p.initiator(),
-		Tasks:      tasks,
-	})
-}
-
-func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
-	var eip *ethkey.EIP55Address
-	if p.RunRequest.Requester != nil {
-		coerced := ethkey.EIP55Address(p.RunRequest.Requester.Hex())
-		eip = &coerced
-	}
-	return syncInitiatorPresenter{
-		Type:      p.Initiator.Type,
-		RequestID: p.RunRequest.RequestID,
-		TxHash:    p.RunRequest.TxHash,
-		Requester: eip,
-	}
-}
-
-func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
-	tasks := []syncTaskRunPresenter{}
-	for index, tr := range p.TaskRuns {
-		erp, err := fetchLatestOutgoingTxHash(tr)
-		if err != nil {
-			return []syncTaskRunPresenter{}, err
-		}
-		tasks = append(tasks, syncTaskRunPresenter{
-			Index:                            index,
-			Type:                             string(tr.TaskSpec.Type),
-			Status:                           string(tr.Status),
-			Error:                            tr.Result.ErrorMessage,
-			Result:                           erp,
-			ObservedIncomingConfirmations:    tr.ObservedIncomingConfirmations,
-			MinRequiredIncomingConfirmations: tr.MinRequiredIncomingConfirmations,
-		})
-	}
-	return tasks, nil
-}
-
-func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error) {
-	if tr.TaskSpec.Type == "ethtx" {
-		receipts := tr.Result.Data.Get("ethereumReceipts")
-		if receipts.IsArray() {
-			arr := receipts.Array()
-			return formatEthereumReceipt(arr[len(arr)-1].String())
-		} else if latestHash := tr.Result.Data.Get("latestOutgoingTxHash").String(); latestHash != "" {
-			return &syncReceiptPresenter{Hash: common.HexToHash(latestHash)}, nil
-		}
-	}
-	return nil, nil
-}
 
 func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
 	var receipt types.Receipt

@@ -32,7 +32,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 	cu := newVRFCoordinatorUniverse(t, key)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	_, err := app.KeyStore.VRF().Unlock(cltest.Password)
 	require.NoError(t, err)

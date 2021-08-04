@@ -411,27 +411,9 @@ func (c Config) Dev() bool {
 	return c.viper.GetBool(EnvVarName("Dev"))
 }
 
-// EnableExperimentalAdapters enables support for experimental adapters
-func (c Config) EnableExperimentalAdapters() bool {
-	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
-}
-
-// EnableLegacyJobPipeline enables the v1 job pipeline (JSON job specs)
-func (c Config) EnableLegacyJobPipeline() bool {
-	if c.viper.IsSet(EnvVarName("EnableLegacyJobPipeline")) {
-		return c.viper.GetBool(EnvVarName("EnableLegacyJobPipeline"))
-	}
-	return chainSpecificConfig(c).EnableLegacyJobPipeline
-}
-
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
-}
-
-// FeatureFluxMonitor enables the Flux Monitor job type.
-func (c Config) FeatureFluxMonitor() bool {
-	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
 }
 
 // FeatureFluxMonitorV2 enables the Flux Monitor v2 job type.

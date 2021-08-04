@@ -45,9 +45,7 @@ type (
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
 		HandleLog(b Broadcast)
-		JobID() models.JobID
-		JobIDV2() int32
-		IsV2Job() bool
+		JobID() int32
 	}
 
 	// Metadata structure maintained per listener
@@ -68,48 +66,42 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 	addr := reg.opts.Contract
 	r.decoders[addr] = reg.opts.ParseLog
 
-	if reg.opts.NumConfirmations == 0 {
-		reg.opts.NumConfirmations = 1
-	}
-
 	if _, exists := r.subscribers[reg.opts.NumConfirmations]; !exists {
 		r.subscribers[reg.opts.NumConfirmations] = newSubscribers()
 	}
 
 	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
 
-	r.maybeIncreaseHighestNumConfirmations(reg.opts.NumConfirmations)
+	// increase the variable for highest number of confirmations among all subscribers,
+	// if the new subscriber has a higher value
+	if reg.opts.NumConfirmations > r.highestNumConfirmations {
+		r.highestNumConfirmations = reg.opts.NumConfirmations
+	}
 	return
 }
 
 func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
-	l, exists := r.subscribers[reg.opts.NumConfirmations]
+	subscribers, exists := r.subscribers[reg.opts.NumConfirmations]
 	if !exists {
 		return
 	}
 
-	needsResubscribe = l.removeSubscriber(reg)
+	needsResubscribe = subscribers.removeSubscriber(reg)
 
-	// we only need to re-evaluate highestNumConfirmations if the removed value was highest
-	if reg.opts.NumConfirmations == r.highestNumConfirmations {
-		r.resetHighestNumConfirmations()
+	if len(r.subscribers[reg.opts.NumConfirmations].handlers) == 0 {
+		delete(r.subscribers, reg.opts.NumConfirmations)
+		r.resetHighestNumConfirmationsValue()
 	}
 	return
 }
 
-// increase the highestNumConfirmations stored if the new listener has a higher value
-func (r *registrations) maybeIncreaseHighestNumConfirmations(newNumConfirmations uint64) {
-	if newNumConfirmations > r.highestNumConfirmations {
-		r.highestNumConfirmations = newNumConfirmations
-	}
-}
-
-// reset the highest confirmation number per all current listeners
-func (r *registrations) resetHighestNumConfirmations() {
+// reset the number tracking highest num confirmations among all subscribers
+func (r *registrations) resetHighestNumConfirmationsValue() {
 	highestNumConfirmations := uint64(0)
-	for numConf := range r.subscribers {
-		if numConf > highestNumConfirmations {
-			highestNumConfirmations = numConf
+
+	for numConfirmations := range r.subscribers {
+		if numConfirmations > highestNumConfirmations {
+			highestNumConfirmations = numConfirmations
 		}
 	}
 	r.highestNumConfirmations = highestNumConfirmations
@@ -146,13 +138,15 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 
 	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, subscribers := range r.subscribers {
-			if latestBlockNumber < numConfirmations {
+
+			if numConfirmations != 0 && latestBlockNumber < numConfirmations {
 				// Skipping send because the block is definitely too young
 				continue
 			}
+
 			// We attempt the send multiple times per log
 			// so here we need to see if this particular listener actually should receive it at this depth
-			isOldEnough := (logsPerBlock.BlockNumber + numConfirmations - 1) <= latestBlockNumber
+			isOldEnough := numConfirmations == 0 || (logsPerBlock.BlockNumber+numConfirmations-1) <= latestBlockNumber
 			if !isOldEnough {
 				continue
 			}
@@ -286,6 +280,9 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 			}
 		}
 
+		logger.Debugw("LogBroadcaster: Sending out log",
+			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "address", log.Address, "latestBlockNumber", latestBlockNumber)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -294,7 +291,7 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
 				decodedLog:        decodedLog,
-				jobID:             NewJobIdFromListener(listener),
+				jobID:             listener.JobID(),
 			})
 		}()
 	}
