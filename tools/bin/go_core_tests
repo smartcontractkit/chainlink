@@ -4,7 +4,7 @@ set +e
 
 echo "Failed tests and panics: ---------------------"
 echo ""
-go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep --line-buffered --line-number --after-context=2 -e "panic: " -e "\-\-\- FAIL" -e "FAIL " -e "driver: bad connection"
+go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL "
 EXITCODE=$?
 echo ""
 echo "----------------------------------------------"
@@ -15,6 +15,9 @@ echo "Finding their origin test may involve disabling parallelism)"
 echo ""
 echo "Potentially related:"
 echo ""
+
+grep --after-context=2 --group-separator=$'---' "panic: " output.txt
+grep --group-separator=$'---' "driver: bad connection" output.txt
 
 echo "Exit code: $EXITCODE"
 if [[ $EXITCODE != 0 ]]; then
