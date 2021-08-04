@@ -1,6 +1,8 @@
 package log
 
 import (
+	"math"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	heaps "github.com/theodesp/go-heaps"
@@ -27,6 +29,39 @@ func (pool *logPool) addLog(log types.Log) {
 	pool.hashesByBlockNumbers[log.BlockNumber] = append(pool.hashesByBlockNumbers[log.BlockNumber], log.BlockHash)
 	pool.logsByBlockHash[log.BlockHash] = append(pool.logsByBlockHash[log.BlockHash], log)
 	pool.heap.Insert(Uint64(log.BlockNumber))
+}
+
+func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
+	logsToReturn := make([]logsOnBlock, 0)
+	lowest := int64(math.MaxInt64)
+	highest := int64(0)
+
+	for {
+		item := pool.heap.DeleteMin()
+		if item == nil {
+			break
+		}
+
+		blockNum := uint64(item.(Uint64))
+		logs, exists := pool.hashesByBlockNumbers[blockNum]
+		if exists {
+			if int64(blockNum) < lowest {
+				lowest = int64(blockNum)
+			}
+			if int64(blockNum) > highest {
+				highest = int64(blockNum)
+			}
+			for _, hash := range logs {
+				logsToReturn = append(logsToReturn, logsOnBlock{blockNum, pool.logsByBlockHash[hash]})
+			}
+			for _, hash := range pool.hashesByBlockNumbers[blockNum] {
+				delete(pool.logsByBlockHash, hash)
+			}
+		}
+
+		delete(pool.hashesByBlockNumbers, blockNum)
+	}
+	return logsToReturn, lowest, highest
 }
 
 func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) {
