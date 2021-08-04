@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -47,8 +46,7 @@ func TestHeadTracker_New(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
 
-	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
@@ -72,7 +70,7 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	config.Set("ETH_HEAD_TRACKER_HISTORY_DEPTH", 100)
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	orm := headtracker.NewORM(db)
 
@@ -118,8 +116,7 @@ func TestHeadTracker_Get(t *testing.T) {
 			config := cltest.NewTestConfig(t)
 			orm := headtracker.NewORM(db)
 
-			ethClient := new(mocks.Client)
-			sub := new(mocks.Subscription)
+			ethClient, sub := cltest.NewEthClientAndSubMock(t)
 			ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return(nil)
@@ -160,9 +157,8 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	orm := headtracker.NewORM(db)
 
-	ethClient := new(mocks.Client)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
-	sub := new(mocks.Subscription)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
 	chStarted := make(chan struct{})
@@ -188,8 +184,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	orm := headtracker.NewORM(db)
 
-	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
@@ -225,8 +220,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	orm := headtracker.NewORM(db)
 
-	ethClient := new(mocks.Client)
-	sub := new(mocks.Subscription)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 	ethClient.On("ChainID", mock.Anything).Maybe().Return(config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("cannot reconnect"))
@@ -259,8 +253,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	config := cltest.NewTestConfig(t)
 	orm := headtracker.NewORM(db)
 
-	ethClient := new(mocks.Client)
-	sub := new(mocks.Subscription)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Maybe().Return(config.ChainID(), nil)
@@ -299,8 +292,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	db := pgtest.NewGormDB(t)
 	config := cltest.NewTestConfig(t)
-	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 
 	ethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
@@ -360,8 +352,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	store.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 42)
 	store.Config.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
 
-	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 
 	checker := new(htmocks.HeadTrackable)
 	orm := headtracker.NewORM(store.DB)
@@ -568,7 +559,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h))
 		}
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
 
@@ -586,7 +577,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h))
 		}
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
@@ -623,7 +614,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h))
 		}
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
 
@@ -657,7 +648,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h))
 		}
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		ht := createHeadTrackerWithNeverSleeper(ethClient, store.Config, orm)
 
@@ -675,7 +666,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		defer cleanup()
 		orm := headtracker.NewORM(store.DB)
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
@@ -703,7 +694,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h))
 		}
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
 			Once()
@@ -735,7 +726,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), h))
 		}
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).

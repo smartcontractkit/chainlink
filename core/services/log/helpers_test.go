@@ -57,7 +57,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 		FilterLogs:          1,
 	}
 
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 
 	dborm := log.NewORM(store.DB)
 	lb := log.NewBroadcaster(dborm, mockEth.ethClient, store.Config, nil)
@@ -333,10 +333,11 @@ type mockEthClientExpectedCalls struct {
 	FilterLogsResult []types.Log
 }
 
-func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
+func newMockEthClient(t *testing.T, chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 	mockEth := &mockEth{
-		ethClient:       new(mocks.Client),
-		sub:             new(mocks.Subscription),
+		ethClient:       ethClient,
+		sub:             sub,
 		checkFilterLogs: nil,
 	}
 	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).

@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -45,7 +44,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("ChainID").Return(big.NewInt(0))
 
 	t.Run("loads initial state", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
@@ -80,7 +79,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("boots even if initial batch call returns nothing", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
@@ -98,7 +97,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway if fetching latest head fails", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
@@ -116,7 +115,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with history size of 0, errors", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
 
@@ -133,7 +132,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("with current block height less than block delay does nothing", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
 
@@ -154,7 +153,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("with error retrieving blocks returns error", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
 
@@ -176,7 +175,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("batch fetches heads and transactions and sets them on the block history estimator instance", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(gas.NewBlockHistoryEstimator(ethClient, config))
 
@@ -276,7 +275,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 	t.Parallel()
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	config := new(gumocks.Config)
 
 	config.On("BlockHistoryEstimatorBlockDelay").Return(uint16(0))
@@ -336,7 +335,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	minGasPrice := big.NewInt(10)
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
@@ -363,7 +362,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 
 	t.Run("sets gas price to ETH_MAX_GAS_PRICE_WEI if the calculation would otherwise exceed it", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
@@ -399,7 +398,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 
 	t.Run("sets gas price to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
@@ -435,7 +434,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
@@ -483,7 +482,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 	t.Run("takes into account zero priced transctions if chain is not xDai", func(t *testing.T) {
 		// Because everyone loves free gas!
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
@@ -517,7 +516,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 
 	t.Run("ignores zero priced transactions on xDai", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
@@ -553,7 +552,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	t.Run("handles unreasonably large gas prices (larger than a 64 bit int can hold)", func(t *testing.T) {
 		// Seems unlikely we will ever experience gas prices > 9 Petawei on mainnet (praying to the eth Gods 🙏)
 		// But other chains could easily use a different base of account
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		reasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000))
