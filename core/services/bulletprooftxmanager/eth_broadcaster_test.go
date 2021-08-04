@@ -42,7 +42,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 	defer cleanup()
@@ -236,7 +236,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	config, orm, cleanupDB := heavyweight.FullTestORM(t, "eth_broadcaster_optimistic_locking", true, true)
 	t.Cleanup(cleanupDB)
 	db := orm.DB
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 	ethKeyStore.Unlock(cltest.Password)
@@ -302,7 +302,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	defer cleanup()
 	config.Set("ETH_GAS_LIMIT_MULTIPLIER", "1.3")
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 	defer cleanup()
@@ -345,7 +345,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	ethNodeNonce := uint64(22)
 
 	t.Run("when eth node returns error", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, keys...)
 		defer cleanup()
@@ -377,7 +377,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	})
 
 	t.Run("when eth node returns nonce", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, keys...)
 		defer cleanup()
@@ -464,7 +464,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		config, cleanup := cltest.NewConfig(t)
 		defer cleanup()
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 		defer cleanup()
@@ -503,7 +503,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		config, cleanup := cltest.NewConfig(t)
 		defer cleanup()
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 		defer cleanup()
@@ -541,7 +541,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		config, cleanup := cltest.NewConfig(t)
 		defer cleanup()
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 		defer cleanup()
@@ -579,7 +579,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		config, cleanup := cltest.NewConfig(t)
 		defer cleanup()
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 		defer cleanup()
@@ -619,7 +619,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		config, cleanup := cltest.NewConfig(t)
 		defer cleanup()
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 		defer cleanup()
@@ -660,7 +660,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		config, cleanup := cltest.NewConfig(t)
 		defer cleanup()
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		// Configured gas price changed
 		config.Set("ETH_GAS_PRICE_DEFAULT", 500000000000)
@@ -730,7 +730,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, config, key)
 	defer cleanup()
@@ -1125,7 +1125,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	eb, cleanup := cltest.NewEthBroadcaster(t, db, ethClient, kst, config, key)
 	defer cleanup()
@@ -1180,7 +1180,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	key, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	advisoryLocker1.On("WithAdvisoryLock", mock.Anything, mock.AnythingOfType("int32"), key.ID, mock.AnythingOfType("func() error")).Return(nil)
 
@@ -1234,7 +1234,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	eb, cleanup := cltest.NewEthBroadcaster(t, db, new(mocks.Client), ethKeyStore, config)
+	eb, cleanup := cltest.NewEthBroadcaster(t, db, cltest.NewEthClientMock(t), ethKeyStore, config)
 	defer cleanup()
 
 	eb.Trigger(cltest.NewAddress())

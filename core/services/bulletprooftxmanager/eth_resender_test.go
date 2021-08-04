@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
@@ -79,7 +78,7 @@ func Test_EthResender_Start(t *testing.T) {
 	fromAddress := key.Address.Address()
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		er := bulletprooftxmanager.NewEthResender(store.DB, ethClient, 100*time.Millisecond, store.Config)
 
