@@ -66,6 +66,13 @@ type ConnectOpts struct {
 }
 
 // Connects to a feeds manager
+//
+// Connection to FMS is handled in a goroutine because the Dial will block
+// until it can establish a connection. This is important during startup because
+// we do not want to block other services from starting.
+//
+// Eventually when FMS does come back up, wsrpc will establish the connection
+// without any interaction on behalf of the node operator.
 func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	ctx, cancel := context.WithCancel(context.Background())
 
