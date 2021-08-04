@@ -446,6 +446,10 @@ declare module 'core/store/models' {
     external_job_id: string | null
     createdAt: time.Time
   }
+
+  export interface UpdateJobProposalSpecRequest {
+    spec: string
+  }
 }
 
 export interface PipelineTaskRun {
