@@ -164,7 +164,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	// If we do not receive a broadcast for 1 second
 	// we assume the log broadcaster is done sending.
 	gm.Eventually(func() bool {
-		return len(broadcastsToListener1) == len(addr1SentLogs) && len(broadcastsToListener1) == len(addr1SentLogs)
+		return len(broadcastsToListener1) == len(addr1SentLogs) && len(broadcastsToListener2) == len(addr1SentLogs)
 	}, 2*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 	gm.Consistently(func() bool {
 		return len(broadcastsToListener1) == len(addr1SentLogs) && len(broadcastsToListener2) == len(addr1SentLogs)
