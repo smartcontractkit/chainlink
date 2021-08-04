@@ -531,13 +531,18 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 10)
+	hash100 := utils.NewHash()
+	hash105 := utils.NewHash()
 	addr1SentLogs := []types.Log{
-		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 100, 0, false),
-		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 101, 0, false),
-		cltest.RawNewRoundLog(t, contract1.Address(), utils.NewHash(), 105, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), hash100, 100, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), hash105, 105, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), hash105, 105, 1, false),
 	}
 
+	// listener1 does not mark logs as consumed to check the correct number of sends
 	listener1 := helper.newLogListener("listener 1")
+	listener1.SkipMarkingConsumed(true)
+
 	listener2 := helper.newLogListener("listener 2")
 
 	helper.register(listener1, contract1, 0)
@@ -559,7 +564,8 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		chRawLogs <- log
 	}
 
-	requireBroadcastCount(t, helper.store, 6)
+	// 3 because only one listeners is marking logs as consumed
+	requireBroadcastCount(t, helper.store, 3)
 	helper.stop()
 
 	requireEqualLogs(t,
@@ -590,7 +596,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 			blockHash:      blocks.Hashes[4],
 		},
 		{
-			logBlockNumber: 101,
+			logBlockNumber: 105,
 			blockNumber:    4,
 			blockHash:      blocks.Hashes[4],
 		},
