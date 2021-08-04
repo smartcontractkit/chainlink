@@ -53,20 +53,6 @@ func (_m *Broadcaster) Close() error {
 	return r0
 }
 
-// Connect provides a mock function with given fields: head
-func (_m *Broadcaster) Connect(head *models.Head) error {
-	ret := _m.Called(head)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(head)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // DependentReady provides a mock function with given fields:
 func (_m *Broadcaster) DependentReady() {
 	_m.Called()

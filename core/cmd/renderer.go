@@ -9,7 +9,6 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -58,16 +57,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 	}
 
 	switch typed := v.(type) {
-	case *[]models.JobSpec:
-		return rt.renderJobs(*typed)
-	case *presenters.JobSpec:
-		return rt.renderJob(*typed)
-	case *[]presenters.JobRun:
-		return rt.renderJobRuns(*typed)
-	case *presenters.JobRun:
-		return rt.renderJobRun(*typed)
-	case *presenters.ServiceAgreement:
-		return rt.renderServiceAgreement(*typed)
 	case *webpresenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
@@ -117,16 +106,6 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 
 	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows, rt.Writer)
 
-	return nil
-}
-
-func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
-	table := rt.newTable([]string{"ID", "Name", "Created At", "Initiators", "Tasks"})
-	for _, v := range jobs {
-		table.Append(jobRowToStrings(v))
-	}
-
-	render("Jobs", table)
 	return nil
 }
 
@@ -206,110 +185,6 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 		// Handles errcheck
 		return
 	}
-}
-
-func jobRowToStrings(job models.JobSpec) []string {
-	p := presenters.JobSpec{JobSpec: job}
-	return []string{
-		p.ID.String(),
-		p.Name,
-		p.FriendlyCreatedAt(),
-		p.FriendlyInitiators(),
-		p.FriendlyTasks(),
-	}
-}
-
-func (rt RendererTable) renderJob(job presenters.JobSpec) error {
-	if err := rt.renderJobSingles(job); err != nil {
-		return err
-	}
-
-	if err := rt.renderJobInitiators(job); err != nil {
-		return err
-	}
-
-	err := rt.renderJobTasks(job)
-	return err
-}
-
-func (rt RendererTable) renderJobRun(run presenters.JobRun) error {
-	err := rt.renderJobRuns([]presenters.JobRun{run})
-	return err
-}
-
-func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
-	table := rt.newTable([]string{"ID", "Name", "Created At", "Start At", "End At", "Min Payment"})
-	table.Append([]string{
-		j.ID.String(),
-		j.Name,
-		j.FriendlyCreatedAt(),
-		j.FriendlyStartAt(),
-		j.FriendlyEndAt(),
-		j.FriendlyMinPayment(),
-	})
-	render("Job", table)
-	return nil
-}
-
-func (rt RendererTable) renderJobInitiators(j presenters.JobSpec) error {
-	table := rt.newTable([]string{"Type", "Schedule", "Run At", "Address"})
-	for _, i := range j.Initiators {
-		p := presenters.Initiator{Initiator: i}
-		table.Append([]string{
-			p.Type,
-			p.Schedule.String(),
-			p.FriendlyRunAt(),
-			p.FriendlyAddress(),
-		})
-	}
-
-	render("Initiators", table)
-	return nil
-}
-
-func (rt RendererTable) renderJobTasks(j presenters.JobSpec) error {
-	table := rt.newTable([]string{"Type", "Config", "Value"})
-	table.SetAutoWrapText(false)
-	for _, t := range j.Tasks {
-		p := presenters.TaskSpec{TaskSpec: t}
-		keys, values := p.FriendlyParams()
-		table.Append([]string{p.Type.String(), keys, values})
-	}
-
-	render("Tasks", table)
-	return nil
-}
-
-func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
-	table := rt.newTable([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
-	for _, jr := range runs {
-		table.Append([]string{
-			jr.ID.String(),
-			string(jr.GetStatus()),
-			utils.ISO8601UTC(jr.CreatedAt),
-			utils.NullISO8601UTC(jr.FinishedAt),
-			jr.Result.Data.String(),
-			jr.ErrorString(),
-		})
-	}
-
-	render("Runs", table)
-	return nil
-}
-
-func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) error {
-	table := rt.newTable([]string{"ID", "Created At", "Payment", "Expiration", "Aggregator", "AggInit", "AggFulfill"})
-	table.Append([]string{
-		sa.ID,
-		sa.FriendlyCreatedAt(),
-		sa.FriendlyPayment(),
-		sa.FriendlyExpiration(),
-		sa.FriendlyAggregator(),
-		sa.FriendlyAggregatorInitMethod(),
-		sa.FriendlyAggregatorFulfillMethod(),
-	})
-	render("Service Agreement", table)
-	return nil
 }
 
 func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.ExternalInitiatorAuthentication) error {

@@ -98,8 +98,6 @@ func (executer *UpkeepExecuter) Close() error {
 	})
 }
 
-func (executer *UpkeepExecuter) Connect(head *models.Head) error { return nil }
-
 func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	executer.mailbox.Deliver(head)
 }
