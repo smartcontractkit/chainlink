@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -74,6 +75,11 @@ type EnvPrinter struct {
 	JobPipelineReaperInterval                  time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
+	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
+	KeeperMinimumRequiredConfirmations         uint64          `json:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS"`
+	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
+	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
+	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
@@ -175,6 +181,11 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			JobPipelineReaperInterval:                  config.JobPipelineReaperInterval(),
 			JobPipelineReaperThreshold:                 config.JobPipelineReaperThreshold(),
 			KeeperDefaultTransactionQueueDepth:         config.KeeperDefaultTransactionQueueDepth(),
+			KeeperMaximumGracePeriod:                   config.KeeperMaximumGracePeriod(),
+			KeeperMinimumRequiredConfirmations:         config.KeeperMinimumRequiredConfirmations(),
+			KeeperRegistryCheckGasOverhead:             config.KeeperRegistryCheckGasOverhead(),
+			KeeperRegistryPerformGasOverhead:           config.KeeperRegistryPerformGasOverhead(),
+			KeeperRegistrySyncInterval:                 config.KeeperRegistrySyncInterval(),
 			LinkContractAddress:                        config.LinkContractAddress(),
 			LogLevel:                                   config.LogLevel(),
 			LogSQLMigrations:                           config.LogSQLMigrations(),
