@@ -6,8 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	"github.com/bmizerany/assert"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,12 +44,13 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 func Test_TaskAnyUnmarshal(t *testing.T) {
 	t.Parallel()
 
-	a := `ds1 [type=any];`
+	a := `ds1 [type=any failEarly=true];`
 	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
 	require.Len(t, p.Tasks, 1)
 	_, ok := p.Tasks[0].(*pipeline.AnyTask)
 	require.True(t, ok)
+	require.Equal(t, "true", p.Tasks[0].Base().FailEarly)
 }
 
 func Test_UnmarshalTaskFromMap(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -38,14 +38,14 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
 	store.Config.Set("CHAINLINK_PORT", 6688)
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
-	store.EthClient = ethClient
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
+	app.On("GetEthClient").Return(ethClient).Maybe()
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
 
@@ -128,13 +128,13 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
+			app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
-			ethClient := new(mocks.Client)
+			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
-			store.EthClient = ethClient
 
 			cltest.MustInsertRandomKey(t, store.DB)
 
@@ -186,12 +186,12 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
+	app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	store.EthClient = ethClient
 
 	_, err = keyStore.Eth().CreateNewKey()
 	require.NoError(t, err)
@@ -226,7 +226,6 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	t.Parallel()
-
 	tests := []struct {
 		name       string
 		apiFile    string
@@ -240,7 +239,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config := orm.NewConfig()
+			cfg := config.NewConfig()
 
 			store, cleanup := cltest.NewStore(t)
 			// Clear out fixture
@@ -254,19 +253,19 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
+			app.On("GetEthClient").Return(cltest.NewEthClientMock(t)).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
-			ethClient := new(mocks.Client)
+			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
-			store.EthClient = ethClient
 
 			callback := func(*keystore.Eth, string) (string, error) { return "", nil }
 			noauth := cltest.CallbackAuthenticator{Callback: callback}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:                 config,
+				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  noauth,
 				FallbackAPIInitializer: apiPrompt,
@@ -364,7 +363,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("address", fromAddress.Hex(), "")
 	c := cli.NewContext(nil, set, nil)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, 7, 42, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore.DB, 7, 42, fromAddress)
 
 	// Use the same config as the connectedStore so that the advisory
 	// lock ID is the same. We set the config to be Postgres Without
@@ -380,9 +379,9 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
+	app.On("GetEthClient").Return(ethClient).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	store.EthClient = ethClient
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 	client := cmd.Client{
@@ -449,7 +448,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("address", fromAddress.Hex(), "")
 			c := cli.NewContext(nil, set, nil)
 
-			cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, int64(test.nonce), 42, fromAddress)
+			cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore.DB, int64(test.nonce), 42, fromAddress)
 
 			// Use the same config as the connectedStore so that the advisory
 			// lock ID is the same. We set the config to be Postgres Without
@@ -465,9 +464,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
-			ethClient := new(mocks.Client)
+			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			store.EthClient = ethClient
+			app.On("GetEthClient").Return(ethClient).Maybe()
 
 			auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 			client := cmd.Client{

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -85,7 +84,8 @@ type (
 		chConfigs chan ocrtypes.ContractConfig
 
 		// LatestBlockHeight
-		latestBlockHeight int64
+		latestBlockHeight   int64
+		latestBlockHeightMu sync.RWMutex
 	}
 
 	OCRContractTrackerDB interface {
@@ -133,6 +133,7 @@ func NewOCRContractTracker(
 		*utils.NewMailbox(configMailboxSanityLimit),
 		make(chan ocrtypes.ContractConfig),
 		-1,
+		sync.RWMutex{},
 	}
 }
 
@@ -155,7 +156,11 @@ func (t *OCRContractTracker) Start() error {
 			NumConfirmations: 1,
 		})
 
-		t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
+		var latestHead *models.Head
+		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
+		if latestHead != nil {
+			t.setLatestBlockHeight(*latestHead)
+		}
 
 		t.wg.Add(1)
 		go t.processLogs()
@@ -175,16 +180,29 @@ func (t *OCRContractTracker) Close() error {
 	})
 }
 
-// Connect conforms to HeadTrackable
-func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
-
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(ctx context.Context, h models.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h models.Head) {
+	t.setLatestBlockHeight(h)
+}
+
+func (t *OCRContractTracker) setLatestBlockHeight(h models.Head) {
+	var num int64
 	if h.L1BlockNumber.Valid {
-		atomic.StoreInt64(&t.latestBlockHeight, h.L1BlockNumber.Int64)
+		num = h.L1BlockNumber.Int64
 	} else {
-		atomic.StoreInt64(&t.latestBlockHeight, h.Number)
+		num = h.Number
 	}
+	t.latestBlockHeightMu.Lock()
+	defer t.latestBlockHeightMu.Unlock()
+	if num > t.latestBlockHeight {
+		t.latestBlockHeight = num
+	}
+}
+
+func (t *OCRContractTracker) getLatestBlockHeight() int64 {
+	t.latestBlockHeightMu.RLock()
+	defer t.latestBlockHeightMu.RUnlock()
+	return t.latestBlockHeight
 }
 
 func (t *OCRContractTracker) processLogs() {
@@ -215,12 +233,6 @@ func (t *OCRContractTracker) processLogs() {
 		}
 	}
 }
-
-// OnConnect complies with LogListener interface
-func (t *OCRContractTracker) OnConnect() {}
-
-// OnDisconnect complies with LogListener interface
-func (t *OCRContractTracker) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
 // It is not thread safe
@@ -293,7 +305,9 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb, lb) })
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(t.gdb.WithContext(ctx), lb) })
 	}
 }
 
@@ -305,19 +319,9 @@ func IsLaterThan(incoming gethTypes.Log, existing gethTypes.Log) bool {
 		(incoming.BlockNumber == existing.BlockNumber && incoming.TxIndex == existing.TxIndex && incoming.Index > existing.Index)
 }
 
-// IsV2Job complies with LogListener interface
-func (t *OCRContractTracker) IsV2Job() bool {
-	return true
-}
-
-// JobIDV2 complies with LogListener interface
-func (t *OCRContractTracker) JobIDV2() int32 {
-	return t.jobID
-}
-
 // JobID complies with LogListener interface
-func (t *OCRContractTracker) JobID() models.JobID {
-	return models.NilJobID
+func (t *OCRContractTracker) JobID() int32 {
+	return t.jobID
 }
 
 // SubscribeToNewConfigs returns the tracker aliased as a ContractConfigSubscription
@@ -386,7 +390,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	if t.chain.IsOptimism() {
 		return 0, nil
 	}
-	latestBlockHeight := atomic.LoadInt64(&t.latestBlockHeight)
+	latestBlockHeight := t.getLatestBlockHeight()
 	if latestBlockHeight >= 0 {
 		return uint64(latestBlockHeight), nil
 	}

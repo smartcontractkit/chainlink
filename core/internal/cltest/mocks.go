@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -62,13 +63,6 @@ func (mes *MockSubscription) Unsubscribe() {
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}
 	close(mes.Errors)
-}
-
-// InstantClock create InstantClock
-func (ta *TestApplication) InstantClock() InstantClock {
-	clock := InstantClock{}
-	ta.Scheduler.OneTime.Clock = clock
-	return clock
 }
 
 // InstantClock an InstantClock
@@ -144,7 +138,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(config *config.Config) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -152,7 +146,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(config *config.Config) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -160,6 +154,7 @@ type noopStopApplication struct {
 	chainlink.Application
 }
 
+// FIXME: Why bother with this wrapper?
 func (a noopStopApplication) Stop() error {
 	return nil
 }
@@ -178,7 +173,7 @@ func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *orm.Config, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *config.Config, string) error {
 	return nil
 }
 
@@ -361,23 +356,7 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	connectedCount    int32
-	ConnectedCallback func(bn *models.Head)
-	onNewHeadCount    int32
-}
-
-// Connect increases the connected count by one
-func (m *MockHeadTrackable) Connect(bn *models.Head) error {
-	atomic.AddInt32(&m.connectedCount, 1)
-	if m.ConnectedCallback != nil {
-		m.ConnectedCallback(bn)
-	}
-	return nil
-}
-
-// ConnectedCount returns the count of connections made, safely.
-func (m *MockHeadTrackable) ConnectedCount() int32 {
-	return atomic.LoadInt32(&m.connectedCount)
+	onNewHeadCount int32
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
@@ -467,7 +446,7 @@ func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error)
 
 type mockSecretGenerator struct{}
 
-func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
+func (m mockSecretGenerator) Generate(config.Config) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
 

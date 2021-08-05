@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -17,10 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor/promfm"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/promfm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/zap"
@@ -217,7 +216,8 @@ func NewFromJobSpec(
 			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
 			DrumbeatSchedule:        fmSpec.DrumbeatSchedule,
 			DrumbeatEnabled:         fmSpec.DrumbeatEnabled,
-			HibernationPollPeriod:   24 * time.Hour, // Not currently configurable
+			DrumbeatRandomDelay:     fmSpec.DrumbeatRandomDelay,
+			HibernationPollPeriod:   168 * time.Hour, // Not currently configurable
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
@@ -300,23 +300,7 @@ func (fm *FluxMonitor) Close() error {
 }
 
 // JobID implements the listener.Listener interface.
-//
-// Since we don't have a v1 ID, we return a new v1 job id to satisfy the
-// interface. This should not cause a problem as the log broadcaster will check
-// if it is a v2 job before attempting to use this job id
-func (fm *FluxMonitor) JobID() models.JobID {
-	return models.NewJobID()
-}
-
-// JobIDV2 implements the listener.Listener interface.
-//
-// Returns the v2 job id
-func (fm *FluxMonitor) JobIDV2() int32 { return fm.spec.JobID }
-
-// IsV2Job implements the listener.Listener interface.
-//
-// Returns true as this is a v2 job
-func (fm *FluxMonitor) IsV2Job() bool { return true }
+func (fm *FluxMonitor) JobID() int32 { return fm.spec.JobID }
 
 // HandleLog processes the contract logs
 func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
@@ -372,7 +356,7 @@ func (fm *FluxMonitor) consume() {
 			flux_aggregator_wrapper.FluxAggregatorNewRound{}.Topic():      nil,
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}.Topic(): nil,
 		},
-		NumConfirmations: 1,
+		NumConfirmations: 0,
 	})
 	defer unsubscribe()
 
@@ -384,7 +368,7 @@ func (fm *FluxMonitor) consume() {
 				flags_wrapper.FlagsFlagLowered{}.Topic(): nil,
 				flags_wrapper.FlagsFlagRaised{}.Topic():  nil,
 			},
-			NumConfirmations: 1,
+			NumConfirmations: 0,
 		})
 		defer unsubscribe()
 	}
@@ -486,52 +470,61 @@ func (fm *FluxMonitor) processLogs() {
 		if !ok {
 			fm.logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
 		}
+		fm.processBroadcast(broadcast)
+	}
+}
 
-		// If the log is a duplicate of one we've seen before, ignore it (this
-		// happens because of the LogBroadcaster's backfilling behavior).
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db.WithContext(ctx), broadcast)
-		if err != nil {
-			fm.logger.Errorf("Error determining if log was already consumed: %v", err)
-			continue
-		} else if consumed {
-			fm.logger.Debug("Log was already consumed by Flux Monitor, skipping")
-			continue
-		}
+func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 
-		ctx, cancel = postgres.DefaultQueryCtx()
-		defer cancel()
-		db := fm.db.WithContext(ctx)
-		switch log := broadcast.DecodedLog().(type) {
-		case *flux_aggregator_wrapper.FluxAggregatorNewRound:
-			fm.respondToNewRoundLog(*log, broadcast)
-		case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
-			fm.respondToAnswerUpdatedLog(*log)
-			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
-				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
-			}
-		case *flags_wrapper.FlagsFlagRaised:
-			// check the contract before hibernating, because one flag could be lowered
-			// while the other flag remains raised
-			var isFlagLowered bool
-			isFlagLowered, err = fm.flags.IsLowered(fm.contractAddress)
-			fm.logger.ErrorIf(err, "Error determining if flag is still raised")
-			if !isFlagLowered {
-				fm.pollManager.Hibernate()
-			}
-			if err = fm.logBroadcaster.MarkConsumed(db, broadcast); err != nil {
-				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err)
-			}
-		case *flags_wrapper.FlagsFlagLowered:
-			// Only reactivate if it is hibernating
-			if fm.pollManager.cfg.IsHibernating {
-				fm.pollManager.Awaken(fm.initialRoundState())
-				fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
-			}
-		default:
-			fm.logger.Errorf("unknown log %v of type %T", log, log)
+	// If the log is a duplicate of one we've seen before, ignore it (this
+	// happens because of the LogBroadcaster's backfilling behavior).
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	consumed, err := fm.logBroadcaster.WasAlreadyConsumed(fm.db.WithContext(ctx), broadcast)
+
+	if err != nil {
+		fm.logger.Errorf("Error determining if log was already consumed: %v", err)
+		return
+	} else if consumed {
+		fm.logger.Debug("Log was already consumed by Flux Monitor, skipping")
+		return
+	}
+
+	started := time.Now()
+	decodedLog := broadcast.DecodedLog()
+	switch log := decodedLog.(type) {
+	case *flux_aggregator_wrapper.FluxAggregatorNewRound:
+		fm.respondToNewRoundLog(*log, broadcast)
+	case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
+		fm.respondToAnswerUpdatedLog(*log)
+		fm.markLogAsConsumed(broadcast, decodedLog, started)
+	case *flags_wrapper.FlagsFlagRaised:
+		// check the contract before hibernating, because one flag could be lowered
+		// while the other flag remains raised
+		var isFlagLowered bool
+		isFlagLowered, err = fm.flags.IsLowered(fm.contractAddress)
+		fm.logger.ErrorIf(err, "Error determining if flag is still raised")
+		if !isFlagLowered {
+			fm.pollManager.Hibernate()
 		}
+		fm.markLogAsConsumed(broadcast, decodedLog, started)
+	case *flags_wrapper.FlagsFlagLowered:
+		// Only reactivate if it is hibernating
+		if fm.pollManager.cfg.IsHibernating {
+			fm.pollManager.Awaken(fm.initialRoundState())
+			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
+		}
+	default:
+		fm.logger.Errorf("unknown log %v of type %T", log, log)
+	}
+}
+
+func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog interface{}, started time.Time) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	if err := fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
+		fm.logger.Errorw("FluxMonitor: failed to mark log as consumed",
+			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
 	}
 }
 
@@ -560,10 +553,13 @@ func (fm *FluxMonitor) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.Flu
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
 // need to poll and submit an answer to the contract regardless of the deviation.
 func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound, lb log.Broadcast) {
+	started := time.Now()
+
 	newRoundLogger := fm.logger.With(
 		"round", log.RoundId,
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
+		"startedAtUtc", time.Unix(log.StartedAt.Int64(), 0).UTC().Format(time.RFC3339),
 	)
 	var markConsumed = true
 	defer func() {
@@ -651,6 +647,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		//     - The chain experienced a shallow reorg that unstarted the current round.
 		// If our previous attempt is still pending, return early and don't re-submit
 		// If our previous attempt is already over (completed or errored), we should retry
+		newRoundLogger.Debugf("There are already %v existing submissions to this round, while job run status is: %v", roundStats.NumSubmissions, jobRunStatus)
 		if !jobRunStatus.Finished() {
 			newRoundLogger.Debug("Ignoring new round request: started round simultaneously with another node")
 			return
@@ -711,7 +708,9 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
 		logger.Errorw("can't fetch answer", "err", err, "result", result)
-		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
 	answer, err := utils.ToDecimal(result.Value)
@@ -720,7 +719,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		return
 	}
 
-	if !fm.isValidSubmission(logger.Default.SugaredLogger, answer) {
+	if !fm.isValidSubmission(logger.Default.SugaredLogger, answer, started) {
 		return
 	}
 
@@ -772,6 +771,8 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 }
 
 func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
+	started := time.Now()
+
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,
 		"absoluteThreshold", deviationChecker.Thresholds.Abs,
@@ -882,14 +883,18 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 
 	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, *fm.logger)
 	if err != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
 		l.Errorw("can't fetch answer", "err", err)
-		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
 	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
 		l.Errorw("can't fetch answer", "err", err, "result", result)
-		fm.jobORM.RecordError(context.TODO(), fm.spec.JobID, "Error polling")
+		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
 	answer, err := utils.ToDecimal(result.Value)
@@ -898,7 +903,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		return
 	}
 
-	if !fm.isValidSubmission(l, answer) {
+	if !fm.isValidSubmission(l, answer, started) {
 		return
 	}
 
@@ -917,7 +922,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	if roundState.RoundId > 1 {
-		l.Infow("deviation > threshold, starting new round")
+		l.Infow("deviation > threshold, submitting")
 	} else {
 		l.Infow("starting first round")
 	}
@@ -954,7 +959,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 
 // If the answer is outside the allowable range, log an error and don't submit.
 // to avoid an onchain reversion.
-func (fm *FluxMonitor) isValidSubmission(l *zap.SugaredLogger, answer decimal.Decimal) bool {
+func (fm *FluxMonitor) isValidSubmission(l *zap.SugaredLogger, answer decimal.Decimal, started time.Time) bool {
 	if fm.submissionChecker.IsValid(answer) {
 		return true
 	}
@@ -966,6 +971,13 @@ func (fm *FluxMonitor) isValidSubmission(l *zap.SugaredLogger, answer decimal.De
 	)
 	fm.jobORM.RecordError(context.Background(), fm.spec.JobID, "Answer is outside acceptable range")
 
+	jobId := fm.spec.JobID
+	jobName := fm.spec.JobName
+	elapsed := time.Since(started)
+	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, job.FluxMonitor.String()).Set(float64(elapsed))
+	pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Inc()
+	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Set(float64(elapsed))
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, job.FluxMonitor.String(), "error").Inc()
 	return false
 }
 

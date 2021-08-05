@@ -818,14 +818,17 @@ type CronTicker struct {
 	ch chan time.Time
 }
 
-func NewCronTicker(schedule string) (CronTicker, error) {
+func NewCronTicker(schedule string, randomDelay time.Duration) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
-		select {
-		case ch <- time.Now():
-		default:
-		}
+		delay := time.Duration(mrand.Int63n(int64(randomDelay)))
+		time.AfterFunc(delay, func() {
+			select {
+			case ch <- time.Now():
+			default:
+			}
+		})
 	})
 	if err != nil {
 		return CronTicker{}, err
@@ -1040,4 +1043,47 @@ func (m *KeyedMutex) LockInt64(key int64) func() {
 	mtx.Lock()
 
 	return func() { mtx.Unlock() }
+}
+
+// BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of
+// arrows pointing at their content, in order to better highlight it. See
+// ExampleBoxOutput
+func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
+	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
+	lines := strings.Split(errorMsgTemplate, "\n")
+	maxlen := 0
+	for _, line := range lines {
+		if len(line) > maxlen {
+			maxlen = len(line)
+		}
+	}
+	internalLength := maxlen + 4
+	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	readme := strings.Repeat("README ", maxlen/7)
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	for _, line := range lines {
+		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
+	}
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
+		"\n\n"
+}
+
+func Example_boxOutput() {
+	fmt.Println()
+	fmt.Print(BoxOutput("%s is %d", "foo", 17))
+	// Output:
+	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// →  foo is 17  ←
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }

@@ -73,7 +73,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.db = new(ocrmocks.OCRContractTrackerDB)
 	uni.lb = new(logmocks.Broadcaster)
 	uni.hb = new(htmocks.HeadBroadcaster)
-	uni.ec = new(mocks.Client)
+	uni.ec = cltest.NewEthClientMock(t)
 
 	s, c := cltest.NewStore(t)
 	t.Cleanup(c)
@@ -146,6 +146,25 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, uint64(42), l)
+	})
+
+	t.Run("if headbroadcaster has it, uses the given value on start", func(t *testing.T) {
+		uni := newContractTrackerUni(t)
+
+		uni.hb.On("Subscribe", uni.tracker).Return(&models.Head{Number: 42}, func() {})
+		uni.db.On("LoadLatestRoundRequested").Return(offchainaggregator.OffchainAggregatorRoundRequested{}, nil)
+		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() {})
+
+		require.NoError(t, uni.tracker.Start())
+
+		l, err := uni.tracker.LatestBlockHeight(context.Background())
+		require.NoError(t, err)
+
+		assert.Equal(t, uint64(42), l)
+
+		uni.hb.AssertExpectations(t)
+
+		require.NoError(t, uni.tracker.Close())
 	})
 }
 
@@ -337,7 +356,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("IsConnected").Return(true).Maybe()
 
 		eventuallyCloseHeadBroadcaster := cltest.NewAwaiter()
-		uni.hb.On("Subscribe", uni.tracker).Return(func() { eventuallyCloseHeadBroadcaster.ItHappened() })
+		uni.hb.On("Subscribe", uni.tracker).Return(nil, func() { eventuallyCloseHeadBroadcaster.ItHappened() })
 
 		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
 

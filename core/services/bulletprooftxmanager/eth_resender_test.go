@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +21,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	db := store.DB
 
 	key := cltest.MustInsertRandomKey(t, store.DB)
 	fromAddress := key.Address.Address()
@@ -34,9 +34,9 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	})
 
 	etxs := []bulletprooftxmanager.EthTx{
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress, time.Unix(1616509100, 0)),
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress, time.Unix(1616509200, 0)),
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress, time.Unix(1616509300, 0)),
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress, time.Unix(1616509100, 0)),
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress, time.Unix(1616509200, 0)),
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress, time.Unix(1616509300, 0)),
 	}
 	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(10))
@@ -69,6 +69,7 @@ func Test_EthResender_Start(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	db := store.DB
 	// This can be anything as long as it isn't zero
 	store.Config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", "42h")
 	// Set batch size low to test batching
@@ -77,14 +78,14 @@ func Test_EthResender_Start(t *testing.T) {
 	fromAddress := key.Address.Address()
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		er := bulletprooftxmanager.NewEthResender(store.DB, ethClient, 100*time.Millisecond, store.Config)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress, originalBroadcastAt)
-		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress, originalBroadcastAt)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress, time.Now().Add(1*time.Hour))
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress, originalBroadcastAt)
+		etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress, originalBroadcastAt)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress, time.Now().Add(1*time.Hour))
 
 		// First batch of 1
 		ethClient.On("RoundRobinBatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {

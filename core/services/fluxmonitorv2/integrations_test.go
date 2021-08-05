@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -31,8 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,7 +103,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	}
 
 	key := cltest.MustGenerateRandomKey(t)
-	k, err := keystore.DecryptKey(key.JSON.RawMessage[:], cltest.Password)
+	k, err := keystore.DecryptKey(key.JSON, cltest.Password)
 	require.NoError(t, err)
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
@@ -201,7 +202,7 @@ func (fau fluxAggregatorUniverse) WatchSubmissionReceived(t *testing.T, addresse
 func setupApplication(
 	t *testing.T,
 	fa fluxAggregatorUniverse,
-	setConfig func(cfg *orm.Config),
+	setConfig func(cfg *config.Config),
 ) *cltest.TestApplication {
 	config, cfgCleanup := cltest.NewConfig(t)
 	setConfig(config.Config)
@@ -403,11 +404,11 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// Create mock server
 	// We expect metadata of:
@@ -534,12 +535,12 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	initialBalance := currentBalance(t, &fa).Int64()
 
@@ -605,7 +606,7 @@ ds1 -> ds1_parse
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
 	assert.Eventually(t, func() bool {
-		return app.LogBroadcaster.TrackedAddressesCount() >= 2
+		return app.LogBroadcaster.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
 	}, 3*time.Second, 200*time.Millisecond)
 
 	// Finally, the logs from log broadcaster are sent only after a next block is received.
@@ -639,12 +640,12 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// Create mock server
 	reportPrice := int64(1)
@@ -747,14 +748,14 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	fa.backend.Commit()
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 		cfg.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
 		cfg.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
 		cfg.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", "100")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// Report a price that is above the maximum allowed value,
 	// causing it to revert.
@@ -824,11 +825,11 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *orm.Config) {
+	app := setupApplication(t, fa, func(cfg *config.Config) {
 		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	})
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
 	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+

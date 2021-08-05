@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -21,8 +22,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
-	store.EthClient = ethClient
+	ethClient := cltest.NewEthClientMock(t)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
@@ -47,18 +47,23 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	require.NoError(t, ht.Start())
 	defer ht.Stop()
 
-	hr.Subscribe(checker1)
-	unsubscribe2 := hr.Subscribe(checker2)
+	latest1, unsubscribe1 := hr.Subscribe(checker1)
+	// "latest head" is nil here because we didn't receive any yet
+	assert.Equal(t, (*models.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	headers <- &models.Head{Number: 1}
+	h := models.Head{Number: 1}
+	headers <- &h
 	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
-	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
-	unsubscribe2()
+	latest2, _ := hr.Subscribe(checker2)
+	// "latest head" is set here to the most recent head received
+	assert.NotNil(t, latest2)
+	assert.Equal(t, h.Number, latest2.Number)
+
+	unsubscribe1()
 
 	headers <- &models.Head{Number: 2}
-	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(2)))
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Stop())

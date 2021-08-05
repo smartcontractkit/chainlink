@@ -7,12 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func Test_NonceSyncer_SyncAll(t *testing.T) {
@@ -21,7 +20,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("returns error if PendingNonceAt fails", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethClient := new(mocks.Client)
+		db := store.DB
+		ethClient := cltest.NewEthClientMock(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -37,10 +37,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 
-		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 0)
-		cltest.AssertCount(t, store, bulletprooftxmanager.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTxAttempt{}, 0)
 
-		assertDatabaseNonce(t, store, from, 0)
+		assertDatabaseNonce(t, db, from, 0)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -48,7 +48,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("does nothing if chain nonce reflects local nonce", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethClient := new(mocks.Client)
+		db := store.DB
+		ethClient := cltest.NewEthClientMock(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -62,10 +63,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 0)
-		cltest.AssertCount(t, store, bulletprooftxmanager.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTxAttempt{}, 0)
 
-		assertDatabaseNonce(t, store, from, 0)
+		assertDatabaseNonce(t, db, from, 0)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -73,7 +74,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("does nothing if chain nonce is behind local nonce", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethClient := new(mocks.Client)
+		db := store.DB
+		ethClient := cltest.NewEthClientMock(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		k1 := cltest.MustInsertRandomKey(t, store.DB, int64(32))
@@ -88,10 +90,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		cltest.AssertCount(t, store, bulletprooftxmanager.EthTx{}, 0)
-		cltest.AssertCount(t, store, bulletprooftxmanager.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTxAttempt{}, 0)
 
-		assertDatabaseNonce(t, store, k1.Address.Address(), 32)
+		assertDatabaseNonce(t, db, k1.Address.Address(), 32)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -99,7 +101,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("fast forwards if chain nonce is ahead of local nonce", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		ethClient := new(mocks.Client)
+		db := store.DB
+		ethClient := cltest.NewEthClientMock(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
@@ -120,7 +123,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		assertDatabaseNonce(t, store, key1, 5)
+		assertDatabaseNonce(t, db, key1, 5)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -128,14 +131,15 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		db := store.DB
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, key1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, int64(0))
 		ethKeyStore.Unlock(cltest.Password)
 
-		cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1, key1)
+		cltest.MustInsertInProgressEthTxWithAttempt(t, db, 1, key1)
 
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// key1 has chain nonce of 1 which is ahead of keys.next_nonce (0)
 			// by 1, but does not need to change when taking into account the in_progress tx
@@ -145,11 +149,11 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
-		assertDatabaseNonce(t, store, key1, 0)
+		assertDatabaseNonce(t, db, key1, 0)
 
 		ethClient.AssertExpectations(t)
 
-		ethClient = new(mocks.Client)
+		ethClient = cltest.NewEthClientMock(t)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// key1 has chain nonce of 2 which is ahead of keys.next_nonce (0)
 			// by 2, but only ahead by 1 if we count the in_progress tx as +1
@@ -158,17 +162,17 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ns = bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
-		assertDatabaseNonce(t, store, key1, 1)
+		assertDatabaseNonce(t, db, key1, 1)
 
 		ethClient.AssertExpectations(t)
 	})
 }
 
-func assertDatabaseNonce(t *testing.T, store *store.Store, address common.Address, nonce int64) {
+func assertDatabaseNonce(t *testing.T, db *gorm.DB, address common.Address, nonce int64) {
 	t.Helper()
 
 	var nextNonce int64
-	err := store.DB.Raw(`SELECT next_nonce FROM keys WHERE address = ?`, address).Scan(&nextNonce).Error
+	err := db.Raw(`SELECT next_nonce FROM keys WHERE address = ?`, address).Scan(&nextNonce).Error
 	require.NoError(t, err)
 	assert.Equal(t, nonce, nextNonce)
 }

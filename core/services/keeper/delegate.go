@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +18,7 @@ type transmitter interface {
 }
 
 type Delegate struct {
-	config          orm.ConfigReader
+	config          Config
 	db              *gorm.DB
 	txm             transmitter
 	jrm             job.ORM
@@ -39,7 +38,7 @@ func NewDelegate(
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
-	config *orm.Config,
+	config Config,
 ) *Delegate {
 	return &Delegate{
 		config:          config,
@@ -57,10 +56,14 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) OnJobCreated(spec job.Job) {}
-func (Delegate) OnJobDeleted(spec job.Job) {}
+func (Delegate) AfterJobCreated(spec job.Job)  {}
+func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
+	// TODO: we need to fill these out manually, find a better fix
+	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
+	spec.PipelineSpec.JobID = spec.ID
+
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}

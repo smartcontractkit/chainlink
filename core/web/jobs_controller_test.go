@@ -269,7 +269,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
-	client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
+	_, client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs")
 	t.Cleanup(cleanup)
@@ -286,7 +286,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
-	client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
+	_, client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID))
 	t.Cleanup(cleanup)
@@ -310,7 +310,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
-	client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
+	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
 	t.Cleanup(cleanup)
@@ -318,7 +318,7 @@ func TestJobsController_Show_InvalidID(t *testing.T) {
 }
 
 func TestJobsController_Show_NonExistentID(t *testing.T) {
-	client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
+	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
 	t.Cleanup(cleanup)
@@ -375,7 +375,7 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	return app, client
 }
 
-func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
+func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -399,11 +399,11 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	require.NoError(t, err)
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec = &ocrSpec
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
+	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
 	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
-	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
+	jb2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
-	return client, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
+	return app, client, ocrJobSpecFromFileDB, jb.ID, ereJobSpecFromFileDB, jb2.ID
 }

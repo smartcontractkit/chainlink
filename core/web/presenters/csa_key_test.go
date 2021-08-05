@@ -21,7 +21,7 @@ func TestCSAKeyResource(t *testing.T) {
 	key.CreatedAt = timestamp
 	key.UpdatedAt = timestamp
 
-	r := NewResource(*key)
+	r := NewCSAKeyResource(*key)
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
 

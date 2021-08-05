@@ -72,6 +72,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
+	txm := postgres.NewGormTransactionManager(db)
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
@@ -95,18 +96,20 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
 			jobSpecB.Type: delegateB,
-		})
+		}, txm)
 		spawner.Start()
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
+		jobSpecIDA := jobA.ID
 		delegateA.jobID = jobSpecIDA
 		close(delegateA.chContinueCreatingServices)
 
 		eventuallyA.AwaitOrFail(t, 20*time.Second)
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
-		jobSpecIDB, err := spawner.CreateJob(context.Background(), *jobSpecB, null.String{})
+		jobB, err := spawner.CreateJob(context.Background(), *jobSpecB, null.String{})
 		require.NoError(t, err)
+		jobSpecIDB := jobB.ID
 		delegateB.jobID = jobSpecIDB
 		close(delegateB.chContinueCreatingServices)
 
@@ -118,11 +121,13 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
-		require.NoError(t, spawner.DeleteJob(ctx, jobSpecIDA))
+		err = spawner.DeleteJob(ctx, jobSpecIDA)
+		require.NoError(t, err)
 
 		serviceB1.On("Close").Return(nil).Once()
 		serviceB2.On("Close").Return(nil).Once()
-		require.NoError(t, spawner.DeleteJob(ctx, jobSpecIDB))
+		err = spawner.DeleteJob(ctx, jobSpecIDB)
+		require.NoError(t, err)
 
 		require.NoError(t, spawner.Close())
 		serviceA1.AssertExpectations(t)
@@ -147,11 +152,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		})
+		}, txm)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
-		delegateA.jobID = jobSpecIDA
+		delegateA.jobID = jobA.ID
 
 		spawner.Start()
 		defer spawner.Close()
@@ -176,13 +181,13 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		})
+		}, txm)
 
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
-		delegateA.jobID = jobSpecIDA
+		delegateA.jobID = jobA.ID
 
 		spawner.Start()
 
@@ -213,10 +218,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, nil, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		})
+		}, txm)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
+		jobSpecIDA := jobA.ID
 		delegateA.jobID = jobSpecIDA
 
 		spawner.Start()

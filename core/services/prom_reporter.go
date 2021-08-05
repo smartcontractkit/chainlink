@@ -116,15 +116,6 @@ func (pr *promReporter) Close() error {
 	})
 }
 
-// Do nothing on connect, simply wait for the next head
-func (pr *promReporter) Connect(*models.Head) error {
-	return nil
-}
-
-func (pr *promReporter) Disconnect() {
-	// pass
-}
-
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	pr.newHeads.Deliver(head)
 }
@@ -132,7 +123,8 @@ func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head)
 func (pr *promReporter) eventLoop() {
 	logger.Debug("PromReporter: starting event loop")
 	defer pr.wgDone.Done()
-	ctx, _ := utils.ContextFromChan(pr.chStop)
+	ctx, cancel := utils.ContextFromChan(pr.chStop)
+	defer cancel()
 	for {
 		select {
 		case <-pr.newHeads.Notify():

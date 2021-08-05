@@ -39,16 +39,29 @@ func (t Type) String() string {
 	return string(t)
 }
 
-func (t Type) HasPipelineSpec() bool {
-	return hasPipelineSpec[t]
+func (t Type) RequiresPipelineSpec() bool {
+	return requiresPipelineSpec[t]
+}
+
+func (t Type) SupportsAsync() bool {
+	return supportsAsync[t]
 }
 
 var (
-	hasPipelineSpec = map[Type]bool{
+	requiresPipelineSpec = map[Type]bool{
 		Cron:              true,
 		DirectRequest:     true,
 		FluxMonitor:       true,
-		OffchainReporting: true,
+		OffchainReporting: false, // bootstrap jobs do not require it
+		Keeper:            false,
+		VRF:               true,
+		Webhook:           true,
+	}
+	supportsAsync = map[Type]bool{
+		Cron:              false,
+		DirectRequest:     false,
+		FluxMonitor:       false,
+		OffchainReporting: false,
 		Keeper:            false,
 		VRF:               false,
 		Webhook:           true,
@@ -72,7 +85,6 @@ type Job struct {
 	VRFSpec                       *VRFSpec
 	WebhookSpecID                 *int32
 	WebhookSpec                   *WebhookSpec
-	ExternalInitiator             *models.ExternalInitiator `toml:"-" gorm:"-"`
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -121,7 +133,7 @@ type SpecError struct {
 }
 
 func (SpecError) TableName() string {
-	return "job_spec_errors_v2"
+	return "job_spec_errors"
 }
 
 type PipelineRun struct {
@@ -188,12 +200,19 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+type ExternalInitiatorWebhookSpec struct {
+	ExternalInitiatorID int64
+	ExternalInitiator   models.ExternalInitiator `gorm:"foreignkey:ExternalInitiatorID;->"`
+	WebhookSpecID       int32
+	WebhookSpec         WebhookSpec `gorm:"foreignkey:WebhookSpecID;->"`
+	Spec                models.JSON
+}
+
 type WebhookSpec struct {
-	ID                    int32        `toml:"-" gorm:"primary_key"`
-	ExternalInitiatorName null.String  `toml:"externalInitiatorName"`
-	ExternalInitiatorSpec *models.JSON `toml:"externalInitiatorSpec"`
-	CreatedAt             time.Time    `json:"createdAt" toml:"-"`
-	UpdatedAt             time.Time    `json:"updatedAt" toml:"-"`
+	ID                            int32 `toml:"-" gorm:"primary_key"`
+	ExternalInitiatorWebhookSpecs []ExternalInitiatorWebhookSpec
+	CreatedAt                     time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
 }
 
 func (w WebhookSpec) GetID() string {
@@ -206,17 +225,6 @@ func (w *WebhookSpec) SetID(value string) error {
 		return err
 	}
 	w.ID = int32(ID)
-	return nil
-}
-
-func (w *WebhookSpec) BeforeCreate(db *gorm.DB) error {
-	w.CreatedAt = time.Now()
-	w.UpdatedAt = time.Now()
-	return nil
-}
-
-func (w *WebhookSpec) BeforeSave(db *gorm.DB) error {
-	w.UpdatedAt = time.Now()
 	return nil
 }
 
@@ -278,16 +286,17 @@ type FluxMonitorSpec struct {
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold float32       `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
-	PollTimerPeriod   time.Duration `gorm:"type:jsonb"`
-	PollTimerDisabled bool          `gorm:"type:jsonb"`
-	IdleTimerPeriod   time.Duration `gorm:"type:jsonb"`
-	IdleTimerDisabled bool          `gorm:"type:jsonb"`
-	DrumbeatSchedule  string
-	DrumbeatEnabled   bool `gorm:"type:jsonb"`
-	MinPayment        *assets.Link
-	CreatedAt         time.Time `toml:"-"`
-	UpdatedAt         time.Time `toml:"-"`
+	AbsoluteThreshold   float32 `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
+	PollTimerPeriod     time.Duration
+	PollTimerDisabled   bool
+	IdleTimerPeriod     time.Duration
+	IdleTimerDisabled   bool
+	DrumbeatSchedule    string
+	DrumbeatRandomDelay time.Duration
+	DrumbeatEnabled     bool
+	MinPayment          *assets.Link
+	CreatedAt           time.Time `toml:"-"`
+	UpdatedAt           time.Time `toml:"-"`
 }
 
 type KeeperSpec struct {

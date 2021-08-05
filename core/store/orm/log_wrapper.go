@@ -77,7 +77,8 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 	}
 }
 
-func newOrmLogWrapper(logger *logger.Logger, logAllQueries bool, slowThreshold time.Duration) *ormLogWrapper {
+// FIXME: This is a GORM log wrapper, not a ORM log wrapper so it probably belongs in a different package
+func NewOrmLogWrapper(logger *logger.Logger, logAllQueries bool, slowThreshold time.Duration) *ormLogWrapper {
 	newLogger := logger.
 		SugaredLogger.
 		Desugar().

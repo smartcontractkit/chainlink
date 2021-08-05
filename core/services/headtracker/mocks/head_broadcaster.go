@@ -30,20 +30,6 @@ func (_m *HeadBroadcaster) Close() error {
 	return r0
 }
 
-// Connect provides a mock function with given fields: head
-func (_m *HeadBroadcaster) Connect(head *models.Head) error {
-	ret := _m.Called(head)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(head)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Healthy provides a mock function with given fields:
 func (_m *HeadBroadcaster) Healthy() error {
 	ret := _m.Called()
@@ -92,17 +78,26 @@ func (_m *HeadBroadcaster) Start() error {
 }
 
 // Subscribe provides a mock function with given fields: callback
-func (_m *HeadBroadcaster) Subscribe(callback types.HeadTrackable) func() {
+func (_m *HeadBroadcaster) Subscribe(callback types.HeadTrackable) (*models.Head, func()) {
 	ret := _m.Called(callback)
 
-	var r0 func()
-	if rf, ok := ret.Get(0).(func(types.HeadTrackable) func()); ok {
+	var r0 *models.Head
+	if rf, ok := ret.Get(0).(func(types.HeadTrackable) *models.Head); ok {
 		r0 = rf(callback)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(func())
+			r0 = ret.Get(0).(*models.Head)
 		}
 	}
 
-	return r0
+	var r1 func()
+	if rf, ok := ret.Get(1).(func(types.HeadTrackable) func()); ok {
+		r1 = rf(callback)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(func())
+		}
+	}
+
+	return r0, r1
 }

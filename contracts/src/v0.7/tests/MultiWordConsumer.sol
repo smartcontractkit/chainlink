@@ -1,14 +1,21 @@
 pragma solidity ^0.7.0;
 
 import "../ChainlinkClient.sol";
+import "../Chainlink.sol";
 
 contract MultiWordConsumer is ChainlinkClient{
+  using Chainlink for Chainlink.Request;
+
   bytes32 internal specId;
   bytes public currentPrice;
 
   bytes32 public usd;
   bytes32 public eur;
   bytes32 public jpy;
+
+  uint256 public usdInt;
+  uint256 public eurInt;
+  uint256 public jpyInt;
 
   event RequestFulfilled(
     bytes32 indexed requestId,  // User-defined ID
@@ -20,6 +27,13 @@ contract MultiWordConsumer is ChainlinkClient{
     bytes32 indexed usd,
     bytes32 indexed eur,
     bytes32 jpy
+  );
+
+  event RequestMultipleFulfilledWithCustomURLs(
+    bytes32 indexed requestId,
+    uint256 indexed usd,
+    uint256 indexed eur,
+    uint256 jpy
   );
 
   constructor(
@@ -72,6 +86,27 @@ contract MultiWordConsumer is ChainlinkClient{
     requestOracleData(req, _payment);
   }
 
+  function requestMultipleParametersWithCustomURLs(
+    string memory _urlUSD,
+    string memory _pathUSD,
+    string memory _urlEUR,
+    string memory _pathEUR,
+    string memory _urlJPY,
+    string memory _pathJPY,
+    uint256 _payment
+  )
+    public
+  {
+    Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParametersWithCustomURLs.selector);
+    req.add("urlUSD", _urlUSD);
+    req.add("pathUSD", _pathUSD);
+    req.add("urlEUR", _urlEUR);
+    req.add("pathEUR", _pathEUR);
+    req.add("urlJPY", _urlJPY);
+    req.add("pathJPY", _pathJPY);
+    requestOracleData(req, _payment);
+  }
+
   function cancelRequest(
     address _oracle,
     bytes32 _requestId,
@@ -114,6 +149,21 @@ contract MultiWordConsumer is ChainlinkClient{
     usd = _usd;
     eur = _eur;
     jpy = _jpy;
+  }
+
+  function fulfillMultipleParametersWithCustomURLs(
+    bytes32 _requestId,
+    uint256 _usd,
+    uint256 _eur,
+    uint256 _jpy
+  )
+    public
+    recordChainlinkFulfillment(_requestId)
+  {
+    emit RequestMultipleFulfilledWithCustomURLs(_requestId, _usd, _eur, _jpy);
+    usdInt = _usd;
+    eurInt = _eur;
+    jpyInt = _jpy;
   }
 
   function fulfillBytes(

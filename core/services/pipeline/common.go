@@ -55,6 +55,7 @@ type (
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
+	ErrInputTaskErrored      = errors.New("input task errored")
 	ErrParameterEmpty        = errors.New("parameter is empty")
 	ErrTooManyErrors         = errors.New("too many errors")
 	ErrTimeout               = errors.New("timeout")
@@ -238,8 +239,10 @@ const (
 )
 
 var (
-	stringType = reflect.TypeOf("")
-	int32Type  = reflect.TypeOf(int32(0))
+	stringType  = reflect.TypeOf("")
+	bytesType   = reflect.TypeOf([]byte(nil))
+	bytes20Type = reflect.TypeOf([20]byte{})
+	int32Type   = reflect.TypeOf(int32(0))
 )
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
@@ -261,18 +264,36 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &HTTPTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBridge:
 		task = &BridgeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMean:
+		task = &MeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMedian:
 		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMode:
+		task = &ModeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeSum:
+		task = &SumTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeAny:
 		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
 		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeDivide:
+		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
 		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
-		task = &ETHCallTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHTx:
+		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIEncode:
+		task = &ETHABIEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIDecode:
+		task = &ETHABIDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIDecodeLog:
+		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeCBORParse:
+		task = &CBORParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

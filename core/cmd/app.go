@@ -62,20 +62,6 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
-			Name:    "agreements",
-			Aliases: []string{"agree"},
-			Usage:   "Commands for handling service agreements",
-			Hidden:  !client.Config.Dev(),
-			Subcommands: []cli.Command{
-				{
-					Name:   "create",
-					Usage:  "Creates a Service Agreement",
-					Action: client.CreateServiceAgreement,
-				},
-			},
-		},
-
-		{
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
@@ -88,6 +74,25 @@ func NewApp(client *Client) *cli.App {
 						cli.IntFlag{
 							Name:  "page",
 							Usage: "page of results to display",
+						},
+					},
+				},
+			},
+		},
+
+		{
+			Name:    "blocks",
+			Aliases: []string{},
+			Usage:   "Commands for managing blocks",
+			Subcommands: []cli.Command{
+				{
+					Name:   "replay",
+					Usage:  "Replays block data from the given number",
+					Action: client.ReplayFromBlock,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "block-number",
+							Usage: "Block number to replay from",
 						},
 					},
 				},
@@ -192,38 +197,6 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
-			Name:  "job_specs",
-			Usage: "Commands for managing Job Specs (jobs V1)",
-			Subcommands: []cli.Command{
-				{
-					Name:   "list",
-					Usage:  "List all jobs",
-					Action: client.IndexJobSpecs,
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "page",
-							Usage: "page of results to display",
-						},
-					},
-				},
-				{
-					Name:   "show",
-					Usage:  "Show a specific Job's details",
-					Action: client.ShowJobSpec,
-				},
-				{
-					Name:   "create",
-					Usage:  "Create Job from a Job Specification JSON",
-					Action: client.CreateJobSpec,
-				},
-				{
-					Name:   "archive",
-					Usage:  "Archive a Job and all its associated Runs",
-					Action: client.ArchiveJobSpec,
-				},
-			},
-		},
-		{
 			Name:  "jobs",
 			Usage: "Commands for managing Jobs (V2)",
 			Subcommands: []cli.Command{
@@ -246,17 +219,12 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:   "delete",
 					Usage:  "Delete a V2 job",
-					Action: client.DeleteJobV2,
+					Action: client.DeleteJob,
 				},
 				{
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
-				},
-				{
-					Name:   "migrate",
-					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
-					Action: client.Migrate,
 				},
 			},
 		},
@@ -581,11 +549,6 @@ func NewApp(client *Client) *cli.App {
 							Name:  "vrfpassword, vp",
 							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
 						},
-						cli.Int64Flag{
-							Name:  "replay-from-block, r",
-							Usage: "historical block height from which to replay log-initiated jobs",
-							Value: -1,
-						},
 					},
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
@@ -620,12 +583,6 @@ func NewApp(client *Client) *cli.App {
 							Usage: "OPTIONAL: gas limit to use for each transaction ",
 						},
 					},
-				},
-				{
-					Name:   "hard-reset",
-					Usage:  "Removes unstarted transactions, cancels pending transactions as well as deletes job runs. Use with caution, this command cannot be reverted! Only execute when the node is not started!",
-					Action: client.HardReset,
-					Flags:  []cli.Flag{},
 				},
 				{
 					Name:   "status",
@@ -686,48 +643,13 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "destroy",
-					Usage:  "Remove an authentication key by name",
+					Usage:  "Remove an external initiator by name",
 					Action: client.DeleteExternalInitiator,
-				},
-			},
-		},
-
-		{
-			Name:  "runs",
-			Usage: "Commands for managing Runs",
-			Subcommands: []cli.Command{
-				{
-					Name:        "create",
-					Aliases:     []string{"r"},
-					Usage:       "Create a new Run for a Job given an Job ID and optional JSON body",
-					Description: "Takes a Job ID and a JSON string or path to a JSON file",
-					Action:      client.CreateJobRun,
 				},
 				{
 					Name:   "list",
-					Usage:  "List all Runs",
-					Action: client.IndexJobRuns,
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "page",
-							Usage: "page of results to display",
-						},
-						cli.StringFlag{
-							Name:  "jobid",
-							Usage: "filter all Runs to match the given jobid",
-						},
-					},
-				},
-				{
-					Name:    "show",
-					Aliases: []string{"sr"},
-					Usage:   "Show a Run for a specific ID",
-					Action:  client.ShowJobRun,
-				},
-				{
-					Name:   "cancel",
-					Usage:  "Cancel a Run with a specified ID",
-					Action: client.CancelJobRun,
+					Usage:  "List all external initiators",
+					Action: client.IndexExternalInitiators,
 				},
 			},
 		},

@@ -14,7 +14,6 @@ type (
 		BlockHistoryEstimatorBatchSize        uint32
 		BlockHistoryEstimatorBlockDelay       uint16
 		BlockHistoryEstimatorBlockHistorySize uint16
-		EnableLegacyJobPipeline               bool
 		EthBalanceMonitorBlockDelay           uint16
 		EthFinalityDepth                      uint
 		EthGasBumpThreshold                   uint64
@@ -24,6 +23,7 @@ type (
 		EthGasPriceDefault                    big.Int
 		EthHeadTrackerHistoryDepth            uint
 		EthHeadTrackerSamplingInterval        time.Duration
+		BlockEmissionIdleWarningThreshold     time.Duration
 		EthMaxGasPriceWei                     big.Int
 		EthMaxInFlightTransactions            uint32
 		EthMaxQueuedTransactions              uint64
@@ -59,7 +59,6 @@ func setConfigs() {
 		BlockHistoryEstimatorBatchSize:        4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		BlockHistoryEstimatorBlockDelay:       1,
 		BlockHistoryEstimatorBlockHistorySize: 24,
-		EnableLegacyJobPipeline:               false,
 		EthBalanceMonitorBlockDelay:           1,
 		EthFinalityDepth:                      50,
 		EthGasBumpThreshold:                   3,
@@ -69,6 +68,7 @@ func setConfigs() {
 		EthGasPriceDefault:                    *assets.GWei(20),
 		EthHeadTrackerHistoryDepth:            100,
 		EthHeadTrackerSamplingInterval:        1 * time.Second,
+		BlockEmissionIdleWarningThreshold:     1 * time.Minute,
 		EthMaxGasPriceWei:                     *assets.GWei(5000),
 		EthMaxInFlightTransactions:            16,
 		EthMaxQueuedTransactions:              250,
@@ -84,7 +84,6 @@ func setConfigs() {
 	}
 
 	mainnet := FallbackConfig
-	mainnet.EnableLegacyJobPipeline = true
 	mainnet.LinkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	mainnet.MinimumContractPayment = assets.NewLink(1000000000000000000) // 1 LINK
 	// NOTE: There are probably other variables we can tweak for Kovan and other
@@ -105,7 +104,6 @@ func setConfigs() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := FallbackConfig
-	xDaiMainnet.EnableLegacyJobPipeline = true
 	xDaiMainnet.EthGasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.EthGasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.EthMinGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
@@ -116,7 +114,6 @@ func setConfigs() {
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
 	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 	bscMainnet := FallbackConfig
-	bscMainnet.EnableLegacyJobPipeline = true
 	bscMainnet.EthBalanceMonitorBlockDelay = 2
 	bscMainnet.EthFinalityDepth = 50   // Keeping this >> 11 because it's not expensive and gives us a safety margin
 	bscMainnet.EthGasBumpThreshold = 5 // 15s delay since feeds update every minute in volatile situations
@@ -124,7 +121,7 @@ func setConfigs() {
 	bscMainnet.EthGasPriceDefault = *assets.GWei(5)
 	bscMainnet.EthHeadTrackerHistoryDepth = 100
 	bscMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
-	bscMainnet.EthMaxGasPriceWei = *assets.GWei(500)
+	bscMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	bscMainnet.EthMinGasPriceWei = *assets.GWei(1)
 	bscMainnet.EthTxResendAfterThreshold = 1 * time.Minute
 	bscMainnet.BlockHistoryEstimatorBlockDelay = 2
@@ -138,7 +135,6 @@ func setConfigs() {
 	// Polygon has a 1s block time and looser finality guarantees than Ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := FallbackConfig
-	polygonMainnet.EnableLegacyJobPipeline = true
 	polygonMainnet.EthBalanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
 	polygonMainnet.EthFinalityDepth = 200           // A sprint is 64 blocks long and doesn't guarantee finality. To be safe we take three sprints (192 blocks) plus a safety margin
 	polygonMainnet.EthGasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
@@ -146,7 +142,7 @@ func setConfigs() {
 	polygonMainnet.EthGasPriceDefault = *assets.GWei(1)
 	polygonMainnet.EthHeadTrackerHistoryDepth = 250 // EthFinalityDepth + safety margin
 	polygonMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
-	polygonMainnet.EthMaxGasPriceWei = *assets.GWei(1500)
+	polygonMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	polygonMainnet.EthMaxQueuedTransactions = 2000 // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
 	polygonMainnet.EthMinGasPriceWei = *assets.GWei(1)
 	polygonMainnet.EthTxResendAfterThreshold = 5 * time.Minute // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
@@ -180,6 +176,7 @@ func setConfigs() {
 	optimismMainnet.EthGasBumpThreshold = 0 // Never bump gas on optimism
 	optimismMainnet.EthHeadTrackerHistoryDepth = 10
 	optimismMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
+	optimismMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	optimismMainnet.EthTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.BlockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
 	optimismMainnet.GasEstimatorMode = "Optimism"
@@ -187,13 +184,14 @@ func setConfigs() {
 	optimismMainnet.MinIncomingConfirmations = 1
 	optimismMainnet.MinRequiredOutgoingConfirmations = 0
 	optimismMainnet.OCRContractConfirmations = 1
+	optimismMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismKovan := optimismMainnet
-	optimismKovan.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
+	optimismKovan.LinkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
+	optimismKovan.BlockEmissionIdleWarningThreshold = 30 * time.Minute
 
 	// Fantom
 	fantomMainnet := FallbackConfig
 	fantomMainnet.EthGasPriceDefault = *assets.GWei(15)
-	fantomMainnet.EthMaxGasPriceWei = *assets.GWei(100)
 	fantomMainnet.LinkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.MinIncomingConfirmations = 3
 	fantomMainnet.MinRequiredOutgoingConfirmations = 2
@@ -208,6 +206,8 @@ func setConfigs() {
 	rskMainnet.EthMinGasPriceWei = *big.NewInt(0)
 	rskMainnet.MinimumContractPayment = assets.NewLink(1000000000000000)
 	rskMainnet.LinkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
+	rskTestnet := rskMainnet
+	rskTestnet.LinkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
 	// Avalanche
 	avalancheMainnet := FallbackConfig
@@ -240,6 +240,7 @@ func setConfigs() {
 	PolygonMumbai.config = polygonMumbai
 	XDaiMainnet.config = xDaiMainnet
 	RSKMainnet.config = rskMainnet
+	RSKTestnet.config = rskTestnet
 	AvalancheFuji.config = avalancheFuji
 	AvalancheMainnet.config = avalancheMainnet
 }
