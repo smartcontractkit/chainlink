@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -79,7 +78,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
@@ -148,7 +147,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
@@ -209,7 +208,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
@@ -263,7 +262,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
@@ -338,7 +337,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
@@ -512,98 +511,6 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 			logBlockNumber: 2,
 			blockNumber:    9,
 			blockHash:      blocks.Hashes[9],
-		},
-	}
-
-	require.Equal(t, logsOnBlocks, expectedLogsOnBlocks)
-
-	helper.mockEth.assertExpectations(t)
-}
-
-func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
-	t.Parallel()
-
-	const blockHeight int64 = 10
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
-	helper.start()
-
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
-	require.NoError(t, err)
-
-	blocks := cltest.NewBlocks(t, 10)
-	hash100 := utils.NewHash()
-	hash105 := utils.NewHash()
-	addr1SentLogs := []types.Log{
-		cltest.RawNewRoundLog(t, contract1.Address(), hash100, 100, 0, false),
-		cltest.RawNewRoundLog(t, contract1.Address(), hash105, 105, 0, false),
-		cltest.RawNewRoundLog(t, contract1.Address(), hash105, 105, 1, false),
-	}
-
-	listener1 := helper.newLogListenerWithJob("listener 1")
-	// listener1 does not mark logs as consumed to check the correct number of sends
-	listener1.SkipMarkingConsumed(true)
-	listener2 := helper.newLogListenerWithJob("listener 2")
-
-	helper.register(listener1, contract1, 0)
-	helper.register(listener2, contract1, 0)
-
-	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-		StartBlock:     0,
-		EndBlock:       9,
-		BackfillDepth:  10,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
-		Blocks:         blocks,
-		Interval:       250 * time.Millisecond,
-	})
-	defer cleanup()
-
-	chRawLogs := <-helper.chchRawLogs
-
-	for _, log := range addr1SentLogs {
-		chRawLogs <- log
-	}
-
-	// 3 because only one listeners is marking logs as consumed
-	requireBroadcastCount(t, helper.store, 3)
-	helper.stop()
-
-	requireEqualLogs(t,
-		addr1SentLogs,
-		listener1.received.uniqueLogs,
-	)
-	requireEqualLogs(t,
-		addr1SentLogs,
-		listener2.received.uniqueLogs,
-	)
-
-	// unique sends should be equal to sends overall
-	requireEqualLogs(t,
-		listener1.received.uniqueLogs,
-		listener1.received.logs,
-	)
-	requireEqualLogs(t,
-		listener2.received.uniqueLogs,
-		listener2.received.logs,
-	)
-
-	// the logs should have been received at much earlier heights than logs' block numbers
-	logsOnBlocks := listener2.received.logsOnBlocks()
-	expectedLogsOnBlocks := []logOnBlock{
-		{
-			logBlockNumber: 100,
-			blockNumber:    4,
-			blockHash:      blocks.Hashes[4],
-		},
-		{
-			logBlockNumber: 105,
-			blockNumber:    4,
-			blockHash:      blocks.Hashes[4],
-		},
-		{
-			logBlockNumber: 105,
-			blockNumber:    4,
-			blockHash:      blocks.Hashes[4],
 		},
 	}
 
@@ -1056,11 +963,10 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		expectedBlock = 5
 	)
 	var (
-		ethClient = new(mocks.Client)
-		sub       = new(mocks.Subscription)
-		contract0 = newMockContract()
-		contract1 = newMockContract()
-		contract2 = newMockContract()
+		ethClient, sub = cltest.NewEthClientAndSubMock(t)
+		contract0      = newMockContract()
+		contract1      = newMockContract()
+		contract2      = newMockContract()
 	)
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)

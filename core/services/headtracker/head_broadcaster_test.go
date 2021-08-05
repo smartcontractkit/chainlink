@@ -22,7 +22,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
