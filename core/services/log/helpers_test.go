@@ -42,7 +42,6 @@ type broadcasterHelper struct {
 	// each received channel corresponds to one eth subscription
 	chchRawLogs chan chan<- types.Log
 
-	sentLogs      chan types.Log
 	toUnsubscribe []func()
 	storeCleanup  func()
 }
