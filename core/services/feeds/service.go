@@ -158,6 +158,9 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateFeedsManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+
 	err := s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
 		err := s.orm.UpdateManager(ctx, mgr)
 		if err != nil {
@@ -171,7 +174,7 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 	}
 
 	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
-		return errors.Wrap(err, "could not restart the connection")
+		logger.Info("[Feeds] Feeds Manager not connected, attempting to connect")
 	}
 
 	// Establish a new connection

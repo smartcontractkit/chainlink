@@ -35,7 +35,8 @@ type connection struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	client pb.FeedsManagerClient
+	connected bool
+	client    pb.FeedsManagerClient
 }
 
 func newConnectionsManager() *connectionsManager {
@@ -77,8 +78,9 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	conn := &connection{
-		ctx:    ctx,
-		cancel: cancel,
+		ctx:       ctx,
+		cancel:    cancel,
+		connected: false,
 	}
 
 	mgr.wgClosed.Add(1)
@@ -109,6 +111,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 
 		// Initialize a new wsrpc client to make RPC calls
 		mgr.mu.Lock()
+		conn.connected = true
 		conn.client = pb.NewFeedsManagerClient(clientConn)
 		mgr.connections[opts.FeedsManagerID] = conn
 		mgr.mu.Unlock()
@@ -159,7 +162,7 @@ func (mgr *connectionsManager) Close() {
 // GetClient returns a single client by id
 func (mgr *connectionsManager) GetClient(id int64) (pb.FeedsManagerClient, error) {
 	conn, ok := mgr.connections[id]
-	if !ok {
+	if !ok || !conn.connected {
 		return nil, errors.New("feeds manager is not connected")
 	}
 
