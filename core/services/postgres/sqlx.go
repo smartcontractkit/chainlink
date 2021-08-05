@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
 	mapper "github.com/scylladb/go-reflectx"
+	"github.com/smartcontractkit/sqlx"
 	"gorm.io/gorm"
 )
 
@@ -36,28 +37,27 @@ func UnwrapGorm(db *gorm.DB) Queryer {
 	if tx, ok := db.Statement.ConnPool.(*sql.Tx); ok {
 		// if a transaction is currently present use that instead
 		mapper := reflectx.NewMapperFunc("db", mapper.CamelToSnakeASCII)
-		return &sqlx.Tx{Tx: tx, Mapper: mapper}
-	} else {
-		return UnwrapGormDB(db)
+		txx := sqlx.NewTx(tx, db.Dialector.Name())
+		txx.Mapper = mapper
+		return txx
 	}
+	return UnwrapGormDB(db)
 }
 
 func SqlxTransaction(ctx context.Context, q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
-	switch q.(type) {
+	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction
-		tx := q.(*sqlx.Tx)
-		err = fc(tx)
+		err = fc(db)
 
 	case *sqlx.DB:
-		db := q.(*sqlx.DB)
-
 		opts := &DefaultSqlTxOptions
 		if len(txOpts) > 0 {
 			opts = &txOpts[0]
 		}
 
-		tx, err := db.BeginTxx(ctx, opts)
+		var tx *sqlx.Tx
+		tx, err = db.BeginTxx(ctx, opts)
 		panicked := false
 
 		defer func() {
@@ -82,7 +82,7 @@ func SqlxTransaction(ctx context.Context, q Queryer, fc func(tx *sqlx.Tx) error,
 			err = errors.WithStack(tx.Commit())
 		}
 	default:
-		errors.Errorf("invalid db type")
+		err = errors.Errorf("invalid db type")
 	}
 
 	return

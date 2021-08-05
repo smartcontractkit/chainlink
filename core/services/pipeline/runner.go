@@ -183,8 +183,6 @@ func (r *runner) ExecuteRun(
 	vars Vars,
 	l logger.Logger,
 ) (Run, TaskRunResults, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
-
 	run := NewRun(spec, vars)
 
 	taskRunResults, err := r.run(ctx, &run, vars, l)
@@ -248,17 +246,20 @@ func (r *runner) run(
 			task.(*ETHTxTask).id = uuid.NewV4()
 		default:
 		}
+		// TODO: allocate PipelineTaskRuns for insertion in CreateRun
 	}
 
 	// avoid an extra db write if there is no async tasks present or if this is a resumed run
 	if pipeline.HasAsync() {
 		run.Async = true
 		if run.ID == 0 {
-			if err = r.orm.CreateRun(r.orm.DB(), run); err != nil {
+			if err = r.orm.CreateRun(postgres.UnwrapGormDB(r.orm.DB()), run); err != nil {
 				return nil, err
 			}
 		}
 	}
+
+	// TODO: pipeline.Tasks ids should match the task run ids we allocate in CreateRun
 
 	todo := context.TODO()
 	scheduler := newScheduler(todo, pipeline, run, vars)
@@ -438,7 +439,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, nil
 	}
 
-	if runID, err = r.orm.InsertFinishedRun(postgres.UnwrapGorm(r.orm.DB()), run, saveSuccessfulTaskRuns); err != nil {
+	if runID, err = r.orm.InsertFinishedRun(postgres.UnwrapGormDB(r.orm.DB()), run, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return runID, finalResult, nil
@@ -465,6 +466,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				}
 				return nil
 			})
+
+			// TODO: how do we FailEarly with async since there's already state in the db? do we update the state or clear it out?
 
 			if err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)

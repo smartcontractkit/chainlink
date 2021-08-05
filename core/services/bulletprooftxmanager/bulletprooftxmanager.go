@@ -3,7 +3,6 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"sync"
@@ -14,7 +13,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
@@ -272,9 +270,6 @@ type NewTx struct {
 	Meta           interface{}
 
 	Strategy TxStrategy
-
-	PipelineTaskRunID uuid.NullUUID
-	MinConfirmations  null.Uint32
 }
 
 // CreateEthTransaction inserts a new transaction
@@ -284,24 +279,15 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 	}
 
-	// meta can hold arbitrary data and is mostly useful for logging/debugging
-	var metaBytes []byte
-	if newTx.Meta != nil {
-		metaBytes, err = json.Marshal(newTx.Meta)
-		if err != nil {
-			return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to marshal ethtx metadata")
-		}
-	}
-
 	value := 0
 	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
 		res := tx.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, pipeline_task_run_id, min_confirmations)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?,?,?
+?,?,?,?,?,'unstarted',NOW(),?,?
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, metaBytes, newTx.Strategy.Subject(), newTx.PipelineTaskRunID, newTx.MinConfirmations).Scan(&etx)
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject()).Scan(&etx)
 		err = res.Error
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")

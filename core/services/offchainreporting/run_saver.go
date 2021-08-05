@@ -1,8 +1,8 @@
 package offchainreporting
 
 import (
-	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"

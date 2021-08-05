@@ -2283,7 +2283,11 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		cltest.MustInsertEthReceipt(t, db, head.Number-minConfirmations, head.Hash, attempt.Hash)
-		err := db.Exec(`UPDATE eth_txes SET min_confirmations = ?, pipeline_task_run_id = ? WHERE id = ?`, minConfirmations, tr.ID, etx.ID).Error
+		meta := models.EthTxMetaV2{
+			PipelineTaskRunID: &tr.ID,
+			MinConfirmations:  null.Uint32From(uint32(minConfirmations)),
+		}
+		err := db.Exec(`UPDATE eth_txes SET meta = ? WHERE id = ?`, meta, etx.ID).Error
 		require.NoError(t, err)
 
 		err = ec.ResumePendingTaskRuns(context.Background(), head)
@@ -2303,7 +2307,12 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 2, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		cltest.MustInsertEthReceipt(t, db, head.Number, head.Hash, attempt.Hash)
-		err := db.Exec(`UPDATE eth_txes SET min_confirmations = ?, pipeline_task_run_id = ? WHERE id = ?`, minConfirmations, tr.ID, etx.ID).Error
+
+		meta := models.EthTxMetaV2{
+			PipelineTaskRunID: &tr.ID,
+			MinConfirmations:  null.Uint32From(uint32(minConfirmations)),
+		}
+		err := db.Exec(`UPDATE eth_txes SET meta = ? WHERE id = ?`, meta, etx.ID).Error
 		require.NoError(t, err)
 
 		err = ec.ResumePendingTaskRuns(context.Background(), head)
@@ -2326,7 +2335,12 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		receipt := cltest.MustInsertEthReceipt(t, db, head.Number-minConfirmations, head.Hash, attempt.Hash)
-		err = db.Exec(`UPDATE eth_txes SET min_confirmations = ?, pipeline_task_run_id = ? WHERE id = ?`, minConfirmations, tr.ID, etx.ID).Error
+
+		meta := models.EthTxMetaV2{
+			PipelineTaskRunID: &tr.ID,
+			MinConfirmations:  null.Uint32From(uint32(minConfirmations)),
+		}
+		err = db.Exec(`UPDATE eth_txes SET meta = ? WHERE id = ?`, meta, etx.ID).Error
 		require.NoError(t, err)
 
 		go func() {

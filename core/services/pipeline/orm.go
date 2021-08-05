@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -21,7 +21,7 @@ var (
 
 type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
-	CreateRun(db *gorm.DB, run *Run) (err error)
+	CreateRun(db postgres.Queryer, run *Run) (err error)
 	StoreRun(db postgres.Queryer, run *Run) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
 	InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
@@ -55,13 +55,41 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, ma
 	return spec.ID, errors.WithStack(err)
 }
 
-func (o *orm) CreateRun(db *gorm.DB, run *Run) (err error) {
+func (o *orm) CreateRun(db postgres.Queryer, run *Run) (err error) {
 	if run.CreatedAt.IsZero() {
 		return errors.New("run.CreatedAt must be set")
 	}
-	if err = db.Create(run).Error; err != nil {
-		return errors.Wrap(err, "error inserting pipeline_run")
-	}
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = postgres.SqlxTransaction(ctx, db, func(tx *sqlx.Tx) error {
+		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, inputs, created_at, state)
+		VALUES (:pipeline_spec_id, :meta, :inputs, :created_at, :state)
+		RETURNING *`
+
+		query, args, e := tx.BindNamed(sql, run)
+		if e != nil {
+			return err
+		}
+		if err = tx.Get(run, query, args...); err != nil {
+			return errors.Wrap(err, "error inserting pipeline_run")
+		}
+
+		// Now create pipeline_task_runs
+
+		// update the ID key everywhere
+		for i := range run.PipelineTaskRuns {
+			run.PipelineTaskRuns[i].PipelineRunID = run.ID
+		}
+
+		// TODO: could optimize by only pre-inserting what's required
+		sql = `
+		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at )
+		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at);`
+		_, err = tx.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
+		return err
+	})
+
 	return err
 }
 
@@ -207,15 +235,12 @@ func (o *orm) InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTask
 		VALUES (:pipeline_spec_id, :meta, :errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING *;`
 
-		query, args, err := tx.BindNamed(sql, run)
-		if err != nil {
+		query, args, e := tx.BindNamed(sql, run)
+		if e != nil {
 			return err
 		}
 
-		// NOTE: workaround the fact that a gorm tx -> sqlx tx doesn't have the driverName correct
-		query = sqlx.Rebind(sqlx.DOLLAR, query)
-
-		if err := tx.GetContext(ctx, &run, query, args...); err != nil {
+		if err = tx.GetContext(ctx, &run, query, args...); err != nil {
 			return errors.Wrap(err, "error inserting finished pipeline_run")
 		}
 
@@ -231,13 +256,7 @@ func (o *orm) InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTask
 		sql = `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
-		query, args, err = tx.BindNamed(sql, run.PipelineTaskRuns)
-		if err != nil {
-			return err
-		}
-		// NOTE: workaround the fact that a gorm tx -> sqlx tx doesn't have the driverName correct
-		query = sqlx.Rebind(sqlx.DOLLAR, query)
-		_, err = tx.ExecContext(ctx, query, args...)
+		_, err = tx.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
 		return err
 	})
 	return run.ID, err

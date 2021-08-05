@@ -309,7 +309,9 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		})
 		run := pipeline.NewRun(*l.job.PipelineSpec, vars)
 		_, err := l.pipelineRunner.Run(ctx, &run, *logger, true, func(tx *gorm.DB) error {
-			// TODO: do this in a function callback passed into Run so it shares the tx
+			if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+				logger.Errorw("VRFListener: failed mark consumed", "err", err)
+			}
 			return nil
 		})
 		if ctx.Err() != nil {
@@ -317,7 +319,6 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		} else if err != nil {
 			logger.Errorw("DirectRequest: failed executing run", "err", err)
 		}
-		l.logBroadcaster.MarkConsumed(l.db, lb)
 	}()
 }
 

@@ -127,9 +127,8 @@ func (p *Pipeline) HasAsync() bool {
 				return true
 			}
 		case TaskTypeETHTx:
-			if task.(*ETHTxTask).MinConfirmations != "0" {
-				return true
-			}
+			// we want to pre-insert pipeline_task_runs always
+			return true
 		default:
 		}
 	}

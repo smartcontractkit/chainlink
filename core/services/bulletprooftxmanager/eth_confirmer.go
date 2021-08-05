@@ -1226,25 +1226,20 @@ func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint)
 }
 
 func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head models.Head) error {
-	db, err := ec.db.DB()
-	if err != nil {
-		return err
-	}
-
-	sqlxDB := postgres.WrapDbWithSqlx(db)
+	sqlxDB := postgres.UnwrapGormDB(ec.db)
 
 	type x struct {
 		ID      uuid.UUID
 		Receipt []byte
 	}
 	var receipts []x
-	if err = sqlxDB.Select(&receipts, `
+	if err := sqlxDB.Select(&receipts, `
 	SELECT pipeline_task_runs.id, eth_receipts.receipt FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
-	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id AND eth_txes.state = 'confirmed'
+	INNER JOIN eth_txes ON (eth_txes.meta->>'PipelineTaskRunID')::uuid = pipeline_task_runs.id AND eth_txes.state = 'confirmed'
 	INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id
 	INNER JOIN eth_receipts ON eth_tx_attempts.hash = eth_receipts.tx_hash
-	WHERE pipeline_runs.state = 'suspended' AND eth_receipts.block_number <= ($1 - eth_txes.min_confirmations)
+	WHERE pipeline_runs.state = 'suspended' AND eth_receipts.block_number <= ($1 - (eth_txes.meta->>'MinConfirmations')::integer)
 	`, head.Number); err != nil {
 		return err
 	}

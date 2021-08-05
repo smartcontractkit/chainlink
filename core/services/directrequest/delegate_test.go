@@ -7,6 +7,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -145,6 +146,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Return(false, nil).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
 			}).Once()
 
 		err := uni.service.Start()
@@ -198,6 +201,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
 			}).Once().Return(false, nil)
 
 		// but should after this one, as the head Number is larger
@@ -353,6 +358,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
+			fn := args.Get(4).(func(*gorm.DB) error)
+			fn(nil)
 		}).Once().Return(false, nil)
 
 		err := uni.service.Start()

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	"gorm.io/gorm"
 )
 

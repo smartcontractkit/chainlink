@@ -22,11 +22,20 @@ type EthTxMeta struct {
 	TaskRunID uuid.UUID
 }
 
+func (EthTxMeta) GormDataType() string {
+	return "json"
+}
+
 type EthTxMetaV2 struct {
-	JobID            int32
-	RequestID        common.Hash
-	RequestTxHash    common.Hash
-	MinConfirmations null.Uint32
+	JobID             int32
+	RequestID         common.Hash
+	RequestTxHash     common.Hash
+	MinConfirmations  null.Uint32
+	PipelineTaskRunID *uuid.UUID
+}
+
+func (EthTxMetaV2) GormDataType() string {
+	return "json"
 }
 
 // Head represents a BlockNumber, BlockHash.

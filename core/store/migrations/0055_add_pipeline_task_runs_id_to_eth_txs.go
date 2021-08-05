@@ -5,18 +5,16 @@ import (
 )
 
 const up55 = `
-ALTER TABLE eth_txes ADD COLUMN pipeline_task_run_id uuid REFERENCES pipeline_task_runs(id);
-ALTER TABLE eth_txes ADD COLUMN min_confirmations integer;
+CREATE INDEX eth_txes_pipeline_task_run_id_idx ON eth_txes ((meta ->> 'PipelineTaskRunID')) WHERE state = 'confirmed';
 `
 
 const down55 = `
-ALTER TABLE eth_txes DROP COLUMN pipeline_task_run_id;
-ALTER TABLE eth_txes DROP COLUMN min_confirmations;
+DROP INDEX  eth_txes_pipeline_task_run_id_idx;
 `
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0055_add_pipeline_task_runs_id_to_eth_txs",
+		ID: "0055_add_pipeline_task_runs_id_idx_to_eth_txs",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up55).Error
 		},
