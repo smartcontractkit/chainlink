@@ -158,7 +158,7 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
-	require.Len(t, vl, 2)
+	require.Len(t, vl, 1)
 	listener := vl[0].(*listenerV1)
 	// Start the listenerV1
 	go func() {

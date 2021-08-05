@@ -141,6 +141,23 @@ func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (Marshale
 	return rv, nil
 }
 
+func GenerateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) (MarshaledOnChainResponseV2, error) {
+	p := ProofResponseV2{
+		P:                proof,
+		PreSeed:          s.PreSeed,
+		BlockNum:         s.BlockNum,
+		SubId:            s.SubId,            // Subscription ID to be charged for fulfillment
+		CallbackGasLimit: s.CallbackGasLimit, // Gas limit for consumer callback
+		NumWords:         s.NumWords,         // Number of random words to expand to
+		Sender:           s.Sender,           // VRF consumer address
+	}
+	rv, err := p.MarshalForVRFCoordinator()
+	if err != nil {
+		return MarshaledOnChainResponseV2{}, err
+	}
+	return rv, nil
+}
+
 func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedData) (
 	MarshaledOnChainResponse, error) {
 	seed := FinalSeed(s)

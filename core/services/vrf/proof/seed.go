@@ -65,6 +65,11 @@ func FinalSeed(s PreSeedData) (finalSeed *big.Int) {
 	return utils.MustHash(string(seedHashMsg)).Big()
 }
 
+func FinalSeedV2(s PreSeedDataV2) (finalSeed *big.Int) {
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	return utils.MustHash(string(seedHashMsg)).Big()
+}
+
 func TestXXXSeedData(t *testing.T, preSeed *big.Int, blockHash common.Hash,
 	blockNum int) PreSeedData {
 	seedAsSeed, err := BigToSeed(big.NewInt(0x10))

@@ -78,8 +78,12 @@ func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
-	if jb.VRFSpec == nil {
-		return nil, errors.Errorf("vrf.Delegate expects a *job.VRFSpec to be present, got %+v", jb)
+	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
+		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
+	}
+	pl, err := jb.PipelineSpec.Pipeline()
+	if err != nil {
+		return nil, err
 	}
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), d.ec)
 	if err != nil {
@@ -98,51 +102,56 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	))
 
 	vorm := keystore.NewVRFORM(d.db)
-	return []job.Service{
-		&listenerV1{
-			cfg:                d.cfg,
-			l:                  *l,
-			headBroadcaster:    d.hb,
-			logBroadcaster:     d.lb,
-			db:                 d.db,
-			txm:                d.txm,
-			abi:                abi,
-			coordinator:        coordinator,
-			pipelineRunner:     d.pr,
-			vorm:               vorm,
-			vrfks:              d.ks.VRF(),
-			gethks:             d.ks.Eth(),
-			pipelineORM:        d.porm,
-			job:                jb,
-			reqLogs:            utils.NewMailbox(1000),
-			chStop:             make(chan struct{}),
-			waitOnStop:         make(chan struct{}),
-			newHead:            make(chan struct{}, 1),
-			respCount:          getStartingResponseCounts(d.db, l),
-			blockNumberToReqID: pairing.New(),
-			reqAdded:           func() {},
-		},
-		&listenerV2{
-			cfg:             d.cfg,
-			l:               *l,
-			ethClient:       d.ec,
-			logBroadcaster:  d.lb,
-			headBroadcaster: d.hb,
-			db:              d.db,
-			abi:             abiV2,
-			coordinator:     coordinatorV2,
-			txm:             d.txm,
-			pipelineRunner:  d.pr,
-			vorm:            vorm,
-			vrfks:           d.ks.VRF(),
-			gethks:          d.ks.Eth(),
-			pipelineORM:     d.porm,
-			job:             jb,
-			mbLogs:          utils.NewMailbox(1000),
-			chStop:          make(chan struct{}),
-			waitOnStop:      make(chan struct{}),
-		},
-	}, nil
+	for _, task := range pl.Tasks {
+		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			return []job.Service{&listenerV2{
+				cfg:             d.cfg,
+				l:               *l,
+				ethClient:       d.ec,
+				logBroadcaster:  d.lb,
+				headBroadcaster: d.hb,
+				db:              d.db,
+				abi:             abiV2,
+				coordinator:     coordinatorV2,
+				txm:             d.txm,
+				pipelineRunner:  d.pr,
+				vorm:            vorm,
+				vrfks:           d.ks.VRF(),
+				gethks:          d.ks.Eth(),
+				pipelineORM:     d.porm,
+				job:             jb,
+				mbLogs:          utils.NewMailbox(1000),
+				chStop:          make(chan struct{}),
+				waitOnStop:      make(chan struct{}),
+			}}, nil
+		}
+		if _, ok := task.(*pipeline.VRFTask); ok {
+			return []job.Service{&listenerV1{
+				cfg:                d.cfg,
+				l:                  *l,
+				headBroadcaster:    d.hb,
+				logBroadcaster:     d.lb,
+				db:                 d.db,
+				txm:                d.txm,
+				abi:                abi,
+				coordinator:        coordinator,
+				pipelineRunner:     d.pr,
+				vorm:               vorm,
+				vrfks:              d.ks.VRF(),
+				gethks:             d.ks.Eth(),
+				pipelineORM:        d.porm,
+				job:                jb,
+				reqLogs:            utils.NewMailbox(1000),
+				chStop:             make(chan struct{}),
+				waitOnStop:         make(chan struct{}),
+				newHead:            make(chan struct{}, 1),
+				respCount:          getStartingResponseCounts(d.db, l),
+				blockNumberToReqID: pairing.New(),
+				reqAdded:           func() {},
+			}}, nil
+		}
+	}
+	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
 func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint64 {

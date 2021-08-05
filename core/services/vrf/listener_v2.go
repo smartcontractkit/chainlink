@@ -1,17 +1,13 @@
 package vrf
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -27,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
@@ -92,6 +87,7 @@ func (lsn *listenerV2) Start() error {
 		}
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator.Address(),
+			ParseLog: lsn.coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
 					{
@@ -200,125 +196,55 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 	}
 
 	s := time.Now()
-	proof, err1 := lsn.LogToProof(req, lb)
-	vrfCoordinatorPayload, gasLimit, _, err2 := lsn.ProcessLogV2(proof)
-	err = multierr.Combine(err1, err2)
-	if err != nil {
-		logger.Errorw("VRFListenerV2: error processing random request", "err", err, "txHash", req.Raw.TxHash)
-	}
-	f := time.Now()
-	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-		if err == nil {
-			// No errors processing the log, submit a transaction
-			var etx bulletprooftxmanager.EthTx
-			var from common.Address
-			from, err = lsn.gethks.GetRoundRobinAddress()
-			if err != nil {
-				return err
-			}
-			etx, err = lsn.txm.CreateEthTransaction(tx,
-				from,
-				lsn.coordinator.Address(),
-				vrfCoordinatorPayload,
-				gasLimit,
-				&models.EthTxMetaV2{
-					JobID:         lsn.job.ID,
-					RequestTxHash: lb.RawLog().TxHash,
-				},
-				bulletprooftxmanager.SendEveryStrategy{},
-			)
-			if err != nil {
-				return err
-			}
-			// TODO: Once we have eth tasks supported, we can use the pipeline directly
-			// and be able to save errored proof generations. Until then only save
-			// successful runs and log errors.
-			_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-				State:          pipeline.RunStatusCompleted,
-				PipelineSpecID: lsn.job.PipelineSpecID,
-				Errors:         []null.String{{}},
-				Outputs: pipeline.JSONSerializable{
-					Val: []interface{}{fmt.Sprintf("queued tx from %v to %v txdata %v",
-						etx.FromAddress,
-						etx.ToAddress,
-						hex.EncodeToString(etx.EncodedPayload))},
-				},
-				Meta: pipeline.JSONSerializable{
-					Val: map[string]interface{}{"eth_tx_id": etx.ID},
-				},
-				CreatedAt:  s,
-				FinishedAt: null.TimeFrom(f),
-			}, nil, false)
-			if err != nil {
-				return errors.Wrap(err, "VRFListenerV2: failed to insert finished run")
-			}
-		}
-		// Always mark consumed regardless of whether the proof failed or not.
-		return lsn.logBroadcaster.MarkConsumed(tx, lb)
-	})
-	if err != nil {
-		lsn.l.Errorw("VRFListenerV2 failed to save run", "err", err)
-	}
-}
-
-func (lsn *listenerV2) LogToProof(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) ([]byte, error) {
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
 		"reqID", req.PreSeedAndRequestId.String(),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,
 		"blockNumber", req.Raw.BlockNumber,
-		"seed", req.PreSeedAndRequestId.String())
-	// Validate the key against the spec
-	kh, err := lsn.job.VRFSpec.PublicKey.Hash()
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.Equal(req.KeyHash[:], kh[:]) {
-		return nil, fmt.Errorf("invalid key hash %v expected %v", hex.EncodeToString(req.KeyHash[:]), hex.EncodeToString(kh[:]))
-	}
+		"blockHash", req.Raw.BlockHash,
+		"seed", req.PreSeedAndRequestId)
 
-	// req.PreSeed is uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)))
-	preSeed, err := proof.BigToSeed(req.PreSeedAndRequestId)
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    lsn.job.ID,
+			"externalJobID": lsn.job.ExternalJobID,
+			"name":          lsn.job.Name.ValueOrZero(),
+			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
+		},
+		"jobRun": map[string]interface{}{
+			"logBlockHash":   req.Raw.BlockHash[:],
+			"logBlockNumber": req.Raw.BlockNumber,
+			"logTxHash":      req.Raw.TxHash,
+			"logTopics":      req.Raw.Topics,
+			"logData":        req.Raw.Data,
+		},
+	})
+	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
 	if err != nil {
-		return nil, errors.New("unable to parse preseed")
+		logger.Errorw("VRFListener: failed executing run", "err", err)
 	}
-	seed := proof.PreSeedDataV2{
-		PreSeed:          preSeed,
-		BlockHash:        req.Raw.BlockHash,
-		BlockNum:         req.Raw.BlockNumber,
-		SubId:            req.SubId,
-		CallbackGasLimit: req.CallbackGasLimit,
-		NumWords:         req.NumWords,
-		Sender:           req.Sender,
-	}
-	solidityProof, err := proof.GenerateProofResponseV2(lsn.vrfks, lsn.job.VRFSpec.PublicKey, seed)
-	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: error generating proof", "err", err)
-		return nil, err
-	}
-	return solidityProof[:], nil
-}
-
-func (lsn *listenerV2) ProcessLogV2(solidityProof []byte) ([]byte, uint64, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
-	vrfCoordinatorArgs, err := lsn.abi.Methods["fulfillRandomWords"].Inputs.PackValues(
-		[]interface{}{
-			solidityProof[:], // geth expects slice, even if arg is constant-length
-		})
-	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: error building fulfill args", "err", err)
-		return nil, 0, nil, err
-	}
-	to := lsn.coordinator.Address()
-	gasLimit, err := lsn.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
-		To:   &to,
-		Data: append(lsn.abi.Methods["fulfillRandomWords"].ID, vrfCoordinatorArgs...),
+	f := time.Now()
+	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
+		_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
+			State:          pipeline.RunStatusCompleted,
+			PipelineSpecID: run.PipelineSpecID,
+			Errors:         run.Errors,
+			Outputs:        run.Outputs,
+			Meta:           run.Meta,
+			CreatedAt:      s,
+			FinishedAt:     null.TimeFrom(f),
+		}, trrs, true)
+		if err != nil {
+			return errors.Wrap(err, "VRFListener: failed to insert finished run")
+		}
+		// Always mark consumed regardless of whether the proof failed or not.
+		return lsn.logBroadcaster.MarkConsumed(tx, lb)
 	})
 	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: error computing gas limit", "err", err)
-		return nil, 0, nil, err
+		lsn.l.Errorw("VRFListener failed to save run", "err", err)
 	}
-	return append(lsn.abi.Methods["fulfillRandomWords"].ID, vrfCoordinatorArgs...), gasLimit, nil, nil
+
 }
 
 // Close complies with job.Service

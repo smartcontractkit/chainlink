@@ -2,12 +2,13 @@ package vrf_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"math/big"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 
@@ -164,7 +165,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 		Name:               "vrf-primary",
 		CoordinatorAddress: uni.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
-		PublicKey:          vrfkey.String()}).Toml()
+		PublicKey:          vrfkey.String(),
+		V2:                 true,
+	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	jb, err = app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline)

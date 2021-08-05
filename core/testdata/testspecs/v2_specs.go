@@ -80,6 +80,7 @@ type VRFSpecParams struct {
 	Confirmations      int
 	PublicKey          string
 	ObservationSource  string
+	V2                 bool
 }
 
 type VRFSpec struct {
@@ -124,13 +125,37 @@ vrf          [type=vrf
               topics="$(jobRun.logTopics)"]
 encode_tx    [type=ethabiencode
               abi="fulfillRandomnessRequest(bytes proof)"
-              data=<{"proof": $(vrf)}>]
-
+              data="{\\"proof\\": $(vrf)}"]
 submit_tx  [type=ethtx to="%s" 
 			data="$(encode_tx)" 
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)
+	if params.V2 {
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 preSeedAndRequestId,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+encode_tx    [type=ethabiencode
+              abi="fulfillRandomWords(bytes proof)"
+              data="{\\"proof\\": $(vrf.proof)}"]
+estimate_gas [type=estimategaslimit
+			  to="%s"
+              multiplier="1.1"
+              data="$(encode_tx)"]
+submit_tx  [type=ethtx to="%s"
+            data="$(encode_tx)"
+            gasLimit="$(estimate_gas)"
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
+decode_log->vrf->encode_tx->estimate_gas->submit_tx
+`, coordinatorAddress, coordinatorAddress)
+	}
 	if params.ObservationSource != "" {
 		publicKey = params.ObservationSource
 	}
