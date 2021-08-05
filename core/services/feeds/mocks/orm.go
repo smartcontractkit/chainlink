@@ -233,3 +233,17 @@ func (_m *ORM) UpdateJobProposalStatus(ctx context.Context, id int64, status fee
 
 	return r0
 }
+
+// UpdateManager provides a mock function with given fields: ctx, mgr
+func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error {
+	ret := _m.Called(ctx, mgr)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
+		r0 = rf(ctx, mgr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
