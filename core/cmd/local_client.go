@@ -368,18 +368,6 @@ func (cli *Client) Status(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
-func (cli *Client) makeApp() (chainlink.Application, func(), error) {
-	app, err := cli.AppFactory.NewApplication(cli.Config)
-	if err != nil {
-		return nil, nil, err
-	}
-	return app, func() {
-		if err := app.Stop(); err != nil {
-			logger.Errorw("Failed to stop the application on hard reset", "error", err)
-		}
-	}, nil
-}
-
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
 // This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {

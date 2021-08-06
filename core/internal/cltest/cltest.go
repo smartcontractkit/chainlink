@@ -315,10 +315,6 @@ type TestApplication struct {
 	allowUnstarted bool
 }
 
-func newWSServer() (*httptest.Server, string, func()) {
-	return NewWSServer("", nil)
-}
-
 // NewWSServer returns a  new wsserver
 func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
 	upgrader := websocket.Upgrader{
