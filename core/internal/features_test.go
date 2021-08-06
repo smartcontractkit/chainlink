@@ -264,22 +264,6 @@ func TestIntegration_AuthToken(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
 
-func assertPricesBytes32(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
-	var tmp [32]byte
-	copy(tmp[:], usd)
-	haveUsd, err := consumer.Usd(nil)
-	require.NoError(t, err)
-	assert.Equal(t, tmp[:], haveUsd[:])
-	copy(tmp[:], eur)
-	haveEur, err := consumer.Eur(nil)
-	require.NoError(t, err)
-	assert.Equal(t, tmp[:], haveEur[:])
-	copy(tmp[:], jpy)
-	haveJpy, err := consumer.Jpy(nil)
-	require.NoError(t, err)
-	assert.Equal(t, tmp[:], haveJpy[:])
-}
-
 func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
