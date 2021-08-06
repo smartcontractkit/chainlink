@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -74,7 +73,9 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 		if err != nil {
 			return errors.Wrap(err, "could not notify '%s' (%s)")
 		}
-		defer logger.ErrorIfCalling(resp.Body.Close)
+		if err := resp.Body.Close(); err != nil {
+			return err
+		}
 		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
 		}
@@ -110,7 +111,9 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 		if err != nil {
 			return errors.Wrapf(err, "could not delete job from remote external initiator at %s", req.URL)
 		}
-		defer logger.ErrorIfCalling(resp.Body.Close)
+		if err := resp.Body.Close(); err != nil {
+			return err
+		}
 		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
 		}
