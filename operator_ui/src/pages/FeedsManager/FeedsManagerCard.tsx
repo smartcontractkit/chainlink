@@ -1,10 +1,13 @@
 import React from 'react'
+import { useHistory } from 'react-router-dom'
 
-import * as models from 'core/store/models'
+import { FeedsManager } from 'core/store/models'
 
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
 import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
+import IconButton from '@material-ui/core/IconButton'
+import EditIcon from '@material-ui/icons/Edit'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
@@ -20,14 +23,23 @@ const styles = () => {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  manager: models.FeedsManager
+  manager: FeedsManager
 }
 
 export const FeedsManagerCard = withStyles(styles)(
   ({ classes, manager }: Props) => {
+    const history = useHistory()
+
     return (
       <Card>
-        <CardHeader title="Feeds Manager" />
+        <CardHeader
+          title="Feeds Manager"
+          action={
+            <IconButton onClick={() => history.push('/feeds_manager/edit')}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          }
+        />
         <Table className={classes.tableRoot}>
           <TableBody>
             <TableRow>
