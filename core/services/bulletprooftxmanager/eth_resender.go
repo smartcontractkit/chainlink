@@ -126,10 +126,10 @@ func (er *EthResender) resendUnconfirmed() error {
 		logger.Debugw(fmt.Sprintf("EthResender: batch resending transactions %v thru %v", i, j))
 
 		ctx, cancel := eth.DefaultQueryCtx()
-		defer cancel()
 		if err := er.ethClient.RoundRobinBatchCallContext(ctx, reqs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to re-send transactions")
 		}
+		cancel()
 
 		if err := er.updateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to update last succeeded on attempts")

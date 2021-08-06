@@ -23,7 +23,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
@@ -303,9 +302,9 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 		cltest.Head(2),
 		cltest.Head(3),
 	}
-	var parentHash common.Hash
+	var parentHash gethCommon.Hash
 	for i := 0; i < len(heads); i++ {
-		if parentHash != (common.Hash{}) {
+		if parentHash != (gethCommon.Hash{}) {
 			heads[i].ParentHash = parentHash
 		}
 		parentHash = heads[i].Hash

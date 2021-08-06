@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 )
 
@@ -183,7 +182,7 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account"},
 )
 
-func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
+func promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
 	balanceFloat, err := ApproximateFloat64(balance)
 
 	if err != nil {
