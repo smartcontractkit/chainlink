@@ -388,28 +388,28 @@ func (fm *FluxMonitor) consume() {
 		case <-fm.chProcessLogs:
 			fm.processLogs()
 
-		case <-fm.pollManager.PollTickerTicks():
-			tickLogger.Debug("Poll ticker fired")
+		case at := <-fm.pollManager.PollTickerTicks():
+			tickLogger.Debugf("Poll ticker fired on %v", at)
 			fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
 
-		case <-fm.pollManager.IdleTimerTicks():
-			tickLogger.Debug("Idle timer fired")
+		case at := <-fm.pollManager.IdleTimerTicks():
+			tickLogger.Debugf("Idle timer fired on %v", at)
 			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(), nil)
 
-		case <-fm.pollManager.RoundTimerTicks():
-			tickLogger.Debug("Round timer fired")
+		case at := <-fm.pollManager.RoundTimerTicks():
+			tickLogger.Debugf("Round timer fired on %v", at)
 			fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
 
-		case <-fm.pollManager.HibernationTimerTicks():
-			tickLogger.Debug("Hibernation timer fired")
+		case at := <-fm.pollManager.HibernationTimerTicks():
+			tickLogger.Debugf("Hibernation timer fired on %v", at)
 			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(), nil)
 
-		case <-fm.pollManager.RetryTickerTicks():
-			tickLogger.Debug("Retry ticker fired")
+		case at := <-fm.pollManager.RetryTickerTicks():
+			tickLogger.Debugf("Retry ticker fired on %v", at)
 			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(), nil)
 
-		case <-fm.pollManager.DrumbeatTicks():
-			tickLogger.Debug("Drumbeat ticker fired")
+		case at := <-fm.pollManager.DrumbeatTicks():
+			tickLogger.Debugf("Drumbeat ticker fired on %v", at)
 			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(), nil)
 
 		case request := <-fm.pollManager.Poll():

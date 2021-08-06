@@ -816,7 +816,9 @@ func (t *PausableTicker) Destroy() {
 
 type CronTicker struct {
 	*cron.Cron
-	ch chan time.Time
+	ch            chan time.Time
+	cronRunningMu sync.Mutex
+	cronRunning   bool
 }
 
 func NewCronTicker(schedule string, randomDelay time.Duration) (CronTicker, error) {
@@ -837,16 +839,32 @@ func NewCronTicker(schedule string, randomDelay time.Duration) (CronTicker, erro
 	return CronTicker{Cron: cron, ch: ch}, nil
 }
 
-func (t *CronTicker) Start() {
+// Start - returns true if the CronTicker was actually started, false otherwise
+func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		t.Cron.Start()
+		t.cronRunningMu.Lock()
+		defer t.cronRunningMu.Unlock()
+		if !t.cronRunning {
+			t.cronRunning = true
+			t.Cron.Start()
+			return true
+		}
 	}
+	return false
 }
 
-func (t *CronTicker) Stop() {
+// Stop - returns true if the CronTicker was actually stopped, false otherwise
+func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		t.Cron.Stop()
+		t.cronRunningMu.Lock()
+		defer t.cronRunningMu.Unlock()
+		if t.cronRunning {
+			t.cronRunning = false
+			t.Cron.Stop()
+			return true
+		}
 	}
+	return false
 }
 
 func (t *CronTicker) Ticks() <-chan time.Time {
