@@ -48,7 +48,7 @@ Three new configuration variables are added for the new telemetry ingress servic
 
 **The legacy job pipeline (JSON specs) has been officially deprecated and support for these jobs will be dropped in an upcoming release.**
 
-Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead. Please contact node operator support for more details on how to do this.
+Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead.
 
 The format for V2 Webhook job specs has changed. They now allow specifying 0 or more external initiators. Example below:
 
