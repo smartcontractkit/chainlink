@@ -264,22 +264,6 @@ func TestIntegration_AuthToken(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
 
-func assertPricesBytes32(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
-	var tmp [32]byte
-	copy(tmp[:], usd)
-	haveUsd, err := consumer.Usd(nil)
-	require.NoError(t, err)
-	assert.Equal(t, tmp[:], haveUsd[:])
-	copy(tmp[:], eur)
-	haveEur, err := consumer.Eur(nil)
-	require.NoError(t, err)
-	assert.Equal(t, tmp[:], haveEur[:])
-	copy(tmp[:], jpy)
-	haveJpy, err := consumer.Jpy(nil)
-	require.NoError(t, err)
-	assert.Equal(t, tmp[:], haveJpy[:])
-}
-
 func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
@@ -380,14 +364,12 @@ func TestIntegration_MultiwordV2(t *testing.T) {
 	empty := big.NewInt(0)
 	assertPricesUint256(t, empty, empty, empty, consumerContract)
 
-	tick := time.NewTicker(100 * time.Millisecond)
-	defer tick.Stop()
-	go func() {
-		for range tick.C {
-			triggerAllKeys(t, app)
-			b.Commit()
-		}
-	}()
+	stopBlocks := finiteTicker(100*time.Millisecond, func() {
+		triggerAllKeys(t, app)
+		b.Commit()
+	})
+	defer stopBlocks()
+
 	pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
 	pipelineRun := pipelineRuns[0]
 	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
@@ -520,13 +502,10 @@ func TestIntegration_OCR(t *testing.T) {
 		})
 	}
 
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
-	go func() {
-		for range tick.C {
-			b.Commit()
-		}
-	}()
+	stopBlocks := finiteTicker(time.Second, func() {
+		b.Commit()
+	})
+	defer stopBlocks()
 
 	_, err := ocrContract.SetPayees(owner,
 		transmitters,
@@ -903,4 +882,26 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
 	assert.True(t, jpy.Cmp(haveJpy) == 0)
+}
+
+func finiteTicker(period time.Duration, onTick func()) func() {
+	tick := time.NewTicker(period)
+	chStop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-tick.C:
+				onTick()
+			case <-chStop:
+				return
+			}
+		}
+	}()
+
+	// NOTE: tick.Stop does not close the ticker channel,
+	// so we still need another way of returning (chStop).
+	return func() {
+		tick.Stop()
+		close(chStop)
+	}
 }
