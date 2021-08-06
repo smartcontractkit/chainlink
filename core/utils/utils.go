@@ -753,6 +753,7 @@ func LogIfError(err *error, msg string) {
 
 // DebugPanic logs a panic exception being called
 func DebugPanic() {
+	//revive:disable:defer
 	if err := recover(); err != nil {
 		pc := make([]uintptr, 10) // at least 1 entry needed
 		runtime.Callers(5, pc)

@@ -210,10 +210,10 @@ func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 
 // SendTransaction also uses the secondary HTTP RPC URLs if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	for _, s := range client.secondaries {
 		// Parallel send to secondary node
-		var wg sync.WaitGroup
-		defer wg.Wait()
 		wg.Add(1)
 		go func(s *secondarynode) {
 			defer wg.Done()
