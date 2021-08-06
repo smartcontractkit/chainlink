@@ -64,7 +64,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
   uint16 constant MAX_REQUEST_CONFIRMATIONS = 200;
-  uint256 constant private CUSHION = 5_000;
+  uint256 constant private MINIMUM_GAS_LIMIT = 5_000;
   error InvalidRequestBlockConfs(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error KeyHashAlreadyRegistered(bytes32 keyHash);
@@ -317,7 +317,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   /**
    * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available
+   * or reverts if at least gasAmount gas is not available.
+   * The maximum amount of gasAmount is all gas available but 1/64th.
+   * The minimum amount of gasAmount MINIMUM_GAS_LIMIT.
    */
   function callWithExactGas(
     uint256 gasAmount,
@@ -332,8 +334,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     assembly{
       let g := gas()
       // Compute g -= CUSHION and check for underflow
-      if lt(g, CUSHION) { revert(0, 0) }
-      g := sub(g, CUSHION)
+      if lt(g, MINIMUM_GAS_LIMIT) { revert(0, 0) }
+      g := sub(g, MINIMUM_GAS_LIMIT)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), gasAmount)) { revert(0, 0) }

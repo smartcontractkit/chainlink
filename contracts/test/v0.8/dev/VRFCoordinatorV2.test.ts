@@ -782,6 +782,7 @@ describe("VRFCoordinatorV2", () => {
       await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(p)).to.be.revertedWith(`IncorrectCommitment()`);
     });
   });
+
   /*
     Note that all the fulfillment happy path testing is done in Go, to make use of the existing go code to produce
     proofs offchain.
