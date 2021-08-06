@@ -195,8 +195,8 @@ func (l *listener) handleReceivedLogs() {
 			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
 		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
+		cancel()
 		if err != nil {
 			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
 			return
