@@ -226,12 +226,13 @@ func (ht *HeadTracker) backfiller() {
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
 					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth())
-					defer cancel()
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
+						cancel()
 						break
 					}
+					cancel()
 				}
 			}
 		}

@@ -103,8 +103,6 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	}
 }
 
-func checkPresence(t *testing.T, s, output string) { assert.Regexp(t, regexp.MustCompile(s), output) }
-
 func TestRendererTable_PatchResponse(t *testing.T) {
 	t.Parallel()
 
