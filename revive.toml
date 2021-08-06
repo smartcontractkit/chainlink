@@ -45,7 +45,7 @@ Disabled = true
 [rule.get-return]
 # [rule.flag-parameter]
 # [rule.early-return]
-# [rule.defer]
+[rule.defer]
 [rule.constant-logical-expr]
 # [rule.confusing-naming]
 # [rule.confusing-results]
