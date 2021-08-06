@@ -194,6 +194,7 @@ func TestStartingCounts(t *testing.T) {
 		RequestID: utils.PadByteToHash(0x11),
 	}
 	md2, err := json.Marshal(&m2)
+	require.NoError(t, err)
 	var txes = []bulletprooftxmanager.EthTx{
 		{
 			Nonce:          &n1,
