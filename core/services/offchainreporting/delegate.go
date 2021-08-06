@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -53,18 +54,18 @@ type DelegateConfig interface {
 }
 
 type Delegate struct {
-	db                 *gorm.DB
-	txm                txManager
-	jobORM             job.ORM
-	config             DelegateConfig
-	keyStore           *keystore.OCR
-	pipelineRunner     pipeline.Runner
-	ethClient          eth.Client
-	logBroadcaster     log.Broadcaster
-	peerWrapper        *SingletonPeerWrapper
-	monitoringEndpoint ocrtypes.MonitoringEndpoint
-	chain              *chains.Chain
-	headBroadcaster    httypes.HeadBroadcaster
+	db                    *gorm.DB
+	txm                   txManager
+	jobORM                job.ORM
+	config                DelegateConfig
+	keyStore              *keystore.OCR
+	pipelineRunner        pipeline.Runner
+	ethClient             eth.Client
+	logBroadcaster        log.Broadcaster
+	peerWrapper           *SingletonPeerWrapper
+	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
+	chain                 *chains.Chain
+	headBroadcaster       httypes.HeadBroadcaster
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -79,7 +80,7 @@ func NewDelegate(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
-	monitoringEndpoint ocrtypes.MonitoringEndpoint,
+	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chain *chains.Chain,
 	headBroadcaster httypes.HeadBroadcaster,
 ) *Delegate {
@@ -93,7 +94,7 @@ func NewDelegate(
 		ethClient,
 		logBroadcaster,
 		peerWrapper,
-		monitoringEndpoint,
+		monitoringEndpointGen,
 		chain,
 		headBroadcaster,
 	}
@@ -262,7 +263,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              bootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
-			MonitoringEndpoint:           d.monitoringEndpoint,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.Address()),
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")

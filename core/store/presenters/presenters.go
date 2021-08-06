@@ -118,6 +118,9 @@ type EnvPrinter struct {
 	RootDir                                    string          `json:"ROOT"`
 	SecureCookies                              bool            `json:"SECURE_COOKIES"`
 	SessionTimeout                             models.Duration `json:"SESSION_TIMEOUT"`
+	TelemetryIngressLogging                    bool            `json:"TELEMETRY_INGRESS_LOGGING"`
+	TelemetryIngressServerPubKey               string          `json:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
+	TelemetryIngressURL                        string          `json:"TELEMETRY_INGRESS_URL"`
 	TLSHost                                    string          `json:"CHAINLINK_TLS_HOST"`
 	TLSPort                                    uint16          `json:"CHAINLINK_TLS_PORT"`
 	TLSRedirect                                bool            `json:"CHAINLINK_TLS_REDIRECT"`
@@ -135,6 +138,10 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	ethereumHTTPURL := ""
 	if config.EthereumHTTPURL() != nil {
 		ethereumHTTPURL = config.EthereumHTTPURL().String()
+	}
+	telemetryIngressURL := ""
+	if config.TelemetryIngressURL() != nil {
+		telemetryIngressURL = config.TelemetryIngressURL().String()
 	}
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
@@ -224,6 +231,9 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			RootDir:                                    config.RootDir(),
 			SecureCookies:                              config.SecureCookies(),
 			SessionTimeout:                             config.SessionTimeout(),
+			TelemetryIngressLogging:                    config.TelemetryIngressLogging(),
+			TelemetryIngressServerPubKey:               config.TelemetryIngressServerPubKey(),
+			TelemetryIngressURL:                        telemetryIngressURL,
 			TLSHost:                                    config.TLSHost(),
 			TLSPort:                                    config.TLSPort(),
 			TLSRedirect:                                config.TLSRedirect(),
