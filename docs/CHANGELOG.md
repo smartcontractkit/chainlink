@@ -90,10 +90,10 @@ POST http://yournode.example/v2/migrate/<job id>
 ```
 
 - VRF v1
-Automigration is not supported for VRF jobs. They must be manually converted into v2 format. Please contact node operator support for help with this.
+Automigration is not supported for VRF jobs. They must be manually converted into v2 format.
 
 - Ethlog/Runlog/Cron/web
-All other job types must also be manually converted into v2 format. Please contact node operator support for help with this.
+All other job types must also be manually converted into v2 format.
 
 #### Technical details
 
