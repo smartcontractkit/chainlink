@@ -440,6 +440,15 @@ declare module 'core/store/models' {
     bootstrapPeerMultiaddr?: string
   }
 
+  export interface UpdateFeedsManagerRequest {
+    name: string
+    uri: string
+    jobTypes: string[]
+    publicKey: string
+    isBootstrapPeer: boolean
+    bootstrapPeerMultiaddr?: string
+  }
+
   export interface JobProposal {
     spec: string
     status: string

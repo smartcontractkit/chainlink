@@ -355,6 +355,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
+		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
 			db,
