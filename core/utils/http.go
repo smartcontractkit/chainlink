@@ -92,6 +92,7 @@ func withRetry(
 	}
 	for {
 		timeoutCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+		//revive:disable:defer
 		defer cancel()
 
 		requestWithTimeout, err := cloneRequest(timeoutCtx, originalRequest)
