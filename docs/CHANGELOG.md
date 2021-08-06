@@ -31,7 +31,7 @@ MINIMUM_CONTRACT_PAYMENT
 
 ## [Unreleased]
 
-## [0.10.10] - 2021-08-09
+## [0.10.11] - 2021-08-09
 
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
 This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
