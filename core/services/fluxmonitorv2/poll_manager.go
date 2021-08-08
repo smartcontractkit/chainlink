@@ -55,7 +55,7 @@ type PollManager struct {
 	idleTimer        utils.ResettableTimer
 	roundTimer       utils.ResettableTimer
 	retryTicker      utils.BackoffTicker
-	drumbeat         utils.CronTicker
+	drumbeat         *utils.CronTicker
 	chPoll           chan PollRequest
 
 	logger *logger.Logger
@@ -78,7 +78,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) (*PollManager,
 		idleTimer.Reset(cfg.IdleTimerPeriod)
 	}
 
-	var drumbeatTicker utils.CronTicker
+	var drumbeatTicker *utils.CronTicker
 	var err error
 	if cfg.DrumbeatEnabled {
 		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
