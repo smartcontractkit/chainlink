@@ -822,7 +822,10 @@ func NewCronTicker(schedule string, randomDelay time.Duration) (CronTicker, erro
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
-		delay := time.Duration(mrand.Int63n(int64(randomDelay)))
+		delay := time.Duration(0)
+		if randomDelay > 0 {
+			delay = time.Duration(mrand.Int63n(int64(randomDelay)))
+		}
 		time.AfterFunc(delay, func() {
 			select {
 			case ch <- time.Now():
