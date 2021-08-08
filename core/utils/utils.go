@@ -816,12 +816,11 @@ func (t *PausableTicker) Destroy() {
 
 type CronTicker struct {
 	*cron.Cron
-	ch            chan time.Time
-	cronRunningMu sync.Mutex
-	cronRunning   bool
+	ch      chan time.Time
+	beenRun *abool.AtomicBool
 }
 
-func NewCronTicker(schedule string) (*CronTicker, error) {
+func NewCronTicker(schedule string) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
@@ -831,18 +830,15 @@ func NewCronTicker(schedule string) (*CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return nil, err
+		return CronTicker{beenRun: abool.New()}, err
 	}
-	return &CronTicker{Cron: cron, ch: ch}, nil
+	return CronTicker{Cron: cron, ch: ch, beenRun: abool.New()}, nil
 }
 
 // Start - returns true if the CronTicker was actually started, false otherwise
 func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		t.cronRunningMu.Lock()
-		defer t.cronRunningMu.Unlock()
-		if !t.cronRunning {
-			t.cronRunning = true
+		if t.beenRun.SetToIf(false, true) {
 			t.Cron.Start()
 			return true
 		}
@@ -853,10 +849,7 @@ func (t *CronTicker) Start() bool {
 // Stop - returns true if the CronTicker was actually stopped, false otherwise
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		t.cronRunningMu.Lock()
-		defer t.cronRunningMu.Unlock()
-		if t.cronRunning {
-			t.cronRunning = false
+		if t.beenRun.SetToIf(true, false) {
 			t.Cron.Stop()
 			return true
 		}
