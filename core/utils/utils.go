@@ -820,7 +820,7 @@ type CronTicker struct {
 	cronRunning   bool
 }
 
-func NewCronTicker(schedule string) (CronTicker, error) {
+func NewCronTicker(schedule string) (*CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
@@ -830,9 +830,9 @@ func NewCronTicker(schedule string) (CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return CronTicker{}, err
+		return nil, err
 	}
-	return CronTicker{Cron: cron, ch: ch}, nil
+	return &CronTicker{Cron: cron, ch: ch}, nil
 }
 
 // Start - returns true if the CronTicker was actually started, false otherwise

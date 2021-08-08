@@ -846,9 +846,9 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Infof("waiting %v (of max: %v) before continuing...", delay, fm.pollManager.cfg.DrumbeatRandomDelay)
 		time.Sleep(delay)
 
-		roundStateNew, err := fm.roundState(roundState.RoundId)
-		if err != nil {
-			l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err)
+		roundStateNew, err2 := fm.roundState(roundState.RoundId)
+		if err2 != nil {
+			l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err2)
 			fm.jobORM.RecordError(
 				context.Background(),
 				fm.spec.JobID,
