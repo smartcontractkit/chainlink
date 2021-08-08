@@ -1440,7 +1440,11 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			Return(roundState, nil).
 			Once()
 
-		tm.orm.On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(roundID)).
+		tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundID).
+			Return(roundState, nil).
+			Once()
+
+		tm.orm.On("FindOrCreateFluxMonitorRoundStats", contractAddress, roundID).
 			Return(fluxmonitorv2.FluxMonitorRoundStatsV2{Aggregator: contractAddress, RoundID: roundID}, nil).
 			Once()
 

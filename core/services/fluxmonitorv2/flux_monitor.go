@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	mrand "math/rand"
 	"reflect"
 	"time"
 
@@ -404,28 +405,28 @@ func (fm *FluxMonitor) consume() {
 		case <-fm.chProcessLogs:
 			fm.processLogs()
 
-		case <-fm.pollManager.PollTickerTicks():
-			tickLogger.Debug("Poll ticker fired")
+		case at := <-fm.pollManager.PollTickerTicks():
+			tickLogger.Debugf("Poll ticker fired on %v", formatTime(at))
 			fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
 
-		case <-fm.pollManager.IdleTimerTicks():
-			tickLogger.Debug("Idle timer fired")
+		case at := <-fm.pollManager.IdleTimerTicks():
+			tickLogger.Debugf("Idle timer fired on %v", formatTime(at))
 			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(), nil)
 
-		case <-fm.pollManager.RoundTimerTicks():
-			tickLogger.Debug("Round timer fired")
+		case at := <-fm.pollManager.RoundTimerTicks():
+			tickLogger.Debugf("Round timer fired on %v", formatTime(at))
 			fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
 
-		case <-fm.pollManager.HibernationTimerTicks():
-			tickLogger.Debug("Hibernation timer fired")
+		case at := <-fm.pollManager.HibernationTimerTicks():
+			tickLogger.Debugf("Hibernation timer fired on %v", formatTime(at))
 			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(), nil)
 
-		case <-fm.pollManager.RetryTickerTicks():
-			tickLogger.Debug("Retry ticker fired")
+		case at := <-fm.pollManager.RetryTickerTicks():
+			tickLogger.Debugf("Retry ticker fired on %v", formatTime(at))
 			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(), nil)
 
-		case <-fm.pollManager.DrumbeatTicks():
-			tickLogger.Debug("Drumbeat ticker fired")
+		case at := <-fm.pollManager.DrumbeatTicks():
+			tickLogger.Debugf("Drumbeat ticker fired on %v", formatTime(at))
 			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(), nil)
 
 		case request := <-fm.pollManager.Poll():
@@ -437,6 +438,11 @@ func (fm *FluxMonitor) consume() {
 			}
 		}
 	}
+}
+
+func formatTime(at time.Time) string {
+	ago := time.Since(at)
+	return fmt.Sprintf("%v (%v ago)", at.UTC().Format(time.RFC3339), ago)
 }
 
 // SetOracleAddress sets the oracle address which matches the node's keys.
@@ -831,6 +837,29 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		return
 	}
 
+	l = l.With("reportableRound", roundState.RoundId)
+
+	// Because drumbeat ticker may fire at the same time on multiple nodes, we wait a short random duration
+	// after getting a recommended round id, to avoid starting multiple rounds in case of chains with instant tx confirmation
+	if pollReq == PollRequestTypeDrumbeat && fm.pollManager.cfg.DrumbeatEnabled && fm.pollManager.cfg.DrumbeatRandomDelay > 0 {
+		delay := time.Duration(mrand.Int63n(int64(fm.pollManager.cfg.DrumbeatRandomDelay)))
+		l.Infof("waiting %v (of max: %v) before continuing...", delay, fm.pollManager.cfg.DrumbeatRandomDelay)
+		time.Sleep(delay)
+
+		roundStateNew, err := fm.roundState(roundState.RoundId)
+		if err != nil {
+			l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err)
+			fm.jobORM.RecordError(
+				context.Background(),
+				fm.spec.JobID,
+				"Unable to call roundState method on provided contract. Check contract address.",
+			)
+
+			return
+		}
+		roundState = roundStateNew
+	}
+
 	fm.pollManager.Reset(roundState)
 	// Retry if a idle timer fails
 	defer func() {
@@ -845,8 +874,6 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 			fm.pollManager.StopRetryTicker()
 		}
 	}()
-
-	l = l.With("reportableRound", roundState.RoundId)
 
 	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId)
 	if err != nil {
