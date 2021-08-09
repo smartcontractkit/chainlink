@@ -4,6 +4,7 @@
 
 ### Added:
 
+- v0.8 CCIP Ramp and Router interfaces
 - v0.8 Access Controlled contracts (`SimpleWriteAccessController` and `SimpleReadAccessController`).
 - v0.8 Flags contracts (`Flags`).
 - v0.6 `MockV3Aggregator` in src/v0.6/tests/.
