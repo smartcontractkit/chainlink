@@ -136,7 +136,7 @@ func (hr *headBroadcaster) executeCallbacks() {
 	)
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(hr.callbacks))
+	wg.Add(len(callbacks))
 
 	for _, callback := range callbacks {
 		go func(hr httypes.HeadTrackable) {

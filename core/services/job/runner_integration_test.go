@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
-var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
+var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)

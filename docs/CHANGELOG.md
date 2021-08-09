@@ -21,10 +21,13 @@ This release will DROP legacy job tables so please take a backup before upgradin
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
 This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
 
+Three new configuration variables are added for the new telemetry ingress service support. `TELEMETRY_INGRESS_URL` sets the URL to connect to for telemetry ingress, `TELEMETRY_INGRESS_SERVER_PUB_KEY` sets the public key of the telemetry ingress server, and `TELEMETRY_INGRESS_LOGGING` toggles verbose logging of the raw telemetry messages being sent.
+
 * Fixes the logging configuration form not displaying the current values
 * Updates the design of the configuration cards to be easier on the eyes
 * View Coordinator Service Authentication keys in the Operator UI. This is hidden
   behind a feature flag until usage is enabled.
+* Adds support for the new telemetry ingress service.
 
 ### Changed
 
