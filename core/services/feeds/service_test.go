@@ -130,6 +130,7 @@ func Test_Service_ListManagers(t *testing.T) {
 
 	svc.orm.On("ListManagers", context.Background()).
 		Return(mss, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.ListManagers()
 	require.NoError(t, err)
@@ -148,6 +149,7 @@ func Test_Service_GetManager(t *testing.T) {
 
 	svc.orm.On("GetManager", context.Background(), id).
 		Return(&ms, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.GetManager(id)
 	require.NoError(t, err)
