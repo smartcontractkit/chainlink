@@ -1412,6 +1412,9 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	store, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
+	// a setup with a random delay being zero
+	_, _ = setup(t, store.DB, enableDrumbeatTicker("@every 10s", 0))
+
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
