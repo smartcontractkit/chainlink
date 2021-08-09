@@ -199,6 +199,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
+	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
