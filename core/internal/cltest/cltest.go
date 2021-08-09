@@ -657,7 +657,7 @@ func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interfac
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(tcfg.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewInsecureStore(tcfg.Config, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
