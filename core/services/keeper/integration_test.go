@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -98,7 +100,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)       // helps prevent missed heads
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// create job
 	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
@@ -155,4 +157,10 @@ func TestKeeperEthIntegration(t *testing.T) {
 	cltest.AssertRecordEventually(t, app.Store, &registry, func() bool {
 		return registry.KeeperIndex == -1
 	})
+	runs, err := app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(runs))
+	prr := webpresenters.NewPipelineRunResource(runs[0])
+	require.Equal(t, 1, len(prr.Outputs))
+	require.NotNil(t, prr.Outputs[0])
 }

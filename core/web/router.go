@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -59,20 +58,6 @@ const (
 	// SessionExternalInitiatorKey is the External Initiator key in the session map
 	SessionExternalInitiatorKey = "external_initiator"
 )
-
-func explorerStatus(app chainlink.Application) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		es := presenters.NewExplorerStatus(app.GetStatsPusher())
-		b, err := json.Marshal(es)
-		if err != nil {
-			panic(err)
-		}
-
-		c.SetSameSite(http.SameSiteStrictMode)
-		c.SetCookie("explorer", (string)(b), 0, "", "", false, false)
-		c.Next()
-	}
-}
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app chainlink.Application) *gin.Engine {
@@ -105,7 +90,6 @@ func Router(app chainlink.Application) *gin.Engine {
 			config.AuthenticatedRateLimit(),
 		),
 		sessions.Sessions(SessionName, sessionStore),
-		explorerStatus(app),
 	)
 
 	metricRoutes(app, api)
@@ -211,14 +195,6 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	unauthedv2 := r.Group("/v2")
 
-	jr := JobRunsController{app}
-	unauthedv2.PATCH("/runs/:RunID", jr.Update)
-
-	sa := ServiceAgreementsController{app}
-	unauthedv2.POST("/service_agreements", sa.Create)
-
-	j := JobSpecsController{app}
-	jsec := JobSpecErrorsController{app}
 	prc := PipelineRunsController{app}
 	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
@@ -231,21 +207,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
 		eia := ExternalInitiatorsController{app}
+		authv2.GET("/external_initiators", paginatedRequest(eia.Index))
 		authv2.POST("/external_initiators", eia.Create)
 		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
-
-		authv2.POST("/specs", j.Create)
-		authv2.GET("/specs", paginatedRequest(j.Index))
-		authv2.GET("/specs/:SpecID", j.Show)
-		authv2.DELETE("/specs/:SpecID", j.Destroy)
-
-		authv2.GET("/runs", paginatedRequest(jr.Index))
-		authv2.GET("/runs/:RunID", jr.Show)
-		authv2.PUT("/runs/:RunID/cancellation", jr.Cancel)
-
-		authv2.DELETE("/job_spec_errors/:jobSpecErrorID", jsec.Destroy)
-
-		authv2.GET("/service_agreements/:SAID", sa.Show)
 
 		bt := BridgeTypesController{app}
 		authv2.GET("/bridge_types", paginatedRequest(bt.Index))
@@ -265,6 +229,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/feeds_managers", feedsMgrCtlr.List)
 		authv2.POST("/feeds_managers", feedsMgrCtlr.Create)
 		authv2.GET("/feeds_managers/:id", feedsMgrCtlr.Show)
+		authv2.PATCH("/feeds_managers/:id", feedsMgrCtlr.Update)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -272,9 +237,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		txs := TransactionsController{app}
 		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)
-
-		bdc := BulkDeletesController{app}
-		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
@@ -324,9 +286,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
 		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
 
-		mc := MigrateController{app}
-		authv2.POST("/migrate/:ID", mc.Migrate)
-
 		// PipelineRunsController
 		authv2.GET("/pipeline/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
@@ -346,7 +305,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		AuthenticateByToken,
 		AuthenticateBySession,
 	))
-	userOrEI.POST("/specs/:SpecID/runs", jr.Create)
 	userOrEI.GET("/ping", ping.Show)
 	userOrEI.POST("/jobs/:ID/runs", prc.Create)
 }

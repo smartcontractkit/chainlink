@@ -41,7 +41,7 @@
     "@types/debug": "^4.1.5",
     "@types/inquirer": "^6.5.0",
     "@types/jest": "^26.0.8",
-    "@types/mock-fs": "^4.10.0",
+    "@types/mock-fs": "^4.13.1",
     "@types/node": "^13",
     "@types/shelljs": "^0.8.6",
     "globby": "^11",

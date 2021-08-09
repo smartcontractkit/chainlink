@@ -31,7 +31,6 @@ type ConfigReader interface {
 	DefaultHTTPTimeout() models.Duration
 	DefaultMaxHTTPAttempts() uint
 	Dev() bool
-	EnableExperimentalAdapters() bool
 	EthBalanceMonitorBlockDelay() uint16
 	EthFinalityDepth() uint
 	EthGasBumpPercent() uint16
@@ -56,7 +55,6 @@ type ConfigReader interface {
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FeatureExternalInitiators() bool
-	FeatureFluxMonitor() bool
 	FeatureOffchainReporting() bool
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
@@ -91,6 +89,9 @@ type ConfigReader interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetEthGasPriceDefault(value *big.Int) error
+	TelemetryIngressLogging() bool
+	TelemetryIngressServerPubKey() string
+	TelemetryIngressURL() *url.URL
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string

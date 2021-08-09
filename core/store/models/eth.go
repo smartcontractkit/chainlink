@@ -19,9 +19,7 @@ import (
 )
 
 type EthTxMeta struct {
-	TaskRunID        uuid.UUID
-	RunRequestID     *common.Hash
-	RunRequestTxHash *common.Hash
+	TaskRunID uuid.UUID
 }
 
 type EthTxMetaV2 struct {
@@ -53,25 +51,25 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (h Head) EarliestInChain() Head {
+func (h *Head) EarliestInChain() Head {
 	for {
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
 	}
-	return h
+	return *h
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
-func (h Head) IsInChain(blockHash common.Hash) bool {
+func (h *Head) IsInChain(blockHash common.Hash) bool {
 	for {
 		if h.Hash == blockHash {
 			return true
 		}
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -81,13 +79,13 @@ func (h Head) IsInChain(blockHash common.Hash) bool {
 
 // HashAtHeight returns the hash of the block at the given heigh, if it is in the chain.
 // If not in chain, returns the zero hash
-func (h Head) HashAtHeight(blockNum int64) common.Hash {
+func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 	for {
 		if h.Number == blockNum {
 			return h.Hash
 		}
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -96,13 +94,13 @@ func (h Head) HashAtHeight(blockNum int64) common.Hash {
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
-func (h Head) ChainLength() uint32 {
+func (h *Head) ChainLength() uint32 {
 	l := uint32(1)
 
 	for {
 		if h.Parent != nil {
 			l++
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -111,13 +109,13 @@ func (h Head) ChainLength() uint32 {
 }
 
 // ChainHashes returns an array of block hashes by recursively looking up parents
-func (h Head) ChainHashes() []common.Hash {
+func (h *Head) ChainHashes() []common.Hash {
 	var hashes []common.Hash
 
 	for {
 		hashes = append(hashes, h.Hash)
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}

@@ -33,9 +33,6 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 	if jb.Type != job.Webhook {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
-	if jb.SchemaVersion != uint32(1) {
-		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
-	}
 
 	var tomlSpec TOMLWebhookSpec
 	err = tree.Unmarshal(&tomlSpec)

@@ -11,23 +11,23 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-// How it works in general:
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
-// 2. Adding and removing listeners updates the highestNumConfirmations - a number tracking what's the current highest NumConfirmations globally
 //
-// 3. All received logs are kept in an array and deleted ONLY after they are outside the confirmation range for all subscribers
+// 2. All received logs are kept in an array and deleted ONLY after they are outside the confirmation range for all subscribers
 // (when given log height is lower than (latest height - max(highestNumConfirmations, ETH_FINALITY_DEPTH)) ) -> see: pool.go
 //
+// 3. Information about already consumed logs is fetched from the database and used as a filter
+//
 // 4. The logs are attempted to be sent after every new head arrival:
-// 		Each stored log is then checked against every matched listener and is sent unless:
+// 		Each stored log is checked against every matched listener and is sent unless:
 //    A) is too young for that listener
-//    B) the corresponding block height is known to be already processed for that listener
-// In the normal case, each log will be only processed once, and then its corresponding head will be remembered, so it's not double-sent
+//    B) matches a log already consumed (via the database information from log_broadcasts table)
 //
-// After processing the whole batch of logs considered for sending, the per-listener metadata is updated in applyListenerInfoUpdates.
-// If a re-org happens, the stored lowestAllowedBlockNumber (per-listener) is re-set,
-// so the logs from that chain are then considered unprocessed, and will be sent again.
+// A log might be sent multiple times, if a consumer processes logs asynchronously (e.g. via a queue or a Mailbox), in which case the log
+// may not be marked as consumed before the next sending operation. That's why customers must still check the state via WasAlreadyConsumed
+// before processing the log.
 //
+// The registrations' methods are NOT thread-safe.
 type (
 	registrations struct {
 		subscribers map[uint64]*subscribers
@@ -45,12 +45,10 @@ type (
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
 		HandleLog(b Broadcast)
-		JobID() models.JobID
-		JobIDV2() int32
-		IsV2Job() bool
+		JobID() int32
 	}
 
-	// metadata structure maintained per listener, used to avoid double-sends of logs
+	// Metadata structure maintained per listener
 	listenerMetadata struct {
 		opts    ListenerOpts
 		filters [][]Topic
@@ -68,44 +66,42 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 	addr := reg.opts.Contract
 	r.decoders[addr] = reg.opts.ParseLog
 
-	if reg.opts.NumConfirmations == 0 {
-		reg.opts.NumConfirmations = 1
-	}
-
 	if _, exists := r.subscribers[reg.opts.NumConfirmations]; !exists {
 		r.subscribers[reg.opts.NumConfirmations] = newSubscribers()
 	}
 
 	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
 
-	r.maybeIncreaseHighestNumConfirmations(reg.opts.NumConfirmations)
+	// increase the variable for highest number of confirmations among all subscribers,
+	// if the new subscriber has a higher value
+	if reg.opts.NumConfirmations > r.highestNumConfirmations {
+		r.highestNumConfirmations = reg.opts.NumConfirmations
+	}
 	return
 }
 
 func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
-	l, exists := r.subscribers[reg.opts.NumConfirmations]
+	subscribers, exists := r.subscribers[reg.opts.NumConfirmations]
 	if !exists {
 		return
 	}
 
-	needsResubscribe = l.removeSubscriber(reg)
-	r.resetHighestNumConfirmations()
+	needsResubscribe = subscribers.removeSubscriber(reg)
+
+	if len(r.subscribers[reg.opts.NumConfirmations].handlers) == 0 {
+		delete(r.subscribers, reg.opts.NumConfirmations)
+		r.resetHighestNumConfirmationsValue()
+	}
 	return
 }
 
-// increase the highestNumConfirmations stored if the new listener has a higher value
-func (r *registrations) maybeIncreaseHighestNumConfirmations(newNumConfirmations uint64) {
-	if newNumConfirmations > r.highestNumConfirmations {
-		r.highestNumConfirmations = newNumConfirmations
-	}
-}
-
-// reset the highest confirmation number per all current listeners
-func (r *registrations) resetHighestNumConfirmations() {
+// reset the number tracking highest num confirmations among all subscribers
+func (r *registrations) resetHighestNumConfirmationsValue() {
 	highestNumConfirmations := uint64(0)
-	for numConf := range r.subscribers {
-		if numConf > highestNumConfirmations {
-			highestNumConfirmations = numConf
+
+	for numConfirmations := range r.subscribers {
+		if numConfirmations > highestNumConfirmations {
+			highestNumConfirmations = numConfirmations
 		}
 	}
 	r.highestNumConfirmations = highestNumConfirmations
@@ -142,14 +138,15 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 
 	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, subscribers := range r.subscribers {
-			if latestBlockNumber < numConfirmations {
-				// Skipping send because not enough height to send
+
+			if numConfirmations != 0 && latestBlockNumber < numConfirmations {
+				// Skipping send because the block is definitely too young
 				continue
 			}
-			// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
-			// even if the logs are too young
+
+			// We attempt the send multiple times per log
 			// so here we need to see if this particular listener actually should receive it at this depth
-			isOldEnough := (logsPerBlock.BlockNumber + numConfirmations - 1) <= latestBlockNumber
+			isOldEnough := numConfirmations == 0 || (logsPerBlock.BlockNumber+numConfirmations-1) <= latestBlockNumber
 			if !isOldEnough {
 				continue
 			}
@@ -217,13 +214,14 @@ func (r *subscribers) removeSubscriber(reg registration) (needsResubscribe bool)
 		return
 	}
 	for topic := range reg.opts.LogsWithTopics {
-		if _, exists := r.handlers[addr][topic]; !exists {
+		topicMap, exists := r.handlers[addr][topic]
+		if !exists {
 			continue
 		}
 
-		delete(r.handlers[addr][topic], reg.listener)
+		delete(topicMap, reg.listener)
 
-		if len(r.handlers[addr][topic]) == 0 {
+		if len(topicMap) == 0 {
 			needsResubscribe = true
 			delete(r.handlers[addr], topic)
 		}
@@ -282,6 +280,9 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 			}
 		}
 
+		logger.Debugw("LogBroadcaster: Sending out log",
+			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "address", log.Address, "latestBlockNumber", latestBlockNumber)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -290,7 +291,7 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
 				decodedLog:        decodedLog,
-				jobID:             NewJobIdFromListener(listener),
+				jobID:             listener.JobID(),
 			})
 		}()
 	}

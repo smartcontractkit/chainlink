@@ -45,6 +45,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 	ctxParent, cancel := utils.ContextFromChan(sub.chStop)
 	defer cancel()
 
+	var latestHeight int64 = -1
 	retryCount := 0
 	utils.RetryWithBackoff(ctxParent, func() (retry bool) {
 		if retryCount > 3 {
@@ -52,23 +53,25 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		}
 		retryCount++
 
-		ctx, cancel := context.WithTimeout(ctxParent, 10*time.Second)
-		defer cancel()
+		if latestHeight < 0 {
+			ctx, cancel := eth.DefaultQueryCtx(ctxParent)
+			defer cancel()
 
-		latestBlock, err := sub.ethClient.HeadByNumber(ctx, nil)
-		if err != nil {
-			logger.Errorw("LogBroadcaster: Backfill - could not fetch latest block header, will retry", "err", err)
-			return true
-		} else if latestBlock == nil {
-			logger.Warn("LogBroadcaster: Got nil block header, will retry")
-			return true
+			latestBlock, err := sub.ethClient.HeadByNumber(ctx, nil)
+			if err != nil {
+				logger.Errorw("LogBroadcaster: Backfill - could not fetch latest block header, will retry", "err", err)
+				return true
+			} else if latestBlock == nil {
+				logger.Warn("LogBroadcaster: Got nil block header, will retry")
+				return true
+			}
+			latestHeight = latestBlock.Number
 		}
-		latestHeight := uint64(latestBlock.Number)
 
 		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
 		// filter out logs they've already dealt with.
-		fromBlock := latestHeight - sub.config.BlockBackfillDepth()
-		if fromBlock > latestHeight {
+		fromBlock := uint64(latestHeight) - sub.config.BlockBackfillDepth()
+		if fromBlock > uint64(latestHeight) {
 			fromBlock = 0 // Overflow protection
 		}
 
@@ -76,8 +79,8 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 			fromBlock = uint64(fromBlockOverride.Int64)
 		}
 
-		if fromBlock <= latestHeight {
-			logger.Infow(fmt.Sprintf("LogBroadcaster: Starting backfill of logs from %v blocks...", latestHeight-fromBlock), "fromBlock", fromBlock, "latestHeight", latestHeight)
+		if fromBlock <= uint64(latestHeight) {
+			logger.Infow(fmt.Sprintf("LogBroadcaster: Starting backfill of logs from %v blocks...", uint64(latestHeight)-fromBlock), "fromBlock", fromBlock, "latestHeight", latestHeight)
 		} else {
 			logger.Infow("LogBroadcaster: Backfilling will be nop because fromBlock is above latestHeight",
 				"fromBlock", fromBlock, "latestHeight", latestHeight)
@@ -97,11 +100,11 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		// On matic its 5MB [https://github.com/maticnetwork/bor/blob/3de2110886522ab17e0b45f3c4a6722da72b7519/rpc/http.go#L35]
 		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
 		batchSize := int64(sub.config.EthLogBackfillBatchSize())
-		for from := q.FromBlock.Int64(); from <= int64(latestHeight); from += batchSize {
+		for from := q.FromBlock.Int64(); from <= latestHeight; from += batchSize {
 
 			to := from + batchSize - 1
-			if to > int64(latestHeight) {
-				to = int64(latestHeight)
+			if to > latestHeight {
+				to = latestHeight
 			}
 			q.FromBlock = big.NewInt(from)
 			q.ToBlock = big.NewInt(to)
@@ -129,7 +132,7 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 
 			select {
 			case <-sub.chStop:
-				return
+				return false
 			default:
 				logs = append(logs, batchLogs...)
 			}
@@ -166,7 +169,7 @@ func (sub *ethSubscriber) fetchLogBatch(ctxParent context.Context, query ethereu
 	var errOuter error
 	var result []types.Log
 	utils.RetryWithBackoff(ctxParent, func() (retry bool) {
-		ctx, cancel := context.WithTimeout(ctxParent, 20*time.Second)
+		ctx, cancel := eth.DefaultQueryCtx(ctxParent)
 		defer cancel()
 		batchLogs, err := sub.ethClient.FilterLogs(ctx, query)
 
@@ -207,8 +210,10 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		}
 		chRawLogs := make(chan types.Log)
 
-		ctx2, cancel := context.WithTimeout(ctx, 15*time.Second)
+		ctx2, cancel := eth.DefaultQueryCtx(ctx)
 		defer cancel()
+
+		logger.Debugw("Calling SubscribeFilterLogs with params", "addresses", addresses, "topics", topics)
 
 		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
 		if err != nil {

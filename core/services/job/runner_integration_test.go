@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
-var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
+var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
@@ -356,6 +355,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
+		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -703,13 +703,13 @@ func TestRunner_AsyncJob(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-		cltest.UseRealExternalInitiatorManager,
-	)
+	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	cfg.Set("FEATURE_EXTERNAL_INITIATORS", true)
+	cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
+	defer cleanup()
 
 	require.NoError(t, app.Start())
 

@@ -8,8 +8,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type AuthorizerConfig interface {
+	FeatureExternalInitiators() bool
+}
+
 type Authorizer interface {
-	CanRun(ctx context.Context, jobUUID uuid.UUID) (bool, error)
+	CanRun(ctx context.Context, config AuthorizerConfig, jobUUID uuid.UUID) (bool, error)
 }
 
 var (
@@ -36,7 +40,10 @@ func NewEIAuthorizer(db *gorm.DB, ei models.ExternalInitiator) *eiAuthorizer {
 	return &eiAuthorizer{db, ei}
 }
 
-func (ea *eiAuthorizer) CanRun(ctx context.Context, jobUUID uuid.UUID) (can bool, err error) {
+func (ea *eiAuthorizer) CanRun(ctx context.Context, config AuthorizerConfig, jobUUID uuid.UUID) (can bool, err error) {
+	if !config.FeatureExternalInitiators() {
+		return false, nil
+	}
 	row := ea.db.WithContext(ctx).Raw(`
 SELECT EXISTS (
 	SELECT 1 FROM external_initiator_webhook_specs
@@ -54,12 +61,12 @@ SELECT EXISTS (
 
 type alwaysAuthorizer struct{}
 
-func (*alwaysAuthorizer) CanRun(context.Context, uuid.UUID) (bool, error) {
+func (*alwaysAuthorizer) CanRun(context.Context, AuthorizerConfig, uuid.UUID) (bool, error) {
 	return true, nil
 }
 
 type neverAuthorizer struct{}
 
-func (*neverAuthorizer) CanRun(context.Context, uuid.UUID) (bool, error) {
+func (*neverAuthorizer) CanRun(context.Context, AuthorizerConfig, uuid.UUID) (bool, error) {
 	return false, nil
 }

@@ -75,23 +75,6 @@ func (hr *headBroadcaster) Close() error {
 	})
 }
 
-// TODO: Connect will be removed along with legacy job pipeline
-// See: https://app.clubhouse.io/chainlinklabs/story/13234/remove-jpv1-legacy-pipeline
-func (hr *headBroadcaster) Connect(head *models.Head) error {
-	hr.mutex.Lock()
-	callbacks := hr.callbacks.clone()
-	hr.mutex.Unlock()
-
-	for i, callback := range callbacks {
-		err := callback.Connect(head)
-		if err != nil {
-			logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
-		}
-	}
-
-	return nil
-}
-
 func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	hr.mailbox.Deliver(head)
 }
@@ -153,7 +136,7 @@ func (hr *headBroadcaster) executeCallbacks() {
 	)
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(hr.callbacks))
+	wg.Add(len(callbacks))
 
 	for _, callback := range callbacks {
 		go func(hr httypes.HeadTrackable) {
@@ -184,7 +167,6 @@ type NullBroadcaster struct{}
 
 func (*NullBroadcaster) Start() error                                            { return nil }
 func (*NullBroadcaster) Close() error                                            { return nil }
-func (*NullBroadcaster) Connect(head *models.Head) error                         { return nil }
 func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {}
 func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
 	return nil, func() {}

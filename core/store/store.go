@@ -41,24 +41,18 @@ type Store struct {
 }
 
 // NewStore will create a new store
-// func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	// return newStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
-	return newStore(config, ethClient, advisoryLock, shutdownSignal)
+	return newStore(config, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	// return newStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
-	return newStore(config, ethClient, advisoryLocker, shutdownSignal)
+func NewInsecureStore(config *config.Config, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	return newStore(config, advisoryLocker, shutdownSignal)
 }
 
-// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
-// See: https://www.pivotaltracker.com/story/show/175493792
 func newStore(
 	config *config.Config,
-	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
@@ -81,19 +75,7 @@ func newStore(
 	return store, nil
 }
 
-// Start initiates all of Store's dependencies
 func (s *Store) Start() error {
-	return checkV1JobSpecs(s.DB)
-}
-
-func checkV1JobSpecs(db *gorm.DB) error {
-	var count int
-	if err := db.Raw(`SELECT count(*) FROM job_specs`).Scan(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
-		logger.Warnf(`Found %d legacy job_specs. The JSON style of job spec is now deprecated and support for jobs using this format will be REMOVED in an upcoming release. You should migrate all these jobs to V2 (TOML) format. For help doing this, please refer to the docs (https://docs.chain.link/docs/jobs/). To test your node to see how it would behave after support for these jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false`, count)
-	}
 	return nil
 }
 
