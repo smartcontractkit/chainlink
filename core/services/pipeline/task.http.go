@@ -47,6 +47,14 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
+func (t *HTTPTask) TaskRetries() uint32 {
+	if t.Retries.Valid {
+		return t.Retries.Uint32
+	}
+	// default to 5 retries
+	return 5
+}
+
 func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {

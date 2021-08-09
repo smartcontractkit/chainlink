@@ -50,7 +50,60 @@ func Test_TaskAnyUnmarshal(t *testing.T) {
 	require.Len(t, p.Tasks, 1)
 	_, ok := p.Tasks[0].(*pipeline.AnyTask)
 	require.True(t, ok)
-	require.Equal(t, "true", p.Tasks[0].Base().FailEarly)
+	require.Equal(t, true, p.Tasks[0].Base().FailEarly)
+}
+
+func Test_RetryUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		spec    string
+		retries uint32
+		min     time.Duration
+		max     time.Duration
+	}{
+		{
+
+			"nothing specified",
+			`ds1 [type=any];`,
+			0,
+			time.Second * 5,
+			time.Minute,
+		},
+		{
+
+			"only retry specified",
+			`ds1 [type=any retries=5];`,
+			5,
+			time.Second * 5,
+			time.Minute,
+		},
+		{
+			"http defaults to 5 retries",
+			`ds1 [type=http];`,
+			5,
+			time.Second * 5,
+			time.Minute,
+		},
+		{
+			"all params set",
+			`ds1 [type=http retries=10 minBackoff="1s" maxBackoff="30m"];`,
+			10,
+			time.Second,
+			time.Minute * 30,
+		},
+	}
+
+	for _, test := range tests {
+		p, err := pipeline.Parse(test.spec)
+		require.NoError(t, err)
+		require.Len(t, p.Tasks, 1)
+		require.Equal(t, test.retries, p.Tasks[0].TaskRetries())
+		require.Equal(t, test.min, p.Tasks[0].TaskMinBackoff())
+		require.Equal(t, test.max, p.Tasks[0].TaskMaxBackoff())
+	}
+
 }
 
 func Test_UnmarshalTaskFromMap(t *testing.T) {

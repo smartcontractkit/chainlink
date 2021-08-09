@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
@@ -33,6 +34,9 @@ type (
 		Inputs() []Task
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
+		TaskRetries() uint32
+		TaskMinBackoff() time.Duration
+		TaskMaxBackoff() time.Duration
 	}
 
 	Config interface {
@@ -60,6 +64,7 @@ var (
 	ErrTooManyErrors         = errors.New("too many errors")
 	ErrTimeout               = errors.New("timeout")
 	ErrTaskRunFailed         = errors.New("task run failed")
+	ErrCancelled             = errors.New("task run cancelled (fail early)")
 )
 
 const (
@@ -119,6 +124,7 @@ type TaskRunResult struct {
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
+	Attempts   uint
 	CreatedAt  time.Time
 	FinishedAt null.Time
 }
@@ -239,10 +245,11 @@ const (
 )
 
 var (
-	stringType  = reflect.TypeOf("")
-	bytesType   = reflect.TypeOf([]byte(nil))
-	bytes20Type = reflect.TypeOf([20]byte{})
-	int32Type   = reflect.TypeOf(int32(0))
+	stringType     = reflect.TypeOf("")
+	bytesType      = reflect.TypeOf([]byte(nil))
+	bytes20Type    = reflect.TypeOf([20]byte{})
+	int32Type      = reflect.TypeOf(int32(0))
+	nullUint32Type = reflect.TypeOf(cnull.Uint32{})
 )
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
@@ -299,17 +306,18 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	}
 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result: task,
+		Result:           task,
+		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-				switch from {
-				case stringType:
-					switch to {
-					case int32Type:
-						i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						return int32(i), err2
-					}
+				if from != stringType {
+					return data, nil
+				}
+				switch to {
+				case nullUint32Type:
+					i, err2 := strconv.ParseUint(data.(string), 10, 32)
+					return cnull.Uint32From(uint32(i)), err2
 				}
 				return data, nil
 			},

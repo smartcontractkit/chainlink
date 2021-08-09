@@ -150,9 +150,10 @@ func (r *runner) runReaperLoop() {
 }
 
 type memoryTaskRun struct {
-	task   Task
-	inputs []Result // sorted by input index
-	vars   Vars
+	task     Task
+	inputs   []Result // sorted by input index
+	vars     Vars
+	attempts uint
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
@@ -353,6 +354,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
+		"attempt", taskRun.attempts,
 	}
 
 	// Order of precedence for task timeout:
