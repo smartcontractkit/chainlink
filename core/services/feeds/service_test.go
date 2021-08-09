@@ -435,6 +435,7 @@ func Test_Service_StartStop(t *testing.T) {
 	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
 	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
 	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil)
+	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 	svc.connMgr.On("Close")
 
