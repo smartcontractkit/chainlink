@@ -48,7 +48,7 @@ func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int64, error
 		RETURNING id;
 	`
 
-	row := o.db.Raw(stmt,
+	row := o.db.WithContext(ctx).Raw(stmt,
 		ms.Name,
 		ms.URI,
 		ms.PublicKey,
@@ -78,7 +78,7 @@ func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 		FROM feeds_managers;
 	`
 
-	err := o.db.Raw(stmt).Scan(&mgrs).Error
+	err := o.db.WithContext(ctx).Raw(stmt).Scan(&mgrs).Error
 	if err != nil {
 		return mgrs, err
 	}
@@ -95,7 +95,7 @@ func (o *orm) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	`
 
 	mgr := FeedsManager{}
-	result := o.db.Raw(stmt, id).Scan(&mgr)
+	result := o.db.WithContext(ctx).Raw(stmt, id).Scan(&mgr)
 	if result.RowsAffected == 0 {
 		return nil, sql.ErrNoRows
 	}
