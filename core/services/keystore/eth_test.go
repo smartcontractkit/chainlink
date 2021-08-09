@@ -24,6 +24,7 @@ func Test_EthKeyStore_CreateNewKey(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, err := ethKeyStore.CreateNewKey()
@@ -39,7 +40,7 @@ func Test_EthKeyStore_CreateNewKey(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, has)
 
-	cltest.AssertCount(t, store, ethkey.Key{}, 1)
+	cltest.AssertCount(t, db, ethkey.Key{}, 1)
 }
 
 func Test_EthKeyStore_Unlock(t *testing.T) {
@@ -79,9 +80,10 @@ func Test_EthKeyStore_EnsureFundingKey(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	cltest.AssertCount(t, store, ethkey.Key{}, 0)
+	cltest.AssertCount(t, db, ethkey.Key{}, 0)
 
 	_, _, err := ethKeyStore.EnsureFundingKey()
 	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
@@ -93,7 +95,7 @@ func Test_EthKeyStore_EnsureFundingKey(t *testing.T) {
 	require.False(t, didExist)
 	require.True(t, k.IsFunding)
 
-	cltest.AssertCount(t, store, ethkey.Key{}, 1)
+	cltest.AssertCount(t, db, ethkey.Key{}, 1)
 }
 
 func Test_EthKeyStore_ImportKey(t *testing.T) {
@@ -188,6 +190,7 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 	t.Run("hard delete", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		db := store.DB
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, err := ethKeyStore.RemoveKey(cltest.NewAddress(), false)
@@ -211,12 +214,13 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys, 0)
 
-		cltest.AssertCount(t, store, ethkey.Key{}, 0)
+		cltest.AssertCount(t, db, ethkey.Key{}, 0)
 	})
 
 	t.Run("soft delete", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		db := store.DB
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, err := ethKeyStore.RemoveKey(cltest.NewAddress(), false)
@@ -240,7 +244,7 @@ func Test_EthKeyStore_RemoveKey(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys, 0)
 
-		cltest.AssertCount(t, store, ethkey.Key{}, 1)
+		cltest.AssertCount(t, db, ethkey.Key{}, 1)
 
 		// Does not load soft deleted keys on a subsequent unlock
 		ks := keystore.New(store.DB, utils.FastScryptParams).Eth()

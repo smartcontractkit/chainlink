@@ -2,15 +2,12 @@ package orm
 
 import (
 	"bytes"
-	"context"
 	"crypto/subtle"
 	"database/sql"
-	"encoding"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +19,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/ethereum/go-ethereum/common"
-	gormpostgrestypes "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -36,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+
+	"gorm.io/datatypes"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -124,7 +122,7 @@ func displayTimeout(timeout models.Duration) string {
 
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.Logger = newOrmLogWrapper(logger.Default, enabled, time.Second)
+	orm.DB.Logger = NewOrmLogWrapper(logger.Default, enabled, time.Second)
 }
 
 // Close closes the underlying database connection.
@@ -557,6 +555,19 @@ func (orm *ORM) DeleteJobSpecError(ID int64) error {
 	return nil
 }
 
+// ExternalInitiatorsSorted returns many ExternalInitiators sorted by Name from the store adhering
+// to the passed parameters.
+func (orm *ORM) ExternalInitiatorsSorted(offset int, limit int) ([]models.ExternalInitiator, int, error) {
+	count, err := orm.CountOf(&models.ExternalInitiator{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var exis []models.ExternalInitiator
+	err = orm.getRecords(&exis, "name asc", offset, limit)
+	return exis, count, err
+}
+
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
@@ -692,60 +703,6 @@ func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string
 		Where("status = ?", status).
 		Count(&count).Error
 	return int(count), err
-}
-
-// Sessions returns all sessions limited by the parameters.
-func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
-	var sessions []models.Session
-	err := orm.DB.
-		Limit(limit).
-		Offset(offset).
-		Find(&sessions).Error
-	return sessions, err
-}
-
-// GetConfigValue returns the value for a named configuration entry
-func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
-	name := EnvVarName(field)
-	config := models.Configuration{}
-	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
-		return err
-	}
-	return value.UnmarshalText([]byte(config.Value))
-}
-
-// GetConfigBoolValue returns a boolean value for a named configuration entry
-func (orm *ORM) GetConfigBoolValue(field string) (*bool, error) {
-	name := EnvVarName(field)
-	config := models.Configuration{}
-	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
-		return nil, err
-	}
-	value, err := strconv.ParseBool(config.Value)
-	if err != nil {
-		return nil, err
-	}
-	return &value, nil
-}
-
-// SetConfigValue returns the value for a named configuration entry
-func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
-	name := EnvVarName(field)
-	textValue, err := value.MarshalText()
-	if err != nil {
-		return err
-	}
-	return orm.DB.Where(models.Configuration{Name: name}).
-		Assign(models.Configuration{Name: name, Value: string(textValue)}).
-		FirstOrCreate(&models.Configuration{}).Error
-}
-
-// SetConfigValue returns the value for a named configuration entry
-func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value string) error {
-	name := EnvVarName(field)
-	return orm.DB.WithContext(ctx).Where(models.Configuration{Name: name}).
-		Assign(models.Configuration{Name: name, Value: value}).
-		FirstOrCreate(&models.Configuration{}).Error
 }
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
@@ -907,7 +864,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(meta models.EthTxMeta, fromAddress 
 		Value:          assets.NewEthValue(0),
 		GasLimit:       gasLimit,
 		State:          bulletprooftxmanager.EthTxUnstarted,
-		Meta:           gormpostgrestypes.Jsonb{RawMessage: metaBytes},
+		Meta:           datatypes.JSON(metaBytes),
 	}
 	ethTaskRunTransaction := bulletprooftxmanager.EthTaskRunTx{
 		TaskRunID: meta.TaskRunID,
@@ -981,15 +938,6 @@ func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*bulletprooftx
 		return nil, nil
 	}
 	return etrt, err
-}
-
-// FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
-func (orm *ORM) FindEthTxWithAttempts(etxID int64) (bulletprooftxmanager.EthTx, error) {
-	etx := bulletprooftxmanager.EthTx{}
-	err := orm.DB.Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-		return db.Order("gas_price asc, id asc")
-	}).Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
-	return etx, err
 }
 
 // EthTxAttempts returns the last tx attempts sorted by created_at descending.
@@ -1129,11 +1077,6 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-// ClearSessions removes all sessions.
-func (orm *ORM) ClearSessions() error {
-	return orm.DB.Exec("DELETE FROM sessions").Error
-}
-
 // ClearNonCurrentSessions removes all sessions but the id passed in.
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
@@ -1224,11 +1167,6 @@ func (orm *ORM) SaveUser(user *models.User) error {
 	return orm.DB.Save(user).Error
 }
 
-// SaveSession saves the session.
-func (orm *ORM) SaveSession(session *models.Session) error {
-	return orm.DB.Save(session).Error
-}
-
 // CreateBridgeType saves the bridge type.
 func (orm *ORM) CreateBridgeType(bt *models.BridgeType) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
@@ -1254,11 +1192,6 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 		return err
 	}
 	return orm.DB.Create(initr).Error
-}
-
-// DeleteStaleSessions deletes all sessions before the passed time.
-func (orm *ORM) DeleteStaleSessions(before time.Time) error {
-	return orm.DB.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
@@ -1490,7 +1423,7 @@ func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = uri.String()
 	}
 
-	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
+	newLogger := NewOrmLogWrapper(logger.Default, false, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
 	d, err := sql.Open(string(ct.dialect), ct.uri)

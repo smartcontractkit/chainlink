@@ -89,11 +89,6 @@ func (_m *Broadcast) RawLog() types.Log {
 	return r0
 }
 
-// SetDecodedLog provides a mock function with given fields: _a0
-func (_m *Broadcast) SetDecodedLog(_a0 interface{}) {
-	_m.Called(_a0)
-}
-
 // String provides a mock function with given fields:
 func (_m *Broadcast) String() string {
 	ret := _m.Called()

@@ -9,8 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -18,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"gonum.org/v1/gonum/graph/encoding/dot"
@@ -57,12 +56,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jid, err := mc.App.AddJobV2(c, jbV2, jbV2.Name)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-	jb, err := mc.App.JobORM().FindJob(jid)
+	jb, err := mc.App.AddJobV2(c, jbV2, jbV2.Name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -77,7 +71,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 }
 
 // Does not support mixed initiator types.
-func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
+func MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	if len(js.Initiators) == 0 {
 		return jb, errors.New("initiator required to migrate job")

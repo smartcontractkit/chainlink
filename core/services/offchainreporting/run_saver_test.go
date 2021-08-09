@@ -4,20 +4,19 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func TestRunSaver(t *testing.T) {
 	pipelineRunner := new(mocks.Runner)
 	rr := make(chan pipeline.RunWithResults, 100)
-	c := orm.NewConfig()
+	c := config.NewConfig()
 	url := c.DatabaseURL()
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{DSN: url.String()}), &gorm.Config{})
 	require.NoError(t, err)

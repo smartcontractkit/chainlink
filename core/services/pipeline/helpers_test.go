@@ -45,7 +45,7 @@ func (t *ETHCallTask) HelperSetDependencies(client eth.Client) {
 	t.ethClient = client
 }
 
-func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, config Config, keyStore KeyStore, txManager TxManager) {
+func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, config Config, keyStore ETHKeyStore, txManager TxManager) {
 	t.db = db
 	t.config = config
 	t.keyStore = keyStore

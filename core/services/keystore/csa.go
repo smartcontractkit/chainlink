@@ -13,6 +13,10 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	ErrCSAKeyExists = errors.New("a csa key already exists")
+)
+
 //go:generate mockery --name CSAKeystoreInterface --output mocks/ --case=underscore
 
 type CSAKeystoreInterface interface {
@@ -52,7 +56,7 @@ func (ks *CSA) CreateCSAKey() (*csakey.Key, error) {
 	}
 
 	if count >= 1 {
-		return nil, errors.New("can only have 1 CSA key")
+		return nil, ErrCSAKeyExists
 	}
 
 	key, err := csakey.New(ks.password, ks.scryptParams)

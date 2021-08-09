@@ -47,14 +47,14 @@ func (_m *Spawner) Close() error {
 }
 
 // CreateJob provides a mock function with given fields: ctx, spec, name
-func (_m *Spawner) CreateJob(ctx context.Context, spec job.Job, name null.String) (int32, error) {
+func (_m *Spawner) CreateJob(ctx context.Context, spec job.Job, name null.String) (job.Job, error) {
 	ret := _m.Called(ctx, spec, name)
 
-	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, job.Job, null.String) int32); ok {
+	var r0 job.Job
+	if rf, ok := ret.Get(0).(func(context.Context, job.Job, null.String) job.Job); ok {
 		r0 = rf(ctx, spec, name)
 	} else {
-		r0 = ret.Get(0).(int32)
+		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error

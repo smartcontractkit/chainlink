@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -225,7 +226,11 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; maximum number of in-flight transactions is %d per key. If this happens a lot, you might need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS. %s`, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "nUnconfirmed", nUnconfirmed)
+				nUnstarted, err := CountUnstartedTransactions(eb.db, fromAddress)
+				if err != nil {
+					return errors.Wrap(err, "CountUnstartedTransactions failed")
+				}
+				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; current queue size is %d but maximum number of in-flight transactions is %d per key. %s`, nUnstarted, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
 				time.Sleep(InFlightTransactionRecheckInterval)
 				continue
 			}
@@ -434,9 +439,18 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 	etx.State = EthTxInProgress
 	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
 		err := tx.Create(attempt).Error
-		if e, is := err.(*pq.Error); is && e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
-			return errEthTxRemoved
-		} else if err != nil {
+
+		switch e := err.(type) {
+		case *pq.Error:
+			if e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
+			}
+		case *pgconn.PgError:
+			if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+				return errEthTxRemoved
+			}
+		}
+		if err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
 		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")

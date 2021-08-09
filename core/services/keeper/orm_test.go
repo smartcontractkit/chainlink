@@ -60,6 +60,8 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
@@ -73,7 +75,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 		PositioningConstant: 1,
 	}
 	require.NoError(t, store.DB.Create(&upkeep).Error)
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
 
 	// update upkeep
 	upkeep.ExecuteGas = 20_000
@@ -83,7 +85,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 	err := orm.UpsertUpkeep(context.Background(), &upkeep)
 	require.NoError(t, err)
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
 
 	var upkeepFromDB keeper.UpkeepRegistration
 	err = store.DB.First(&upkeepFromDB).Error
@@ -98,6 +100,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
@@ -106,11 +109,11 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	}
 
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 3)
 
 	_, err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
 	require.NoError(t, err)
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
 
 	var remainingUpkeep keeper.UpkeepRegistration
 	err = store.DB.First(&remainingUpkeep).Error
@@ -122,6 +125,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	blockheight := int64(63)
@@ -148,7 +152,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 5)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 5)
 
 	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry.ContractAddress, blockheight, gracePeriod)
 	assert.NoError(t, err)
@@ -174,6 +178,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	blockheight := int64(120)
@@ -192,7 +197,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 3)
 
 	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry.ContractAddress, blockheight, gracePeriod)
 	assert.NoError(t, err)
@@ -205,6 +210,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
@@ -212,8 +218,8 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	require.NoError(t, store.DB.Save(&registry).Error)
 	cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
 
 	// out of 5 valid block ranges, with 5 keepers, we are eligible
 	// to submit on exactly 1 of them
@@ -236,6 +242,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
@@ -247,8 +254,8 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	}
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1000)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1000)
 
 	// in a full cycle, each node should be responsible for each upkeep exactly once
 	list1, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry.ContractAddress, 20, 0) // someone eligible
@@ -270,6 +277,7 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry1, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
@@ -278,8 +286,8 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	cltest.MustInsertUpkeepForRegistry(t, store, registry1)
 	cltest.MustInsertUpkeepForRegistry(t, store, registry2)
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 2)
-	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 2)
+	cltest.AssertCount(t, db, keeper.Registry{}, 2)
+	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 2)
 
 	list1, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry1.ContractAddress, 20, 0)
 	require.NoError(t, err)

@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"testing"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gorm.io/gorm"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 const (
@@ -87,4 +89,17 @@ func CompareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
+}
+
+func MustInsertWebhookSpec(t *testing.T, db *gorm.DB) (job.Job, job.WebhookSpec) {
+	webhookSpec := job.WebhookSpec{}
+	err := db.Create(&webhookSpec).Error
+	require.NoError(t, err)
+	pSpec := pipeline.Spec{}
+	err = db.Create(&pSpec).Error
+	require.NoError(t, err)
+	job := job.Job{WebhookSpecID: &webhookSpec.ID, SchemaVersion: 1, Type: "webhook", ExternalJobID: uuid.NewV4(), PipelineSpecID: pSpec.ID}
+	err = db.Create(&job).Error
+	require.NoError(t, err)
+	return job, webhookSpec
 }

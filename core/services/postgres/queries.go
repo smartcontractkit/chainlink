@@ -73,3 +73,13 @@ DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_run
 		return uint(res.RowsAffected), res.Error
 	})
 }
+
+// Sessions returns all sessions limited by the parameters.
+func Sessions(db *gorm.DB, offset, limit int) ([]models.Session, error) {
+	var sessions []models.Session
+	err := db.
+		Limit(limit).
+		Offset(offset).
+		Find(&sessions).Error
+	return sessions, err
+}

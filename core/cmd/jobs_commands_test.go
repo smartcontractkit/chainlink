@@ -318,12 +318,13 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+	require.NotEmpty(t, r.Renders)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
 	requireJobsCount(t, app.JobORM(), 1)
 
-	jobs, err := app.JobORM().JobsV2()
+	jobs, _, err := app.JobORM().JobsV2(0, 1000)
 	require.NoError(t, err)
 	jobID := jobs[0].ID
 	cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
@@ -342,7 +343,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
-	jobs, err := orm.JobsV2()
+	jobs, _, err := orm.JobsV2(0, 1000)
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)
 }
@@ -352,6 +353,7 @@ func TestClient_Migrate(t *testing.T) {
 
 	app := startNewApplication(t)
 	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	app.Config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	client, _ := app.NewClientAndRenderer()
 	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
 

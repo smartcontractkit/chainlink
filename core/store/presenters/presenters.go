@@ -17,11 +17,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 )
@@ -39,6 +38,7 @@ type EnvPrinter struct {
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
 	BalanceMonitorEnabled                      bool            `json:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
+	BlockBackfillSkip                          bool            `json:"BLOCK_BACKFILL_SKIP"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
@@ -82,7 +82,7 @@ type EnvPrinter struct {
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
-	LogLevel                                   orm.LogLevel    `json:"LOG_LEVEL"`
+	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
@@ -142,6 +142,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			AllowOrigins:                               config.AllowOrigins(),
 			BalanceMonitorEnabled:                      config.BalanceMonitorEnabled(),
 			BlockBackfillDepth:                         config.BlockBackfillDepth(),
+			BlockBackfillSkip:                          config.BlockBackfillSkip(),
 			BlockHistoryEstimatorBlockDelay:            config.BlockHistoryEstimatorBlockDelay(),
 			BlockHistoryEstimatorBlockHistorySize:      config.BlockHistoryEstimatorBlockHistorySize(),
 			BlockHistoryEstimatorTransactionPercentile: config.BlockHistoryEstimatorTransactionPercentile(),
@@ -233,7 +234,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(orm.ConfigSchema{})
+	schemaT := reflect.TypeOf(config.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 
@@ -551,49 +552,4 @@ func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
 // readable format.
 func (sa ServiceAgreement) FriendlyAggregatorFulfillMethod() string {
 	return sa.Encumbrance.AggFulfillSelector.String()
-}
-
-// ExternalInitiatorAuthentication includes initiator and authentication details.
-type ExternalInitiatorAuthentication struct {
-	Name           string        `json:"name,omitempty"`
-	URL            models.WebURL `json:"url,omitempty"`
-	AccessKey      string        `json:"incomingAccessKey,omitempty"`
-	Secret         string        `json:"incomingSecret,omitempty"`
-	OutgoingToken  string        `json:"outgoingToken,omitempty"`
-	OutgoingSecret string        `json:"outgoingSecret,omitempty"`
-}
-
-// NewExternalInitiatorAuthentication creates an instance of ExternalInitiatorAuthentication.
-func NewExternalInitiatorAuthentication(
-	ei models.ExternalInitiator,
-	eia auth.Token,
-) *ExternalInitiatorAuthentication {
-	var result = &ExternalInitiatorAuthentication{
-		Name:           ei.Name,
-		AccessKey:      ei.AccessKey,
-		Secret:         eia.Secret,
-		OutgoingToken:  ei.OutgoingToken,
-		OutgoingSecret: ei.OutgoingSecret,
-	}
-	if ei.URL != nil {
-		result.URL = *ei.URL
-	}
-	return result
-}
-
-// GetID returns the jsonapi ID.
-func (ei *ExternalInitiatorAuthentication) GetID() string {
-	return ei.Name
-}
-
-// GetName returns the collection name for jsonapi.
-func (*ExternalInitiatorAuthentication) GetName() string {
-	return "external initiators"
-}
-
-// SetID is used to conform to the UnmarshallIdentifier interface for
-// deserializing from jsonapi documents.
-func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
-	ei.Name = name
-	return nil
 }

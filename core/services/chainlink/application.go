@@ -1,16 +1,22 @@
 package chainlink
 
 import (
+	"bytes"
 	"context"
 	stderr "errors"
 	"fmt"
+	"math/big"
 	"os"
 	"os/signal"
 	"reflect"
 	"sync"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -43,8 +49,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
@@ -61,6 +67,8 @@ type Application interface {
 	GetLogger() *logger.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
+	GetEthClient() eth.Client
+	GetConfig() *config.Config
 	GetKeyStore() *keystore.Master
 	GetStatsPusher() synchronization.StatsPusher
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
@@ -78,7 +86,7 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	PipelineORM() pipeline.ORM
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
@@ -88,6 +96,9 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
+
+	// ReplayFromBlock of blocks
+	ReplayFromBlock(number uint64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -112,7 +123,9 @@ type ChainlinkApplication struct {
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Scheduler                *services.Scheduler
+	ethClient                eth.Client
 	Store                    *strpkg.Store
+	Config                   *config.Config
 	KeyStore                 *keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -132,44 +145,45 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
+func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
+	store, err := strpkg.NewStore(cfg, ethClient, advisoryLocker, shutdownSignal)
 	if err != nil {
 		return nil, err
 	}
+	gormTxm := postgres.NewGormTransactionManager(store.DB)
 
-	setupConfig(config, store)
+	setupConfig(cfg, store.DB)
 
 	healthChecker := health.NewChecker()
 
-	scryptParams := utils.GetScryptParams(config)
+	scryptParams := utils.GetScryptParams(cfg)
 	keyStore := keystore.New(store.DB, scryptParams)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
-	if config.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(), config.StatsPusherLogging())
+	if cfg.ExplorerURL() != nil {
+		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
 	subservices = append(subservices, explorerClient, statsPusher)
 
-	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
-		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
+	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
+		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		subservices = append(subservices, databaseBackup)
 	} else {
 		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	// Init service loggers
-	globalLogger := config.CreateProductionLogger()
+	globalLogger := cfg.CreateProductionLogger()
 	globalLogger.SetDB(store.DB)
 	serviceLogLevels, err := globalLogger.GetServiceLogLevels()
 	if err != nil {
@@ -182,24 +196,24 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var headBroadcaster httypes.HeadBroadcaster
 	var headTracker httypes.Tracker
-	if config.EthereumDisabled() {
+	if cfg.EthereumDisabled() {
 		headBroadcaster = &headtracker.NullBroadcaster{}
 		headTracker = &headtracker.NullTracker{}
 	} else {
 		headBroadcaster = headtracker.NewHeadBroadcaster()
 		orm := headtracker.NewORM(store.DB)
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, config, orm, headBroadcaster)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, ethClient, cfg, orm, headBroadcaster)
 	}
 
 	var runExecutor services.RunExecutor
 	var runQueue services.RunQueue
 	var runManager services.RunManager
 	var jobSubscriber services.JobSubscriber
-	if config.EnableLegacyJobPipeline() {
-		runExecutor = services.NewRunExecutor(store, keyStore, statsPusher)
+	if cfg.EnableLegacyJobPipeline() {
+		runExecutor = services.NewRunExecutor(store, ethClient, keyStore, statsPusher)
 		runQueue = services.NewRunQueue(runExecutor)
-		runManager = services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
-		jobSubscriber = services.NewJobSubscriber(store, runManager)
+		runManager = services.NewRunManager(runQueue, cfg, store.ORM, statsPusher, store.Clock)
+		jobSubscriber = services.NewJobSubscriber(store, runManager, ethClient)
 	} else {
 		runExecutor = &services.NullRunExecutor{}
 		runQueue = &services.NullRunQueue{}
@@ -207,12 +221,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber = &services.NullJobSubscriber{}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
 	subservices = append(subservices, eventBroadcaster)
 
 	var txManager bulletprooftxmanager.TxManager
 	var logBroadcaster log.Broadcaster
-	if config.EthereumDisabled() {
+	if cfg.EthereumDisabled() {
 		txManager = &bulletprooftxmanager.NullTxManager{ErrMsg: "TxManager is not running because Ethereum is disabled"}
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: "LogBroadcaster is not running because Ethereum is disabled"}
 	} else {
@@ -222,12 +236,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			return nil, err2
 		}
 
-		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, highestSeenHead)
-		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, store.Config, keyStore.Eth(), advisoryLocker, eventBroadcaster)
+		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, cfg, highestSeenHead)
+		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, cfg, keyStore.Eth(), advisoryLocker, eventBroadcaster)
 		subservices = append(subservices, logBroadcaster, txManager)
 	}
 
-	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster)
+	fluxMonitor := fluxmonitor.New(store, keyStore.Eth(), runManager, logBroadcaster, ethClient)
 
 	subservices = append(subservices,
 		fluxMonitor,
@@ -235,8 +249,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	)
 
 	var balanceMonitor services.BalanceMonitor
-	if config.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(store, keyStore.Eth())
+	if cfg.BalanceMonitorEnabled() {
+		balanceMonitor = services.NewBalanceMonitor(store.DB, ethClient, keyStore.Eth())
 	} else {
 		balanceMonitor = &services.NullBalanceMonitor{}
 	}
@@ -247,11 +261,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.DB)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config, ethClient, txManager)
-		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), keyStore.VRF(), txManager)
+		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
-	// vorm := vrf.NewORM(store.DB)
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -260,9 +273,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineORM,
 				ethClient,
 				store.DB,
-				config,
+				cfg,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, ethClient, headBroadcaster, logBroadcaster, cfg),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -270,15 +283,16 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				pipelineORM,
 				logBroadcaster,
-				store.EthClient,
-				store.Config),
+				headBroadcaster,
+				ethClient,
+				cfg),
 		}
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if config.EthereumDisabled() {
+	if cfg.EthereumDisabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else if config.Dev() || config.FeatureFluxMonitorV2() {
+	} else if cfg.Dev() || cfg.FeatureFluxMonitorV2() {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			txManager,
 			keyStore.Eth(),
@@ -289,58 +303,59 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			ethClient,
 			logBroadcaster,
 			fluxmonitorv2.Config{
-				DefaultHTTPTimeout:             store.Config.DefaultHTTPTimeout().Duration(),
-				FlagsContractAddress:           store.Config.FlagsContractAddress(),
-				MinContractPayment:             store.Config.MinimumContractPayment(),
-				EthGasLimit:                    store.Config.EthGasLimitDefault(),
-				EthMaxQueuedTransactions:       store.Config.EthMaxQueuedTransactions(),
-				FMDefaultTransactionQueueDepth: store.Config.FMDefaultTransactionQueueDepth(),
+				DefaultHTTPTimeout:             cfg.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:           cfg.FlagsContractAddress(),
+				MinContractPayment:             cfg.MinimumContractPayment(),
+				EthGasLimit:                    cfg.EthGasLimitDefault(),
+				EthMaxQueuedTransactions:       cfg.EthMaxQueuedTransactions(),
+				FMDefaultTransactionQueueDepth: cfg.FMDefaultTransactionQueueDepth(),
 			},
 		)
 	}
 
-	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
+	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), config, store.DB)
+		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), cfg, store.DB)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
 			txManager,
 			jobORM,
-			config,
+			cfg,
 			keyStore.OCR(),
 			pipelineRunner,
 			ethClient,
 			logBroadcaster,
 			concretePW,
 			monitoringEndpoint,
-			config.Chain(),
+			cfg.Chain(),
 			headBroadcaster,
 		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
 
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB, utils.UnrestrictedClient)
 
 	var webhookJobRunner webhook.JobRunner
-	if config.Dev() || config.FeatureWebhookV2() {
+	if cfg.Dev() || cfg.FeatureWebhookV2() {
 		delegate := webhook.NewDelegate(pipelineRunner, externalInitiatorManager)
 		delegates[job.Webhook] = delegate
 		webhookJobRunner = delegate.WebhookJobRunner()
 	}
 
-	if config.Dev() || config.FeatureCronV2() {
+	if cfg.Dev() || cfg.FeatureCronV2() {
 		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, keyStore.CSA(), keyStore.Eth(), config)
+	feedsService := feeds.NewService(feedsORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), cfg)
 
 	app := &ChainlinkApplication{
+		ethClient:                ethClient,
 		HeadBroadcaster:          headBroadcaster,
 		TxManager:                txManager,
 		JobSubscriber:            jobSubscriber,
@@ -353,19 +368,21 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		FluxMonitor:              fluxMonitor,
 		FeedsService:             feedsService,
 		StatsPusher:              statsPusher,
+		Config:                   cfg,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
 		webhookJobRunner:         webhookJobRunner,
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		KeyStore:                 keyStore,
-		SessionReaper:            services.NewSessionReaper(store),
+		SessionReaper:            services.NewSessionReaper(store.DB, cfg),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
+		HeadTracker:              headTracker,
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -388,7 +405,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			return nil
 		}})
 	}
-	app.HeadTracker = headTracker
 
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
@@ -398,6 +414,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		if err = app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
 			return nil, err
 		}
+	}
+
+	if err = app.HealthChecker.Register(reflect.TypeOf(headTracker).String(), headTracker); err != nil {
+		return nil, err
 	}
 
 	return app, nil
@@ -423,19 +443,20 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
 }
 
-func setupConfig(config *orm.Config, store *strpkg.Store) {
-	config.SetRuntimeStore(store.ORM)
+func setupConfig(cfg *config.Config, db *gorm.DB) {
+	orm := config.NewORM(db)
+	cfg.SetRuntimeStore(orm)
 
-	if !config.P2PPeerIDIsSet() {
+	if !cfg.P2PPeerIDIsSet() {
 		var keys []p2pkey.EncryptedP2PKey
-		err := store.DB.Order("created_at asc, id asc").Find(&keys).Error
+		err := db.Order("created_at asc, id asc").Find(&keys).Error
 		if err != nil {
 			logger.Warnw("Failed to load keys", "err", err)
 		} else {
 			if len(keys) > 0 {
 				peerID := keys[0].PeerID
 				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
-				config.Set("P2P_PEER_ID", peerID)
+				cfg.Set("P2P_PEER_ID", peerID)
 				if len(keys) > 1 {
 					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
 				}
@@ -466,7 +487,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	// EthClient must be dialed first because it is required in subtasks
-	if err := app.Store.EthClient.Dial(context.TODO()); err != nil {
+	if err := app.ethClient.Dial(context.Background()); err != nil {
 		return err
 	}
 
@@ -594,6 +615,14 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
+func (app *ChainlinkApplication) GetEthClient() eth.Client {
+	return app.ethClient
+}
+
+func (app *ChainlinkApplication) GetConfig() *config.Config {
+	return app.Config
+}
+
 func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {
 	return app.KeyStore
 }
@@ -650,7 +679,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
 	return app.jobSpawner.CreateJob(ctx, j, name)
 }
 
@@ -662,7 +691,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
-// Only used for testing, not supported by the UI.
+// Only used for local testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
@@ -671,22 +700,62 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
-	jb, err := app.jobORM.FindJob(jobID)
+	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	if !jb.Type.HasPipelineSpec() {
-		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
-	} else {
-		vars := map[string]interface{}{
-			"jobRun": map[string]interface{}{
-				"meta": meta,
-			},
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
+		var vars map[string]interface{}
+		var saveTasks bool
+		if jb.Type == job.VRF {
+			saveTasks = true
+			// Create a dummy log to trigger a run
+			testLog := types.Log{
+				Data: bytes.Join([][]byte{
+					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
+					common.BigToHash(big.NewInt(42)).Bytes(), // seed
+					utils.NewHash().Bytes(),                  // sender
+					utils.NewHash().Bytes(),                  // fee
+					utils.NewHash().Bytes()},                 // requestID
+					[]byte{}),
+				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+				TxHash:      utils.NewHash(),
+				BlockNumber: 10,
+				BlockHash:   utils.NewHash(),
+			}
+			vars = map[string]interface{}{
+				"jobSpec": map[string]interface{}{
+					"databaseID":    jb.ID,
+					"externalJobID": jb.ExternalJobID,
+					"name":          jb.Name.ValueOrZero(),
+					"publicKey":     jb.VRFSpec.PublicKey[:],
+				},
+				"jobRun": map[string]interface{}{
+					"meta":           meta,
+					"logBlockHash":   testLog.BlockHash[:],
+					"logBlockNumber": testLog.BlockNumber,
+					"logTxHash":      testLog.TxHash,
+					"logTopics":      testLog.Topics,
+					"logData":        testLog.Data,
+				},
+			}
+		} else {
+			vars = map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": meta,
+				},
+			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, saveTasks)
+	} else {
+		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
+		// TODO: Once all jobs have a pipeline this can be removed
+		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	}
 	return runID, err
 }
@@ -739,4 +808,11 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
+}
+
+func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
+
+	app.LogBroadcaster.ReplayFromBlock(int64(number))
+
+	return nil
 }

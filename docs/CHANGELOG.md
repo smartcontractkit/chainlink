@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.11] - 2021-08-09
+
+A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
+This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
+
+* Fixes the logging configuration form not displaying the current values
+* Updates the design of the configuration cards to be easier on the eyes
+* View Coordinator Service Authentication keys in the Operator UI. This is hidden
+  behind a feature flag until usage is enabled.
+
+### Changed
+
+**The legacy job pipeline (JSON specs) has been officially deprecated and support for these jobs will be dropped in an upcoming release.**
+
+Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead.
+
+The format for V2 Webhook job specs has changed. They now allow specifying 0 or more external initiators. Example below:
+
+```toml
+type            = "webhook"
+schemaVersion   = 1
+externalInitiators = [
+    { name = "foo-ei", spec = '{"foo": 42}' },
+    { name = "bar-ei", spec = '{"bar": 42}' }
+]
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+```
+
+These external initiators will be notified with the given spec after the job is created, and also at deletion time.
+
+Only the External Initiators listed in the toml spec may trigger a run for that job. Logged in users can always trigger a run for any job.
+
+#### Migrating Jobs
+
+- OCR
+All OCR jobs are already using v2 pipeline by default - no need to do anything here.
+
+- Flux Monitor v1
+We have created a tool to help you automigrate flux monitor specs in JSON format to the new TOML format. You can migrate a job like this:
+
+```
+chainlink jobs migrate <job id>
+```
+
+This can be automated by using the API like so:
+
+```
+POST http://yournode.example/v2/migrate/<job id>
+```
+
+- VRF v1
+Automigration is not supported for VRF jobs. They must be manually converted into v2 format.
+
+- Ethlog/Runlog/Cron/web
+All other job types must also be manually converted into v2 format.
+
+#### Technical details
+
+Why are we doing this?
+
+To give some background, the legacy job pipeline has been around since before Chainlink went to mainnet and is getting quite long in the tooth. The code is brittle and difficult to understand and maintain. For a while now we have been developing a v2 job pipeline in parallel which uses the TOML format. The new job pipeline is simpler, more performant and more powerful. Every job that can be represented in the legacy pipeline should be able to be represented in the v2 pipeline - if it can't be, that's a bug, so please let us know ASAP.
+
+The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
+
 ## [0.10.10] - 2021-07-19
 
 ### Changed 

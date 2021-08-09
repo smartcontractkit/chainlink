@@ -89,7 +89,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var ei presenters.ExternalInitiatorAuthentication
+	var ei webpresenters.ExternalInitiatorAuthentication
 	err = cli.renderAPIResponse(resp, &ei)
 	return err
 }
@@ -113,6 +113,39 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	return err
 }
 
+// ReplayFromBlock replays chain data from the given block number until the most recent
+func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
+
+	blockNumber := c.Int64("block-number")
+	if blockNumber <= 0 {
+		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
+	}
+
+	buf := bytes.NewBufferString("{}")
+
+	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/replay_from_block/%v", blockNumber), buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		bytes, err2 := cli.parseResponse(resp)
+		if err2 != nil {
+			return errors.Wrap(err2, "parseResponse error")
+		}
+		return cli.errorOut(errors.New(string(bytes)))
+	}
+
+	err = cli.printResponseBody(resp)
+	return err
+}
+
 // ShowJobRun returns the status of the given Jobrun.
 func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
@@ -122,6 +155,11 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.Errorf("Unexpected status code: %v", resp.Status))
+	}
+
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)

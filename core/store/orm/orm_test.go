@@ -1,10 +1,8 @@
 package orm_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
 
@@ -204,7 +202,7 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 
 	rr := models.NewRunRequest(models.JSON{})
 	currentHeight := big.NewInt(0)
-	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
+	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, new(mocks.Client), time.Now())
 	require.NoError(t, store.CreateJobRun(run))
 
 	requestCount, err := store.ORM.CountOf(&models.RunRequest{})
@@ -222,7 +220,7 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 		require.NoError(t, store.CreateJob(&job))
 		rr := models.NewRunRequest(models.JSON{})
 		currentHeight := big.NewInt(0)
-		run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
+		run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, new(mocks.Client), time.Now())
 		require.NoError(t, store.CreateJobRun(run))
 		run.TaskRuns = []models.TaskRun{}
 
@@ -233,7 +231,7 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 	rr := models.NewRunRequest(models.JSON{})
 	currentHeight := big.NewInt(0)
-	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
+	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, new(mocks.Client), time.Now())
 	require.NoError(t, store.CreateJobRun(run))
 
 	t.Run("if no results exist already, inserts them", func(t *testing.T) {
@@ -858,7 +856,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	pusher := new(mocks.StatsPusher)
 	pusher.On("PushNow").Return(nil)
 
-	executor := services.NewRunExecutor(store, keyStore, pusher)
+	executor := services.NewRunExecutor(store, new(mocks.Client), keyStore, pusher)
 	require.NoError(t, executor.Execute(run.ID))
 
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
@@ -958,7 +956,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
-			require.NoError(t, store.SaveSession(&prevSession))
+			require.NoError(t, store.DB.Save(&prevSession).Error)
 
 			expectedTime := utils.ISO8601UTC(time.Now())
 			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
@@ -1001,7 +999,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	defer cleanup()
 
 	session := models.NewSession()
-	require.NoError(t, store.SaveSession(&session))
+	require.NoError(t, store.DB.Save(&session).Error)
 
 	err := store.DeleteUserSession(session.ID)
 	require.NoError(t, err)
@@ -1009,7 +1007,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	_, err = store.FindUser()
 	require.NoError(t, err)
 
-	sessions, err := store.Sessions(0, 10)
+	sessions, err := postgres.Sessions(store.DB, 0, 10)
 	assert.NoError(t, err)
 	require.Empty(t, sessions)
 }
@@ -1189,7 +1187,7 @@ func TestORM_RemoveUnstartedTransaction_RemoveByEthTx(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&startedJobRun))
 
 	key := cltest.MustInsertRandomKey(t, store.DB)
-	ethTx := cltest.NewEthTx(t, store, key.Address.Address())
+	ethTx := cltest.NewEthTx(t, key.Address.Address())
 	require.NoError(t, store.DB.Create(&ethTx).Error)
 
 	ethTxAttempt := cltest.NewEthTxAttempt(t, ethTx.ID)
@@ -1262,12 +1260,13 @@ func TestORM_RemoveUnstartedTransaction_RemoveByJobRun(t *testing.T) {
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 2, from) // tx2
 
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
@@ -1278,7 +1277,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, store.DB.Create(&attempt).Error)
 
 	// tx 3 has no attempts
-	tx3 := cltest.NewEthTx(t, store, from)
+	tx3 := cltest.NewEthTx(t, from)
 	tx3.State = bulletprooftxmanager.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, store.DB.Save(&tx3).Error)
@@ -1736,44 +1735,4 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		require.True(t, fmrs.JobRunID.Valid)
 		require.Equal(t, jobRun.ID, fmrs.JobRunID.UUID)
 	}
-}
-
-func TestORM_SetConfigStrValue(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	fieldName := "LogSQLStatements"
-	name := orm.EnvVarName(fieldName)
-	isSqlStatementEnabled := true
-	res := models.Configuration{}
-
-	// Store db config entry as true
-	err := store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
-	require.NoError(t, err)
-
-	err = store.DB.First(&res, "name = ?", name).Error
-	require.NoError(t, err)
-	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
-
-	// Update db config entry as false
-	isSqlStatementEnabled = false
-	err = store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
-	require.NoError(t, err)
-
-	err = store.DB.First(&res, "name = ?", name).Error
-	require.NoError(t, err)
-	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
-}
-
-func TestORM_GetConfigBoolValue(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	store.Config.SetRuntimeStore(store.ORM)
-
-	isSqlStatementEnabled := true
-	err := store.Config.SetLogSQLStatements(context.TODO(), isSqlStatementEnabled)
-	require.NoError(t, err)
-	assert.Equal(t, isSqlStatementEnabled, store.Config.LogSQLStatements())
 }

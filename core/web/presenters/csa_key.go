@@ -19,7 +19,7 @@ func (CSAKeyResource) GetName() string {
 	return "csaKeys"
 }
 
-func NewResource(key csakey.Key) *CSAKeyResource {
+func NewCSAKeyResource(key csakey.Key) *CSAKeyResource {
 	r := &CSAKeyResource{
 		JAID:      NewJAIDUint(key.ID),
 		PubKey:    key.PublicKey.String(),
@@ -30,10 +30,10 @@ func NewResource(key csakey.Key) *CSAKeyResource {
 	return r
 }
 
-func NewResources(keys []csakey.Key) []CSAKeyResource {
+func NewCSAKeyResources(keys []csakey.Key) []CSAKeyResource {
 	rs := []CSAKeyResource{}
 	for _, key := range keys {
-		rs = append(rs, *NewResource(key))
+		rs = append(rs, *NewCSAKeyResource(key))
 	}
 
 	return rs
