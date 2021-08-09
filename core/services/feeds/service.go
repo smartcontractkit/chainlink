@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -45,6 +46,7 @@ type service struct {
 	utils.StartStopOnce
 
 	orm         ORM
+	verORM      versioning.ORM
 	csaKeyStore keystore.CSAKeystoreInterface
 	ethKeyStore keystore.EthKeyStoreInterface
 	jobSpawner  job.Spawner
@@ -56,6 +58,7 @@ type service struct {
 // NewService constructs a new feeds service
 func NewService(
 	orm ORM,
+	verORM versioning.ORM,
 	txm postgres.TransactionManager,
 	jobSpawner job.Spawner,
 	csaKeyStore keystore.CSAKeystoreInterface,
@@ -64,6 +67,7 @@ func NewService(
 ) *service {
 	svc := &service{
 		orm:         orm,
+		verORM:      verORM,
 		txm:         txm,
 		jobSpawner:  jobSpawner,
 		csaKeyStore: csaKeyStore,
@@ -114,7 +118,6 @@ func (s *service) SyncNodeInfo(id int64) error {
 
 	jobtypes := []pb.JobType{}
 	for _, jt := range mgr.JobTypes {
-
 		switch jt {
 		case JobTypeFluxMonitor:
 			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_FLUX_MONITOR)
@@ -135,6 +138,11 @@ func (s *service) SyncNodeInfo(id int64) error {
 		addresses = append(addresses, k.Address.String())
 	}
 
+	nodeVer, err := s.verORM.FindLatestNodeVersion()
+	if err != nil {
+		return errors.Wrap(err, "could not get latest node verion")
+	}
+
 	// Make the remote call to FMS
 	fmsClient, err := s.connMgr.GetClient(id)
 	if err != nil {
@@ -147,6 +155,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		AccountAddresses:   addresses,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
+		Version:            nodeVer.Version,
 	})
 	if err != nil {
 		return err
