@@ -1,9 +1,11 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/coreos/go-semver/semver"
@@ -159,14 +161,24 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 	)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
-		version, err2 := verORM.FindLatestNodeVersion()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
-		}
+		var version *versioning.NodeVersion
 		var versionString string
+
+		version, err = verORM.FindLatestNodeVersion()
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
+			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+			} else {
+				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
+			}
+		}
+
 		if version != nil {
 			versionString = version.Version
 		}
+
 		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		databaseBackup.RunBackupGracefully(versionString)
 	}

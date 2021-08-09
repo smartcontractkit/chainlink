@@ -1,8 +1,6 @@
 package versioning
 
 import (
-	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -55,10 +53,6 @@ ORDER BY created_at DESC
 	var nodeVersion NodeVersion
 	err := o.db.Get(&nodeVersion, stmt)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-
 		return nil, err
 	}
 
