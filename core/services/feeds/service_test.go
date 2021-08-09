@@ -130,6 +130,7 @@ func Test_Service_ListManagers(t *testing.T) {
 
 	svc.orm.On("ListManagers", context.Background()).
 		Return(mss, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.ListManagers()
 	require.NoError(t, err)
@@ -148,6 +149,7 @@ func Test_Service_GetManager(t *testing.T) {
 
 	svc.orm.On("GetManager", context.Background(), id).
 		Return(&ms, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.GetManager(id)
 	require.NoError(t, err)
@@ -199,6 +201,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
+	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
@@ -434,6 +437,7 @@ func Test_Service_StartStop(t *testing.T) {
 	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
 	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
 	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil)
+	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 	svc.connMgr.On("Close")
 

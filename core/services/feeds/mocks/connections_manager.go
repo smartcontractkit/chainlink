@@ -60,3 +60,17 @@ func (_m *ConnectionsManager) GetClient(id int64) (proto.FeedsManagerClient, err
 
 	return r0, r1
 }
+
+// IsConnected provides a mock function with given fields: id
+func (_m *ConnectionsManager) IsConnected(id int64) bool {
+	ret := _m.Called(id)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(int64) bool); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}

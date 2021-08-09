@@ -19,6 +19,7 @@ type ConnectionsManager interface {
 	Disconnect(id int64) error
 	Close()
 	GetClient(id int64) (pb.FeedsManagerClient, error)
+	IsConnected(id int64) bool
 }
 
 // connectionsManager manages the rpc connections to Feeds Manager services
@@ -131,6 +132,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 // Disconnect closes a single connection
 func (mgr *connectionsManager) Disconnect(id int64) error {
 	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 
 	conn, ok := mgr.connections[id]
 	if !ok {
@@ -139,8 +141,6 @@ func (mgr *connectionsManager) Disconnect(id int64) error {
 
 	conn.cancel()
 	delete(mgr.connections, id)
-
-	mgr.mu.Unlock()
 
 	logger.Infow("[Feeds] Disconnected Feeds Manager", "feedsManagerID", id)
 
@@ -161,10 +161,24 @@ func (mgr *connectionsManager) Close() {
 
 // GetClient returns a single client by id
 func (mgr *connectionsManager) GetClient(id int64) (pb.FeedsManagerClient, error) {
+	mgr.mu.Lock()
 	conn, ok := mgr.connections[id]
+	mgr.mu.Unlock()
 	if !ok || !conn.connected {
 		return nil, errors.New("feeds manager is not connected")
 	}
 
 	return conn.client, nil
+}
+
+// IsConnected returns true if the connection to a feeds manager is active
+func (mgr *connectionsManager) IsConnected(id int64) bool {
+	mgr.mu.Lock()
+	conn, ok := mgr.connections[id]
+	mgr.mu.Unlock()
+	if !ok {
+		return false
+	}
+
+	return conn.connected
 }
