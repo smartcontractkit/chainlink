@@ -204,11 +204,15 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 	sub := new(mocks.Subscription)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(sub, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	sub.On("Err").Maybe().Return(nil)
+	sub.On("Unsubscribe").Maybe().Return()
 
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	store := app.Store
@@ -234,14 +238,18 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	store := app.Store
+
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(sub, nil).Maybe()
 
 	app.StartAndConnect()
 
@@ -262,11 +270,12 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	store := app.Store
@@ -294,9 +303,9 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 	t.Parallel()
 
-	initiatingTxHash := cltest.NewHash()
-	triggeringBlockHash := cltest.NewHash()
-	otherBlockHash := cltest.NewHash()
+	initiatingTxHash := utils.NewHash()
+	triggeringBlockHash := utils.NewHash()
+	otherBlockHash := utils.NewHash()
 
 	tests := []struct {
 		name             string
@@ -322,6 +331,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 			defer cfgCleanup()
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
@@ -621,13 +631,14 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	t.Parallel()
 
-	initiatingTxHash := cltest.NewHash()
-	triggeringBlockHash := cltest.NewHash()
+	initiatingTxHash := utils.NewHash()
+	triggeringBlockHash := utils.NewHash()
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
@@ -880,7 +891,7 @@ func TestRunManager_NewRun(t *testing.T) {
 	assert.Len(t, job.Tasks, 1)
 
 	t.Run("creates a run with a block height and all adapters", func(t *testing.T) {
-		run, adapters := services.NewRun(&job, &job.Initiators[0], big.NewInt(0), &models.RunRequest{}, store.Config, store.ORM, now)
+		run, adapters := services.NewRun(&job, &job.Initiators[0], big.NewInt(0), &models.RunRequest{}, store.Config, store.ORM, new(mocks.Client), now)
 		assert.NotNil(t, run.ID)
 		assert.NotNil(t, run.JobSpecID)
 		assert.Equal(t, run.GetStatus(), models.RunStatusInProgress)
@@ -892,7 +903,7 @@ func TestRunManager_NewRun(t *testing.T) {
 	})
 
 	t.Run("with no block height creates a run with all adapters", func(t *testing.T) {
-		run, adapters := services.NewRun(&job, &job.Initiators[0], nil, &models.RunRequest{}, store.Config, store.ORM, now)
+		run, adapters := services.NewRun(&job, &job.Initiators[0], nil, &models.RunRequest{}, store.Config, store.ORM, new(mocks.Client), now)
 		assert.NotNil(t, run.ID)
 		assert.NotNil(t, run.JobSpecID)
 		assert.Equal(t, run.GetStatus(), models.RunStatusInProgress)

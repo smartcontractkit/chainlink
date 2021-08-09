@@ -92,7 +92,7 @@ var arbitrum = ClientErrors{
 
 var optimism = ClientErrors{
 	FeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
-	FeeTooHigh: regexp.MustCompile(`(: |^)fee too large: \d+$`),
+	FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
 }
 
 var clients = []ClientErrors{parity, geth, arbitrum, optimism}

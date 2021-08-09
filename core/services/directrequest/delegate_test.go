@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -85,9 +85,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()
-	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(*spec)
+	serviceArray, err := delegate.ServicesForSpec(jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
@@ -130,7 +130,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("RawLog").Return(types.Log{
@@ -142,8 +142,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil).
+			Once()
 
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -154,7 +155,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -175,7 +176,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("RawLog").Return(types.Log{
@@ -244,7 +245,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				{},
@@ -273,7 +274,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			RequestId:        uni.spec.ExternalIDEncodeStringToTopic(),
 		}
@@ -289,7 +290,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := new(log_mocks.Broadcast)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				{},
@@ -344,7 +345,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(100),
 		}
@@ -369,7 +370,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -395,7 +396,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+		logOracleRequest := operator_wrapper.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(99),
 		}

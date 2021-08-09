@@ -38,13 +38,15 @@ type RunExecutor interface {
 
 type runExecutor struct {
 	store       *store.Store
+	ethClient   eth.Client
 	keyStore    *keystore.Master
 	statsPusher synchronization.StatsPusher
 }
 
 // NewRunExecutor initializes a RunExecutor.
-func NewRunExecutor(store *store.Store, keyStore *keystore.Master, statsPusher synchronization.StatsPusher) RunExecutor {
+func NewRunExecutor(store *store.Store, ethClient eth.Client, keyStore *keystore.Master, statsPusher synchronization.StatsPusher) RunExecutor {
 	return &runExecutor{
+		ethClient:   ethClient,
 		store:       store,
 		keyStore:    keyStore,
 		statsPusher: statsPusher,
@@ -78,7 +80,7 @@ func (re *runExecutor) Execute(runID uuid.UUID) error {
 			taskRun.Status = models.RunStatusPendingIncomingConfirmations
 			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
 
-		} else if err := validateOnMainChainOnce(validated, &run, taskRun, re.store.EthClient); err != nil {
+		} else if err := validateOnMainChainOnce(validated, &run, taskRun, re.ethClient); err != nil {
 			logger.Warnw("Failure while trying to validate chain",
 				run.ForLogger("error", err)...,
 			)
@@ -138,7 +140,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 	}
 	taskSpec.Params = params
 
-	adapter, err := adapters.For(taskSpec, re.store.Config, re.store.ORM)
+	adapter, err := adapters.For(taskSpec, re.store.Config, re.store.ORM, re.ethClient)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

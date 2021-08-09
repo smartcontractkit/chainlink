@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -60,6 +61,7 @@ type runManager struct {
 	runQueue    RunQueue
 	config      orm.ConfigReader
 	clock       utils.AfterNower
+	ethClient   eth.Client
 }
 
 func runCost(job *models.JobSpec, config orm.ConfigReader, adapters []*adapters.PipelineAdapter) *assets.Link {
@@ -90,13 +92,14 @@ func NewRun(
 	runRequest *models.RunRequest,
 	config orm.ConfigReader,
 	orm *orm.ORM,
+	ethClient eth.Client,
 	now time.Time) (*models.JobRun, []*adapters.PipelineAdapter) {
 
 	run := models.MakeJobRun(job, now, initiator, currentHeight, runRequest)
 	runAdapters := []*adapters.PipelineAdapter{}
 
 	for i, task := range job.Tasks {
-		adapter, err := adapters.For(task, config, orm)
+		adapter, err := adapters.For(task, config, orm, ethClient)
 		if err != nil {
 			run.SetError(err)
 			break
@@ -258,7 +261,7 @@ func (rm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, adapters := NewRun(&job, initiator, creationHeight, runRequest, rm.config, rm.orm, now)
+	run, adapters := NewRun(&job, initiator, creationHeight, runRequest, rm.config, rm.orm, rm.ethClient, now)
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
 
@@ -481,13 +484,13 @@ func (NullRunManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
 }
 
 func (NullRunManager) ResumeAllInProgress() error {
-	return errors.New("NullRunManager#ResumeAllInProgress should never be called")
+	return nil
 }
 
 func (NullRunManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
-	return errors.New("NullRunManager#ResumeAllPendingNextBlock should never be called")
+	return nil
 }
 
 func (NullRunManager) ResumeAllPendingConnection() error {
-	return errors.New("NullRunManager#ResumeAllPendingConnection should never be called")
+	return nil
 }

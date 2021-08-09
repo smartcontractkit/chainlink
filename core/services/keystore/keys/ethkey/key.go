@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +19,7 @@ import (
 type Key struct {
 	ID        int32 `gorm:"primary_key"`
 	Address   EIP55Address
-	JSON      postgres.Jsonb `json:"-"`
+	JSON      datatypes.JSON `json:"-"`
 	CreatedAt time.Time      `json:"-"`
 	UpdatedAt time.Time      `json:"-"`
 	DeletedAt gorm.DeletedAt `json:"-"`
@@ -56,5 +56,5 @@ func NewKeyFromFile(path string) (Key, error) {
 		return Key{}, multierr.Append(errors.New("unable to create Key model"), err)
 	}
 
-	return Key{Address: address, JSON: postgres.Jsonb{RawMessage: dat}}, nil
+	return Key{Address: address, JSON: datatypes.JSON(dat)}, nil
 }

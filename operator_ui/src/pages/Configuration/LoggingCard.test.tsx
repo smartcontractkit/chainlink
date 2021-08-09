@@ -9,8 +9,8 @@ import { act } from 'react-dom/test-utils'
 describe('pages/Configuration/LoggingCard', () => {
   it('renders the logging configuration card', async () => {
     const logConfig = logConfigFactory({
-      level: 'info',
-      sqlEnabled: false,
+      serviceName: ['Global', 'IsSqlEnabled'],
+      logLevel: ['info', 'false'],
     })
 
     global.fetch.getOnce(globPath('/v2/log'), logConfig)
@@ -28,8 +28,8 @@ describe('pages/Configuration/LoggingCard', () => {
 
   it('updates the logging configuration', async () => {
     const logConfig = logConfigFactory({
-      level: 'info',
-      sqlEnabled: false,
+      serviceName: ['Global', 'IsSqlEnabled'],
+      logLevel: ['info', 'false'],
     })
 
     global.fetch.getOnce(globPath('/v2/log'), logConfig)

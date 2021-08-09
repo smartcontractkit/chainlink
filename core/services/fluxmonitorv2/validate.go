@@ -8,11 +8,15 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	coreorm "github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error) {
+type ValidationConfig interface {
+	DefaultHTTPTimeout() models.Duration
+}
+
+func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
@@ -33,12 +37,6 @@ func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error
 
 	if jb.Type != job.FluxMonitor {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
-	}
-	if jb.SchemaVersion != uint32(1) {
-		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
-	}
-	if jb.Pipeline.HasAsync() {
-		return jb, errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
 
 	// Find the smallest of all the timeouts

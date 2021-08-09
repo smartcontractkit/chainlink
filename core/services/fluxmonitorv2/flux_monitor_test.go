@@ -132,12 +132,13 @@ func setupMocks(t *testing.T) *testMocks {
 }
 
 type setupOptions struct {
-	pollTickerDisabled bool
-	idleTimerDisabled  bool
-	idleTimerPeriod    time.Duration
-	drumbeatEnabled    bool
-	drumbeatSchedule   string
-	orm                fluxmonitorv2.ORM
+	pollTickerDisabled  bool
+	idleTimerDisabled   bool
+	idleTimerPeriod     time.Duration
+	drumbeatEnabled     bool
+	drumbeatSchedule    string
+	drumbeatRandomDelay time.Duration
+	orm                 fluxmonitorv2.ORM
 }
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
@@ -163,6 +164,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 			IdleTimerDisabled:       options.idleTimerDisabled,
 			DrumbeatEnabled:         options.drumbeatEnabled,
 			DrumbeatSchedule:        options.drumbeatSchedule,
+			DrumbeatRandomDelay:     options.drumbeatRandomDelay,
 			HibernationPollPeriod:   24 * time.Hour,
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
@@ -211,10 +213,11 @@ func disableIdleTimer(disabled bool) func(*setupOptions) {
 }
 
 // enableDrumbeatTicker is an option to enable the drumbeat ticker during setup
-func enableDrumbeatTicker(schedule string) func(*setupOptions) {
+func enableDrumbeatTicker(schedule string, randomDelay time.Duration) func(*setupOptions) {
 	return func(opts *setupOptions) {
 		opts.drumbeatEnabled = true
 		opts.drumbeatSchedule = schedule
+		opts.drumbeatRandomDelay = randomDelay
 	}
 }
 
@@ -726,6 +729,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 
 				decodedLog := flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				tm.logBroadcast.On("DecodedLog").Return(&decodedLog)
+				tm.logBroadcast.On("String").Maybe().Return("")
 				tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 				tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 				fm.HandleLog(tm.logBroadcast)
@@ -845,6 +849,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	// AnswerUpdated comes in, which attempts to reset the timers
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
+	tm.logBroadcast.On("String").Maybe().Return("")
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 	fm.ExportedProcessLogs()
@@ -1111,6 +1116,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		RoundId:   big.NewInt(0),
 		StartedAt: big.NewInt(time.Now().UTC().Unix()),
 	})
+	tm.logBroadcast.On("String").Maybe().Return("")
 	// To mark it consumed, we need to be eligible to submit.
 	fm.HandleLog(tm.logBroadcast)
 
@@ -1164,6 +1170,7 @@ func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
+	tm.logBroadcast.On("String").Maybe().Return("")
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
 
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
@@ -1278,7 +1285,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}))
+		}, log.NewLogBroadcast(types.Log{}, nil))
 
 		// Mocks initiated by polling
 		// Now force the node to try to poll and ensure it does not respond this time
@@ -1395,7 +1402,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}))
+		}, log.NewLogBroadcast(types.Log{}, nil))
 	})
 }
 
@@ -1405,7 +1412,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	store, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
-	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 1s"))
+	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
 
@@ -1498,9 +1505,11 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	fm.Start()
 	defer fm.Close()
 
-	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.orm, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, 10*time.Second, 10*time.Millisecond)
-	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, 10*time.Second, 10*time.Millisecond)
+	waitTime := 15 * time.Second
+	interval := 50 * time.Millisecond
+	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.orm, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
+	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
 }

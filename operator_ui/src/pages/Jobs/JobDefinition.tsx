@@ -8,6 +8,8 @@ import {
   withStyles,
   WithStyles,
 } from '@material-ui/core'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 import { CardTitle } from 'components/CardTitle'
 import Content from 'components/Content'
@@ -58,7 +60,9 @@ export const JobDefinition = withStyles(definitionStyles)(
                   variant="body1"
                   component="pre"
                 >
-                  {job.definition}
+                  <SyntaxHighlighter language="toml" style={prism}>
+                    {job.definition}
+                  </SyntaxHighlighter>
                 </Typography>
               )}
             </CardContent>

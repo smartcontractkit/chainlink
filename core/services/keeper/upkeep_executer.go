@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -40,7 +39,7 @@ var _ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 type UpkeepExecuter struct {
 	chStop          chan struct{}
 	ethClient       eth.Client
-	config          orm.ConfigReader
+	config          Config
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	job             job.Job
@@ -57,7 +56,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	config orm.ConfigReader,
+	config Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
 		chStop:          make(chan struct{}),
@@ -78,7 +77,10 @@ func (executer *UpkeepExecuter) Start() error {
 	return executer.StartOnce("UpkeepExecuter", func() error {
 		executer.wgDone.Add(2)
 		go executer.run()
-		unsubscribeHeads := executer.headBroadcaster.Subscribe(executer)
+		latestHead, unsubscribeHeads := executer.headBroadcaster.Subscribe(executer)
+		if latestHead != nil {
+			executer.mailbox.Deliver(*latestHead)
+		}
 		go func() {
 			defer unsubscribeHeads()
 			defer executer.wgDone.Done()
@@ -230,8 +232,10 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 			Meta: pipeline.JSONSerializable{
 				Val: map[string]interface{}{"eth_tx_id": etx.ID},
 			},
-			Errors:     runErrors,
-			Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
+			Errors: runErrors,
+			Outputs: pipeline.JSONSerializable{Val: []interface{}{
+				fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload)),
+			}},
 			CreatedAt:  start,
 			FinishedAt: null.TimeFrom(f),
 		}, nil, false)
@@ -247,7 +251,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	// TODO: Remove in
 	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
 	elapsed := time.Since(start)
-	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String()).Set(float64(elapsed))
+	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, "", job.Keeper.String()).Set(float64(elapsed))
 	var status string
 	if runErrors.HasError() || err != nil {
 		status = "error"
@@ -256,7 +260,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		status = "completed"
 	}
 	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String).Set(float64(elapsed))
-	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, job.Keeper.String(), status).Inc()
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", executer.job.ID), executer.job.Name.String, "", job.Keeper.String(), status).Inc()
 }
 
 func (executer *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {

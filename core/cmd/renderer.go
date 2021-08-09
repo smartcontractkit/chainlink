@@ -8,9 +8,8 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -69,13 +68,13 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobRun(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
-	case *presenters.ExternalInitiatorAuthentication:
+	case *webpresenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
-	case *pipeline.Run:
+	case *webpresenters.PipelineRunResource:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.ServiceLogConfigResource:
 		return rt.renderLogPkgConfig(*typed)
@@ -133,7 +132,7 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 
 func (rt RendererTable) renderConfiguration(cp presenters.ConfigPrinter) error {
 	table := rt.newTable([]string{"Key", "Value"})
-	schemaT := reflect.TypeOf(orm.ConfigSchema{})
+	schemaT := reflect.TypeOf(config.ConfigSchema{})
 	cpT := reflect.TypeOf(cp.EnvPrinter)
 	cpV := reflect.ValueOf(cp.EnvPrinter)
 
@@ -313,7 +312,7 @@ func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) e
 	return nil
 }
 
-func (rt RendererTable) renderExternalInitiatorAuthentication(eia presenters.ExternalInitiatorAuthentication) error {
+func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.ExternalInitiatorAuthentication) error {
 	table := rt.newTable([]string{"Name", "URL", "AccessKey", "Secret", "OutgoingToken", "OutgoingSecret"})
 	table.Append([]string{
 		eia.Name,
@@ -344,12 +343,12 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 	return nil
 }
 
-func (rt RendererTable) renderPipelineRun(run pipeline.Run) error {
+func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource) error {
 	table := rt.newTable([]string{"ID", "Created At", "Finished At"})
 
 	var finishedAt string
-	if run.FinishedAt.Valid {
-		finishedAt = run.FinishedAt.Time.String()
+	if !run.FinishedAt.IsZero() {
+		finishedAt = run.FinishedAt.String()
 	}
 
 	row := []string{

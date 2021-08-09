@@ -5,13 +5,13 @@ import (
 	"math/big"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -78,14 +78,14 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(10)
-	seed := vrf.TestXXXSeedData(t, preSeed, blockHash, blockNum)
+	seed := proof2.TestXXXSeedData(t, preSeed, blockHash, blockNum)
 
-	proof, err := vrf.GenerateProofResponse(ks, key, seed)
+	proof, err := proof2.GenerateProofResponse(ks, key, seed)
 	require.NoError(t, err, "failed to generate proof response")
 
 	// ...but only for unlocked keys
 	randomKey := vrfkey.CreateKey()
-	_, err = vrf.GenerateProofResponse(ks, randomKey.PublicKey, seed)
+	_, err = proof2.GenerateProofResponse(ks, randomKey.PublicKey, seed)
 	require.Error(t, err, "should not be able to generate VRF proofs unless key has been unlocked")
 	require.Contains(t, err.Error(), "has not been unlocked", "complaint when attempting to generate VRF proof with unclocked key should be that it's locked")
 
@@ -94,13 +94,13 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	assert.True(t, bytes.Equal(encryptedKey.PublicKey[:], key[:]), "should have recovered the encrypted key for the requested public key")
 
 	verifier := vrfVerifier(t) // Generated proof is valid
-	coordinatorProof, err := vrf.UnmarshalProofResponse(proof)
+	coordinatorProof, err := proof2.UnmarshalProofResponse(proof)
 	require.NoError(t, err)
 
 	verifierProof, err := coordinatorProof.CryptoProof(seed)
 	require.NoError(t, err, "recovered bad VRF proof")
 
-	wireProof, err := vrf.MarshalForSolidityVerifier(&verifierProof)
+	wireProof, err := proof2.MarshalForSolidityVerifier(&verifierProof)
 	require.NoError(t, err, "could not marshal vrf proof for on-chain verification")
 
 	_, err = verifier.RandomValueFromVRFProof(nil, wireProof[:])
@@ -109,7 +109,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	err = ks.Delete(key)
 	require.NoError(t, err, "failed to delete VRF key")
 
-	_, err = vrf.GenerateProofResponse(ks, key, seed)
+	_, err = proof2.GenerateProofResponse(ks, key, seed)
 	require.Error(t, err, "should not be able to generate VRF proofs with a deleted key")
 	require.Contains(t, err.Error(), "has not been unlocked", "complaint when trying to prove with deleted key should be that it's locked")
 
@@ -126,6 +126,6 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	_, err = ks.Import(keyjson, phrase)
 	require.Equal(t, keystore.ErrMatchingVRFKey, err, "should be prevented from importing a key with a public key already present in the DB")
 
-	_, err = vrf.GenerateProofResponse(ks, key, seed)
+	_, err = proof2.GenerateProofResponse(ks, key, seed)
 	require.NoError(t, err, "should be able to generate proof with unlocked key")
 }

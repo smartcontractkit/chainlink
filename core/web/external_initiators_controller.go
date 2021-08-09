@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -19,7 +19,17 @@ type ExternalInitiatorsController struct {
 	App chainlink.Application
 }
 
-// Create builds and saves a new service agreement record.
+func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offset int) {
+	eis, count, err := eic.App.GetStore().ExternalInitiatorsSorted(offset, size)
+	var resources []presenters.ExternalInitiatorResource
+	for _, ei := range eis {
+		resources = append(resources, presenters.NewExternalInitiatorResource(ei))
+	}
+
+	paginatedResponse(c, "externalInitiators", size, page, resources, count, err)
+}
+
+// Create builds and saves a new external initiator
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &models.ExternalInitiatorRequest{}
 	if !eic.App.GetStore().Config.Dev() && !eic.App.GetStore().Config.FeatureExternalInitiators() {
@@ -55,11 +65,6 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 
 // Destroy deletes an ExternalInitiator
 func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
-	if !eic.App.GetStore().Config.Dev() {
-		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("External Initiators are currently under development and not yet usable outside of development mode"))
-		return
-	}
-
 	name := c.Param("Name")
 	exi, err := eic.App.GetStore().FindExternalInitiatorByName(name)
 	if errors.Cause(err) == orm.ErrorNotFound {

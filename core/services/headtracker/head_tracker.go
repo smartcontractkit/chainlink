@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -22,6 +23,11 @@ var (
 	promCurrentHead = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
+	})
+
+	promOldHead = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_very_old_head",
+		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
 	})
 )
 
@@ -104,6 +110,27 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
+		// NOTE: In an ideal world we want to always start the head tracker off
+		// with whatever the latest head is, without waiting for the
+		// subscription to send us one.
+		//
+		// This does not play nicely with the legacy pipeline for reasons that
+		// are difficult to understand, so for now we leave it disabled in case
+		// the legacy pipeline is turned on. We can remove this once legacy
+		// pipeline is removed
+		if !ht.config.EnableLegacyJobPipeline() {
+			initialHead, err := ht.getInitialHead()
+			if err != nil {
+				return err
+			} else if initialHead != nil {
+				if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
+					return errors.Wrap(err, "error handling initial head")
+				}
+			} else {
+				logger.Debug("HeadTracker: got nil initial head")
+			}
+		}
+
 		ht.wgDone.Add(3)
 		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.handleConnected)
 		go ht.backfiller()
@@ -111,6 +138,21 @@ func (ht *HeadTracker) Start() error {
 
 		return nil
 	})
+}
+
+func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
+	ctx, cancel := eth.DefaultQueryCtx()
+	defer cancel()
+	head, err := ht.ethClient.HeadByNumber(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch initial head")
+	}
+	loggerFields := []interface{}{"head", head}
+	if head != nil {
+		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
+	}
+	ht.logger().Debugw("HeadTracker: got initial current block", loggerFields...)
+	return head, nil
 }
 
 // Stop unsubscribes all connections and fires Disconnect.
@@ -333,8 +375,33 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
+			promOldHead.Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
 	return nil
 }
+
+func (ht *HeadTracker) Healthy() error {
+	if atomic.LoadInt32(&ht.headListener.receivesHeads) != 1 {
+		return errors.New("Heads are not being received")
+	}
+	if !ht.headListener.Connected() {
+		return errors.New("Not connected")
+	}
+	return nil
+}
+
+var _ httypes.Tracker = &NullTracker{}
+
+type NullTracker struct{}
+
+func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
+	return nil, nil
+}
+func (*NullTracker) Start() error   { return nil }
+func (*NullTracker) Stop() error    { return nil }
+func (*NullTracker) Ready() error   { return nil }
+func (*NullTracker) Healthy() error { return nil }
+
+func (*NullTracker) SetLogger(*logger.Logger) {}

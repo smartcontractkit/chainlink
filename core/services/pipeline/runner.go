@@ -52,6 +52,8 @@ type runner struct {
 	orm             ORM
 	config          Config
 	ethClient       eth.Client
+	ethKeyStore     ETHKeyStore
+	vrfKeyStore     VRFKeyStore
 	txManager       TxManager
 	runReaperWorker utils.SleeperTask
 
@@ -68,7 +70,7 @@ var (
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
 	},
-		[]string{"job_id", "job_name", "task_type"},
+		[]string{"job_id", "job_name", "task_id", "task_type"},
 	)
 	PromPipelineRunErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pipeline_run_errors",
@@ -86,18 +88,20 @@ var (
 		Name: "pipeline_tasks_total_finished",
 		Help: "The total number of pipeline tasks which have finished",
 	},
-		[]string{"job_id", "job_name", "task_type", "status"},
+		[]string{"job_id", "job_name", "task_id", "task_type", "status"},
 	)
 )
 
-func NewRunner(orm ORM, config Config, ethClient eth.Client, txManager TxManager) *runner {
+func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, vrfks VRFKeyStore, txManager TxManager) *runner {
 	r := &runner{
-		orm:       orm,
-		config:    config,
-		ethClient: ethClient,
-		txManager: txManager,
-		chStop:    make(chan struct{}),
-		wgDone:    sync.WaitGroup{},
+		orm:         orm,
+		config:      config,
+		ethClient:   ethClient,
+		ethKeyStore: ethks,
+		vrfKeyStore: vrfks,
+		txManager:   txManager,
+		chStop:      make(chan struct{}),
+		wgDone:      sync.WaitGroup{},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -190,6 +194,11 @@ func (r *runner) ExecuteRun(
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
+	if run.FailEarly {
+		// return before FinalResult() panics
+		return run, taskRunResults, nil
+	}
+
 	finalResult := taskRunResults.FinalResult()
 	if finalResult.HasErrors() {
 		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
@@ -222,7 +231,12 @@ func (r *runner) run(
 			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
+		case TaskTypeVRF:
+			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeETHTx:
+			task.(*ETHTxTask).db = r.orm.DB()
+			task.(*ETHTxTask).config = r.config
+			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).txManager = r.txManager
 		default:
 		}
@@ -269,6 +283,7 @@ func (r *runner) run(
 
 	// if the run is suspended, awaiting resumption
 	run.Pending = scheduler.pending
+	run.FailEarly = scheduler.exiting
 	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
@@ -337,6 +352,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	start := time.Now()
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
+		"taskType", taskRun.task.Type(),
 	}
 
 	// Order of precedence for task timeout:
@@ -355,8 +371,9 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 
 	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
-	loggerFields = append(loggerFields, "result value", result.Value)
-	loggerFields = append(loggerFields, "result error", result.Error)
+	loggerFields = append(loggerFields, "resultValue", result.Value)
+	loggerFields = append(loggerFields, "resultError", result.Error)
+	loggerFields = append(loggerFields, "resultType", fmt.Sprintf("%T", result.Value))
 	switch v := result.Value.(type) {
 	case []byte:
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
@@ -385,14 +402,14 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	elapsed := trr.FinishedAt.Time.Sub(trr.CreatedAt)
 
-	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type())).Set(float64(elapsed))
+	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type())).Set(float64(elapsed))
 	var status string
 	if trr.Result.Error != nil {
 		status = "error"
 	} else {
 		status = "completed"
 	}
-	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(trr.Task.Type()), status).Inc()
+	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
 }
 
 // ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
@@ -403,6 +420,12 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	}
 
 	finalResult = trrs.FinalResult()
+
+	// don't insert if we exited early
+	if run.FailEarly {
+		return 0, finalResult, nil
+	}
+
 	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
@@ -439,6 +462,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			if run.Pending {
 				return false, errors.Wrapf(err, "a run without async returned as pending")
 			}
+			// don't insert if we exited early
+			if run.FailEarly {
+				return false, nil
+			}
 			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, saveSuccessfulTaskRuns); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
@@ -458,7 +485,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},
-		Outputs:        JSONSerializable{Val: "queued eth transaction"},
+		Outputs:        JSONSerializable{Val: []interface{}{"queued eth transaction"}},
 		CreatedAt:      t,
 		FinishedAt:     null.TimeFrom(t),
 	}, nil, false)
@@ -466,7 +493,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 
 	// For testing metrics.
 	id := fmt.Sprintf("%d", jobID)
-	PromPipelineTaskExecutionTime.WithLabelValues(id, jobName, jobType).Set(float64(elapsed))
+	PromPipelineTaskExecutionTime.WithLabelValues(id, jobName, "", jobType).Set(float64(elapsed))
 	var status string
 	if err != nil {
 		status = "error"
@@ -475,7 +502,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 		status = "completed"
 	}
 	PromPipelineRunTotalTimeToCompletion.WithLabelValues(id, jobName).Set(float64(elapsed))
-	PromPipelineTasksTotalFinished.WithLabelValues(id, jobName, jobType, status).Inc()
+	PromPipelineTasksTotalFinished.WithLabelValues(id, jobName, "", jobType, status).Inc()
 	return runID, err
 }
 

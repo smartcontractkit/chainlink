@@ -20,48 +20,42 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-
-	"github.com/onsi/gomega"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/static"
-
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -76,11 +70,13 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.Start()
 
@@ -99,6 +95,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 99)
 	config.Set("ETH_FINALITY_DEPTH", 3)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	t.Cleanup(assertMocksCalled)
@@ -145,7 +142,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -169,11 +166,13 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	app.InstantClock()
 
@@ -191,12 +190,14 @@ func TestIntegration_RunAt(t *testing.T) {
 func TestIntegration_EthLog(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
+	t.Cleanup(cleanup)
 
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
@@ -228,8 +229,8 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	triggeringBlockHash := cltest.NewHash()
-	otherBlockHash := cltest.NewHash()
+	triggeringBlockHash := utils.NewHash()
+	otherBlockHash := utils.NewHash()
 
 	tests := []struct {
 		name             string
@@ -256,12 +257,11 @@ func TestIntegration_RunLog(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
 			t.Cleanup(cfgCleanup)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 			ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 			defer assertMockCalls()
-			app, cleanup := cltest.NewApplication(t,
-				ethClient,
-			)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 			t.Cleanup(cleanup)
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
@@ -335,12 +335,11 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", 30)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	t.Cleanup(cleanup)
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
@@ -364,10 +363,10 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	randLog := models.RandomnessRequestLog{
 		KeyHash:   keyHash,
 		Seed:      big.NewInt(1),
-		JobID:     cltest.NewHash(),
+		JobID:     utils.NewHash(),
 		Sender:    sender,
 		Fee:       &fee,
-		RequestID: cltest.NewHash(),
+		RequestID: utils.NewHash(),
 		Raw:       models.RawRandomnessRequestLog{},
 	}
 	log := cltest.NewRandomnessRequestLog(t, randLog, sender, 101)
@@ -377,8 +376,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 102
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 2)
@@ -386,8 +385,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30)*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Same requestID log again should result in a doubling of incoming confs
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 103
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 3)
@@ -395,8 +394,8 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(30)*2*2, runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// Should be capped at 200
-	log.TxHash = cltest.NewHash()
-	log.BlockHash = cltest.NewHash()
+	log.TxHash = utils.NewHash()
+	log.BlockHash = utils.NewHash()
 	log.BlockNumber = 103
 	logs <- log
 	runs = cltest.WaitForRuns(t, jb, app.Store, 4)
@@ -404,7 +403,7 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 	assert.Equal(t, uint32(200), runs[0].TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
 
 	// New requestID should be back to original
-	randLog.RequestID = cltest.NewHash()
+	randLog.RequestID = utils.NewHash()
 	newReqLog := cltest.NewRandomnessRequestLog(t, randLog, sender, 104)
 	logs <- newReqLog
 	runs = cltest.WaitForRuns(t, jb, app.Store, 5)
@@ -415,13 +414,15 @@ func TestIntegration_RandomnessReorgProtection(t *testing.T) {
 func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(cltest.Head(0), nil).Maybe()
 
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -436,11 +437,12 @@ func TestIntegration_StartAt(t *testing.T) {
 func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
@@ -511,11 +513,12 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
@@ -565,11 +568,12 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -616,11 +620,12 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, sub, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
@@ -661,11 +666,12 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 func TestIntegration_MultiplierInt256(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -680,11 +686,12 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 func TestIntegration_MultiplierUint256(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -704,6 +711,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplicationWithConfig(t,
@@ -738,12 +746,13 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	t.Parallel()
 
 	sleepSeconds := 4
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	app.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -761,8 +770,11 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		ethClient,
 		cltest.UseRealExternalInitiatorManager,
 	)
@@ -827,11 +839,12 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -864,12 +877,13 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 func TestIntegration_ExternalInitiator_WithMultiplyAndBridge(t *testing.T) {
 	t.Parallel()
 
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -953,13 +967,13 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-		cltest.UseRealExternalInitiatorManager,
-	)
+	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	cfg.Set("FEATURE_EXTERNAL_INITIATORS", true)
+	cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
+	defer cleanup()
 
 	require.NoError(t, app.Start())
 
@@ -1059,10 +1073,14 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 type            = "webhook"
 schemaVersion   = 1
 externalJobID           = "%v"
-externalInitiatorName = "%v"
-externalInitiatorSpec = """
-    %v
+externalInitiators = [
+	{
+		name = "%s",
+		spec = """
+	%s
 """
+	}
+]
 observationSource   = """
     parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
@@ -1079,8 +1097,24 @@ observationSource   = """
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
 
-	// Simulate request from EI -> Core node
-	{
+	t.Run("calling webhook_spec with non-matching external_initiator_id returns unauthorized", func(t *testing.T) {
+		eiaWrong := auth.NewToken()
+		body := cltest.MustJSONMarshal(t, eiRequest)
+		headers := make(map[string]string)
+		headers[static.ExternalInitiatorAccessKeyHeader] = eiaWrong.AccessKey
+		headers[static.ExternalInitiatorSecretHeader] = eiaWrong.Secret
+
+		url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobUUID.String() + "/runs"
+		bodyBuf := bytes.NewBufferString(body)
+		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, 401)
+
+		cltest.AssertCountStays(t, app.Store, &pipeline.Run{}, 0)
+	})
+
+	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
+		// Simulate request from EI -> Core node
 		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
@@ -1096,7 +1130,7 @@ observationSource   = """
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 
 		assert.True(t, bridgeCalled, "expected bridge server to be called")
-	}
+	})
 
 	// Delete the job
 	{
@@ -1142,6 +1176,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	config.Set("ETH_FINALITY_DEPTH", 3)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	app, appCleanup := cltest.NewApplicationWithConfig(t, config,
 		ethClient,
 	)
@@ -1220,7 +1255,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1269,16 +1304,17 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 
-	config, cleanup := cltest.NewConfig(t)
+	cfg, cleanup := cltest.NewConfig(t)
+	cfg.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
 	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg,
 		ethClient,
 	)
 	defer cleanup()
 
 	blocks := cltest.NewBlocks(t, 20)
 
-	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
+	app.GetStore().Config.Set(config.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
 
@@ -1339,8 +1375,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	defer assertCalled()
 
 	confirmed := int64(23456)
-	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
+	safe := confirmed + int64(cfg.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(cfg.BlockHistoryEstimatorBlockDelay())
 
 	// Prepare new rounds logs subscription to be called by new FM job
 	logs := make(chan<- types.Log, 1)
@@ -1383,7 +1419,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1417,16 +1453,17 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	sub := new(mocks.Subscription)
 
-	config, cleanup := cltest.NewConfig(t)
+	cfg, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+	cfg.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg,
 		ethClient,
 	)
 	defer cleanup()
-	app.Config.Set(orm.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
+	app.Config.Set(config.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
 	confirmed := int64(23456)
-	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
-	inLongestChain := safe - int64(config.BlockHistoryEstimatorBlockDelay())
+	safe := confirmed + int64(cfg.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(cfg.BlockHistoryEstimatorBlockDelay())
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
@@ -1458,7 +1495,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: utils.NewHash()}
 			}).Maybe()
 		}).
 		Return(nil).Once()
@@ -1479,9 +1516,10 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 
 	// Feed the subscriber a block head so the transaction completes.
 	heads := <-headsCh
-	heads <- cltest.Head(safe)
+
 	// Job should complete successfully.
-	_ = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jr, heads, safe)
+
 	jr2, err := app.Store.ORM.FindJobRun(jr.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 9, len(jr2.TaskRuns))
@@ -1489,7 +1527,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	assert.Equal(t, 2, len(jr2.TaskRuns[8].Result.Data.Get(models.ResultCollectionKey).Array()))
 }
 
-func assertPrices(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
+func assertPricesBytes32(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
 	var tmp [32]byte
 	copy(tmp[:], usd)
 	haveUsd, err := consumer.Usd(nil)
@@ -1505,7 +1543,7 @@ func assertPrices(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsume
 	assert.Equal(t, tmp[:], haveJpy[:])
 }
 
-func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
+func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
 	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
@@ -1533,7 +1571,7 @@ func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, 
 	// for the data request.
 	_, err = linkContract.Transfer(user, consumerAddress, big.NewInt(1000))
 	require.NoError(t, err)
-	return user, consumerAddress, linkContract, consumerContract, operatorContract, b
+	return user, consumerAddress, operatorAddress, linkContract, consumerContract, operatorContract, b
 }
 
 func TestIntegration_MultiwordV1_Sim(t *testing.T) {
@@ -1543,7 +1581,8 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	// in a single callback.
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	user, _, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	user, _, _, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	defer cleanup()
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
@@ -1603,7 +1642,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	b.Commit()
 
 	var empty [32]byte
-	assertPrices(t, empty[:], empty[:], empty[:], consumerContract)
+	assertPricesBytes32(t, empty[:], empty[:], empty[:], consumerContract)
 
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
@@ -1620,7 +1659,105 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 
 	// Job should complete successfully.
 	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
-	assertPrices(t, []byte("614.64"), []byte("507.07"), []byte("63818.86"), consumerContract)
+	assertPricesBytes32(t, []byte("614.64"), []byte("507.07"), []byte("63818.86"), consumerContract)
+}
+
+func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
+	haveUsd, err := consumer.UsdInt(nil)
+	require.NoError(t, err)
+	assert.True(t, usd.Cmp(haveUsd) == 0)
+	haveEur, err := consumer.EurInt(nil)
+	require.NoError(t, err)
+	assert.True(t, eur.Cmp(haveEur) == 0)
+	haveJpy, err := consumer.JpyInt(nil)
+	require.NoError(t, err)
+	assert.True(t, jpy.Cmp(haveJpy) == 0)
+}
+
+func TestIntegration_MultiwordV2(t *testing.T) {
+	t.Parallel()
+
+	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
+	// in a single callback.
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	user, _, operatorAddress, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	defer cleanup()
+	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
+	app.Config.Set("MIN_INCOMING_CONFIRMATIONS", 1)
+	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", 100*time.Millisecond)
+
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+	require.NoError(t, err)
+	authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
+	tx, err := operatorContract.SetAuthorizedSenders(user, authorizedSenders)
+	require.NoError(t, err)
+	b.Commit()
+	cltest.RequireTxSuccessful(t, b, tx.Hash())
+
+	// Fund node account with ETH.
+	n, err := b.NonceAt(context.Background(), user.From, nil)
+	require.NoError(t, err)
+	tx = types.NewTransaction(n, sendingKeys[0].Address.Address(), big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
+	signedTx, err := user.Signer(user.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	err = app.StartAndConnect()
+	require.NoError(t, err)
+
+	mockServerUSD, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
+	defer cleanup()
+	mockServerEUR, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
+	defer cleanup()
+	mockServerJPY, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
+	defer cleanup()
+
+	spec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/multiword-response-spec.toml"))
+	spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorAddress.Hex())
+	j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
+	cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
+
+	var jobID [32]byte
+	copy(jobID[:], j.ExternalJobID.Bytes())
+	tx, err = consumerContract.SetSpecID(user, jobID)
+	require.NoError(t, err)
+	b.Commit()
+	cltest.RequireTxSuccessful(t, b, tx.Hash())
+
+	user.GasLimit = 1000000
+	tx, err = consumerContract.RequestMultipleParametersWithCustomURLs(user,
+		mockServerUSD.URL, "USD",
+		mockServerEUR.URL, "EUR",
+		mockServerJPY.URL, "JPY",
+		big.NewInt(1000),
+	)
+	require.NoError(t, err)
+	b.Commit()
+	cltest.RequireTxSuccessful(t, b, tx.Hash())
+
+	empty := big.NewInt(0)
+	assertPricesUint256(t, empty, empty, empty, consumerContract)
+
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
+			triggerAllKeys(t, app)
+			b.Commit()
+		}
+	}()
+	pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
+	pipelineRun := pipelineRuns[0]
+	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+	time.Sleep(3 * time.Second)
+	cltest.RequireTxSuccessful(t, b, attempts[0].Hash)
+	assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), consumerContract)
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator) {
@@ -1798,6 +1935,7 @@ isBootstrapPeer    = true
 	//  latestAnswer:10
 	//  latestAnswer:20
 	//  latestAnswer:30
+	var metaLock sync.Mutex
 	expectedMeta := map[string]struct{}{
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
@@ -1819,7 +1957,9 @@ isBootstrapPeer    = true
 			var m models.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				metaLock.Lock()
 				delete(expectedMeta, m.Meta.LatestAnswer.String())
+				metaLock.Unlock()
 			}
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
@@ -1865,9 +2005,9 @@ observationSource = """
 """
 `, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
-		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+		jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
-		jids = append(jids, jid)
+		jids = append(jids, jb.ID)
 	}
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
@@ -1895,7 +2035,7 @@ observationSource = """
 	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
-		jobs, err := app.JobORM().JobsV2()
+		jobs, _, err := app.JobORM().JobsV2(0, 1000)
 		require.NoError(t, err)
 		// No spec errors
 		for _, j := range jobs {
@@ -2025,21 +2165,21 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	b41 := gas.Block{
 		Number:       41,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
 	b42 := gas.Block{
 		Number:       42,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
 	b43 := gas.Block{
 		Number:       43,
-		Hash:         cltest.NewHash(),
+		Hash:         utils.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
-	h40 := models.Head{Hash: cltest.NewHash(), Number: 40}
+	h40 := models.Head{Hash: utils.NewHash(), Number: 40}
 	h41 := models.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
 	h42 := models.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
 

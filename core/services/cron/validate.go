@@ -34,10 +34,6 @@ func ValidatedCronSpec(tomlString string) (job.Job, error) {
 	if jb.Type != job.Cron {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
-	if jb.SchemaVersion != uint32(1) {
-		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
-	}
-
 	if err := utils.ValidateCronSchedule(spec.CronSchedule); err != nil {
 		return jb, errors.Wrapf(err, "while validating cron schedule '%v'", spec.CronSchedule)
 	}
