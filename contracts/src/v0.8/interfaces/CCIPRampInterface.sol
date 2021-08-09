@@ -10,7 +10,7 @@ interface CCIPRampInterface{
     address receiver,
     bytes message,
     address[] tokens,
-    address[] amounts,
+    uint256[] amounts,
     bytes options
   );
   event CrossChainMessagedReceived(
@@ -20,7 +20,7 @@ interface CCIPRampInterface{
     address receiver,
     bytes message,
     address[] tokens,
-    address[] amounts,
+    uint256[] amounts,
     bytes options
   );
   event CrossChainMessageFulfilled(
