@@ -190,12 +190,27 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 
 // ListManagerServices lists all the manager services.
 func (s *service) ListManagers() ([]FeedsManager, error) {
-	return s.orm.ListManagers(context.Background())
+	managers, err := s.orm.ListManagers(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get a list of managers")
+	}
+
+	for i := range managers {
+		managers[i].IsConnectionActive = s.connMgr.IsConnected(managers[i].ID)
+	}
+
+	return managers, nil
 }
 
 // GetManager gets a manager service by id.
 func (s *service) GetManager(id int64) (*FeedsManager, error) {
-	return s.orm.GetManager(context.Background(), id)
+	manager, err := s.orm.GetManager(context.Background(), id)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get manager by ID")
+	}
+
+	manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
+	return manager, nil
 }
 
 // CountManagerServices gets the total number of manager services
