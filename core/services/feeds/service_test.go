@@ -21,6 +21,8 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
+	verMocks "github.com/smartcontractkit/chainlink/core/services/versioning/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,7 @@ import (
 type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
+	verORM      *verMocks.ORM
 	connMgr     *mocks.ConnectionsManager
 	txm         *pgmocks.TransactionManager
 	spawner     *jobmocks.Spawner
@@ -44,6 +47,7 @@ type TestService struct {
 func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
+		verORM      = &verMocks.ORM{}
 		connMgr     = &mocks.ConnectionsManager{}
 		txm         = &pgmocks.TransactionManager{}
 		spawner     = &jobmocks.Spawner{}
@@ -56,6 +60,7 @@ func setupTestService(t *testing.T) *TestService {
 	t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t,
 			orm,
+			verORM,
 			connMgr,
 			txm,
 			spawner,
@@ -66,12 +71,13 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	svc := feeds.NewService(orm, txm, spawner, csaKeystore, ethKeystore, cfg)
+	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
+		verORM:      verORM,
 		connMgr:     connMgr,
 		txm:         txm,
 		spawner:     spawner,
@@ -192,6 +198,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			Address:   ethkey.EIP55AddressFromAddress(rawKey.Address),
 			IsFunding: false,
 		}
+		nodeVersion = &versioning.NodeVersion{
+			Version: "1.0.0",
+		}
 	)
 
 	svc := setupTestService(t)
@@ -202,6 +211,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
 	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
+	svc.verORM.On("FindLatestNodeVersion").Return(nodeVersion, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
@@ -210,6 +220,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 		AccountAddresses:   []string{sendingKey.Address.String()},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
+		Version:            nodeVersion.Version,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
