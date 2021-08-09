@@ -35,6 +35,10 @@ idleTimerDisabled = false
 pollTimerPeriod = "1m"
 pollTimerDisabled = false
 
+drumbeatEnabled = true
+drumbeatSchedule = "@every 1m"
+drumbeatRandomDelay = "10s"
+
 minPayment = 1000000000000000000
 
 observationSource = """
@@ -65,6 +69,10 @@ answer1 [type=median index=0];
 				assert.Equal(t, 1*time.Second, spec.IdleTimerPeriod)
 				assert.Equal(t, false, spec.IdleTimerDisabled)
 				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
+				assert.Equal(t, false, spec.PollTimerDisabled)
+				assert.Equal(t, true, spec.DrumbeatEnabled)
+				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
+				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
 				assert.Equal(t, false, spec.PollTimerDisabled)
 				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
