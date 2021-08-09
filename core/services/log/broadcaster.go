@@ -26,6 +26,7 @@ import (
 
 //go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 //go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
+//go:generate mockery --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -48,12 +49,16 @@ type (
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
-		BackfillBlockNumber() null.Int64
 
-		TrackedAddressesCount() uint32
-		// DB interactions
 		WasAlreadyConsumed(db *gorm.DB, lb Broadcast) (bool, error)
 		MarkConsumed(db *gorm.DB, lb Broadcast) error
+		// NOTE: WasAlreadyConsumed and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
+	}
+
+	BroadcasterInTest interface {
+		Broadcaster
+		BackfillBlockNumber() null.Int64
+		TrackedAddressesCount() uint32
 	}
 
 	broadcaster struct {
@@ -80,6 +85,7 @@ type (
 		trackedAddressesCount uint32
 		replayChannel         chan int64
 		highestSavedHead      *models.Head
+		lastSeenHeadNumber    int64
 	}
 
 	Config interface {
@@ -206,8 +212,6 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) Connect(head *models.Head) error { return nil }
-
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
@@ -315,6 +319,10 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		select {
 		case rawLog := <-chRawLogs:
+
+			logger.Debugw("LogBroadcaster: Received a log",
+				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
+
 			b.onNewLog(rawLog)
 
 		case <-b.newHeads.Notify():
@@ -349,6 +357,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 func (b *broadcaster) onNewLog(log types.Log) {
+	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
+
 	if log.Removed {
 		b.logPool.removeLog(log)
 		return
@@ -381,6 +391,8 @@ func (b *broadcaster) onNewHeads() {
 		logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
 			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
+		atomic.StoreInt64(&b.lastSeenHeadNumber, latestHead.Number)
+
 		keptLogsDepth := uint64(b.config.EthFinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
@@ -392,18 +404,32 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
-		logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
-
-		if len(logs) > 0 {
-			broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
-			if err != nil {
-				logger.Errorf("LogBroadcaster: Failed to query for log broadcasts, %v", err)
-				return
+		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
+		// without comparing their block numbers to the current head's block number.
+		if b.registrations.highestNumConfirmations == 0 {
+			logs, lowest, highest := b.logPool.getAndDeleteAll()
+			if len(logs) > 0 {
+				broadcasts, err := b.orm.FindConsumedLogs(lowest, highest)
+				if err != nil {
+					logger.Errorf("Failed to query for log broadcasts, %v", err)
+					return
+				}
+				b.registrations.sendLogs(logs, *latestHead, broadcasts)
 			}
+		} else {
+			logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
 
-			b.registrations.sendLogs(logs, *latestHead, broadcasts)
+			if len(logs) > 0 {
+				broadcasts, err := b.orm.FindConsumedLogs(minBlockNum, latestBlockNum)
+				if err != nil {
+					logger.Errorf("LogBroadcaster: Failed to query for log broadcasts, %v", err)
+					return
+				}
+
+				b.registrations.sendLogs(logs, *latestHead, broadcasts)
+			}
+			b.logPool.deleteOlderLogs(uint64(keptDepth))
 		}
-		b.logPool.deleteOlderLogs(uint64(keptDepth))
 	}
 }
 
@@ -418,7 +444,7 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations, "address", reg.opts.Contract)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -438,7 +464,7 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
+		logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations, "address", reg.opts.Contract)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -477,6 +503,20 @@ func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 	}()
 
 	return chCombined
+}
+
+func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64) {
+	lastSeenHeadNumber := atomic.LoadInt64(&b.lastSeenHeadNumber)
+	diff := logBlockNumber - lastSeenHeadNumber
+	if diff < 0 {
+		diff = -diff
+	}
+
+	if lastSeenHeadNumber > 0 && diff > 1000 {
+		logger.Warnw("LogBroadcaster: Detected a large block number difference between a log and recently seen head. "+
+			"This may indicate a problem with data received from the chain or major network delays.",
+			"lastSeenHeadNumber", lastSeenHeadNumber, "logBlockNumber", logBlockNumber, "diff", diff)
+	}
 }
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
@@ -523,5 +563,4 @@ func (n *NullBroadcaster) Start() error                                   { retu
 func (n *NullBroadcaster) Close() error                                   { return nil }
 func (n *NullBroadcaster) Healthy() error                                 { return nil }
 func (n *NullBroadcaster) Ready() error                                   { return nil }
-func (n *NullBroadcaster) Connect(*models.Head) error                     { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}

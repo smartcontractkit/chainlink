@@ -35,6 +35,10 @@ idleTimerDisabled = false
 pollTimerPeriod = "1m"
 pollTimerDisabled = false
 
+drumbeatEnabled = true
+drumbeatSchedule = "@every 1m"
+drumbeatRandomDelay = "10s"
+
 minPayment = 1000000000000000000
 
 observationSource = """
@@ -65,6 +69,10 @@ answer1 [type=median index=0];
 				assert.Equal(t, 1*time.Second, spec.IdleTimerPeriod)
 				assert.Equal(t, false, spec.IdleTimerDisabled)
 				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
+				assert.Equal(t, false, spec.PollTimerDisabled)
+				assert.Equal(t, true, spec.DrumbeatEnabled)
+				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
+				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
 				assert.Equal(t, false, spec.PollTimerDisabled)
 				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
@@ -127,32 +135,6 @@ ds1 -> ds1_parse;
 			},
 			setGlobals: func(t *testing.T, c *config.Config) {
 				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-			},
-		},
-		{
-			name: "async=true should error",
-			toml: `
-type              = "fluxmonitor"
-schemaVersion       = 1
-name                = "example flux monitor spec"
-contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-maxTaskDuration = "1s"
-threshold = 0.5
-absoluteThreshold = 0.0 
-
-idleTimerPeriod = "1s"
-idleTimerDisabled = false
-
-pollTimerPeriod = "500ms"
-pollTimerDisabled = false
-
-observationSource = """
-ds1          [type=bridge async=true name=voter_turnout timeout="10s"];
-"""
-`,
-			assertion: func(t *testing.T, s job.Job, err error) {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "async=true tasks are not supported")
 			},
 		},
 	}

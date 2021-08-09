@@ -217,17 +217,19 @@ func (ec *explorerClient) connectAndWritePump() {
 		select {
 		case <-time.After(ec.sleeper.After()):
 			ctx, cancel := utils.ContextFromChan(ec.done)
-			defer cancel()
 
 			logger.Infow("Connecting to explorer", "url", ec.url)
 			err := ec.connect(ctx)
 			if ctx.Err() != nil {
+				cancel()
 				return
 			} else if err != nil {
 				ec.setStatus(ConnectionStatusError)
 				logger.Warn("Failed to connect to explorer (", ec.url.String(), "): ", err)
+				cancel()
 				break
 			}
+			cancel()
 
 			ec.setStatus(ConnectionStatusConnected)
 

@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 )
 
@@ -58,11 +57,6 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.
 	}
 	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm})
 	return bm
-}
-
-// Connect complies with HeadTrackable
-func (bm *balanceMonitor) Connect(_ *models.Head) error {
-	return nil
 }
 
 func (bm *balanceMonitor) Start() error {
@@ -174,13 +168,10 @@ func (w *worker) checkAccountBalance(k ethkey.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error   { return nil }
-func (*NullBalanceMonitor) Close() error   { return nil }
-func (*NullBalanceMonitor) Ready() error   { return nil }
-func (*NullBalanceMonitor) Healthy() error { return nil }
-func (*NullBalanceMonitor) Connect(head *models.Head) error {
-	return nil
-}
+func (*NullBalanceMonitor) Start() error                                            { return nil }
+func (*NullBalanceMonitor) Close() error                                            { return nil }
+func (*NullBalanceMonitor) Ready() error                                            { return nil }
+func (*NullBalanceMonitor) Healthy() error                                          { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
 
 var promETHBalance = promauto.NewGaugeVec(
@@ -191,7 +182,7 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account"},
 )
 
-func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
+func promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
 	balanceFloat, err := ApproximateFloat64(balance)
 
 	if err != nil {

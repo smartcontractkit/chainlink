@@ -485,7 +485,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},
-		Outputs:        JSONSerializable{Val: "queued eth transaction"},
+		Outputs:        JSONSerializable{Val: []interface{}{"queued eth transaction"}},
 		CreatedAt:      t,
 		FinishedAt:     null.TimeFrom(t),
 	}, nil, false)

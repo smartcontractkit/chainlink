@@ -24,6 +24,7 @@ type ORM interface {
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
 	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
 	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error
+	UpdateManager(ctx context.Context, mgr FeedsManager) error
 }
 
 type orm struct {
@@ -47,7 +48,7 @@ func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (int64, error
 		RETURNING id;
 	`
 
-	row := o.db.Raw(stmt,
+	row := o.db.WithContext(ctx).Raw(stmt,
 		ms.Name,
 		ms.URI,
 		ms.PublicKey,
@@ -77,7 +78,7 @@ func (o *orm) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 		FROM feeds_managers;
 	`
 
-	err := o.db.Raw(stmt).Scan(&mgrs).Error
+	err := o.db.WithContext(ctx).Raw(stmt).Scan(&mgrs).Error
 	if err != nil {
 		return mgrs, err
 	}
@@ -94,7 +95,7 @@ func (o *orm) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	`
 
 	mgr := FeedsManager{}
-	result := o.db.Raw(stmt, id).Scan(&mgr)
+	result := o.db.WithContext(ctx).Raw(stmt, id).Scan(&mgr)
 	if result.RowsAffected == 0 {
 		return nil, sql.ErrNoRows
 	}
@@ -103,6 +104,34 @@ func (o *orm) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	}
 
 	return &mgr, nil
+}
+
+func (o *orm) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+	tx := postgres.TxFromContext(ctx, o.db)
+	now := time.Now()
+
+	stmt := `
+		UPDATE feeds_managers
+		SET name = ?,
+		    uri = ?,
+		    public_key = ?,
+		    job_types = ?,
+		    is_ocr_bootstrap_peer = ?,
+		    ocr_bootstrap_peer_multiaddr = ?,
+		    updated_at = ?
+		WHERE id = ?;
+	`
+
+	result := tx.Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, now, mgr.ID)
+	if result.RowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+
 }
 
 // Count counts the number of feeds manager records.

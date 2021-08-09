@@ -2,15 +2,10 @@
 set -o pipefail
 set +e
 
-go test -v -p 4 -parallel 4 ./... >./output.txt
-EXITCODE=$?
-
 echo "Failed tests and panics: ---------------------"
 echo ""
-grep --line-number --after-context=2 "panic: " output.txt
-echo ""
-grep --line-number "\-\-\- FAIL" output.txt
-grep -n "FAIL	" output.txt
+go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL "
+EXITCODE=${PIPESTATUS[0]}
 echo ""
 echo "----------------------------------------------"
 
@@ -21,7 +16,9 @@ echo ""
 echo "Potentially related:"
 echo ""
 
-grep "driver: bad connection" output.txt
+grep --after-context=2 --group-separator=$'---' "panic: " output.txt
+grep --group-separator=$'---' "driver: bad connection" output.txt
+
 echo "Exit code: $EXITCODE"
 if [[ $EXITCODE != 0 ]]; then
   echo "Encountered test failures."

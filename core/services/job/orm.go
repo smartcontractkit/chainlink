@@ -180,11 +180,6 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		}
 	}
 
-	if jobSpec.ExternalJobID == (uuid.UUID{}) {
-		// automatically populate job external ID here if it was zero
-		jobSpec.ExternalJobID = uuid.NewV4()
-	}
-
 	tx := postgres.TxFromContext(ctx, o.db)
 
 	// Autogenerate a job ID if not specified
@@ -381,7 +376,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{
-				"occurrences": gorm.Expr("job_spec_errors_v2.occurrences + 1"),
+				"occurrences": gorm.Expr("job_spec_errors.occurrences + 1"),
 				"updated_at":  gorm.Expr("excluded.updated_at"),
 			}),
 		}).
@@ -395,7 +390,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 }
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {
-	result := o.db.Exec("DELETE FROM job_spec_errors_v2 WHERE id = ?", ID)
+	result := o.db.Exec("DELETE FROM job_spec_errors WHERE id = ?", ID)
 	if result.Error != nil {
 		return result.Error
 	} else if result.RowsAffected == 0 {
