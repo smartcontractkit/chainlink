@@ -1,10 +1,12 @@
-package models
+package versioning
 
-import "time"
+import (
+	"time"
+)
 
 type NodeVersion struct {
-	Version   string    `gorm:"primary_key"`
-	CreatedAt time.Time `gorm:"index"`
+	Version   string
+	CreatedAt time.Time
 }
 
 func NewNodeVersion(version string) NodeVersion {

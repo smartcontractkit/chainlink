@@ -9,6 +9,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -151,9 +152,14 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
 
-		version, err2 := dbOrm.FindLatestNodeVersion()
+	// Set up the versioning ORM
+	verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
+		postgres.MustSQLDB(dbOrm.DB)),
+	)
+
+	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
+		version, err2 := verORM.FindLatestNodeVersion()
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
 		}
@@ -182,11 +188,12 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if nodeVersion == "unset" {
 		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
 	}
-	version := models.NewNodeVersion(nodeVersion)
-	err = dbOrm.UpsertNodeVersion(version)
+	version := versioning.NewNodeVersion(nodeVersion)
+	err = verORM.UpsertNodeVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
+
 	dbOrm.SetLogging(cfg.LogSQLStatements())
 	return dbOrm, nil
 }
