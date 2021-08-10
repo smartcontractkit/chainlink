@@ -182,7 +182,6 @@ func setConfigs() {
 	optimismMainnet.EthGasBumpThreshold = 0 // Never bump gas on optimism
 	optimismMainnet.EthHeadTrackerHistoryDepth = 10
 	optimismMainnet.EthHeadTrackerSamplingInterval = 1 * time.Second
-	optimismMainnet.BlockEmissionIdleWarningThreshold = 15 * time.Second
 	optimismMainnet.EthTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.BlockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
 	optimismMainnet.GasEstimatorMode = "Optimism"
