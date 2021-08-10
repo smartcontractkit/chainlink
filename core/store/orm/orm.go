@@ -4,7 +4,6 @@ import (
 	"crypto/subtle"
 	"database/sql"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -137,62 +136,12 @@ func (orm *ORM) Unscoped() *ORM {
 	}
 }
 
-// UpsertNodeVersion inserts a new NodeVersion
-func (orm *ORM) UpsertNodeVersion(version models.NodeVersion) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-
-	return orm.Transaction(func(tx *gorm.DB) error {
-		err := tx.Clauses(clause.OnConflict{
-			DoNothing: true,
-		}).Create(&version).Error
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
-// FindLatestNodeVersion looks up the latest node version
-func (orm *ORM) FindLatestNodeVersion() (*models.NodeVersion, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	var nodeVersion models.NodeVersion
-	err := orm.DB.Order("created_at DESC").First(&nodeVersion).Error
-	if err == gorm.ErrRecordNotFound {
-		return nil, nil
-	}
-	if err != nil && strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-		logger.Default.Debug("Failed to find any node version in the DB, the node_versions table does not exist yet.")
-		return nil, nil
-	}
-	return &nodeVersion, err
-}
-
 // FindBridge looks up a Bridge by its Name.
 func (orm *ORM) FindBridge(name models.TaskType) (bt models.BridgeType, err error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return bt, err
 	}
 	return bt, orm.DB.First(&bt, "name = ?", name.String()).Error
-}
-
-func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
-	return orm.convenientTransaction(fc)
-}
-
-// convenientTransaction handles setup and teardown for a gorm database
-// transaction, handing off the database transaction to the callback parameter.
-// Encourages the use of transactions for gorm calls that translate
-// into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
-// in a database transaction.
-func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return postgres.GormTransactionWithDefaultContext(orm.DB, callback)
 }
 
 // ExternalInitiatorsSorted returns many ExternalInitiators sorted by Name from the store adhering
