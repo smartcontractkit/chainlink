@@ -3,23 +3,30 @@ package offchainreporting
 import (
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 )
 
+type ValidationConfig interface {
+	Dev() bool
+	OCRBlockchainTimeout(override time.Duration) time.Duration
+	OCRContractConfirmations(override uint16) uint16
+	OCRContractPollInterval(override time.Duration) time.Duration
+	OCRContractSubscribeInterval(override time.Duration) time.Duration
+	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRDatabaseTimeout() time.Duration
+	OCRObservationTimeout(override time.Duration) time.Duration
+	OCRObservationGracePeriod() time.Duration
+}
+
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config *config.Config, tomlString string) (job.Job, error) {
-	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
-	}
+func ValidatedOracleSpecToml(config ValidationConfig, tomlString string) (job.Job, error) {
+	var jb = job.Job{}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -37,16 +44,9 @@ func ValidatedOracleSpecToml(config *config.Config, tomlString string) (job.Job,
 	}
 	jb.OffchainreportingOracleSpec = &spec
 
-	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
 	if jb.Type != job.OffchainReporting {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
-	}
-	if jb.SchemaVersion != uint32(1) {
-		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
-	}
-	if jb.Pipeline.HasAsync() {
-		return jb, errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
 	if !tree.Has("isBootstrapPeer") {
 		return jb, errors.New("isBootstrapPeer is not defined")
@@ -94,7 +94,7 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(config *config.Config, spec job.OffchainReportingOracleSpec) error {
+func validateTimingParameters(config ValidationConfig, spec job.OffchainReportingOracleSpec) error {
 	lc := types.LocalConfig{
 		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
 		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
@@ -120,7 +120,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	return validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config *config.Config, spec job.Job) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}

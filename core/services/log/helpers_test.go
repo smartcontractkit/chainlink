@@ -40,7 +40,9 @@ type broadcasterHelper struct {
 	mockEth *mockEth
 
 	// each received channel corresponds to one eth subscription
-	chchRawLogs   chan chan<- types.Log
+	chchRawLogs chan chan<- types.Log
+
+	sentLogs      chan types.Log
 	toUnsubscribe []func()
 	storeCleanup  func()
 }
@@ -190,11 +192,12 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 }
 
 type simpleLogListener struct {
-	name     string
-	received *received
-	t        *testing.T
-	db       *gorm.DB
-	jobID    log.JobIdSelect
+	name                string
+	received            *received
+	t                   *testing.T
+	db                  *gorm.DB
+	jobID               log.JobIdSelect
+	skipMarkingConsumed bool
 }
 
 func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogListener {
@@ -218,7 +221,7 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 	}
 
 	pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestConfig(t), store.DB, nil, nil, nil)
-	err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
+	_, err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
 	require.NoError(t, err)
 
 	var rec received
@@ -231,10 +234,15 @@ func newLogListenerWithV2Job(t *testing.T, store *store.Store, name string) *sim
 	}
 }
 
-func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
-	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
+	listener.skipMarkingConsumed = skip
+}
+
+func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
+	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
 	consumed := listener.handleLogBroadcast(listener.t, lb)
@@ -246,23 +254,21 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-func (listener simpleLogListener) OnConnect()    {}
-func (listener simpleLogListener) OnDisconnect() {}
-func (listener simpleLogListener) JobID() models.JobID {
+func (listener *simpleLogListener) JobID() models.JobID {
 	return listener.jobID.JobIDV1
 }
-func (listener simpleLogListener) IsV2Job() bool {
+func (listener *simpleLogListener) IsV2Job() bool {
 	return listener.jobID.IsV2
 }
-func (listener simpleLogListener) JobIDV2() int32 {
+func (listener *simpleLogListener) JobIDV2() int32 {
 	return listener.jobID.JobIDV2
 }
 
-func (listener simpleLogListener) getUniqueLogs() []types.Log {
+func (listener *simpleLogListener) getUniqueLogs() []types.Log {
 	return listener.received.uniqueLogs
 }
 
-func (listener simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
+func (listener *simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
 	var blockNums []uint64
 	for _, uniqueLog := range listener.received.uniqueLogs {
 		blockNums = append(blockNums, uniqueLog.BlockNumber)
@@ -270,10 +276,10 @@ func (listener simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
 	return blockNums
 }
 
-func (listener simpleLogListener) getLogs() []types.Log {
+func (listener *simpleLogListener) getLogs() []types.Log {
 	return listener.received.logs
 }
-func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
+func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
 	received := listener.received
 	require.Eventually(t, func() bool {
 		received.Lock()
@@ -288,11 +294,11 @@ func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState
 	received.Unlock()
 }
 
-func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {
+func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {
 	t.Helper()
 	consumed, err := listener.WasAlreadyConsumed(listener.db, lb)
 	require.NoError(t, err)
-	if !consumed {
+	if !consumed && !listener.skipMarkingConsumed {
 
 		err = listener.MarkConsumed(listener.db, lb)
 		require.NoError(t, err)
@@ -304,10 +310,10 @@ func (listener simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadc
 	return consumed
 }
 
-func (listener simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
+func (listener *simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
 	return log.NewORM(listener.db).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
-func (listener simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
+func (listener *simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
 	return log.NewORM(listener.db).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
@@ -319,8 +325,6 @@ type mockListener struct {
 func (l *mockListener) JobID() models.JobID                                     { return l.jobID }
 func (l *mockListener) JobIDV2() int32                                          { return l.jobIDV2 }
 func (l *mockListener) IsV2Job() bool                                           { return l.jobID.IsZero() }
-func (l *mockListener) OnConnect()                                              {}
-func (l *mockListener) OnDisconnect()                                           {}
 func (l *mockListener) HandleLog(log.Broadcast)                                 {}
 func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
 func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }

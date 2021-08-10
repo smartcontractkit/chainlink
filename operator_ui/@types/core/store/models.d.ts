@@ -10,6 +10,12 @@ declare module 'core/store/models' {
 
   //#region job_spec.go
 
+  export interface Resource<T> {
+    id: string
+    type: string
+    attributes: T
+  }
+
   export interface JobSpecError {
     id: string
     description: string
@@ -625,16 +631,52 @@ declare module 'core/store/models' {
     }
   }
 
-  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+  // We really need to change the API for this. It not only returns levels but
+  // true/false for IsSQLEnabled
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error' | "true" | "false"
+  export type LogServiceName = 'Global' | 'IsSqlEnabled' | 'header_tracker' | 'fluxmonitor'
 
   export interface LogConfig {
-    level: LogConfigLevel
-    sqlEnabled: boolean
+    // Stupidly this also returns boolean strings
+    logLevel: LogConfigLevel[] ;
+    serviceName: string[];
   }
 
   export interface LogConfigRequest {
     level: LogConfigLevel
     sqlEnabled: boolean
+  }
+
+  export interface CSAKey {
+    publicKey: string
+    createdAt: time.Time
+    updatedAt: time.Tome
+  }
+
+  export interface FeedsManager {
+    name: string
+    uri: string
+    jobTypes: string[]
+    publicKey: string
+    isBootstrapPeer: boolean
+    bootstrapPeerMultiaddr?: string
+    createdAt: time.Time
+  }
+
+  export interface CreateFeedsManagerRequest {
+    name: string
+    uri: string
+    jobTypes: string[]
+    publicKey: string
+    isBootstrapPeer: boolean
+    bootstrapPeerMultiaddr?: string
+  }
+
+  export interface JobProposal {
+    spec: string
+    status: string
+    external_job_id: string | null
+    createdAt: time.Time
   }
 }
 
@@ -646,3 +688,4 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
+

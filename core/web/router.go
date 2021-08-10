@@ -220,6 +220,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	j := JobSpecsController{app}
 	jsec := JobSpecErrorsController{app}
 	prc := PipelineRunsController{app}
+	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
@@ -230,6 +231,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
 		eia := ExternalInitiatorsController{app}
+		authv2.GET("/external_initiators", paginatedRequest(eia.Index))
 		authv2.POST("/external_initiators", eia.Create)
 		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
 
@@ -275,6 +277,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		bdc := BulkDeletesController{app}
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 
+		rc := ReplayController{app}
+		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
+
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
@@ -308,20 +313,28 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/vrf/export/:keyID", vrfkc.Export)
 
 		jc := JobsController{app}
-		authv2.GET("/jobs", jc.Index)
+		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)
 		authv2.POST("/jobs", jc.Create)
 		authv2.DELETE("/jobs/:ID", jc.Delete)
 
 		jpc := JobProposalsController{app}
+		authv2.GET("/job_proposals", jpc.Index)
+		authv2.GET("/job_proposals/:id", jpc.Show)
+		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
 		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
+		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
 
 		mc := MigrateController{app}
 		authv2.POST("/migrate/:ID", mc.Migrate)
 
 		// PipelineRunsController
+		authv2.GET("/pipeline/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
+
+		// PipelineJobSpecErrorsController
+		authv2.DELETE("/pipeline/job_spec_errors/:ID", psec.Destroy)
 
 		lgc := LogController{app}
 		authv2.GET("/log", lgc.Get)

@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink
 
-go 1.15
+go 1.16
 
 require (
 	github.com/DATA-DOG/go-txdb v0.1.4
@@ -22,14 +22,13 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v3.4.0+incompatible // indirect
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
-	github.com/jackc/pgconn v1.8.1
-	github.com/jackc/pgtype v1.7.0
-	github.com/jackc/pgx/v4 v4.11.1-0.20210326152507-88ede6efb5b0
+	github.com/jackc/pgconn v1.10.0
+	github.com/jackc/pgtype v1.8.1
+	github.com/jackc/pgx/v4 v4.12.1-0.20210724153913-640aa07df17c
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.10.2
@@ -41,7 +40,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.13.0
+	github.com/onsi/gomega v1.14.0
 	github.com/pelletier/go-toml v1.9.3
 	github.com/peterh/liner v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
@@ -53,7 +52,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20210706082215-22f0f4e09528
+	github.com/smartcontractkit/libocr v0.0.0-20210803133922-ddddd3dce7e5
 	github.com/smartcontractkit/wsrpc v0.3.0
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
@@ -66,15 +65,15 @@ require (
 	github.com/urfave/cli v1.22.5
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.13
-	go.uber.org/atomic v1.7.0
+	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.7.0
-	go.uber.org/zap v1.17.0
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+	go.uber.org/zap v1.18.1
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/text v0.3.6
 	golang.org/x/tools v0.1.2
-	gonum.org/v1/gonum v0.9.1
+	gonum.org/v1/gonum v0.9.3
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gorm.io/datatypes v1.0.0

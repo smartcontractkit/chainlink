@@ -3,13 +3,16 @@ package feeds
 import (
 	"context"
 	"crypto/ed25519"
-	"errors"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/wsrpc"
@@ -18,18 +21,25 @@ import (
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
 //go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
+var (
+	ErrOCRDisabled = errors.New("ocr is disabled")
+)
+
 type Service interface {
 	Start() error
 	Close() error
 
+	ApproveJobProposal(ctx context.Context, id int64) error
 	CountManagers() (int64, error)
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	GetJobProposal(id int64) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
+	ListJobProposals() ([]JobProposal, error)
 	RegisterManager(ms *FeedsManager) (int64, error)
 	RejectJobProposal(ctx context.Context, id int64) error
 	SyncNodeInfo(id int64) error
+	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
 
 	Unsafe_SetFMSClient(pb.FeedsManagerClient)
 }
@@ -50,6 +60,7 @@ type service struct {
 	csaKeyStore keystore.CSAKeystoreInterface
 	ethKeyStore keystore.EthKeyStoreInterface
 	fmsClient   pb.FeedsManagerClient
+	jobSpawner  job.Spawner
 	cfg         Config
 	txm         postgres.TransactionManager
 }
@@ -58,6 +69,7 @@ type service struct {
 func NewService(
 	orm ORM,
 	txm postgres.TransactionManager,
+	jobSpawner job.Spawner,
 	csaKeyStore keystore.CSAKeystoreInterface,
 	ethKeyStore keystore.EthKeyStoreInterface,
 	cfg Config,
@@ -69,6 +81,7 @@ func NewService(
 		connCtxCancel: cancel,
 		orm:           orm,
 		txm:           txm,
+		jobSpawner:    jobSpawner,
 		csaKeyStore:   csaKeyStore,
 		ethKeyStore:   ethKeyStore,
 		cfg:           cfg,
@@ -141,10 +154,11 @@ func (s *service) SyncNodeInfo(id int64) error {
 
 	// Make the remote call to FMS
 	_, err = s.fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
-		JobTypes:         jobtypes,
-		ChainId:          s.cfg.ChainID().Int64(),
-		AccountAddresses: addresses,
-		IsBootstrapPeer:  mgr.IsOCRBootstrapPeer,
+		JobTypes:           jobtypes,
+		ChainId:            s.cfg.ChainID().Int64(),
+		AccountAddresses:   addresses,
+		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
+		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
 	})
 	if err != nil {
 		return err
@@ -168,6 +182,14 @@ func (s *service) CountManagers() (int64, error) {
 	return s.orm.CountManagers()
 }
 
+// Lists all JobProposals
+//
+// When we support multiple feed managers, we will need to change this to filter
+// by feeds manager
+func (s *service) ListJobProposals() ([]JobProposal, error) {
+	return s.orm.ListJobProposals(context.Background())
+}
+
 // CreateJobProposal creates a job proposal.
 func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 	return s.orm.CreateJobProposal(context.Background(), jp)
@@ -178,6 +200,74 @@ func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
 	return s.orm.GetJobProposal(context.Background(), id)
 }
 
+func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
+	jp, err := s.orm.GetJobProposal(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	if jp.Status != JobProposalStatusPending {
+		return errors.New("must be a pending job proposal")
+	}
+
+	// Update the spec
+	if err = s.orm.UpdateJobProposalSpec(ctx, id, spec); err != nil {
+		return errors.Wrap(err, "could not update job proposal")
+	}
+
+	return nil
+}
+
+func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
+	if s.fmsClient == nil {
+		return errors.New("fms rpc client is not connected")
+	}
+
+	jp, err := s.orm.GetJobProposal(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	if jp.Status != JobProposalStatusPending {
+		return errors.New("must be a pending job proposal")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+
+	j, err := s.generateJob(jp.Spec)
+	if err != nil {
+		return errors.Wrap(err, "could not generate job from spec")
+	}
+
+	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
+		// Create the job
+		_, err = s.jobSpawner.CreateJob(ctx, *j, j.Name)
+		if err != nil {
+			return err
+		}
+
+		// Approve the job
+		if err = s.orm.ApproveJobProposal(ctx, id, j.ExternalJobID, JobProposalStatusApproved); err != nil {
+			return err
+		}
+
+		// Send to FMS Client
+		if _, err = s.fmsClient.ApprovedJob(ctx, &pb.ApprovedJobRequest{
+			Uuid: jp.RemoteUUID.String(),
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not approve job proposal")
+	}
+
+	return nil
+}
+
 func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 	if s.fmsClient == nil {
 		return errors.New("fms rpc client is not connected")
@@ -185,7 +275,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "job proposal does not exist")
 	}
 
 	if jp.Status != JobProposalStatusPending {
@@ -208,7 +298,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not reject job proposal")
 	}
 
 	return nil
@@ -330,4 +420,30 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 // ONLY TO BE USED FOR TESTING.
 func (s *service) Unsafe_SetFMSClient(client pb.FeedsManagerClient) {
 	s.fmsClient = client
+}
+
+func (s *service) generateJob(spec string) (*job.Job, error) {
+	jobType, err := job.ValidateSpec(spec)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse job spec TOML")
+	}
+
+	var js job.Job
+	switch jobType {
+	case job.OffchainReporting:
+		js, err = offchainreporting.ValidatedOracleSpecToml(s.cfg, spec)
+		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
+			return nil, ErrOCRDisabled
+		}
+	case job.FluxMonitor:
+		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
+	default:
+		return nil, errors.Errorf("unknown job type: %s", jobType)
+
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &js, nil
 }

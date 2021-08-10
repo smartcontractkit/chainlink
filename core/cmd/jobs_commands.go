@@ -253,7 +253,7 @@ func (cli *Client) TriggerPipelineRun(c *cli.Context) error {
 		}
 	}()
 
-	var run pipeline.Run
+	var run presenters.PipelineRunResource
 	err = cli.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
 	return err
 }

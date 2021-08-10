@@ -11,23 +11,31 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 var (
-	uri       = "http://192.168.0.1"
-	name      = "Chainlink FMS"
-	publicKey = crypto.PublicKey([]byte("11111111111111111111111111111111"))
-	jobTypes  = pq.StringArray{feeds.JobTypeFluxMonitor, feeds.JobTypeOffchainReporting}
-	network   = "mainnet"
+	uri                       = "http://192.168.0.1"
+	name                      = "Chainlink FMS"
+	publicKey                 = crypto.PublicKey([]byte("11111111111111111111111111111111"))
+	jobTypes                  = pq.StringArray{feeds.JobTypeFluxMonitor, feeds.JobTypeOffchainReporting}
+	ocrBootstrapPeerMultiaddr = null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777")
 )
 
-func setupORM(t *testing.T) feeds.ORM {
+type TestORM struct {
+	feeds.ORM
+
+	db *gorm.DB
+}
+
+func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	db := pgtest.NewGormDB(t)
 	orm := feeds.NewORM(db)
 
-	return orm
+	return &TestORM{ORM: orm, db: db}
 }
 
 func Test_ORM_CreateManager(t *testing.T) {
@@ -35,12 +43,12 @@ func Test_ORM_CreateManager(t *testing.T) {
 
 	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
-		URI:                uri,
-		Name:               name,
-		PublicKey:          publicKey,
-		JobTypes:           jobTypes,
-		Network:            network,
-		IsOCRBootstrapPeer: true,
+		URI:                       uri,
+		Name:                      name,
+		PublicKey:                 publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
 	}
 
 	count, err := orm.CountManagers()
@@ -62,12 +70,12 @@ func Test_ORM_ListManagers(t *testing.T) {
 
 	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
-		URI:                uri,
-		Name:               name,
-		PublicKey:          publicKey,
-		JobTypes:           jobTypes,
-		Network:            network,
-		IsOCRBootstrapPeer: true,
+		URI:                       uri,
+		Name:                      name,
+		PublicKey:                 publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
 	}
 
 	id, err := orm.CreateManager(context.Background(), mgr)
@@ -83,8 +91,8 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
 	assert.Equal(t, jobTypes, actual.JobTypes)
-	assert.Equal(t, network, actual.Network)
-	assert.Equal(t, true, actual.IsOCRBootstrapPeer)
+	assert.True(t, actual.IsOCRBootstrapPeer)
+	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
 }
 
 func Test_ORM_GetManager(t *testing.T) {
@@ -92,12 +100,12 @@ func Test_ORM_GetManager(t *testing.T) {
 
 	orm := setupORM(t)
 	mgr := &feeds.FeedsManager{
-		URI:                uri,
-		Name:               name,
-		PublicKey:          publicKey,
-		JobTypes:           jobTypes,
-		Network:            network,
-		IsOCRBootstrapPeer: true,
+		URI:                       uri,
+		Name:                      name,
+		PublicKey:                 publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
 	}
 
 	id, err := orm.CreateManager(context.Background(), mgr)
@@ -111,8 +119,8 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
 	assert.Equal(t, jobTypes, actual.JobTypes)
-	assert.Equal(t, network, actual.Network)
-	assert.Equal(t, true, actual.IsOCRBootstrapPeer)
+	assert.True(t, actual.IsOCRBootstrapPeer)
+	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
 
 	actual, err = orm.GetManager(context.Background(), -1)
 	require.Nil(t, actual)
@@ -171,8 +179,35 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.JobID.Valid)
+	assert.False(t, actual.ExternalJobID.Valid)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+}
+
+func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	id, err := orm.CreateJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	err = orm.UpdateJobProposalSpec(ctx, id, "updated spec")
+	require.NoError(t, err)
+
+	actual, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, "updated spec", actual.Spec)
 }
 
 func Test_ORM_GetJobProposal(t *testing.T) {
@@ -198,7 +233,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, uuid, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.JobID.Valid)
+	assert.False(t, actual.ExternalJobID.Valid)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 
 	actual, err = orm.GetJobProposal(context.Background(), int64(0))
@@ -233,14 +268,48 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	assert.Equal(t, feeds.JobProposalStatusRejected, actual.Status)
 }
 
+func Test_ORM_ApproveJobProposal(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	// Defer the FK requirement of a job proposal.
+	require.NoError(t, orm.db.Exec(
+		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+	).Error)
+
+	id, err := orm.CreateJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	err = orm.ApproveJobProposal(ctx, id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	require.NoError(t, err)
+
+	actual, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+}
+
 // createFeedsManager is a test helper to create a feeds manager
 func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 	mgr := &feeds.FeedsManager{
-		URI:       uri,
-		Name:      name,
-		PublicKey: publicKey,
-		JobTypes:  jobTypes,
-		Network:   network,
+		URI:                uri,
+		Name:               name,
+		PublicKey:          publicKey,
+		JobTypes:           jobTypes,
+		IsOCRBootstrapPeer: false,
 	}
 
 	id, err := orm.CreateManager(context.Background(), mgr)

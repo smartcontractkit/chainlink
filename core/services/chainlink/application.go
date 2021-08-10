@@ -1,15 +1,20 @@
 package chainlink
 
 import (
+	"bytes"
 	"context"
 	stderr "errors"
 	"fmt"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"math/big"
 	"os"
 	"os/signal"
 	"reflect"
 	"sync"
 	"syscall"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
@@ -81,7 +86,7 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	PipelineORM() pipeline.ORM
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, run *pipeline.Run) (bool, error)
@@ -91,6 +96,9 @@ type Application interface {
 
 	// Feeds
 	GetFeedsService() feeds.Service
+
+	// ReplayFromBlock of blocks
+	ReplayFromBlock(number uint64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -145,6 +153,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 	if err != nil {
 		return nil, err
 	}
+	gormTxm := postgres.NewGormTransactionManager(store.DB)
 
 	setupConfig(cfg, store.DB)
 
@@ -252,7 +261,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.DB)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), txManager)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), keyStore.VRF(), txManager)
 		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
@@ -326,7 +335,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(store.DB, utils.UnrestrictedClient)
 
 	var webhookJobRunner webhook.JobRunner
 	if cfg.Dev() || cfg.FeatureWebhookV2() {
@@ -339,11 +348,11 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
 	subservices = append(subservices, jobSpawner, pipelineRunner, headBroadcaster)
 
 	feedsORM := feeds.NewORM(store.DB)
-	feedsService := feeds.NewService(feedsORM, postgres.NewGormTransactionManager(store.DB), keyStore.CSA(), keyStore.Eth(), cfg)
+	feedsService := feeds.NewService(feedsORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), cfg)
 
 	app := &ChainlinkApplication{
 		ethClient:                ethClient,
@@ -373,6 +382,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
+		HeadTracker:              headTracker,
 		logger:                   globalLogger,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -395,7 +405,6 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 			return nil
 		}})
 	}
-	app.HeadTracker = headTracker
 
 	// Log Broadcaster waits for other services' registrations
 	// until app.LogBroadcaster.DependentReady() call (see below)
@@ -405,6 +414,10 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		if err = app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
 			return nil, err
 		}
+	}
+
+	if err = app.HealthChecker.Register(reflect.TypeOf(headTracker).String(), headTracker); err != nil {
+		return nil, err
 	}
 
 	return app, nil
@@ -474,7 +487,7 @@ func (app *ChainlinkApplication) Start() error {
 	}()
 
 	// EthClient must be dialed first because it is required in subtasks
-	if err := app.ethClient.Dial(context.TODO()); err != nil {
+	if err := app.ethClient.Dial(context.Background()); err != nil {
 		return err
 	}
 
@@ -666,7 +679,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
 	return app.jobSpawner.CreateJob(ctx, j, name)
 }
 
@@ -678,7 +691,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
-// Only used for testing, not supported by the UI.
+// Only used for local testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
@@ -687,22 +700,62 @@ func (app *ChainlinkApplication) RunJobV2(
 	if !app.Store.Config.Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
-	jb, err := app.jobORM.FindJob(jobID)
+	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	if !jb.Type.HasPipelineSpec() {
-		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
-	} else {
-		vars := map[string]interface{}{
-			"jobRun": map[string]interface{}{
-				"meta": meta,
-			},
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
+		var vars map[string]interface{}
+		var saveTasks bool
+		if jb.Type == job.VRF {
+			saveTasks = true
+			// Create a dummy log to trigger a run
+			testLog := types.Log{
+				Data: bytes.Join([][]byte{
+					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
+					common.BigToHash(big.NewInt(42)).Bytes(), // seed
+					utils.NewHash().Bytes(),                  // sender
+					utils.NewHash().Bytes(),                  // fee
+					utils.NewHash().Bytes()},                 // requestID
+					[]byte{}),
+				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+				TxHash:      utils.NewHash(),
+				BlockNumber: 10,
+				BlockHash:   utils.NewHash(),
+			}
+			vars = map[string]interface{}{
+				"jobSpec": map[string]interface{}{
+					"databaseID":    jb.ID,
+					"externalJobID": jb.ExternalJobID,
+					"name":          jb.Name.ValueOrZero(),
+					"publicKey":     jb.VRFSpec.PublicKey[:],
+				},
+				"jobRun": map[string]interface{}{
+					"meta":           meta,
+					"logBlockHash":   testLog.BlockHash[:],
+					"logBlockNumber": testLog.BlockNumber,
+					"logTxHash":      testLog.TxHash,
+					"logTopics":      testLog.Topics,
+					"logData":        testLog.Data,
+				},
+			}
+		} else {
+			vars = map[string]interface{}{
+				"jobRun": map[string]interface{}{
+					"meta": meta,
+				},
+			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, false)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *logger.Default, saveTasks)
+	} else {
+		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
+		// TODO: Once all jobs have a pipeline this can be removed
+		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	}
 	return runID, err
 }
@@ -755,4 +808,11 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
+}
+
+func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
+
+	app.LogBroadcaster.ReplayFromBlock(int64(number))
+
+	return nil
 }

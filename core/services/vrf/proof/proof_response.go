@@ -1,4 +1,4 @@
-package vrf
+package proof
 
 // Contains logic/data for mandatorily mixing VRF seeds with the hash of the
 // block in which a VRF request appeared
@@ -6,7 +6,6 @@ package vrf
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -88,7 +87,7 @@ func (p ProofResponse) CryptoProof(s PreSeedData) (vrfkey.Proof, error) {
 	return proof, nil
 }
 
-func generateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (MarshaledOnChainResponse, error) {
+func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (MarshaledOnChainResponse, error) {
 	p := ProofResponse{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum}
 	rv, err := p.MarshalForVRFCoordinator()
 	if err != nil {
@@ -104,5 +103,5 @@ func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s Pr
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
 	}
-	return generateProofResponseFromProof(proof, s)
+	return GenerateProofResponseFromProof(proof, s)
 }

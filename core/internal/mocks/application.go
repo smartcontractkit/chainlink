@@ -64,14 +64,14 @@ func (_m *Application) AddJob(_a0 models.JobSpec) error {
 }
 
 // AddJobV2 provides a mock function with given fields: ctx, _a1, name
-func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.String) (int32, error) {
+func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.String) (job.Job, error) {
 	ret := _m.Called(ctx, _a1, name)
 
-	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, job.Job, null.String) int32); ok {
+	var r0 job.Job
+	if rf, ok := ret.Get(0).(func(context.Context, job.Job, null.String) job.Job); ok {
 		r0 = rf(ctx, _a1, name)
 	} else {
-		r0 = ret.Get(0).(int32)
+		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error
@@ -412,6 +412,20 @@ func (_m *Application) PipelineORM() pipeline.ORM {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(pipeline.ORM)
 		}
+	}
+
+	return r0
+}
+
+// ReplayFromBlock provides a mock function with given fields: number
+func (_m *Application) ReplayFromBlock(number uint64) error {
+	ret := _m.Called(number)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(uint64) error); ok {
+		r0 = rf(number)
+	} else {
+		r0 = ret.Error(0)
 	}
 
 	return r0

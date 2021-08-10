@@ -14,7 +14,7 @@ type                = "directrequest"
 schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID               = "A5AC14E8-7629-4726-B1F1-1AE053FC829E"
+externalJobID       = "A5AC14E8-7629-4726-B1F1-1AE053FC829E"
 observationSource   = """
     ds1          [type=http method=GET url="example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];

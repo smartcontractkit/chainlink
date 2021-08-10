@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -605,7 +606,7 @@ ds1 -> ds1_parse
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
 	assert.Eventually(t, func() bool {
-		return app.LogBroadcaster.TrackedAddressesCount() >= 2
+		return app.LogBroadcaster.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
 	}, 3*time.Second, 200*time.Millisecond)
 
 	// Finally, the logs from log broadcaster are sent only after a next block is received.

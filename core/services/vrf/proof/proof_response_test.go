@@ -1,9 +1,11 @@
-package vrf_test
+package proof_test
 
 import (
 	"fmt"
 	"math/big"
 	"testing"
+
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -15,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,14 +30,14 @@ func TestMarshaledProof(t *testing.T) {
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
-	s := vrf.TestXXXSeedData(t, preSeed, blockHash, blockNum)
-	proofResponse, err := vrf.GenerateProofResponse(keyStore.VRF(), key.PublicKey, s)
+	s := proof2.TestXXXSeedData(t, preSeed, blockHash, blockNum)
+	proofResponse, err := proof2.GenerateProofResponse(keyStore.VRF(), key.PublicKey, s)
 	require.NoError(t, err)
-	goProof, err := vrf.UnmarshalProofResponse(proofResponse)
+	goProof, err := proof2.UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)
 	actualProof, err := goProof.CryptoProof(s)
 	require.NoError(t, err)
-	proof, err := vrf.MarshalForSolidityVerifier(&actualProof)
+	proof, err := proof2.MarshalForSolidityVerifier(&actualProof)
 	require.NoError(t, err)
 	// NB: For changes to the VRF solidity code to be reflected here, "go generate"
 	// must be run in core/services/vrf.

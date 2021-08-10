@@ -295,7 +295,14 @@ function generateWebhookDefinition(
 function generateVRFDefinition(
   attrs: ApiResponse<VRFV2Spec>['data']['attributes'],
 ) {
-  const { vrfSpec, name, schemaVersion, type, externalJobID } = attrs
+  const {
+    vrfSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+    pipelineSpec,
+  } = attrs
   const { coordinatorAddress, confirmations, publicKey } = vrfSpec
 
   return stringifyJobSpec({
@@ -307,6 +314,7 @@ function generateVRFDefinition(
       coordinatorAddress,
       confirmations,
       publicKey,
+      observationSource: pipelineSpec.dotDagSource,
     },
     format: JobSpecFormats.TOML,
   })
