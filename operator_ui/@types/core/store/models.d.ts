@@ -427,6 +427,7 @@ declare module 'core/store/models' {
     jobTypes: string[]
     publicKey: string
     isBootstrapPeer: boolean
+    isConnectionActive: boolean
     bootstrapPeerMultiaddr?: string
     createdAt: time.Time
   }
