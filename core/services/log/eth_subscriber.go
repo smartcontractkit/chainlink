@@ -12,22 +12,25 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type (
 	ethSubscriber struct {
-		ethClient eth.Client
-		config    Config
-		chStop    chan struct{}
+		ethClient                      eth.Client
+		config                         Config
+		chStop                         chan struct{}
+		highestSeenHeadFromHeadTracker func() *models.Head
 	}
 )
 
-func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{}) *ethSubscriber {
+func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{}, highestSeenHeadFunc func() *models.Head) *ethSubscriber {
 	return &ethSubscriber{
-		ethClient: ethClient,
-		config:    config,
-		chStop:    chStop,
+		ethClient:                      ethClient,
+		config:                         config,
+		chStop:                         chStop,
+		highestSeenHeadFromHeadTracker: highestSeenHeadFunc,
 	}
 }
 
@@ -54,18 +57,11 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		retryCount++
 
 		if latestHeight < 0 {
-			ctx, cancel := eth.DefaultQueryCtx(ctxParent)
-			defer cancel()
-
-			latestBlock, err := sub.ethClient.HeadByNumber(ctx, nil)
-			if err != nil {
-				logger.Errorw("LogBroadcaster: Backfill - could not fetch latest block header, will retry", "err", err)
-				return true
-			} else if latestBlock == nil {
-				logger.Warn("LogBroadcaster: Got nil block header, will retry")
+			latestHead, shouldRetry := sub.getLatestHead(ctxParent)
+			if shouldRetry {
 				return true
 			}
-			latestHeight = latestBlock.Number
+			latestHeight = latestHead.Number
 		}
 
 		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
@@ -163,6 +159,26 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		abort = false
 	}
 	return
+}
+
+func (sub *ethSubscriber) getLatestHead(ctxParent context.Context) (*models.Head, bool) {
+	latest := sub.highestSeenHeadFromHeadTracker()
+	if latest == nil {
+		// HeadTracker did not yet receive the newest head from the subscription
+		ctx, cancel := eth.DefaultQueryCtx(ctxParent)
+		defer cancel()
+
+		latestHead, err := sub.ethClient.HeadByNumber(ctx, nil)
+		if err != nil {
+			logger.Errorw("LogBroadcaster: Backfill - could not fetch latest block header, will retry", "err", err)
+			return nil, true
+		} else if latestHead == nil {
+			logger.Warn("LogBroadcaster: Got nil block header, will retry")
+			return nil, true
+		}
+		latest = latestHead
+	}
+	return latest, false
 }
 
 func (sub *ethSubscriber) fetchLogBatch(ctxParent context.Context, query ethereum.FilterQuery, start time.Time) ([]types.Log, error) {

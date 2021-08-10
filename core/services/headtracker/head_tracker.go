@@ -387,6 +387,9 @@ type NullTracker struct{}
 func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
 	return nil, nil
 }
+func (n *NullTracker) HighestSeenHead() *models.Head {
+	return nil
+}
 func (*NullTracker) Start() error   { return nil }
 func (*NullTracker) Stop() error    { return nil }
 func (*NullTracker) Ready() error   { return nil }

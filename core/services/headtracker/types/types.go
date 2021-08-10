@@ -10,6 +10,7 @@ import (
 
 type Tracker interface {
 	HighestSeenHeadFromDB() (*models.Head, error)
+	HighestSeenHead() *models.Head
 	Start() error
 	Stop() error
 	SetLogger(logger *logger.Logger)

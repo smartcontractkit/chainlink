@@ -122,14 +122,14 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, highestSavedHead *models.Head, highestSeenHeadFunc func() *models.Head) *broadcaster {
 	chStop := make(chan struct{})
 
 	return &broadcaster{
 		orm:              orm,
 		config:           config,
 		connected:        abool.New(),
-		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
+		ethSubscriber:    newEthSubscriber(ethClient, config, chStop, highestSeenHeadFunc),
 		registrations:    newRegistrations(),
 		logPool:          newLogPool(),
 		addSubscriber:    utils.NewMailbox(0),

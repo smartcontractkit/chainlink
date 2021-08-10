@@ -72,7 +72,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
 	dborm := NewORM(db)
-	lb := NewBroadcaster(dborm, ec, tc{}, nil)
+	lb := NewBroadcaster(dborm, ec, tc{}, nil, func() *models.Head { return nil })
 	lb.Start()
 	defer lb.Close()
 

@@ -580,7 +580,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil, func() *models.Head { return nil }),
 			pw,
 			monitoringEndpoint,
 			chains.EthMainnet,

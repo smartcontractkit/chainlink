@@ -60,7 +60,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 
 	dborm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(dborm, mockEth.ethClient, store.Config, nil)
+	lb := log.NewBroadcaster(dborm, mockEth.ethClient, store.Config, nil, func() *models.Head { return nil })
 	store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
@@ -77,7 +77,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	store, cleanup := cltest.NewStore(t)
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, ethClient, store.Config, highestSeenHead)
+	lb := log.NewBroadcaster(orm, ethClient, store.Config, highestSeenHead, func() *models.Head { return nil })
 
 	return &broadcasterHelper{
 		t:             t,
