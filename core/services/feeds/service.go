@@ -215,7 +215,7 @@ func (s *service) GetManager(id int64) (*FeedsManager, error) {
 
 // CountManagerServices gets the total number of manager services
 func (s *service) CountManagers() (int64, error) {
-	return s.orm.CountManagers()
+	return s.orm.CountManagers(context.Background())
 }
 
 // Lists all JobProposals

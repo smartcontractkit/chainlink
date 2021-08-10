@@ -60,6 +60,7 @@ type JobProposal struct {
 	// ExternalJobID is the external job id in the spec.
 	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
+	Multiaddrs     pq.StringArray
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
