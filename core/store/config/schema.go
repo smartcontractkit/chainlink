@@ -158,6 +158,9 @@ type ConfigSchema struct {
 	SecureCookies                              bool                          `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                             models.Duration               `env:"SESSION_TIMEOUT" default:"15m"`
 	StatsPusherLogging                         string                        `env:"STATS_PUSHER_LOGGING" default:"false"`
+	TelemetryIngressLogging                    bool                          `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
+	TelemetryIngressServerPubKey               string                        `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
+	TelemetryIngressURL                        *url.URL                      `env:"TELEMETRY_INGRESS_URL"`
 	TLSCertPath                                string                        `env:"TLS_CERT_PATH" `
 	TLSHost                                    string                        `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath                                 string                        `env:"TLS_KEY_PATH" `

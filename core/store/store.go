@@ -1,14 +1,17 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -41,24 +44,18 @@ type Store struct {
 }
 
 // NewStore will create a new store
-// func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	// return newStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
-	return newStore(config, ethClient, advisoryLock, shutdownSignal)
+	return newStore(config, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	// return newStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
-	return newStore(config, ethClient, advisoryLocker, shutdownSignal)
+func NewInsecureStore(config *config.Config, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	return newStore(config, advisoryLocker, shutdownSignal)
 }
 
-// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
-// See: https://www.pivotaltracker.com/story/show/175493792
 func newStore(
 	config *config.Config,
-	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
@@ -157,16 +154,31 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
 
-		version, err2 := dbOrm.FindLatestNodeVersion()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
-		}
+	// Set up the versioning ORM
+	verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
+		postgres.MustSQLDB(dbOrm.DB)),
+	)
+
+	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
+		var version *versioning.NodeVersion
 		var versionString string
+
+		version, err = verORM.FindLatestNodeVersion()
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
+			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+			} else {
+				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
+			}
+		}
+
 		if version != nil {
 			versionString = version.Version
 		}
+
 		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
@@ -188,11 +200,12 @@ func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if nodeVersion == "unset" {
 		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
 	}
-	version := models.NewNodeVersion(nodeVersion)
-	err = dbOrm.UpsertNodeVersion(version)
+	version := versioning.NewNodeVersion(nodeVersion)
+	err = verORM.UpsertNodeVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
+
 	dbOrm.SetLogging(cfg.LogSQLStatements())
 	return dbOrm, nil
 }

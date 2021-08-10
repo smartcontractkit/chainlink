@@ -1000,6 +1000,30 @@ func (c Config) ExplorerSecret() string {
 	return c.viper.GetString(EnvVarName("ExplorerSecret"))
 }
 
+// TelemetryIngressURL returns the WSRPC URL for this node to push telemetry to, or nil.
+func (c Config) TelemetryIngressURL() *url.URL {
+	rval := c.getWithFallback("TelemetryIngressURL", parseURL)
+	switch t := rval.(type) {
+	case nil:
+		return nil
+	case *url.URL:
+		return t
+	default:
+		logger.Panicf("invariant: TelemetryIngressURL returned as type %T", rval)
+		return nil
+	}
+}
+
+// TelemetryServerPubKey returns the public key to authenticate the telemetry ingress server
+func (c Config) TelemetryIngressServerPubKey() string {
+	return c.viper.GetString(EnvVarName("TelemetryIngressServerPubKey"))
+}
+
+// TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
+func (c Config) TelemetryIngressLogging() bool {
+	return c.getWithFallback("TelemetryIngressLogging", parseBool).(bool)
+}
+
 // FIXME: Add comments to all of these
 func (c Config) OCRBootstrapCheckInterval() time.Duration {
 	return c.getWithFallback("OCRBootstrapCheckInterval", parseDuration).(time.Duration)
