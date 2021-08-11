@@ -4,44 +4,42 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfig_EthGasPriceDefault(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	cfg := store.Config
+func TestEVMConfig_EvmGasPriceDefault(t *testing.T) {
+	cfg := config.NewEVMConfig(config.NewGeneralConfig())
 
 	// Get default value
-	def := cfg.EthGasPriceDefault()
+	def := cfg.EvmGasPriceDefault()
 
 	// No orm installed
-	err := cfg.SetEthGasPriceDefault(big.NewInt(0))
+	err := cfg.SetEvmGasPriceDefault(big.NewInt(0))
 	require.Error(t, err)
 
 	// Install ORM
-	orm := config.NewORM(store.DB)
-	cfg.SetRuntimeStore(orm)
+	db := pgtest.NewGormDB(t)
+	cfg.SetDB(db)
 
 	// Value still stays as the default
-	require.Equal(t, def, cfg.EthGasPriceDefault())
+	require.Equal(t, def, cfg.EvmGasPriceDefault())
 
 	// Override
 	newValue := new(big.Int).Add(def, big.NewInt(1))
-	err = cfg.SetEthGasPriceDefault(newValue)
+	err = cfg.SetEvmGasPriceDefault(newValue)
 	require.NoError(t, err)
 
 	// Value changes
-	require.Equal(t, newValue, cfg.EthGasPriceDefault())
+	require.Equal(t, newValue, cfg.EvmGasPriceDefault())
 
 	// Set again
 	newerValue := new(big.Int).Add(def, big.NewInt(2))
-	err = cfg.SetEthGasPriceDefault(newerValue)
+	err = cfg.SetEvmGasPriceDefault(newerValue)
 	require.NoError(t, err)
 
 	// Value changes
-	require.Equal(t, newerValue, cfg.EthGasPriceDefault())
+	require.Equal(t, newerValue, cfg.EvmGasPriceDefault())
 }

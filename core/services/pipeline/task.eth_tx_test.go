@@ -41,7 +41,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -70,7 +70,7 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -101,7 +101,7 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -132,7 +132,7 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -153,7 +153,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -174,7 +174,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -205,7 +205,7 @@ func TestETHTxTask(t *testing.T) {
 			}),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				keyStore.On("GetRoundRobinAddress").Return(nil, errors.New("uh oh"))
 			},
 			nil, pipeline.ErrTaskRunFailed, "while querying keystore",
@@ -220,7 +220,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
@@ -241,7 +241,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 			},
 			nil, pipeline.ErrBadInput, "txMeta",
 		},
@@ -255,7 +255,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 			},
 			nil, pipeline.ErrBadInput, "txMeta",
 		},
@@ -269,7 +269,7 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *pipelinemocks.Config, keyStore *pipelinemocks.KeyStore, txManager *pipelinemocks.TxManager) {
-				config.On("EthGasLimitDefault").Return(uint64(999))
+				config.On("EvmGasLimitDefault").Return(uint64(999))
 			},
 			nil, pipeline.ErrParameterEmpty, "to",
 		},

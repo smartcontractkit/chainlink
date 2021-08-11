@@ -182,7 +182,7 @@ func (ht *HeadTracker) Connected() bool {
 func (ht *HeadTracker) headSampler() {
 	defer ht.wgDone.Done()
 
-	debounceHead := time.NewTicker(ht.config.EthHeadTrackerSamplingInterval())
+	debounceHead := time.NewTicker(ht.config.EvmHeadTrackerSamplingInterval())
 	defer debounceHead.Stop()
 
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
@@ -225,7 +225,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth())
+					err := ht.Backfill(ctx, h, ht.config.EvmFinalityDepth())
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -343,7 +343,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EthFinalityDepth())
+		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EvmFinalityDepth())
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {
@@ -362,7 +362,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}

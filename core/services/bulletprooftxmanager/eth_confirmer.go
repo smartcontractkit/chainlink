@@ -85,10 +85,10 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 
 func (ec *EthConfirmer) Start() error {
 	return ec.StartOnce("EthConfirmer", func() error {
-		if ec.config.EthGasBumpThreshold() == 0 {
+		if ec.config.EvmGasBumpThreshold() == 0 {
 			logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
 		} else {
-			logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
+			logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EvmGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EvmGasBumpThreshold())
 		}
 
 		ec.wg.Add(1)
@@ -271,7 +271,7 @@ func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []EthTxAt
 }
 
 func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) error {
-	batchSize := int(ec.config.EthRPCDefaultBatchSize())
+	batchSize := int(ec.config.EvmRPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
@@ -525,7 +525,7 @@ func (ec *EthConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error
 	// cutoff is a block height
 	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
 	// We will not try to query for receipts for this transaction any more
-	cutoff := blockNum - int64(ec.config.EthFinalityDepth())
+	cutoff := blockNum - int64(ec.config.EvmFinalityDepth())
 	if cutoff <= 0 {
 		return nil
 	}
@@ -609,9 +609,9 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	threshold := int64(ec.config.EthGasBumpThreshold())
-	bumpDepth := int64(ec.config.EthGasBumpTxDepth())
-	maxInFlightTransactions := ec.config.EthMaxInFlightTransactions()
+	threshold := int64(ec.config.EvmGasBumpThreshold())
+	bumpDepth := int64(ec.config.EvmGasBumpTxDepth())
+	maxInFlightTransactions := ec.config.EvmMaxInFlightTransactions()
 	etxs, err := FindEthTxsRequiringRebroadcast(ec.db, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
@@ -723,7 +723,7 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 	})
 
 	if maxInFlightTransactions > 0 && len(etxs) > int(maxInFlightTransactions) {
-		logger.Warnf("EthConfirmer: %d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel)
+		logger.Warnf("EthConfirmer: %d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel)
 		etxs = etxs[:maxInFlightTransactions]
 	}
 
@@ -796,7 +796,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 			"originalGasPrice", previousAttempt.GasPrice.String(),
 			"gasLimit", etx.GasLimit,
 			"originalChainSpecificGasLimit", previousAttempt.ChainSpecificGasLimit,
-			"maxGasPrice", ec.config.EthMaxGasPriceWei(),
+			"maxGasPrice", ec.config.EvmMaxGasPriceWei(),
 			"nonce", etx.Nonce,
 			"previousTxHash", previousAttempt.Hash,
 			"previousAttemptID", previousAttempt.ID,
@@ -814,7 +814,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 		logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
 			"Falling back to default gas price instead."+
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
-		bumpedGasPrice = ec.config.EthGasPriceDefault()
+		bumpedGasPrice = ec.config.EvmGasPriceDefault()
 		bumpedGasLimit = etx.GasLimit
 	}
 	return newAttempt(ec.ethClient, ec.keystore, ec.config.ChainID(), etx, bumpedGasPrice, bumpedGasLimit)
@@ -928,7 +928,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			"Eth node returned error: '%s'. "+
 			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			attempt.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.config.EthGasBumpPercent()), "err", sendError)
+			attempt.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError)
 
 		// Assume success and hand off to the next cycle.
 		sendError = nil
@@ -1185,7 +1185,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint64, gasPriceWei uint64) (gethCommon.Hash, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
-		gasLimit = ec.config.EthGasLimitDefault()
+		gasLimit = ec.config.EvmGasLimitDefault()
 	}
 	tx, err := sendEmptyTransaction(ec.ethClient, ec.keystore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, ec.config.ChainID())
 	if err != nil {

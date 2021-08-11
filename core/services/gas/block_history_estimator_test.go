@@ -38,9 +38,9 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
 	config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
-	config.On("EthFinalityDepth").Return(ethFinalityDepth)
+	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
 	config.On("BlockHistoryEstimatorTransactionPercentile").Return(percentile)
-	config.On("EthMinGasPriceWei").Return(minGasPrice)
+	config.On("EvmMinGasPriceWei").Return(minGasPrice)
 	config.On("ChainID").Return(big.NewInt(0))
 
 	t.Run("loads initial state", func(t *testing.T) {
@@ -281,8 +281,8 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 	config.On("BlockHistoryEstimatorBlockDelay").Return(uint16(0))
 	config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(3))
-	config.On("EthMaxGasPriceWei").Return(big.NewInt(1000))
-	config.On("EthMinGasPriceWei").Return(big.NewInt(0))
+	config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000))
+	config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 	config.On("BlockHistoryEstimatorBatchSize").Return(uint32(0))
 	config.On("ChainID").Return(big.NewInt(0))
 
@@ -339,7 +339,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config := new(gumocks.Config)
 
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
-		config.On("EthMinGasPriceWei").Return(big.NewInt(1))
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(1))
 		config.On("ChainID").Return(big.NewInt(0))
 
 		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
@@ -365,8 +365,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(minGasPrice)
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 		config.On("ChainID").Return(big.NewInt(0))
 
@@ -401,8 +401,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(minGasPrice)
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 		config.On("ChainID").Return(big.NewInt(0))
 
@@ -437,8 +437,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(minGasPrice)
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(100))
 		config.On("ChainID").Return(big.NewInt(0))
 
@@ -485,8 +485,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(0))
 
@@ -519,8 +519,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(100))
 
@@ -557,8 +557,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 		reasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000))
 
-		config.On("EthMaxGasPriceWei").Return(reasonablyHugeGasPrice)
-		config.On("EthMinGasPriceWei").Return(big.NewInt(10))
+		config.On("EvmMaxGasPriceWei").Return(reasonablyHugeGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(10))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(0))
 
@@ -603,8 +603,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(100))
 

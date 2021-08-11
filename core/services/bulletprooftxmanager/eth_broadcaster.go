@@ -95,7 +95,7 @@ func (eb *EthBroadcaster) Start() error {
 			return errors.Wrap(err, "EthBroadcaster could not start")
 		}
 
-		if eb.config.EthNonceAutoSync() {
+		if eb.config.EvmNonceAutoSync() {
 			syncer := NewNonceSyncer(eb.db, eb.ethClient)
 			if err := syncer.SyncAll(eb.ctx, eb.keys); err != nil {
 				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
@@ -219,7 +219,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}
 	for {
-		maxInFlightTransactions := eb.config.EthMaxInFlightTransactions()
+		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := CountUnconfirmedTransactions(eb.db, fromAddress)
 			if err != nil {
@@ -230,7 +230,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 				if err != nil {
 					return errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
-				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; current queue size is %d but maximum number of in-flight transactions is %d per key. %s`, nUnstarted, maxInFlightTransactions, static.EthMaxInFlightTransactionsWarningLabel), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
+				logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; current queue size is %d but maximum number of in-flight transactions is %d per key. %s`, nUnstarted, maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
 				time.Sleep(InFlightTransactionRecheckInterval)
 				continue
 			}
@@ -505,8 +505,8 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx
 	logger.Errorw(fmt.Sprintf("default gas price %v wei was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
-		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EthGasPriceDefault(), sendError.Error(), bumpedGasPrice), "err", err)
-	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
+		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EvmGasPriceDefault(), sendError.Error(), bumpedGasPrice), "err", err)
+	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EvmMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}
 	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, bumpedGasPrice, bumpedGasLimit)

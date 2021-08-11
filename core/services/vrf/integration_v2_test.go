@@ -8,14 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-
-	"github.com/smartcontractkit/chainlink/core/chains"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-
-	"github.com/shopspring/decimal"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -25,18 +17,23 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 type coordinatorV2Universe struct {
@@ -60,7 +57,7 @@ type coordinatorV2Universe struct {
 }
 
 var (
-	gasPrice       = decimal.RequireFromString(chains.FallbackConfig.EthGasPriceDefault.String()) // Nodes default
+	gasPrice       = decimal.RequireFromString(chains.FallbackConfig.GasPriceDefault.String()) // Nodes default
 	weiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
 
@@ -147,7 +144,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Set("ETH_GAS_LIMIT_DEFAULT", "500000")
+	config.Overrides.EvmGasLimitDefault = null.IntFrom(500000)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()
@@ -319,7 +316,7 @@ func TestRequestCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestConfig(t)
+	cfg := cltest.NewTestEVMConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -362,7 +359,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestConfig(t)
+	cfg := cltest.NewTestEVMConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -396,7 +393,7 @@ func TestFulfillmentCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestConfig(t)
+	cfg := cltest.NewTestEVMConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())

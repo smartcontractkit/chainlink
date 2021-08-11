@@ -28,10 +28,10 @@ func (tc) BlockBackfillDepth() uint64 {
 func (tc) BlockBackfillSkip() bool {
 	return true
 }
-func (tc) EthFinalityDepth() uint {
+func (tc) EvmFinalityDepth() uint {
 	return 1
 }
-func (tc) EthLogBackfillBatchSize() uint32 {
+func (tc) EvmLogBackfillBatchSize() uint32 {
 	return 1
 }
 
