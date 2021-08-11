@@ -224,7 +224,7 @@ func (s *service) GetManager(id int64) (*FeedsManager, error) {
 
 // CountManagerServices gets the total number of manager services
 func (s *service) CountManagers() (int64, error) {
-	return s.orm.CountManagers()
+	return s.orm.CountManagers(context.Background())
 }
 
 // Lists all JobProposals
@@ -237,6 +237,18 @@ func (s *service) ListJobProposals() ([]JobProposal, error) {
 
 // CreateJobProposal creates a job proposal.
 func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
+	// Bootstrap multiaddrs only allowed for OCR jobs
+	if len(jp.Multiaddrs) > 0 {
+		j, err := s.generateJob(jp.Spec)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to generate a job based on spec")
+		}
+
+		if j.Type != job.OffchainReporting {
+			return 0, errors.New("only OCR job type supports multiaddr")
+		}
+	}
+
 	return s.orm.CreateJobProposal(context.Background(), jp)
 }
 
