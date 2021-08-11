@@ -79,6 +79,11 @@ type FluxMonitor struct {
 	utils.StartStopOnce
 	chStop     chan struct{}
 	waitOnStop chan struct{}
+
+	// used to reset the select loop periodically
+	// in case all tickers awaited upon become
+	// at one point inactive, and there is no log activity
+	guardianTicker *time.Ticker
 }
 
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
@@ -128,10 +133,11 @@ func NewFluxMonitor(
 			PriorityAnswerUpdatedLog: 1,
 			PriorityFlagChangedLog:   2,
 		}),
-		StartStopOnce: utils.StartStopOnce{},
-		chProcessLogs: make(chan struct{}, 1),
-		chStop:        make(chan struct{}),
-		waitOnStop:    make(chan struct{}),
+		StartStopOnce:  utils.StartStopOnce{},
+		chProcessLogs:  make(chan struct{}, 1),
+		chStop:         make(chan struct{}),
+		waitOnStop:     make(chan struct{}),
+		guardianTicker: time.NewTicker(10 * time.Minute),
 	}
 
 	return fm, nil
@@ -295,6 +301,7 @@ func (fm *FluxMonitor) IsHibernating() bool {
 func (fm *FluxMonitor) Close() error {
 	return fm.StopOnce("FluxMonitor", func() error {
 		fm.pollManager.Stop()
+		fm.guardianTicker.Stop()
 		close(fm.chStop)
 		<-fm.waitOnStop
 
@@ -387,6 +394,9 @@ func (fm *FluxMonitor) consume() {
 		select {
 		case <-fm.chStop:
 			return
+
+		case <-fm.guardianTicker.C:
+			// do nothing, reset the select statement
 
 		case <-fm.chProcessLogs:
 			fm.processLogs()
