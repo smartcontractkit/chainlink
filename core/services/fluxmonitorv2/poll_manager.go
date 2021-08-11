@@ -50,7 +50,7 @@ type PollManagerConfig struct {
 type PollManager struct {
 	cfg PollManagerConfig
 
-	hibernationTimer utils.ResettableTimer
+	hibernationTimer utils.PausableTicker
 	pollTicker       utils.PausableTicker
 	idleTimer        utils.ResettableTimer
 	roundTimer       utils.ResettableTimer
@@ -91,7 +91,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) (*PollManager,
 		cfg:    cfg,
 		logger: logger,
 
-		hibernationTimer: utils.NewResettableTimer(),
+		hibernationTimer: utils.NewPausableTicker(cfg.HibernationPollPeriod),
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
 		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
@@ -202,7 +202,7 @@ func (pm *PollManager) StopRetryTicker() bool {
 
 // Stop stops all timers/tickers
 func (pm *PollManager) Stop() {
-	pm.hibernationTimer.Stop()
+	pm.hibernationTimer.Destroy()
 	pm.pollTicker.Destroy()
 	pm.idleTimer.Stop()
 	pm.roundTimer.Stop()
@@ -216,7 +216,7 @@ func (pm *PollManager) Hibernate() {
 
 	// Start the hibernation timer
 	pm.cfg.IsHibernating = true
-	pm.hibernationTimer.Reset(pm.cfg.HibernationPollPeriod)
+	pm.hibernationTimer.Resume()
 
 	// Stop the other tickers
 	pm.pollTicker.Pause()
@@ -232,7 +232,7 @@ func (pm *PollManager) Awaken(roundState flux_aggregator_wrapper.OracleRoundStat
 
 	// Stop the hibernation timer
 	pm.cfg.IsHibernating = false
-	pm.hibernationTimer.Stop()
+	pm.hibernationTimer.Pause()
 
 	// Start the other tickers
 	pm.startPollTicker()
