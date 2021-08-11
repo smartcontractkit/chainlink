@@ -38,8 +38,9 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
 	config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
-	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
 	config.On("BlockHistoryEstimatorTransactionPercentile").Maybe().Return(percentile)
+	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
+	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
 	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
 	config.On("ChainID").Maybe().Return(big.NewInt(0))
 
@@ -98,7 +99,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 	t.Run("starts anyway if fetching latest head fails", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
-		config.On("EthGasLimitMultiplier").Return(float32(1))
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
@@ -117,7 +117,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
-		config.On("EthGasLimitMultiplier").Return(float32(1))
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
