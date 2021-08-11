@@ -694,6 +694,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	for i := 1; i <= 4; i++ {
 		logBroadcast := new(logmocks.Broadcast)
 		logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
+		logBroadcast.On("String").Maybe().Return("")
 		tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 		logBroadcasts = append(logBroadcasts, logBroadcast)
@@ -1289,6 +1290,7 @@ func TestFluxMonitor_HandlesNilLogs(t *testing.T) {
 	var logAnswerUpdated *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated
 	var randomType interface{}
 
+	logBroadcast.On("String").Maybe().Return("")
 	logBroadcast.On("DecodedLog").Return(logNewRound).Once()
 	assert.NotPanics(t, func() {
 		fm.HandleLog(logBroadcast)
