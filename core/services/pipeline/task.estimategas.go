@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum"
@@ -62,6 +63,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 	if err != nil {
 		// Fallback to the maximum conceivable gas limit
 		// if we're unable to call estimate gas for whatever reason.
+		logger.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", t.EvmGasLimit)
 		return Result{Value: t.EvmGasLimit}
 	}
 	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(gasLimit, 10))
