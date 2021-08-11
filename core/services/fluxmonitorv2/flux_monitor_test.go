@@ -91,10 +91,15 @@ type testMocks struct {
 	pipelineRunner    *pipelinemocks.Runner
 	keyStore          *fmmocks.KeyStoreInterface
 	contractSubmitter *fmmocks.ContractSubmitter
+	flags             *fmmocks.Flags
 }
 
-func newTestMocks() *testMocks {
-	return &testMocks{
+func newTestMocks(t *testing.T) *testMocks {
+	flags := new(fmmocks.Flags)
+	flags.Test(t)
+	flags.On("ContractExists").Maybe().Return(false)
+
+	tm := &testMocks{
 		fluxAggregator:    new(mocks.FluxAggregator),
 		logBroadcast:      new(logmocks.Broadcast),
 		logBroadcaster:    new(logmocks.Broadcaster),
@@ -104,7 +109,21 @@ func newTestMocks() *testMocks {
 		pipelineRunner:    new(pipelinemocks.Runner),
 		keyStore:          new(fmmocks.KeyStoreInterface),
 		contractSubmitter: new(fmmocks.ContractSubmitter),
+		flags:             flags,
 	}
+
+	tm.fluxAggregator.Test(t)
+	tm.logBroadcast.Test(t)
+	tm.logBroadcaster.Test(t)
+	tm.orm.Test(t)
+	tm.jobORM.Test(t)
+	tm.pipelineORM.Test(t)
+	tm.pipelineRunner.Test(t)
+	tm.keyStore.Test(t)
+	tm.contractSubmitter.Test(t)
+	tm.flags.Test(t)
+
+	return tm
 }
 
 // AssertExpectations asserts expectations of all the mocks
@@ -118,12 +137,13 @@ func (tm *testMocks) AssertExpectations(t *testing.T) {
 	tm.pipelineRunner.AssertExpectations(t)
 	tm.keyStore.AssertExpectations(t)
 	tm.contractSubmitter.AssertExpectations(t)
+	tm.flags.AssertExpectations(t)
 }
 
 func setupMocks(t *testing.T) *testMocks {
 	t.Helper()
 
-	tm := newTestMocks()
+	tm := newTestMocks(t)
 
 	t.Cleanup(func() {
 		tm.AssertExpectations(t)
@@ -133,13 +153,15 @@ func setupMocks(t *testing.T) *testMocks {
 }
 
 type setupOptions struct {
-	pollTickerDisabled  bool
-	idleTimerDisabled   bool
-	idleTimerPeriod     time.Duration
-	drumbeatEnabled     bool
-	drumbeatSchedule    string
-	drumbeatRandomDelay time.Duration
-	orm                 fluxmonitorv2.ORM
+	pollTickerDisabled    bool
+	idleTimerDisabled     bool
+	idleTimerPeriod       time.Duration
+	drumbeatEnabled       bool
+	drumbeatSchedule      string
+	drumbeatRandomDelay   time.Duration
+	hibernationPollPeriod time.Duration
+	flags                 *fmmocks.Flags
+	orm                   fluxmonitorv2.ORM
 }
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
@@ -149,13 +171,17 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 
 	tm := setupMocks(t)
 	options := setupOptions{
-		idleTimerPeriod: time.Minute,
-		orm:             tm.orm,
+		idleTimerPeriod:       time.Minute,
+		hibernationPollPeriod: fluxmonitorv2.DefaultHibernationPollPeriod,
+		flags:                 tm.flags,
+		orm:                   tm.orm,
 	}
 
 	for _, optionFn := range optionFns {
 		optionFn(&options)
 	}
+
+	tm.flags = options.flags
 
 	pollManager, err := fluxmonitorv2.NewPollManager(
 		fluxmonitorv2.PollManagerConfig{
@@ -166,7 +192,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 			DrumbeatEnabled:         options.drumbeatEnabled,
 			DrumbeatSchedule:        options.drumbeatSchedule,
 			DrumbeatRandomDelay:     options.drumbeatRandomDelay,
-			HibernationPollPeriod:   24 * time.Hour,
+			HibernationPollPeriod:   options.hibernationPollPeriod,
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
@@ -189,7 +215,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.contractSubmitter,
 		fluxmonitorv2.NewDeviationChecker(threshold, absoluteThreshold),
 		fluxmonitorv2.NewSubmissionChecker(big.NewInt(0), big.NewInt(100000000000)),
-		fluxmonitorv2.Flags{},
+		options.flags,
 		tm.fluxAggregator,
 		tm.logBroadcaster,
 		logger.Default,
@@ -226,6 +252,23 @@ func enableDrumbeatTicker(schedule string, randomDelay time.Duration) func(*setu
 func setIdleTimerPeriod(period time.Duration) func(*setupOptions) {
 	return func(opts *setupOptions) {
 		opts.idleTimerPeriod = period
+	}
+}
+
+// setHibernationTickerPeriod is an option to set the hibernation ticker period during setup
+func setHibernationTickerPeriod(period time.Duration) func(*setupOptions) {
+	return func(opts *setupOptions) {
+		opts.hibernationPollPeriod = period
+	}
+}
+
+// setHibernationTickerPeriod is an option to set the hibernation ticker period during setup
+func setHibernationState(hibernating bool) func(*setupOptions) {
+	return func(opts *setupOptions) {
+		opts.flags = new(fmmocks.Flags)
+		opts.flags.On("ContractExists").Return(true)
+		opts.flags.On("Address").Return(common.Address{})
+		opts.flags.On("IsLowered", mock.Anything).Return(!hibernating, nil)
 	}
 }
 
@@ -753,6 +796,111 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
+
+	store, _, nodeAddr := setupStoreWithKey(t)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
+	fm, tm := setup(t,
+		store.DB,
+		setHibernationTickerPeriod(time.Second),
+		setHibernationState(true),
+	)
+
+	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+
+	const fetchedAnswer = 100
+	answerBigInt := big.NewInt(fetchedAnswer)
+
+	tm.fluxAggregator.On("Address").Return(contractAddress)
+	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
+	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	tm.logBroadcaster.On("IsConnected").Return(true)
+	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
+
+	hibernationPollOccured := make(chan struct{}, 4)
+	initialPollOccurred := make(chan struct{}, 1)
+
+	err := fm.Start()
+	require.NoError(t, err)
+
+	t.Cleanup(func() { fm.Close() })
+
+	// Initial Poll
+	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once()
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        1,
+			NumSubmissions: 0,
+		}, nil).Once().Run(func(args mock.Arguments) {
+		initialPollOccurred <- struct{}{}
+	})
+	require.Len(t, hibernationPollOccured, 0, "no Job Runs created")
+	require.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
+
+	// hiberation tick 1 triggers using the same round id as the initial poll. This resets the idle timer
+	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
+		hibernationPollOccured <- struct{}{}
+	})
+	// Finds an existing run created by the initial poll
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			PipelineRunID:  corenull.NewInt64(int64(1), true),
+			Aggregator:     contractAddress,
+			RoundID:        1,
+			NumSubmissions: 1,
+		}, nil).Once()
+	finishedAt := time.Now()
+	tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
+		FinishedAt: null.TimeFrom(finishedAt),
+	}, nil)
+
+	require.Eventually(t, func() bool { return len(hibernationPollOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+
+	// hiberation tick 2 triggers a new round. Started at is 0
+	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
+		hibernationPollOccured <- struct{}{}
+	})
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(2)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        2,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	require.Eventually(t, func() bool { return len(hibernationPollOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
+
+	// hiberation tick 3 triggers from the previous new round
+	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() - 1000000}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Twice().Run(func(args mock.Arguments) {
+		hibernationPollOccured <- struct{}{}
+	})
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(3)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        3,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	// AnswerUpdated comes in
+	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
+	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
+	tm.logBroadcast.On("String").Maybe().Return("")
+	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
+	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
+	fm.ExportedProcessLogs()
+
+	require.Eventually(t, func() bool { return len(hibernationPollOccured) == 4 }, 3*time.Second, 10*time.Millisecond)
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {

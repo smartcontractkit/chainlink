@@ -4,19 +4,30 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Flags wraps the a contract
-type Flags struct {
+//go:generate mockery --name Flags --output ./mocks/ --case=underscore --structname Flags --filename flags.go
+
+type Flags interface {
+	ContractExists() bool
+	IsLowered(contractAddr common.Address) (bool, error)
+	Address() common.Address
+	ParseLog(log types.Log) (generated.AbigenLog, error)
+}
+
+// ContractFlags wraps the a contract
+type ContractFlags struct {
 	flags_wrapper.FlagsInterface
 }
 
 // NewFlags constructs a new Flags from a flags contract address
-func NewFlags(addrHex string, ethClient eth.Client) (*Flags, error) {
-	flags := &Flags{}
+func NewFlags(addrHex string, ethClient eth.Client) (Flags, error) {
+	flags := &ContractFlags{}
 
 	if addrHex == "" {
 		return flags, nil
@@ -40,18 +51,18 @@ func NewFlags(addrHex string, ethClient eth.Client) (*Flags, error) {
 }
 
 // Contract returns the flags contract
-func (f *Flags) Contract() flags_wrapper.FlagsInterface {
+func (f *ContractFlags) Contract() flags_wrapper.FlagsInterface {
 	return f.FlagsInterface
 }
 
 // ContractExists returns whether a flag contract exists
-func (f *Flags) ContractExists() bool {
+func (f *ContractFlags) ContractExists() bool {
 	return f.FlagsInterface != nil
 }
 
 // IsLowered determines whether the flag is lowered for a given contract.
 // If a contract does not exist, it is considered to be lowered
-func (f *Flags) IsLowered(contractAddr common.Address) (bool, error) {
+func (f *ContractFlags) IsLowered(contractAddr common.Address) (bool, error) {
 	if !f.ContractExists() {
 		return true, nil
 	}
