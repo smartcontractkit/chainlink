@@ -14,8 +14,8 @@ import (
 
 type ORM interface {
 	ApproveJobProposal(ctx context.Context, id int64, externalJobID uuid.UUID, status JobProposalStatus) error
-	CountJobProposals() (int64, error)
-	CountManagers() (int64, error)
+	CountJobProposals(ctx context.Context) (int64, error)
+	CountManagers(ctx context.Context) (int64, error)
 	CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
 	CreateManager(ctx context.Context, ms *FeedsManager) (int64, error)
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
@@ -135,14 +135,14 @@ func (o *orm) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 }
 
 // Count counts the number of feeds manager records.
-func (o *orm) CountManagers() (int64, error) {
+func (o *orm) CountManagers(ctx context.Context) (int64, error) {
 	var count int64
 	stmt := `
 		SELECT COUNT(*)
 		FROM feeds_managers
 	`
 
-	err := o.db.Raw(stmt).Scan(&count).Error
+	err := o.db.WithContext(ctx).Raw(stmt).Scan(&count).Error
 	if err != nil {
 		return count, err
 	}
@@ -156,12 +156,12 @@ func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 	now := time.Now()
 
 	stmt := `
-		INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, multiaddrs, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		RETURNING id;
 	`
 
-	row := o.db.Raw(stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, now, now).Row()
+	row := o.db.WithContext(ctx).Raw(stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, now, now).Row()
 	if row.Err() != nil {
 		return id, row.Err()
 	}
@@ -178,11 +178,11 @@ func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 	jps := []JobProposal{}
 	stmt := `
-		SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, created_at, updated_at
+		SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, multiaddrs, created_at, updated_at
 		FROM job_proposals;
 	`
 
-	err := o.db.Raw(stmt).Scan(&jps).Error
+	err := o.db.WithContext(ctx).Raw(stmt).Scan(&jps).Error
 	if err != nil {
 		return jps, err
 	}
@@ -193,13 +193,13 @@ func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 // GetJobProposal gets a job proposal by id
 func (o *orm) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error) {
 	stmt := `
-		SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, created_at, updated_at
+		SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, created_at, updated_at
 		FROM job_proposals
 		WHERE id = ?;
 	`
 
 	jp := JobProposal{}
-	result := o.db.Raw(stmt, id).Scan(&jp)
+	result := o.db.WithContext(ctx).Raw(stmt, id).Scan(&jp)
 	if result.RowsAffected == 0 {
 		return nil, sql.ErrNoRows
 	}
@@ -284,14 +284,14 @@ func (o *orm) ApproveJobProposal(ctx context.Context, id int64, externalJobID uu
 }
 
 // CountJobProposals counts the number of job proposal records.
-func (o *orm) CountJobProposals() (int64, error) {
+func (o *orm) CountJobProposals(ctx context.Context) (int64, error) {
 	var count int64
 	stmt := `
 		SELECT COUNT(*)
 		FROM job_proposals
 	`
 
-	err := o.db.Raw(stmt).Scan(&count).Error
+	err := o.db.WithContext(ctx).Raw(stmt).Scan(&count).Error
 	if err != nil {
 		return count, err
 	}
