@@ -75,16 +75,18 @@ func (o *orm) CreateRun(db postgres.Queryer, run *Run) (err error) {
 			return errors.Wrap(err, "error inserting pipeline_run")
 		}
 
-		// Now create pipeline_task_runs
+		// Now create pipeline_task_runs if any
+		if len(run.PipelineTaskRuns) == 0 {
+			return nil
+		}
 
 		// update the ID key everywhere
 		for i := range run.PipelineTaskRuns {
 			run.PipelineTaskRuns[i].PipelineRunID = run.ID
 		}
 
-		// TODO: could optimize by only pre-inserting what's required
 		sql = `
-		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at )
+		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at)
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at);`
 		_, err = tx.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
 		return err
@@ -120,7 +122,7 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 			}
 
 			// Look for new data
-			if taskRun := tempRun.ByDotID(tr.DotID); taskRun != nil {
+			if taskRun := tempRun.ByDotID(tr.DotID); taskRun != nil && !taskRun.IsPending() {
 				// Swap in the latest state
 				run.PipelineTaskRuns[i] = *taskRun
 				restart = true

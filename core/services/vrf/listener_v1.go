@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -355,7 +353,6 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 		return
 	}
 
-	s := time.Now()
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),

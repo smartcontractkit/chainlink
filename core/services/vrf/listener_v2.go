@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -195,7 +193,6 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 		return
 	}
 
-	s := time.Now()
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
 		"reqID", req.PreSeedAndRequestId.String(),

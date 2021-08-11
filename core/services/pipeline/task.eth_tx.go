@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
@@ -33,7 +32,6 @@ type ETHTxTask struct {
 
 	db        *gorm.DB
 	config    Config
-	id        uuid.UUID
 	keyStore  ETHKeyStore
 	txManager TxManager
 }
@@ -130,7 +128,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if minConfirmations > 0 {
 		// Store the task run ID so we can resume the pipeline when tx is confirmed
 		confirmations = null.Uint32From(uint32(minConfirmations))
-		txMeta.PipelineTaskRunID = &t.id
+		txMeta.PipelineTaskRunID = &t.uuid
 		txMeta.MinConfirmations = confirmations
 	}
 

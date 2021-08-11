@@ -220,15 +220,19 @@ func (r *runner) run(
 		return nil, err
 	}
 
+	now := time.Now()
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
+		task.Base().uuid = uuid.NewV4()
+
 		switch task.Type() {
 		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
 		case TaskTypeBridge:
+			id := uuid.NewV4()
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
-			task.(*BridgeTask).id = uuid.NewV4()
+			task.(*BridgeTask).uuid = id
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeVRF:
@@ -239,27 +243,46 @@ func (r *runner) run(
 			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
 			task.(*EstimateGasLimitTask).EvmGasLimit = r.config.EvmGasLimitDefault()
 		case TaskTypeETHTx:
+			id := uuid.NewV4()
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).config = r.config
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).txManager = r.txManager
-			task.(*ETHTxTask).id = uuid.NewV4()
+			task.(*ETHTxTask).uuid = id
 		default:
 		}
-		// TODO: allocate PipelineTaskRuns for insertion in CreateRun
+	}
+
+	// retain old UUID values
+	for _, taskRun := range run.PipelineTaskRuns {
+		task := pipeline.ByDotID(taskRun.DotID)
+		task.Base().uuid = taskRun.ID
 	}
 
 	// avoid an extra db write if there is no async tasks present or if this is a resumed run
 	if pipeline.HasAsync() {
 		run.Async = true
 		if run.ID == 0 {
+			// initialize certain task params
+			for _, task := range pipeline.Tasks {
+				switch task.Type() {
+				case TaskTypeETHTx:
+					run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
+						ID:            task.Base().uuid,
+						PipelineRunID: run.ID,
+						Type:          task.Type(),
+						Index:         task.OutputIndex(),
+						DotID:         task.DotID(),
+						CreatedAt:     now,
+					})
+				}
+			}
 			if err = r.orm.CreateRun(postgres.UnwrapGormDB(r.orm.DB()), run); err != nil {
 				return nil, err
 			}
 		}
-	}
 
-	// TODO: pipeline.Tasks ids should match the task run ids we allocate in CreateRun
+	}
 
 	todo := context.TODO()
 	scheduler := newScheduler(todo, pipeline, run, vars)
@@ -393,18 +416,8 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 
 	now := time.Now()
 
-	var id uuid.UUID
-	switch taskRun.task.Type() {
-	case TaskTypeBridge:
-		id = taskRun.task.(*BridgeTask).id
-	case TaskTypeETHTx:
-		id = taskRun.task.(*ETHTxTask).id
-	default:
-		id = uuid.NewV4()
-	}
-
 	return TaskRunResult{
-		ID:         id,
+		ID:         taskRun.task.Base().uuid,
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
@@ -447,6 +460,16 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx *gorm.DB) error) (incomplete bool, err error) {
+	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
+		if fn != nil {
+			return fn(tx)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+
 	for {
 		_, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 		if err != nil {
@@ -460,9 +483,6 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				restart, err = r.orm.StoreRun(postgres.UnwrapGorm(tx), run)
 				if err != nil {
 					return err
-				}
-				if fn != nil {
-					return fn(tx)
 				}
 				return nil
 			})
@@ -488,9 +508,6 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
 				if _, err = r.orm.InsertFinishedRun(postgres.UnwrapGorm(tx), *run, saveSuccessfulTaskRuns); err != nil {
 					return errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
-				}
-				if fn != nil {
-					return fn(tx)
 				}
 				return nil
 			})

@@ -102,7 +102,8 @@ answer2 [type=bridge name=election_winner index=1];
 		CreatedAt:      time.Now(),
 	}
 
-	err = orm.CreateRun(db, run)
+	sqlxDB := postgres.UnwrapGormDB(db)
+	err = orm.CreateRun(sqlxDB, run)
 	require.NoError(t, err)
 	return run
 }

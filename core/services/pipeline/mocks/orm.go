@@ -26,11 +26,11 @@ type ORM struct {
 }
 
 // CreateRun provides a mock function with given fields: db, run
-func (_m *ORM) CreateRun(db *gorm.DB, run *pipeline.Run) error {
+func (_m *ORM) CreateRun(db postgres.Queryer, run *pipeline.Run) error {
 	ret := _m.Called(db, run)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*gorm.DB, *pipeline.Run) error); ok {
+	if rf, ok := ret.Get(0).(func(postgres.Queryer, *pipeline.Run) error); ok {
 		r0 = rf(db, run)
 	} else {
 		r0 = ret.Error(0)

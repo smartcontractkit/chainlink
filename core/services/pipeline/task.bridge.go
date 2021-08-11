@@ -7,7 +7,6 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
@@ -29,7 +28,6 @@ type BridgeTask struct {
 
 	db     *gorm.DB
 	config Config
-	id     uuid.UUID
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -91,7 +89,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 	if t.Async == "true" {
 		responseURL := t.config.BridgeResponseURL()
 		if *responseURL != *zeroURL {
-			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.id.String())
+			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
 		}
 		requestData["responseURL"] = responseURL.String()
 	}
