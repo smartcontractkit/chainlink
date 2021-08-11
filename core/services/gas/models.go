@@ -207,6 +207,9 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	if ti.Gas == nil {
 		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
 	}
+	if ti.Type == nil {
+		return errors.Errorf("expected 'type' to not be null, got: '%s'", data)
+	}
 	*t = Transaction{
 		(*big.Int)(ti.GasPrice),
 		uint64(*ti.Gas),
