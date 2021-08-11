@@ -136,6 +136,9 @@ func (b *BlockHistoryEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt)
 	if !ok {
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
+	if gasPrice == nil {
+		return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+	}
 	return
 }
 
