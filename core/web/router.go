@@ -291,6 +291,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
 
+		// FeaturesController
+		fc := FeaturesController{app}
+		authv2.GET("/features", fc.Index)
+
 		// PipelineJobSpecErrorsController
 		authv2.DELETE("/pipeline/job_spec_errors/:ID", psec.Destroy)
 
