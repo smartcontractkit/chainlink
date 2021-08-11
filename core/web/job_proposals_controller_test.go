@@ -227,11 +227,20 @@ func Test_JobProposalsController_Approve(t *testing.T) {
 func Test_JobProposalsController_Reject(t *testing.T) {
 	t.Parallel()
 
+	spec := `type               = "offchainreporting"
+			 schemaVersion      = 1
+			 contractAddress    = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
+			 externalJobID      = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F50"
+			 p2pBootstrapPeers  = [
+			 	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+			 ]
+			 isBootstrapPeer = true`
+
 	var (
 		jp1 = feeds.JobProposal{
 			ID:             1,
 			RemoteUUID:     uuid.NewV4(),
-			Spec:           "some spec",
+			Spec:           spec,
 			Status:         feeds.JobProposalStatusPending,
 			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
