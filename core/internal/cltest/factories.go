@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -181,7 +182,7 @@ func StringToVersionedLogData20190207withoutIndexes(
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf.Write(requestID)
 
-	payment := hexutil.MustDecode(minimumContractPayment.ToHash().Hex())
+	payment := hexutil.MustDecode(configtest.MinimumContractPayment.ToHash().Hex())
 	buf.Write(payment)
 
 	callbackAddr := utils.EVMWordUint64(0)
@@ -618,8 +619,8 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 		RoundId:          roundID,
 		EligibleToSubmit: true,
 		LatestSubmission: latestSubmission,
-		AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
-		PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
+		AvailableFunds:   configtest.MinimumContractPayment.ToInt(),
+		PaymentAmount:    configtest.MinimumContractPayment.ToInt(),
 	}
 }
 

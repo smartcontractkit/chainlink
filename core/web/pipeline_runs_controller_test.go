@@ -30,13 +30,14 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	cfg := cltest.NewTestEVMConfig(t)
+
+	cfg.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	defer cleanup()
-	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
-	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 	require.NoError(t, app.Start())
 
 	// Setup the bridge
@@ -96,13 +97,14 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	cfg := cltest.NewTestEVMConfig(t)
+
+	cfg.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	defer cleanup()
-	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
-	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 	require.NoError(t, app.Start())
 
 	// Setup the bridges

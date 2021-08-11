@@ -33,7 +33,7 @@ type (
 		subscribers map[uint64]*subscribers
 		decoders    map[common.Address]ParseLogFunc
 
-		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
+		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
 	}

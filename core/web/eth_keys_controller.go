@@ -189,7 +189,7 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr com
 // resource.
 func (ekc *ETHKeysController) setLinkBalance(accountAddr common.Address) presenters.NewETHKeyOption {
 	ethClient := ekc.App.GetEthClient()
-	addr := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
+	addr := common.HexToAddress(ekc.App.GetEVMConfig().LinkContractAddress())
 	bal, err := ethClient.GetLINKBalance(addr, accountAddr)
 
 	return func(r *presenters.ETHKeyResource) error {

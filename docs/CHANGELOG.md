@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### [v1.0.0]
 
+### Changed
+
 **Legacy job pipeline (JSON specs) are no longer supported**
 
 This version will refuse to migrate the database if job specs are still present. You must manually delete or migrate all V1 job specs before upgrading.
@@ -14,6 +16,17 @@ This version will refuse to migrate the database if job specs are still present.
 For more information on migrating, see [the docs](https://docs.chain.link/chainlink-nodes/).
 
 This release will DROP legacy job tables so please take a backup before upgrading.
+
+The following ENV vars have been _removed_ and no longer have any effect:
+
+```
+GAS_UPDATER_ENABLED
+GAS_UPDATER_BATCH_SIZE
+GAS_UPDATER_BLOCK_DELAY
+GAS_UPDATER_BLOCK_HISTORY_SIZE
+GAS_UPDATER_TRANSACTION_PERCENTILE
+MINIMUM_CONTRACT_PAYMENT
+```
 
 
 ## [Unreleased]

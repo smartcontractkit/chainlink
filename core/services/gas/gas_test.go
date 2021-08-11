@@ -5,8 +5,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,12 +89,12 @@ func Test_BumpGasPriceOnly(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := config.NewConfig()
-			cfg.Set("ETH_GAS_PRICE_DEFAULT", test.priceDefault)
-			cfg.Set("ETH_GAS_BUMP_PERCENT", test.bumpPercent)
-			cfg.Set("ETH_GAS_BUMP_WEI", test.bumpWei)
-			cfg.Set("ETH_MAX_GAS_PRICE_WEI", test.maxGasPriceWei)
-			cfg.Set("ETH_GAS_LIMIT_MULTIPLIER", test.limitMultiplierPercent)
+			cfg := new(gasmocks.Config)
+			cfg.On("EvmGasBumpPercent").Return(test.bumpPercent)
+			cfg.On("EvmGasPriceDefault").Return(test.priceDefault)
+			cfg.On("EvmGasBumpWei").Return(test.bumpWei)
+			cfg.On("EvmMaxGasPriceWei").Return(test.maxGasPriceWei)
+			cfg.On("EvmGasLimitMultiplier").Return(test.limitMultiplierPercent)
 			actual, limit, err := gas.BumpGasPriceOnly(cfg, test.originalGasPrice, test.originalLimit)
 			require.NoError(t, err)
 			if actual.Cmp(test.expectedGasPrice) != 0 {
@@ -106,11 +107,11 @@ func Test_BumpGasPriceOnly(t *testing.T) {
 
 func Test_BumpGasPriceOnly_HitsMaxError(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewConfig()
-	cfg.Set("ETH_GAS_BUMP_PERCENT", "50")
-	cfg.Set("ETH_GAS_PRICE_DEFAULT", toBigInt("2e10")) // 20 GWei
-	cfg.Set("ETH_GAS_BUMP_WEI", toBigInt("5e9"))       // 0.5 GWei
-	cfg.Set("ETH_MAX_GAS_PRICE_WEI", toBigInt("4e10")) // 40 Gwei
+	cfg := new(gasmocks.Config)
+	cfg.On("EvmGasBumpPercent").Return(uint16(50))
+	cfg.On("EvmGasPriceDefault").Return(assets.GWei(20))
+	cfg.On("EvmGasBumpWei").Return(assets.Wei(5000000000))
+	cfg.On("EvmMaxGasPriceWei").Return(assets.GWei(40))
 
 	originalGasPrice := toBigInt("3e10") // 30 GWei
 	_, _, err := gas.BumpGasPriceOnly(cfg, originalGasPrice, 42)
@@ -120,10 +121,11 @@ func Test_BumpGasPriceOnly_HitsMaxError(t *testing.T) {
 
 func Test_BumpGasPriceOnly_NoBumpError(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewConfig()
-	cfg.Set("ETH_GAS_BUMP_PERCENT", "0")
-	cfg.Set("ETH_GAS_BUMP_WEI", "0")
-	cfg.Set("ETH_MAX_GAS_PRICE_WEI", "40000000000")
+	cfg := new(gasmocks.Config)
+	cfg.On("EvmGasBumpPercent").Return(uint16(0))
+	cfg.On("EvmGasBumpWei").Return(big.NewInt(0))
+	cfg.On("EvmMaxGasPriceWei").Return(assets.GWei(40))
+	cfg.On("EvmGasPriceDefault").Return(assets.GWei(20))
 
 	originalGasPrice := toBigInt("3e10") // 30 GWei
 	_, _, err := gas.BumpGasPriceOnly(cfg, originalGasPrice, 42)
