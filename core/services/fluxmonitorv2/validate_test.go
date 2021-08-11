@@ -176,9 +176,6 @@ externalJobID = "cfa3fa6b-2850-446b-b973-8f4c3b29d519"
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
 			},
-			setGlobals: func(t *testing.T, c *config.Config) {
-				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-			},
 		},
 	}
 	for _, tc := range tt {
