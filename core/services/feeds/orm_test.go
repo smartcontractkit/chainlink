@@ -51,14 +51,14 @@ func Test_ORM_CreateManager(t *testing.T) {
 		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
 	}
 
-	count, err := orm.CountManagers()
+	count, err := orm.CountManagers(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
 	id, err := orm.CreateManager(context.Background(), mgr)
 	require.NoError(t, err)
 
-	count, err = orm.CountManagers()
+	count, err = orm.CountManagers(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 
@@ -179,14 +179,14 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 		FeedsManagerID: fmID,
 	}
 
-	count, err := orm.CountJobProposals()
+	count, err := orm.CountJobProposals(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
 	id, err := orm.CreateJobProposal(context.Background(), jp)
 	require.NoError(t, err)
 
-	count, err = orm.CountJobProposals()
+	count, err = orm.CountJobProposals(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 

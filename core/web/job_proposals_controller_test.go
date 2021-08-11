@@ -228,10 +228,11 @@ func Test_JobProposalsController_Reject(t *testing.T) {
 	t.Parallel()
 
 	var (
-		jp1 = feeds.JobProposal{
+		spec = string(cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml"))
+		jp1  = feeds.JobProposal{
 			ID:             1,
 			RemoteUUID:     uuid.NewV4(),
-			Spec:           "some spec",
+			Spec:           spec,
 			Status:         feeds.JobProposalStatusPending,
 			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
@@ -315,10 +316,11 @@ func Test_JobProposalsController_UpdateSpec(t *testing.T) {
 	t.Parallel()
 
 	var (
-		jp1 = feeds.JobProposal{
+		spec = string(cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml"))
+		jp1  = feeds.JobProposal{
 			ID:             1,
 			RemoteUUID:     uuid.NewV4(),
-			Spec:           "some spec",
+			Spec:           spec,
 			Status:         feeds.JobProposalStatusPending,
 			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
