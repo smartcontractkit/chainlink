@@ -198,6 +198,8 @@ type Transaction struct {
 	Hash                 common.Hash
 }
 
+const LegacyTxType = TxType(0x0)
+
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
 	ti := transactionInternal{}
@@ -208,7 +210,8 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
 	}
 	if ti.Type == nil {
-		return errors.Errorf("expected 'type' to not be null, got: '%s'", data)
+		tpe := LegacyTxType
+		ti.Type = &tpe
 	}
 	*t = Transaction{
 		(*big.Int)(ti.GasPrice),
