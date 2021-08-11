@@ -109,7 +109,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 
 	svc := setupTestService(t)
 
-	svc.orm.On("CountManagers").Return(int64(0), nil)
+	svc.orm.On("CountManagers", context.Background()).Return(int64(0), nil)
 	svc.orm.On("CreateManager", context.Background(), &ms).
 		Return(id, nil)
 	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
