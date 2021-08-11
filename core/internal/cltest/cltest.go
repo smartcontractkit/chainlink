@@ -14,47 +14,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
-
-	uuid "github.com/satori/go.uuid"
-
-	"github.com/smartcontractkit/chainlink/core/services/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -69,8 +32,38 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
+	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/static"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -79,13 +72,12 @@ import (
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
 const (
-	// RootDir the root directory for cltest
-	RootDir = "/tmp/chainlink_test"
 	// APIKey of the fixture API user
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
@@ -105,8 +97,6 @@ const (
 	DefaultKeyJSON = `{"address":"F67D0290337bca0847005C7ffD1BC75BA9AAE6e4","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c3565050ba4e10ea388bcd17d77c141441ce1be5db339f0201b9ed733d780c6","cipherparams":{"iv":"f968fc947495646ee8b5dbaadb242ec0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33ad88742a983dfeb8adcc9a39fdde4cb47f7e23ea2ef80b35723d940959e3fd"},"mac":"b3747959cbbb9b26f861ab82d69154b4ec8108bbac017c1341f6fd3295beceaf"},"id":"8c79a654-96b1-45d9-8978-3efa07578011","version":3}`
 	// AllowUnstarted enable an application that can be used in tests without being started
 	AllowUnstarted = "allow_unstarted"
-	// DefaultPeerID is the peer ID of the fixture p2p key
-	DefaultPeerID = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
 	// A peer ID without an associated p2p key.
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
@@ -119,8 +109,6 @@ var (
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	storeCounter                uint64
-	minimumContractPayment      = assets.NewLink(100)
 	source                      rand.Source
 )
 
@@ -139,7 +127,7 @@ func init() {
 	// Also seed the local source
 	source = rand.NewSource(seed)
 
-	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
+	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
@@ -161,21 +149,6 @@ func logLevelFromEnv() zapcore.Level {
 		_ = lvl.Set(env)
 	}
 	return lvl
-}
-
-// TestConfig struct with test store and wsServer
-type TestConfig struct {
-	t testing.TB
-	*config.Config
-}
-
-// NewConfig returns a new TestConfig
-func NewConfig(t testing.TB) (*TestConfig, func()) {
-	t.Helper()
-
-	config := NewTestConfig(t)
-	// FIXME: The returned function is totally pointless and ought to be removed from all tests
-	return config, func() {}
 }
 
 func NewRandomInt64() int64 {
@@ -204,57 +177,6 @@ func MustBigIntFromString(t *testing.T, s string) *big.Int {
 	return x
 }
 
-// NewTestConfig returns a test configuration
-func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
-	t.Helper()
-
-	count := atomic.AddUint64(&storeCounter, 1)
-	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := config.NewConfig()
-
-	rawConfig.Dialect = dialects.TransactionWrappedPostgres
-	for _, opt := range options {
-		switch v := opt.(type) {
-		case dialects.DialectName:
-			rawConfig.Dialect = v
-		}
-	}
-
-	// Unique advisory lock is required otherwise all tests will block each other
-	rawConfig.AdvisoryLockID = NewRandomInt64()
-
-	rawConfig.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
-	rawConfig.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
-	rawConfig.Set("ETH_FINALITY_DEPTH", 15)
-	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
-	rawConfig.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
-
-	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
-	rawConfig.Set("CHAINLINK_DEV", true)
-	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("MIGRATE_DATABASE", false)
-	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
-	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
-	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
-	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", minimumContractPayment.Text(10))
-	rawConfig.Set("ROOT", rootdir)
-	rawConfig.Set("SESSION_TIMEOUT", "2m")
-	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
-	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
-	rawConfig.Set("P2P_LISTEN_PORT", "12345")
-	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
-	rawConfig.Set("DATABASE_TIMEOUT", "5s")
-	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
-	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
-	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
-	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
-	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
-	rawConfig.SecretGenerator = mockSecretGenerator{}
-	config := TestConfig{t: t, Config: rawConfig}
-	return &config
-}
-
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
 	Eb  postgres.EventBroadcaster
@@ -262,11 +184,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
-	prm, eb, cleanup := NewPipelineORM(t, tc, db)
-	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
+func NewJobPipelineV2(t testing.TB, cfg config.EVMConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
+	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
+	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config, ethClient, keyStore, nil, txManager)
+	pr := pipeline.NewRunner(prm, cfg, ethClient, keyStore, nil, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -275,9 +197,9 @@ func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.C
 	}
 }
 
-func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
+func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
 	t.Helper()
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
 	return pipeline.NewORM(db), eventBroadcaster, func() {
@@ -285,7 +207,7 @@ func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config config.EVMConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
@@ -295,7 +217,7 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *TestConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config))
 	return ec
@@ -305,7 +227,6 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *Te
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Config         *TestConfig
 	Logger         *logger.Logger
 	Server         *httptest.Server
 	wsServer       *httptest.Server
@@ -351,20 +272,28 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 	}
 }
 
+func NewTestEVMConfig(t testing.TB) *configtest.TestEVMConfig {
+	overrides := configtest.GeneralConfigOverrides{
+		SecretGenerator: MockSecretGenerator{},
+		Dialect:         dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:  null.IntFrom(NewRandomInt64()),
+	}
+	cfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
+	evmcfg := configtest.NewTestEVMConfig(t, cfg)
+	return evmcfg
+}
+
 // NewApplicationEthereumDisabled creates a new application with default config but ethereum disabled
 // Useful for testing controllers
 func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
 	t.Helper()
 
-	c, cfgCleanup := NewConfig(t)
-	c.Set("ETH_DISABLED", true)
+	c := NewTestEVMConfig(t)
+	c.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
 
 	app, cleanup := NewApplicationWithConfig(t, c)
 
-	return app, func() {
-		cleanup()
-		cfgCleanup()
-	}
+	return app, cleanup
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
@@ -372,35 +301,29 @@ func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
 func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	c, cfgCleanup := NewConfig(t)
+	c := NewTestEVMConfig(t)
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
-	return app, func() {
-		cleanup()
-		cfgCleanup()
-	}
+	return app, cleanup
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	config, cfgCleanup := NewConfig(t)
+	config := NewTestEVMConfig(t)
 	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
-	return app, func() {
-		cleanup()
-		cfgCleanup()
-	}
+	return app, cleanup
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestEVMConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
+	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.Key:
@@ -423,7 +346,7 @@ const (
 )
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, c *configtest.TestEVMConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
@@ -449,15 +372,13 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	}
 
 	ta := &TestApplication{t: t}
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker)
+	appInstance, err := chainlink.NewApplication(c, ethClient, advisoryLocker)
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	server := newServer(ta)
 
-	tc.Config.Set("CLIENT_NODE_URL", server.URL)
-
-	app.Store.Config = tc.Config
+	c.GeneralConfig.Overrides.ClientNodeURL = null.StringFrom(server.URL)
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
@@ -469,7 +390,6 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 		}
 	}
 
-	ta.Config = tc
 	ta.Server = server
 	return ta, func() {
 		err := ta.StopIfStarted()
@@ -509,13 +429,10 @@ func NewEthClientMock(t mock.TestingT) *mocks.Client {
 func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
-	c.On("ChainID", mock.Anything).Maybe().Return(NewTestConfig(t).ChainID(), nil)
-	c.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
+	c.On("ChainID", mock.Anything).Return(big.NewInt(eth.NullClientChainID), nil)
 
 	block := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(100),
@@ -610,7 +527,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:   r,
-		Config:     ta.Config.Config,
+		Config:     ta.GetEVMConfig(),
 		AppFactory: seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator: CallbackAuthenticator{
 			Callback: func(*keystore.Eth, string) (string, error) {
@@ -629,10 +546,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 }
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config.Config, &cmd.MemoryCookieStore{})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
-		Config:                         ta.Config.Config,
+		Config:                         ta.GetEVMConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
@@ -647,7 +564,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -657,27 +574,23 @@ func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interfac
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(tcfg.Config, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewInsecureStore(c, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
-	orm := config.NewORM(s.DB)
-	s.Config.SetRuntimeStore(orm)
+	s.Config.SetDB(s.DB)
 	return s, func() {
-		cleanUpStore(tcfg.t, s)
+		cleanUpStore(t, s)
 	}
 }
 
 // NewStore creates a new store
-func NewStore(t testing.TB, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStore(t *testing.T, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
-	c, cleanup := NewConfig(t)
+	c := NewTestEVMConfig(t)
 	store, storeCleanup := NewStoreWithConfig(t, c, flagsAndDeps...)
-	return store, func() {
-		storeCleanup()
-		cleanup()
-	}
+	return store, storeCleanup
 }
 
 func NewKeyStore(t testing.TB, db *gorm.DB) *keystore.Master {
@@ -812,8 +725,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(config orm.ConfigReader) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", config.RootDir())
+func ReadLogs(cfg config.GeneralConfig) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", cfg.RootDir())
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }

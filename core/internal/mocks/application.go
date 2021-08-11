@@ -79,15 +79,31 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 }
 
 // GetConfig provides a mock function with given fields:
-func (_m *Application) GetConfig() *config.Config {
+func (_m *Application) GetConfig() config.GeneralConfig {
 	ret := _m.Called()
 
-	var r0 *config.Config
-	if rf, ok := ret.Get(0).(func() *config.Config); ok {
+	var r0 config.GeneralConfig
+	if rf, ok := ret.Get(0).(func() config.GeneralConfig); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*config.Config)
+			r0 = ret.Get(0).(config.GeneralConfig)
+		}
+	}
+
+	return r0
+}
+
+// GetEVMConfig provides a mock function with given fields:
+func (_m *Application) GetEVMConfig() config.EVMConfig {
+	ret := _m.Called()
+
+	var r0 config.EVMConfig
+	if rf, ok := ret.Get(0).(func() config.EVMConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.EVMConfig)
 		}
 	}
 

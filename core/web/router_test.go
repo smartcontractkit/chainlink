@@ -16,12 +16,8 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -35,12 +31,8 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -55,12 +47,8 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -92,12 +80,8 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -129,12 +113,8 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -162,12 +142,8 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -186,12 +162,8 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
