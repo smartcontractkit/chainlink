@@ -626,42 +626,6 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
-	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
-		ethClient := new(mocks.Client)
-		config := new(gumocks.Config)
-
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
-		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
-		config.On("ChainID").Return(big.NewInt(100))
-
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
-
-		b1Hash := utils.NewHash()
-
-		blocks := []gas.Block{
-			gas.Block{
-				Number:     0,
-				Hash:       b1Hash,
-				ParentHash: common.Hash{},
-				Transactions: []gas.Transaction{
-					{GasPrice: nil, GasLimit: 42, Hash: utils.NewHash()},
-					{GasPrice: big.NewInt(100), GasLimit: 42, Hash: utils.NewHash()},
-				},
-			},
-		}
-
-		gas.SetRollingBlockHistory(bhe, blocks)
-
-		bhe.Recalculate(*cltest.Head(0))
-
-		price := gas.GetGasPrice(bhe)
-		require.Equal(t, big.NewInt(100), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
-	})
 }
 
 func TestBlockHistoryEstimator_Block(t *testing.T) {
