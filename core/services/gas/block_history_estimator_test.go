@@ -599,6 +599,43 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
+
+	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMock(t)
+		config := new(gumocks.Config)
+
+		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
+		config.On("ChainID").Return(big.NewInt(100))
+
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
+
+		b1Hash := utils.NewHash()
+
+		blocks := []gas.Block{
+			gas.Block{
+				Number:     0,
+				Hash:       b1Hash,
+				ParentHash: common.Hash{},
+				Transactions: []gas.Transaction{
+					{GasPrice: nil, GasLimit: 42, Hash: utils.NewHash()},
+					{GasPrice: big.NewInt(100), GasLimit: 42, Hash: utils.NewHash()},
+				},
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(*cltest.Head(0))
+
+		price := gas.GetGasPrice(bhe)
+		require.Equal(t, big.NewInt(100), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
 }
 
 func TestBlockHistoryEstimator_Block(t *testing.T) {
@@ -677,4 +714,137 @@ func TestBlockHistoryEstimator_Block(t *testing.T) {
 	assert.Equal(t, uint64(0), block.Transactions[0].GasLimit)
 	assert.Equal(t, big.NewInt(4566182400000), block.Transactions[1].GasPrice)
 	assert.Equal(t, uint64(2000000), block.Transactions[1].GasLimit)
+}
+
+func TestBlockHistoryEstimator_EIP1559Block(t *testing.T) {
+	blockJSON := `
+{
+    "baseFeePerGas": "0xa1894585c",
+    "difficulty": "0x1cc4a2d7045f39",
+    "extraData": "0x73656f32",
+    "gasLimit": "0x1c9c380",
+    "gasUsed": "0x1c9c203",
+    "hash": "0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0",
+    "logsBloom": "0x2b181cd7982005346543c60498149414cc92419055218c5111988a6c81c7560105c91c82ec3348283288c2187b0111407e28c08c4b45b4ea2e980893c050002588606218aa083c0c0824e46923b850d07048da924052828c26082c910663fac682070310ba3189bed51194261220990c2920cc434d042c06a1941158dfc91eeb572107e1c5595a0032051109c500ba42a093398850ad020b1118d41716d371286ba348e041685144210401078b8901281001e840290d0e9391c00138cf00120d92499ca250d3026003e13c1e10bac2a3a57499007a2213002714a2a2f24f24480d0539c30142f2ed09105d5b10038330ac1622cc188a00f0c3108801455882cc",
+    "miner": "0x3ecef08d0e2dad803847e052249bb4f8bff2d5bb",
+    "mixHash": "0x57f4a273c69c4028916abfaa57252035fb7e71ce8444034764b8988d9a89c7b6",
+    "nonce": "0x015e0d851f990730",
+    "number": "0xc65d68",
+    "parentHash": "0x1ae6168805dfd2e48311181774019c17fb09b24ab75dcad6566d18d38d5c4071",
+    "receiptsRoot": "0x3ced645d38426647aad078b8e4bc62ff03571a74b099c983133eb34808240309",
+    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "size": "0x2655",
+    "stateRoot": "0x073e7b70e9b1357329cbf0b19a10a981057a29accbafcc34d52b592dc0be9848",
+    "timestamp": "0x6112f709",
+    "totalDifficulty": "0x6171fd1e7626bc65d9b",
+    "transactions": [
+      {
+        "blockHash": "0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0",
+        "blockNumber": "0xc65d68",
+        "from": "0x305bf59bbd7a89ca9ce4d460b0efb54266d9e6c3",
+        "gas": "0xdbba0",
+        "gasPrice": "0x9f05f8ee00",
+        "hash": "0x8e58af889f4e831ef9a67df84058bcfb7090cbcb5c6f1046c211dafee6050944",
+        "input": "0xc18a84bc0000000000000000000000007ae132b71ddc6f4866fbf103be655830d9ca666c00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000124e94584ee00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000bb0e17ef65f82ab018d8edd776e8dd940327b28b00000000000000000000000000000000000000000000002403ecad7d36e5bda0000000000000000000000000000000000000000000000000af7c8acfe5037ea80000000000000000000000000000000000000000000000000000000000c65d680000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bbb0e17ef65f82ab018d8edd776e8dd940327b28b000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x6654",
+        "to": "0x4d246be90c2f36730bb853ad41d0a189061192d3",
+        "transactionIndex": "0x0",
+        "value": "0x0",
+        "type": "0x0",
+        "v": "0x25",
+        "r": "0x9f8af9e6424f264daaba992c09c2b38d05444cbb5e6bd5e26c965393e287c9fa",
+        "s": "0x76802388299eb0baa80a678831ef0722c5b1e1212f5eca26a5e911cb81388b2b"
+      },
+      {
+        "blockHash": "0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0",
+        "blockNumber": "0xc65d68",
+        "from": "0xef3f063136fe5002065bf7c4a2d85ff34cfb0ac0",
+        "gas": "0xdfeae",
+        "gasPrice": "0x2ba7def3000",
+        "hash": "0x0190f436ce165abb741b8513f64d194682677e1db72422f0f533fe6c0248e59a",
+        "input": "0x926427440000000000000000000000000000000000000000000000000000000000000005",
+        "nonce": "0x267",
+        "to": "0xad9fd7cb4fc7a0fbce08d64068f60cbde22ed34c",
+        "transactionIndex": "0x1",
+        "value": "0x62967a5c8460000",
+        "type": "0x0",
+        "v": "0x26",
+        "r": "0xd06f53ad57d61543526b529c2532903ac0d45b1d727567d04dc9b2f4e6340521",
+        "s": "0x6332bcec6a66abf4bed4df24e25e1e4dfc61c5d5bc32a441033c285c14c402d"
+      },
+	  {
+        "blockHash": "0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0",
+        "blockNumber": "0xc65d68",
+        "from": "0xff54553ff5edf0e93d58555303291805770e5793",
+        "gas": "0x5208",
+        "gasPrice": "0x746a528800",
+        "maxFeePerGas": "0x746a528800",
+        "maxPriorityFeePerGas": "0x746a528800",
+        "hash": "0x136aa666e6b8109b2b4aca8008ecad8df2047f4e2aced4808248fa8927a13395",
+        "input": "0x",
+        "nonce": "0x1",
+        "to": "0xb5d85cbf7cb3ee0d56b3bb207d5fc4b82f43f511",
+        "transactionIndex": "0x3b",
+        "value": "0x1302a5a6ad330400",
+        "type": "0x2",
+        "accessList": [],
+        "chainId": "0x1",
+        "v": "0x1",
+        "r": "0x2806aa357d15790319e1def013902135dc8fa191182e2f87edae352e50ef281",
+        "s": "0x61d160d7de9af375c7fc40aed956e711af3af20146afe27d5122adf28cd25c9"
+      },
+      {
+        "blockHash": "0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0",
+        "blockNumber": "0xc65d68",
+        "from": "0xb090838386b9207994a42f740217066af2de53ad",
+        "gas": "0x5208",
+        "maxFeePerGas": "0x746a528800",
+        "maxPriorityFeePerGas": "0x746a528800",
+        "hash": "0x13d4ecea98e37359e63e39e350ed0b1456e1acbf985eb8d4a0ef0e89a705c10d",
+        "input": "0x",
+        "nonce": "0x1",
+        "to": "0xb5d85cbf7cb3ee0d56b3bb207d5fc4b82f43f511",
+        "transactionIndex": "0x3c",
+        "value": "0xe95497bc358fe60",
+        "type": "0x2",
+        "accessList": [],
+        "chainId": "0x1",
+        "v": "0x1",
+        "r": "0xa0d09f41bb4279d73e4255a1c1ce6cb10cb1fba04b4eca4af582ab2928201b27",
+        "s": "0x682f2a7a734b7c5887c5e228d35af4d3d3ad240c2c14f97aa9145a6c9edcd0a1"
+      }
+	]
+}
+`
+
+	var block gas.Block
+	err := json.Unmarshal([]byte(blockJSON), &block)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(13000040), block.Number)
+	assert.Equal(t, common.HexToHash("0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0"), block.Hash)
+	assert.Equal(t, common.HexToHash("0x1ae6168805dfd2e48311181774019c17fb09b24ab75dcad6566d18d38d5c4071"), block.ParentHash)
+
+	require.Len(t, block.Transactions, 4)
+
+	assert.Equal(t, int64(683000000000), block.Transactions[0].GasPrice.Int64())
+	assert.Equal(t, 900000, int(block.Transactions[0].GasLimit))
+	assert.Nil(t, block.Transactions[0].MaxFeePerGas)
+	assert.Nil(t, block.Transactions[0].MaxPriorityFeePerGas)
+	assert.Equal(t, gas.TxType(0x0), block.Transactions[0].Type)
+	assert.Equal(t, "0x8e58af889f4e831ef9a67df84058bcfb7090cbcb5c6f1046c211dafee6050944", block.Transactions[0].Hash.String())
+
+	assert.Equal(t, big.NewInt(3000000000000), block.Transactions[1].GasPrice)
+	assert.Equal(t, "0x0190f436ce165abb741b8513f64d194682677e1db72422f0f533fe6c0248e59a", block.Transactions[1].Hash.String())
+
+	assert.Equal(t, int64(500000000000), block.Transactions[2].GasPrice.Int64())
+	assert.Equal(t, 21000, int(block.Transactions[2].GasLimit))
+	assert.Equal(t, int64(500000000000), block.Transactions[2].MaxFeePerGas.Int64())
+	assert.Equal(t, int64(500000000000), block.Transactions[2].MaxPriorityFeePerGas.Int64())
+	assert.Equal(t, gas.TxType(0x2), block.Transactions[2].Type)
+	assert.Equal(t, "0x136aa666e6b8109b2b4aca8008ecad8df2047f4e2aced4808248fa8927a13395", block.Transactions[2].Hash.String())
+
+	assert.Nil(t, block.Transactions[3].GasPrice)
+	assert.Equal(t, 21000, int(block.Transactions[3].GasLimit))
+	assert.Equal(t, "0x13d4ecea98e37359e63e39e350ed0b1456e1acbf985eb8d4a0ef0e89a705c10d", block.Transactions[3].Hash.String())
 }
