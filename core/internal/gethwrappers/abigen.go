@@ -134,15 +134,24 @@ func generateCode(fset *token.FileSet, fileNode *ast.File) []byte {
 }
 
 func getContractName(fileNode *ast.File) string {
-	// Grab the contract name. It's always the first type in the file.
+	// Search for the ABI const e.g. VRFCoordinatorV2ABI = "0x..."
 	var contractName string
 	astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
-		x, is := cursor.Node().(*ast.TypeSpec)
+		x, is := cursor.Node().(*ast.ValueSpec)
 		if !is {
 			return true
 		}
-		if contractName == "" {
-			contractName = x.Name.Name
+		if len(x.Names) > 0 {
+			for _, n := range x.Names {
+				if len(n.Name) < 3 {
+					return true
+				}
+				if n.Name[len(n.Name)-3:] == "ABI" {
+					contractName = n.Name[:len(n.Name)-3]
+				} else {
+					return true
+				}
+			}
 		}
 		return false
 	}, nil)
