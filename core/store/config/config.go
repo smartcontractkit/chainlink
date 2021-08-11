@@ -311,6 +311,16 @@ func (c Config) FeatureCronV2() bool {
 	return c.getWithFallback("FeatureCronV2", parseBool).(bool)
 }
 
+// FeatureUICSAKeys enables the CSA Keys UI Feature.
+func (c Config) FeatureUICSAKeys() bool {
+	return c.getWithFallback("FeatureUICSAKeys", parseBool).(bool)
+}
+
+// FeatureUICSAKeys enables the CSA Keys UI Feature.
+func (c Config) FeatureUIFeedsManager() bool {
+	return c.getWithFallback("FeatureUIFeedsManager", parseBool).(bool)
+}
+
 func (c Config) DatabaseListenerMinReconnectInterval() time.Duration {
 	return c.getWithFallback("DatabaseListenerMinReconnectInterval", parseDuration).(time.Duration)
 }

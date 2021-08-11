@@ -3,6 +3,7 @@ import { BridgeTypes } from './bridgeTypes'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { CSAKeys } from './csaKeys'
 import { Config } from './config'
+import { Features } from './features'
 import { FeedsManagers } from './feedsManagers'
 import { Jobs } from './jobs'
 import { JobProposals } from './jobProposals'
@@ -20,6 +21,7 @@ export class V2 {
   public bulkDeleteRuns = new BulkDeleteRuns(this.api)
   public csaKeys = new CSAKeys(this.api)
   public config = new Config(this.api)
+  public features = new Features(this.api)
   public feedsManagers = new FeedsManagers(this.api)
   public logConfig = new LogConfig(this.api)
   public jobs = new Jobs(this.api)

@@ -101,3 +101,21 @@ func TestConfig_MinimumContractPayment(t *testing.T) {
 	cfg = config.NewConfig()
 	assert.Equal(t, assets.NewLink(4937), cfg.MinimumContractPayment())
 }
+
+func TestConfig_FeatureUICSAKeys(t *testing.T) {
+	cfg := config.NewConfig()
+	assert.False(t, cfg.FeatureUICSAKeys())
+
+	os.Setenv("FEATURE_UI_CSA_KEYS", "true")
+	cfg = config.NewConfig()
+	assert.True(t, cfg.FeatureUICSAKeys())
+}
+
+func TestConfig_FeatureUIFeedsManager(t *testing.T) {
+	cfg := config.NewConfig()
+	assert.False(t, cfg.FeatureUIFeedsManager())
+
+	os.Setenv("FEATURE_UI_FEEDS_MANAGER", "true")
+	cfg = config.NewConfig()
+	assert.True(t, cfg.FeatureUIFeedsManager())
+}
