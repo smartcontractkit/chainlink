@@ -175,13 +175,13 @@ func (pm *PollManager) ShouldPerformInitialPoll() bool {
 // Reset resets the timers except for the hibernation timer. Will not reset if
 // hibernating.
 func (pm *PollManager) Reset(roundState flux_aggregator_wrapper.OracleRoundState) {
-	if !pm.cfg.IsHibernating {
+	if pm.cfg.IsHibernating {
+		pm.hibernationTimer.Reset(pm.cfg.HibernationPollPeriod)
+	} else {
 		pm.startPollTicker()
 		pm.startIdleTimer(roundState.StartedAt)
 		pm.startRoundTimer(roundStateTimesOutAt(roundState))
 		pm.startDrumbeat()
-	} else {
-		pm.hibernationTimer.Reset(pm.cfg.HibernationPollPeriod)
 	}
 }
 
