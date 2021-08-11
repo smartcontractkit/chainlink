@@ -68,11 +68,11 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *Dire
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	config := cltest.NewTestConfig(t)
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanupDB := cltest.NewStoreWithConfig(t, config)
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, store.DB)
 
-	jobORM := job.NewORM(store.DB, store.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(store.DB, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	cleanup := func() {
 		cleanupDB()

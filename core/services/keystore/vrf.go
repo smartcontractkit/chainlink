@@ -304,7 +304,8 @@ func (ks *VRF) ListKeys() (publicKeys []*secp256k1.PublicKey, err error) {
 		return nil, errors.Wrapf(err, "while listing db keys")
 	}
 	for _, enckey := range enc {
-		publicKeys = append(publicKeys, &enckey.PublicKey)
+		pk := enckey.PublicKey
+		publicKeys = append(publicKeys, &pk)
 	}
 	return publicKeys, nil
 }
@@ -316,7 +317,8 @@ func (ks *VRF) ListKeysIncludingArchived() (publicKeys []*secp256k1.PublicKey, e
 		return nil, err
 	}
 	for _, enckey := range allKeys {
-		publicKeys = append(publicKeys, &enckey.PublicKey)
+		pk := enckey.PublicKey
+		publicKeys = append(publicKeys, &pk)
 	}
 	return publicKeys, nil
 }

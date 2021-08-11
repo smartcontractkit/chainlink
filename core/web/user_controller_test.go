@@ -16,7 +16,7 @@ import (
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -69,12 +69,8 @@ func TestUserController_UpdatePassword(t *testing.T) {
 func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -96,12 +92,8 @@ func TestUserController_NewAPIToken(t *testing.T) {
 func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -117,12 +109,8 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -139,12 +127,8 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

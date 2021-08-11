@@ -107,7 +107,7 @@ func TestWebSocketClient_Send_Binary(t *testing.T) {
 
 func TestWebSocketClient_Send_Unsupported(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, explorerClient.Start())
