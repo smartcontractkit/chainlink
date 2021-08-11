@@ -4,7 +4,6 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -104,12 +103,8 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	t.Parallel()
 
-	oca := common.HexToAddress("0xDEADB3333333F")
 	app := startNewApplication(t,
 		withKey(),
-		withConfig(map[string]interface{}{
-			"OPERATOR_CONTRACT_ADDRESS": &oca,
-		}),
 		withMocks(newEthMock(t)),
 	)
 	client, r := app.NewClientAndRenderer()

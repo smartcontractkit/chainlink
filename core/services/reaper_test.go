@@ -16,11 +16,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type sessionReaperConfig struct{}
+
+func (c sessionReaperConfig) SessionTimeout() models.Duration {
+	return models.MustMakeDuration(42 * time.Second)
+}
+
+func (c sessionReaperConfig) ReaperExpiration() models.Duration {
+	return models.MustMakeDuration(142 * time.Second)
+}
+
 func TestSessionReaper_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	config := cltest.NewTestConfig(t)
+	config := sessionReaperConfig{}
 
 	r := services.NewSessionReaper(db, config)
 	defer r.Stop()

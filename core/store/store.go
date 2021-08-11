@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -37,25 +36,26 @@ const (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config         *config.Config
+	Config         config.GeneralConfig
 	Clock          utils.AfterNower
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
 // NewStore will create a new store
-func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+// func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
+func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
 	return newStore(config, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *config.Config, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+func NewInsecureStore(config config.GeneralConfig, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
 	return newStore(config, advisoryLocker, shutdownSignal)
 }
 
 func newStore(
-	config *config.Config,
+	config config.GeneralConfig,
 	advisoryLocker postgres.AdvisoryLocker,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
@@ -148,7 +148,7 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	return nil
 }
 
-func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
+func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	dbURL := cfg.DatabaseURL()
 	dbOrm, err := orm.NewORM(dbURL.String(), cfg.DatabaseTimeout(), shutdownSignal, cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
 	if err != nil {

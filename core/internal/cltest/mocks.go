@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -138,7 +137,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *config.Config) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -146,7 +145,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *config.Config) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -173,7 +172,7 @@ func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd
 	return nil
 }
 
-func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *config.Config, string) error {
+func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, string) error {
 	return nil
 }
 
@@ -414,7 +413,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, models.SessionRequest{})
 }
 
@@ -444,9 +443,9 @@ func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error)
 	return models.SessionRequest{Email: APIEmail, Password: Password}, nil
 }
 
-type mockSecretGenerator struct{}
+type MockSecretGenerator struct{}
 
-func (m mockSecretGenerator) Generate(config.Config) ([]byte, error) {
+func (m MockSecretGenerator) Generate(string) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
 

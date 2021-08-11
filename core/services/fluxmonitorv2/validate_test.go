@@ -7,17 +7,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type testcfg struct{}
+
+func (testcfg) DefaultHTTPTimeout() models.Duration { return models.MustMakeDuration(2 * time.Second) }
+
 func TestValidate(t *testing.T) {
 	var tt = []struct {
-		name       string
-		toml       string
-		setGlobals func(t *testing.T, c *config.Config)
-		assertion  func(t *testing.T, os job.Job, err error)
+		name      string
+		toml      string
+		config    ValidationConfig
+		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "valid spec",
@@ -133,9 +137,6 @@ ds1 -> ds1_parse;
 				require.Error(t, err)
 				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
 			},
-			setGlobals: func(t *testing.T, c *config.Config) {
-				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-			},
 		},
 		{
 			name: "integer thresholds",
@@ -182,11 +183,7 @@ externalJobID = "cfa3fa6b-2850-446b-b973-8f4c3b29d519"
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := config.NewConfig()
-			if tc.setGlobals != nil {
-				tc.setGlobals(t, c)
-			}
-			s, err := ValidatedFluxMonitorSpec(c, tc.toml)
+			s, err := ValidatedFluxMonitorSpec(testcfg{}, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

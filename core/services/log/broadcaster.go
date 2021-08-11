@@ -91,8 +91,8 @@ type (
 	Config interface {
 		BlockBackfillDepth() uint64
 		BlockBackfillSkip() bool
-		EthFinalityDepth() uint
-		EthLogBackfillBatchSize() uint32
+		EvmFinalityDepth() uint
+		EvmLogBackfillBatchSize() uint32
 	}
 
 	ListenerOpts struct {
@@ -393,7 +393,7 @@ func (b *broadcaster) onNewHeads() {
 
 		atomic.StoreInt64(&b.lastSeenHeadNumber, latestHead.Number)
 
-		keptLogsDepth := uint64(b.config.EthFinalityDepth())
+		keptLogsDepth := uint64(b.config.EvmFinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
 		}
