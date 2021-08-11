@@ -38,20 +38,20 @@ type Config interface {
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
-	EthFinalityDepth() uint
-	EthGasBumpPercent() uint16
-	EthGasBumpThreshold() uint64
-	EthGasBumpTxDepth() uint16
-	EthGasBumpWei() *big.Int
-	EthGasLimitDefault() uint64
-	EthGasLimitMultiplier() float32
-	EthGasPriceDefault() *big.Int
-	EthMaxGasPriceWei() *big.Int
-	EthMaxInFlightTransactions() uint32
-	EthMaxQueuedTransactions() uint64
-	EthMinGasPriceWei() *big.Int
-	EthNonceAutoSync() bool
-	EthRPCDefaultBatchSize() uint32
+	EvmFinalityDepth() uint
+	EvmGasBumpPercent() uint16
+	EvmGasBumpThreshold() uint64
+	EvmGasBumpTxDepth() uint16
+	EvmGasBumpWei() *big.Int
+	EvmGasLimitDefault() uint64
+	EvmGasLimitMultiplier() float32
+	EvmGasPriceDefault() *big.Int
+	EvmMaxGasPriceWei() *big.Int
+	EvmMaxInFlightTransactions() uint32
+	EvmMaxQueuedTransactions() uint64
+	EvmMinGasPriceWei() *big.Int
+	EvmNonceAutoSync() bool
+	EvmRPCDefaultBatchSize() uint32
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -255,7 +255,7 @@ func (b *BulletproofTxManager) Trigger(addr common.Address) {
 
 // CreateEthTransaction inserts a new transaction
 func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy TxStrategy) (etx EthTx, err error) {
-	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EthMaxQueuedTransactions())
+	err = CheckEthTxQueueCapacity(db, fromAddress, b.config.EvmMaxQueuedTransactions())
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 	}
@@ -468,7 +468,7 @@ func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedT
 	}
 
 	if count >= maxQueuedTransactions {
-		err = errors.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, static.EthMaxQueuedTransactionsLabel)
+		err = errors.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, static.EvmMaxQueuedTransactionsLabel)
 	}
 	return
 }

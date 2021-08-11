@@ -20,9 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 var (
@@ -91,13 +91,18 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// setup app
 	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
-	config.Config.Dialect = dialects.PostgresWithoutLock
 	defer cfgCleanup()
-	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test
-	config.Set("BLOCK_BACKFILL_DEPTH", 0)                     // backfill will trigger sync on startup
-	config.Set("KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS", 1)    // disable reorg protection for this test
-	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)              // avoid waiting to re-submit for upkeeps
-	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)       // helps prevent missed heads
+	d := 24 * time.Hour
+	// disable full sync ticker for test
+	config.GeneralConfig.Overrides.KeeperRegistrySyncInterval = &d
+	// backfill will trigger sync on startup
+	config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(0)
+	// disable reorg protection for this test
+	config.GeneralConfig.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
+	// avoid waiting to re-submit for upkeeps
+	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	// helps prevent missed heads
+	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
 	require.NoError(t, app.Start())

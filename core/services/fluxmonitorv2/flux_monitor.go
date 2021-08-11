@@ -172,7 +172,7 @@ func NewFromJobSpec(
 		fluxAggregator,
 		orm,
 		keyStore,
-		cfg.EthGasLimit,
+		cfg.EvmGasLimit,
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress, ethClient)

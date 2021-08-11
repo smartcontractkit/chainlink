@@ -17,7 +17,7 @@ import (
 type ReaperConfig interface {
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
-	EthFinalityDepth() uint
+	EvmFinalityDepth() uint
 }
 
 // Reaper handles periodic database cleanup for BPTXM
@@ -103,7 +103,7 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 		r.log.Debug("BPTXMReaper: ETH_TX_REAPER_THRESHOLD set to 0; skipping ReapEthTxes")
 		return nil
 	}
-	minBlockNumberToKeep := headNum - int64(r.config.EthFinalityDepth())
+	minBlockNumberToKeep := headNum - int64(r.config.EvmFinalityDepth())
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 
