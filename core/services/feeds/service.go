@@ -237,14 +237,16 @@ func (s *service) ListJobProposals() ([]JobProposal, error) {
 
 // CreateJobProposal creates a job proposal.
 func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
-	j, err := s.generateJob(jp.Spec)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to generate a job based on spec")
-	}
-
 	// Bootstrap multiaddrs only allowed for OCR jobs
-	if j.Type != job.OffchainReporting && len(jp.Multiaddrs) > 0 {
-		return 0, errors.New("only OCR job type supports multiaddr")
+	if len(jp.Multiaddrs) > 0 {
+		j, err := s.generateJob(jp.Spec)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to generate a job based on spec")
+		}
+
+		if j.Type != job.OffchainReporting {
+			return 0, errors.New("only OCR job type supports multiaddr")
+		}
 	}
 
 	return s.orm.CreateJobProposal(context.Background(), jp)
