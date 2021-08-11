@@ -2,8 +2,9 @@ package pipeline
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"strconv"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
