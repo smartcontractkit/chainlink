@@ -77,7 +77,8 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
-	corestore, cleanup := cltest.NewStore(t)
+	cfg := cltest.NewTestEVMConfig(t)
+	corestore, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	t.Cleanup(cleanup)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
@@ -90,7 +91,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	pipelineORM := pipeline.NewORM(corestore.DB)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(corestore.ORM.DB, cfg, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()

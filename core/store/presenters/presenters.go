@@ -11,12 +11,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -33,9 +29,7 @@ type ConfigPrinter struct {
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
-	BalanceMonitorEnabled                      bool            `json:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
-	BlockBackfillSkip                          bool            `json:"BLOCK_BACKFILL_SKIP"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
@@ -49,17 +43,6 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
-	EthBalanceMonitorBlockDelay                uint16          `json:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
-	EthFinalityDepth                           uint            `json:"ETH_FINALITY_DEPTH"`
-	EthGasBumpThreshold                        uint64          `json:"ETH_GAS_BUMP_THRESHOLD"`
-	EthGasBumpTxDepth                          uint16          `json:"ETH_GAS_BUMP_TX_DEPTH"`
-	EthGasBumpWei                              *big.Int        `json:"ETH_GAS_BUMP_WEI"`
-	EthGasLimitDefault                         uint64          `json:"ETH_GAS_LIMIT_DEFAULT"`
-	EthGasLimitTransfer                        uint64          `json:"ETH_GAS_LIMIT_TRANSFER"`
-	EthGasPriceDefault                         *big.Int        `json:"ETH_GAS_PRICE_DEFAULT"`
-	EthHeadTrackerHistoryDepth                 uint            `json:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
-	EthHeadTrackerMaxBufferSize                uint            `json:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
-	EthMaxGasPriceWei                          *big.Int        `json:"ETH_MAX_GAS_PRICE_WEI"`
 	EthereumDisabled                           bool            `json:"ETH_DISABLED"`
 	EthereumHTTPURL                            string          `json:"ETH_HTTP_URL"`
 	EthereumSecondaryURLs                      []string        `json:"ETH_SECONDARY_URLS"`
@@ -68,7 +51,6 @@ type EnvPrinter struct {
 	FMDefaultTransactionQueueDepth             uint32          `json:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	FeatureExternalInitiators                  bool            `json:"FEATURE_EXTERNAL_INITIATORS"`
 	FeatureOffchainReporting                   bool            `json:"FEATURE_OFFCHAIN_REPORTING"`
-	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	GasEstimatorMode                           string          `json:"GAS_ESTIMATOR_MODE"`
 	InsecureFastScrypt                         bool            `json:"INSECURE_FAST_SCRYPT"`
 	JSONConsole                                bool            `json:"JSON_CONSOLE"`
@@ -85,12 +67,6 @@ type EnvPrinter struct {
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
-	MaximumServiceDuration                     models.Duration `json:"MAXIMUM_SERVICE_DURATION"`
-	MinIncomingConfirmations                   uint32          `json:"MIN_INCOMING_CONFIRMATIONS"`
-	MinRequiredOutgoingConfirmations           uint64          `json:"MIN_OUTGOING_CONFIRMATIONS"`
-	MinimumContractPayment                     *assets.Link    `json:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
-	MinimumRequestExpiration                   uint64          `json:"MINIMUM_REQUEST_EXPIRATION"`
-	MinimumServiceDuration                     models.Duration `json:"MINIMUM_SERVICE_DURATION"`
 	OCRBootstrapCheckInterval                  time.Duration   `json:"OCR_BOOTSTRAP_CHECK_INTERVAL"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 	OCRContractTransmitterTransmitTimeout      time.Duration   `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
@@ -111,7 +87,6 @@ type EnvPrinter struct {
 	OCRNewStreamTimeout                        time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
 	OCRDHTLookupInterval                       int             `json:"OCR_DHT_LOOKUP_INTERVAL"`
 	OCRTraceLogging                            bool            `json:"OCR_TRACE_LOGGING"`
-	OperatorContractAddress                    common.Address  `json:"OPERATOR_CONTRACT_ADDRESS"`
 	Port                                       uint16          `json:"CHAINLINK_PORT"`
 	ReaperExpiration                           models.Duration `json:"REAPER_EXPIRATION"`
 	ReplayFromBlock                            int64           `json:"REPLAY_FROM_BLOCK"`
@@ -127,9 +102,7 @@ type EnvPrinter struct {
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
-	config := store.Config
-
+func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 	explorerURL := ""
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
@@ -145,98 +118,67 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	}
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
-			AllowOrigins:                               config.AllowOrigins(),
-			BalanceMonitorEnabled:                      config.BalanceMonitorEnabled(),
-			BlockBackfillDepth:                         config.BlockBackfillDepth(),
-			BlockBackfillSkip:                          config.BlockBackfillSkip(),
-			BlockHistoryEstimatorBlockDelay:            config.BlockHistoryEstimatorBlockDelay(),
-			BlockHistoryEstimatorBlockHistorySize:      config.BlockHistoryEstimatorBlockHistorySize(),
-			BlockHistoryEstimatorTransactionPercentile: config.BlockHistoryEstimatorTransactionPercentile(),
-			BridgeResponseURL:                          config.BridgeResponseURL().String(),
-			ChainID:                                    config.ChainID(),
-			ClientNodeURL:                              config.ClientNodeURL(),
-			DatabaseBackupFrequency:                    config.DatabaseBackupFrequency(),
-			DatabaseBackupMode:                         string(config.DatabaseBackupMode()),
-			DatabaseMaximumTxDuration:                  config.DatabaseMaximumTxDuration(),
-			DatabaseTimeout:                            config.DatabaseTimeout(),
-			DefaultHTTPLimit:                           config.DefaultHTTPLimit(),
-			DefaultHTTPTimeout:                         config.DefaultHTTPTimeout(),
-			Dev:                                        config.Dev(),
-			EthBalanceMonitorBlockDelay:                config.EthBalanceMonitorBlockDelay(),
-			EthFinalityDepth:                           config.EthFinalityDepth(),
-			EthGasBumpThreshold:                        config.EthGasBumpThreshold(),
-			EthGasBumpTxDepth:                          config.EthGasBumpTxDepth(),
-			EthGasBumpWei:                              config.EthGasBumpWei(),
-			EthGasLimitDefault:                         config.EthGasLimitDefault(),
-			EthGasLimitTransfer:                        config.EthGasLimitTransfer(),
-			EthGasPriceDefault:                         config.EthGasPriceDefault(),
-			EthHeadTrackerHistoryDepth:                 config.EthHeadTrackerHistoryDepth(),
-			EthHeadTrackerMaxBufferSize:                config.EthHeadTrackerMaxBufferSize(),
-			EthMaxGasPriceWei:                          config.EthMaxGasPriceWei(),
-			EthereumDisabled:                           config.EthereumDisabled(),
-			EthereumHTTPURL:                            ethereumHTTPURL,
-			EthereumSecondaryURLs:                      mapToStringA(config.EthereumSecondaryURLs()),
-			EthereumURL:                                config.EthereumURL(),
-			ExplorerURL:                                explorerURL,
-			FMDefaultTransactionQueueDepth:             config.FMDefaultTransactionQueueDepth(),
-			FeatureExternalInitiators:                  config.FeatureExternalInitiators(),
-			FeatureOffchainReporting:                   config.FeatureOffchainReporting(),
-			FlagsContractAddress:                       config.FlagsContractAddress(),
-			GasEstimatorMode:                           config.GasEstimatorMode(),
-			InsecureFastScrypt:                         config.InsecureFastScrypt(),
-			JSONConsole:                                config.JSONConsole(),
-			JobPipelineReaperInterval:                  config.JobPipelineReaperInterval(),
-			JobPipelineReaperThreshold:                 config.JobPipelineReaperThreshold(),
-			KeeperDefaultTransactionQueueDepth:         config.KeeperDefaultTransactionQueueDepth(),
-			KeeperMaximumGracePeriod:                   config.KeeperMaximumGracePeriod(),
-			KeeperMinimumRequiredConfirmations:         config.KeeperMinimumRequiredConfirmations(),
-			KeeperRegistryCheckGasOverhead:             config.KeeperRegistryCheckGasOverhead(),
-			KeeperRegistryPerformGasOverhead:           config.KeeperRegistryPerformGasOverhead(),
-			KeeperRegistrySyncInterval:                 config.KeeperRegistrySyncInterval(),
-			LinkContractAddress:                        config.LinkContractAddress(),
-			LogLevel:                                   config.LogLevel(),
-			LogSQLMigrations:                           config.LogSQLMigrations(),
-			LogSQLStatements:                           config.LogSQLStatements(),
-			LogToDisk:                                  config.LogToDisk(),
-			MaximumServiceDuration:                     config.MaximumServiceDuration(),
-			MinIncomingConfirmations:                   config.MinIncomingConfirmations(),
-			MinRequiredOutgoingConfirmations:           config.MinRequiredOutgoingConfirmations(),
-			MinimumContractPayment:                     config.MinimumContractPayment(),
-			MinimumRequestExpiration:                   config.MinimumRequestExpiration(),
-			MinimumServiceDuration:                     config.MinimumServiceDuration(),
-			OCRBootstrapCheckInterval:                  config.OCRBootstrapCheckInterval(),
-			OCRContractTransmitterTransmitTimeout:      config.OCRContractTransmitterTransmitTimeout(),
-			OCRDHTLookupInterval:                       config.OCRDHTLookupInterval(),
-			OCRDatabaseTimeout:                         config.OCRDatabaseTimeout(),
-			OCRDefaultTransactionQueueDepth:            config.OCRDefaultTransactionQueueDepth(),
-			OCRIncomingMessageBufferSize:               config.OCRIncomingMessageBufferSize(),
-			OCRNewStreamTimeout:                        config.OCRNewStreamTimeout(),
-			OCROutgoingMessageBufferSize:               config.OCROutgoingMessageBufferSize(),
-			OCRTraceLogging:                            config.OCRTraceLogging(),
-			P2PBootstrapPeers:                          p2pBootstrapPeers,
-			P2PListenIP:                                config.P2PListenIP().String(),
-			P2PListenPort:                              config.P2PListenPortRaw(),
-			P2PNetworkingStack:                         config.P2PNetworkingStackRaw(),
-			P2PPeerID:                                  config.P2PPeerIDRaw(),
-			P2PV2AnnounceAddresses:                     config.P2PV2AnnounceAddressesRaw(),
-			P2PV2Bootstrappers:                         config.P2PV2BootstrappersRaw(),
-			P2PV2DeltaDial:                             config.P2PV2DeltaDial(),
-			P2PV2DeltaReconcile:                        config.P2PV2DeltaReconcile(),
-			P2PV2ListenAddresses:                       config.P2PV2ListenAddresses(),
-			TriggerFallbackDBPollInterval:              config.TriggerFallbackDBPollInterval(),
-			OperatorContractAddress:                    config.OperatorContractAddress(),
-			Port:                                       config.Port(),
-			ReaperExpiration:                           config.ReaperExpiration(),
-			ReplayFromBlock:                            config.ReplayFromBlock(),
-			RootDir:                                    config.RootDir(),
-			SecureCookies:                              config.SecureCookies(),
-			SessionTimeout:                             config.SessionTimeout(),
-			TelemetryIngressLogging:                    config.TelemetryIngressLogging(),
-			TelemetryIngressServerPubKey:               config.TelemetryIngressServerPubKey(),
-			TelemetryIngressURL:                        telemetryIngressURL,
-			TLSHost:                                    config.TLSHost(),
-			TLSPort:                                    config.TLSPort(),
-			TLSRedirect:                                config.TLSRedirect(),
+			AllowOrigins:                          config.AllowOrigins(),
+			BlockBackfillDepth:                    config.BlockBackfillDepth(),
+			BridgeResponseURL:                     config.BridgeResponseURL().String(),
+			ChainID:                               config.ChainID(),
+			ClientNodeURL:                         config.ClientNodeURL(),
+			DatabaseBackupFrequency:               config.DatabaseBackupFrequency(),
+			DatabaseBackupMode:                    string(config.DatabaseBackupMode()),
+			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
+			DatabaseTimeout:                       config.DatabaseTimeout(),
+			DefaultHTTPLimit:                      config.DefaultHTTPLimit(),
+			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
+			Dev:                                   config.Dev(),
+			EthereumDisabled:                      config.EthereumDisabled(),
+			EthereumHTTPURL:                       ethereumHTTPURL,
+			EthereumSecondaryURLs:                 mapToStringA(config.EthereumSecondaryURLs()),
+			EthereumURL:                           config.EthereumURL(),
+			ExplorerURL:                           explorerURL,
+			FMDefaultTransactionQueueDepth:        config.FMDefaultTransactionQueueDepth(),
+			FeatureExternalInitiators:             config.FeatureExternalInitiators(),
+			FeatureOffchainReporting:              config.FeatureOffchainReporting(),
+			InsecureFastScrypt:                    config.InsecureFastScrypt(),
+			JSONConsole:                           config.JSONConsole(),
+			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
+			JobPipelineReaperThreshold:            config.JobPipelineReaperThreshold(),
+			KeeperDefaultTransactionQueueDepth:    config.KeeperDefaultTransactionQueueDepth(),
+			LogLevel:                              config.LogLevel(),
+			LogSQLMigrations:                      config.LogSQLMigrations(),
+			LogSQLStatements:                      config.LogSQLStatements(),
+			LogToDisk:                             config.LogToDisk(),
+			OCRBootstrapCheckInterval:             config.OCRBootstrapCheckInterval(),
+			OCRContractTransmitterTransmitTimeout: config.OCRContractTransmitterTransmitTimeout(),
+			OCRDHTLookupInterval:                  config.OCRDHTLookupInterval(),
+			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
+			OCRDefaultTransactionQueueDepth:       config.OCRDefaultTransactionQueueDepth(),
+			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
+			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
+			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
+			OCRTraceLogging:                       config.OCRTraceLogging(),
+			P2PBootstrapPeers:                     p2pBootstrapPeers,
+			P2PListenIP:                           config.P2PListenIP().String(),
+			P2PListenPort:                         config.P2PListenPortRaw(),
+			P2PNetworkingStack:                    config.P2PNetworkingStackRaw(),
+			P2PPeerID:                             config.P2PPeerIDRaw(),
+			P2PV2AnnounceAddresses:                config.P2PV2AnnounceAddressesRaw(),
+			P2PV2Bootstrappers:                    config.P2PV2BootstrappersRaw(),
+			P2PV2DeltaDial:                        config.P2PV2DeltaDial(),
+			P2PV2DeltaReconcile:                   config.P2PV2DeltaReconcile(),
+			P2PV2ListenAddresses:                  config.P2PV2ListenAddresses(),
+			Port:                                  config.Port(),
+			ReaperExpiration:                      config.ReaperExpiration(),
+			ReplayFromBlock:                       config.ReplayFromBlock(),
+			RootDir:                               config.RootDir(),
+			SecureCookies:                         config.SecureCookies(),
+			SessionTimeout:                        config.SessionTimeout(),
+			TLSHost:                               config.TLSHost(),
+			TLSPort:                               config.TLSPort(),
+			TLSRedirect:                           config.TLSRedirect(),
+			TelemetryIngressLogging:               config.TelemetryIngressLogging(),
+			TelemetryIngressServerPubKey:          config.TelemetryIngressServerPubKey(),
+			TelemetryIngressURL:                   telemetryIngressURL,
+			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
 		},
 	}, nil
 }

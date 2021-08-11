@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -26,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func mustInsertUnstartedEthTx(t *testing.T, db *gorm.DB, fromAddress gethCommon.Address) {
@@ -84,9 +86,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
@@ -135,9 +135,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	nonce := int64(0)
@@ -498,20 +496,17 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	db := pgtest.NewGormDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
 	ethClient := cltest.NewEthClientMock(t)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", 2)
+	config := cltest.NewTestEVMConfig(t)
+	config.Overrides.EvmRPCDefaultBatchSize = null.IntFrom(2)
 
-	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
+	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	ctx := context.Background()
 
@@ -521,7 +516,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
 	for i := 0; i < 5; i++ {
 		attempt := newBroadcastEthTxAttempt(t, etx.ID, int64(i+2))
-		require.NoError(t, store.DB.Create(&attempt).Error)
+		require.NoError(t, db.Create(&attempt).Error)
 		attempts = append(attempts, attempt)
 	}
 
@@ -569,9 +564,8 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMock(t)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", 6)
+	config := cltest.NewTestEVMConfig(t)
+	config.Overrides.EvmRPCDefaultBatchSize = null.IntFrom(6)
 
 	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
@@ -630,9 +624,7 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	ethClient := cltest.NewEthClientMock(t)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	ctx := context.Background()
@@ -664,10 +656,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMock(t)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
+	config.Overrides.EvmFinalityDepth = null.IntFrom(50)
 
-	config.Set("ETH_FINALITY_DEPTH", 50)
 	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	ctx := context.Background()
@@ -1243,9 +1234,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	db := store.DB
 	ethClient := cltest.NewEthClientMock(t)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	config.Set("ETH_MAX_GAS_PRICE_WEI", 500000000000) // 500GWei
+	config := cltest.NewTestEVMConfig(t)
+	config.Overrides.EvmMaxGasPriceWei = assets.GWei(500)
 
 	otherKey := cltest.MustInsertRandomKey(t, store.DB)
 	key := cltest.MustInsertRandomKey(t, store.DB)
@@ -1760,7 +1750,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Set price such that the next bump will exceed ETH_MAX_GAS_PRICE_WEI
 		// Existing gas price is: 60480000000
 		gasPrice := attempt3_4.GasPrice.ToInt()
-		config.Set("ETH_MAX_GAS_PRICE_WEI", 60500000000)
+		config.Overrides.EvmMaxGasPriceWei = assets.Wei(60500000000)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && gasPrice.Cmp(tx.GasPrice()) == 0
@@ -1790,7 +1780,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Set price such that the current price is already at ETH_MAX_GAS_PRICE_WEI
 		// Existing gas price is: 60480000000
 		gasPrice := attempt3_4.GasPrice.ToInt()
-		config.Set("ETH_MAX_GAS_PRICE_WEI", 60480000000)
+		config.Overrides.EvmMaxGasPriceWei = assets.Wei(60480000000)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return int64(tx.Nonce()) == *etx3.Nonce && gasPrice.Cmp(tx.GasPrice()) == 0
@@ -1832,9 +1822,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	keys, err := ethKeyStore.SendingKeys()
 	require.NoError(t, err)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	currentHead := int64(30)
 	oldEnough := int64(19)
 	nonce := int64(0)
@@ -1934,7 +1922,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		depth := 2
 		etxCount := 4
 
-		config.Set("ETH_GAS_BUMP_TX_DEPTH", depth)
+		config.Overrides.EvmGasBumpTxDepth = null.IntFrom(int64(depth))
 		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, keys)
 
 		for i := 0; i < etxCount; i++ {
@@ -1969,9 +1957,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMock(t)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 	head := models.Head{
@@ -2150,9 +2136,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 	ethKeyStore.Unlock(cltest.Password)
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	mustInsertUnstartedEthTx(t, db, fromAddress)
 	mustInsertInProgressEthTx(t, db, 0, fromAddress)
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress)
@@ -2243,7 +2227,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key})
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EthGasLimitDefault()
+			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EvmGasLimitDefault()
 		})).Return(nil).Once()
 
 		require.NoError(t, ec.ForceRebroadcast(0, 0, gasPriceWei, fromAddress, 0))

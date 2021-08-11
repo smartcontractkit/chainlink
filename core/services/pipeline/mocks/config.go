@@ -116,8 +116,8 @@ func (_m *Config) DefaultMaxHTTPAttempts() uint {
 	return r0
 }
 
-// EthGasLimitDefault provides a mock function with given fields:
-func (_m *Config) EthGasLimitDefault() uint64 {
+// EvmGasLimitDefault provides a mock function with given fields:
+func (_m *Config) EvmGasLimitDefault() uint64 {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -130,8 +130,8 @@ func (_m *Config) EthGasLimitDefault() uint64 {
 	return r0
 }
 
-// EthMaxQueuedTransactions provides a mock function with given fields:
-func (_m *Config) EthMaxQueuedTransactions() uint64 {
+// EvmMaxQueuedTransactions provides a mock function with given fields:
+func (_m *Config) EvmMaxQueuedTransactions() uint64 {
 	ret := _m.Called()
 
 	var r0 uint64

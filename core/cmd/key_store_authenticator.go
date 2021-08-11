@@ -8,8 +8,6 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and
@@ -18,7 +16,7 @@ type KeyStoreAuthenticator interface {
 	AuthenticateEthKey(*keystore.Eth, string) (string, error)
 	AuthenticateCSAKey(*keystore.CSA, string) error
 	AuthenticateVRFKey(*keystore.VRF, string) error
-	AuthenticateOCRKey(*keystore.OCR, *config.Config, string) error
+	AuthenticateOCRKey(*keystore.OCR, string) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -195,7 +193,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateCSAKey(csaKeyStore *keysto
 }
 
 // AuthenticateOCRKey authenticates OCR keypairs
-func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(ocrKeyStore *keystore.OCR, config *config.Config, password string) error {
+func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(ocrKeyStore *keystore.OCR, password string) error {
 	err := ocrKeyStore.Unlock(password)
 	if err != nil {
 		return errors.Wrapf(err,
@@ -211,13 +209,9 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(ocrKeyStore *keysto
 	}
 	if len(p2pkeys) == 0 {
 		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
-		var k p2pkey.EncryptedP2PKey
-		_, k, err = ocrKeyStore.GenerateEncryptedP2PKey()
+		_, _, err = ocrKeyStore.GenerateEncryptedP2PKey()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
-		}
-		if !config.P2PPeerIDIsSet() {
-			config.Set("P2P_PEER_ID", k.PeerID)
 		}
 	}
 
