@@ -109,7 +109,7 @@ func validateTimingParameters(config ValidationConfig, spec job.OffchainReportin
 		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode
 	}
 
-	return offchainreporting.SanityCheckLocalConfig(lc)
+	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {

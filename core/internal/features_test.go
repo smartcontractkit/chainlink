@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -41,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -63,10 +63,9 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	cfg, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	cfg.Set("FEATURE_EXTERNAL_INITIATORS", true)
-	cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.GeneralConfig.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	defer cleanup()
@@ -216,7 +215,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.Store.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, app.Store.Config, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
+		jobORM := job.NewORM(app.Store.ORM.DB, cfg, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -300,15 +299,12 @@ func TestIntegration_MultiwordV2(t *testing.T) {
 
 	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 	// in a single callback.
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	user, _, operatorAddress, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	defer cleanup()
-	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
-	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
-	app.Config.Set("MIN_INCOMING_CONFIRMATIONS", 1)
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", 100*time.Millisecond)
+	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+	config.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
 
 	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
@@ -421,22 +417,21 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	return owner, b, ocrContractAddress, ocrContract
 }
 
-func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, func()) {
+func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, *configtest.TestEVMConfig, func()) {
 	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true)
-	config.Dialect = dialects.PostgresWithoutLock
+
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, _, err := app.GetKeyStore().OCR().GenerateEncryptedP2PKey()
 	require.NoError(t, err)
 	p2pIDs := app.GetKeyStore().OCR().DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].MustGetPeerID().Raw()
+	peerID := p2pIDs[0].MustGetPeerID()
 
-	app.Config.Set("P2P_PEER_ID", peerID)
-	app.Config.Set("P2P_LISTEN_PORT", port)
-	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
-	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
-	app.Config.Set("CHAINLINK_DEV", true) // Disables ocr spec validation so we can have fast polling for the test.
+	config.GeneralConfig.Overrides.P2PPeerID = &peerID
+	config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(int64(port))
+	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+	config.GeneralConfig.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
@@ -455,7 +450,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 
 	_, kb, err := app.GetKeyStore().OCR().GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
-	return app, peerID, transmitter, kb, func() {
+	return app, peerID.Raw(), transmitter, kb, config, func() {
 		ormCleanup()
 		appCleanup()
 	}
@@ -468,7 +463,7 @@ func TestIntegration_OCR(t *testing.T) {
 
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
-	appBootstrap, bootstrapPeerID, _, _, cleanup := setupNode(t, owner, 19999, "bootstrap", b)
+	appBootstrap, bootstrapPeerID, _, _, cfg, cleanup := setupNode(t, owner, 19999, "bootstrap", b)
 	defer cleanup()
 
 	var (
@@ -478,14 +473,14 @@ func TestIntegration_OCR(t *testing.T) {
 		apps         []*cltest.TestApplication
 	)
 	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, kb, cleanup := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d", i), b)
+		app, peerID, transmitter, kb, cfg, cleanup := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d", i), b)
 		defer cleanup()
 		// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
 		// we'll flood it with messages and slow things down. 5s is about how long it takes the
 		// bootstrap node to come up.
-		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
+		cfg.GeneralConfig.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
 		// GracePeriod < ObservationTimeout
-		app.Config.Set("OCR_OBSERVATION_GRACE_PERIOD", "100ms")
+		cfg.GeneralConfig.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
@@ -532,7 +527,7 @@ func TestIntegration_OCR(t *testing.T) {
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
-	ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
+	ocrJob, err := offchainreporting.ValidatedOracleSpecToml(cfg, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -589,7 +584,7 @@ isBootstrapPeer    = true
 
 		// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 		// So 200ms + 200ms + 500ms < 1s
-		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
+		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetEVMConfig(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -669,8 +664,7 @@ observationSource = """
 }
 
 func TestIntegration_DirectRequest(t *testing.T) {
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
+	config := cltest.NewTestEVMConfig(t)
 
 	httpAwaiter := cltest.NewAwaiter()
 	httpServer, assertCalled := cltest.NewHTTPMockServer(
@@ -719,7 +713,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	defer eventBroadcaster.Close()
 
 	pipelineORM := pipeline.NewORM(store.DB)
-	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(store.ORM.DB, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
 	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
@@ -761,14 +755,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	var initialDefaultGasPrice int64 = 5000000000
 
-	c, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	c.Set("ETH_GAS_PRICE_DEFAULT", initialDefaultGasPrice)
-	c.Set("GAS_ESTIMATOR_MODE", "BlockHistory")
-	c.Set("GAS_UPDATER_BLOCK_DELAY", 0)
-	c.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", 2)
+	c := cltest.NewTestEVMConfig(t)
+	c.Overrides.EvmGasPriceDefault = big.NewInt(initialDefaultGasPrice)
+	c.Overrides.GasEstimatorMode = null.StringFrom("BlockHistory")
+	c.Overrides.BlockHistoryEstimatorBlockDelay = null.IntFrom(0)
+	c.Overrides.BlockHistoryEstimatorBlockHistorySize = null.IntFrom(2)
 	// Limit the headtracker backfill depth just so we aren't here all week
-	c.Set("ETH_FINALITY_DEPTH", 3)
+	c.Overrides.EvmFinalityDepth = null.IntFrom(3)
 
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
@@ -837,7 +830,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
-	assert.Equal(t, initialDefaultGasPrice, app.Config.EthGasPriceDefault().Int64()) // unchanged
+	assert.Equal(t, initialDefaultGasPrice, c.EvmGasPriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {

@@ -11,8 +11,8 @@ type Config struct {
 	DefaultHTTPTimeout             time.Duration
 	FlagsContractAddress           string
 	MinContractPayment             *assets.Link
-	EthGasLimit                    uint64
-	EthMaxQueuedTransactions       uint64
+	EvmGasLimit                    uint64
+	EvmMaxQueuedTransactions       uint64
 	FMDefaultTransactionQueueDepth uint32
 }
 

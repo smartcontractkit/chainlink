@@ -40,7 +40,7 @@ func (ht *HeadSaver) Save(ctx context.Context, h models.Head) error {
 	} else if err != nil {
 		return err
 	}
-	return ht.orm.TrimOldHeads(ctx, ht.config.EthHeadTrackerHistoryDepth())
+	return ht.orm.TrimOldHeads(ctx, ht.config.EvmHeadTrackerHistoryDepth())
 }
 
 // HighestSeenHead returns the block header with the highest number that has been seen, or nil

@@ -13,11 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -25,18 +20,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -202,12 +201,10 @@ func (fau fluxAggregatorUniverse) WatchSubmissionReceived(t *testing.T, addresse
 func setupApplication(
 	t *testing.T,
 	fa fluxAggregatorUniverse,
-	setConfig func(cfg *config.Config),
+	setConfig func(cfg *configtest.TestEVMConfig),
 ) *cltest.TestApplication {
-	config, cfgCleanup := cltest.NewConfig(t)
-	setConfig(config.Config)
-
-	t.Cleanup(cfgCleanup)
+	config := cltest.NewTestEVMConfig(t)
+	setConfig(config)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	t.Cleanup(cleanup)
@@ -404,9 +401,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *config.Config) {
-		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	app := setupApplication(t, fa, func(cfg *configtest.TestEVMConfig) {
+		cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
+		cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 	})
 	require.NoError(t, app.Start())
 
@@ -535,10 +532,10 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *config.Config) {
-		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
-		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	app := setupApplication(t, fa, func(cfg *configtest.TestEVMConfig) {
+		cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
+		cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
+		cfg.Overrides.FlagsContractAddress = null.StringFrom(fa.flagsContractAddress.Hex())
 	})
 	require.NoError(t, app.Start())
 
@@ -640,10 +637,10 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *config.Config) {
-		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-		cfg.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
-		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	app := setupApplication(t, fa, func(cfg *configtest.TestEVMConfig) {
+		cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
+		cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
+		cfg.Overrides.FlagsContractAddress = null.StringFrom(fa.flagsContractAddress.Hex())
 	})
 	require.NoError(t, app.Start())
 
@@ -748,12 +745,11 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	fa.backend.Commit()
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *config.Config) {
-		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
-		cfg.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
-		cfg.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
-		cfg.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", "100")
+	app := setupApplication(t, fa, func(cfg *configtest.TestEVMConfig) {
+		cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
+		cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
+		cfg.Overrides.MinRequiredOutgoingConfirmations = null.IntFrom(2)
+		cfg.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	})
 	require.NoError(t, app.Start())
 
@@ -825,13 +821,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := setupApplication(t, fa, func(cfg *config.Config) {
-		cfg.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-		cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	app := setupApplication(t, fa, func(cfg *configtest.TestEVMConfig) {
+		cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
+		cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 	})
 	require.NoError(t, app.Start())
 
-	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
+	minFee := app.GetEVMConfig().MinimumContractPayment().ToInt().Int64()
 	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+
 		"least match MinimumContractPayment (%s). (Which is currently set in "+
 		"cltest.go.)", fee, minFee)

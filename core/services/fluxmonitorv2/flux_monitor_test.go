@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	corenull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -237,14 +238,15 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupStoreWithKey(t *testing.T) (*store.Store, common.Address) {
-	store, cleanup := cltest.NewStore(t)
+func setupStoreWithKey(t *testing.T) (*store.Store, *configtest.TestEVMConfig, common.Address) {
+	cfg := cltest.NewTestEVMConfig(t)
+	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	t.Cleanup(cleanup)
 
-	return store, nodeAddr
+	return store, cfg, nodeAddr
 }
 
 func TestFluxMonitor_PollIfEligible(t *testing.T) {
@@ -298,7 +300,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		},
 	}
 
-	store, nodeAddr := setupStoreWithKey(t)
+	store, cfg, nodeAddr := setupStoreWithKey(t)
 
 	const reportableRoundID = 2
 	var (
@@ -367,7 +369,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			// Set up funds
 			var availableFunds *big.Int
 			var paymentAmount *big.Int
-			minPayment := store.Config.MinimumContractPayment().ToInt()
+			minPayment := cfg.MinimumContractPayment().ToInt()
 			if tc.funded {
 				availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
 				paymentAmount = minPayment
@@ -451,7 +453,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // If the roundState method is unable to communicate with the contract (possibly due to
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
@@ -483,7 +485,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
-	store, nodeAddr := setupStoreWithKey(t)
+	store, cfg, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fm, tm := setup(t,
@@ -503,8 +505,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 				RoundId:          roundID,
 				EligibleToSubmit: true,
 				LatestSubmission: big.NewInt(100),
-				AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
-				PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
+				AvailableFunds:   cfg.MinimumContractPayment().ToInt(),
+				PaymentAmount:    cfg.MinimumContractPayment().ToInt(),
 			}
 		}
 	)
@@ -676,7 +678,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 		{"idleDuration > 0", false, 2 * time.Second, true},
 	}
 
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	for _, tc := range testCases {
@@ -756,7 +758,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	t.Parallel()
 
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fm, tm := setup(t,
@@ -860,7 +862,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
 
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 
 	var (
 		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
@@ -907,7 +909,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	tests := []struct {
@@ -970,7 +972,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	almostExpired := time.Now().
@@ -1052,7 +1054,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
 
-	store, nodeAddr := setupStoreWithKey(t)
+	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
@@ -1208,7 +1210,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
-		store, nodeAddr := setupStoreWithKey(t)
+		store, cfg, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 		fm, tm := setup(t,
@@ -1218,7 +1220,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = store.Config.MinimumContractPayment().ToInt()
+			paymentAmount  = cfg.MinimumContractPayment().ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1316,7 +1318,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	})
 
 	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
-		store, nodeAddr := setupStoreWithKey(t)
+		store, cfg, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 		fm, tm := setup(t,
 			store.DB,
@@ -1325,7 +1327,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = store.Config.MinimumContractPayment().ToInt()
+			paymentAmount  = cfg.MinimumContractPayment().ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1409,7 +1411,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	t.Parallel()
 
-	store, nodeAddr := setupStoreWithKey(t)
+	store, cfg, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	// a setup with a random delay being zero
@@ -1434,8 +1436,8 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			RoundId:          roundID,
 			EligibleToSubmit: true,
 			LatestSubmission: answerBigInt,
-			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), store.Config.MinimumContractPayment().ToInt()),
-			PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
+			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), cfg.MinimumContractPayment().ToInt()),
+			PaymentAmount:    cfg.MinimumContractPayment().ToInt(),
 			StartedAt:        now(),
 		}
 
