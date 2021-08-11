@@ -22,6 +22,7 @@ type EstimateGasLimitTask struct {
 	Multiplier string `json:"multiplier"`
 	Data       string `json:"data"`
 
+	EvmGasLimit  uint64
 	GasEstimator GasEstimator
 }
 
@@ -29,7 +30,9 @@ type GasEstimator interface {
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 }
 
-var _ Task = (*EstimateGasLimitTask)(nil)
+var (
+	_ Task = (*EstimateGasLimitTask)(nil)
+)
 
 func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
@@ -57,7 +60,9 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 		Data: data,
 	})
 	if err != nil {
-		return Result{Error: err}
+		// Fallback to the maximum conceivable gas limit
+		// if we're unable to call estimate gas for whatever reason.
+		return Result{Value: t.EvmGasLimit}
 	}
 	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(gasLimit, 10))
 	if err != nil {
@@ -67,5 +72,9 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 	if !gasLimitWithMultiplier.IsUint64() {
 		return Result{Error: errors.New("Invalid multiplier")}
 	}
-	return Result{Value: gasLimitWithMultiplier.Uint64()}
+	gasLimitFinal := gasLimitWithMultiplier.Uint64()
+	if gasLimitFinal > t.EvmGasLimit {
+		gasLimitFinal = t.EvmGasLimit
+	}
+	return Result{Value: gasLimitFinal}
 }
