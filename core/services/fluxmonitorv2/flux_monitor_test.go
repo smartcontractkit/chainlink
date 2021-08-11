@@ -804,6 +804,8 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 	fm, tm := setup(t,
 		store.DB,
+		disablePollTicker(true),
+		disableIdleTimer(true),
 		setHibernationTickerPeriod(time.Second),
 		setHibernationState(true),
 	)
@@ -819,34 +821,33 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 
-	hibernationPollOccured := make(chan struct{}, 4)
-	initialPollOccurred := make(chan struct{}, 1)
+	pollOccured := make(chan struct{}, 4)
 
 	err := fm.Start()
 	require.NoError(t, err)
 
 	t.Cleanup(func() { fm.Close() })
 
-	// Initial Poll
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once()
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
+		pollOccured <- struct{}{}
+	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
 			Aggregator:     contractAddress,
 			RoundID:        1,
 			NumSubmissions: 0,
-		}, nil).Once().Run(func(args mock.Arguments) {
-		initialPollOccurred <- struct{}{}
-	})
-	require.Len(t, hibernationPollOccured, 0, "no Job Runs created")
-	require.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
+		}, nil).Once()
+
+	require.Eventually(t, func() bool { return len(pollOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
 
 	// hiberation tick 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
-		hibernationPollOccured <- struct{}{}
+		pollOccured <- struct{}{}
 	})
+
 	// Finds an existing run created by the initial poll
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
@@ -861,12 +862,12 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	require.Eventually(t, func() bool { return len(hibernationPollOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(pollOccured) == 2 }, 6*time.Second, 10*time.Millisecond)
 
 	// hiberation tick 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-		hibernationPollOccured <- struct{}{}
+		pollOccured <- struct{}{}
 	})
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(2)).
@@ -876,30 +877,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	require.Eventually(t, func() bool { return len(hibernationPollOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
-
-	// hiberation tick 3 triggers from the previous new round
-	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() - 1000000}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Twice().Run(func(args mock.Arguments) {
-		hibernationPollOccured <- struct{}{}
-	})
-	tm.orm.
-		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(3)).
-		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
-			Aggregator:     contractAddress,
-			RoundID:        3,
-			NumSubmissions: 0,
-		}, nil).Once()
-
-	// AnswerUpdated comes in
-	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Once()
-	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{})
-	tm.logBroadcast.On("String").Maybe().Return("")
-	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
-	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
-	fm.ExportedProcessLogs()
-
-	require.Eventually(t, func() bool { return len(hibernationPollOccured) == 4 }, 3*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(pollOccured) == 3 }, 8*time.Second, 10*time.Millisecond)
 	tm.AssertExpectations(t)
 }
 
