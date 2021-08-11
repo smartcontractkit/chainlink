@@ -30,20 +30,20 @@ func (_m *ORM) ApproveJobProposal(ctx context.Context, id int64, externalJobID u
 	return r0
 }
 
-// CountJobProposals provides a mock function with given fields:
-func (_m *ORM) CountJobProposals() (int64, error) {
-	ret := _m.Called()
+// CountJobProposals provides a mock function with given fields: ctx
+func (_m *ORM) CountJobProposals(ctx context.Context) (int64, error) {
+	ret := _m.Called(ctx)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -51,20 +51,20 @@ func (_m *ORM) CountJobProposals() (int64, error) {
 	return r0, r1
 }
 
-// CountManagers provides a mock function with given fields:
-func (_m *ORM) CountManagers() (int64, error) {
-	ret := _m.Called()
+// CountManagers provides a mock function with given fields: ctx
+func (_m *ORM) CountManagers(ctx context.Context) (int64, error) {
+	ret := _m.Called(ctx)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
