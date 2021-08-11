@@ -40,9 +40,9 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 
 	config.On("BlockHistoryEstimatorTransactionPercentile").Maybe().Return(percentile)
-	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
-	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
-	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
+	config.On("EthFinalityDepth").Return(ethFinalityDepth)
+	config.On("EthGasLimitMultiplier").Maybe().Return(float32(1))
+	config.On("EthMinGasPriceWei").Maybe().Return(minGasPrice)
 	config.On("ChainID").Maybe().Return(big.NewInt(0))
 
 	t.Run("loads initial state", func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := new(mocks.Client)
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
@@ -626,7 +626,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 
 	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
