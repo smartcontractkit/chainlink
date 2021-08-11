@@ -605,12 +605,12 @@ contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1
-    ds1          [type=bridge name="%s" retries=0];
+    ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
     ds1_multiply [type=multiply times=%d];
 
     // data source 2
-    ds2          [type=http method=GET url="%s" retries=0];
+    ds2          [type=http method=GET url="%s"];
     ds2_parse    [type=jsonparse path="data"];
     ds2_multiply [type=multiply times=%d];
 

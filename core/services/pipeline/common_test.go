@@ -80,13 +80,6 @@ func Test_RetryUnmarshal(t *testing.T) {
 			time.Minute,
 		},
 		{
-			"http defaults to 5 retries",
-			`ds1 [type=http];`,
-			5,
-			time.Second * 5,
-			time.Minute,
-		},
-		{
 			"all params set",
 			`ds1 [type=http retries=10 minBackoff="1s" maxBackoff="30m"];`,
 			10,
