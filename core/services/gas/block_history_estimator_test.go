@@ -40,9 +40,9 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 
 	config.On("BlockHistoryEstimatorTransactionPercentile").Maybe().Return(percentile)
-	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
-	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
-	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
+	config.On("EthFinalityDepth").Return(ethFinalityDepth)
+	config.On("EthGasLimitMultiplier").Maybe().Return(float32(1))
+	config.On("EthMinGasPriceWei").Maybe().Return(minGasPrice)
 	config.On("ChainID").Maybe().Return(big.NewInt(0))
 
 	t.Run("loads initial state", func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := new(mocks.Client)
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
@@ -651,6 +651,43 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
+		config.On("ChainID").Return(big.NewInt(100))
+
+		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
+		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
+
+		b1Hash := utils.NewHash()
+
+		blocks := []gas.Block{
+			gas.Block{
+				Number:     0,
+				Hash:       b1Hash,
+				ParentHash: common.Hash{},
+				Transactions: []gas.Transaction{
+					{GasPrice: nil, GasLimit: 42, Hash: utils.NewHash()},
+					{GasPrice: big.NewInt(100), GasLimit: 42, Hash: utils.NewHash()},
+				},
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(*cltest.Head(0))
+
+		price := gas.GetGasPrice(bhe)
+		require.Equal(t, big.NewInt(100), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
+		ethClient := new(mocks.Client)
+		config := new(gumocks.Config)
+
+		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(100))
 
