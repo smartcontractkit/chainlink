@@ -144,7 +144,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.EvmGasLimitDefault = null.IntFrom(500000)
+	config.Overrides.EvmGasLimitDefault = null.IntFrom(2000000)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()
@@ -287,11 +287,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), weiPerUnitLink.Div(wei))
 	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(weiPerUnitLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
-	// The expected sub charge should be within 100 gas of the actual gas usage.
+	// The expected sub charge should be within 200 gas of the actual gas usage.
 	// wei/link * link / wei/gas = wei / (wei/gas) = gas
 	gasDiff := linkCharged.Sub(expected).Mul(weiPerUnitLink).Div(gasPrice).Abs().IntPart()
 	t.Log("gasDiff", gasDiff)
-	assert.Less(t, gasDiff, int64(100))
+	assert.Less(t, gasDiff, int64(200))
 
 	// Oracle tries to withdraw move than it was paid should fail
 	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, linkWeiCharged.Add(decimal.NewFromInt(1)).BigInt())

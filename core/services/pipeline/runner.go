@@ -238,6 +238,7 @@ func (r *runner) run(
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
+			task.(*EstimateGasLimitTask).EvmGasLimit = r.config.EvmGasLimitDefault()
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).config = r.config
