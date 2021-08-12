@@ -48,6 +48,8 @@ const (
 	PollRequestTypeDrumbeat
 )
 
+const DefaultHibernationPollPeriod = 168 * time.Hour
+
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
 	contractAddress   common.Address
@@ -218,7 +220,7 @@ func NewFromJobSpec(
 			DrumbeatSchedule:        fmSpec.DrumbeatSchedule,
 			DrumbeatEnabled:         fmSpec.DrumbeatEnabled,
 			DrumbeatRandomDelay:     fmSpec.DrumbeatRandomDelay,
-			HibernationPollPeriod:   168 * time.Hour, // Not currently configurable
+			HibernationPollPeriod:   DefaultHibernationPollPeriod, // Not currently configurable
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
@@ -246,7 +248,7 @@ func NewFromJobSpec(
 			float64(fmSpec.AbsoluteThreshold),
 		),
 		NewSubmissionChecker(min, max),
-		*flags,
+		flags,
 		fluxAggregator,
 		logBroadcaster,
 		fmLogger,
