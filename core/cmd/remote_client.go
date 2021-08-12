@@ -267,8 +267,8 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) (err error) {
 
 	adjustedAmount, _ := amount.Int(nil)
 	request := struct {
-		EthGasPriceDefault string `json:"ethGasPriceDefault"`
-	}{EthGasPriceDefault: adjustedAmount.String()}
+		EvmGasPriceDefault string `json:"ethGasPriceDefault"`
+	}{EvmGasPriceDefault: adjustedAmount.String()}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)

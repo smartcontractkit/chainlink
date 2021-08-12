@@ -44,7 +44,7 @@ type GethKeyStore interface {
 
 type Config interface {
 	MinIncomingConfirmations() uint32
-	EthGasLimitDefault() uint64
+	EvmGasLimitDefault() uint64
 }
 
 func NewDelegate(

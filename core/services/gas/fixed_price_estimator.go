@@ -22,8 +22,8 @@ func (f *fixedPriceEstimator) Close() error                                     
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ models.Head) {}
 
 func (f *fixedPriceEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	gasPrice = f.config.EthGasPriceDefault()
-	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EthGasLimitMultiplier())
+	gasPrice = f.config.EvmGasPriceDefault()
+	chainSpecificGasLimit = applyMultiplier(gasLimit, f.config.EvmGasLimitMultiplier())
 	return
 }
 

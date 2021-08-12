@@ -34,7 +34,7 @@ type DelegateConfig interface {
 	Chain() *chains.Chain
 	ChainID() *big.Int
 	Dev() bool
-	EthGasLimitDefault() uint64
+	EvmGasLimitDefault() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRBlockchainTimeout(time.Duration) time.Duration
 	OCRContractConfirmations(uint16) uint16
@@ -237,7 +237,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(d.txm, d.db, ta.Address(), d.config.EthGasLimitDefault(), strategy),
+			NewTransmitter(d.txm, d.db, ta.Address(), d.config.EvmGasLimitDefault(), strategy),
 			d.logBroadcaster,
 			tracker,
 			d.config.ChainID(),
