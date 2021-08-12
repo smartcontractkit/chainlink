@@ -13,11 +13,11 @@ import (
 
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -58,7 +58,7 @@ type vrfUniverse struct {
 	hb        httypes.HeadBroadcaster
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
+func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestEVMConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
@@ -68,7 +68,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *config.Config) vrfUniverse {
 	eb := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 	err := eb.Start()
 	require.NoError(t, err)
-	t.Cleanup(func() { eb.Close() })
+	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	prm := pipeline.NewORM(db)
 	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
 	ks := keystore.New(db, utils.FastScryptParams)
@@ -136,9 +136,9 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 	}
 }
 
-func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
+func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	db := pgtest.NewGormDB(t)
-	c := config.NewConfig()
+	c := configtest.NewTestEVMConfig(t, configtest.NewTestGeneralConfig(t))
 	vuni := buildVrfUni(t, db, c)
 
 	vd := NewDelegate(
@@ -159,8 +159,8 @@ func setup(t *testing.T) (vrfUniverse, *listener, job.Job) {
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
-	listener := vl[0].(*listener)
-	// Start the listener
+	listener := vl[0].(*listenerV1)
+	// Start the listenerV1
 	go func() {
 		listener.runLogListener([]func(){}, 6)
 	}()
@@ -180,7 +180,7 @@ func TestStartingCounts(t *testing.T) {
 	assert.Equal(t, 0, len(counts))
 
 	ks := keystore.New(db, utils.FastScryptParams)
-	ks.Eth().Unlock("blah")
+	require.NoError(t, ks.Eth().Unlock("blah"))
 	k, err := ks.Eth().CreateNewKey()
 	require.NoError(t, err)
 	b := time.Now()
@@ -245,7 +245,7 @@ func TestStartingCounts(t *testing.T) {
 }
 
 func TestConfirmedLogExtraction(t *testing.T) {
-	lsn := listener{}
+	lsn := listenerV1{}
 	lsn.reqs = []request{
 		{
 			confirmedAtBlock: 2,
@@ -284,7 +284,7 @@ func TestConfirmedLogExtraction(t *testing.T) {
 }
 
 func TestResponsePruning(t *testing.T) {
-	lsn := listener{}
+	lsn := listenerV1{}
 	lsn.latestHead = 10000
 	lsn.respCount = map[[32]byte]uint64{
 		utils.PadByteToHash(0x00): 1,

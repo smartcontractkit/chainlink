@@ -182,7 +182,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		etx, err := bptxm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, strategy)
 		assert.NoError(t, err)
 
@@ -211,7 +211,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		_, err := bptxm.CreateEthTransaction(db, fromAddress, cltest.NewAddress(), []byte{1, 2, 3}, 21000, nil, bulletprooftxmanager.SendEveryStrategy{})
 		assert.EqualError(t, err, "BulletproofTxManager#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse")
 	})
@@ -235,7 +235,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, otherKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
@@ -252,7 +252,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, thisKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
@@ -274,7 +274,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
-		config.On("EthMaxQueuedTransactions").Return(uint64(1))
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		etx, err := bptxm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, strategy)
 		assert.NoError(t, err)
 
@@ -295,8 +295,8 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(1 * time.Hour)
 	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 	config.On("EthTxReaperInterval").Return(1 * time.Hour)
-	config.On("EthMaxInFlightTransactions").Return(uint32(42))
-	config.On("EthFinalityDepth").Maybe().Return(uint(42))
+	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
+	config.On("EvmFinalityDepth").Maybe().Return(uint(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	kst.On("AllKeys").Return([]ethkey.Key{}, nil).Once()
 
@@ -313,8 +313,8 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	sub := new(pgmocks.Subscription)
 	sub.On("Events").Return(make(<-chan postgres.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	config.On("EthNonceAutoSync").Return(true)
-	config.On("EthGasBumpThreshold").Return(uint64(1))
+	config.On("EvmNonceAutoSync").Return(true)
+	config.On("EvmGasBumpThreshold").Return(uint64(1))
 
 	require.NoError(t, bptxm.Start())
 

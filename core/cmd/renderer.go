@@ -210,9 +210,9 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchResponse) error {
 	table := rt.newTable([]string{"Config", "Old Value", "New Value"})
 	table.Append([]string{
-		"EthGasPriceDefault",
-		config.EthGasPriceDefault.From,
-		config.EthGasPriceDefault.To,
+		"EvmGasPriceDefault",
+		config.EvmGasPriceDefault.From,
+		config.EvmGasPriceDefault.To,
 	})
 	render("Configuration Changes", table)
 	return nil

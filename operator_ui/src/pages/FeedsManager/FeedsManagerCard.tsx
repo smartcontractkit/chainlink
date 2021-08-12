@@ -13,6 +13,55 @@ import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import green from '@material-ui/core/colors/green'
+import red from '@material-ui/core/colors/red'
+
+import CheckCircleIcon from '@material-ui/icons/CheckCircle'
+import CancelIcon from '@material-ui/icons/Cancel'
+
+const cardSubheaderStyles = () => {
+  return createStyles({
+    root: {
+      display: 'flex',
+    },
+    connectedIcon: {
+      color: green[500],
+    },
+    disconnectedIcon: {
+      color: red[500],
+    },
+    text: {
+      marginLeft: 4,
+    },
+  })
+}
+
+interface CardSubheaderProps extends WithStyles<typeof cardSubheaderStyles> {
+  isConnected: boolean
+}
+
+const CardSubheader = withStyles(cardSubheaderStyles)(
+  ({ isConnected, classes }: CardSubheaderProps) => {
+    return (
+      <div className={classes.root}>
+        {isConnected ? (
+          <CheckCircleIcon fontSize="small" className={classes.connectedIcon} />
+        ) : (
+          <CancelIcon fontSize="small" className={classes.disconnectedIcon} />
+        )}
+
+        <Typography
+          variant="body1"
+          color="textSecondary"
+          inline
+          className={classes.text}
+        >
+          {isConnected ? 'Connected' : 'Disconnected'}
+        </Typography>
+      </div>
+    )
+  },
+)
 
 const styles = () => {
   return createStyles({
@@ -34,6 +83,7 @@ export const FeedsManagerCard = withStyles(styles)(
       <Card>
         <CardHeader
           title="Feeds Manager"
+          subheader={<CardSubheader isConnected={manager.isConnectionActive} />}
           action={
             <IconButton onClick={() => history.push('/feeds_manager/edit')}>
               <EditIcon fontSize="small" />

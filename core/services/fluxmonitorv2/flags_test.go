@@ -36,7 +36,7 @@ func TestFlags_IsLowered(t *testing.T) {
 				address       = cltest.NewAddress()
 			)
 
-			flags := fluxmonitorv2.Flags{FlagsInterface: flagsContract}
+			flags := fluxmonitorv2.ContractFlags{FlagsInterface: flagsContract}
 
 			flagsContract.On("GetFlags", mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {

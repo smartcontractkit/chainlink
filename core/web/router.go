@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -111,9 +110,16 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
+type WebSecurityConfig interface {
+	AllowOrigins() string
+	Dev() bool
+	TLSRedirect() bool
+	TLSHost() string
+}
+
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(cfg orm.ConfigReader) secure.Options {
+func secureOptions(cfg WebSecurityConfig) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
 		IsDevelopment: cfg.Dev(),
@@ -124,7 +130,7 @@ func secureOptions(cfg orm.ConfigReader) secure.Options {
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(cfg orm.ConfigReader) gin.HandlerFunc {
+func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 	secureMiddleware := secure.New(secureOptions(cfg))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
@@ -291,6 +297,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
 
+		// FeaturesController
+		fc := FeaturesController{app}
+		authv2.GET("/features", fc.Index)
+
 		// PipelineJobSpecErrorsController
 		authv2.DELETE("/pipeline/job_spec_errors/:ID", psec.Destroy)
 
@@ -318,7 +328,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(box packr.Box, engine *gin.Engine, config *config.Config) {
+func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConfig) {
 	// Serve static files
 	assetsRouterHandlers := []gin.HandlerFunc{}
 	if !config.Dev() {
@@ -421,7 +431,7 @@ func loggerFunc() gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(config orm.ConfigReader) gin.HandlerFunc {
+func uiCorsHandler(config WebSecurityConfig) gin.HandlerFunc {
 	c := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},

@@ -216,10 +216,25 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 	}
 }
 
+func EVMWordAddress(val common.Address) []byte {
+	word := make([]byte, EVMWordByteLen)
+	start := EVMWordByteLen - 20
+	for i, b := range val.Bytes() {
+		word[start+i] = b
+	}
+	return word
+}
+
 // EVMWordUint64 returns a uint64 as an EVM word byte array.
 func EVMWordUint64(val uint64) []byte {
 	word := make([]byte, EVMWordByteLen)
 	binary.BigEndian.PutUint64(word[EVMWordByteLen-8:], val)
+	return word
+}
+
+func EVMWordUint32(val uint32) []byte {
+	word := make([]byte, EVMWordByteLen)
+	binary.BigEndian.PutUint32(word[EVMWordByteLen-4:], val)
 	return word
 }
 

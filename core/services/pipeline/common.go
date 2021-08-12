@@ -47,8 +47,8 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		EthGasLimitDefault() uint64
-		EthMaxQueuedTransactions() uint64
+		EvmGasLimitDefault() uint64
+		EvmMaxQueuedTransactions() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -222,23 +222,25 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP            TaskType = "http"
-	TaskTypeBridge          TaskType = "bridge"
-	TaskTypeMean            TaskType = "mean"
-	TaskTypeMedian          TaskType = "median"
-	TaskTypeMode            TaskType = "mode"
-	TaskTypeSum             TaskType = "sum"
-	TaskTypeMultiply        TaskType = "multiply"
-	TaskTypeDivide          TaskType = "divide"
-	TaskTypeJSONParse       TaskType = "jsonparse"
-	TaskTypeCBORParse       TaskType = "cborparse"
-	TaskTypeAny             TaskType = "any"
-	TaskTypeVRF             TaskType = "vrf"
-	TaskTypeETHCall         TaskType = "ethcall"
-	TaskTypeETHTx           TaskType = "ethtx"
-	TaskTypeETHABIEncode    TaskType = "ethabiencode"
-	TaskTypeETHABIDecode    TaskType = "ethabidecode"
-	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
+	TaskTypeHTTP             TaskType = "http"
+	TaskTypeBridge           TaskType = "bridge"
+	TaskTypeMean             TaskType = "mean"
+	TaskTypeMedian           TaskType = "median"
+	TaskTypeMode             TaskType = "mode"
+	TaskTypeSum              TaskType = "sum"
+	TaskTypeMultiply         TaskType = "multiply"
+	TaskTypeDivide           TaskType = "divide"
+	TaskTypeJSONParse        TaskType = "jsonparse"
+	TaskTypeCBORParse        TaskType = "cborparse"
+	TaskTypeAny              TaskType = "any"
+	TaskTypeVRF              TaskType = "vrf"
+	TaskTypeVRFV2            TaskType = "vrfv2"
+	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
+	TaskTypeETHCall          TaskType = "ethcall"
+	TaskTypeETHTx            TaskType = "ethtx"
+	TaskTypeETHABIEncode     TaskType = "ethabiencode"
+	TaskTypeETHABIDecode     TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -289,6 +291,10 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
 		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeVRFV2:
+		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeEstimateGasLimit:
+		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:

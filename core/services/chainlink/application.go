@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
@@ -63,7 +62,10 @@ type Application interface {
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetEthClient() eth.Client
-	GetConfig() *config.Config
+	GetConfig() config.GeneralConfig
+	// TODO: Remove this after multichain
+	// See: https://app.clubhouse.io/chainlinklabs/story/12739/generalise-necessary-models-tables-on-the-send-side-to-support-the-concept-of-multiple-chains
+	GetEVMConfig() config.EVMConfig
 	GetKeyStore() *keystore.Master
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
@@ -108,7 +110,8 @@ type ChainlinkApplication struct {
 	webhookJobRunner         webhook.JobRunner
 	ethClient                eth.Client
 	Store                    *strpkg.Store
-	Config                   *config.Config
+	Config                   config.GeneralConfig
+	EVMConfig                config.EVMConfig
 	KeyStore                 *keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
@@ -130,11 +133,11 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 // TODO: Pass the DB object in here, see: https://app.clubhouse.io/chainlinklabs/story/12980/remove-store-object-entirely
-func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker) (Application, error) {
+func NewApplication(cfg config.EVMConfig, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker) (Application, error) {
 	var subservices []service.Service
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store, err := strpkg.NewStore(cfg, ethClient, advisoryLocker, shutdownSignal)
+	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
 	if err != nil {
 		return nil, err
 	}
@@ -240,9 +243,16 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineORM,
 				ethClient,
 				store.DB,
-				cfg,
-			),
-			job.Keeper: keeper.NewDelegate(store.DB, txManager, jobORM, pipelineRunner, ethClient, headBroadcaster, logBroadcaster, cfg),
+				cfg),
+			job.Keeper: keeper.NewDelegate(
+				store.DB,
+				txManager,
+				jobORM,
+				pipelineRunner,
+				ethClient,
+				headBroadcaster,
+				logBroadcaster,
+				cfg),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -273,8 +283,8 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 				DefaultHTTPTimeout:             cfg.DefaultHTTPTimeout().Duration(),
 				FlagsContractAddress:           cfg.FlagsContractAddress(),
 				MinContractPayment:             cfg.MinimumContractPayment(),
-				EthGasLimit:                    cfg.EthGasLimitDefault(),
-				EthMaxQueuedTransactions:       cfg.EthMaxQueuedTransactions(),
+				EvmGasLimit:                    cfg.EvmGasLimitDefault(),
+				EvmMaxQueuedTransactions:       cfg.EvmMaxQueuedTransactions(),
 				FMDefaultTransactionQueueDepth: cfg.FMDefaultTransactionQueueDepth(),
 			},
 		)
@@ -336,6 +346,7 @@ func NewApplication(cfg *config.Config, ethClient eth.Client, advisoryLocker pos
 		pipelineORM:              pipelineORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
+		EVMConfig:                cfg,
 		webhookJobRunner:         webhookJobRunner,
 		Store:                    store,
 		KeyStore:                 keyStore,
@@ -395,26 +406,9 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
 }
 
-func setupConfig(cfg *config.Config, db *gorm.DB) {
-	orm := config.NewORM(db)
-	cfg.SetRuntimeStore(orm)
+func setupConfig(cfg config.GeneralConfig, db *gorm.DB) {
+	cfg.SetDB(db)
 
-	if !cfg.P2PPeerIDIsSet() {
-		var keys []p2pkey.EncryptedP2PKey
-		err := db.Order("created_at asc, id asc").Find(&keys).Error
-		if err != nil {
-			logger.Warnw("Failed to load keys", "err", err)
-		} else {
-			if len(keys) > 0 {
-				peerID := keys[0].PeerID
-				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
-				cfg.Set("P2P_PEER_ID", peerID)
-				if len(keys) > 1 {
-					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
-				}
-			}
-		}
-	}
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -554,8 +548,12 @@ func (app *ChainlinkApplication) GetEthClient() eth.Client {
 	return app.ethClient
 }
 
-func (app *ChainlinkApplication) GetConfig() *config.Config {
+func (app *ChainlinkApplication) GetConfig() config.GeneralConfig {
 	return app.Config
+}
+
+func (app *ChainlinkApplication) GetEVMConfig() config.EVMConfig {
+	return app.EVMConfig
 }
 
 func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {
@@ -694,8 +692,6 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 }
 
 func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
-
 	app.LogBroadcaster.ReplayFromBlock(int64(number))
-
 	return nil
 }

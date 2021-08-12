@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
+	"gopkg.in/guregu/null.v4"
 )
 
 func setup(t *testing.T) (
@@ -35,16 +36,14 @@ func setup(t *testing.T) (
 	cltest.JobPipelineV2TestHelper,
 	*bptxmmocks.TxManager,
 ) {
-	config, cfgCleanup := cltest.NewConfig(t)
-	t.Cleanup(cfgCleanup)
-	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)
+	config := cltest.NewTestEVMConfig(t)
+	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	ethClient := cltest.NewEthClientMock(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
-	cfg, cleanup := cltest.NewConfig(t)
-	t.Cleanup(cleanup)
+	cfg := cltest.NewTestEVMConfig(t)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster()
 	txm := new(bptxmmocks.TxManager)

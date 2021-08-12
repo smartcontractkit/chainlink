@@ -5,24 +5,17 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
-	"github.com/lib/pq"
-
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gorm.io/gorm"
-
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
-	"github.com/stretchr/testify/require"
-
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 const (
@@ -189,9 +182,8 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 		ExternalJobID: uuid.NewV4(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
-	c, cl := cltest.NewConfig(t)
-	defer cl()
-	_, err := offchainreporting.ValidatedOracleSpecToml(c.Config, s)
+	c := cltest.NewTestEVMConfig(t)
+	_, err := offchainreporting.ValidatedOracleSpecToml(c, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)

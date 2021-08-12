@@ -234,6 +234,10 @@ func (r *runner) run(
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
+		case TaskTypeVRFV2:
+			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
+		case TaskTypeEstimateGasLimit:
+			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).config = r.config

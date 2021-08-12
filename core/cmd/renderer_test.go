@@ -39,11 +39,7 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -110,7 +106,7 @@ func TestRendererTable_PatchResponse(t *testing.T) {
 	r := cmd.RendererTable{Writer: buffer}
 
 	patchResponse := web.ConfigPatchResponse{
-		EthGasPriceDefault: web.Change{
+		EvmGasPriceDefault: web.Change{
 			From: "98721",
 			To:   "53276",
 		},
