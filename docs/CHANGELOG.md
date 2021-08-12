@@ -31,6 +31,14 @@ MINIMUM_CONTRACT_PAYMENT
 
 ## [Unreleased]
 
+## [0.10.12] - 2021-08-16
+
+### Fixed
+
+- Resolved FMv2 stalling in Hibernation mode
+- Resolved rare issue when the Gas Estimator fails on start
+- Resolved the handling of nil values for gas price
+
 ## [0.10.11] - 2021-08-09
 
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
