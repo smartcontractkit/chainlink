@@ -279,6 +279,25 @@ func (CronSpec) TableName() string {
 	return "cron_specs"
 }
 
+// Need to also try integer thresholds until
+// https://github.com/pelletier/go-toml/issues/571 is addressed.
+// The UI's TOML.stringify({"threshold": 1.0}) (https://github.com/iarna/iarna-toml)
+// will return "threshold = 1" since ts/js doesn't know the
+// difference between 1.0 and 1, so we need to address it on the backend.
+type FluxMonitorSpecIntThreshold struct {
+	ContractAddress     ethkey.EIP55Address `toml:"contractAddress"`
+	Threshold           int                 `toml:"threshold"`
+	AbsoluteThreshold   int                 `toml:"absoluteThreshold"`
+	PollTimerPeriod     time.Duration
+	PollTimerDisabled   bool
+	IdleTimerPeriod     time.Duration
+	IdleTimerDisabled   bool
+	DrumbeatSchedule    string
+	DrumbeatRandomDelay time.Duration
+	DrumbeatEnabled     bool
+	MinPayment          *assets.Link
+}
+
 type FluxMonitorSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
