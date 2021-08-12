@@ -19,10 +19,10 @@ encode_tx    [type=ethabiencode
               abi="fulfillRandomWords(bytes proof)"
               data="{\\"proof\\": $(vrf.proof)}"]
 estimate_gas [type=estimategaslimit
-			  to="%s"
+			  to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
               multiplier="1.1"
               data="$(encode_tx)"]
-submit_tx  [type=ethtx to="%s"
+submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
             data="$(encode_tx)"
             gasLimit="$(estimate_gas)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
