@@ -130,6 +130,11 @@ func (_m *Runner) InsertFinishedRun(db postgres.Queryer, run pipeline.Run, saveS
 	return r0, r1
 }
 
+// OnRunFinished provides a mock function with given fields: _a0
+func (_m *Runner) OnRunFinished(_a0 func(*pipeline.Run)) {
+	_m.Called(_a0)
+}
+
 // Ready provides a mock function with given fields:
 func (_m *Runner) Ready() error {
 	ret := _m.Called()
