@@ -37,8 +37,8 @@ func (_m *Config) BlockBackfillSkip() bool {
 	return r0
 }
 
-// EthFinalityDepth provides a mock function with given fields:
-func (_m *Config) EthFinalityDepth() uint {
+// EvmFinalityDepth provides a mock function with given fields:
+func (_m *Config) EvmFinalityDepth() uint {
 	ret := _m.Called()
 
 	var r0 uint
@@ -51,8 +51,8 @@ func (_m *Config) EthFinalityDepth() uint {
 	return r0
 }
 
-// EthLogBackfillBatchSize provides a mock function with given fields:
-func (_m *Config) EthLogBackfillBatchSize() uint32 {
+// EvmLogBackfillBatchSize provides a mock function with given fields:
+func (_m *Config) EvmLogBackfillBatchSize() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32
