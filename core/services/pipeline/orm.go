@@ -65,7 +65,7 @@ func (o *orm) CreateRun(db postgres.Queryer, run *Run) (err error) {
 	err = postgres.SqlxTransaction(ctx, db, func(tx *sqlx.Tx) error {
 		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, inputs, created_at, state)
 		VALUES (:pipeline_spec_id, :meta, :inputs, :created_at, :state)
-		RETURNING *`
+		RETURNING id`
 
 		query, args, e := tx.BindNamed(sql, run)
 		if e != nil {
