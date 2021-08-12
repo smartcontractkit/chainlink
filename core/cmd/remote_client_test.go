@@ -10,19 +10,19 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -36,7 +36,7 @@ var (
 
 type startOptions struct {
 	// Set the config options
-	Config map[string]interface{}
+	SetConfig func(cfg *configtest.TestEVMConfig)
 	// Use to set up mocks on the app
 	FlagsAndDeps []interface{}
 	// Add a key on start up
@@ -47,7 +47,6 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	t.Helper()
 
 	sopts := &startOptions{
-		Config:       map[string]interface{}{},
 		FlagsAndDeps: []interface{}{},
 	}
 	for _, fn := range setup {
@@ -55,13 +54,13 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	}
 
 	// Setup config
-	config, cfgCleanup := cltest.NewConfig(t)
-	t.Cleanup(cfgCleanup)
-	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
-	config.Set("MAX_HTTP_ATTEMPTS", "1")
+	config := cltest.NewTestEVMConfig(t)
+	config.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
+	config.GeneralConfig.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
+	config.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 
-	for k, v := range sopts.Config {
-		config.Set(k, v)
+	if sopts.SetConfig != nil {
+		sopts.SetConfig(config)
 	}
 
 	var app *cltest.TestApplication
@@ -77,11 +76,9 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 }
 
 // withConfig is a function option which sets config on the app
-func withConfig(cfgs map[string]interface{}) func(opts *startOptions) {
+func withConfigSet(cfgSet func(*configtest.TestEVMConfig)) func(opts *startOptions) {
 	return func(opts *startOptions) {
-		for k, v := range cfgs {
-			opts.Config[k] = v
-		}
+		opts.SetConfig = cfgSet
 	}
 }
 
@@ -240,8 +237,8 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfig(map[string]interface{}{
-		"ADMIN_CREDENTIALS_FILE": "",
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestEVMConfig) {
+		c.GeneralConfig.Overrides.AdminCredentialsFile = null.StringFrom("")
 	}))
 
 	tests := []struct {
@@ -313,13 +310,8 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_SetMinimumGasPrice(t *testing.T) {
 	t.Parallel()
 
-	// Setup Withdrawals application
-	oca := common.HexToAddress("0xDEADB3333333F")
 	app := startNewApplication(t,
 		withKey(),
-		withConfig(map[string]interface{}{
-			"OPERATOR_CONTRACT_ADDRESS": &oca,
-		}),
 		withMocks(newEthMock(t)),
 	)
 	client, _ := app.NewClientAndRenderer()
@@ -330,7 +322,7 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	assert.NoError(t, client.SetMinimumGasPrice(c))
-	assert.Equal(t, big.NewInt(8616460799), app.Store.Config.EthGasPriceDefault())
+	assert.Equal(t, big.NewInt(8616460799), app.GetEVMConfig().EvmGasPriceDefault())
 
 	client, _ = app.NewClientAndRenderer()
 	set = flag.NewFlagSet("setgasprice", 0)
@@ -340,30 +332,27 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 
 	c = cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.SetMinimumGasPrice(c))
-	assert.Equal(t, big.NewInt(861646079900), app.Store.Config.EthGasPriceDefault())
+	assert.Equal(t, big.NewInt(861646079900), app.GetEVMConfig().EvmGasPriceDefault())
 }
 
 func TestClient_GetConfiguration(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
+	cfg := app.GetEVMConfig()
 	client, r := app.NewClientAndRenderer()
 
 	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 
 	cp := *r.Renders[0].(*presenters.ConfigPrinter)
-	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, app.Config.BridgeResponseURL().String())
-	assert.Equal(t, cp.EnvPrinter.ChainID, app.Config.ChainID())
-	assert.Equal(t, cp.EnvPrinter.Dev, app.Config.Dev())
-	assert.Equal(t, cp.EnvPrinter.EthGasBumpThreshold, app.Config.EthGasBumpThreshold())
-	assert.Equal(t, cp.EnvPrinter.LogLevel, app.Config.LogLevel())
-	assert.Equal(t, cp.EnvPrinter.LogSQLStatements, app.Config.LogSQLStatements())
-	assert.Equal(t, cp.EnvPrinter.MinIncomingConfirmations, app.Config.MinIncomingConfirmations())
-	assert.Equal(t, cp.EnvPrinter.MinRequiredOutgoingConfirmations, app.Config.MinRequiredOutgoingConfirmations())
-	assert.Equal(t, cp.EnvPrinter.MinimumContractPayment, app.Config.MinimumContractPayment())
-	assert.Equal(t, cp.EnvPrinter.RootDir, app.Config.RootDir())
-	assert.Equal(t, cp.EnvPrinter.SessionTimeout, app.Config.SessionTimeout())
+	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
+	assert.Equal(t, cp.EnvPrinter.ChainID, cfg.ChainID())
+	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
+	assert.Equal(t, cp.EnvPrinter.LogLevel, cfg.LogLevel())
+	assert.Equal(t, cp.EnvPrinter.LogSQLStatements, cfg.LogSQLStatements())
+	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
+	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
 
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
@@ -439,7 +428,7 @@ func TestClient_AutoLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetEVMConfig(), &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)

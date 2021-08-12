@@ -220,7 +220,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 
 func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 	lsn.l.Infow("VRFListener: listening for run requests",
-		"gasLimit", lsn.cfg.EthGasLimitDefault(),
+		"gasLimit", lsn.cfg.EvmGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
 		select {

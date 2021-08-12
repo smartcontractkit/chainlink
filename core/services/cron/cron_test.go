@@ -21,14 +21,13 @@ import (
 
 func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
-	config, cleanup := cltest.NewConfig(t)
-	t.Cleanup(cleanup)
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(cleanup)
 	db := store.DB
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
 	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	spec := &job.Job{
 		Type:          job.Cron,
