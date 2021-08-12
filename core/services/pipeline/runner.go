@@ -228,10 +228,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
 		case TaskTypeBridge:
-			id := uuid.NewV4()
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
-			task.(*BridgeTask).uuid = id
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeVRF:
@@ -242,12 +240,10 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
 			task.(*EstimateGasLimitTask).EvmGasLimit = r.config.EvmGasLimitDefault()
 		case TaskTypeETHTx:
-			id := uuid.NewV4()
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).config = r.config
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).txManager = r.txManager
-			task.(*ETHTxTask).uuid = id
 		default:
 		}
 	}
