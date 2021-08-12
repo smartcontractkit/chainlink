@@ -686,6 +686,10 @@ ds_panic->ds1->ds_parse->ds_multiply;`, s.URL),
 	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
 	require.True(t, run.FailEarly)
-	require.Equal(t, 1, len(trrs))
-	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs[0].Result.Error)
+	require.Equal(t, 4, len(trrs))
+	assert.Contains(t, run.ByDotID("ds_panic").Error.String, "panicked")
+	// all the other runs are failed with ErrCancelled
+	assert.Contains(t, run.ByDotID("ds1").Error.String, "cancelled")
+	assert.Contains(t, run.ByDotID("ds_parse").Error.String, "cancelled")
+	assert.Contains(t, run.ByDotID("ds_multiply").Error.String, "cancelled")
 }
