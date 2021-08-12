@@ -60,6 +60,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			config.GeneralConfig.Overrides.AllowOrigins = null.StringFrom(test.allow)
 			config.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			defer cleanup()
 
 			client := app.NewHTTPClient()
 
