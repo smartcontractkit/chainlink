@@ -185,12 +185,19 @@ func (r *runner) ExecuteRun(
 ) (Run, TaskRunResults, error) {
 	run := NewRun(spec, vars)
 
-	taskRunResults, err := r.run(ctx, &run, vars, l)
+	pipeline, err := r.initializePipeline(&run)
+
 	if err != nil {
 		return run, nil, err
 	}
 
-	if run.Async && run.Pending {
+	taskRunResults, err := r.run(ctx, pipeline, &run, vars, l)
+	if err != nil {
+		return run, nil, err
+	}
+
+	// TODO: do this HasAsync check earlier
+	if pipeline.HasAsync() && run.Pending {
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
@@ -207,20 +214,12 @@ func (r *runner) ExecuteRun(
 	return run, taskRunResults, nil
 }
 
-func (r *runner) run(
-	ctx context.Context,
-	run *Run,
-	vars Vars,
-	l logger.Logger,
-) (TaskRunResults, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
-
+func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 	pipeline, err := Parse(run.PipelineSpec.DotDagSource)
 	if err != nil {
 		return nil, err
 	}
 
-	now := time.Now()
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
 		task.Base().uuid = uuid.NewV4()
@@ -259,30 +258,17 @@ func (r *runner) run(
 		task.Base().uuid = taskRun.ID
 	}
 
-	// avoid an extra db write if there is no async tasks present or if this is a resumed run
-	if pipeline.HasAsync() {
-		run.Async = true
-		if run.ID == 0 {
-			// initialize certain task params
-			for _, task := range pipeline.Tasks {
-				switch task.Type() {
-				case TaskTypeETHTx:
-					run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
-						ID:            task.Base().uuid,
-						PipelineRunID: run.ID,
-						Type:          task.Type(),
-						Index:         task.OutputIndex(),
-						DotID:         task.DotID(),
-						CreatedAt:     now,
-					})
-				}
-			}
-			if err = r.orm.CreateRun(postgres.UnwrapGormDB(r.orm.DB()), run); err != nil {
-				return nil, err
-			}
-		}
+	return pipeline, nil
+}
 
-	}
+func (r *runner) run(
+	ctx context.Context,
+	pipeline *Pipeline,
+	run *Run,
+	vars Vars,
+	l logger.Logger,
+) (TaskRunResults, error) {
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
 
 	todo := context.TODO()
 	scheduler := newScheduler(todo, pipeline, run, vars)
@@ -377,7 +363,7 @@ func (r *runner) run(
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	return taskRunResults, err
+	return taskRunResults, nil
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
@@ -460,7 +446,38 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx *gorm.DB) error) (incomplete bool, err error) {
+	pipeline, err := r.initializePipeline(run)
+	if err != nil {
+		return false, err
+	}
+
+	async := pipeline.HasAsync()
+
 	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
+		// avoid an extra db write if there is no async tasks present or if this is a resumed run
+		if async && run.ID == 0 {
+			now := time.Now()
+			// initialize certain task params
+			for _, task := range pipeline.Tasks {
+				switch task.Type() {
+				case TaskTypeETHTx:
+					run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
+						ID:            task.Base().uuid,
+						PipelineRunID: run.ID,
+						Type:          task.Type(),
+						Index:         task.OutputIndex(),
+						DotID:         task.DotID(),
+						CreatedAt:     now,
+					})
+				default:
+				}
+			}
+			if err = r.orm.CreateRun(postgres.UnwrapGorm(tx), run); err != nil {
+				return err
+			}
+
+		}
+
 		if fn != nil {
 			return fn(tx)
 		}
@@ -471,12 +488,12 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 
 	for {
-		_, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
+		_, err := r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 		if err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
-		if run.Async {
+		if async {
 			var restart bool
 
 			err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
