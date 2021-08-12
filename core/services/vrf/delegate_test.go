@@ -185,12 +185,12 @@ func TestStartingCounts(t *testing.T) {
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
-	m1 := models.EthTxMetaV2{
+	m1 := bulletprooftxmanager.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x10),
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
-	m2 := models.EthTxMetaV2{
+	m2 := bulletprooftxmanager.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x11),
 	}
 	md2, err := json.Marshal(&m2)
@@ -420,7 +420,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Linked to  requestID
 		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"),
 			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
-				meta := newTx.Meta.(*models.EthTxMetaV2)
+				meta := newTx.Meta.(*bulletprooftxmanager.EthTxMeta)
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
 					newTx.GasLimit == uint64(500000) &&

@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //
@@ -86,7 +85,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		minConfirmations = t.config.MinRequiredOutgoingConfirmations()
 	}
 
-	var txMeta models.EthTxMetaV2
+	var txMeta bulletprooftxmanager.EthTxMeta
 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,

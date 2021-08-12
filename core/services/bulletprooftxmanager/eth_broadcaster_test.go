@@ -25,7 +25,6 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -121,7 +120,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Earlier
 		tr := uuid.NewV4()
-		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr})
+		b, err := json.Marshal(bulletprooftxmanager.EthTxMeta{PipelineTaskRunID: &tr})
 		require.NoError(t, err)
 		earlierEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -188,10 +187,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
-		var m models.EthTxMeta
+		var m bulletprooftxmanager.EthTxMeta
 		err = json.Unmarshal(earlierEthTx.Meta, &m)
 		require.NoError(t, err)
-		assert.Equal(t, tr, m.TaskRunID)
+		assert.Equal(t, tr, m.PipelineTaskRunID)
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 

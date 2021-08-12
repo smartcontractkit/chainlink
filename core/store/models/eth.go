@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -17,26 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 )
-
-type EthTxMeta struct {
-	TaskRunID uuid.UUID
-}
-
-func (EthTxMeta) GormDataType() string {
-	return "json"
-}
-
-type EthTxMetaV2 struct {
-	JobID             int32
-	RequestID         common.Hash
-	RequestTxHash     common.Hash
-	MinConfirmations  null.Uint32
-	PipelineTaskRunID *uuid.UUID
-}
-
-func (EthTxMetaV2) GormDataType() string {
-	return "json"
-}
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
