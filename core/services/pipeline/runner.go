@@ -47,6 +47,8 @@ type Runner interface {
 
 	// Test method for inserting completed non-pipeline job runs
 	TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error)
+
+	OnRunFinished(func(*Run))
 }
 
 type runner struct {
@@ -57,6 +59,9 @@ type runner struct {
 	vrfKeyStore     VRFKeyStore
 	txManager       TxManager
 	runReaperWorker utils.SleeperTask
+
+	// test helper
+	runFinished func(*Run)
 
 	utils.StartStopOnce
 	chStop chan struct{}
@@ -103,6 +108,7 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, 
 		txManager:   txManager,
 		chStop:      make(chan struct{}),
 		wgDone:      sync.WaitGroup{},
+		runFinished: func(*Run) {},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -175,6 +181,10 @@ func NewRun(spec Spec, vars Vars) Run {
 		Outputs:        JSONSerializable{Val: nil, Null: true},
 		CreatedAt:      time.Now(),
 	}
+}
+
+func (r *runner) OnRunFinished(fn func(*Run)) {
+	r.runFinished = fn
 }
 
 func (r *runner) ExecuteRun(
@@ -530,6 +540,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			}
 
 		}
+
+		r.runFinished(run)
 
 		return run.Pending, err
 	}

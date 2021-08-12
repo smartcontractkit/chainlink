@@ -406,6 +406,13 @@ func TestDelegate_ValidLog(t *testing.T) {
 		},
 	}
 
+	runComplete := make(chan struct{})
+	vuni.pr.OnRunFinished(func(run *pipeline.Run) {
+		if run.State == pipeline.RunStatusCompleted {
+			runComplete <- struct{}{}
+		}
+	})
+
 	consumed := make(chan struct{})
 	for i, tc := range tt {
 		tc := tc
@@ -436,6 +443,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
+		waitForChannel(t, runComplete, 2*time.Second, "pipeline not complete")
 		runs, err := vuni.prm.GetAllRuns()
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
