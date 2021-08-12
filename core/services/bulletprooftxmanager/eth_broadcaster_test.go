@@ -190,7 +190,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		var m bulletprooftxmanager.EthTxMeta
 		err = json.Unmarshal(earlierEthTx.Meta, &m)
 		require.NoError(t, err)
-		assert.Equal(t, tr, m.PipelineTaskRunID)
+		assert.Equal(t, &tr, m.PipelineTaskRunID)
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
