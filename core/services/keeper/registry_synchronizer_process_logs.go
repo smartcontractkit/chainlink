@@ -183,6 +183,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		logger.Errorf("RegistrySynchronizer: invariant violation, expected UpkeepPerformed log but got %T", log)
 		return
 	}
+
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
@@ -192,8 +193,10 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		logger.Error(err)
 		return
 	}
+
 	ctx, cancel = postgres.DefaultQueryCtx()
 	defer cancel()
-	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB, broadcast)
+
+	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast)
 	logger.ErrorIf(errors.Wrapf(err, "RegistrySynchronizer: unable to mark KeeperRegistryUpkeepPerformed log as consumed, jobID: %d, log: %v", rs.job.ID, broadcast.String()))
 }
