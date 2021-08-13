@@ -213,7 +213,13 @@ func NewApplication(cfg config.EVMConfig, ethClient eth.Client, advisoryLocker p
 			return nil, err2
 		}
 
-		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, cfg, highestSeenHead)
+		lbLogger := logger.CreateLogger(
+			logger.Default.With(
+				"chainId", cfg.Chain().ID(),
+			),
+		)
+
+		logBroadcaster = log.NewBroadcaster(log.NewORM(store.DB), ethClient, cfg, lbLogger, highestSeenHead)
 		txManager = bulletprooftxmanager.NewBulletproofTxManager(store.DB, ethClient, cfg, keyStore.Eth(), advisoryLocker, eventBroadcaster)
 		subservices = append(subservices, logBroadcaster, txManager)
 	}

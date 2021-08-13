@@ -62,7 +62,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 
 	dborm := log.NewORM(db)
-	lb := log.NewBroadcaster(dborm, mockEth.ethClient, cfg, nil)
+	lb := log.NewBroadcaster(dborm, mockEth.ethClient, cfg, logger.Default, nil)
 	cfg.Overrides.EvmFinalityDepth = null.IntFrom(10)
 	return &broadcasterHelper{
 		t:             t,
@@ -80,7 +80,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	cfg := cltest.NewTestEVMConfig(t)
 
 	orm := log.NewORM(db)
-	lb := log.NewBroadcaster(orm, ethClient, cfg, highestSeenHead)
+	lb := log.NewBroadcaster(orm, ethClient, cfg, logger.Default, highestSeenHead)
 
 	return &broadcasterHelper{
 		t:             t,
