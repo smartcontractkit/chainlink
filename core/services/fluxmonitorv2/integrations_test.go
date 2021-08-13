@@ -462,7 +462,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	threshold = 2.0
 	absoluteThreshold = 0.0
 
-	idleTimerPeriod = "1s"
+	idleTimerPeriod = "10s"
 	idleTimerDisabled = false
 
 	pollTimerPeriod = "%s"
@@ -517,6 +517,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
 	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 5)
 
+	logger.Info("Updating price to 103")
 	// Change reported price to a value outside the deviation
 	reportPrice = int64(103)
 	receiptBlock, answer = awaitSubmission(t, submissionReceived)
