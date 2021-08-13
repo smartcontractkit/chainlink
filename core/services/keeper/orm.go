@@ -37,7 +37,6 @@ func (korm ORM) WithTransaction(ctx context.Context, cb func(ctx context.Context
 
 func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error) {
 	err := korm.getDB(ctx).
-		WithContext(ctx).
 		Find(&registries).
 		Error
 	return registries, err
@@ -45,7 +44,6 @@ func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error)
 
 func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (registry Registry, _ error) {
 	err := korm.getDB(ctx).
-		WithContext(ctx).
 		First(&registry, "job_id = ?", jobID).
 		Error
 	return registry, err
@@ -53,7 +51,6 @@ func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (registry Regis
 
 func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 	return korm.getDB(ctx).
-		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}},
 			DoUpdates: clause.AssignmentColumns(
@@ -66,7 +63,6 @@ func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 
 func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistration) error {
 	return korm.getDB(ctx).
-		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "registry_id"}, {Name: "upkeep_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{"execute_gas", "check_data", "positioning_constant"}),
@@ -77,13 +73,13 @@ func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistrati
 
 func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeedIDs []int64) (int64, error) {
 	exec := korm.getDB(ctx).
-		WithContext(ctx).Exec(
-		`DELETE FROM upkeep_registrations WHERE registry_id = (
+		Exec(
+			`DELETE FROM upkeep_registrations WHERE registry_id = (
 			SELECT id from keeper_registries where job_id = ?
 		) AND upkeep_id IN (?)`,
-		jobID,
-		upkeedIDs,
-	)
+			jobID,
+			upkeedIDs,
+		)
 	return exec.RowsAffected, exec.Error
 }
 
@@ -93,7 +89,6 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 	blockNumber, gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, _ error) {
 	err := korm.getDB(ctx).
-		WithContext(ctx).
 		Preload("Registry").
 		Order("upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC").
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
@@ -120,7 +115,6 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 // to sync from the contract
 func (korm ORM) LowestUnsyncedID(ctx context.Context, regID int32) (nextID int64, err error) {
 	err = korm.getDB(ctx).
-		WithContext(ctx).
 		Model(&UpkeepRegistration{}).
 		Where("registry_id = ?", regID).
 		Select("coalesce(max(upkeep_id), -1) + 1").
@@ -151,5 +145,5 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep Upkeep
 }
 
 func (korm ORM) getDB(ctx context.Context) *gorm.DB {
-	return postgres.TxFromContext(ctx, korm.DB)
+	return postgres.TxFromContext(ctx, korm.DB).WithContext(ctx)
 }
