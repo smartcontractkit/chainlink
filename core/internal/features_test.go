@@ -680,7 +680,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
+	app, cleanup := cltest.NewApplicationWithKey(t,
 		ethClient,
 	)
 	defer cleanup()
@@ -703,6 +703,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 
 	require.NoError(t, app.Start())
@@ -741,13 +742,13 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	httpAwaiter.AwaitOrFail(t)
 
-	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 3, jobORM, 5*time.Second, 300*time.Millisecond)
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 7, jobORM, 5*time.Second, 300*time.Millisecond)
 	require.Len(t, runs, 1)
 	run := runs[0]
-	require.Len(t, run.PipelineTaskRuns, 3)
-	require.Empty(t, run.PipelineTaskRuns[0].Error)
-	require.Empty(t, run.PipelineTaskRuns[1].Error)
-	require.Empty(t, run.PipelineTaskRuns[2].Error)
+	require.Len(t, run.PipelineTaskRuns, 7)
+	for i := 0; i < 7; i++ {
+		require.Empty(t, run.PipelineTaskRuns[i].Error)
+	}
 }
 
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {
