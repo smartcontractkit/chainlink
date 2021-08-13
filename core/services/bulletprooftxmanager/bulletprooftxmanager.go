@@ -267,7 +267,7 @@ type NewTx struct {
 	ToAddress      common.Address
 	EncodedPayload []byte
 	GasLimit       uint64
-	Meta           interface{}
+	Meta           *EthTxMeta
 
 	Strategy TxStrategy
 }
@@ -281,6 +281,18 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 
 	value := 0
 	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
+		if newTx.Meta != nil && newTx.Meta.PipelineTaskRunID != nil {
+			err = tx.Raw(`SELECT * FROM eth_txes WHERE meta->>'PipelineTaskRunID' = ?`, newTx.Meta.PipelineTaskRunID).Scan(&etx).Error
+			if err != nil {
+				return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
+			}
+
+			// if a previous transaction for this task run exists, immediately return it
+			if etx.ID != 0 {
+				return nil
+			}
+		}
+
 		res := tx.Raw(`
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject)
 VALUES (

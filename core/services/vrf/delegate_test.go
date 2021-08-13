@@ -427,7 +427,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Linked to  requestID
 		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"),
 			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
-				meta := newTx.Meta.(*bulletprooftxmanager.EthTxMeta)
+				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
 					newTx.GasLimit == uint64(500000) &&
