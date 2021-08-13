@@ -397,6 +397,9 @@ func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result f
 }
 
 func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, pipelineSpecID int32, blockNumber uint64) {
+	t.Helper()
+	logger.Infof("Waiting for log on block: %v", blockNumber)
+
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
@@ -404,7 +407,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		consumed, err := log.NewORM(db).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		return consumed
-	}).Should(gomega.BeTrue())
+	}, cltest.DBWaitTimeout).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
