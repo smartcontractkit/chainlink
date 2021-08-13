@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -53,7 +54,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg)
+	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg.ID)
 	if err != nil {
 		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
 	}

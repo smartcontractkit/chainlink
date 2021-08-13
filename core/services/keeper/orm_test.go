@@ -4,17 +4,16 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store"
 )
 
 var checkData = common.Hex2Bytes("ABC123")
@@ -306,7 +305,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 
-	nextID, err := orm.LowestUnsyncedID(context.Background(), registry)
+	nextID, err := orm.LowestUnsyncedID(context.Background(), registry.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), nextID)
 
@@ -314,7 +313,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	err = orm.UpsertUpkeep(context.Background(), &upkeep)
 	require.NoError(t, err)
 
-	nextID, err = orm.LowestUnsyncedID(context.Background(), registry)
+	nextID, err = orm.LowestUnsyncedID(context.Background(), registry.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), nextID)
 
@@ -322,7 +321,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	err = orm.UpsertUpkeep(context.Background(), &upkeep)
 	require.NoError(t, err)
 
-	nextID, err = orm.LowestUnsyncedID(context.Background(), registry)
+	nextID, err = orm.LowestUnsyncedID(context.Background(), registry.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), nextID)
 }
@@ -336,9 +335,9 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	registry, j := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-	orm.SetLastRunHeightForUpkeepOnJob(orm.DB, j.ID, upkeep.UpkeepID, 100)
+	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 100)
 	assertLastRunHeight(t, store, upkeep, 100)
-	orm.SetLastRunHeightForUpkeepOnJob(orm.DB, j.ID, upkeep.UpkeepID, 0)
+	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 0)
 	assertLastRunHeight(t, store, upkeep, 0)
 }
 
@@ -364,14 +363,14 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
-	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
-		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{
+	err = orm.WithTransaction(ctx, func(ctx context.Context) error {
+		txm.On("CreateEthTransaction", postgres.TxFromContext(ctx, store.DB), fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
 		}, nil)
-		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload)
+		ethTX, err = orm.CreateEthTransactionForUpkeep(ctx, upkeep, payload)
 		return err
 	})
 	require.NoError(t, err)

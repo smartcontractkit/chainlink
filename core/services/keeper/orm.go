@@ -3,13 +3,24 @@ package keeper
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
+// ORM implements ORM layer using PostgreSQL
+// TODO: Create an ORM interface and separate postgres implementation from this interface
+type ORM struct {
+	DB       *gorm.DB
+	txm      transmitter
+	config   Config
+	strategy bulletprooftxmanager.TxStrategy
+}
+
+// NewORM is the constructor of postgresORM
 func NewORM(db *gorm.DB, txm transmitter, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
 	return ORM{
 		DB:       db,
@@ -19,15 +30,13 @@ func NewORM(db *gorm.DB, txm transmitter, config Config, strategy bulletprooftxm
 	}
 }
 
-type ORM struct {
-	DB       *gorm.DB
-	txm      transmitter
-	config   Config
-	strategy bulletprooftxmanager.TxStrategy
+// WithTransaction wraps the given handler into transaction context
+func (korm ORM) WithTransaction(ctx context.Context, cb func(ctx context.Context) error) error {
+	return postgres.NewGormTransactionManager(korm.DB).TransactWithContext(ctx, cb)
 }
 
 func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error) {
-	err := korm.DB.
+	err := korm.getDB(ctx).
 		WithContext(ctx).
 		Find(&registries).
 		Error
@@ -35,7 +44,7 @@ func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error)
 }
 
 func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (registry Registry, _ error) {
-	err := korm.DB.
+	err := korm.getDB(ctx).
 		WithContext(ctx).
 		First(&registry, "job_id = ?", jobID).
 		Error
@@ -43,7 +52,7 @@ func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (registry Regis
 }
 
 func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
-	return korm.DB.
+	return korm.getDB(ctx).
 		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}},
@@ -56,7 +65,7 @@ func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 }
 
 func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistration) error {
-	return korm.DB.
+	return korm.getDB(ctx).
 		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "registry_id"}, {Name: "upkeep_id"}},
@@ -67,7 +76,7 @@ func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistrati
 }
 
 func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeedIDs []int64) (int64, error) {
-	exec := korm.DB.
+	exec := korm.getDB(ctx).
 		WithContext(ctx).Exec(
 		`DELETE FROM upkeep_registrations WHERE registry_id = (
 			SELECT id from keeper_registries where job_id = ?
@@ -81,10 +90,9 @@ func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkee
 func (korm ORM) EligibleUpkeepsForRegistry(
 	ctx context.Context,
 	registryAddress ethkey.EIP55Address,
-	blockNumber int64,
-	gracePeriod int64,
+	blockNumber, gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, _ error) {
-	err := korm.DB.
+	err := korm.getDB(ctx).
 		WithContext(ctx).
 		Preload("Registry").
 		Order("upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC").
@@ -110,19 +118,19 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 
 // LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
-func (korm ORM) LowestUnsyncedID(ctx context.Context, reg Registry) (nextID int64, err error) {
-	err = korm.DB.
+func (korm ORM) LowestUnsyncedID(ctx context.Context, regID int32) (nextID int64, err error) {
+	err = korm.getDB(ctx).
 		WithContext(ctx).
 		Model(&UpkeepRegistration{}).
-		Where("registry_id = ?", reg.ID).
+		Where("registry_id = ?", regID).
 		Select("coalesce(max(upkeep_id), -1) + 1").
 		Row().
 		Scan(&nextID)
 	return nextID, err
 }
 
-func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepID int64, height int64) error {
-	return db.
+func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32, upkeepID, height int64) error {
+	return korm.getDB(ctx).
 		Exec(`UPDATE upkeep_registrations
 		SET last_run_block_height = ?
 		WHERE upkeep_id = ? AND
@@ -135,9 +143,13 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(db *gorm.DB, jobID int32, upkeepI
 		).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(tx *gorm.DB, upkeep UpkeepRegistration, payload []byte) (bulletprooftxmanager.EthTx, error) {
+func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte) (bulletprooftxmanager.EthTx, error) {
 	from := upkeep.Registry.FromAddress.Address()
 	to := upkeep.Registry.ContractAddress.Address()
 	gasLimit := upkeep.ExecuteGas + korm.config.KeeperRegistryPerformGasOverhead()
-	return korm.txm.CreateEthTransaction(tx, from, to, payload, gasLimit, nil, korm.strategy)
+	return korm.txm.CreateEthTransaction(korm.getDB(ctx), from, to, payload, gasLimit, nil, korm.strategy)
+}
+
+func (korm ORM) getDB(ctx context.Context) *gorm.DB {
+	return postgres.TxFromContext(ctx, korm.DB)
 }

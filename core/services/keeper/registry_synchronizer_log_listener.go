@@ -13,8 +13,8 @@ func (rs *RegistrySynchronizer) JobID() int32 {
 }
 
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
-	log := broadcast.DecodedLog()
-	if log == nil || reflect.ValueOf(log).IsNil() {
+	logType := broadcast.DecodedLog()
+	if logType == nil || reflect.ValueOf(logType).IsNil() {
 		logger.Errorf("RegistrySynchronizer: HandleLog: ignoring nil value, type: %T", broadcast)
 		return
 	}
@@ -22,13 +22,13 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	logger.Debugw(
 		"RegistrySynchronizer: received log, waiting for confirmations",
 		"jobID", rs.job.ID,
-		"logType", reflect.TypeOf(log),
+		"logType", reflect.TypeOf(logType),
 		"txHash", broadcast.RawLog().TxHash.Hex(),
 	)
 
 	var mailboxName string
 	var wasOverCapacity bool
-	switch log := log.(type) {
+	switch logType := logType.(type) {
 	case *keeper_registry_wrapper.KeeperRegistryKeepersUpdated:
 		wasOverCapacity = rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
 		mailboxName = "mbSyncRegistry"
@@ -45,7 +45,7 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 		wasOverCapacity = rs.mailRoom.mbUpkeepPerformed.Deliver(broadcast)
 		mailboxName = "mbUpkeepPerformed"
 	default:
-		logger.Warnf("unexpected log type %T", log)
+		logger.Warnf("unexpected log type %T", logType)
 	}
 	if wasOverCapacity {
 		logger.Errorf("RegistrySynchronizer: %v mailbox is over capacity - dropped the oldest unprocessed item", mailboxName)
