@@ -12,18 +12,15 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
 )
 
 type EthTxMeta struct {
-	JobID             int32
-	RequestID         common.Hash
-	RequestTxHash     common.Hash
-	MinConfirmations  cnull.Uint32
-	PipelineTaskRunID *uuid.UUID
+	JobID         int32
+	RequestID     common.Hash
+	RequestTxHash common.Hash
 }
 
 func (EthTxMeta) GormDataType() string {

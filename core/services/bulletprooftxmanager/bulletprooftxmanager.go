@@ -13,6 +13,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
@@ -269,6 +270,9 @@ type NewTx struct {
 	GasLimit       uint64
 	Meta           *EthTxMeta
 
+	MinConfirmations  null.Uint32
+	PipelineTaskRunID *uuid.UUID
+
 	Strategy TxStrategy
 }
 
@@ -281,8 +285,8 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 
 	value := 0
 	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
-		if newTx.Meta != nil && newTx.Meta.PipelineTaskRunID != nil {
-			err = tx.Raw(`SELECT * FROM eth_txes WHERE meta->>'PipelineTaskRunID' = ?`, newTx.Meta.PipelineTaskRunID).Scan(&etx).Error
+		if newTx.PipelineTaskRunID != nil {
+			err = tx.Raw(`SELECT * FROM eth_txes WHERE pipeline_task_run_id = ?`, newTx.PipelineTaskRunID).Scan(&etx).Error
 			if err != nil {
 				return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 			}
@@ -292,14 +296,13 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 				return nil
 			}
 		}
-
 		res := tx.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, min_confirmations, pipeline_task_run_id)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?
+?,?,?,?,?,'unstarted',NOW(),?,?,?,?
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject()).Scan(&etx)
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), newTx.MinConfirmations, newTx.PipelineTaskRunID).Scan(&etx)
 		err = res.Error
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")

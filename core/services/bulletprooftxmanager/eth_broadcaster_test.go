@@ -12,7 +12,6 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -119,8 +118,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Earlier
-		tr := uuid.NewV4()
-		b, err := json.Marshal(bulletprooftxmanager.EthTxMeta{PipelineTaskRunID: &tr})
+		tr := int32(99)
+		b, err := json.Marshal(bulletprooftxmanager.EthTxMeta{JobID: tr})
 		require.NoError(t, err)
 		earlierEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -190,7 +189,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		var m bulletprooftxmanager.EthTxMeta
 		err = json.Unmarshal(earlierEthTx.Meta, &m)
 		require.NoError(t, err)
-		assert.Equal(t, &tr, m.PipelineTaskRunID)
+		assert.Equal(t, tr, m.JobID)
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 

@@ -5,11 +5,14 @@ import (
 )
 
 const up56 = `
-CREATE INDEX eth_txes_pipeline_task_run_id_idx ON eth_txes ((meta ->> 'PipelineTaskRunID')) WHERE state = 'confirmed';
+ALTER TABLE eth_txes ADD COLUMN pipeline_task_run_id uuid UNIQUE;
+ALTER TABLE eth_txes ADD COLUMN min_confirmations integer;
 `
 
 const down56 = `
-DROP INDEX  eth_txes_pipeline_task_run_id_idx;
+DROP INDEX eth_txes_pipeline_task_run_id_idx;
+ALTER TABLE eth_txes DROP COLUMN pipeline_task_run_id;
+ALTER TABLE eth_txes DROP COLUMN min_confirmations;
 `
 
 func init() {

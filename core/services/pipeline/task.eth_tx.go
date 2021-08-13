@@ -123,22 +123,22 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
 	strategy := bulletprooftxmanager.SendEveryStrategy{}
 
-	var confirmations null.Uint32
-	if minConfirmations > 0 {
-		// Store the task run ID so we can resume the pipeline when tx is confirmed
-		confirmations = null.Uint32From(uint32(minConfirmations))
-		txMeta.PipelineTaskRunID = &t.uuid
-		txMeta.MinConfirmations = confirmations
-	}
-
-	_, err = t.txManager.CreateEthTransaction(t.db, bulletprooftxmanager.NewTx{
+	newTx := bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddr,
 		ToAddress:      common.Address(toAddr),
 		EncodedPayload: []byte(data),
 		GasLimit:       uint64(gasLimit),
 		Meta:           &txMeta,
 		Strategy:       strategy,
-	})
+	}
+
+	if minConfirmations > 0 {
+		// Store the task run ID so we can resume the pipeline when tx is confirmed
+		newTx.PipelineTaskRunID = &t.uuid
+		newTx.MinConfirmations = null.Uint32From(uint32(minConfirmations))
+	}
+
+	_, err = t.txManager.CreateEthTransaction(t.db, newTx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}
 	}

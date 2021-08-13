@@ -235,27 +235,23 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
 		id := uuid.NewV4()
 		tx1, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      cltest.NewAddress(),
-			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
-			Meta: &bulletprooftxmanager.EthTxMeta{
-				PipelineTaskRunID: &id,
-			},
-			Strategy: bulletprooftxmanager.SendEveryStrategy{},
+			FromAddress:       fromAddress,
+			ToAddress:         cltest.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			GasLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          bulletprooftxmanager.SendEveryStrategy{},
 		})
 		assert.NoError(t, err)
 
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
 		tx2, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      cltest.NewAddress(),
-			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
-			Meta: &bulletprooftxmanager.EthTxMeta{
-				PipelineTaskRunID: &id,
-			},
-			Strategy: bulletprooftxmanager.SendEveryStrategy{},
+			FromAddress:       fromAddress,
+			ToAddress:         cltest.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			GasLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          bulletprooftxmanager.SendEveryStrategy{},
 		})
 		assert.NoError(t, err)
 
