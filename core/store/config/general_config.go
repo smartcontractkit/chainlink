@@ -924,7 +924,6 @@ func (c *generalConfig) P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error
 		if c.viper.GetString(EnvVarName("P2PPeerID")) == "" {
 			var keys []p2pkey.EncryptedP2PKey
 			if c.ORM == nil {
-				c.p2ppeerIDmtx.Unlock()
 				logger.Warnw("db was not set on config, falling back to env")
 				return
 			}
