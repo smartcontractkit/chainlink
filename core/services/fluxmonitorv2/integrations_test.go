@@ -476,7 +476,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	"""
 		`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, 2*time.Second)
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
