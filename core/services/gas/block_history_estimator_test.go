@@ -684,6 +684,23 @@ func TestBlockHistoryEstimator_Block(t *testing.T) {
     "totalDifficulty": "0xf47e78ffffffffffffffffffffffffebbb0678",
     "timestamp": "0x609c674b",
     "transactions": [
+			{
+        "hash": "0x3f8e13d8c15d929bd3f7d99be94484eb82f328bbb76052c9464614c12f10b990",
+        "nonce": "0x2bb04",
+        "blockHash": "0x317cfd032b5d6657995f17fe768f7cc4ea0ada27ad421c4caa685a9071ea955c",
+        "blockNumber": "0xf47e79",
+        "transactionIndex": "0x0",
+        "from": "0x1438087186fdbfd4c256fa2df446921e30e54df8",
+        "to": "0x5870b0527dedb1cfbd9534343feda1a41ce47766",
+        "value": "0x0",
+        "gasPrice": "0x1",
+        "gas": "0x1",
+        "data": "0x0b61ba8554b40c84fe2c9b5aad2fb692bdc00a9ba7f87d0abd35c68715bb347440c841d9000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000910411107ae9ec4e54f9b9e76d2a269a75dfab916c1edb866159e152e370f1ca8f72e95bf922fa069af9d532bef4fee8c89a401a501c622d763e4944ecacad16b4ace8dd0d532124b7c376cb5b04e63c4bf43b704eeb7ca822ec4258d8b0c2b2f5ef3680b858d15bcdf2f3632ad9e92963f37234c51f809981f3d4e34519d1f853408bbbe015e9572f9fcd55e9c0c38333ff000000000000000000000000000000",
+        "input": "0x0b61ba8554b40c84fe2c9b5aad2fb692bdc00a9ba7f87d0abd35c68715bb347440c841d9000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000910411107ae9ec4e54f9b9e76d2a269a75dfab916c1edb866159e152e370f1ca8f72e95bf922fa069af9d532bef4fee8c89a401a501c622d763e4944ecacad16b4ace8dd0d532124b7c376cb5b04e63c4bf43b704eeb7ca822ec4258d8b0c2b2f5ef3680b858d15bcdf2f3632ad9e92963f37234c51f809981f3d4e34519d1f853408bbbe015e9572f9fcd55e9c0c38333ff000000000000000000000000000000",
+        "v": "0xeb",
+        "s": "0x7bbc91758d2485a0d97e92bc4f0c226bf961c8aeb7db59d152206995937cd907",
+        "r": "0xe34e3a2a8f3159238dc843250d4ae0507d12ef49dec7bcf3057e6bd7b8560ae"
+      },
       {
         "hash": "0x3f8e13d8c15d929bd3f7d99be94484eb82f328bbb76052c9464614c12f10b990",
         "nonce": "0x2bb04",
@@ -732,12 +749,16 @@ func TestBlockHistoryEstimator_Block(t *testing.T) {
 	assert.Equal(t, common.HexToHash("0x317cfd032b5d6657995f17fe768f7cc4ea0ada27ad421c4caa685a9071ea955c"), block.Hash)
 	assert.Equal(t, common.HexToHash("0xb47ab3b1dc5c2c090dcecdc744a65a279ea6bb8dec11fb3c247df4cc2f584848"), block.ParentHash)
 
-	require.Len(t, block.Transactions, 2)
+	require.Len(t, block.Transactions, 3)
 
-	assert.Equal(t, int64(0), block.Transactions[0].GasPrice.Int64())
-	assert.Equal(t, uint64(0), block.Transactions[0].GasLimit)
-	assert.Equal(t, big.NewInt(4566182400000), block.Transactions[1].GasPrice)
-	assert.Equal(t, uint64(2000000), block.Transactions[1].GasLimit)
+	assert.Equal(t, int64(1), block.Transactions[0].GasPrice.Int64())
+	assert.Equal(t, uint64(1), block.Transactions[0].GasLimit)
+
+	assert.Equal(t, int64(0), block.Transactions[1].GasPrice.Int64())
+	assert.Equal(t, uint64(0), block.Transactions[1].GasLimit)
+
+	assert.Equal(t, big.NewInt(4566182400000), block.Transactions[2].GasPrice)
+	assert.Equal(t, uint64(2000000), block.Transactions[2].GasLimit)
 }
 
 func TestBlockHistoryEstimator_EIP1559Block(t *testing.T) {
