@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm/clause"
@@ -197,6 +198,32 @@ func (orm *ORM) FindExternalInitiatorByName(iname string) (exi models.ExternalIn
 		return exi, err
 	}
 	return exi, orm.DB.First(&exi, "lower(name) = lower(?)", iname).Error
+}
+
+// GetOrSetConfigValue persists the configuration value if not already
+// persisted, always returning the value persisted to the DB.
+func (orm *ORM) GetOrSetConfigValue(field, value string) (string, error) {
+	name := config.EnvVarName(field)
+
+	tx := orm.DB.Begin()
+	defer tx.Rollback()
+
+	rows, err := tx.Raw(`
+INSERT INTO configurations (name, value, updated_at, created_at)
+VALUES (?, ?, now(), now())
+ON CONFLICT (name)
+DO NOTHING`,
+		name, value).Rows()
+	if err != nil {
+		return "", err
+	}
+	if rows.Next() {
+		oldValue := ""
+		return oldValue, rows.Scan(&oldValue)
+	}
+	tx.Commit()
+	config := models.Configuration{}
+	return config.Value, tx.First(&config, "name = ?", name).Error
 }
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt

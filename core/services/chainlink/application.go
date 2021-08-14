@@ -411,6 +411,25 @@ func setupConfig(cfg config.GeneralConfig, db *gorm.DB) {
 
 }
 
+var ErrNewChainID = errors.New("The ChainID has changed since last run, this is currently not supported")
+
+// Changes to ChainID are not supported, because various records are assumed to
+// represent on chain state.
+func validateCurrentChainID(store *strpkg.Store) error {
+	chainID := store.Config.ChainID().String()
+	currentChainID, err := store.GetOrSetConfigValue("ChainID", chainID)
+	if err != nil {
+		return err
+	}
+
+	if chainID != currentChainID {
+		logger.Errorw("ChainID change detected", "from", currentChainID, "to", chainID)
+		return ErrNewChainID
+	}
+
+	return nil
+}
+
 // Start all necessary services. If successful, nil will be returned.  Also
 // listens for interrupt signals from the operating system so that the
 // application can be properly closed before the application exits.
@@ -431,6 +450,10 @@ func (app *ChainlinkApplication) Start() error {
 		logger.ErrorIf(app.Stop())
 		app.Exiter(0)
 	}()
+
+	if err := validateCurrentChainID(app.Store); err != nil {
+		return err
+	}
 
 	// EthClient must be dialed first because it is required in subtasks
 	if err := app.ethClient.Dial(context.Background()); err != nil {
