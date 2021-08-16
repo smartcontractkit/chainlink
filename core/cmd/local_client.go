@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"go.uber.org/zap/zapcore"
 
 	gormpostgres "gorm.io/driver/postgres"
 
@@ -43,7 +44,6 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	clipkg "github.com/urfave/cli"
-	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 )
 
@@ -57,10 +57,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	err = cli.Config.SetLogLevel(context.Background(), zapcore.DebugLevel.String())
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 	if cli.Config.Dev() {
@@ -80,6 +76,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
+
+	err = cli.Config.SetLogLevel(context.Background(), zapcore.DebugLevel.String())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
 	store := app.GetStore()
 	keyStore := app.GetKeyStore()
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
