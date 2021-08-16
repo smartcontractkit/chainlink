@@ -1407,7 +1407,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewBroadcaster(nil, nil, nil, nil, nil)
+	lb := log.NewBroadcaster(nil, nil, nil, logger.Default, nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 
