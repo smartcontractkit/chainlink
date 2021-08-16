@@ -140,6 +140,9 @@ func (b *BlockHistoryEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt)
 	if !ok {
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
+	if gasPrice == nil {
+		return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+	}
 	return
 }
 
@@ -387,6 +390,12 @@ func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.
 	if tx.GasLimit == 0 {
+		return false
+	}
+	// NOTE: This really shouldn't be possible, but at least one node op has
+	// reported it happening on mainnet so we need to handle this case
+	if tx.GasPrice == nil {
+		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
 	return chainSpecificIsUsableTx(tx, minGasPriceWei, chainID)
