@@ -429,7 +429,7 @@ func (app *ChainlinkApplication) Start() error {
 		case <-sigs:
 		case <-app.shutdownSignal.Wait():
 		}
-		loggerPkg.ErrorIf(app.Stop())
+		app.logger.ErrorIf(app.Stop())
 		app.Exiter(0)
 	}()
 
@@ -443,11 +443,11 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	if err := app.FeedsService.Start(); err != nil {
-		loggerPkg.Infof("[Feeds Service] %v", err)
+		app.logger.Infof("[Feeds Service] %v", err)
 	}
 
 	for _, subservice := range app.subservices {
-		loggerPkg.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
+		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
 			return err
 		}
@@ -503,7 +503,7 @@ func (app *ChainlinkApplication) stop() error {
 	var merr error
 	app.shutdownOnce.Do(func() {
 		defer func() {
-			if err := loggerPkg.Sync(); err != nil {
+			if err := app.logger.Sync(); err != nil {
 				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() &&
 					stderr.Unwrap(err).Error() != "inappropriate ioctl for device" &&
 					stderr.Unwrap(err).Error() != "bad file descriptor" {
@@ -511,29 +511,29 @@ func (app *ChainlinkApplication) stop() error {
 				}
 			}
 		}()
-		loggerPkg.Info("Gracefully exiting...")
+		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
 
-		loggerPkg.Debug("Stopping HeadTracker...")
+		app.logger.Debug("Stopping HeadTracker...")
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
-			loggerPkg.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		loggerPkg.Debug("Stopping SessionReaper...")
+		app.logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		loggerPkg.Debug("Closing Store...")
+		app.logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
-		loggerPkg.Debug("Closing HealthChecker...")
+		app.logger.Debug("Closing HealthChecker...")
 		merr = multierr.Append(merr, app.HealthChecker.Close())
-		loggerPkg.Debug("Closing Feeds Service...")
+		app.logger.Debug("Closing Feeds Service...")
 		merr = multierr.Append(merr, app.FeedsService.Close())
 
-		loggerPkg.Info("Exited all services")
+		app.logger.Info("Exited all services")
 
 		app.started = false
 	})
@@ -665,7 +665,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *loggerPkg.Default, saveTasks)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *app.logger, saveTasks)
 	} else {
 		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
 		// TODO: Once all jobs have a pipeline this can be removed
@@ -679,7 +679,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	ctx context.Context,
 	run *pipeline.Run,
 ) (bool, error) {
-	return app.pipelineRunner.Run(ctx, run, *loggerPkg.Default, false)
+	return app.pipelineRunner.Run(ctx, run, *app.logger, false)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
