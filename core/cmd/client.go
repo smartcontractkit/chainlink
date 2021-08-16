@@ -71,19 +71,23 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
+	chainLogger := logger.CreateLogger(logger.Default.With(
+		"chainId", config.Chain().ID(),
+	))
+
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
+		ethClient, err = eth.NewClient(chainLogger, config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock)
+	return chainlink.NewApplication(chainLogger, config, ethClient, advisoryLock)
 }
 
 // Runner implements the Run method.

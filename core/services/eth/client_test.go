@@ -40,7 +40,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{})
+		ethClient, err := eth.NewClient(nil, wsUrl, nil, []url.URL{})
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient, err := eth.NewClient(wsUrl, nil, nil)
+		ethClient, err := eth.NewClient(nil, wsUrl, nil, nil)
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient, err := eth.NewClient(url, nil, nil)
+	ethClient, err := eth.NewClient(nil, url, nil, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url, nil, nil)
+			ethClient, err := eth.NewClient(nil, url, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url, nil, nil)
+			ethClient, err := eth.NewClient(nil, url, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -250,7 +250,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url, nil, nil)
+			ethClient, err := eth.NewClient(nil, url, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -284,7 +284,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient, err := eth.NewClient(url, nil, nil)
+	ethClient, err := eth.NewClient(nil, url, nil, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	defer server.Close()
 
 	secondaryUrl := *cltest.MustParseURL(server.URL)
-	ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{secondaryUrl, secondaryUrl})
+	ethClient, err := eth.NewClient(nil, wsUrl, nil, []url.URL{secondaryUrl, secondaryUrl})
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
