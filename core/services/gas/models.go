@@ -1,8 +1,10 @@
 package gas
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -155,9 +157,32 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type TxType uint8
+
+// NOTE: Need to roll out own unmarshaller since geth's hexutil.Uint64 does not
+// handle double zeroes e.g. 0x00
+func (txt *TxType) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, []byte(`"0x00"`)) {
+		data = []byte(`"0x0"`)
+	}
+	var hx hexutil.Uint64
+	if err := (&hx).UnmarshalJSON(data); err != nil {
+		return err
+	}
+	if hx > math.MaxUint8 {
+		return errors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
+	}
+	*txt = TxType(hx)
+	return nil
+}
+
 type transactionInternal struct {
-	GasPrice *hexutil.Big    `json:"gasPrice"`
-	Gas      *hexutil.Uint64 `json:"gas"`
+	GasPrice             *hexutil.Big    `json:"gasPrice"`
+	Gas                  *hexutil.Uint64 `json:"gas"`
+	MaxFeePerGas         *hexutil.Big    `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *hexutil.Big    `json:"maxPriorityFeePerGas"`
+	Type                 *TxType         `json:"type"`
+	Hash                 common.Hash     `json:"hash"`
 }
 
 // Transaction represents an ethereum transaction
@@ -165,9 +190,15 @@ type transactionInternal struct {
 // gas used, which can occur on other chains.
 // This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
 type Transaction struct {
-	GasPrice *big.Int
-	GasLimit uint64
+	GasPrice             *big.Int
+	GasLimit             uint64
+	MaxFeePerGas         *big.Int
+	MaxPriorityFeePerGas *big.Int
+	Type                 TxType
+	Hash                 common.Hash
 }
+
+const LegacyTxType = TxType(0x0)
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
@@ -178,9 +209,17 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	if ti.Gas == nil {
 		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
 	}
+	if ti.Type == nil {
+		tpe := LegacyTxType
+		ti.Type = &tpe
+	}
 	*t = Transaction{
 		(*big.Int)(ti.GasPrice),
 		uint64(*ti.Gas),
+		(*big.Int)(ti.MaxFeePerGas),
+		(*big.Int)(ti.MaxPriorityFeePerGas),
+		*ti.Type,
+		ti.Hash,
 	}
 	return nil
 }
