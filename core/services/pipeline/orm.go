@@ -103,13 +103,13 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 		// Lock the current run. This prevents races with /v2/resume
 		sql := `SELECT id FROM pipeline_runs WHERE id = $1 FOR UPDATE;`
 		if _, err = tx.Exec(sql, run.ID); err != nil {
-			return restart, err
+			return restart, errors.Wrap(err, "StoreRun")
 		}
 
 		taskRuns := []TaskRun{}
 		// Reload task runs, we want to check for any changes while the run was ongoing
 		if err = sqlx.Select(tx, &taskRuns, `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`, run.ID); err != nil {
-			return restart, err
+			return restart, errors.Wrap(err, "StoreRun")
 		}
 
 		// Construct a temporary run so we can use r.ByDotID
@@ -136,16 +136,16 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 		// Suspend the run
 		run.State = RunStatusSuspended
 		if _, err = sqlx.NamedExec(tx, `UPDATE pipeline_runs SET state = :state`, run); err != nil {
-			return restart, err
+			return false, errors.Wrap(err, "StoreRun")
 		}
 	} else {
 		// Simply finish the run, no need to do any sort of locking
 		if run.Outputs.Val == nil || len(run.Errors) == 0 {
-			return restart, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
+			return false, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 		}
 		sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`
 		if _, err = sqlx.NamedExec(tx, sql, run); err != nil {
-			return restart, err
+			return false, errors.Wrap(err, "StoreRun")
 		}
 	}
 
@@ -162,15 +162,15 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 	var rows *sqlx.Rows
 	rows, err = sqlx.NamedQuery(tx, sql, run.PipelineTaskRuns)
 	if err != nil {
-		return restart, err
+		return false, errors.Wrap(err, "StoreRun")
 	}
 	taskRuns := []TaskRun{}
 	if err = sqlx.StructScan(rows, &taskRuns); err != nil {
-		return restart, err
+		return false, errors.Wrap(err, "StoreRun")
 	}
 	// replace with new task run data
 	run.PipelineTaskRuns = taskRuns
-	return restart, err
+	return false, nil
 }
 
 func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
@@ -189,7 +189,7 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run
 		// Update the task with result
 		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE id = $1`
 		if _, err = tx.Exec(sql, taskID, JSONSerializable{Val: result}, time.Now()); err != nil {
-			return err
+			return errors.Wrap(err, "UpdateTaskRunResult")
 		}
 
 		if run.State == RunStatusSuspended {
@@ -199,7 +199,7 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run
 			// We're going to restart the run, so set it back to "in progress"
 			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
 			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
-				return err
+				return errors.Wrap(err, "UpdateTaskRunResult")
 			}
 
 			// NOTE: can't join and preload in a single query unless explicitly listing all the struct fields...
