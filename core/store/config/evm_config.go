@@ -270,7 +270,7 @@ func (c *evmConfig) SetEvmGasPriceDefault(value *big.Int) error {
 		return errors.Errorf("cannot get runtime store; %T is not *generalConfig", c.GeneralConfig)
 	}
 	if concreteGCfg.ORM == nil {
-		return errors.New("No runtime store installed")
+		return errors.New("SetEvmGasPriceDefault: No runtime store installed")
 	}
 	return concreteGCfg.ORM.SetConfigValue("EvmGasPriceDefault", value)
 }
