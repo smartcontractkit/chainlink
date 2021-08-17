@@ -309,3 +309,47 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	require.True(t, task.FinishedAt.Valid)
 	require.Equal(t, &pipeline.JSONSerializable{Val: "foo"}, task.Output)
 }
+
+func Test_PipelineORM_DeleteRun(t *testing.T) {
+	db, orm := setupORM(t)
+
+	run := mustInsertAsyncRun(t, orm, db)
+
+	sqlxDB := postgres.UnwrapGormDB(db)
+
+	now := time.Now()
+
+	run.PipelineTaskRuns = []pipeline.TaskRun{
+		// pending task
+		{
+			ID:            uuid.NewV4(),
+			PipelineRunID: run.ID,
+			Type:          "bridge",
+			DotID:         "ds1",
+			CreatedAt:     now,
+			FinishedAt:    null.Time{},
+		},
+		// finished task
+		{
+			ID:            uuid.NewV4(),
+			PipelineRunID: run.ID,
+			Type:          "median",
+			DotID:         "answer2",
+			Output:        &pipeline.JSONSerializable{Val: 1},
+			CreatedAt:     now,
+			FinishedAt:    null.TimeFrom(now),
+		},
+	}
+	restart, err := orm.StoreRun(sqlxDB, run)
+	require.NoError(t, err)
+	// no new data, so we don't need a restart
+	require.Equal(t, false, restart)
+	// the run is paused
+	require.Equal(t, pipeline.RunStatusSuspended, run.State)
+
+	err = orm.DeleteRun(run.ID)
+	require.NoError(t, err)
+
+	_, err = orm.FindRun(run.ID)
+	require.Error(t, err, "not found")
+}

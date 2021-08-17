@@ -459,7 +459,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	preinsert := pipeline.RequiresPreInsert()
 
 	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
-		// avoid an extra db write if there is no async tasks present or if this is a resumed run
+		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()
 			// initialize certain task params
@@ -493,24 +493,21 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 
 	for {
-		_, err := r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
-		if err != nil {
+		if _, err = r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l); err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
 		if preinsert {
-			var restart bool
-
-			err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
-				restart, err = r.orm.StoreRun(postgres.UnwrapGorm(tx), run)
-				if err != nil {
-					return err
+			// if run failed and it's failEarly, skip StoreRun and instead delete all trace of it
+			if run.FailEarly {
+				if err = r.orm.DeleteRun(run.ID); err != nil {
+					return false, errors.Wrap(err, "Run")
 				}
-				return nil
-			})
+				return false, nil
+			}
 
-			// TODO: how do we FailEarly with async since there's already state in the db? do we update the state or clear it out?
-
+			var restart bool
+			restart, err = r.orm.StoreRun(postgres.UnwrapGormDB(r.orm.DB()), run)
 			if err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
@@ -527,17 +524,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			if run.FailEarly {
 				return false, nil
 			}
-			err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
-				if _, err = r.orm.InsertFinishedRun(postgres.UnwrapGorm(tx), *run, saveSuccessfulTaskRuns); err != nil {
-					return errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
-				}
-				return nil
-			})
 
-			if err != nil {
-				return false, err
+			if _, err = r.orm.InsertFinishedRun(postgres.UnwrapGormDB(r.orm.DB()), *run, saveSuccessfulTaskRuns); err != nil {
+				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
-
 		}
 
 		r.runFinished(run)

@@ -22,6 +22,7 @@ var (
 type ORM interface {
 	CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
 	CreateRun(db postgres.Queryer, run *Run) (err error)
+	DeleteRun(id int64) error
 	StoreRun(db postgres.Queryer, run *Run) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
 	InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
@@ -173,8 +174,16 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 	return false, nil
 }
 
+// Used for cleaning up a run that failed and is marked failEarly (should leave no trace of the run)
+func (o *orm) DeleteRun(id int64) error {
+	db := postgres.UnwrapGormDB(o.db)
+	// NOTE: this will cascade and wipe pipeline_task_runs too
+	_, err := db.Exec(`DELETE FROM pipeline_runs WHERE id = $1`, id)
+	return err
+}
+
 func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
-	err = postgres.SqlxTransaction(context.Background(), postgres.UnwrapGorm(o.db), func(tx *sqlx.Tx) error {
+	err = postgres.SqlxTransaction(context.Background(), postgres.UnwrapGormDB(o.db), func(tx *sqlx.Tx) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
 		FROM pipeline_runs

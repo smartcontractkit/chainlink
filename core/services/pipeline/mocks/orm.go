@@ -76,6 +76,20 @@ func (_m *ORM) DB() *gorm.DB {
 	return r0
 }
 
+// DeleteRun provides a mock function with given fields: id
+func (_m *ORM) DeleteRun(id int64) error {
+	ret := _m.Called(id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64) error); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteRunsOlderThan provides a mock function with given fields: threshold
 func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
 	ret := _m.Called(threshold)
