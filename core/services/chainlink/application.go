@@ -235,7 +235,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
-	txManager.ResumeCallback(pipelineRunner.ResumeRun)
+	txManager.RegisterResumeCallback(pipelineRunner.ResumeRun)
 
 	var (
 		delegates = map[job.Type]job.Delegate{

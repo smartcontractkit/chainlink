@@ -86,7 +86,7 @@ type TxManager interface {
 	Trigger(addr common.Address)
 	CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
-	ResumeCallback(fn func(id uuid.UUID, value interface{}) error)
+	RegisterResumeCallback(fn func(id uuid.UUID, value interface{}) error)
 }
 
 type BulletproofTxManager struct {
@@ -112,7 +112,7 @@ type BulletproofTxManager struct {
 	ethResender *EthResender
 }
 
-func (b *BulletproofTxManager) ResumeCallback(fn func(id uuid.UUID, value interface{}) error) {
+func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, value interface{}) error) {
 	b.resumeCallback = fn
 }
 
@@ -511,7 +511,7 @@ func (n *NullTxManager) Trigger(common.Address)                         { panic(
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error                                                { return nil }
-func (n *NullTxManager) Ready() error                                                  { return nil }
-func (n *NullTxManager) GetGasEstimator() gas.Estimator                                { return nil }
-func (n *NullTxManager) ResumeCallback(fn func(id uuid.UUID, value interface{}) error) {}
+func (n *NullTxManager) Healthy() error                                                        { return nil }
+func (n *NullTxManager) Ready() error                                                          { return nil }
+func (n *NullTxManager) GetGasEstimator() gas.Estimator                                        { return nil }
+func (n *NullTxManager) RegisterResumeCallback(fn func(id uuid.UUID, value interface{}) error) {}

@@ -108,8 +108,8 @@ func (_m *TxManager) Ready() error {
 	return r0
 }
 
-// ResumeCallback provides a mock function with given fields: fn
-func (_m *TxManager) ResumeCallback(fn func(uuid.UUID, interface{}) error) {
+// RegisterResumeCallback provides a mock function with given fields: fn
+func (_m *TxManager) RegisterResumeCallback(fn func(uuid.UUID, interface{}) error) {
 	_m.Called(fn)
 }
 
