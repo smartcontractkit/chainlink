@@ -400,7 +400,7 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 	}
 	uri, err := url.Parse(s)
 	if err != nil {
-		logger.Error("invalid database backup url %s", s)
+		logger.Errorf("invalid database backup url %s", s)
 		return nil
 	}
 	return uri
