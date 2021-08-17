@@ -217,6 +217,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
 		ChainId:            chainID.Int64(),
+		ChainIds:           []int64{chainID.Int64()},
 		AccountAddresses:   []string{sendingKey.Address.String()},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
