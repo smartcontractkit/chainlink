@@ -205,11 +205,8 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
 	}
 
-	txCtx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
 	var etx bulletprooftxmanager.EthTx
-	err = executer.orm.WithTransaction(txCtx, func(ctx context.Context) error {
+	err = executer.orm.WithTransaction(func(ctx context.Context) error {
 		etx, err = executer.orm.CreateEthTransactionForUpkeep(ctx, upkeep, performTxData)
 		if err != nil {
 			return errors.Wrap(err, "failed to create eth_tx for upkeep")

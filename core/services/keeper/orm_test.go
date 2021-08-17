@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 )
 
@@ -361,10 +360,8 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 
 	var ethTX bulletprooftxmanager.EthTx
 	var err error
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
 	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
-	err = orm.WithTransaction(ctx, func(ctx context.Context) error {
+	err = orm.WithTransaction(func(ctx context.Context) error {
 		txm.On("CreateEthTransaction", mock.IsType(store.DB), fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,

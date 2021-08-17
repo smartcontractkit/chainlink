@@ -30,8 +30,8 @@ func NewORM(db *gorm.DB, txm transmitter, config Config, strategy bulletprooftxm
 }
 
 // WithTransaction wraps the given handler into transaction context
-func (korm ORM) WithTransaction(ctx context.Context, cb func(ctx context.Context) error) error {
-	return postgres.NewGormTransactionManager(korm.DB).TransactWithContext(ctx, cb)
+func (korm ORM) WithTransaction(cb func(ctx context.Context) error) error {
+	return postgres.NewGormTransactionManager(korm.DB).Transact(cb)
 }
 
 func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error) {
