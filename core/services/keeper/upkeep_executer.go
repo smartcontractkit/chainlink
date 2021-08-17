@@ -205,9 +205,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
 	}
 
-	// postgres.DefaultQueryCtx() returns the same context with the same deadline.
-	// Just to avoid mixing store layer and service one the default context is used here.
-	txCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	txCtx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
 	var etx bulletprooftxmanager.EthTx
@@ -225,7 +223,6 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 			return errors.Wrap(err, "failed to set last run height for upkeep")
 		}
 
-		// TODO: Pass context instead of *gorm.DB object. Here we are sure the context contains transaction object.
 		_, err = executer.pr.InsertFinishedRun(postgres.TxFromContext(ctx, executer.orm.DB), pipeline.Run{
 			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: executer.job.PipelineSpecID,

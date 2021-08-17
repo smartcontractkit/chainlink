@@ -12,7 +12,6 @@ import (
 )
 
 // ORM implements ORM layer using PostgreSQL
-// TODO: Create an ORM interface and separate postgres implementation from this interface
 type ORM struct {
 	DB       *gorm.DB
 	txm      transmitter
