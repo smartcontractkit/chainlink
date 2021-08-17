@@ -206,8 +206,7 @@ func (r *runner) ExecuteRun(
 		return run, nil, err
 	}
 
-	// TODO: do this HasAsync check earlier
-	if pipeline.HasAsync() && run.Pending {
+	if run.Pending {
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
@@ -457,11 +456,11 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 		return false, err
 	}
 
-	async := pipeline.HasAsync()
+	preinsert := pipeline.RequiresPreInsert()
 
 	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
 		// avoid an extra db write if there is no async tasks present or if this is a resumed run
-		if async && run.ID == 0 {
+		if preinsert && run.ID == 0 {
 			now := time.Now()
 			// initialize certain task params
 			for _, task := range pipeline.Tasks {
@@ -499,7 +498,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
-		if async {
+		if preinsert {
 			var restart bool
 
 			err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {

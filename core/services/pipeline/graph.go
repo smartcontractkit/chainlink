@@ -119,7 +119,7 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
-func (p *Pipeline) HasAsync() bool {
+func (p *Pipeline) RequiresPreInsert() bool {
 	for _, task := range p.Tasks {
 		switch task.Type() {
 		case TaskTypeBridge:
