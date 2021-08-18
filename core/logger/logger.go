@@ -42,6 +42,16 @@ func (l *Logger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+func (l *Logger) With(args ...interface{}) *Logger {
+	newLogger := CreateLogger(l.SugaredLogger.With(args...))
+	newLogger.Orm = l.Orm
+	newLogger.lvl = l.lvl
+	newLogger.dir = l.dir
+	newLogger.jsonConsole = l.jsonConsole
+	newLogger.toDisk = l.toDisk
+	return newLogger
+}
+
 // WarnIf logs the error if present.
 func (l *Logger) WarnIf(err error) {
 	if err != nil {

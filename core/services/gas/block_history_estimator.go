@@ -83,7 +83,7 @@ func NewBlockHistoryEstimator(ethClient eth.Client, config Config) Estimator {
 		cancel,
 		nil,
 		sync.RWMutex{},
-		logger.CreateLogger(logger.Default.With("id", "block_history_estimator")),
+		logger.Default.With("id", "block_history_estimator"),
 	}
 
 	return b
