@@ -62,7 +62,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestEVMConfig) vrfUn
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	ec := new(eth_mocks.Client)
-	hb := headtracker.NewHeadBroadcaster()
+	hb := headtracker.NewHeadBroadcaster(logger.Default)
 
 	// Don't mock db interactions
 	eb := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)

@@ -32,6 +32,7 @@ type (
 	registrations struct {
 		subscribers map[uint64]*subscribers
 		decoders    map[common.Address]ParseLogFunc
+		logger      *logger.Logger
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
@@ -55,10 +56,11 @@ type (
 	}
 )
 
-func newRegistrations() *registrations {
+func newRegistrations(logger *logger.Logger) *registrations {
 	return &registrations{
 		subscribers: make(map[uint64]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
+		logger:      logger,
 	}
 }
 
@@ -152,7 +154,7 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 			}
 
 			for _, log := range logsPerBlock.Logs {
-				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders)
+				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders, r.logger)
 			}
 		}
 	}
@@ -249,7 +251,11 @@ func (r *subscribers) isAddressRegistered(address common.Address) bool {
 	return exists
 }
 
-func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts map[LogBroadcastAsKey]struct{}, decoders map[common.Address]ParseLogFunc) {
+func (r *subscribers) sendLog(log types.Log, latestHead models.Head,
+	broadcasts map[LogBroadcastAsKey]struct{},
+	decoders map[common.Address]ParseLogFunc,
+	logger *logger.Logger) {
+
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
 	for listener, metadata := range r.handlers[log.Address][log.Topics[0]] {
@@ -281,7 +287,8 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 		}
 
 		logger.Debugw("LogBroadcaster: Sending out log",
-			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "address", log.Address, "latestBlockNumber", latestBlockNumber)
+			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
+			"address", log.Address, "latestBlockNumber", latestBlockNumber)
 
 		wg.Add(1)
 		go func() {

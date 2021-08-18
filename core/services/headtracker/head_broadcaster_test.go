@@ -40,7 +40,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hr := headtracker.NewHeadBroadcaster()
+	hr := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(store.DB)
 	ht := headtracker.NewHeadTracker(logger, ethClient, cfg, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())

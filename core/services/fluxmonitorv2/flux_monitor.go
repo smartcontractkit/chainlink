@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -204,11 +203,9 @@ func NewFromJobSpec(
 		return nil, err
 	}
 
-	fmLogger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", jobSpec.ID,
-			"contract", fmSpec.ContractAddress.Hex(),
-		),
+	fmLogger := logger.Default.With(
+		"jobID", jobSpec.ID,
+		"contract", fmSpec.ContractAddress.Hex(),
 	)
 
 	pollManager, err := NewPollManager(
@@ -636,6 +633,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	if logRoundID < mostRecentRoundID {
+		newRoundLogger.Debugf("Received an older round log - a possible reorg, hence deleting round ids from %v to %v", logRoundID, mostRecentRoundID)
 		err = fm.orm.DeleteFluxMonitorRoundsBackThrough(fm.contractAddress, logRoundID)
 		if err != nil {
 			newRoundLogger.Errorf("error deleting reorged Flux Monitor rounds from DB: %v", err)
@@ -727,7 +725,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		return
 	}
 
-	if !fm.isValidSubmission(logger.Default.SugaredLogger, answer, started) {
+	if !fm.isValidSubmission(newRoundLogger, answer, started) {
 		return
 	}
 
@@ -988,7 +986,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 
 // If the answer is outside the allowable range, log an error and don't submit.
 // to avoid an onchain reversion.
-func (fm *FluxMonitor) isValidSubmission(l *zap.SugaredLogger, answer decimal.Decimal, started time.Time) bool {
+func (fm *FluxMonitor) isValidSubmission(l *logger.Logger, answer decimal.Decimal, started time.Time) bool {
 	if fm.submissionChecker.IsValid(answer) {
 		return true
 	}

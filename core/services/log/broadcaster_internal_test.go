@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -72,7 +73,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
 	dborm := NewORM(db)
-	lb := NewBroadcaster(dborm, ec, tc{}, nil)
+	lb := NewBroadcaster(dborm, ec, tc{}, logger.Default, nil)
 	lb.Start()
 	defer lb.Close()
 

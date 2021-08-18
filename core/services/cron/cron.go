@@ -25,11 +25,9 @@ func NewCronFromJobSpec(
 	jobSpec job.Job,
 	pipelineRunner pipeline.Runner,
 ) (*Cron, error) {
-	cronLogger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", jobSpec.ID,
-			"schedule", jobSpec.CronSpec.CronSchedule,
-		),
+	cronLogger := logger.Default.With(
+		"jobID", jobSpec.ID,
+		"schedule", jobSpec.CronSpec.CronSchedule,
 	)
 
 	return &Cron{

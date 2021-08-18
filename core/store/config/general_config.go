@@ -400,7 +400,7 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 	}
 	uri, err := url.Parse(s)
 	if err != nil {
-		logger.Error("invalid database backup url %s", s)
+		logger.Errorf("invalid database backup url %s", s)
 		return nil
 	}
 	return uri
@@ -804,7 +804,7 @@ func (c *generalConfig) LogLevel() LogLevel {
 // SetLogLevel saves a runtime value for the default logger level
 func (c *generalConfig) SetLogLevel(ctx context.Context, value string) error {
 	if c.ORM == nil {
-		return errors.New("No runtime store installed")
+		return errors.New("SetLogLevel: No runtime store installed")
 	}
 	var ll LogLevel
 	err := ll.Set(value)
@@ -835,7 +835,7 @@ func (c *generalConfig) LogSQLStatements() bool {
 // SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
 func (c *generalConfig) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
 	if c.ORM == nil {
-		return errors.New("No runtime store installed")
+		return errors.New("SetLogSQLStatements: No runtime store installed")
 	}
 
 	return c.ORM.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
