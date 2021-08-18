@@ -21,11 +21,13 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -379,15 +381,33 @@ func assertNoSubmission(t *testing.T,
 
 // assertPipelineRunCreated checks that a pipeline exists for a given round and
 // verifies the answer
-func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) {
+func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) pipeline.Run {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
 	require.NoError(t, db.Where("round_id = ?", roundID).Find(&stats).Error)
-
+	if stats.ID == 0 {
+		t.Fatalf("Stats for round id: %v not found!", roundID)
+	}
+	require.True(t, stats.PipelineRunID.Valid)
 	// Verify the pipeline run data
 	run := pipeline.Run{}
-	require.NoError(t, db.Find(&run, stats.PipelineRunID).Error, "runID %v", stats.PipelineRunID)
+	require.NoError(t, db.Find(&run, stats.PipelineRunID.Int64).Error, "runID %v", stats.PipelineRunID)
 	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
+	return run
+}
+
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, pipelineSpecID int32, blockNumber uint64) {
+	t.Helper()
+	logger.Infof("Waiting for log on block: %v", blockNumber)
+
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
+		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
+		require.NotNil(t, block)
+		consumed, err := log.NewORM(db).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
+		require.NoError(t, err)
+		return consumed
+	}, cltest.DBWaitTimeout).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -407,16 +427,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	})
 	require.NoError(t, app.Start())
 
-	// Create mock server
-	// We expect metadata of:
-	//  latestAnswer:nil updatedAt:nil // First call
-	//  latestAnswer:100 updatedAt:50
-	//  latestAnswer:103 updatedAt:60
 	type k struct{ latestAnswer, updatedAt string }
-	expectedMeta := map[k]struct{}{
-		{"100", "50"}: {},
-		{"103", "60"}: {},
-	}
+	expectedMeta := map[k]int{}
+
 	reportPrice := int64(100)
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 		generatePriceResponseFn(&reportPrice),
@@ -426,7 +439,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			var m models.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-				delete(expectedMeta, k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()})
+				key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
+				expectedMeta[key] = expectedMeta[key] + 1
 			}
 		},
 	)
@@ -451,7 +465,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	threshold = 2.0
 	absoluteThreshold = 0.0
 
-	idleTimerPeriod = "1s"
+	idleTimerPeriod = "10s"
 	idleTimerDisabled = false
 
 	pollTimerPeriod = "%s"
@@ -465,7 +479,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	"""
 		`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, 2*time.Second)
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
@@ -479,8 +493,11 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
+	logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
+
 	assert.Equal(t, atomic.LoadInt64(&reportPrice), answer,
 		"failed to report correct price to contract")
+
 	checkSubmission(t,
 		answerParams{
 			fa:              &fa,
@@ -493,14 +510,26 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance,
 		receiptBlock,
 	)
-	assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
+	run := assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
+	fa.backend.Commit()
+	fa.backend.Commit()
+
+	// Need to wait until NewRound log is consumed - otherwise there is a chance
+	// it will arrive after the next answer is submitted, and cause
+	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
+	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 5)
+
+	logger.Info("Updating price to 103")
 	// Change reported price to a value outside the deviation
 	reportPrice = int64(103)
 	receiptBlock, answer = awaitSubmission(t, submissionReceived)
 
+	logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
+
 	assert.Equal(t, atomic.LoadInt64(&reportPrice), answer,
 		"failed to report correct price to contract")
+
 	checkSubmission(t,
 		answerParams{
 			fa:              &fa,
@@ -515,10 +544,18 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	)
 	assertPipelineRunCreated(t, app.Store.DB, 2, float64(103))
 
+	// Need to wait until NewRound log is consumed - otherwise there is a chance
+	// it will arrive after the next answer is submitted, and cause
+	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
+	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 8)
+
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)
 	assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
-	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+
+	assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
+	assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
+	assert.Greater(t, expectedMeta[k{"103", "80"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {

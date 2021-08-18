@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -182,17 +183,20 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		logger.Errorf("RegistrySynchronizer: invariant violation, expected UpkeepPerformed log but got %T", log)
 		return
 	}
+
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	db := rs.orm.DB.WithContext(ctx)
+
 	// set last run to 0 so that keeper can resume checkUpkeep()
-	err = rs.orm.SetLastRunHeightForUpkeepOnJob(db, rs.job.ID, log.Id.Int64(), 0)
+	err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
 	if err != nil {
 		logger.Error(err)
 		return
 	}
+
 	ctx, cancel = postgres.DefaultQueryCtx()
 	defer cancel()
+
 	err = rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast)
 	logger.ErrorIf(errors.Wrapf(err, "RegistrySynchronizer: unable to mark KeeperRegistryUpkeepPerformed log as consumed, jobID: %d, log: %v", rs.job.ID, broadcast.String()))
 }

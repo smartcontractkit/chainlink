@@ -12,6 +12,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// RegistrySynchronizer conforms to the Service, Listener, and HeadReliable interfaces
+var _ job.Service = (*RegistrySynchronizer)(nil)
+var _ log.Listener = (*RegistrySynchronizer)(nil)
+
+type RegistrySynchronizer struct {
+	chStop           chan struct{}
+	contract         *keeper_registry_wrapper.KeeperRegistry
+	interval         time.Duration
+	job              job.Job
+	jrm              job.ORM
+	logBroadcaster   log.Broadcaster
+	mailRoom         MailRoom
+	minConfirmations uint64
+	orm              ORM
+	wgDone           sync.WaitGroup
+	utils.StartStopOnce
+}
+
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
 type MailRoom struct {
 	mbUpkeepCanceled   *utils.Mailbox
@@ -48,24 +66,6 @@ func NewRegistrySynchronizer(
 		StartStopOnce:    utils.StartStopOnce{},
 		wgDone:           sync.WaitGroup{},
 	}
-}
-
-// RegistrySynchronizer conforms to the Service, Listener, and HeadRelayable interfaces
-var _ job.Service = (*RegistrySynchronizer)(nil)
-var _ log.Listener = (*RegistrySynchronizer)(nil)
-
-type RegistrySynchronizer struct {
-	chStop           chan struct{}
-	contract         *keeper_registry_wrapper.KeeperRegistry
-	interval         time.Duration
-	job              job.Job
-	jrm              job.ORM
-	logBroadcaster   log.Broadcaster
-	mailRoom         MailRoom
-	minConfirmations uint64
-	orm              ORM
-	wgDone           sync.WaitGroup
-	utils.StartStopOnce
 }
 
 func (rs *RegistrySynchronizer) Start() error {

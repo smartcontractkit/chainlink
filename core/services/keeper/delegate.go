@@ -13,6 +13,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// To make sure Delegate struct implements job.Delegate interface
+var _ job.Delegate = (*Delegate)(nil)
+
 type transmitter interface {
 	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
@@ -28,8 +31,7 @@ type Delegate struct {
 	logBroadcaster  log.Broadcaster
 }
 
-var _ job.Delegate = (*Delegate)(nil)
-
+// NewDelegate is the constructor of Delegate
 func NewDelegate(
 	db *gorm.DB,
 	txm transmitter,
@@ -52,11 +54,13 @@ func NewDelegate(
 	}
 }
 
+// JobType returns job type
 func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
+func (Delegate) AfterJobCreated(spec job.Job) {}
+
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
