@@ -681,6 +681,54 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
+		{
+			Name:  "chains",
+			Usage: "Commands for handling chain configuration",
+			Subcommands: cli.Commands{
+				{
+					Name:  "evm",
+					Usage: "Commands for handling EVM chains",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new EVM chain",
+							Action: client.CreateChain,
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete an EVM chain",
+							Action: client.RemoveChain,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all chains",
+							Action: client.IndexChains,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:  "nodes",
+			Usage: "Commands for handling node configuration",
+			Subcommands: cli.Commands{
+				{
+					Name:   "create",
+					Usage:  "Create a new node",
+					Action: client.CreateNode,
+				},
+				{
+					Name:   "delete",
+					Usage:  "Delete a node",
+					Action: client.RemoveNode,
+				},
+				{
+					Name:   "list",
+					Usage:  "List all nodes",
+					Action: client.IndexNodes,
+				},
+			},
+		},
 	}...)
 	return app
 }

@@ -171,8 +171,10 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 			diff := maxLabelLength - len(field)
 			spaces := strings.Repeat(" ", diff)
 			line := fmt.Sprintf("%v: %v%v", field, spaces, row[i])
-			if len(line) > maxLineLength {
-				maxLineLength = len(line)
+			for _, l := range strings.Split(line, "\n") {
+				if len(l) > maxLineLength {
+					maxLineLength = len(l)
+				}
 			}
 			lines = append(lines, line)
 		}
