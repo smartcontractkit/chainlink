@@ -167,10 +167,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	v2BootstrapPeers := d.config.P2PV2Bootstrappers()
 
-	loggerWith := logger.CreateLogger(logger.Default.With(
+	loggerWith := logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
 		"jobName", jobSpec.Name.ValueOrZero(),
-		"jobID", jobSpec.ID))
+		"jobID", jobSpec.ID,
+	)
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})

@@ -71,9 +71,9 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
-	chainLogger := logger.CreateLogger(logger.Default.With(
+	chainLogger := logger.Default.With(
 		"chainId", config.Chain().ID(),
-	))
+	)
 
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
