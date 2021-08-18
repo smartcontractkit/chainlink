@@ -274,10 +274,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	logger := logger.CreateLogger(logger.Default.With(
+	logger := logger.Default.With(
 		"jobName", l.job.PipelineSpec.JobName,
 		"jobID", l.job.PipelineSpec.JobID,
-	))
+	)
 
 	l.shutdownWaitGroup.Add(1)
 	go func() {

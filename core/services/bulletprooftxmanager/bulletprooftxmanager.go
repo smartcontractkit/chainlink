@@ -90,6 +90,7 @@ type TxManager interface {
 type BulletproofTxManager struct {
 	utils.StartStopOnce
 
+	logger           *logger.Logger
 	db               *gorm.DB
 	ethClient        eth.Client
 	config           Config
@@ -108,9 +109,12 @@ type BulletproofTxManager struct {
 	ethResender *EthResender
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster) *BulletproofTxManager {
+func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore,
+	advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, logger *logger.Logger) *BulletproofTxManager {
+
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
+		logger:           logger,
 		db:               db,
 		ethClient:        ethClient,
 		config:           config,
@@ -124,12 +128,12 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 	if config.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(db, ethClient, defaultResenderPollInterval, config)
 	} else {
-		logger.Info("EthResender: Disabled")
+		b.logger.Info("EthResender: Disabled")
 	}
 	if config.EthTxReaperThreshold() > 0 {
 		b.reaper = NewReaper(db, config)
 	} else {
-		logger.Info("EthTxReaper: Disabled")
+		b.logger.Info("EthTxReaper: Disabled")
 	}
 	b.gasEstimator = gas.NewEstimator(ethClient, config)
 
@@ -143,10 +147,10 @@ func (b *BulletproofTxManager) Start() (merr error) {
 			return errors.Wrap(err, "BulletproofTxManager: failed to load keys")
 		}
 
-		logger.Debugw("BulletproofTxManager: booting", "keys", keys)
+		b.logger.Debugw("BulletproofTxManager: booting", "keys", keys)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator, b.logger)
+		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator, b.logger)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
@@ -204,25 +208,25 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case <-b.chStop:
-			logger.ErrorIfCalling(eb.Close)
-			logger.ErrorIfCalling(ec.Close)
+			b.logger.ErrorIfCalling(eb.Close)
+			b.logger.ErrorIfCalling(ec.Close)
 			return
 		case <-keysChanged:
 			keys, err := b.keyStore.AllKeys()
 			if err != nil {
-				logger.Fatalf("BulletproofTxManager: expected keystore to be unlocked: %s", err.Error())
+				b.logger.Fatalf("BulletproofTxManager: expected keystore to be unlocked: %s", err.Error())
 			}
 
-			logger.Debugw("BulletproofTxManager: keys changed, reloading", "keys", keys)
+			b.logger.Debugw("BulletproofTxManager: keys changed, reloading", "keys", keys)
 
-			logger.ErrorIfCalling(eb.Close)
-			logger.ErrorIfCalling(ec.Close)
+			b.logger.ErrorIfCalling(eb.Close)
+			b.logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator, b.logger)
+			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator, b.logger)
 
-			logger.ErrorIfCalling(eb.Start)
-			logger.ErrorIfCalling(ec.Start)
+			b.logger.ErrorIfCalling(eb.Start)
+			b.logger.ErrorIfCalling(ec.Start)
 		}
 	}
 }
@@ -237,11 +241,11 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head model
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
-			logger.Errorw("BulletproofTxManager: timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
+			b.logger.Errorw("BulletproofTxManager: timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
 		}
 	})
 	if !ok {
-		logger.Debugw("BulletproofTxManager: not started; ignoring head", "head", head, "state", b.State())
+		b.logger.Debugw("BulletproofTxManager: not started; ignoring head", "head", head, "state", b.State())
 	}
 }
 
@@ -288,7 +292,7 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
 		}
 		if pruned > 0 {
-			logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
+			b.logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", fromAddress, "toAddress", toAddress, "meta", meta, "subject", strategy.Subject(), "replacementID", etx.ID)
 		}
 		return nil
 	})
@@ -370,7 +374,7 @@ func signTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx, logger *logger.Logger) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return eth.NewFatalSendError(err)

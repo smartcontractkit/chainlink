@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -175,7 +176,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, nil, config, nil, nil, nil)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, nil, config, nil, nil, nil, logger.Default)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -231,7 +232,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, nil, config, nil, nil, nil)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, nil, config, nil, nil, nil, logger.Default)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -304,7 +305,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, advisoryLocker, eventBroadcaster)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, advisoryLocker, eventBroadcaster, logger.Default)
 
 	head := cltest.Head(42)
 	// It should not hang or panic

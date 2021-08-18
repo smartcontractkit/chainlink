@@ -140,11 +140,9 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		return 0, ErrJobNotExists
 	}
 
-	logger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", spec.ID,
-			"uuid", spec.ExternalJobID,
-		),
+	logger := logger.Default.With(
+		"jobID", spec.ID,
+		"uuid", spec.ExternalJobID,
 	)
 
 	ctx, cancel := utils.CombinedContext(ctx, spec.chRemove)
