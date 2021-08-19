@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	config "github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -71,8 +72,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gcfg := configtest.NewTestGeneralConfig(t)
-			gcfg.Overrides.DefaultChainID = big.NewInt(tt.chainID)
-			config := evmconfig.NewChainScopedConfig(gcfg)
+			config := evmconfig.NewChainScopedConfig(nil, logger.Default, gcfg, evmtypes.Chain{ID: *utils.NewBigI(tt.chainID)})
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
 			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
