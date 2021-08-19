@@ -145,14 +145,16 @@ func (_m *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockN
 }
 
 // ChainID provides a mock function with given fields:
-func (_m *Client) ChainID() big.Int {
+func (_m *Client) ChainID() *big.Int {
 	ret := _m.Called()
 
-	var r0 big.Int
-	if rf, ok := ret.Get(0).(func() big.Int); ok {
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(big.Int)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
 	}
 
 	return r0

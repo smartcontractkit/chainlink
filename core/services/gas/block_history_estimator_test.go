@@ -31,7 +31,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	var batchSize uint32 = 0
 	var blockDelay uint16 = 0
 	var historySize uint16 = 2
-	var ethFinalityDepth uint = 42
+	var ethFinalityDepth uint32 = 42
 	var percentile uint16 = 35
 	minGasPrice := big.NewInt(1)
 

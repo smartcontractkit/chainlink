@@ -453,7 +453,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
 	c, s, f = NewEthMocks(t)
-	c.On("ChainID").Return(FixtureChainID).Maybe()
+	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
@@ -482,7 +482,7 @@ func NewEthClientAndSubMock(t mock.TestingT) (*mocks.Client, *mocks.Subscription
 
 func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
 	mockEth, mockSub := NewEthClientAndSubMock(t)
-	mockEth.On("ChainID").Return(FixtureChainID).Maybe()
+	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
 	return mockEth, mockSub
 }
 
@@ -494,7 +494,7 @@ func NewEthClientMock(t mock.TestingT) *mocks.Client {
 
 func NewEthClientMockWithDefaultChain(t testing.TB) *mocks.Client {
 	c := NewEthClientMock(t)
-	c.On("ChainID").Return(FixtureChainID).Maybe()
+	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return c
 }
 
@@ -504,7 +504,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
-	c.On("ChainID").Maybe().Return(*big.NewInt(eth.NullClientChainID))
+	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
 	block := types.NewBlockWithHeader(&types.Header{

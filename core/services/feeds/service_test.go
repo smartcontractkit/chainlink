@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -74,7 +75,9 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{})
+	gcfg := configtest.NewTestGeneralConfig(t)
+	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
 	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc)
 	svc.SetConnectionsManager(connMgr)
 

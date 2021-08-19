@@ -59,7 +59,6 @@ type chain struct {
 }
 
 func newChain(dbchain types.Chain, opts ChainCollectionOpts) (*chain, error) {
-	// TODO: Pass this logger into all subservices
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("chainID", chainID.String())
 	cfg := evmconfig.NewChainScopedConfig(opts.DB, l, opts.Config, dbchain)
@@ -86,14 +85,33 @@ func newChain(dbchain types.Chain, opts ChainCollectionOpts) (*chain, error) {
 	} else {
 		client = opts.GenEthClient(dbchain)
 	}
-	headTrackerLogger, err := opts.Logger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
-	if err != nil {
-		return nil, err
+
+	var headTracker httypes.Tracker
+	var headBroadcaster httypes.HeadBroadcaster
+	if cfg.EthereumDisabled() {
+		headTracker = &headtracker.NullTracker{}
+		headBroadcaster = &headtracker.NullBroadcaster{}
+	} else if opts.GenHeadTrackerBroadcaster == nil {
+		headTrackerLogger, err := opts.Logger.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
+		if err != nil {
+			return nil, err
+		}
+		headBroadcaster = headtracker.NewHeadBroadcaster(l)
+		orm := headtracker.NewORM(db, *chainID)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
+	} else {
+		headTracker, headBroadcaster = opts.GenHeadTrackerBroadcaster(dbchain)
 	}
-	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	orm := headtracker.NewORM(db, *chainID)
-	headTracker := headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
-	txm := bulletprooftxmanager.NewBulletproofTxManager(db, client, cfg, opts.KeyStore, opts.AdvisoryLocker, opts.EventBroadcaster, l)
+
+	var txm bulletprooftxmanager.TxManager
+	if cfg.EthereumDisabled() {
+		txm = &bulletprooftxmanager.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if opts.GenTxManager == nil {
+		txm = bulletprooftxmanager.NewBulletproofTxManager(db, client, cfg, opts.KeyStore, opts.AdvisoryLocker, opts.EventBroadcaster, l)
+	} else {
+		txm = opts.GenTxManager(dbchain)
+	}
+
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
@@ -103,7 +121,7 @@ func newChain(dbchain types.Chain, opts ChainCollectionOpts) (*chain, error) {
 	}
 
 	var balanceMonitor services.BalanceMonitor
-	if cfg.BalanceMonitorEnabled() {
+	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(db, client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
