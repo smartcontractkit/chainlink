@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -150,7 +151,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		f.sergey,
 		f.backend,
 		linkAddress,
-		big.NewInt(fee),
+		(*big.Int)(assets.NewLinkFromJuels(1000000000000000000)), // big.NewInt(fee),
 		faTimeout,
 		common.Address{},
 		cfg.MinSubmission,
@@ -360,6 +361,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
 	receiptBlock uint64, answer int64,
 ) {
+	t.Helper()
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		return log.Raw.BlockNumber, log.Submission.Int64()

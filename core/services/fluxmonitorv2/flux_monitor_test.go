@@ -14,6 +14,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -407,7 +408,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			// Set up funds
 			var availableFunds *big.Int
 			var paymentAmount *big.Int
-			minPayment := cltest.DefaultMinimumContractPayment.ToInt()
+			minPayment := config.DefaultMinimumContractPayment.ToInt()
 			if tc.funded {
 				availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
 				paymentAmount = minPayment
@@ -543,8 +544,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 				RoundId:          roundID,
 				EligibleToSubmit: true,
 				LatestSubmission: big.NewInt(100),
-				AvailableFunds:   cltest.DefaultMinimumContractPayment.ToInt(),
-				PaymentAmount:    cltest.DefaultMinimumContractPayment.ToInt(),
+				AvailableFunds:   config.DefaultMinimumContractPayment.ToInt(),
+				PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
 			}
 		}
 	)
@@ -1354,7 +1355,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = cltest.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1462,7 +1463,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = cltest.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1572,8 +1573,8 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			RoundId:          roundID,
 			EligibleToSubmit: true,
 			LatestSubmission: answerBigInt,
-			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), cltest.DefaultMinimumContractPayment.ToInt()),
-			PaymentAmount:    cltest.DefaultMinimumContractPayment.ToInt(),
+			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), config.DefaultMinimumContractPayment.ToInt()),
+			PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
 			StartedAt:        now(),
 		}
 

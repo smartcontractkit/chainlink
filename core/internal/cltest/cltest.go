@@ -406,6 +406,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			}
 			return ethClient
 		},
+		FilterChains: func(c evmtypes.Chain) bool {
+			// allow only the default chain
+			return c.ID.ToInt().Cmp(cfg.DefaultChainID()) == 0
+		},
 	})
 	if err != nil {
 		logger.Fatal(err)

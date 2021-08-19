@@ -107,6 +107,7 @@ type ChainCollectionOpts struct {
 	GenLogBroadcaster         func(types.Chain) log.Broadcaster
 	GenHeadTrackerBroadcaster func(types.Chain) (httypes.Tracker, httypes.HeadBroadcaster)
 	GenTxManager              func(types.Chain) bulletprooftxmanager.TxManager
+	FilterChains              func(types.Chain) bool
 }
 
 func LoadChainCollection(opts ChainCollectionOpts) (ChainCollection, error) {
@@ -124,27 +125,37 @@ func LoadChainCollection(opts ChainCollectionOpts) (ChainCollection, error) {
 	if err := opts.DB.Find(&nodes).Error; err != nil {
 		return nil, err
 	}
+
+	logger.Infof("Loaded %v chains", len(dbchains))
+
+	var filteredChains []types.Chain
 	// HACK: gorm can't handle non-comparable foreign keys (utils.Big cannot be
 	// used with ==), so preloading is not possible. Just manually assign here
 	// instead
 	for i, c := range dbchains {
+		if opts.FilterChains == nil || opts.FilterChains(c) {
+			filteredChains = append(filteredChains, c)
+		}
+
 		for _, n := range nodes {
-			if n.EVMChainID.ToInt().Cmp(c.ID.ToInt()) == 0 {
+			if n.EVMChainID.ToInt().Cmp(c.ID.ToInt()) == 0 && n.EVMChainID.ToInt().Int64() != int64(0) {
 				// Performance note: quadratic
 				dbchains[i].Nodes = append(dbchains[i].Nodes, n)
 			}
 		}
 	}
-	return NewChainCollection(opts, dbchains)
+	return NewChainCollection(opts, filteredChains)
 }
 
 func NewChainCollection(opts ChainCollectionOpts, dbchains []types.Chain) (ChainCollection, error) {
+	logger.Infof("Creating ChainCollection with default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
 	if opts.Config == nil {
 		panic("config must be non-nil")
 	}
 	var err error
 	cll := &chainCollection{opts.Config.DefaultChainID(), make(map[string]*chain)}
 	for i := range dbchains {
+		logger.Infof("ChainCollection: Creating chain: %v", dbchains[i].ID)
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
