@@ -88,7 +88,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         pollTimerDisabled: false,
         pollTimerPeriod: '1m0s',
         drumbeatEnabled: true,
-        drumbeatSchedule: '',
+        drumbeatSchedule: '@every 10m',
         drumbeatRandomDelay: '10s',
         precision: 2,
         threshold: 0.5,
@@ -121,7 +121,7 @@ idleTimerDisabled = false
 pollTimerPeriod = "1m0s"
 pollTimerDisabled = false
 drumbeatEnabled = true
-drumbeatSchedule = ""
+drumbeatSchedule = "@every 10m"
 drumbeatRandomDelay = "10s"
 maxTaskDuration = "10s"
 observationSource = """
