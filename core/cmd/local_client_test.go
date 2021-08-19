@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -282,8 +281,7 @@ func TestClient_ImportKey(t *testing.T) {
 	defer cleanup()
 	kst := cltest.NewKeyStore(t, store.DB).Eth()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
-	ethClient.On("ChainID").Return(*big.NewInt(eth.NullClientChainID))
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t, ethClient, kst)
 	defer cleanup()
@@ -367,10 +365,9 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, ethClient, nil)).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ChainID", mock.Anything).Return(*config.DefaultChainID())
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}
 	client := cmd.Client{
@@ -453,9 +450,8 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
-			ethClient := cltest.NewEthClientMock(t)
+			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			ethClient.On("ChainID", mock.Anything).Return(*config.DefaultChainID())
 			app.On("GetChainCollection").Return(cltest.NewChainCollectionMockWithOneChain(t, ethClient, nil)).Maybe()
 
 			auth := cltest.CallbackAuthenticator{Callback: func(*keystore.Eth, string) (string, error) { return "", nil }}

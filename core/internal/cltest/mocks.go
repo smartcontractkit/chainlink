@@ -494,6 +494,7 @@ func NewChainCollectionMockWithOneChain(t testing.TB, ethClient eth.Client, cfg 
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
+	ch.On("Logger").Return(logger.Default)
 	cc.On("Default").Return(ch, nil)
 	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
 	return cc
