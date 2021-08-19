@@ -50,13 +50,14 @@ type GeneralConfigOverrides struct {
 	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
 	FeatureExternalInitiators                 null.Bool
-	GlobalEvmHeadTrackerSamplingInterval      *time.Duration
 	GlobalBalanceMonitorEnabled               null.Bool
+	GlobalEthTxReaperThreshold                *time.Duration
 	GlobalEthTxResendAfterThreshold           *time.Duration
 	GlobalEvmFinalityDepth                    null.Int
 	GlobalEvmGasBumpPercent                   null.Int
 	GlobalEvmGasBumpTxDepth                   null.Int
 	GlobalEvmGasBumpWei                       *big.Int
+	GlobalEvmHeadTrackerSamplingInterval      *time.Duration
 	GlobalEvmGasLimitMultiplier               null.Float
 	GlobalEvmGasPriceDefault                  *big.Int
 	GlobalEvmHeadTrackerHistoryDepth          null.Int
@@ -566,4 +567,11 @@ func (c *TestGeneralConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duratio
 		return *c.Overrides.GlobalEvmHeadTrackerSamplingInterval, true
 	}
 	return c.GeneralConfig.GlobalEvmHeadTrackerSamplingInterval()
+}
+
+func (c *TestGeneralConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
+	if c.Overrides.GlobalEthTxReaperThreshold != nil {
+		return *c.Overrides.GlobalEthTxReaperThreshold, true
+	}
+	return c.GeneralConfig.GlobalEthTxReaperThreshold()
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -51,6 +52,15 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 ) (app *TestApplication, cleanup func()) {
 	chainId := backend.Blockchain().Config().ChainID
 	cfg.Overrides.DefaultChainID = chainId
+	cfg.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+	cfg.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+	zero := 0 * time.Millisecond
+	cfg.Overrides.GlobalEthTxResendAfterThreshold = &zero
+	cfg.Overrides.GlobalEvmFinalityDepth = null.IntFrom(15)
+	d := 100 * time.Millisecond
+	cfg.Overrides.GlobalEthTxReaperThreshold = &d
+	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+	cfg.Overrides.GlobalMinRequiredOutgoingConfirmations = null.IntFrom(1)
 
 	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
@@ -362,6 +372,7 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	fmt.Println("BALLS SimulatedBackendClient", c.chainId)
 	sender, err := types.Sender(types.NewEIP155Signer(c.chainId), tx)
 	if err != nil {
 		logger.Panic(fmt.Errorf("invalid transaction: %v", err))

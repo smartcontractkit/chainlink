@@ -384,6 +384,7 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 }
 
 func signTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
+	fmt.Println("BALLS chainID", chainID)
 	signedTx, err := keyStore.SignTx(address, tx, chainID)
 	if err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
