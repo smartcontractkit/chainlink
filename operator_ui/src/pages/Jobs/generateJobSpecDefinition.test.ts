@@ -87,6 +87,9 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         idleTimerPeriod: '1s',
         pollTimerDisabled: false,
         pollTimerPeriod: '1m0s',
+        drumbeatEnabled: true,
+        drumbeatSchedule: '@every 10m',
+        drumbeatRandomDelay: '10s',
         precision: 2,
         threshold: 0.5,
         updatedAt: '2021-02-19T16:00:01.115227+08:00',
@@ -117,6 +120,9 @@ idleTimerPeriod = "1s"
 idleTimerDisabled = false
 pollTimerPeriod = "1m0s"
 pollTimerDisabled = false
+drumbeatEnabled = true
+drumbeatSchedule = "@every 10m"
+drumbeatRandomDelay = "10s"
 maxTaskDuration = "10s"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
