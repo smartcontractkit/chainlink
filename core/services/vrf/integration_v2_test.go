@@ -140,11 +140,11 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true, false)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.EvmGasLimitDefault = null.IntFrom(2000000)
+	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()

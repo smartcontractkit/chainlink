@@ -426,7 +426,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, *configtest.TestGeneralConfig, func()) {
-	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true)
+	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true, false)
 
 	simulatedBackendChain := evmtypes.Chain{
 		ID:  *utils.NewBigI(cltest.SimulatedBackendEVMChainID),

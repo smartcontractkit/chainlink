@@ -26,7 +26,7 @@ import (
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_jpv2", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_jpv2", true, false)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)

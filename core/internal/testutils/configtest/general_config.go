@@ -54,9 +54,11 @@ type GeneralConfigOverrides struct {
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalEthTxResendAfterThreshold           *time.Duration
 	GlobalEvmFinalityDepth                    null.Int
+	GlobalEvmLogBackfillBatchSize             null.Int
 	GlobalEvmGasBumpPercent                   null.Int
 	GlobalEvmGasBumpTxDepth                   null.Int
 	GlobalEvmGasBumpWei                       *big.Int
+	GlobalEvmGasLimitDefault                  null.Int
 	GlobalEvmGasLimitMultiplier               null.Float
 	GlobalEvmGasPriceDefault                  *big.Int
 	GlobalEvmHeadTrackerHistoryDepth          null.Int
@@ -456,6 +458,13 @@ func (c *TestGeneralConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
 	return c.GeneralConfig.GlobalBalanceMonitorEnabled()
 }
 
+func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitDefault.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitDefault()
+}
+
 func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	if c.Overrides.GlobalEvmGasLimitMultiplier.Valid {
 		return float32(c.Overrides.GlobalEvmGasLimitMultiplier.Float64), true
@@ -496,6 +505,13 @@ func (c *TestGeneralConfig) GlobalEvmFinalityDepth() (uint32, bool) {
 		return uint32(c.Overrides.GlobalEvmFinalityDepth.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmFinalityDepth()
+}
+
+func (c *TestGeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
+	if c.Overrides.GlobalEvmLogBackfillBatchSize.Valid {
+		return uint32(c.Overrides.GlobalEvmLogBackfillBatchSize.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
 }
 
 func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {

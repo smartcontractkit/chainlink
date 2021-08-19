@@ -52,6 +52,8 @@ func NewChainCollection(t testing.TB, testopts TestChainOpts) evm.ChainCollectio
 		}
 	}
 
+	opts.Config = testopts.GeneralConfig
+
 	chains := []evmtypes.Chain{
 		{
 			ID:  *utils.NewBigI(0),

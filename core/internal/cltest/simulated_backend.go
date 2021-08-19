@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -54,7 +55,11 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster)
+
+	chain := evmtypes.Chain{
+		ID: utils.Big(*chainId),
+	}
+	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chain)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 	err := app.KeyStore.Eth().Unlock(Password)

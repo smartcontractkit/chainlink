@@ -100,7 +100,7 @@ func (ht *HeadTracker) logger() *logger.Logger {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.logger().Debug("Starting HeadTracker")
+		ht.logger().Debug("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
 		highestSeenHead, err := ht.headSaver.SetHighestSeenHeadFromDB()
 		if err != nil {
 			return err
