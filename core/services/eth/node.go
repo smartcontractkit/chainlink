@@ -60,7 +60,7 @@ func (n *node) Dial(ctx context.Context) error {
 		uri := n.ws.uri.String()
 		rpc, err := rpc.DialWebsocket(ctx, uri, "")
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error while dialing websocket: %v", uri)
 		}
 		n.dialed = true
 		n.ws.rpc = rpc
@@ -71,7 +71,7 @@ func (n *node) Dial(ctx context.Context) error {
 		uri := n.http.uri.String()
 		rpc, err := rpc.DialHTTP(uri)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error while dialing HTTP: %v", uri)
 		}
 		n.http.rpc = rpc
 		n.http.geth = ethclient.NewClient(rpc)
