@@ -8,7 +8,7 @@ import (
 )
 
 type transmitter interface {
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -102,6 +102,13 @@ func (o *orm) CreateEthTransaction(
 	payload []byte,
 	gasLimit uint64,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, o.strategy)
+	_, err = o.txm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       o.strategy,
+	})
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }

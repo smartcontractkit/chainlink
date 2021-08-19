@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -195,7 +193,6 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 		return
 	}
 
-	s := time.Now()
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
 		"reqID", req.PreSeedAndRequestId.String(),
@@ -220,31 +217,16 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 			"logData":        req.Raw.Data,
 		},
 	})
-	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
-	if err != nil {
+	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx *gorm.DB) error {
+		// Always mark consumed regardless of whether the proof failed or not.
+		if err = lsn.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+			logger.Errorw("VRFListener: failed mark consumed", "err", err)
+		}
+		return nil
+	}); err != nil {
 		logger.Errorw("VRFListener: failed executing run", "err", err)
 	}
-	f := time.Now()
-	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-		_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-			State:          pipeline.RunStatusCompleted,
-			PipelineSpecID: run.PipelineSpecID,
-			Errors:         run.Errors,
-			Outputs:        run.Outputs,
-			Meta:           run.Meta,
-			CreatedAt:      s,
-			FinishedAt:     null.TimeFrom(f),
-		}, trrs, true)
-		if err != nil {
-			return errors.Wrap(err, "VRFListener: failed to insert finished run")
-		}
-		// Always mark consumed regardless of whether the proof failed or not.
-		return lsn.logBroadcaster.MarkConsumed(tx, lb)
-	})
-	if err != nil {
-		lsn.l.Errorw("VRFListener failed to save run", "err", err)
-	}
-
 }
 
 // Close complies with job.Service

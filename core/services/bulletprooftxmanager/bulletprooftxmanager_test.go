@@ -183,8 +183,15 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		etx, err := bptxm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, strategy)
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		etx, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+		})
 		assert.NoError(t, err)
 
 		assert.Greater(t, etx.ID, int64(0))
@@ -212,9 +219,43 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		_, err := bptxm.CreateEthTransaction(db, fromAddress, cltest.NewAddress(), []byte{1, 2, 3}, 21000, nil, bulletprooftxmanager.SendEveryStrategy{})
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		_, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      cltest.NewAddress(),
+			EncodedPayload: []byte{1, 2, 3},
+			GasLimit:       21000,
+			Meta:           nil,
+			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
+		})
 		assert.EqualError(t, err, "BulletproofTxManager#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse")
+	})
+
+	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
+		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
+		id := uuid.NewV4()
+		tx1, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:       fromAddress,
+			ToAddress:         cltest.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			GasLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          bulletprooftxmanager.SendEveryStrategy{},
+		})
+		assert.NoError(t, err)
+
+		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
+		tx2, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:       fromAddress,
+			ToAddress:         cltest.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			GasLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          bulletprooftxmanager.SendEveryStrategy{},
+		})
+		assert.NoError(t, err)
+
+		assert.Equal(t, tx1.ID, tx2.ID)
 	})
 }
 
@@ -242,7 +283,14 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
-		etx, err := bptxm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, strategy)
+		etx, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+		})
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
@@ -259,7 +307,14 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
-		etx, err := bptxm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, strategy)
+		etx, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+		})
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
@@ -276,7 +331,14 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		etx, err := bptxm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, strategy)
+		etx, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+		})
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)

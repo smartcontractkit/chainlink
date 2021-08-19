@@ -3,7 +3,7 @@ package versioning
 import (
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore

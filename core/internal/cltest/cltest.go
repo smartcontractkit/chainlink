@@ -217,9 +217,9 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), logger.Default)
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
 }
 
@@ -872,20 +872,6 @@ func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count in
 		return jse
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
-}
-
-func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
-	t.Helper()
-
-	var err error
-	prs := []pipeline.Run{}
-	gomega.NewGomegaWithT(t).Eventually(func() []pipeline.Run {
-		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
-		assert.NoError(t, err)
-		return prs
-	}, timeout, poll).Should(gomega.HaveLen(want))
-
-	return prs
 }
 
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
