@@ -508,8 +508,8 @@ type NullTxManager struct {
 }
 
 func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
-func (n *NullTxManager) Start() error                                   { return errors.New(n.ErrMsg) }
-func (n *NullTxManager) Close() error                                   { return errors.New(n.ErrMsg) }
+func (n *NullTxManager) Start() error                                   { return nil }
+func (n *NullTxManager) Close() error                                   { return nil }
 func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)

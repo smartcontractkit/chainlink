@@ -22,7 +22,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Cleanup(assertMocksCalled)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(true)
-	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
+	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
@@ -66,7 +66,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	t.Cleanup(assertMocksCalled)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(false)
-	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
+	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 

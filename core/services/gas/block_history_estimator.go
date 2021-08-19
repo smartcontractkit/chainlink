@@ -109,6 +109,8 @@ func (b *BlockHistoryEstimator) Start() error {
 		latestHead, err := b.ethClient.HeadByNumber(ctx, nil)
 		if err != nil {
 			logger.Warnw("BlockHistoryEstimator: initial check for latest head failed", "err", err)
+		} else if latestHead == nil {
+			logger.Warnw("BlockHistoryEstimator: initial check for latest head failed, head was unexpectedly nil")
 		} else {
 			b.logger.Debugw("BlockHistoryEstimator: got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
 			b.FetchBlocksAndRecalculate(ctx, *latestHead)
