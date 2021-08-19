@@ -39,6 +39,7 @@ type HeadTracker struct {
 	log             *logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	ethClient       eth.Client
+	chainID         big.Int
 	config          Config
 
 	backfillMB   utils.Mailbox
@@ -68,6 +69,7 @@ func NewHeadTracker(
 	return &HeadTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
+		chainID:         *ethClient.ChainID(),
 		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
@@ -156,7 +158,7 @@ func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker: Stopping - disconnecting from %v", ht.config.EthereumURL()))
+		ht.logger().Infof("HeadTracker: Stopping for chain %s", ht.chainID.String())
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil

@@ -23,13 +23,15 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(true)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
+	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
-	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
+	_, addr1 := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
+	_, addr2 := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), false)
 
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(256), nil).Twice()
+	ethClient.On("BalanceAt", mock.Anything, addr2, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(1), nil).Once()
 
@@ -67,6 +69,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(false)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
 
@@ -123,7 +126,8 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	config := cltest.NewTestGeneralConfig(t)
-	ethClient := cltest.NewEthClientMock(t)
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 	t.Cleanup(cleanup)
 

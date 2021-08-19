@@ -31,7 +31,6 @@ var (
 
 type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
-	EthereumURL() string
 	EvmFinalityDepth() uint32
 	EvmHeadTrackerHistoryDepth() uint32
 	EvmHeadTrackerMaxBufferSize() uint32
@@ -180,7 +179,7 @@ func (hl *HeadListener) subscribe() bool {
 			return false
 		}
 
-		hl.logger().Info("HeadListener: Connecting to ethereum node ", hl.config.EthereumURL(), " in ", hl.sleeper.Duration())
+		hl.logger().Infof("HeadListener: Subscribing to new heads on chain %s (in %s)", hl.chainID.String(), hl.sleeper.Duration())
 		select {
 		case <-hl.chStop:
 			return false
@@ -188,9 +187,9 @@ func (hl *HeadListener) subscribe() bool {
 			err := hl.subscribeToHead()
 			if err != nil {
 				promEthConnectionErrors.Inc()
-				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to connect to ethereum node %v", hl.config.EthereumURL()), "err", err)
+				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
 			} else {
-				hl.logger().Info("HeadListener: Connected to ethereum node ", hl.config.EthereumURL())
+				hl.logger().Infof("HeadListener: Subscribed to heads on chain %s", hl.chainID.String())
 				return true
 			}
 		}

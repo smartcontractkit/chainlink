@@ -94,8 +94,6 @@ const (
 	VRFPassword = "testingpassword"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
-	// DefaultKeyAddress is the ETH address of the fixture key
-	DefaultKeyAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 	// DefaultKeyFixtureFileName is the filename of the fixture key
 	DefaultKeyFixtureFileName = "testkey-0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4.json"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
@@ -1454,6 +1452,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	ethClient.On("Close").Return().Maybe()
 
 	// Stop
 	sub.On("Unsubscribe").Return(nil)
