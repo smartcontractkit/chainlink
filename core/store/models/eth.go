@@ -31,12 +31,13 @@ type Head struct {
 }
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
 		ParentHash: parentHash,
 		Timestamp:  time.Unix(int64(timestamp), 0),
+		EVMChainID: chainID,
 	}
 }
 

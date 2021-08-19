@@ -562,7 +562,7 @@ func (c *chainScopedConfig) EvmGasBumpTxDepth() uint16 {
 }
 
 // EvmDefaultBatchSize controls the number of receipts fetched in each
-// request in the EvmConfirmer
+// request in the EthConfirmer
 func (c *chainScopedConfig) EvmDefaultBatchSize() uint32 {
 	val, ok := c.GeneralConfig.GlobalEvmDefaultBatchSize()
 	if ok {

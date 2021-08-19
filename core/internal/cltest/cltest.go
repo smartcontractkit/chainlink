@@ -1064,13 +1064,13 @@ func Head(val interface{}) *models.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
+		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case int64:
-		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time)
+		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case *big.Int:
-		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time)
+		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}

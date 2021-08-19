@@ -5,16 +5,19 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	config "github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConfig_SetEvmGasPriceDefault(t *testing.T) {
+func TestChainScopedConfig_EvmGasPriceDefault(t *testing.T) {
+	// func NewChainScopedConfig(db *gorm.DB, lggr *logger.Logger, gcfg config.GeneralConfig, chain evmtypes.Chain) ChainScopedConfig {
 	db := pgtest.NewGormDB(t)
-	config := config.NewEVMConfig(config.NewGeneralConfig())
-	config.SetDB(db)
+	config := evmconfig.NewChainScopedConfig(db, logger.Default, config.NewGeneralConfig(), evmtypes.Chain{})
 
 	t.Run("sets the gas price", func(t *testing.T) {
 		assert.Equal(t, big.NewInt(20000000000), config.EvmGasPriceDefault())
@@ -42,7 +45,7 @@ func TestConfig_SetEvmGasPriceDefault(t *testing.T) {
 	})
 }
 
-func TestConfig_Profiles(t *testing.T) {
+func TestChainScopedConfig_Profiles(t *testing.T) {
 	tests := []struct {
 		name                           string
 		chainID                        int64
@@ -68,8 +71,8 @@ func TestConfig_Profiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gcfg := configtest.NewTestGeneralConfig(t)
-			gcfg.Overrides.SetChainID(tt.chainID)
-			config := config.NewEVMConfig(gcfg)
+			gcfg.Overrides.DefaultChainID = big.NewInt(tt.chainID)
+			config := evmconfig.NewChainScopedConfig(gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
 			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())

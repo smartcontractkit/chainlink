@@ -46,6 +46,7 @@ type ConfigSchema struct {
 	DefaultHTTPTimeout                         models.Duration               `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	DefaultMaxHTTPAttempts                     uint                          `env:"MAX_HTTP_ATTEMPTS" default:"5"`
 	Dev                                        bool                          `env:"CHAINLINK_DEV" default:"false"`
+	EVMDisabled                                bool                          `env:"EVM_DISABLED" default:"false"`
 	EthTxReaperInterval                        time.Duration                 `env:"ETH_TX_REAPER_INTERVAL"`
 	EthTxReaperThreshold                       time.Duration                 `env:"ETH_TX_REAPER_THRESHOLD"`
 	EthTxResendAfterThreshold                  time.Duration                 `env:"ETH_TX_RESEND_AFTER_THRESHOLD"`
@@ -54,27 +55,26 @@ type ConfigSchema struct {
 	EthereumSecondaryURL                       string                        `env:"ETH_SECONDARY_URL" default:""`
 	EthereumSecondaryURLs                      string                        `env:"ETH_SECONDARY_URLS" default:""`
 	EthereumURL                                string                        `env:"ETH_URL" default:"ws://localhost:8546"`
-	EVMDisabled                                bool                          `env:"EVM_DISABLED", default:"false"`
-	EvmDefaultBatchSize                        uint32                        `env:"EVM_DEFAULT_BATCH_SIZE"`
-	EvmFinalityDepth                           uint32                        `env:"EVM_FINALITY_DEPTH"`
-	EvmGasBumpPercent                          uint16                        `env:"EVM_GAS_BUMP_PERCENT"`
-	EvmGasBumpThreshold                        uint64                        `env:"EVM_GAS_BUMP_THRESHOLD"`
-	EvmGasBumpTxDepth                          uint16                        `env:"EVM_GAS_BUMP_TX_DEPTH"`
-	EvmGasBumpWei                              *big.Int                      `env:"EVM_GAS_BUMP_WEI"`
-	EvmGasLimitDefault                         uint64                        `env:"EVM_GAS_LIMIT_DEFAULT"`
-	EvmGasLimitMultiplier                      float32                       `env:"EVM_GAS_LIMIT_MULTIPLIER"`
-	EvmGasLimitTransfer                        uint64                        `env:"EVM_GAS_LIMIT_TRANSFER"`
-	EvmGasPriceDefault                         *big.Int                      `env:"EVM_GAS_PRICE_DEFAULT"`
-	EvmHeadTrackerHistoryDepth                 uint                          `env:"EVM_HEAD_TRACKER_HISTORY_DEPTH"`
-	EvmHeadTrackerMaxBufferSize                uint                          `env:"EVM_HEAD_TRACKER_MAX_BUFFER_SIZE"`
-	EvmHeadTrackerSamplingInterval             time.Duration                 `env:"EVM_HEAD_TRACKER_SAMPLING_INTERVAL"`
-	EvmLogBackfillBatchSize                    uint32                        `env:"EVM_LOG_BACKFILL_BATCH_SIZE"`
-	EvmMaxGasPriceWei                          *big.Int                      `env:"EVM_MAX_GAS_PRICE_WEI"`
-	EvmMaxInFlightTransactions                 uint32                        `env:"EVM_MAX_IN_FLIGHT_TRANSACTIONS"`
-	EvmMaxQueuedTransactions                   uint64                        `env:"EVM_MAX_QUEUED_TRANSACTIONS"`
-	EvmMinGasPriceWei                          *big.Int                      `env:"EVM_MIN_GAS_PRICE_WEI"`
-	EvmNonceAutoSync                           bool                          `env:"EVM_NONCE_AUTO_SYNC"`
-	EvmRPCDefaultBatchSize                     uint32                        `env:"EVM_RPC_DEFAULT_BATCH_SIZE"`
+	EvmDefaultBatchSize                        uint32                        `env:"ETH_DEFAULT_BATCH_SIZE"`
+	EvmFinalityDepth                           uint32                        `env:"ETH_FINALITY_DEPTH"`
+	EvmGasBumpPercent                          uint16                        `env:"ETH_GAS_BUMP_PERCENT"`
+	EvmGasBumpThreshold                        uint64                        `env:"ETH_GAS_BUMP_THRESHOLD"`
+	EvmGasBumpTxDepth                          uint16                        `env:"ETH_GAS_BUMP_TX_DEPTH"`
+	EvmGasBumpWei                              *big.Int                      `env:"ETH_GAS_BUMP_WEI"`
+	EvmGasLimitDefault                         uint64                        `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMultiplier                      float32                       `env:"ETH_GAS_LIMIT_MULTIPLIER"`
+	EvmGasLimitTransfer                        uint64                        `env:"ETH_GAS_LIMIT_TRANSFER"`
+	EvmGasPriceDefault                         *big.Int                      `env:"ETH_GAS_PRICE_DEFAULT"`
+	EvmHeadTrackerHistoryDepth                 uint                          `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
+	EvmHeadTrackerMaxBufferSize                uint                          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
+	EvmHeadTrackerSamplingInterval             time.Duration                 `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`
+	EvmLogBackfillBatchSize                    uint32                        `env:"ETH_LOG_BACKFILL_BATCH_SIZE"`
+	EvmMaxGasPriceWei                          *big.Int                      `env:"ETH_MAX_GAS_PRICE_WEI"`
+	EvmMaxInFlightTransactions                 uint32                        `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
+	EvmMaxQueuedTransactions                   uint64                        `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
+	EvmMinGasPriceWei                          *big.Int                      `env:"ETH_MIN_GAS_PRICE_WEI"`
+	EvmNonceAutoSync                           bool                          `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmRPCDefaultBatchSize                     uint32                        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	ExplorerAccessKey                          string                        `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                             string                        `env:"EXPLORER_SECRET"`
 	ExplorerURL                                *url.URL                      `env:"EXPLORER_URL"`

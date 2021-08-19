@@ -498,7 +498,7 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) ethkey.Key {
 }
 
 func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {
-	h := models.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0)
+	h := models.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	err := store.DB.Create(&h).Error
 	require.NoError(t, err)
 	return h
