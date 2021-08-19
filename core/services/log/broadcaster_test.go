@@ -214,8 +214,8 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	backfillDepth := 15
 
-	helper.config.GeneralConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
-	helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+	helper.config.Overrides.BlockBackfillSkip = null.BoolFrom(true)
+	helper.config.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -1271,7 +1271,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
 			var backfillDepth int64 = 5
 			// something other than default
-			helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+			helper.config.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
 			helper.start()
 			defer helper.stop()

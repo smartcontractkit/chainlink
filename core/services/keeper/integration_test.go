@@ -93,13 +93,13 @@ func TestKeeperEthIntegration(t *testing.T) {
 	defer cfgCleanup()
 	d := 24 * time.Hour
 	// disable full sync ticker for test
-	config.GeneralConfig.Overrides.KeeperRegistrySyncInterval = &d
+	config.Overrides.KeeperRegistrySyncInterval = &d
 	// backfill will trigger sync on startup
-	config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(0)
+	config.Overrides.BlockBackfillDepth = null.IntFrom(0)
 	// disable reorg protection for this test
-	config.GeneralConfig.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
+	config.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
 	// avoid waiting to re-submit for upkeeps
-	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	// helps prevent missed heads
 	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)

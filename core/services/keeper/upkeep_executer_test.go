@@ -39,7 +39,7 @@ func setup(t *testing.T) (
 	*bptxmmocks.TxManager,
 ) {
 	config := cltest.NewTestEVMConfig(t)
-	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()

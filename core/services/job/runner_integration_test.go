@@ -395,17 +395,12 @@ ds1 -> ds1_parse;
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
-			nil,
 			jobORM,
-			config,
 			keyStore,
-			nil,
-			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
-			chains.EthMainnet,
-			nil,
+			cc,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -431,11 +426,11 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
-		config.GeneralConfig.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
-		config.GeneralConfig.Overrides.OCRKeyBundleID = &kb.ID
-		config.GeneralConfig.Overrides.OCRTransmitterAddress = &key.Address
-		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
+		config.Overrides.P2PPeerID = &ek.PeerID
+		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
+		config.Overrides.OCRKeyBundleID = &kb.ID
+		config.Overrides.OCRTransmitterAddress = &key.Address
+		os, err = offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -449,22 +444,17 @@ ds1 -> ds1_parse;
 		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
 		// Required to create job spawner delegate.
-		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
-			nil,
 			jobORM,
-			config,
 			keyStore,
-			nil,
-			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
-			chains.EthMainnet,
-			nil,
+			cc,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -479,7 +469,7 @@ ds1 -> ds1_parse;
 		var os = job.Job{}
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
-		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -490,23 +480,18 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		// Required to create job spawner delegate.
-		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PPeerID = &ek.PeerID
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
-			nil,
 			jobORM,
-			config,
 			keyStore,
-			nil,
-			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
-			chains.EthMainnet,
-			nil,
+			cc,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -518,7 +503,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var os = job.Job{}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
-		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -526,23 +511,18 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Required to create job spawner delegate.
-		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PPeerID = &ek.PeerID
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
-			nil,
 			jobORM,
-			config,
 			keyStore,
-			nil,
-			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
-			chains.EthMainnet,
-			nil,
+			cc,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -563,24 +543,19 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Required to create job spawner delegate.
-		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PPeerID = &ek.PeerID
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
 			db,
-			nil,
 			jobORM,
-			config,
 			keyStore,
 			nil,
-			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config, logger.Default, nil),
 			pw,
 			monitoringEndpoint,
-			chains.EthMainnet,
-			&headtracker.NullBroadcaster{},
+			cc,
 		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
