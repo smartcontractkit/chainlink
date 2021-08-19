@@ -7,6 +7,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -23,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
@@ -141,14 +141,14 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil).
-			Once()
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+		uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+			Return(false, nil).
+			Run(func(args mock.Arguments) {
+				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
+			}).Once()
 
 		err := uni.service.Start()
 		require.NoError(t, err)
@@ -197,13 +197,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
+			}).Once().Return(false, nil)
 
 		// but should after this one, as the head Number is larger
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
@@ -305,18 +305,16 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		timeout := 5 * time.Second
 		runBeganAwaiter := cltest.NewAwaiter()
 		runCancelledAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			db := args[0].(*gorm.DB)
+			ctx := args[0].(context.Context)
 			select {
 			case <-time.After(timeout):
 				t.Fatalf("Timed out waiting for Run to be canceled (%v)", timeout)
-			case <-db.Statement.Context.Done():
+			case <-ctx.Done():
 				runCancelledAwaiter.ItHappened()
 			}
-		}).Once().Return(int64(0), nil)
+		}).Once().Return(false, nil)
 		uni.listener.HandleLog(runLog)
 
 		runBeganAwaiter.AwaitOrFail(t, timeout)
@@ -357,13 +355,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+			fn := args.Get(4).(func(*gorm.DB) error)
+			fn(nil)
+		}).Once().Return(false, nil)
 
 		err := uni.service.Start()
 		require.NoError(t, err)

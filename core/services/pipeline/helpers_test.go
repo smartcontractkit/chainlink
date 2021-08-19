@@ -34,7 +34,7 @@ const (
 func (t *BridgeTask) HelperSetDependencies(config Config, db *gorm.DB, id uuid.UUID) {
 	t.config = config
 	t.db = db
-	t.id = id
+	t.uuid = id
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config) {

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -56,6 +57,7 @@ type EthConfirmer struct {
 	keystore       KeyStore
 	advisoryLocker postgres.AdvisoryLocker
 	estimator      gas.Estimator
+	resumeCallback func(id uuid.UUID, value interface{}) error
 
 	keys []ethkey.Key
 
@@ -66,9 +68,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	advisoryLocker postgres.AdvisoryLocker, keys []ethkey.Key, estimator gas.Estimator, logger *logger.Logger) *EthConfirmer {
-
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.Key, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
 		utils.StartStopOnce{},
@@ -79,6 +79,7 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		keystore,
 		advisoryLocker,
 		estimator,
+		resumeCallback,
 		keys,
 		utils.NewMailbox(1),
 		context,
@@ -175,11 +176,22 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head models.Head) error
 	ec.logger.Debugw("EthConfirmer: finished RebroadcastWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	defer func() {
-		ec.logger.Debugw("EthConfirmer: finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
-	}()
+	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
+		return errors.Wrap(err, "EnsureConfirmedTransactionsInLongestChain failed")
+	}
 
-	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(ctx, head), "EnsureConfirmedTransactionsInLongestChain failed")
+	ec.logger.Debugw("EthConfirmer: finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+
+	if ec.resumeCallback != nil {
+		mark = time.Now()
+		if err := ec.ResumePendingTaskRuns(ctx, head); err != nil {
+			return errors.Wrap(err, "ResumePendingTaskRuns failed")
+		}
+
+		ec.logger.Debugw("EthConfirmer: finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	}
+
+	return nil
 }
 
 // SetBroadcastBeforeBlockNum updates already broadcast attempts with the
@@ -1211,4 +1223,34 @@ func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint)
 		return nil, nil
 	}
 	return &etx, errors.Wrap(err, "findEthTxsWithNonce failed")
+}
+
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head models.Head) error {
+	sqlxDB := postgres.UnwrapGormDB(ec.db)
+
+	type x struct {
+		ID      uuid.UUID
+		Receipt []byte
+	}
+	var receipts []x
+	// NOTE: we don't filter on eth_txes.state = 'confirmed', because a transaction with an attached receipt
+	// is guaranteed to be confirmed. This results in a slightly better query plan.
+	if err := sqlxDB.Select(&receipts, `
+	SELECT pipeline_task_runs.id, eth_receipts.receipt FROM pipeline_task_runs
+	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
+	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id
+	INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id
+	INNER JOIN eth_receipts ON eth_tx_attempts.hash = eth_receipts.tx_hash
+	WHERE pipeline_runs.state = 'suspended' AND eth_receipts.block_number <= ($1 - eth_txes.min_confirmations)
+	`, head.Number); err != nil {
+		return err
+	}
+
+	for _, data := range receipts {
+		if err := ec.resumeCallback(data.ID, data.Receipt); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

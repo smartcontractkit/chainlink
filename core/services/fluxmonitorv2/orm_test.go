@@ -104,7 +104,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
 		runID, err := pipelineORM.InsertFinishedRun(
-			corestore.DB,
+			postgres.UnwrapGormDB(corestore.DB),
 			pipeline.Run{
 				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
@@ -113,13 +113,14 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				Errors:         pipeline.RunErrors{null.String{}},
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
-			}, pipeline.TaskRunResults{
-				{
-					ID:         uuid.NewV4(),
-					Task:       &pipeline.HTTPTask{},
-					Result:     pipeline.Result{Value: 10},
-					CreatedAt:  f,
-					FinishedAt: null.TimeFrom(f),
+				PipelineTaskRuns: []pipeline.TaskRun{
+					{
+						ID:         uuid.NewV4(),
+						Type:       pipeline.TaskTypeHTTP,
+						Output:     &pipeline.JSONSerializable{Val: 10, Null: false},
+						CreatedAt:  f,
+						FinishedAt: null.TimeFrom(f),
+					},
 				},
 			}, true)
 		require.NoError(t, err)
@@ -176,7 +177,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(bulletprooftxmanager.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", corestore.DB, bulletprooftxmanager.NewTx{
+		FromAddress:    from,
+		ToAddress:      to,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       strategy,
+	}).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
 

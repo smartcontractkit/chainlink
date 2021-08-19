@@ -115,6 +115,20 @@ func (_m *Config) EthTxReaperThreshold() time.Duration {
 	return r0
 }
 
+// EthTxResendAfterThreshold provides a mock function with given fields:
+func (_m *Config) EthTxResendAfterThreshold() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // EvmFinalityDepth provides a mock function with given fields:
 func (_m *Config) EvmFinalityDepth() uint {
 	ret := _m.Called()
@@ -314,20 +328,6 @@ func (_m *Config) EvmRPCDefaultBatchSize() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// EthTxResendAfterThreshold provides a mock function with given fields:
-func (_m *Config) EthTxResendAfterThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

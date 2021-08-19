@@ -49,6 +49,7 @@ type (
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		EvmGasLimitDefault() uint64
 		EvmMaxQueuedTransactions() uint64
+		MinRequiredOutgoingConfirmations() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -161,11 +162,6 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		panic("expected at least one task to be final")
 	}
 	return fr
-}
-
-type RunWithResults struct {
-	Run            Run
-	TaskRunResults TaskRunResults
 }
 
 type JSONSerializable struct {

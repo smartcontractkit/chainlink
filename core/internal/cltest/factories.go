@@ -386,12 +386,24 @@ func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, db *gorm.DB, gas
 }
 
 func MustInsertEthReceipt(t *testing.T, db *gorm.DB, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
+	transactionIndex := uint(NewRandomInt64())
+
+	receipt := bulletprooftxmanager.Receipt{
+		BlockNumber:      big.NewInt(blockNumber),
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: transactionIndex,
+	}
+
+	data, err := json.Marshal(receipt)
+	require.NoError(t, err)
+
 	r := bulletprooftxmanager.EthReceipt{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
 		TxHash:           txHash,
-		TransactionIndex: uint(NewRandomInt64()),
-		Receipt:          []byte(`{"foo":42}`),
+		TransactionIndex: transactionIndex,
+		Receipt:          data,
 	}
 	require.NoError(t, db.Save(&r).Error)
 	return r
