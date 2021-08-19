@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net/http"
