@@ -4,7 +4,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up57 = `
+const up58 = `
 ALTER TABLE eth_txes ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id);
 ALTER TABLE log_broadcasts ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id);
 ALTER TABLE heads ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id);
@@ -40,7 +40,7 @@ ALTER TABLE log_broadcasts ALTER COLUMN evm_chain_id SET NOT NULL;
 ALTER TABLE heads ALTER COLUMN evm_chain_id SET NOT NULL;
 `
 
-const down57 = `
+const down58 = `
 ALTER TABLE heads DROP COLUMN evm_chain_id;
 ALTER TABLE log_broadcasts DROP COLUMN evm_chain_id;
 ALTER TABLE eth_txes DROP COLUMN evm_chain_id;
@@ -60,12 +60,12 @@ CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id int4
 
 func init() {
 	Migrations = append(Migrations, &Migration{
-		ID: "0057_multichain_relations",
+		ID: "0058_multichain_relations",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up57).Error
+			return db.Exec(up58).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down57).Error
+			return db.Exec(down58).Error
 		},
 	})
 }
