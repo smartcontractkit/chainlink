@@ -403,9 +403,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		AdvisoryLocker:   advisoryLocker,
 		EventBroadcaster: eventBroadcaster,
 		GenEthClient: func(c evmtypes.Chain) eth.Client {
-			cid := ethClient.ChainID()
-			if (&cid).Cmp(cfg.DefaultChainID()) != 0 {
-				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", &cid, cfg.DefaultChainID())
+			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
 			return ethClient
 		},

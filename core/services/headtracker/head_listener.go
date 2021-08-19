@@ -75,7 +75,7 @@ func NewHeadListener(l *logger.Logger,
 	return &HeadListener{
 		config:    config,
 		ethClient: ethClient,
-		chainID:   ethClient.ChainID(),
+		chainID:   *ethClient.ChainID(),
 		sleeper:   sleeper,
 		log:       l,
 		chStop:    chStop,

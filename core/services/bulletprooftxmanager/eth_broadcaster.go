@@ -47,6 +47,7 @@ type EthBroadcaster struct {
 	logger         *logger.Logger
 	db             *gorm.DB
 	ethClient      eth.Client
+	chainID        big.Int
 	config         Config
 	keystore       KeyStore
 	advisoryLocker postgres.AdvisoryLocker
@@ -80,6 +81,7 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 		logger:           logger,
 		db:               db,
 		ethClient:        ethClient,
+		chainID:          *ethClient.ChainID(),
 		config:           config,
 		keystore:         keystore,
 		advisoryLocker:   advisoryLocker,
@@ -256,7 +258,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to estimate gas")
 		}
-		a, err := newAttempt(eb.ethClient, eb.keystore, eb.ethClient.ChainID(), *etx, gasPrice, gasLimit)
+		a, err := newAttempt(eb.ethClient, eb.keystore, eb.chainID, *etx, gasPrice, gasLimit)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -532,7 +534,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
-	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.ethClient.ChainID(), etx, newGasPrice, newGasLimit)
+	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.chainID, etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}

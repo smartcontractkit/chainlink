@@ -52,7 +52,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	chainId := backend.Blockchain().Config().ChainID
 	cfg.Overrides.DefaultChainID = chainId
 
-	client := &SimulatedBackendClient{b: backend, t: t, chainId: int(chainId.Int64())}
+	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster)
 
@@ -80,12 +80,12 @@ func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) 
 type SimulatedBackendClient struct {
 	b       *backends.SimulatedBackend
 	t       testing.TB
-	chainId int
+	chainId *big.Int
 }
 
 var _ eth.Client = (*SimulatedBackendClient)(nil)
 
-func (c *SimulatedBackendClient) Dial(context.Context, bool) error {
+func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
 
@@ -283,8 +283,8 @@ func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) 
 }
 
 // GetChainID returns the ethereum ChainID.
-func (c *SimulatedBackendClient) ChainID() big.Int {
-	return *big.NewInt(int64(c.chainId))
+func (c *SimulatedBackendClient) ChainID() *big.Int {
+	return c.chainId
 }
 
 func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -362,7 +362,7 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	sender, err := types.Sender(types.NewEIP155Signer(big.NewInt(int64(c.chainId))), tx)
+	sender, err := types.Sender(types.NewEIP155Signer(c.chainId), tx)
 	if err != nil {
 		logger.Panic(fmt.Errorf("invalid transaction: %v", err))
 	}

@@ -128,7 +128,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		advisoryLocker:   advisoryLocker,
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(ethClient, config),
-		chainID:          ethClient.ChainID(),
+		chainID:          *ethClient.ChainID(),
 		chHeads:          make(chan models.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),

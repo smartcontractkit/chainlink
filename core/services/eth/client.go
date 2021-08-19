@@ -29,9 +29,9 @@ import (
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	Dial(ctx context.Context, verifyChainID bool) error
+	Dial(ctx context.Context) error
 	Close()
-	ChainID() big.Int
+	ChainID() *big.Int
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -94,7 +94,7 @@ type client struct {
 	logger      *logger.Logger
 	primary     *Node
 	secondaries []*SecondaryNode
-	chainID     big.Int
+	chainID     *big.Int
 	mocked      bool
 
 	roundRobinCount uint32
@@ -104,7 +104,7 @@ var _ Client = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SecondaryNode, chainID big.Int) (*client, error) {
+func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SecondaryNode, chainID *big.Int) (*client, error) {
 	return &client{
 		logger,
 		primaryNode,
@@ -115,7 +115,7 @@ func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes 
 	}, nil
 }
 
-func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
+func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, second
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	c := client{logger: logger}
+	c := client{logger: logger, chainID: chainID}
 
 	// for now only one primary is supported
 	c.primary = NewNode(*parsed, rpcHTTPURL, "eth-primary-0")
@@ -142,17 +142,17 @@ func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, second
 
 // Dial opens websocket connections if necessary and sanity-checks that tthe
 // node's remote chain ID matches the local one
-func (client *client) Dial(ctx context.Context, verifyChainID bool) error {
+func (client *client) Dial(ctx context.Context) error {
 	if client.mocked {
 		return nil
 	}
 	if err := client.primary.Dial(ctx); err != nil {
 		return err
 	}
-	if verifyChainID {
+	if client.chainID != nil {
 		if chainID, err := client.primary.ws.geth.ChainID(ctx); err != nil {
 			return err
-		} else if chainID.Cmp(&client.chainID) != 0 {
+		} else if chainID.Cmp(client.chainID) != 0 {
 			return errors.Errorf(
 				"websocket rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
 				chainID,
@@ -160,28 +160,28 @@ func (client *client) Dial(ctx context.Context, verifyChainID bool) error {
 				client.primary.name,
 			)
 		}
-	}
-	if client.primary.http != nil && verifyChainID {
-		if chainID, err := client.primary.http.geth.ChainID(ctx); err != nil {
-			return err
-		} else if chainID.Cmp(&client.chainID) != 0 {
-			return errors.Errorf(
-				"http rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
-				chainID,
-				&client.chainID,
-				client.primary.name,
-			)
+		if client.primary.http != nil {
+			if chainID, err := client.primary.http.geth.ChainID(ctx); err != nil {
+				return err
+			} else if chainID.Cmp(client.chainID) != 0 {
+				return errors.Errorf(
+					"http rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
+					chainID,
+					&client.chainID,
+					client.primary.name,
+				)
+			}
 		}
-	}
 
+	}
 	for _, s := range client.secondaries {
 		if err := s.Dial(); err != nil {
 			return err
 		}
-		if verifyChainID {
+		if client.chainID != nil {
 			if chainID, err := s.ChainID(ctx); err != nil {
 				return err
-			} else if chainID.Cmp(&client.chainID) != 0 {
+			} else if chainID.Cmp(client.chainID) != 0 {
 				return errors.Errorf(
 					"secondary rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
 					chainID,
@@ -252,7 +252,7 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return
 }
 
-func (client *client) ChainID() big.Int {
+func (client *client) ChainID() *big.Int {
 	return client.chainID
 }
 
@@ -319,8 +319,9 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 	err = client.primary.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
 	if err == nil && head == nil {
 		err = ethereum.NotFound
+		return
 	}
-	head.EVMChainID = utils.NewBig(&client.chainID)
+	head.EVMChainID = utils.NewBig(client.chainID)
 	return
 }
 

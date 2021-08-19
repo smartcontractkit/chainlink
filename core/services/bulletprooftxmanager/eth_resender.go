@@ -33,6 +33,7 @@ const defaultResenderPollInterval = 5 * time.Second
 type EthResender struct {
 	db        *gorm.DB
 	ethClient eth.Client
+	chainID   big.Int
 	interval  time.Duration
 	config    Config
 
@@ -47,6 +48,7 @@ func NewEthResender(db *gorm.DB, ethClient eth.Client, pollInterval time.Duratio
 	return &EthResender{
 		db,
 		ethClient,
+		*ethClient.ChainID(),
 		pollInterval,
 		config,
 		make(chan struct{}),
@@ -90,7 +92,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 
 	olderThan := time.Now().Add(-ageThreshold)
-	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions, er.ethClient.ChainID())
+	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID)
 	if err != nil {
 		return errors.Wrap(err, "failed to findEthTxAttemptsRequiringReceiptFetch")
 	}

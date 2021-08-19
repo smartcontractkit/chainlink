@@ -28,7 +28,7 @@ const NullClientChainID = 0
 // Client methods
 //
 
-func (nc *NullClient) Dial(context.Context, bool) error {
+func (nc *NullClient) Dial(context.Context) error {
 	logger.Debug("NullClient#Dial")
 	return nil
 }
@@ -92,12 +92,12 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 // GethClient methods
 //
 
-func (nc *NullClient) ChainID() big.Int {
+func (nc *NullClient) ChainID() *big.Int {
 	logger.Debug("NullClient#ChainID")
 	if nc.CID != nil {
-		return *nc.CID
+		return nc.CID
 	}
-	return *big.NewInt(NullClientChainID)
+	return big.NewInt(NullClientChainID)
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
