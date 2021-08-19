@@ -23,7 +23,7 @@ type dataSource struct {
 	jobSpec               job.Job
 	spec                  pipeline.Spec
 	ocrLogger             logger.Logger
-	runResults            chan<- pipeline.RunWithResults
+	runResults            chan<- pipeline.Run
 	currentBridgeMetadata models.BridgeMetaData
 }
 
@@ -62,10 +62,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	// immediately return any result we have and do not want to have
 	// a db write block that.
 	select {
-	case ds.runResults <- pipeline.RunWithResults{
-		Run:            run,
-		TaskRunResults: trrs,
-	}:
+	case ds.runResults <- run:
 	default:
 		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.spec.JobID)
 	}

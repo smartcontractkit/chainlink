@@ -734,7 +734,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
-		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, false)
+		runID, err2 := fm.runner.InsertFinishedRun(postgres.UnwrapGorm(tx), run, false)
 		if err2 != nil {
 			return err2
 		}
@@ -959,7 +959,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	err = postgres.GormTransactionWithDefaultContext(fm.db, func(tx *gorm.DB) error {
-		runID, err2 := fm.runner.InsertFinishedRun(tx, run, results, true)
+		runID, err2 := fm.runner.InsertFinishedRun(postgres.UnwrapGorm(tx), run, true)
 		if err2 != nil {
 			return err2
 		}

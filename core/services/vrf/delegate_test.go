@@ -185,12 +185,12 @@ func TestStartingCounts(t *testing.T) {
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
-	m1 := models.EthTxMetaV2{
+	m1 := bulletprooftxmanager.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x10),
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
-	m2 := models.EthTxMetaV2{
+	m2 := bulletprooftxmanager.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x11),
 	}
 	md2, err := json.Marshal(&m2)
@@ -406,6 +406,13 @@ func TestDelegate_ValidLog(t *testing.T) {
 		},
 	}
 
+	runComplete := make(chan struct{})
+	vuni.pr.OnRunFinished(func(run *pipeline.Run) {
+		if run.State == pipeline.RunStatusCompleted {
+			runComplete <- struct{}{}
+		}
+	})
+
 	consumed := make(chan struct{})
 	for i, tc := range tt {
 		tc := tc
@@ -418,9 +425,15 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to  requestID
-		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"), vuni.submitter, common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()), mock.Anything, uint64(500000), mock.MatchedBy(func(meta *models.EthTxMetaV2) bool {
-			return meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash
-		}), bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{}, nil)
+		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
+				meta := newTx.Meta
+				return newTx.FromAddress == vuni.submitter &&
+					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+					newTx.GasLimit == uint64(500000) &&
+					(meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash)
+			}),
+		).Once().Return(bulletprooftxmanager.EthTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, nil))
 		// Wait until the log is present
@@ -430,6 +443,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
+		waitForChannel(t, runComplete, 2*time.Second, "pipeline not complete")
 		runs, err := vuni.prm.GetAllRuns()
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))

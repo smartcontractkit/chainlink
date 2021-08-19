@@ -234,7 +234,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// the lb will backfill the logs. However we need to
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
-		return len(runs) == 1
+		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Wait for the request to be fulfilled on-chain.

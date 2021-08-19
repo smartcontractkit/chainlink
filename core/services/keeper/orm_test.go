@@ -362,7 +362,14 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	var err error
 	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
 	err = orm.WithTransaction(func(ctx context.Context) error {
-		txm.On("CreateEthTransaction", mock.IsType(store.DB), fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{
+		txm.On("CreateEthTransaction", mock.IsType(store.DB), bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
+		}).Once().Return(bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
