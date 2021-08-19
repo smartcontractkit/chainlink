@@ -38,7 +38,6 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 
 	var resources []presenters.ETHKeyResource
 	for _, key := range keys {
-		fmt.Println("BALLS", key)
 		if !ekc.App.GetStore().Config.Dev() && key.IsFunding {
 			continue
 		}

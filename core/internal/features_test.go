@@ -717,7 +717,6 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient, eventBroadcaster)
 	defer cleanup()
-	fmt.Println("BALLS app eventBroadcaster", eventBroadcaster)
 	require.NoError(t, app.Start())
 
 	db := app.GetDB()

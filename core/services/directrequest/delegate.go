@@ -84,7 +84,6 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		minIncomingConfirmations = concreteSpec.MinIncomingConfirmations.Uint32
 	}
 
-	fmt.Println("BALLS services for spec")
 	logListener := &listener{
 		config:                   chain.Config(),
 		logBroadcaster:           chain.LogBroadcaster(),
@@ -126,7 +125,6 @@ type listener struct {
 // Start complies with job.Service
 func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
-		fmt.Println("BALLS listener start")
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,
@@ -167,7 +165,6 @@ func (l *listener) Close() error {
 }
 
 func (l *listener) HandleLog(lb log.Broadcast) {
-	fmt.Println("BALLS listener handlelog")
 	wasOverCapacity := l.mbLogs.Deliver(lb)
 	if wasOverCapacity {
 		logger.Error("DirectRequestListener: log mailbox is over capacity - dropped the oldest log")
@@ -218,7 +215,6 @@ func (l *listener) handleReceivedLogs() {
 			return
 		}
 
-		fmt.Printf("BALLS handleReceivedLogs %T\n", log)
 		switch log := log.(type) {
 		case *operator_wrapper.OperatorOracleRequest:
 			l.handleOracleRequest(log, lb)
