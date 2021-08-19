@@ -28,7 +28,7 @@ const NullClientChainID = 0
 // Client methods
 //
 
-func (nc *NullClient) Dial(ctx context.Context) error {
+func (nc *NullClient) Dial(context.Context, bool) error {
 	logger.Debug("NullClient#Dial")
 	return nil
 }

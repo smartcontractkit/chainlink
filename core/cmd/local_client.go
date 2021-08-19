@@ -273,7 +273,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	ethClient := chain.Client()
 
-	err = ethClient.Dial(context.TODO())
+	err = ethClient.Dial(context.TODO(), true)
 	if err != nil {
 		return err
 	}

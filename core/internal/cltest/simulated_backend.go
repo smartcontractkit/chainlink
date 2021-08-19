@@ -85,7 +85,7 @@ type SimulatedBackendClient struct {
 
 var _ eth.Client = (*SimulatedBackendClient)(nil)
 
-func (c *SimulatedBackendClient) Dial(context.Context) error {
+func (c *SimulatedBackendClient) Dial(context.Context, bool) error {
 	return nil
 }
 

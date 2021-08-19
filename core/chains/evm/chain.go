@@ -144,7 +144,7 @@ func (c *chain) Start() error {
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
-		if err := c.client.Dial(context.TODO()); err != nil {
+		if err := c.client.Dial(context.TODO(), true); err != nil {
 			return errors.Wrap(err, "failed to Dial ethclient")
 		}
 		merr = multierr.Combine(

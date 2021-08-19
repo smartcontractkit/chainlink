@@ -2265,6 +2265,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	ethClient := cltest.NewEthClientMock(t)
 
 	config := cltest.NewTestGeneralConfig(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, config)
 
 	head := models.Head{
 		Hash:   utils.NewHash(),
@@ -2285,7 +2286,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	require.NoError(t, db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`).Error)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key}, func(id uuid.UUID, value interface{}) error {
+		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, evmcfg, ethKeyStore, []ethkey.Key{key}, func(id uuid.UUID, value interface{}) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2305,7 +2306,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key}, func(id uuid.UUID, value interface{}) error {
+		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, evmcfg, ethKeyStore, []ethkey.Key{key}, func(id uuid.UUID, value interface{}) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2327,7 +2328,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
-		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, config, ethKeyStore, []ethkey.Key{key}, func(id uuid.UUID, value interface{}) error {
+		ec := cltest.NewEthConfirmer(t, store.DB, ethClient, evmcfg, ethKeyStore, []ethkey.Key{key}, func(id uuid.UUID, value interface{}) error {
 			ch <- value
 			return nil
 		})

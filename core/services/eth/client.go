@@ -29,7 +29,7 @@ import (
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	Dial(ctx context.Context) error
+	Dial(ctx context.Context, verifyChainID bool) error
 	Close()
 	ChainID() big.Int
 
@@ -142,24 +142,26 @@ func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, second
 
 // Dial opens websocket connections if necessary and sanity-checks that tthe
 // node's remote chain ID matches the local one
-func (client *client) Dial(ctx context.Context) error {
+func (client *client) Dial(ctx context.Context, verifyChainID bool) error {
 	if client.mocked {
 		return nil
 	}
 	if err := client.primary.Dial(ctx); err != nil {
 		return err
 	}
-	if chainID, err := client.primary.ws.geth.ChainID(ctx); err != nil {
-		return err
-	} else if chainID.Cmp(&client.chainID) != 0 {
-		return errors.Errorf(
-			"websocket rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
-			chainID,
-			&client.chainID,
-			client.primary.name,
-		)
+	if verifyChainID {
+		if chainID, err := client.primary.ws.geth.ChainID(ctx); err != nil {
+			return err
+		} else if chainID.Cmp(&client.chainID) != 0 {
+			return errors.Errorf(
+				"websocket rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
+				chainID,
+				&client.chainID,
+				client.primary.name,
+			)
+		}
 	}
-	if client.primary.http != nil {
+	if client.primary.http != nil && verifyChainID {
 		if chainID, err := client.primary.http.geth.ChainID(ctx); err != nil {
 			return err
 		} else if chainID.Cmp(&client.chainID) != 0 {
@@ -176,15 +178,17 @@ func (client *client) Dial(ctx context.Context) error {
 		if err := s.Dial(); err != nil {
 			return err
 		}
-		if chainID, err := s.ChainID(ctx); err != nil {
-			return err
-		} else if chainID.Cmp(&client.chainID) != 0 {
-			return errors.Errorf(
-				"secondary rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
-				chainID,
-				&client.chainID,
-				s.name,
-			)
+		if verifyChainID {
+			if chainID, err := s.ChainID(ctx); err != nil {
+				return err
+			} else if chainID.Cmp(&client.chainID) != 0 {
+				return errors.Errorf(
+					"secondary rpc ChainID doesn't match configured chain ID: eth RPC ID=%d, config ID=%d, node name=%s",
+					chainID,
+					&client.chainID,
+					s.name,
+				)
+			}
 		}
 	}
 	return nil
