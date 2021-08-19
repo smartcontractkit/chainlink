@@ -167,8 +167,7 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, cfg config.GeneralConfig, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
-	t.Helper()
+func makeMinimalHTTPOracleSpec(t *testing.T, db *gorm.DB, cfg config.GeneralConfig, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OffchainReportingOracleSpec{
 		P2PBootstrapPeers:                      pq.StringArray{},
 		ObservationTimeout:                     models.Interval(10 * time.Second),
@@ -184,7 +183,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, cfg config.GeneralConfig, contractA
 		ExternalJobID: uuid.NewV4(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: cfg})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: db, Client: cltest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
 	_, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)

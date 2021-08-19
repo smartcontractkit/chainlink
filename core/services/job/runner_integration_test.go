@@ -636,7 +636,7 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jbs := makeMinimalHTTPOracleSpec(t, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jbs := makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		jb, err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
@@ -645,7 +645,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jbs = makeMinimalHTTPOracleSpec(t, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
@@ -654,7 +654,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Errors[0])
 
 		// Job specified task timeout should fail.
-		jbs = makeMinimalHTTPOracleSpec(t, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
 		jbs.Name = null.NewString("a job 3", true)
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
@@ -679,7 +679,7 @@ func TestRunner_AsyncJob(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	defer cleanup()
 
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{Client: ethClient, GeneralConfig: cfg})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: app.GetDB(), Client: ethClient, GeneralConfig: cfg})
 
 	require.NoError(t, app.Start())
 

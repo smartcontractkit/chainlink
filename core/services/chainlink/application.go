@@ -600,3 +600,7 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
 	return app.EventBroadcaster
 }
+
+func (app *ChainlinkApplication) GetDB() *gorm.DB {
+	return app.Store.DB
+}

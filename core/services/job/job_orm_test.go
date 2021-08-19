@@ -38,7 +38,7 @@ func TestORM(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: config})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
@@ -242,7 +242,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: config})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
@@ -279,7 +279,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 	defer cleanupORM()
 
 	advisoryLocker := new(mocks.AdvisoryLocker)
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: config})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, advisoryLocker)
 	defer orm.Close()
 
@@ -315,7 +315,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: config})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 

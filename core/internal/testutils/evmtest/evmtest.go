@@ -56,6 +56,11 @@ func NewChainCollection(t testing.TB, testopts TestChainOpts) evm.ChainCollectio
 		{
 			ID:  *utils.NewBigI(0),
 			Cfg: testopts.ChainCfg,
+			Nodes: []evmtypes.Node{{
+				Name:       "evm-test-only-0",
+				EVMChainID: *utils.NewBigI(0),
+				WSURL:      "ws://example.invalid",
+			}},
 		},
 	}
 
