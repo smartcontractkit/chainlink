@@ -28,7 +28,7 @@ import (
 // FullTestORM creates an ORM which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types
 // with it.
-func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) (*configtest.TestGeneralConfig, *orm.ORM, func()) {
+func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *orm.ORM, func()) {
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator: cltest.MockSecretGenerator{},
 	}
@@ -45,7 +45,7 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) 
 	if migrate {
 		require.NoError(t, migrations.Migrate(orm.DB))
 	}
-	if len(loadFixtures) > 0 && loadFixtures[0] {
+	if loadFixtures {
 		_, filename, _, ok := runtime.Caller(0)
 		if !ok {
 			t.Fatal("could not get runtime.Caller(0)")

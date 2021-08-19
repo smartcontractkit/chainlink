@@ -181,6 +181,7 @@ func (b *broadcaster) Close() error {
 
 func (b *broadcaster) awaitInitialSubscribers() {
 	defer b.wgDone.Done()
+	b.logger.Debug("LogBroadcaster: Starting to await initial subscribers until all dependents are ready...")
 	for {
 		select {
 		case <-b.addSubscriber.Notify():

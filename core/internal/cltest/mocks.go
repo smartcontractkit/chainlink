@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -498,10 +497,4 @@ func NewChainCollectionMockWithOneChain(t testing.TB, ethClient eth.Client, cfg 
 	cc.On("Default").Return(ch, nil)
 	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
 	return cc
-}
-
-func NewChainScopedConfigMock(t testing.TB) *evmconfigmocks.ChainScopedConfig {
-	cfg := new(evmconfigmocks.ChainScopedConfig)
-	cfg.Test(t)
-	return cfg
 }

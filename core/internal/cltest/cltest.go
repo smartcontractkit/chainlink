@@ -1740,6 +1740,6 @@ func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 }
 
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := config.NewGeneralConfig()
+	cfg := NewTestGeneralConfig(t)
 	return evmtest.NewChainScopedConfig(t, cfg)
 }

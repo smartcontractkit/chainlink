@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +19,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
+	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
 	logger := store.Config.CreateProductionLogger()
@@ -41,10 +42,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hr := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(store.DB, ethClient.ChainID())
-	evmcfg := new(evmconfigmocks.ChainScopedConfig)
-	evmcfg.Test(t)
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmcfg, orm, hr, cltest.NeverSleeper{})
+	orm := headtracker.NewORM(store.DB, *ethClient.ChainID())
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()
 	require.NoError(t, ht.Start())

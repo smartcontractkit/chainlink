@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -41,8 +41,8 @@ func firstHead(t *testing.T, db *gorm.DB) models.Head {
 	return h
 }
 
-func newCfg(t testing.TB) *evmconfigmocks.ChainScopedConfig {
-	cfg := cltest.NewChainScopedConfigMock(t)
+func newCfg(t testing.TB) evmconfig.ChainScopedConfig {
+	cfg := cltest.NewTestChainScopedConfig(t)
 	return cfg
 }
 
@@ -339,7 +339,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
 	t.Cleanup(cleanupDB)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
@@ -372,7 +372,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 		return h.Number == 0 && h.Hash == head0.Hash
 	})).Return().Once()
 
-	assert.Nil(t, ht.Start())
+	require.NoError(t, ht.Start())
 
 	lastHead := make(chan struct{})
 	blockHeaders := []*models.Head{}
@@ -497,7 +497,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := models.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time)
+	head0 := models.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, utils.NewBig(&cltest.FixtureChainID))
 
 	h1 := *cltest.Head(1)
 	h1.ParentHash = head0.Hash
@@ -507,7 +507,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: utils.NewHash(),
 		Time:       now,
 	}
-	head8 := models.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time)
+	head8 := models.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, utils.NewBig(&cltest.FixtureChainID))
 
 	h9 := *cltest.Head(9)
 	h9.ParentHash = head8.Hash
@@ -517,7 +517,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
-	head10 := models.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time)
+	head10 := models.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, utils.NewBig(&cltest.FixtureChainID))
 
 	h11 := *cltest.Head(11)
 	h11.ParentHash = head10.Hash
@@ -558,7 +558,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
-
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
 		err := ht.Backfill(ctx, h12, 2)
@@ -576,7 +576,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
-
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 
@@ -613,6 +613,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
@@ -647,6 +648,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
@@ -665,6 +667,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
 		ethClient := cltest.NewEthClientMock(t)
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
@@ -693,6 +696,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
 			Once()
@@ -725,6 +729,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
+		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(8)).
