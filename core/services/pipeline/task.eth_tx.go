@@ -88,7 +88,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minConfirmations = min
 	} else {
-		minConfirmations = t.config.MinRequiredOutgoingConfirmations()
+		minConfirmations = cfg.MinRequiredOutgoingConfirmations()
 	}
 
 	var txMeta bulletprooftxmanager.EthTxMeta

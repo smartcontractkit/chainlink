@@ -113,20 +113,6 @@ func (_m *Config) EthTxResendAfterThreshold() time.Duration {
 	return r0
 }
 
-// EthTxResendAfterThreshold provides a mock function with given fields:
-func (_m *Config) EthTxResendAfterThreshold() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // EvmFinalityDepth provides a mock function with given fields:
 func (_m *Config) EvmFinalityDepth() uint32 {
 	ret := _m.Called()

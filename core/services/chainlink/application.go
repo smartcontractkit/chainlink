@@ -186,9 +186,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, chainCollection)
 	promReporter := services.NewPromReporter(postgres.MustSQLDB(db))
 	subservices = append(subservices, promReporter)
-	for _, chain := range chainCollection.Chains() {
-		chain.HeadBroadcaster().Subscribe(promReporter)
-	}
 
 	var (
 		pipelineORM    = pipeline.NewORM(db)
@@ -196,7 +193,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(db, chainCollection, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
-	txManager.RegisterResumeCallback(pipelineRunner.ResumeRun)
+	for _, chain := range chainCollection.Chains() {
+		chain.HeadBroadcaster().Subscribe(promReporter)
+		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
+	}
 
 	var (
 		delegates = map[job.Type]job.Delegate{

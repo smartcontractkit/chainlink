@@ -231,7 +231,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			chain.ID(),
 		)
 
-		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
+		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
