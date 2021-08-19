@@ -63,6 +63,9 @@ func NewHeadListener(l *logger.Logger,
 	wgDone *sync.WaitGroup,
 	sleepers ...utils.Sleeper,
 ) *HeadListener {
+	if ethClient == nil {
+		panic("head listener requires non-nil ethclient")
+	}
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]

@@ -125,7 +125,6 @@ type listener struct {
 // Start complies with job.Service
 func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
-		fmt.Println("BALLS l.logBroadcaster", l.logBroadcaster)
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,

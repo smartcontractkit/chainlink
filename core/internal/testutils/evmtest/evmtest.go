@@ -41,13 +41,16 @@ func NewChainCollection(t testing.TB, testopts TestChainOpts) evm.ChainCollectio
 		DB:     testopts.DB,
 	}
 
-	opts.GenEthClient = func(c evmtypes.Chain) eth.Client {
-		return testopts.Client
+	if testopts.Client != nil {
+		opts.GenEthClient = func(c evmtypes.Chain) eth.Client {
+			return testopts.Client
+		}
 	}
-	opts.GenLogBroadcaster = func(c evmtypes.Chain) log.Broadcaster {
-		return testopts.LogBroadcaster
+	if testopts.LogBroadcaster != nil {
+		opts.GenLogBroadcaster = func(c evmtypes.Chain) log.Broadcaster {
+			return testopts.LogBroadcaster
+		}
 	}
-	opts.Config = testopts.GeneralConfig
 
 	chains := []evmtypes.Chain{
 		{

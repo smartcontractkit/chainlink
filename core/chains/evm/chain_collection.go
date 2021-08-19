@@ -135,6 +135,9 @@ func LoadChainCollection(opts ChainCollectionOpts) (ChainCollection, error) {
 }
 
 func NewChainCollection(opts ChainCollectionOpts, dbchains []types.Chain) (ChainCollection, error) {
+	if opts.Config == nil {
+		panic("config must be non-nil")
+	}
 	var err error
 	cll := &chainCollection{opts.Config.DefaultChainID(), make(map[string]*chain)}
 	for i := range dbchains {

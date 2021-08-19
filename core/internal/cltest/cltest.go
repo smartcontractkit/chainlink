@@ -452,6 +452,12 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 }
 
+func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
+	c, s, f = NewEthMocks(t)
+	c.On("ChainID").Return(FixtureChainID).Maybe()
+	return
+}
+
 func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()

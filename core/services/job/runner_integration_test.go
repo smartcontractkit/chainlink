@@ -50,12 +50,12 @@ func TestRunner(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
-	ethClient, _, _ := cltest.NewEthMocks(t)
+	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	pipelineORM := pipeline.NewORM(db)
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{Client: ethClient, GeneralConfig: config})
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
 	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
@@ -636,7 +636,7 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jbs := makeMinimalHTTPOracleSpec(t, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		jb, err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
@@ -645,7 +645,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
@@ -654,7 +654,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Errors[0])
 
 		// Job specified task timeout should fail.
-		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
 		jbs.Name = null.NewString("a job 3", true)
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
