@@ -32,8 +32,8 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(256), nil).Twice()
 	ethClient.On("BalanceAt", mock.Anything, addr2, mock.Anything).Return(big.NewInt(1), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
 
 	require.NoError(t, app.Start())
 
@@ -76,7 +76,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), true)
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
 
 	require.NoError(t, app.Start())
 
@@ -136,7 +136,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	ethBalanceInt := big.NewInt(100)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
-	linkBalance := assets.NewLink(42)
+	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
 	client := app.NewHTTPClient()

@@ -44,7 +44,7 @@ func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress co
 
 func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	logger.Debug("NullClient#GetLINKBalance")
-	return assets.NewLink(0), nil
+	return assets.NewLinkFromJuels(0), nil
 }
 
 func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {

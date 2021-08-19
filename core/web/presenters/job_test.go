@@ -115,7 +115,7 @@ func TestJob(t *testing.T) {
 					IdleTimerDisabled: false,
 					PollTimerPeriod:   1 * time.Second,
 					PollTimerDisabled: false,
-					MinPayment:        assets.NewLink(1),
+					MinPayment:        assets.NewLinkFromJuels(1),
 					CreatedAt:         timestamp,
 					UpdatedAt:         timestamp,
 				},

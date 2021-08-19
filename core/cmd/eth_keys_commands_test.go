@@ -36,7 +36,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	var (
 		address     = "0x5431F5F973781809D18643b87B44921b11355d81"
 		ethBalance  = assets.NewEth(1)
-		linkBalance = assets.NewLink(2)
+		linkBalance = assets.NewLinkFromJuels(2)
 		nextNonce   = int64(0)
 		isFunding   = true
 		createdAt   = time.Now()
@@ -96,7 +96,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("Dial", mock.Anything).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(ethClient),
@@ -276,7 +276,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	ethClient.On("Dial", mock.Anything).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "internal/fixtures/apicredentials", "")

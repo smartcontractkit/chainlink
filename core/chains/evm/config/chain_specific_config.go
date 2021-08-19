@@ -7,8 +7,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 )
 
-type (
+var DefaultMinimumContractPayment = assets.NewLinkFromJuels(100000000000000) // 0.0001 LINK
 
+type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
 	chainSpecificConfigDefaultSet struct {
 		balanceMonitorEnabled                      bool
@@ -106,7 +107,7 @@ func setchainSpecificConfigDefaultSets() {
 		minGasPriceWei:                             *assets.GWei(1),
 		minIncomingConfirmations:                   3,
 		minRequiredOutgoingConfirmations:           12,
-		minimumContractPayment:                     assets.NewLink(100000000000000), // 0.0001 LINK
+		minimumContractPayment:                     DefaultMinimumContractPayment,
 		nonceAutoSync:                              true,
 		ocrContractConfirmations:                   4,
 		rpcDefaultBatchSize:                        100,
@@ -115,7 +116,7 @@ func setchainSpecificConfigDefaultSets() {
 
 	mainnet := fallbackDefaultSet
 	mainnet.linkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
-	mainnet.minimumContractPayment = assets.NewLink(1000000000000000000) // 1 LINK
+	mainnet.minimumContractPayment = assets.NewLinkFromJuels(1000000000000000000) // 1 LINK
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but the defaults have been working fine and if it ain't
 	// broke, don't fix it.
@@ -234,7 +235,7 @@ func setchainSpecificConfigDefaultSets() {
 	rskMainnet.linkContractAddress = "0x14adae34bef7ca957ce2dde5add97ea050123827"
 	rskMainnet.maxGasPriceWei = *big.NewInt(50000000000)
 	rskMainnet.minGasPriceWei = *big.NewInt(0)
-	rskMainnet.minimumContractPayment = assets.NewLink(1000000000000000)
+	rskMainnet.minimumContractPayment = assets.NewLinkFromJuels(1000000000000000)
 	rskTestnet := rskMainnet
 	rskTestnet.linkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 

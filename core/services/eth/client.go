@@ -228,7 +228,7 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 func (client *client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	balance, err := client.GetERC20Balance(address, linkAddress)
 	if err != nil {
-		return assets.NewLink(0), err
+		return assets.NewLinkFromJuels(0), err
 	}
 	return (*assets.Link)(balance), nil
 }

@@ -75,7 +75,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			config := evmconfig.NewChainScopedConfig(nil, logger.Default, gcfg, evmtypes.Chain{ID: *utils.NewBigI(tt.chainID)})
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
-			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
+			assert.Equal(t, assets.NewLinkFromJuels(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
 		})
 	}
 }

@@ -205,7 +205,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.pipelineORM,
 		tm.keyStore,
 		pollManager,
-		fluxmonitorv2.NewPaymentChecker(assets.NewLink(1), nil),
+		fluxmonitorv2.NewPaymentChecker(assets.NewLinkFromJuels(1), nil),
 		contractAddress,
 		tm.contractSubmitter,
 		fluxmonitorv2.NewDeviationChecker(threshold, absoluteThreshold),

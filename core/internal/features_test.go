@@ -28,6 +28,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -676,6 +677,7 @@ observationSource = """
 func TestIntegration_DirectRequest(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+	config.Overrides.GlobalMinimumContractPayment = evmconfig.DefaultMinimumContractPayment
 
 	httpAwaiter := cltest.NewAwaiter()
 	httpServer, assertCalled := cltest.NewHTTPMockServer(
@@ -712,9 +714,10 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient, eventBroadcaster)
 	defer cleanup()
-	eventBroadcaster := app.GetEventBroadcaster()
+	fmt.Println("BALLS app eventBroadcaster", eventBroadcaster)
 	require.NoError(t, app.Start())
 
 	db := app.GetDB()

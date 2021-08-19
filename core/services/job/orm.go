@@ -97,6 +97,7 @@ func (o *orm) Close() error {
 }
 
 func (o *orm) ListenForNewJobs() (postgres.Subscription, error) {
+	fmt.Println("BALLS orm eventBroadcaster", o.eventBroadcaster)
 	return o.eventBroadcaster.Subscribe(postgres.ChannelJobCreated, "")
 }
 

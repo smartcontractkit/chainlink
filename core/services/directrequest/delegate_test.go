@@ -334,7 +334,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	t.Run("Log has sufficient funds", func(t *testing.T) {
 		cfg := configtest.NewTestGeneralConfig(t)
 		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
-		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLink(100)
+		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
 		uni := NewDirectRequestUniverseWithConfig(t, cfg)
 		defer uni.Cleanup()
 
@@ -383,7 +383,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	t.Run("Log has insufficient funds", func(t *testing.T) {
 		cfg := configtest.NewTestGeneralConfig(t)
 		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
-		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLink(100)
+		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
 		uni := NewDirectRequestUniverseWithConfig(t, cfg)
 		defer uni.Cleanup()
 
