@@ -88,6 +88,7 @@ type GeneralConfigOverrides struct {
 	TriggerFallbackDBPollInterval             *time.Duration
 }
 
+// FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
 func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duration) {
 	o.TriggerFallbackDBPollInterval = &d
 }

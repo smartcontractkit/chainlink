@@ -689,13 +689,8 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	)
 	defer assertCalled()
 
-	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+	ethClient, sub, assertMockCalls := cltest.NewEthMocksWithDefaultChain(t)
 	defer assertMockCalls()
-	ethClient.On("ChainID", mock.Anything).Return(*config.DefaultChainID())
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
-	defer cleanup()
-
-	eventBroadcaster := app.GetEventBroadcaster()
 
 	blocks := cltest.NewBlocks(t, 12)
 
@@ -717,12 +712,15 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil)
 	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
+	defer cleanup()
+	eventBroadcaster := app.GetEventBroadcaster()
 	require.NoError(t, app.Start())
 
-	store := app.Store
+	db := app.GetDB()
 
-	pipelineORM := pipeline.NewORM(store.DB)
-	jobORM := job.NewORM(store.ORM.DB, app.GetChainCollection(), pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	pipelineORM := pipeline.NewORM(db)
+	jobORM := job.NewORM(db, app.GetChainCollection(), pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
 	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
@@ -776,7 +774,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	defer assertMocksCalled()
 	chchNewHeads := make(chan chan<- *models.Head, 1)
 
-	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{ethClient, c, evmtypes.ChainCfg{
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{Client: ethClient, GeneralConfig: c, ChainCfg: evmtypes.ChainCfg{
 		EvmGasPriceDefault:                    utils.NewBigI(initialDefaultGasPrice),
 		GasEstimatorMode:                      null.StringFrom("BlockHistory"),
 		BlockHistoryEstimatorBlockDelay:       null.IntFrom(0),
