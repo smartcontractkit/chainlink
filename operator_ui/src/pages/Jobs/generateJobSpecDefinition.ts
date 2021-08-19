@@ -95,7 +95,7 @@ function generateFluxMonitorDefinition(
       idleTimerDisabled,
       pollTimerPeriod,
       pollTimerDisabled,
-      drumbeatEnabled: drumbeatEnabled || null,
+      drumbeatEnabled,
       drumbeatSchedule: drumbeatSchedule || null,
       drumbeatRandomDelay: drumbeatRandomDelay || null,
       maxTaskDuration,

@@ -65,8 +65,8 @@ type FluxMonitorSpec struct {
 	IdleTimerPeriod     string              `json:"idleTimerPeriod"`
 	IdleTimerDisabled   bool                `json:"idleTimerDisabled"`
 	DrumbeatEnabled     bool                `json:"drumbeatEnabled"`
-	DrumbeatSchedule    string              `json:"drumbeatSchedule,omitempty"`
-	DrumbeatRandomDelay string              `json:"drumbeatRandomDelay,omitempty"`
+	DrumbeatSchedule    *string             `json:"drumbeatSchedule"`
+	DrumbeatRandomDelay *string             `json:"drumbeatRandomDelay"`
 	MinPayment          *assets.Link        `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
@@ -75,9 +75,14 @@ type FluxMonitorSpec struct {
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
 // job.FluxMonitorSpec
 func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
-	drumbeatRandomDelay := ""
+	var drumbeatSchedulePtr *string
+	if spec.DrumbeatEnabled {
+		drumbeatSchedulePtr = &spec.DrumbeatSchedule
+	}
+	var drumbeatRandomDelayPtr *string
 	if spec.DrumbeatRandomDelay > 0 {
-		drumbeatRandomDelay = spec.DrumbeatRandomDelay.String()
+		drumbeatRandomDelay := spec.DrumbeatRandomDelay.String()
+		drumbeatRandomDelayPtr = &drumbeatRandomDelay
 	}
 	return &FluxMonitorSpec{
 		ContractAddress:     spec.ContractAddress,
@@ -88,8 +93,8 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 		IdleTimerPeriod:     spec.IdleTimerPeriod.String(),
 		IdleTimerDisabled:   spec.IdleTimerDisabled,
 		DrumbeatEnabled:     spec.DrumbeatEnabled,
-		DrumbeatSchedule:    spec.DrumbeatSchedule,
-		DrumbeatRandomDelay: drumbeatRandomDelay,
+		DrumbeatSchedule:    drumbeatSchedulePtr,
+		DrumbeatRandomDelay: drumbeatRandomDelayPtr,
 		MinPayment:          spec.MinPayment,
 		CreatedAt:           spec.CreatedAt,
 		UpdatedAt:           spec.UpdatedAt,
