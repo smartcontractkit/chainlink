@@ -20,8 +20,8 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.Dev = null.BoolFrom(true)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.Dev = null.BoolFrom(true)
 	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
@@ -64,8 +64,8 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.Dev = null.BoolFrom(false)
 	cfg.Overrides.EvmNonceAutoSync = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	t.Cleanup(cleanup)
@@ -122,7 +122,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestEVMConfig(t)
+	config := cltest.NewTestGeneralConfig(t)
 	ethClient := cltest.NewEthClientMock(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 	t.Cleanup(cleanup)

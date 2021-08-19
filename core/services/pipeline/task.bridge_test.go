@@ -115,7 +115,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -153,7 +153,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	id := uuid.NewV4()
 
@@ -345,7 +345,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			cfg := cltest.NewTestEVMConfig(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -394,7 +394,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	var empty adapterResponse
 
@@ -457,7 +457,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			cfg := cltest.NewTestEVMConfig(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
 			defer s1.Close()
@@ -501,7 +501,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -539,7 +539,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -575,7 +575,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	task := pipeline.BridgeTask{
 		Name:        "foo",

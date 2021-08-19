@@ -49,7 +49,7 @@ type broadcasterHelper struct {
 
 func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *broadcasterHelper {
 	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	chchRawLogs := make(chan chan<- types.Log, timesSubscribe)
 
@@ -77,7 +77,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 
 func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
 	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	orm := log.NewORM(db)
 	lb := log.NewBroadcaster(orm, ethClient, cfg, logger.Default, highestSeenHead)
@@ -206,7 +206,7 @@ func newLogListenerWithJob(t *testing.T, db *gorm.DB, name string) *simpleLogLis
 		ExternalJobID: uuid.NewV4(),
 	}
 
-	pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestEVMConfig(t), db, nil, nil, nil)
+	pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestGeneralConfig(t), db, nil, nil, nil)
 	_, err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
 	require.NoError(t, err)
 

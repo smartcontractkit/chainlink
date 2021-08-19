@@ -38,14 +38,14 @@ func setup(t *testing.T) (
 	cltest.JobPipelineV2TestHelper,
 	*bptxmmocks.TxManager,
 ) {
-	config := cltest.NewTestEVMConfig(t)
+	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	ethClient := cltest.NewEthClientMock(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
 	headBroadcaster := headtracker.NewHeadBroadcaster(logger.Default)
 	txm := new(bptxmmocks.TxManager)

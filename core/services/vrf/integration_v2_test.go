@@ -316,7 +316,7 @@ func TestRequestCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -359,7 +359,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -393,7 +393,7 @@ func TestFulfillmentCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())

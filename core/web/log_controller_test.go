@@ -35,12 +35,12 @@ type testCase struct {
 func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	logLevel := config.LogLevel{zapcore.WarnLevel}
-	cfg.GeneralConfig.Overrides.LogLevel = &logLevel
+	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
-	cfg.GeneralConfig.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
+	cfg.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
 
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg)
 	t.Cleanup(cleanup)

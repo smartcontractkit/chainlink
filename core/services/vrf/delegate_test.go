@@ -138,7 +138,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 
 func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	db := pgtest.NewGormDB(t)
-	c := configtest.NewTestEVMConfig(t, configtest.NewTestGeneralConfig(t))
+	c := configtest.NewTestGeneralConfig(t, configtest.NewTestGeneralConfig(t))
 	vuni := buildVrfUni(t, db, c)
 
 	vd := NewDelegate(

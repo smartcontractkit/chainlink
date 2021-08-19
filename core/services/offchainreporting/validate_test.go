@@ -315,15 +315,15 @@ answer1      [type=median index=0];
 				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
 			setGlobals: func(t *testing.T, c *configtest.TestEVMConfig) {
-				c.GeneralConfig.Overrides.SetOCRObservationTimeout(20 * time.Minute)
+				c.Overrides.SetOCRObservationTimeout(20 * time.Minute)
 			},
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := configtest.NewTestEVMConfig(t, configtest.NewTestGeneralConfig(t))
-			c.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+			c := configtest.NewTestGeneralConfig(t, configtest.NewTestGeneralConfig(t))
+			c.Overrides.Dev = null.BoolFrom(false)
 			if tc.setGlobals != nil {
 				tc.setGlobals(t, c)
 			}

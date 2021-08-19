@@ -24,9 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -674,12 +672,14 @@ func TestRunner_AsyncJob(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
+	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	defer cleanup()
+
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{Client: ethClient, GeneralConfig: cfg})
 
 	require.NoError(t, app.Start())
 
@@ -814,7 +814,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, cfg, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
+		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
 
 		// Trigger v2/resume
 		select {

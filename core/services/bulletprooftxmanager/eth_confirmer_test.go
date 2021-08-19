@@ -2264,7 +2264,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMock(t)
 
-	config := cltest.NewTestEVMConfig(t)
+	config := cltest.NewTestGeneralConfig(t)
 
 	head := models.Head{
 		Hash:   utils.NewHash(),

@@ -29,7 +29,7 @@ import (
 
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -187,7 +187,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			cfg := cltest.NewTestEVMConfig(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -310,7 +310,7 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 
@@ -335,7 +335,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	defer cleanup()
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
@@ -365,7 +365,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	defer cleanup()
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
@@ -394,7 +394,7 @@ func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(`{"result":10}`))
 	}))
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
@@ -459,7 +459,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
@@ -589,7 +589,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
@@ -671,7 +671,7 @@ func Test_PipelineRunner_FailEarly(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		require.Fail(t, "ds1 shouldn't have been called")
 	}))
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`

@@ -333,7 +333,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = cltest.NewTestEVMConfig(t).EvmGasLimitDefault()
+	neil.GasLimit = cltest.NewTestGeneralConfig(t).EvmGasLimitDefault()
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()
