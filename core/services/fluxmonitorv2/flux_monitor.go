@@ -792,6 +792,11 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 	}()
 
+	if pollReq != PollRequestTypeHibernation && fm.pollManager.cfg.IsHibernating {
+		l.Warnw("FluxMonitor: Skipping poll because a ticker fired while hibernating")
+		return
+	}
+
 	if !fm.logBroadcaster.IsConnected() {
 		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")
 		return

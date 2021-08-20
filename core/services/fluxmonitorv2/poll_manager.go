@@ -225,6 +225,7 @@ func (pm *PollManager) Hibernate() {
 	pm.idleTimer.Stop()
 	pm.roundTimer.Stop()
 	pm.drumbeat.Stop()
+	pm.retryTicker.Stop()
 }
 
 // Awaken sets hibernation to false, stops the hibernation timer and starts all
