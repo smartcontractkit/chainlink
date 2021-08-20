@@ -90,9 +90,11 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		corestore.Config.DatabaseListenerMaxReconnectDuration(),
 	)
 	pipelineORM := pipeline.NewORM(corestore.DB)
+
+	cc := evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: corestore.ORM.DB})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(corestore.ORM.DB, evmtest.NewChainCollection(t, evmtest.TestChainOpts{GeneralConfig: cfg}), pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(corestore.ORM.DB, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()

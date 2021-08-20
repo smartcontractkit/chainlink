@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -151,7 +150,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		f.sergey,
 		f.backend,
 		linkAddress,
-		(*big.Int)(assets.NewLinkFromJuels(1000000000000000000)), // big.NewInt(fee),
+		big.NewInt(fee),
 		faTimeout,
 		common.Address{},
 		cfg.MinSubmission,
@@ -412,7 +411,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		return consumed
-	}, cltest.DBWaitTimeout).Should(gomega.BeTrue())
+	}, 5*time.Second, 200*time.Millisecond).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -493,7 +492,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	initialBalance := currentBalance(t, &fa).Int64()
 
-	cltest.CreateJobViaWeb2(t, app, string(requestBody))
+	jobResponse := cltest.CreateJobViaWeb2(t, app, string(requestBody))
+	jobId, err := strconv.Atoi(jobResponse.ID)
+	require.NoError(t, err)
 
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
@@ -515,7 +516,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance,
 		receiptBlock,
 	)
-	run := assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
+	assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
 	fa.backend.Commit()
 	fa.backend.Commit()
@@ -523,7 +524,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 5)
+	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobId), 5)
 
 	logger.Info("Updating price to 103")
 	// Change reported price to a value outside the deviation
@@ -552,7 +553,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 8)
+	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobId), 8)
 
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)

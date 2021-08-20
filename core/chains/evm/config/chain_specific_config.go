@@ -7,7 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 )
 
-var DefaultMinimumContractPayment = assets.NewLinkFromJuels(100000000000000) // 0.0001 LINK
+//var DefaultMinimumContractPayment = assets.NewLinkFromJuels(100000000000000) // 0.0001 LINK
+var DefaultMinimumContractPayment = assets.NewLinkFromJuels(100) // 0.0001 LINK
 
 type (
 	// chainSpecificConfigDefaultSet lists the config defaults specific to a particular chain ID
