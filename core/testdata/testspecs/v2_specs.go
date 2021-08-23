@@ -128,6 +128,7 @@ encode_tx    [type=ethabiencode
               data="{\\"proof\\": $(vrf)}"]
 submit_tx  [type=ethtx to="%s" 
 			data="$(encode_tx)" 
+			minConfirmations="0"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)
@@ -152,6 +153,7 @@ estimate_gas [type=estimategaslimit
 submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             gasLimit="$(estimate_gas)"
+			minConfirmations="0"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->estimate_gas->submit_tx
 `, coordinatorAddress, coordinatorAddress)

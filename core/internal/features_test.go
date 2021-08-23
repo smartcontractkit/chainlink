@@ -366,13 +366,14 @@ func TestIntegration_MultiwordV2(t *testing.T) {
 	})
 	defer stopBlocks()
 
-	pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
-	pipelineRun := pipelineRuns[0]
-	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 	time.Sleep(3 * time.Second)
 	cltest.RequireTxSuccessful(t, b, attempts[0].Hash)
 	assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), consumerContract)
+
+	pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
+	pipelineRun := pipelineRuns[0]
+	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator) {

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +35,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
 
 		k0bal := big.NewInt(42)
@@ -64,7 +65,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 
@@ -86,7 +87,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
@@ -112,7 +113,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
@@ -163,7 +164,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	ethClient := NewEthClientMock(t)
 	ethClient.AssertExpectations(t)
 
-	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore)
+	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 
 	head := cltest.Head(0)
 

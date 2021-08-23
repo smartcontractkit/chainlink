@@ -212,14 +212,14 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config), logger.Default), func() {
 		assert.NoError(t, eventBroadcaster.Close())
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config))
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
 }
 
@@ -372,7 +372,7 @@ func NewApplicationWithConfig(t testing.TB, c *configtest.TestEVMConfig, flagsAn
 	}
 
 	ta := &TestApplication{t: t}
-	appInstance, err := chainlink.NewApplication(c, ethClient, advisoryLocker)
+	appInstance, err := chainlink.NewApplication(logger.Default, c, ethClient, advisoryLocker)
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
@@ -872,20 +872,6 @@ func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count in
 		return jse
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
-}
-
-func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
-	t.Helper()
-
-	var err error
-	prs := []pipeline.Run{}
-	gomega.NewGomegaWithT(t).Eventually(func() []pipeline.Run {
-		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
-		assert.NoError(t, err)
-		return prs
-	}, timeout, poll).Should(gomega.HaveLen(want))
-
-	return prs
 }
 
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {

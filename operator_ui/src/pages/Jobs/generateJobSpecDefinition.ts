@@ -76,6 +76,9 @@ function generateFluxMonitorDefinition(
     idleTimerDisabled,
     pollTimerPeriod,
     pollTimerDisabled,
+    drumbeatEnabled,
+    drumbeatSchedule,
+    drumbeatRandomDelay,
     minPayment,
   } = fluxMonitorSpec
 
@@ -92,6 +95,9 @@ function generateFluxMonitorDefinition(
       idleTimerDisabled,
       pollTimerPeriod,
       pollTimerDisabled,
+      drumbeatEnabled,
+      drumbeatSchedule: drumbeatSchedule || null,
+      drumbeatRandomDelay: drumbeatRandomDelay || null,
       maxTaskDuration,
       minPayment,
       observationSource: pipelineSpec.dotDagSource,
