@@ -11,8 +11,10 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	uuid "github.com/satori/go.uuid"
+	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -81,6 +83,16 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	// https://app.clubhouse.io/chainlinklabs/story/8781/remove-dependency-on-gorm
 	_, err = db.Exec(`SELECT 1`)
 	require.NoError(t, err)
+
+	return db
+}
+
+func NewSqlxDB(t *testing.T) *sqlx.DB {
+	db, err := sqlx.Open("txdb", uuid.NewV4().String())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db
 }

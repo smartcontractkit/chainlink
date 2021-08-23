@@ -37,7 +37,7 @@ func TestORM(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -82,7 +82,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer d.Close()
 
-	orm2 := job.NewORM(db2, config.Config, pipeline.NewORM(db2), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
@@ -226,8 +226,7 @@ func TestORM(t *testing.T) {
 func TestORM_CheckForDeletedJobs(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
@@ -243,7 +242,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	claimedJobs := make([]job.Job, 3)
@@ -269,8 +268,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 func TestORM_UnclaimJob(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
@@ -282,7 +280,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 	defer cleanupORM()
 
 	advisoryLocker := new(mocks.AdvisoryLocker)
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, advisoryLocker)
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, advisoryLocker)
 	defer orm.Close()
 
 	require.NoError(t, orm.UnclaimJob(context.Background(), 42))
@@ -310,8 +308,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
@@ -320,7 +317,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
@@ -331,7 +328,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		key := cltest.MustInsertRandomKey(t, store.DB)
 		address := key.Address.Address()
-		jb, err := offchainreporting.ValidatedOracleSpecToml(config.Config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
+		jb, err := offchainreporting.ValidatedOracleSpecToml(config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
 		require.NoError(t, err)
 
 		ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)

@@ -6,24 +6,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func (rs *RegistrySynchronizer) JobID() models.JobID {
-	return models.JobID{}
-}
-
-func (rs *RegistrySynchronizer) JobIDV2() int32 {
+func (rs *RegistrySynchronizer) JobID() int32 {
 	return rs.job.ID
 }
 
-func (rs *RegistrySynchronizer) IsV2Job() bool {
-	return true
-}
-
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
-	log := broadcast.DecodedLog()
-	if log == nil || reflect.ValueOf(log).IsNil() {
+	eventLog := broadcast.DecodedLog()
+	if eventLog == nil || reflect.ValueOf(eventLog).IsNil() {
 		logger.Errorf("RegistrySynchronizer: HandleLog: ignoring nil value, type: %T", broadcast)
 		return
 	}
@@ -31,13 +22,13 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	logger.Debugw(
 		"RegistrySynchronizer: received log, waiting for confirmations",
 		"jobID", rs.job.ID,
-		"logType", reflect.TypeOf(log),
+		"logType", reflect.TypeOf(eventLog),
 		"txHash", broadcast.RawLog().TxHash.Hex(),
 	)
 
 	var mailboxName string
 	var wasOverCapacity bool
-	switch log := log.(type) {
+	switch eventLog := eventLog.(type) {
 	case *keeper_registry_wrapper.KeeperRegistryKeepersUpdated:
 		wasOverCapacity = rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
 		mailboxName = "mbSyncRegistry"
@@ -54,7 +45,7 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 		wasOverCapacity = rs.mailRoom.mbUpkeepPerformed.Deliver(broadcast)
 		mailboxName = "mbUpkeepPerformed"
 	default:
-		logger.Warnf("unexpected log type %T", log)
+		logger.Warnf("unexpected log type %T", eventLog)
 	}
 	if wasOverCapacity {
 		logger.Errorf("RegistrySynchronizer: %v mailbox is over capacity - dropped the oldest unprocessed item", mailboxName)

@@ -236,11 +236,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
@@ -376,8 +372,6 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	t.Parallel()
-
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())

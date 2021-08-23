@@ -195,8 +195,8 @@ func (l *listener) handleReceivedLogs() {
 			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
 		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
+		cancel()
 		if err != nil {
 			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
 			return
@@ -274,10 +274,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	logger := logger.CreateLogger(logger.Default.With(
+	logger := logger.Default.With(
 		"jobName", l.job.PipelineSpec.JobName,
 		"jobID", l.job.PipelineSpec.JobID,
-	))
+	)
 
 	l.shutdownWaitGroup.Add(1)
 	go func() {
@@ -307,26 +307,17 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"logData":        request.Raw.Data,
 			},
 		})
-
-		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, vars, *logger)
-		if ctx.Err() != nil {
-			return
-		} else if err != nil {
-			logger.Errorw("DirectRequest failed to create run", "err", err)
-		}
-		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-		defer cancel()
-		err = postgres.GormTransaction(ctx, l.db, func(tx *gorm.DB) error {
-			_, err = l.pipelineRunner.InsertFinishedRun(tx, run, trrs, true)
-			if err != nil {
-				return err
+		run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+		_, err := l.pipelineRunner.Run(ctx, &run, *logger, true, func(tx *gorm.DB) error {
+			if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+				logger.Errorw("DirectRequest: failed mark consumed", "err", err)
 			}
-			return l.logBroadcaster.MarkConsumed(tx, lb)
+			return nil
 		})
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {
-			logger.Errorw("DirectRequest failed to create run", "err", err)
+			logger.Errorw("DirectRequest: failed executing run", "err", err)
 		}
 	}()
 }
@@ -344,19 +335,9 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	}
 }
 
-// JobID complies with log.Listener
-func (*listener) JobID() models.JobID {
-	return models.NilJobID
-}
-
 // Job complies with log.Listener
-func (l *listener) JobIDV2() int32 {
+func (l *listener) JobID() int32 {
 	return l.job.ID
-}
-
-// IsV2Job complies with log.Listener
-func (*listener) IsV2Job() bool {
-	return true
 }
 
 func formatRequestId(requestId [32]byte) string {

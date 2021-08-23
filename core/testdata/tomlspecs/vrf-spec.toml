@@ -20,6 +20,7 @@ encode_tx    [type=ethabiencode
               data="{\\"proof\\": $(vrf)}"]
 submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
             data="$(encode_tx)"
+            minConfirmations="0"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx
 """

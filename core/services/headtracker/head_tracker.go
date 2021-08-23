@@ -110,29 +110,26 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
-		// NOTE: In an ideal world we want to always start the head tracker off
-		// with whatever the latest head is, without waiting for the
-		// subscription to send us one.
+		// NOTE: Always try to start the head tracker off with whatever the
+		// latest head is, without waiting for the subscription to send us one.
 		//
-		// This does not play nicely with the legacy pipeline for reasons that
-		// are difficult to understand, so for now we leave it disabled in case
-		// the legacy pipeline is turned on. We can remove this once legacy
-		// pipeline is removed
-		if !ht.config.EnableLegacyJobPipeline() {
-			initialHead, err := ht.getInitialHead()
-			if err != nil {
-				return err
-			} else if initialHead != nil {
-				if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
-					return errors.Wrap(err, "error handling initial head")
-				}
-			} else {
-				logger.Debug("HeadTracker: got nil initial head")
+		// In some cases the subscription will send us the most recent head
+		// anyway when we connect (but we should not rely on this because it is
+		// not specced). If it happens this is fine, and the head will be
+		// ignored as a duplicate.
+		initialHead, err := ht.getInitialHead()
+		if err != nil {
+			return err
+		} else if initialHead != nil {
+			if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
+				return errors.Wrap(err, "error handling initial head")
 			}
+		} else {
+			logger.Debug("HeadTracker: got nil initial head")
 		}
 
 		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.handleConnected)
+		go ht.headListener.ListenForNewHeads(ht.handleNewHead)
 		go ht.backfiller()
 		go ht.headSampler()
 
@@ -158,7 +155,7 @@ func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.config.EthereumURL()))
+		ht.logger().Info(fmt.Sprintf("HeadTracker: Stopping - disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -182,20 +179,10 @@ func (ht *HeadTracker) Connected() bool {
 	return ht.headListener.Connected()
 }
 
-func (ht *HeadTracker) handleConnected() {
-	ht.connect(ht.headSaver.HighestSeenHead())
-}
-
-func (ht *HeadTracker) connect(bn *models.Head) {
-	if err := ht.headBroadcaster.Connect(bn); err != nil {
-		ht.logger().Warn(err)
-	}
-}
-
 func (ht *HeadTracker) headSampler() {
 	defer ht.wgDone.Done()
 
-	debounceHead := time.NewTicker(ht.config.EthHeadTrackerSamplingInterval())
+	debounceHead := time.NewTicker(ht.config.EvmHeadTrackerSamplingInterval())
 	defer debounceHead.Stop()
 
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
@@ -238,13 +225,14 @@ func (ht *HeadTracker) backfiller() {
 				}
 				{
 					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth())
-					defer cancel()
+					err := ht.Backfill(ctx, h, ht.config.EvmFinalityDepth())
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
+						cancel()
 						break
 					}
+					cancel()
 				}
 			}
 		}
@@ -355,7 +343,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EthFinalityDepth())
+		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EvmFinalityDepth())
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {
@@ -374,7 +362,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}

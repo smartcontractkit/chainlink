@@ -27,9 +27,7 @@ import (
 func TestHTTPTask_Happy(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
@@ -148,6 +146,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			cfg := cltest.NewTestEVMConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -161,7 +160,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        "foo",
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(cfg, store.DB, uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
@@ -194,9 +193,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -234,9 +231,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 func TestHTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -265,9 +260,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestEVMConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)

@@ -21,6 +21,8 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
+	verMocks "github.com/smartcontractkit/chainlink/core/services/versioning/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,8 @@ import (
 type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
+	verORM      *verMocks.ORM
+	connMgr     *mocks.ConnectionsManager
 	txm         *pgmocks.TransactionManager
 	spawner     *jobmocks.Spawner
 	fmsClient   *mocks.FeedsManagerClient
@@ -43,6 +47,8 @@ type TestService struct {
 func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
+		verORM      = &verMocks.ORM{}
+		connMgr     = &mocks.ConnectionsManager{}
 		txm         = &pgmocks.TransactionManager{}
 		spawner     = &jobmocks.Spawner{}
 		fmsClient   = &mocks.FeedsManagerClient{}
@@ -54,6 +60,8 @@ func setupTestService(t *testing.T) *TestService {
 	t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t,
 			orm,
+			verORM,
+			connMgr,
 			txm,
 			spawner,
 			fmsClient,
@@ -63,12 +71,14 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	svc := feeds.NewService(orm, txm, spawner, csaKeystore, ethKeystore, cfg)
-	svc.SetFMSClient(fmsClient)
+	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg)
+	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
+		verORM:      verORM,
+		connMgr:     connMgr,
 		txm:         txm,
 		spawner:     spawner,
 		fmsClient:   fmsClient,
@@ -99,13 +109,12 @@ func Test_Service_RegisterManager(t *testing.T) {
 
 	svc := setupTestService(t)
 
-	svc.orm.On("CountManagers").Return(int64(0), nil)
+	svc.orm.On("CountManagers", context.Background()).Return(int64(0), nil)
 	svc.orm.On("CreateManager", context.Background(), &ms).
 		Return(id, nil)
 	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
 	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
-	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{ms}, nil).Maybe()
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(&ms)
 	// We need to stop the service because the manager will attempt to make a
@@ -127,6 +136,7 @@ func Test_Service_ListManagers(t *testing.T) {
 
 	svc.orm.On("ListManagers", context.Background()).
 		Return(mss, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.ListManagers()
 	require.NoError(t, err)
@@ -145,6 +155,7 @@ func Test_Service_GetManager(t *testing.T) {
 
 	svc.orm.On("GetManager", context.Background(), id).
 		Return(&ms, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.GetManager(id)
 	require.NoError(t, err)
@@ -187,6 +198,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			Address:   ethkey.EIP55AddressFromAddress(rawKey.Address),
 			IsFunding: false,
 		}
+		nodeVersion = &versioning.NodeVersion{
+			Version: "1.0.0",
+		}
 	)
 
 	svc := setupTestService(t)
@@ -195,17 +209,53 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.orm.On("GetManager", ctx, feedsMgr.ID).Return(feedsMgr, nil)
 	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
+	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
+	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
+	svc.verORM.On("FindLatestNodeVersion").Return(nodeVersion, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
 		ChainId:            chainID.Int64(),
+		ChainIds:           []int64{chainID.Int64()},
 		AccountAddresses:   []string{sendingKey.Address.String()},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
+		Version:            nodeVersion.Version,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
+	require.NoError(t, err)
+}
+
+func Test_Service_UpdateFeedsManager(t *testing.T) {
+	_, privkey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	var (
+		ctx = context.Background()
+		mgr = feeds.FeedsManager{
+			ID: 1,
+		}
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+	var pubKey crypto.PublicKey
+	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+	key := csakey.Key{
+		PublicKey: pubKey,
+	}
+
+	svc := setupTestService(t)
+
+	ctx = mockTransactWithContext(ctx, svc.txm)
+	svc.orm.On("UpdateManager", ctx, mgr).Return(nil)
+	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
+	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
+	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
+
+	err = svc.UpdateFeedsManager(ctx, mgr)
 	require.NoError(t, err)
 }
 
@@ -249,9 +299,10 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 	var (
 		ctx = context.Background()
 		jp  = &feeds.JobProposal{
-			ID:         1,
-			RemoteUUID: uuid.NewV4(),
-			Status:     feeds.JobProposalStatusPending,
+			ID:             1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         feeds.JobProposalStatusPending,
+			FeedsManagerID: 2,
 			Spec: `name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 			schemaVersion = 1
 			contractAddress = '0x0000000000000000000000000000000000000000'
@@ -305,6 +356,7 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 		uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
 		feeds.JobProposalStatusApproved,
 	).Return(nil)
+	svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 	svc.fmsClient.On("ApprovedJob",
 		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		&proto.ApprovedJobRequest{
@@ -320,9 +372,10 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 	var (
 		ctx = context.Background()
 		jp  = &feeds.JobProposal{
-			ID:         1,
-			RemoteUUID: uuid.NewV4(),
-			Status:     feeds.JobProposalStatusPending,
+			ID:             1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         feeds.JobProposalStatusPending,
+			FeedsManagerID: 2,
 		}
 	)
 
@@ -335,6 +388,7 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 		jp.ID,
 		feeds.JobProposalStatusRejected,
 	).Return(nil)
+	svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 	svc.fmsClient.On("RejectedJob",
 		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		&proto.RejectedJobRequest{
@@ -376,7 +430,10 @@ func Test_Service_StartStop(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		ms        = feeds.FeedsManager{}
+		mgr = feeds.FeedsManager{
+			ID:  1,
+			URI: "localhost:2000",
+		}
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	)
 
@@ -391,7 +448,10 @@ func Test_Service_StartStop(t *testing.T) {
 
 	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
 	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
-	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{ms}, nil)
+	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil)
+	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+	svc.connMgr.On("Close")
 
 	err = svc.Start()
 	require.NoError(t, err)

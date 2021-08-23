@@ -7,17 +7,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type testcfg struct{}
+
+func (testcfg) DefaultHTTPTimeout() models.Duration { return models.MustMakeDuration(2 * time.Second) }
+
 func TestValidate(t *testing.T) {
 	var tt = []struct {
-		name       string
-		toml       string
-		setGlobals func(t *testing.T, c *config.Config)
-		assertion  func(t *testing.T, os job.Job, err error)
+		name      string
+		toml      string
+		config    ValidationConfig
+		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "valid spec",
@@ -27,13 +31,17 @@ schemaVersion       = 1
 name                = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 threshold = 0.5
-absoluteThreshold = 0.0 
+absoluteThreshold = 0.0
 
 idleTimerPeriod = "1s"
 idleTimerDisabled = false
 
 pollTimerPeriod = "1m"
 pollTimerDisabled = false
+
+drumbeatEnabled = true
+drumbeatSchedule = "@every 1m"
+drumbeatRandomDelay = "10s"
 
 minPayment = 1000000000000000000
 
@@ -66,6 +74,10 @@ answer1 [type=median index=0];
 				assert.Equal(t, false, spec.IdleTimerDisabled)
 				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
 				assert.Equal(t, false, spec.PollTimerDisabled)
+				assert.Equal(t, true, spec.DrumbeatEnabled)
+				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
+				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
+				assert.Equal(t, false, spec.PollTimerDisabled)
 				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
 			},
@@ -78,7 +90,7 @@ schemaVersion       = 1
 name                = "example flux monitor spec"
 contractAddress   = "0x3CCad4715152693fE3BC4460591e3D3Fbd071b42"
 threshold = 0.5
-absoluteThreshold = 0.0 
+absoluteThreshold = 0.0
 
 idleTimerPeriod = "1s"
 idleTimerDisabled = false
@@ -107,7 +119,7 @@ name                = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 maxTaskDuration = "1s"
 threshold = 0.5
-absoluteThreshold = 0.0 
+absoluteThreshold = 0.0
 
 idleTimerPeriod = "1s"
 idleTimerDisabled = false
@@ -125,18 +137,50 @@ ds1 -> ds1_parse;
 				require.Error(t, err)
 				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
 			},
-			setGlobals: func(t *testing.T, c *config.Config) {
-				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
+		},
+		{
+			name: "integer thresholds",
+			toml: `
+type = "fluxmonitor"
+schemaVersion = 1
+name = "ADA / USD version 3 contract 0x3e4a23dB81D1F1268983f0CE78F1a9dC329A5b36 1624906849640"
+contractAddress = "0x3e4a23dB81D1F1268983f0CE78F1a9dC329A5b36"
+precision = 8
+threshold = 2
+idleTimerPeriod = "1m0s"
+idleTimerDisabled = false
+pollTimerPeriod = "1m0s"
+pollTimerDisabled = false
+maxTaskDuration = "0s"
+observationSource = """
+  // Node definitions.
+  feed0 [method=POST name="bridge-coinmarketcap" requestData="{\\"data\\":{\\"from\\":\\"ADA\\",\\"to\\":\\"USD\\"}}" type=bridge];
+  jsonparse0 [ path="data,result" type=jsonparse ];  
+  feed0 -> jsonparse0;
+  jsonparse0 -> median;
+  feed1 [method=POST name="bridge-kaiko" requestData="{\\"data\\":{\\"from\\":\\"ADA\\",\\"to\\":\\"USD\\"}}" type=bridge];
+  feed1 -> jsonparse1;
+  jsonparse1 -> median;
+  jsonparse1 [path="data,result" type=jsonparse];
+  feed2 [method=POST name="bridge-nomics" requestData="{\\"data\\":{\\"from\\":\\"ADA\\",\\"to\\":\\"USD\\"}}" type=bridge];
+  jsonparse2 [path="data,result" type=jsonparse];
+  feed2 -> jsonparse2;
+  jsonparse2 -> median;
+  // Edge definitions.
+  median [type=median];
+  multiply0 [times=100000000 type=multiply];
+  median -> multiply0;
+"""
+externalJobID = "cfa3fa6b-2850-446b-b973-8f4c3b29d519"
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.NoError(t, err)
 			},
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := config.NewConfig()
-			if tc.setGlobals != nil {
-				tc.setGlobals(t, c)
-			}
-			s, err := ValidatedFluxMonitorSpec(c, tc.toml)
+			s, err := ValidatedFluxMonitorSpec(testcfg{}, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

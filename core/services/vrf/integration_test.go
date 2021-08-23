@@ -25,14 +25,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIntegration_VRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2", true)
+func TestIntegration_VRF_JPV2(t *testing.T) {
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_jpv2", true)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	_, err := app.KeyStore.VRF().Unlock(cltest.Password)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestIntegration_VRFV2(t *testing.T) {
 		// the lb will backfill the logs. However we need to
 		// keep blocks coming in for the lb to send the backfilled logs.
 		cu.backend.Commit()
-		return len(runs) == 1
+		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].Errors)
 	assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))

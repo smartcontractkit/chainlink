@@ -753,6 +753,7 @@ func LogIfError(err *error, msg string) {
 
 // DebugPanic logs a panic exception being called
 func DebugPanic() {
+	//revive:disable:defer
 	if err := recover(); err != nil {
 		pc := make([]uintptr, 10) // at least 1 entry needed
 		runtime.Callers(5, pc)
@@ -815,37 +816,45 @@ func (t *PausableTicker) Destroy() {
 
 type CronTicker struct {
 	*cron.Cron
-	ch chan time.Time
+	ch      chan time.Time
+	beenRun *abool.AtomicBool
 }
 
-func NewCronTicker(schedule string, randomDelay time.Duration) (CronTicker, error) {
+func NewCronTicker(schedule string) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
 	_, err := cron.AddFunc(schedule, func() {
-		delay := time.Duration(mrand.Int63n(int64(randomDelay)))
-		time.AfterFunc(delay, func() {
-			select {
-			case ch <- time.Now():
-			default:
-			}
-		})
+		select {
+		case ch <- time.Now():
+		default:
+		}
 	})
 	if err != nil {
-		return CronTicker{}, err
+		return CronTicker{beenRun: abool.New()}, err
 	}
-	return CronTicker{Cron: cron, ch: ch}, nil
+	return CronTicker{Cron: cron, ch: ch, beenRun: abool.New()}, nil
 }
 
-func (t *CronTicker) Start() {
+// Start - returns true if the CronTicker was actually started, false otherwise
+func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		t.Cron.Start()
+		if t.beenRun.SetToIf(false, true) {
+			t.Cron.Start()
+			return true
+		}
 	}
+	return false
 }
 
-func (t *CronTicker) Stop() {
+// Stop - returns true if the CronTicker was actually stopped, false otherwise
+func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		t.Cron.Stop()
+		if t.beenRun.SetToIf(true, false) {
+			t.Cron.Stop()
+			return true
+		}
 	}
+	return false
 }
 
 func (t *CronTicker) Ticks() <-chan time.Time {

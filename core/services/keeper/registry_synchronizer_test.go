@@ -8,6 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -17,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -51,16 +52,15 @@ func setupRegistrySync(t *testing.T) (
 ) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
-	ethMock := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	lbMock := new(logmocks.Broadcaster)
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	cfg, cleanup := cltest.NewConfig(t)
-	t.Cleanup(cleanup)
+	cfg := cltest.NewTestEVMConfig(t)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
-		ethMock,
+		ethClient,
 	)
 	require.NoError(t, err)
 
@@ -71,7 +71,7 @@ func setupRegistrySync(t *testing.T) (
 
 	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1)
-	return store, synchronizer, ethMock, lbMock, j
+	return store, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int64) {

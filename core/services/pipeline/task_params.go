@@ -595,6 +595,19 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 		if err != nil {
 			return err
 		}
+	case []interface{}:
+		for _, h := range v {
+			if s, is := h.(string); is {
+				var hash common.Hash
+				err := hash.UnmarshalText([]byte(s))
+				if err != nil {
+					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
+				}
+				dsp = append(dsp, hash)
+			} else {
+				return errors.Wrap(ErrBadInput, "HashSliceParam")
+			}
+		}
 	default:
 		return errors.Wrap(ErrBadInput, "HashSliceParam")
 	}

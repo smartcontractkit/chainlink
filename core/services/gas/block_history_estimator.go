@@ -83,14 +83,10 @@ func NewBlockHistoryEstimator(ethClient eth.Client, config Config) Estimator {
 		cancel,
 		nil,
 		sync.RWMutex{},
-		logger.CreateLogger(logger.Default.With("id", "block_history_estimator")),
+		logger.Default.With("id", "block_history_estimator"),
 	}
 
 	return b
-}
-
-func (b *BlockHistoryEstimator) Connect(bn *models.Head) error {
-	return nil
 }
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
@@ -102,8 +98,8 @@ func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head mode
 func (b *BlockHistoryEstimator) Start() error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Debugw("BlockHistoryEstimator: starting")
-		if uint(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EthFinalityDepth() {
-			b.logger.Warnf("BlockHistoryEstimator: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every block history estimator cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", b.config.BlockHistoryEstimatorBlockHistorySize(), b.config.EthFinalityDepth())
+		if uint(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EvmFinalityDepth() {
+			b.logger.Warnf("BlockHistoryEstimator: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every block history estimator cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", b.config.BlockHistoryEstimatorBlockHistorySize(), b.config.EvmFinalityDepth())
 		}
 
 		ctx, cancel := context.WithTimeout(b.ctx, maxStartTime)
@@ -132,7 +128,7 @@ func (b *BlockHistoryEstimator) Close() error {
 
 func (b *BlockHistoryEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EthGasLimitMultiplier())
+		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		b.gasPriceMu.RLock()
 		defer b.gasPriceMu.RUnlock()
 		gasPrice = b.gasPrice
@@ -212,7 +208,7 @@ func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
 	b.logger.Debugw(fmt.Sprintf("BlockHistoryEstimator: setting new default gas price: %v Gwei", gasPriceGwei),
 		"gasPriceWei", percentileGasPrice,
 		"gasPriceGWei", gasPriceGwei,
-		"maxGasPriceWei", b.config.EthMaxGasPriceWei(),
+		"maxGasPriceWei", b.config.EvmMaxGasPriceWei(),
 		"headNum", head.Number,
 		"blocks", numsInHistory,
 	)
@@ -342,7 +338,7 @@ var (
 )
 
 func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, error) {
-	minGasPriceWei := b.config.EthMinGasPriceWei()
+	minGasPriceWei := b.config.EvmMinGasPriceWei()
 	chainID := b.config.ChainID()
 	gasPrices := make([]*big.Int, 0)
 	for _, block := range b.rollingBlockHistory {
@@ -365,8 +361,8 @@ func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, er
 }
 
 func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *big.Int) {
-	max := b.config.EthMaxGasPriceWei()
-	min := b.config.EthMinGasPriceWei()
+	max := b.config.EvmMaxGasPriceWei()
+	min := b.config.EvmMinGasPriceWei()
 
 	b.gasPriceMu.Lock()
 	defer b.gasPriceMu.Unlock()

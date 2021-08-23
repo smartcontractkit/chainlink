@@ -7,13 +7,13 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -24,11 +24,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMock(t)
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
@@ -65,15 +64,15 @@ type DirectRequestUniverse struct {
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *DirectRequestUniverse {
-	gethClient := new(mocks.Client)
+	gethClient := cltest.NewEthClientMock(t)
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
 
-	config := cltest.NewTestConfig(t)
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanupDB := cltest.NewStoreWithConfig(t, config)
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, store.DB)
 
-	jobORM := job.NewORM(store.DB, store.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(store.DB, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	cleanup := func() {
 		cleanupDB()
@@ -142,22 +141,22 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil).
-			Once()
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+		uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+			Return(false, nil).
+			Run(func(args mock.Arguments) {
+				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
+			}).Once()
 
 		err := uni.service.Start()
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
 		require.NoError(t, jErr)
-		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
+		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
 		uni.listener.HandleLog(log)
@@ -198,13 +197,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
+			}).Once().Return(false, nil)
 
 		// but should after this one, as the head Number is larger
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
@@ -306,18 +305,16 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		timeout := 5 * time.Second
 		runBeganAwaiter := cltest.NewAwaiter()
 		runCancelledAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			db := args[0].(*gorm.DB)
+			ctx := args[0].(context.Context)
 			select {
 			case <-time.After(timeout):
 				t.Fatalf("Timed out waiting for Run to be canceled (%v)", timeout)
-			case <-db.Statement.Context.Done():
+			case <-ctx.Done():
 				runCancelledAwaiter.ItHappened()
 			}
-		}).Once().Return(int64(0), nil)
+		}).Once().Return(false, nil)
 		uni.listener.HandleLog(runLog)
 
 		runBeganAwaiter.AwaitOrFail(t, timeout)
@@ -358,21 +355,20 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+			fn := args.Get(4).(func(*gorm.DB) error)
+			fn(nil)
+		}).Once().Return(false, nil)
 
 		err := uni.service.Start()
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
 		require.NoError(t, jErr)
-		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
+		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
 		uni.listener.HandleLog(log)

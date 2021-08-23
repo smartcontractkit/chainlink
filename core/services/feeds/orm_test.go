@@ -51,14 +51,14 @@ func Test_ORM_CreateManager(t *testing.T) {
 		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
 	}
 
-	count, err := orm.CountManagers()
+	count, err := orm.CountManagers(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
 	id, err := orm.CreateManager(context.Background(), mgr)
 	require.NoError(t, err)
 
-	count, err = orm.CountManagers()
+	count, err = orm.CountManagers(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 
@@ -127,6 +127,45 @@ func Test_ORM_GetManager(t *testing.T) {
 	require.Error(t, err)
 }
 
+func Test_ORM_UpdateManager(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	mgr := &feeds.FeedsManager{
+		URI:                uri,
+		Name:               name,
+		PublicKey:          publicKey,
+		JobTypes:           jobTypes,
+		IsOCRBootstrapPeer: false,
+	}
+
+	id, err := orm.CreateManager(context.Background(), mgr)
+	require.NoError(t, err)
+
+	updatedMgr := feeds.FeedsManager{
+		ID:                        id,
+		URI:                       "127.0.0.1",
+		Name:                      "New Name",
+		PublicKey:                 crypto.PublicKey([]byte("22222222222222222222222222222222")),
+		JobTypes:                  pq.StringArray{feeds.JobTypeFluxMonitor},
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
+	}
+
+	err = orm.UpdateManager(context.Background(), updatedMgr)
+	require.NoError(t, err)
+
+	actual, err := orm.GetManager(context.Background(), id)
+	require.NoError(t, err)
+
+	assert.Equal(t, updatedMgr.URI, actual.URI)
+	assert.Equal(t, updatedMgr.Name, actual.Name)
+	assert.Equal(t, updatedMgr.PublicKey, actual.PublicKey)
+	assert.Equal(t, updatedMgr.JobTypes, actual.JobTypes)
+	assert.True(t, actual.IsOCRBootstrapPeer)
+	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
+}
+
 func Test_ORM_CreateJobProposal(t *testing.T) {
 	t.Parallel()
 
@@ -140,14 +179,14 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 		FeedsManagerID: fmID,
 	}
 
-	count, err := orm.CountJobProposals()
+	count, err := orm.CountJobProposals(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), count)
 
 	id, err := orm.CreateJobProposal(context.Background(), jp)
 	require.NoError(t, err)
 
-	count, err = orm.CountJobProposals()
+	count, err = orm.CountJobProposals(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 
