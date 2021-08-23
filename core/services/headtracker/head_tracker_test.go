@@ -748,7 +748,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 }
 
 func createHeadTracker(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM) *headTrackerUniverse {
-	hb := headtracker.NewHeadBroadcaster()
+	hb := headtracker.NewHeadBroadcaster(logger.Default)
 	return &headTrackerUniverse{
 		headTracker:     headtracker.NewHeadTracker(logger.Default, ethClient, config, orm, hb),
 		headBroadcaster: hb,
@@ -756,7 +756,7 @@ func createHeadTracker(ethClient eth.Client, config headtracker.Config, orm *hea
 }
 
 func createHeadTrackerWithNeverSleeper(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM) *headTrackerUniverse {
-	hb := headtracker.NewHeadBroadcaster()
+	hb := headtracker.NewHeadBroadcaster(logger.Default)
 	return &headTrackerUniverse{
 		headTracker:     headtracker.NewHeadTracker(logger.Default, ethClient, config, orm, hb, cltest.NeverSleeper{}),
 		headBroadcaster: hb,
@@ -764,7 +764,7 @@ func createHeadTrackerWithNeverSleeper(ethClient eth.Client, config headtracker.
 }
 
 func createHeadTrackerWithChecker(ethClient eth.Client, config headtracker.Config, orm *headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
-	hb := headtracker.NewHeadBroadcaster()
+	hb := headtracker.NewHeadBroadcaster(logger.Default)
 	hb.Subscribe(checker)
 	hb.Start()
 	return &headTrackerUniverse{

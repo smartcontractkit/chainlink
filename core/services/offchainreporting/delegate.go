@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -167,10 +168,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	v2BootstrapPeers := d.config.P2PV2Bootstrappers()
 
-	loggerWith := logger.CreateLogger(logger.Default.With(
+	loggerWith := logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
 		"jobName", jobSpec.Name.ValueOrZero(),
-		"jobID", jobSpec.ID))
+		"jobID", jobSpec.ID,
+	)
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
@@ -243,7 +245,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			d.config.ChainID(),
 		)
 
-		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
+		runResults := make(chan pipeline.Run, d.config.JobPipelineResultWriteQueueDepth())
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
@@ -274,7 +276,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
 		services = append([]job.Service{NewResultRunSaver(
-			d.db,
+			postgres.UnwrapGormDB(d.db),
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),

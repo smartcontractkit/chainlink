@@ -579,7 +579,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, logger.Default, nil),
 			pw,
 			monitoringEndpoint,
 			chains.EthMainnet,

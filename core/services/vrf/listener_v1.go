@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -355,7 +353,6 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 		return
 	}
 
-	s := time.Now()
 	lsn.l.Infow("VRFListener: received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
@@ -381,29 +378,16 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"logData":        req.Raw.Data,
 		},
 	})
-	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
-	if err != nil {
-		logger.Errorw("VRFListener: failed executing run", "err", err)
-	}
-	f := time.Now()
-	err = postgres.GormTransactionWithDefaultContext(lsn.db, func(tx *gorm.DB) error {
-		_, err = lsn.pipelineRunner.InsertFinishedRun(tx, pipeline.Run{
-			State:          pipeline.RunStatusCompleted,
-			PipelineSpecID: run.PipelineSpecID,
-			Errors:         run.Errors,
-			Outputs:        run.Outputs,
-			Meta:           run.Meta,
-			CreatedAt:      s,
-			FinishedAt:     null.TimeFrom(f),
-		}, trrs, true)
-		if err != nil {
-			return errors.Wrap(err, "VRFListener: failed to insert finished run")
-		}
+
+	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx *gorm.DB) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		return lsn.logBroadcaster.MarkConsumed(tx, lb)
-	})
-	if err != nil {
-		lsn.l.Errorw("VRFListener failed to save run", "err", err)
+		if err = lsn.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+			logger.Errorw("VRFListener: failed mark consumed", "err", err)
+		}
+		return nil
+	}); err != nil {
+		logger.Errorw("VRFListener: failed executing run", "err", err)
 	}
 }
 

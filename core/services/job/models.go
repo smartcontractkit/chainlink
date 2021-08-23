@@ -58,12 +58,12 @@ var (
 		Webhook:           true,
 	}
 	supportsAsync = map[Type]bool{
-		Cron:              false,
-		DirectRequest:     false,
+		Cron:              true,
+		DirectRequest:     true,
 		FluxMonitor:       false,
 		OffchainReporting: false,
 		Keeper:            false,
-		VRF:               false,
+		VRF:               true,
 		Webhook:           true,
 	}
 )

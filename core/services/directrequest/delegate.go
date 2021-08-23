@@ -274,10 +274,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	logger := logger.CreateLogger(logger.Default.With(
+	logger := logger.Default.With(
 		"jobName", l.job.PipelineSpec.JobName,
 		"jobID", l.job.PipelineSpec.JobID,
-	))
+	)
 
 	l.shutdownWaitGroup.Add(1)
 	go func() {
@@ -307,26 +307,17 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"logData":        request.Raw.Data,
 			},
 		})
-
-		run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, vars, *logger)
-		if ctx.Err() != nil {
-			return
-		} else if err != nil {
-			logger.Errorw("DirectRequest failed to create run", "err", err)
-		}
-		ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-		defer cancel()
-		err = postgres.GormTransaction(ctx, l.db, func(tx *gorm.DB) error {
-			_, err = l.pipelineRunner.InsertFinishedRun(tx, run, trrs, true)
-			if err != nil {
-				return err
+		run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+		_, err := l.pipelineRunner.Run(ctx, &run, *logger, true, func(tx *gorm.DB) error {
+			if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+				logger.Errorw("DirectRequest: failed mark consumed", "err", err)
 			}
-			return l.logBroadcaster.MarkConsumed(tx, lb)
+			return nil
 		})
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {
-			logger.Errorw("DirectRequest failed to create run", "err", err)
+			logger.Errorw("DirectRequest: failed executing run", "err", err)
 		}
 	}()
 }

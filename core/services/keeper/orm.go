@@ -140,7 +140,14 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep Upkeep
 	from := upkeep.Registry.FromAddress.Address()
 	to := upkeep.Registry.ContractAddress.Address()
 	gasLimit := upkeep.ExecuteGas + korm.config.KeeperRegistryPerformGasOverhead()
-	return korm.txm.CreateEthTransaction(korm.getDB(ctx), from, to, payload, gasLimit, nil, korm.strategy)
+	return korm.txm.CreateEthTransaction(korm.getDB(ctx), bulletprooftxmanager.NewTx{
+		FromAddress:    from,
+		ToAddress:      to,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       korm.strategy,
+	})
 }
 
 func (korm ORM) getDB(ctx context.Context) *gorm.DB {

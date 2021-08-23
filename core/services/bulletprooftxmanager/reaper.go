@@ -36,7 +36,7 @@ func NewReaper(db *gorm.DB, config ReaperConfig) *Reaper {
 	return &Reaper{
 		db,
 		config,
-		logger.CreateLogger(logger.Default.With("id", "bptxm_reaper")),
+		logger.Default.With("id", "bptxm_reaper"),
 		-1,
 		make(chan struct{}, 1),
 		make(chan struct{}),

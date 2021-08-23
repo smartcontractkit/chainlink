@@ -12,19 +12,18 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -119,8 +118,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Earlier
-		tr := uuid.NewV4()
-		b, err := json.Marshal(models.EthTxMeta{TaskRunID: tr})
+		tr := int32(99)
+		b, err := json.Marshal(bulletprooftxmanager.EthTxMeta{JobID: tr})
 		require.NoError(t, err)
 		earlierEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -187,10 +186,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
-		var m models.EthTxMeta
+		var m bulletprooftxmanager.EthTxMeta
 		err = json.Unmarshal(earlierEthTx.Meta, &m)
 		require.NoError(t, err)
-		assert.Equal(t, tr, m.TaskRunID)
+		assert.Equal(t, tr, m.JobID)
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -256,6 +255,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		&postgres.NullEventBroadcaster{},
 		[]ethkey.Key{key},
 		estimator,
+		logger.Default,
 	)
 
 	etx := bulletprooftxmanager.EthTx{
@@ -1169,7 +1169,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 	advisoryLocker1.On("WithAdvisoryLock", mock.Anything, mock.AnythingOfType("int32"), key.ID, mock.AnythingOfType("func() error")).Return(nil)
 
 	config := cltest.NewTestEVMConfig(t)
-	eb := bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, ethKeyStore, advisoryLocker1, &postgres.NullEventBroadcaster{}, []ethkey.Key{key}, nil)
+	eb := bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, ethKeyStore, advisoryLocker1, &postgres.NullEventBroadcaster{}, []ethkey.Key{key}, nil, logger.Default)
 
 	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 
