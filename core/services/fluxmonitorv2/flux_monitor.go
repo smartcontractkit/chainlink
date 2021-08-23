@@ -504,14 +504,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 		fm.respondToAnswerUpdatedLog(*log)
 		fm.markLogAsConsumed(broadcast, decodedLog, started)
 	case *flags_wrapper.FlagsFlagRaised:
-		// check the contract before hibernating, because one flag could be lowered
-		// while the other flag remains raised
-		var isFlagLowered bool
-		isFlagLowered, err = fm.flags.IsLowered(fm.contractAddress)
-		fm.logger.ErrorIf(err, "Error determining if flag is still raised")
-		if !isFlagLowered {
-			fm.pollManager.Hibernate()
-		}
+		fm.respondToFlagsRaisedLog()
 		fm.markLogAsConsumed(broadcast, decodedLog, started)
 	case *flags_wrapper.FlagsFlagLowered:
 		// Only reactivate if it is hibernating
@@ -530,6 +523,17 @@ func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog int
 	if err := fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
 		fm.logger.Errorw("FluxMonitor: failed to mark log as consumed",
 			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
+	}
+}
+
+func (fm *FluxMonitor) respondToFlagsRaisedLog() {
+	fm.logger.Debug("FlagsFlagRaised log")
+	// check the contract before hibernating, because one flag could be lowered
+	// while the other flag remains raised
+	isFlagLowered, err := fm.flags.IsLowered(fm.contractAddress)
+	fm.logger.ErrorIf(err, "Error determining if flag is still raised")
+	if !isFlagLowered {
+		fm.pollManager.Hibernate()
 	}
 }
 
@@ -792,6 +796,11 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 	}()
 
+	if pollReq != PollRequestTypeHibernation && fm.pollManager.cfg.IsHibernating {
+		l.Warnw("FluxMonitor: Skipping poll because a ticker fired while hibernating")
+		return
+	}
+
 	if !fm.logBroadcaster.IsConnected() {
 		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")
 		return
@@ -851,7 +860,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 			if err != nil {
 				if fm.pollManager.StartRetryTicker() {
 					min, max := fm.pollManager.retryTicker.Bounds()
-					l.Debugw(fmt.Sprintf("started retry ticker (frequency between: %v - %v)", min, max))
+					l.Debugw(fmt.Sprintf("started retry ticker (frequency between: %v - %v) because of error: '%v'", min, max, err.Error()))
 				}
 				return
 			}
@@ -869,7 +878,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// If we've already successfully submitted to this round (ie through a NewRound log)
 	// and the associated JobRun hasn't errored, skip polling
 	if roundStats.NumSubmissions > 0 && !jobRunStatus.Errored() {
-		l.Infow("skipping poll: round already answered, tx unconfirmed")
+		l.Infow("skipping poll: round already answered, tx unconfirmed", "jobRunStatus", jobRunStatus)
 
 		return
 	}
