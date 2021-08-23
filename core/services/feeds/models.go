@@ -12,7 +12,7 @@ import (
 // We only support OCR and FM for the feeds manager
 const (
 	JobTypeFluxMonitor       = "fluxmonitor"
-	JobTypeOffchainReporting = "offchainreporting"
+	JobTypeOffchainReporting = "ocr"
 )
 
 // FeedsManager contains feeds manager related fields
