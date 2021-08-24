@@ -8,13 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bmizerany/assert"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
 )
 
 type testCase struct {
@@ -33,20 +35,17 @@ type testCase struct {
 func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-
-	// Set log config values
-	logLevel := "warn"
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
+	logLevel := config.LogLevel{zapcore.WarnLevel}
+	cfg.GeneralConfig.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
-	app.GetStore().Config.Set("LOG_LEVEL", logLevel)
-	app.GetStore().Config.Set("LOG_SQL", sqlEnabled)
+	cfg.GeneralConfig.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
 
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, err := client.HTTPClient.Get("/v2/log")
@@ -59,7 +58,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	for i, svcName := range svcLogConfig.ServiceName {
 
 		if svcName == "Global" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], logLevel)
+			assert.Equal(t, svcLogConfig.LogLevel[i], logLevel.String())
 		}
 
 		if svcName == "IsSqlEnabled" {
@@ -71,12 +70,8 @@ func TestLogController_GetLogConfig(t *testing.T) {
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 

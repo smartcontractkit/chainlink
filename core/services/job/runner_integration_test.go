@@ -13,46 +13,39 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/logger"
-
-	// "github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/pkg/errors"
-
-	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/stretchr/testify/mock"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
-var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
+var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
 	defer cleanupDB()
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
+	config.GeneralConfig.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
+
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
@@ -60,7 +53,7 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	runner := pipeline.NewRunner(pipelineORM, config, nil, nil, nil, nil)
-	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
 	runner.Start()
@@ -194,7 +187,7 @@ func TestRunner(t *testing.T) {
 			errors.Cause(err))
 	})
 
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
+	config.GeneralConfig.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)
 
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
 		var httpURL string
@@ -350,18 +343,20 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		os, err := offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		os, err := offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		require.NoError(t, err)
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
 			jobORM,
-			config.Config,
+			config,
 			keyStore,
 			nil,
 			ethClient,
@@ -387,24 +382,25 @@ ds1 -> ds1_parse;
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
 `
-		config.Set("P2P_PEER_ID", ek.PeerID)
+		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
 			jobORM,
-			config.Config,
+			config,
 			keyStore,
 			nil,
 			ethClient,
@@ -438,12 +434,11 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		config.Set("P2P_PEER_ID", ek.PeerID)
-		config.Set("P2P_BOOTSTRAP_PEERS", []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"})
-		config.Set("OCR_KEY_BUNDLE_ID", kb.ID.String())
-		config.Set("OCR_TRANSMITTER_ADDRESS", transmitterAddress)
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		config.GeneralConfig.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
+		config.GeneralConfig.Overrides.OCRKeyBundleID = &kb.ID
+		config.GeneralConfig.Overrides.OCRTransmitterAddress = &key.Address
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -456,14 +451,15 @@ ds1 -> ds1_parse;
 		assert.Equal(t, models.Interval(20000000000), jb.OffchainreportingOracleSpec.BlockchainTimeout)
 		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
 			jobORM,
-			config.Config,
+			config,
 			keyStore,
 			nil,
 			ethClient,
@@ -486,7 +482,7 @@ ds1 -> ds1_parse;
 		var os = job.Job{}
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -496,15 +492,16 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
-		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
 			jobORM,
-			config.Config,
+			config,
 			keyStore,
 			nil,
 			ethClient,
@@ -524,22 +521,23 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var os = job.Job{}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
-		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
 			jobORM,
-			config.Config,
+			config,
 			keyStore,
 			nil,
 			ethClient,
@@ -567,20 +565,21 @@ ds1 -> ds1_parse;
 		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
-		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.GeneralConfig.Overrides.P2PPeerID = &ek.PeerID
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
 			db,
 			nil,
 			jobORM,
-			config.Config,
+			config,
 			keyStore,
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config, nil),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, logger.Default, nil),
 			pw,
 			monitoringEndpoint,
 			chains.EthMainnet,
@@ -667,7 +666,7 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		jb, err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
@@ -676,7 +675,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
@@ -685,7 +684,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Errors[0])
 
 		// Job specified task timeout should fail.
-		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
 		jbs.Name = null.NewString("a job 3", true)
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
@@ -703,10 +702,9 @@ func TestRunner_AsyncJob(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
-	cfg, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	cfg.Set("FEATURE_EXTERNAL_INITIATORS", true)
-	cfg.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.GeneralConfig.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	defer cleanup()
@@ -844,7 +842,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, app.Store.Config, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
+		jobORM := job.NewORM(app.Store.ORM.DB, cfg, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{})
 
 		// Trigger v2/resume
 		select {

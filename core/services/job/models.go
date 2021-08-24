@@ -58,12 +58,12 @@ var (
 		Webhook:           true,
 	}
 	supportsAsync = map[Type]bool{
-		Cron:              false,
-		DirectRequest:     false,
+		Cron:              true,
+		DirectRequest:     true,
 		FluxMonitor:       false,
 		OffchainReporting: false,
 		Keeper:            false,
-		VRF:               false,
+		VRF:               true,
 		Webhook:           true,
 	}
 )
@@ -133,7 +133,7 @@ type SpecError struct {
 }
 
 func (SpecError) TableName() string {
-	return "job_spec_errors_v2"
+	return "job_spec_errors"
 }
 
 type PipelineRun struct {
@@ -277,6 +277,25 @@ func (s *CronSpec) BeforeSave(db *gorm.DB) error {
 
 func (CronSpec) TableName() string {
 	return "cron_specs"
+}
+
+// Need to also try integer thresholds until
+// https://github.com/pelletier/go-toml/issues/571 is addressed.
+// The UI's TOML.stringify({"threshold": 1.0}) (https://github.com/iarna/iarna-toml)
+// will return "threshold = 1" since ts/js doesn't know the
+// difference between 1.0 and 1, so we need to address it on the backend.
+type FluxMonitorSpecIntThreshold struct {
+	ContractAddress     ethkey.EIP55Address `toml:"contractAddress"`
+	Threshold           int                 `toml:"threshold"`
+	AbsoluteThreshold   int                 `toml:"absoluteThreshold"`
+	PollTimerPeriod     time.Duration
+	PollTimerDisabled   bool
+	IdleTimerPeriod     time.Duration
+	IdleTimerDisabled   bool
+	DrumbeatSchedule    string
+	DrumbeatRandomDelay time.Duration
+	DrumbeatEnabled     bool
+	MinPayment          *assets.Link
 }
 
 type FluxMonitorSpec struct {

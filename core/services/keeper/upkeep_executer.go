@@ -8,28 +8,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
-
-	"github.com/pkg/errors"
-
 	"github.com/ethereum/go-ethereum"
+	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
-	checkUpkeep          = "checkUpkeep"
-	performUpkeep        = "performUpkeep"
-	executionQueueSize   = 10
-	queuedEthTransaction = "successfully queued performUpkeep eth transaction"
+	checkUpkeep        = "checkUpkeep"
+	performUpkeep      = "performUpkeep"
+	executionQueueSize = 10
 )
 
 // UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
@@ -50,6 +47,7 @@ type UpkeepExecuter struct {
 	utils.StartStopOnce
 }
 
+// NewUpkeepExecuter is the constructor of UpkeepExecuter
 func NewUpkeepExecuter(
 	job job.Job,
 	orm ORM,
@@ -97,8 +95,6 @@ func (executer *UpkeepExecuter) Close() error {
 		return nil
 	})
 }
-
-func (executer *UpkeepExecuter) Connect(head *models.Head) error { return nil }
 
 func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	executer.mailbox.Deliver(head)
@@ -210,10 +206,8 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	}
 
 	var etx bulletprooftxmanager.EthTx
-	ctxQuery, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err = postgres.GormTransaction(ctxQuery, executer.orm.DB, func(dbtx *gorm.DB) (err error) {
-		etx, err = executer.orm.CreateEthTransactionForUpkeep(dbtx, upkeep, performTxData)
+	err = executer.orm.WithTransaction(func(ctx context.Context) error {
+		etx, err = executer.orm.CreateEthTransactionForUpkeep(ctx, upkeep, performTxData)
 		if err != nil {
 			return errors.Wrap(err, "failed to create eth_tx for upkeep")
 		}
@@ -221,12 +215,12 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 		// NOTE: this is the block that initiated the run, not the block height when broadcast nor the block
 		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
 		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
-		err = executer.orm.SetLastRunHeightForUpkeepOnJob(dbtx, executer.job.ID, upkeep.UpkeepID, headNumber)
+		err = executer.orm.SetLastRunHeightForUpkeepOnJob(ctx, executer.job.ID, upkeep.UpkeepID, headNumber)
 		if err != nil {
 			return errors.Wrap(err, "failed to set last run height for upkeep")
 		}
 
-		_, err = executer.pr.InsertFinishedRun(dbtx, pipeline.Run{
+		_, err = executer.pr.InsertFinishedRun(postgres.UnwrapGorm(postgres.TxFromContext(ctx, executer.orm.DB)), pipeline.Run{
 			State:          pipeline.RunStatusCompleted,
 			PipelineSpecID: executer.job.PipelineSpecID,
 			Meta: pipeline.JSONSerializable{
@@ -238,7 +232,7 @@ func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 			}},
 			CreatedAt:  start,
 			FinishedAt: null.TimeFrom(f),
-		}, nil, false)
+		}, false)
 		if err != nil {
 			return errors.Wrap(err, "UpkeepExecuter: failed to insert finished run")
 		}

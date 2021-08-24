@@ -32,10 +32,10 @@ type node struct {
 
 func newNode(wsuri url.URL, httpuri *url.URL, name string) (n *node) {
 	n = new(node)
-	n.log = logger.CreateLogger(logger.Default.With(
+	n.log = logger.Default.With(
 		"nodeName", name,
 		"nodeTier", "primary",
-	))
+	)
 	n.ws.uri = wsuri
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
@@ -60,7 +60,7 @@ func (n *node) Dial(ctx context.Context) error {
 		uri := n.ws.uri.String()
 		rpc, err := rpc.DialWebsocket(ctx, uri, "")
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error while dialing websocket: %v", uri)
 		}
 		n.dialed = true
 		n.ws.rpc = rpc
@@ -71,7 +71,7 @@ func (n *node) Dial(ctx context.Context) error {
 		uri := n.http.uri.String()
 		rpc, err := rpc.DialHTTP(uri)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Error while dialing HTTP: %v", uri)
 		}
 		n.http.rpc = rpc
 		n.http.geth = ethclient.NewClient(rpc)

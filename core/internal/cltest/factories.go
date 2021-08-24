@@ -11,7 +11,6 @@ import (
 	mathrand "math/rand"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -24,185 +23,29 @@ import (
 	"github.com/lib/pq"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
-
-// NewJob return new NoOp JobSpec
-func NewJob() models.JobSpec {
-	j := models.NewJob()
-	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
-	return j
-}
-
-// NewTask given the tasktype and json params return a TaskSpec
-func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
-	if len(json) == 0 {
-		json = append(json, ``)
-	}
-	params := JSONFromString(t, json[0])
-	params, err := params.Add("type", taskType)
-	require.NoError(t, err)
-
-	return models.TaskSpec{
-		Type:   models.MustNewTaskType(taskType),
-		Params: params,
-	}
-}
-
-// NewJobWithExternalInitiator creates new Job with external initiator
-func NewJobWithExternalInitiator(ei *models.ExternalInitiator) models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorExternal,
-		InitiatorParams: models.InitiatorParams{
-			Name: ei.Name,
-		},
-	}}
-	return j
-}
-
-// NewJobWithSchedule create new job with the given schedule
-func NewJobWithSchedule(sched string) models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorCron,
-		InitiatorParams: models.InitiatorParams{
-			Schedule: models.Cron(sched),
-		},
-	}}
-	return j
-}
-
-// NewJobWithWebInitiator create new Job with web initiator
-func NewJobWithWebInitiator() models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorWeb,
-	}}
-	return j
-}
-
-// NewJobWithLogInitiator create new Job with ethlog initiator
-func NewJobWithLogInitiator() models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorEthLog,
-		InitiatorParams: models.InitiatorParams{
-			Address: NewAddress(),
-		},
-	}}
-	return j
-}
-
-// NewJobWithRunLogInitiator creates a new JobSpec with the RunLog initiator
-func NewJobWithRunLogInitiator() models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorRunLog,
-		InitiatorParams: models.InitiatorParams{
-			Address: NewAddress(),
-		},
-	}}
-	return j
-}
-
-// NewJobWithRunAtInitiator create new Job with RunAt initiator
-func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorRunAt,
-		InitiatorParams: models.InitiatorParams{
-			Time: models.NewAnyTime(t),
-		},
-	}}
-	return j
-}
-
-// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
-func NewJobWithFluxMonitorInitiator() models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorFluxMonitor,
-		InitiatorParams: models.InitiatorParams{
-			Address:           NewAddress(),
-			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:             models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
-			Threshold:         0.5,
-			AbsoluteThreshold: 0.01,
-			IdleTimer: models.IdleTimerConfig{
-				Duration: models.MustMakeDuration(time.Minute),
-			},
-			PollTimer: models.PollTimerConfig{
-				Period: models.MustMakeDuration(time.Minute),
-			},
-			Precision: 2,
-		},
-	}}
-	return j
-}
-
-// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
-func NewJobWithFluxMonitorInitiatorWithBridge(bridgeName string) models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorFluxMonitor,
-		InitiatorParams: models.InitiatorParams{
-			Address:           NewAddress(),
-			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:             models.JSON{Result: gjson.Parse(fmt.Sprintf("[{\"bridge\":\"%s\"}]", bridgeName))},
-			Threshold:         0.5,
-			AbsoluteThreshold: 0.01,
-			Precision:         2,
-		},
-	}}
-	return j
-}
-
-// NewJobWithRandomnessLog create new Job with VRF initiator
-func NewJobWithRandomnessLog() models.JobSpec {
-	j := NewJob()
-	j.Initiators = []models.Initiator{{
-		JobSpecID: j.ID,
-		Type:      models.InitiatorRandomnessLog,
-		InitiatorParams: models.InitiatorParams{
-			Address: NewAddress(),
-		},
-	}}
-	return j
-}
 
 // NewAddress return a random new address
 func NewAddress() common.Address {
@@ -299,6 +142,12 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
+var (
+	// RunLogTopic20190207withoutIndexes was the new RunRequest filter topic as of 2019-01-28,
+	// after renaming Solidity variables, moving data version, and removing the cast of requestId to uint256
+	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
+)
+
 // NewRunLog create types.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
@@ -315,25 +164,9 @@ func NewRunLog(
 		TxHash:      utils.NewHash(),
 		BlockHash:   utils.NewHash(),
 		Topics: []common.Hash{
-			models.RunLogTopic20190207withoutIndexes,
+			RunLogTopic20190207withoutIndexes,
 			jobID,
 		},
-	}
-}
-
-// NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
-// the randomness request log represented by r.
-func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
-	emitter common.Address, blk int) types.Log {
-	rawData, err := r.RawData()
-	require.NoError(t, err)
-	return types.Log{
-		Address:     emitter,
-		BlockNumber: uint64(blk),
-		Data:        rawData,
-		TxHash:      utils.NewHash(),
-		BlockHash:   utils.NewHash(),
-		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
 	}
 }
 
@@ -349,7 +182,7 @@ func StringToVersionedLogData20190207withoutIndexes(
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf.Write(requestID)
 
-	payment := hexutil.MustDecode(minimumContractPayment.ToHash().Hex())
+	payment := hexutil.MustDecode(configtest.MinimumContractPayment.ToHash().Hex())
 	buf.Write(payment)
 
 	callbackAddr := utils.EVMWordUint64(0)
@@ -399,104 +232,9 @@ func (s MockSigner) SignHash(common.Hash) (models.Signature, error) {
 	return models.NewSignature("0xb7a987222fc36c4c8ed1b91264867a422769998aadbeeb1c697586a04fa2b616025b5ca936ec5bdb150999e298b6ecf09251d3c4dd1306dedec0692e7037584800")
 }
 
-func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
-	us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(str))
-	if err != nil {
-		return models.ServiceAgreement{}, err
-	}
-	return models.BuildServiceAgreement(us, MockSigner{})
-}
-
 func EmptyCLIContext() *cli.Context {
 	set := flag.NewFlagSet("test", 0)
 	return cli.NewContext(nil, set, nil)
-}
-
-// NewJobRun returns a newly initialized job run for test purposes only
-func NewJobRun(job models.JobSpec) models.JobRun {
-	initiator := job.Initiators[0]
-	now := time.Now()
-	run := models.MakeJobRun(&job, now, &initiator, nil, &models.RunRequest{})
-	return run
-}
-
-// NewJobRunPendingBridge returns a new job run in the pending bridge state
-func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
-	run := NewJobRun(job)
-	run.SetStatus(models.RunStatusPendingBridge)
-	run.TaskRuns[0].Status = models.RunStatusPendingBridge
-	return run
-}
-
-// CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
-func CreateJobRunWithStatus(t testing.TB, store *strpkg.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
-	run := NewJobRun(job)
-	run.SetStatus(status)
-	require.NoError(t, store.CreateJobRun(&run))
-	return run
-}
-
-func BuildInitiatorRequests(t *testing.T, initrs []models.Initiator) []models.InitiatorRequest {
-	bytes, err := json.Marshal(initrs)
-	require.NoError(t, err)
-
-	var dst []models.InitiatorRequest
-	err = json.Unmarshal(bytes, &dst)
-	require.NoError(t, err)
-	return dst
-}
-
-func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpecRequest {
-	bytes, err := json.Marshal(initrs)
-	require.NoError(t, err)
-
-	var dst []models.TaskSpecRequest
-	err = json.Unmarshal(bytes, &dst)
-	require.NoError(t, err)
-	return dst
-}
-
-func NewRunInputWithString(t testing.TB, value string) models.RunInput {
-	taskRunID := uuid.NewV4()
-	data := JSONFromString(t, value)
-	jr := NewJobRun(NewJobWithRunLogInitiator())
-	return *models.NewRunInput(jr, taskRunID, data, models.RunStatusUnstarted)
-}
-
-func NewRunInputWithResult(value interface{}) models.RunInput {
-	jr := NewJobRun(NewJobWithRunLogInitiator())
-	taskRunID := uuid.NewV4()
-	return *models.NewRunInputWithResult(jr, taskRunID, value, models.RunStatusUnstarted)
-}
-
-func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store, eks *keystore.Eth) *fluxmonitor.PollingDeviationChecker {
-	fluxAggregator := new(mocks.FluxAggregator)
-	runManager := new(mocks.RunManager)
-	fetcher := new(mocks.Fetcher)
-	initr := models.Initiator{
-		JobSpecID: models.NewJobID(),
-		InitiatorParams: models.InitiatorParams{
-			PollTimer: models.PollTimerConfig{
-				Period: models.MustMakeDuration(time.Second),
-			},
-		},
-	}
-	lb := new(logmocks.Broadcaster)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, eks, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, big.NewInt(0), big.NewInt(100000000000))
-	require.NoError(t, err)
-	return checker
-}
-
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) (uuid.UUID, models.JobRun) {
-	taskRunID := uuid.NewV4()
-
-	job := NewJobWithWebInitiator()
-	require.NoError(t, store.CreateJob(&job))
-	jobRun := NewJobRun(job)
-	jobRun.TaskRuns = []models.TaskRun{{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
-	require.NoError(t, store.CreateJobRun(&jobRun))
-
-	return taskRunID, jobRun
 }
 
 func NewEthTx(t *testing.T, fromAddress common.Address) bulletprooftxmanager.EthTx {
@@ -648,12 +386,24 @@ func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, db *gorm.DB, gas
 }
 
 func MustInsertEthReceipt(t *testing.T, db *gorm.DB, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
+	transactionIndex := uint(NewRandomInt64())
+
+	receipt := bulletprooftxmanager.Receipt{
+		BlockNumber:      big.NewInt(blockNumber),
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: transactionIndex,
+	}
+
+	data, err := json.Marshal(receipt)
+	require.NoError(t, err)
+
 	r := bulletprooftxmanager.EthReceipt{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
 		TxHash:           txHash,
-		TransactionIndex: uint(NewRandomInt64()),
-		Receipt:          []byte(`{"foo":42}`),
+		TransactionIndex: transactionIndex,
+		Receipt:          data,
 	}
 	require.NoError(t, db.Save(&r).Error)
 	return r
@@ -812,12 +562,6 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
-	j := NewJob()
-	require.NoError(t, s.CreateJob(&j))
-	return j
-}
-
 func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
 	pipelineSpec := pipeline.Spec{}
@@ -865,7 +609,7 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *ke
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
 	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{}).LowestUnsyncedID(ctx, registry)
+	upkeepID, err := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{}).LowestUnsyncedID(ctx, registry.ID)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
@@ -887,8 +631,8 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 		RoundId:          roundID,
 		EligibleToSubmit: true,
 		LatestSubmission: latestSubmission,
-		AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
-		PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
+		AvailableFunds:   configtest.MinimumContractPayment.ToInt(),
+		PaymentAmount:    configtest.MinimumContractPayment.ToInt(),
 	}
 }
 

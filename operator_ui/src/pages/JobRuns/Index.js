@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import TablePagination from '@material-ui/core/TablePagination'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { fetchJobRuns } from 'actionCreators'
-import jobRunsSelector from 'selectors/jobRuns'
-import jobRunsCountSelector from 'selectors/jobRunsCount'
 import List from '../Jobs/JobRunsList'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
@@ -71,17 +66,20 @@ const renderDetails = (props, state, handleChangePage) => {
 }
 
 export const Index = (props) => {
-  const { jobSpecId, fetchJobRuns, pageSize, match } = props
+  const { jobSpecId, pageSize, match } = props
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
     document.title = 'Job Runs'
+  }, [])
+
+  useEffect(() => {
     const queryPage = parseInt(match?.params.jobRunsPage, 10) || FIRST_PAGE
     setPage(queryPage)
-    fetchJobRuns({ jobSpecId, page: queryPage, size: pageSize })
-  }, [fetchJobRuns, jobSpecId, pageSize, match])
+    // TODO - Fetch V2 jobs runs here
+  }, [jobSpecId, pageSize, match])
   const handleChangePage = (_, pageNum) => {
-    fetchJobRuns({ jobSpecId, page: pageNum, size: pageSize })
+    // TODO - Fetch V2 jobs runs here
     setPage(pageNum)
   }
 
@@ -107,21 +105,4 @@ Index.defaultProps = {
   pageSize: 25,
 }
 
-const mapStateToProps = (state, ownProps) => {
-  const jobSpecId = ownProps.match.params.jobSpecId
-  const jobRunsCount = jobRunsCountSelector(state)
-  const latestJobRuns = jobRunsSelector(state, jobSpecId)
-
-  return {
-    jobSpecId,
-    latestJobRuns,
-    jobRunsCount,
-  }
-}
-
-export const ConnectedIndex = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobRuns }),
-)(Index)
-
-export default withStyles(styles)(ConnectedIndex)
+export default withStyles(styles)(Index)

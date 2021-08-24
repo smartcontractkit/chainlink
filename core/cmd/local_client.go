@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"go.uber.org/zap/zapcore"
 
 	gormpostgres "gorm.io/driver/postgres"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/static"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -44,7 +44,6 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	clipkg "github.com/urfave/cli"
-	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 )
 
@@ -58,7 +57,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	updateConfig(cli.Config, c.Bool("debug"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 	if cli.Config.Dev() {
@@ -73,10 +71,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
 
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	evmcfg := config.NewEVMConfig(cli.Config)
+	app, err := cli.AppFactory.NewApplication(evmcfg)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
+
+	err = cli.Config.SetLogLevel(context.Background(), zapcore.DebugLevel.String())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
 	store := app.GetStore()
 	keyStore := app.GetKeyStore()
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
@@ -89,7 +94,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR(), store.Config, keyStorePwd); authErr != nil {
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR(), keyStorePwd); authErr != nil {
 		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
 	}
 
@@ -125,7 +130,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
 	defer loggedStop(app)
-	err = logConfigVariables(store)
+	err = logConfigVariables(cli.Config)
 	if err != nil {
 		return err
 	}
@@ -219,14 +224,8 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func updateConfig(cfg *config.Config, debug bool) {
-	if debug {
-		cfg.Set("LOG_LEVEL", zapcore.DebugLevel.String())
-	}
-}
-
-func logConfigVariables(store *strpkg.Store) error {
-	wlc, err := presenters.NewConfigPrinter(store)
+func logConfigVariables(cfg config.GeneralConfig) error {
+	wlc, err := presenters.NewConfigPrinter(cfg)
 	if err != nil {
 		return err
 	}
@@ -269,8 +268,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	address := gethCommon.BytesToAddress(addressBytes)
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cli.Config.Dialect = dialects.PostgresWithoutLock
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	cli.Config.SetDialect(dialects.PostgresWithoutLock)
+	evmcfg := config.NewEVMConfig(cli.Config)
+	app, err := cli.AppFactory.NewApplication(evmcfg)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -308,37 +308,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, cli.Config, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil)
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, evmcfg, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil, nil, logger.Default)
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
-}
-
-// HardReset will remove all non-started transactions if any are found.
-func (cli *Client) HardReset(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-
-	fmt.Print("/// WARNING WARNING WARNING ///\n\n\n")
-	fmt.Print("Do not run this while a Chainlink node is currently using the DB as it could cause undefined behavior.\n\n")
-	if !confirmAction(c) {
-		return nil
-	}
-
-	app, cleanupFn, err := cli.makeApp()
-	if err != nil {
-		logger.Errorw("error while creating application", "error", err)
-		return err
-	}
-	defer cleanupFn()
-	storeInstance := app.GetStore()
-	ormInstance := storeInstance.ORM
-
-	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
-		logger.Errorw("failed to remove unstarted transactions", "error", err)
-		return err
-	}
-
-	logger.Info("successfully reset the node state in the database")
-	return nil
 }
 
 type HealthCheckPresenter struct {
@@ -396,23 +368,11 @@ func (cli *Client) Status(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &HealthCheckPresenters{})
 }
 
-func (cli *Client) makeApp() (chainlink.Application, func(), error) {
-	app, err := cli.AppFactory.NewApplication(cli.Config)
-	if err != nil {
-		return nil, nil, err
-	}
-	return app, func() {
-		if err := app.Stop(); err != nil {
-			logger.Errorw("Failed to stop the application on hard reset", "error", err)
-		}
-	}, nil
-}
-
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
 // This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := config.NewConfig()
+	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
@@ -439,7 +399,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := cli.ResetDatabase(c); err != nil {
 		return cli.errorOut(err)
 	}
-	cfg := config.NewConfig()
+	cfg := cli.Config
 	if err := insertFixtures(cfg); err != nil {
 		return cli.errorOut(err)
 	}
@@ -449,7 +409,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := config.NewConfig()
+	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
@@ -465,7 +425,7 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := config.NewConfig()
+	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
@@ -511,7 +471,7 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func migrateDB(config *config.Config) error {
+func migrateDB(config config.GeneralConfig) error {
 	dbURL := config.DatabaseURL()
 	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
@@ -538,7 +498,7 @@ func migrateDB(config *config.Config) error {
 	return orm.Close()
 }
 
-func insertFixtures(config *config.Config) (err error) {
+func insertFixtures(config config.GeneralConfig) (err error) {
 	dbURL := config.DatabaseURL()
 	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
@@ -566,7 +526,8 @@ func insertFixtures(config *config.Config) (err error) {
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	evmcfg := config.NewEVMConfig(cli.Config)
+	app, err := cli.AppFactory.NewApplication(evmcfg)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -622,7 +583,8 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 // If you do run it concurrently, it will not take effect until the next reboot.
 func (cli *Client) ImportKey(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	evmcfg := config.NewEVMConfig(cli.Config)
+	app, err := cli.AppFactory.NewApplication(evmcfg)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}

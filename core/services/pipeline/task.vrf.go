@@ -105,5 +105,8 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 	if err != nil {
 		return Result{Error: err}
 	}
+	var results = make(map[string]interface{})
+	results["onChainProof"] = hexutil.Encode(onChainProof[:])
+
 	return Result{Value: hexutil.Encode(onChainProof[:])}
 }
