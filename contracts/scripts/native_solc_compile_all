@@ -23,6 +23,7 @@ $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
+$SCRIPTPATH/native_solc7_compile tests/Consumer.sol
 
 $SCRIPTPATH/native_solc8_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_compile ChainlinkClient.sol

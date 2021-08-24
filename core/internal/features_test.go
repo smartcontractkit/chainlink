@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/consumer_wrapper"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -263,7 +265,19 @@ func TestIntegration_AuthToken(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
 
-func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
+type OperatorContracts struct {
+	user                      *bind.TransactOpts
+	multiWordConsumerAddress  common.Address
+	singleWordConsumerAddress common.Address
+	operatorAddress           common.Address
+	linkToken                 *link_token_interface.LinkToken
+	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
+	singleWord                *consumer_wrapper.Consumer
+	operator                  *operator_wrapper.Operator
+	sim                       *backends.SimulatedBackend
+}
+
+func setupOperatorContracts(t *testing.T) OperatorContracts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
 	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
@@ -283,42 +297,62 @@ func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, 
 	b.Commit()
 
 	var empty [32]byte
-	consumerAddress, _, consumerContract, err := multiwordconsumer_wrapper.DeployMultiWordConsumer(user, b, linkTokenAddress, operatorAddress, empty)
+	multiWordConsumerAddress, _, multiWordConsumerContract, err := multiwordconsumer_wrapper.DeployMultiWordConsumer(user, b, linkTokenAddress, operatorAddress, empty)
+	require.NoError(t, err)
+	b.Commit()
+
+	singleConsumerAddress, _, singleConsumerContract, err := consumer_wrapper.DeployConsumer(user, b, linkTokenAddress, operatorAddress, empty)
 	require.NoError(t, err)
 	b.Commit()
 
 	// The consumer contract needs to have link in it to be able to pay
 	// for the data request.
-	_, err = linkContract.Transfer(user, consumerAddress, big.NewInt(1000))
+	_, err = linkContract.Transfer(user, multiWordConsumerAddress, big.NewInt(1000))
 	require.NoError(t, err)
-	return user, consumerAddress, operatorAddress, linkContract, consumerContract, operatorContract, b
+	_, err = linkContract.Transfer(user, singleConsumerAddress, big.NewInt(1000))
+	require.NoError(t, err)
+
+	return OperatorContracts{
+		user:                      user,
+		multiWordConsumerAddress:  multiWordConsumerAddress,
+		singleWordConsumerAddress: singleConsumerAddress,
+		linkToken:                 linkContract,
+		multiWord:                 multiWordConsumerContract,
+		singleWord:                singleConsumerContract,
+		operator:                  operatorContract,
+		operatorAddress:           operatorAddress,
+		sim:                       b,
+	}
 }
 
-func TestIntegration_MultiwordV2(t *testing.T) {
+// Tests both single and multiple word responses -
+// i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
+func TestIntegration_DirectRequest(t *testing.T) {
 	t.Parallel()
 
 	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 	// in a single callback.
 	config := cltest.NewTestEVMConfig(t)
-	user, _, operatorAddress, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
+	operatorContracts := setupOperatorContracts(t)
+	b := operatorContracts.sim
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	defer cleanup()
 	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
-	config.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
+	config.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(200 * time.Millisecond)
 
 	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
-	tx, err := operatorContract.SetAuthorizedSenders(user, authorizedSenders)
+	tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
 	require.NoError(t, err)
 	b.Commit()
 	cltest.RequireTxSuccessful(t, b, tx.Hash())
 
 	// Fund node account with ETH.
-	n, err := b.NonceAt(context.Background(), user.From, nil)
+	n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
 	require.NoError(t, err)
 	tx = types.NewTransaction(n, sendingKeys[0].Address.Address(), big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
-	signedTx, err := user.Signer(user.From, tx)
+	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
 	require.NoError(t, err)
@@ -335,19 +369,19 @@ func TestIntegration_MultiwordV2(t *testing.T) {
 	defer cleanup()
 
 	spec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/multiword-response-spec.toml"))
-	spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorAddress.Hex())
+	spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
 	j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
 	cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
 	var jobID [32]byte
 	copy(jobID[:], j.ExternalJobID.Bytes())
-	tx, err = consumerContract.SetSpecID(user, jobID)
+	tx, err = operatorContracts.multiWord.SetSpecID(operatorContracts.user, jobID)
 	require.NoError(t, err)
 	b.Commit()
 	cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-	user.GasLimit = 1000000
-	tx, err = consumerContract.RequestMultipleParametersWithCustomURLs(user,
+	operatorContracts.user.GasLimit = 1000000
+	tx, err = operatorContracts.multiWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
 		mockServerUSD.URL, "USD",
 		mockServerEUR.URL, "EUR",
 		mockServerJPY.URL, "JPY",
@@ -358,7 +392,7 @@ func TestIntegration_MultiwordV2(t *testing.T) {
 	cltest.RequireTxSuccessful(t, b, tx.Hash())
 
 	empty := big.NewInt(0)
-	assertPricesUint256(t, empty, empty, empty, consumerContract)
+	assertPricesUint256(t, empty, empty, empty, operatorContracts.multiWord)
 
 	stopBlocks := finiteTicker(100*time.Millisecond, func() {
 		triggerAllKeys(t, app)
@@ -366,14 +400,39 @@ func TestIntegration_MultiwordV2(t *testing.T) {
 	})
 	defer stopBlocks()
 
-	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
-	time.Sleep(3 * time.Second)
-	cltest.RequireTxSuccessful(t, b, attempts[0].Hash)
-	assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), consumerContract)
-
 	pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
 	pipelineRun := pipelineRuns[0]
 	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+	assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
+
+	// Do a single word request
+	singleWordSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec-cbor.toml"))
+	singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
+	jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
+	cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
+
+	var jobIDSingleWord [32]byte
+	copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID.Bytes())
+	tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
+	require.NoError(t, err)
+	b.Commit()
+	cltest.RequireTxSuccessful(t, b, tx.Hash())
+	mockServerUSD2, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
+	defer cleanup()
+	tx, err = operatorContracts.singleWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
+		mockServerUSD2.URL, "USD",
+		big.NewInt(1000),
+	)
+	require.NoError(t, err)
+	b.Commit()
+	cltest.RequireTxSuccessful(t, b, tx.Hash())
+
+	pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), 5*time.Second, 100*time.Millisecond)
+	pipelineRun = pipelineRuns[0]
+	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+	v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(61464), v)
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator) {
@@ -662,93 +721,6 @@ observationSource = """
 		}
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
-}
-
-func TestIntegration_DirectRequest(t *testing.T) {
-	config := cltest.NewTestEVMConfig(t)
-
-	httpAwaiter := cltest.NewAwaiter()
-	httpServer, assertCalled := cltest.NewHTTPMockServer(
-		t,
-		http.StatusOK,
-		"GET",
-		`{"USD": "31982"}`,
-		func(header http.Header, _ string) {
-			httpAwaiter.ItHappened()
-		},
-	)
-	defer assertCalled()
-
-	ethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
-	defer assertMockCalls()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
-
-	blocks := cltest.NewBlocks(t, 12)
-
-	sub.On("Err").Return(nil).Maybe()
-	sub.On("Unsubscribe").Return(nil).Maybe()
-
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(10), nil)
-
-	var headCh chan<- *models.Head
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().
-		Run(func(args mock.Arguments) {
-			headCh = args.Get(1).(chan<- *models.Head)
-		}).
-		Return(sub, nil)
-
-	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
-	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(blocks.Head(0), nil)
-	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
-
-	require.NoError(t, app.Start())
-
-	store := app.Store
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Close()
-
-	pipelineORM := pipeline.NewORM(store.DB)
-	jobORM := job.NewORM(store.ORM.DB, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-
-	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
-	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
-	request := web.CreateJobRequest{TOML: directRequestSpec}
-	output, err := json.Marshal(request)
-	require.NoError(t, err)
-	job := cltest.CreateJobViaWeb(t, app, output)
-
-	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
-
-	runLog := cltest.NewRunLog(t, job.ExternalIDEncodeStringToTopic(), job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
-	runLog.BlockHash = blocks.Head(1).Hash
-	var logs chan<- types.Log
-	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
-		logs = <-logsCh
-	}, 5*time.Second)
-	cltest.CallbackOrTimeout(t, "send run log", func() {
-		logs <- runLog
-	}, 30*time.Second)
-
-	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
-	for i := 0; i < 12; i++ {
-		headCh <- blocks.Head(uint64(i))
-	}
-
-	httpAwaiter.AwaitOrFail(t)
-
-	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 3, jobORM, 5*time.Second, 300*time.Millisecond)
-	require.Len(t, runs, 1)
-	run := runs[0]
-	require.Len(t, run.PipelineTaskRuns, 3)
-	require.Empty(t, run.PipelineTaskRuns[0].Error)
-	require.Empty(t, run.PipelineTaskRuns[1].Error)
-	require.Empty(t, run.PipelineTaskRuns[2].Error)
 }
 
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {
