@@ -628,8 +628,8 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
-		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EthMinGasPriceWei").Return(big.NewInt(100))
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 		config.On("ChainID").Return(big.NewInt(100))
 
