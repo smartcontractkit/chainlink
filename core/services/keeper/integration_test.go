@@ -5,10 +5,13 @@ import (
 	"testing"
 	"time"
 
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -20,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 )
 
