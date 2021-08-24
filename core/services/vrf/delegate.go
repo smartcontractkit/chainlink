@@ -70,8 +70,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Fix with https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	chain, err := d.cc.Default()
+	chain, err := d.cc.Get(jb.VRFSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}

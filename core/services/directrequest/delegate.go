@@ -67,8 +67,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		return nil, errors.Errorf("directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", job)
 	}
 	concreteSpec := job.DirectRequestSpec
-	// TODO: Fix with https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	chain, err := d.chainCollection.Default()
+	chain, err := d.chainCollection.Get(job.DirectRequestSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}

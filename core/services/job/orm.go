@@ -425,7 +425,10 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 		}
 		for i := range jobs {
 			if jobs[i].OffchainreportingOracleSpec != nil {
-				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.chainCollection, *jobs[i].OffchainreportingOracleSpec)
+				jobs[i].OffchainreportingOracleSpec, err = loadDynamicConfigVars(o.chainCollection, *jobs[i].OffchainreportingOracleSpec)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -433,13 +436,11 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 	return jobs, int(count), err
 }
 
-func loadDynamicConfigVars(chainCollection evm.ChainCollection, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+func loadDynamicConfigVars(chainCollection evm.ChainCollection, os OffchainReportingOracleSpec) (*OffchainReportingOracleSpec, error) {
 	// Load dynamic variables
-	// This should scope based on chain_id in OCR job - See:
-	// https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	chain, err := chainCollection.Default()
+	chain, err := chainCollection.Get(os.EVMChainID.ToInt())
 	if err != nil {
-		logger.Fatal(err)
+		return nil, err
 	}
 	cfg := chain.Config()
 	return &OffchainReportingOracleSpec{
@@ -457,7 +458,7 @@ func loadDynamicConfigVars(chainCollection evm.ChainCollection, os OffchainRepor
 		ContractConfigConfirmations:            cfg.OCRContractConfirmations(os.ContractConfigConfirmations),
 		CreatedAt:                              os.CreatedAt,
 		UpdatedAt:                              os.UpdatedAt,
-	}
+	}, nil
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -472,10 +473,9 @@ func (o *orm) FindJobTx(id int32) (Job, error) {
 }
 
 // FindJob returns job by ID
-func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
-	var jb Job
+func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	tx := postgres.TxFromContext(ctx, o.db)
-	err := PreloadAllJobTypes(tx).
+	err = PreloadAllJobTypes(tx).
 		Preload("JobSpecErrors").
 		First(&jb, "jobs.id = ?", id).
 		Error
@@ -484,9 +484,9 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	}
 
 	if jb.OffchainreportingOracleSpec != nil {
-		jb.OffchainreportingOracleSpec = loadDynamicConfigVars(o.chainCollection, *jb.OffchainreportingOracleSpec)
+		jb.OffchainreportingOracleSpec, err = loadDynamicConfigVars(o.chainCollection, *jb.OffchainreportingOracleSpec)
 	}
-	return jb, nil
+	return jb, err
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {

@@ -59,8 +59,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
-	// TODO: Fix with https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	chain, err := d.chainCollection.Default()
+	chain, err := d.chainCollection.Get(spec.KeeperSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}

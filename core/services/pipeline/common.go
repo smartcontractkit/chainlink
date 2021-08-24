@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"math/big"
 	"net/url"
 	"reflect"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -352,4 +354,15 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 		return nil, ErrTooManyErrors
 	}
 	return vals, nil
+}
+
+func getChainByString(chainCollection evm.ChainCollection, str string) (evm.Chain, error) {
+	if str == "" {
+		return chainCollection.Default()
+	}
+	id, ok := new(big.Int).SetString(str, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
+	}
+	return chainCollection.Get(id)
 }

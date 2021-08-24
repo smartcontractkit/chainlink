@@ -94,8 +94,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
 	concreteSpec := jobSpec.OffchainreportingOracleSpec
-	// TODO: Fix with https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	chain, err := d.chainCollection.Default()
+	chain, err := d.chainCollection.Get(jobSpec.OffchainreportingOracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}

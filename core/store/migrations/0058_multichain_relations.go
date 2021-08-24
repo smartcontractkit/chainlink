@@ -10,7 +10,6 @@ ALTER TABLE evm_chains ADD COLUMN enabled BOOL DEFAULT TRUE NOT NULL;
 ALTER TABLE eth_txes ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE log_broadcasts ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE heads ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
-ALTER TABLE offchainreporting_oracle_specs ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
 
 UPDATE eth_txes SET evm_chain_id = (SELECT id FROM evm_chains ORDER BY created_at ASC LIMIT 1);
 UPDATE log_broadcasts SET evm_chain_id = (SELECT id FROM evm_chains ORDER BY created_at ASC LIMIT 1);

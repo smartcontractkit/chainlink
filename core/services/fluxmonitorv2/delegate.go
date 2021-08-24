@@ -50,19 +50,18 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the flux monitor service for the job spec
-func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
-	if spec.FluxMonitorSpec == nil {
-		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", spec)
+func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error) {
+	if jb.FluxMonitorSpec == nil {
+		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}
-	// TODO: Fix with https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	chain, err := d.chainCollection.Default()
+	chain, err := d.chainCollection.Get(jb.FluxMonitorSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
 
 	fm, err := NewFromJobSpec(
-		spec,
+		jb,
 		d.db,
 		NewORM(d.db, chain.TxManager(), strategy),
 		d.jobORM,

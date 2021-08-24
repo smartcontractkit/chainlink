@@ -29,6 +29,7 @@ type ETHTxTask struct {
 	GasLimit         string `json:"gasLimit"`
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
+	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	db              *gorm.DB
 	keyStore        ETHKeyStore
@@ -53,7 +54,10 @@ func (t *ETHTxTask) Type() TaskType {
 }
 
 func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
-	chain, err := t.chainCollection.Default()
+	chain, err := getChainByString(t.chainCollection, t.EVMChainID)
+	if err != nil {
+		return Result{Error: err}
+	}
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "chain collection default")}
 	}

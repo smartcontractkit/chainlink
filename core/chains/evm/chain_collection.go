@@ -67,7 +67,8 @@ func (cll *chainCollection) Ready() (err error) {
 
 func (cll *chainCollection) Get(id *big.Int) (Chain, error) {
 	if id == nil {
-		return nil, errors.New("cannot lookup chain by nil ID")
+		cll.logger.Debugf("Chain ID not specified, using default: %s", cll.defaultID.String())
+		return cll.Default()
 	}
 	c, exists := cll.chains[id.String()]
 	if exists {
@@ -83,6 +84,7 @@ func (cll *chainCollection) Default() (Chain, error) {
 	if cll.defaultID == nil {
 		return nil, errors.New("no default chain ID specified")
 	}
+
 	return cll.Get(cll.defaultID)
 }
 

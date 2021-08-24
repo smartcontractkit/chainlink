@@ -58,10 +58,7 @@ func ValidatedOracleSpecToml(chainCollection evm.ChainCollection, tomlString str
 		}
 	}
 
-	// FIXME: This should be adjusted to work with the chainID given in the
-	// TOML, and in all cases to save the chainID onto the OCR spec
-	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-jobs-pipeline-tasks-and-services-that-interact-with-evm
-	chain, err := chainCollection.Default()
+	chain, err := chainCollection.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return jb, err
 	}

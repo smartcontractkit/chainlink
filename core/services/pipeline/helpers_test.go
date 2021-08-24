@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 var (
@@ -42,8 +41,8 @@ func (t *HTTPTask) HelperSetDependencies(config Config) {
 	t.config = config
 }
 
-func (t *ETHCallTask) HelperSetDependencies(client eth.Client) {
-	t.ethClient = client
+func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainCollection) {
+	t.chainCollection = cc
 }
 
 func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, cc evm.ChainCollection, keyStore ETHKeyStore) {

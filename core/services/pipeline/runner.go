@@ -227,15 +227,6 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		return nil, err
 	}
 
-	// TODO: Add per-task parameter to specify chain ID and pass in the
-	// collection to each task to allow each task to specify a different chain
-	// ID
-	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
-	defaultChain, err := r.chainCollection.Default()
-	if err != nil {
-		return nil, err
-	}
-
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
 		task.Base().uuid = uuid.NewV4()
@@ -247,14 +238,13 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
 		case TaskTypeETHCall:
-			task.(*ETHCallTask).ethClient = defaultChain.Client()
+			task.(*ETHCallTask).chainCollection = r.chainCollection
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).GasEstimator = defaultChain.Client()
-			task.(*EstimateGasLimitTask).EvmGasLimit = defaultChain.Config().EvmGasLimitDefault()
+			task.(*EstimateGasLimitTask).chainCollection = r.chainCollection
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
