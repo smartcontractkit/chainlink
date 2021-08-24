@@ -29,6 +29,9 @@ type ConfigOverriderImpl struct {
 	chDone    chan struct{}
 }
 
+// InitialHibernationStatus - hibernation state set until the first successful update from the chain
+const InitialHibernationStatus = false
+
 func NewConfigOverriderImpl(
 	logger *logger.Logger,
 	contractAddress ethkey.EIP55Address,
@@ -48,7 +51,7 @@ func NewConfigOverriderImpl(
 		flags,
 		contractAddress,
 		pollInterval,
-		abool.New(),
+		abool.NewBool(InitialHibernationStatus),
 		ctx,
 		cancel,
 		make(chan struct{}),
