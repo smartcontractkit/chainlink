@@ -409,6 +409,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		app.HeadTracker.SetLogger(newL)
 	case loggerPkg.FluxMonitor:
 		// TODO: Set FMv2?
+	case loggerPkg.Keeper:
 	default:
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
