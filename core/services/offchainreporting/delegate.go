@@ -52,6 +52,7 @@ type DelegateConfig interface {
 	P2PBootstrapPeers([]string) ([]string, error)
 	P2PPeerID(*p2pkey.PeerID) (p2pkey.PeerID, error)
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	FlagsContractAddress() string
 }
 
 type Delegate struct {
@@ -248,6 +249,29 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		runResults := make(chan pipeline.Run, d.config.JobPipelineResultWriteQueueDepth())
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
+
+		var configOverrider ocrtypes.ConfigOverrider
+		flagsContractAddress := d.config.FlagsContractAddress()
+		if flagsContractAddress != "" {
+			var flags *ContractFlags
+			flags, err = NewFlags(flagsContractAddress, d.ethClient)
+			if err != nil {
+				return nil, errors.Wrapf(err,
+					"OCR: unable to create Flags contract instance, check address: %s",
+					flagsContractAddress,
+				)
+			}
+			pollInterval := 30 * time.Second
+
+			var configOverriderImpl *ConfigOverriderImpl
+			configOverriderImpl, err = NewConfigOverriderImpl(loggerWith, concreteSpec.ContractAddress, flags, pollInterval)
+			if err != nil {
+				return nil, err
+			}
+			configOverrider = configOverriderImpl
+			services = append(services, configOverriderImpl)
+		}
+
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
 			Datasource: &dataSource{
@@ -266,6 +290,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			V1Bootstrappers:              bootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.Address()),
+			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")

@@ -49,7 +49,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20210803133922-ddddd3dce7e5
+	github.com/smartcontractkit/libocr v0.0.0-20210820145132-3c090fd196cc
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
 	github.com/smartcontractkit/wsrpc v0.3.2
 	github.com/spf13/viper v1.8.1
