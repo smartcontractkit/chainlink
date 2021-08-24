@@ -38,11 +38,10 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
 	config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
-
 	config.On("BlockHistoryEstimatorTransactionPercentile").Maybe().Return(percentile)
-	config.On("EthFinalityDepth").Return(ethFinalityDepth)
-	config.On("EthGasLimitMultiplier").Maybe().Return(float32(1))
-	config.On("EthMinGasPriceWei").Maybe().Return(minGasPrice)
+	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
+	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
+	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
 	config.On("ChainID").Maybe().Return(big.NewInt(0))
 
 	t.Run("loads initial state", func(t *testing.T) {
@@ -117,7 +116,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 
 		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
 
@@ -132,26 +131,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
-	})
-
-	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
-		ethClient := new(mocks.Client)
-
-		bhe := gas.NewBlockHistoryEstimator(ethClient, config)
-
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
-		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
-
-		err := bhe.Start()
-		require.NoError(t, err)
-
-		_, _, err = bhe.EstimateGas(make([]byte, 0), 100)
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
@@ -646,44 +625,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 
 	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
-		ethClient := new(mocks.Client)
-		config := new(gumocks.Config)
-
-		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
-		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
-		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
-		config.On("ChainID").Return(big.NewInt(100))
-
-		estimator := gas.NewBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
-
-		b1Hash := utils.NewHash()
-
-		blocks := []gas.Block{
-			gas.Block{
-				Number:     0,
-				Hash:       b1Hash,
-				ParentHash: common.Hash{},
-				Transactions: []gas.Transaction{
-					{GasPrice: nil, GasLimit: 42, Hash: utils.NewHash()},
-					{GasPrice: big.NewInt(100), GasLimit: 42, Hash: utils.NewHash()},
-				},
-			},
-		}
-
-		gas.SetRollingBlockHistory(bhe, blocks)
-
-		bhe.Recalculate(*cltest.Head(0))
-
-		price := gas.GetGasPrice(bhe)
-		require.Equal(t, big.NewInt(100), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
-	})
-
-	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
-		ethClient := new(mocks.Client)
+		ethClient := cltest.NewEthClientMock(t)
 		config := new(gumocks.Config)
 
 		config.On("EthMaxGasPriceWei").Return(maxGasPrice)
