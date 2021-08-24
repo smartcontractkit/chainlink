@@ -398,7 +398,7 @@ func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result f
 
 func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, pipelineSpecID int32, blockNumber uint64) {
 	t.Helper()
-	logger.Infof("Waiting for log on block: %v", blockNumber)
+	logger.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
@@ -513,7 +513,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	run := assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
 	fa.backend.Commit()
-	fa.backend.Commit()
+	stopMining := cltest.Mine(fa.backend, time.Second)
+	defer stopMining()
 
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
