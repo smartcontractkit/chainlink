@@ -509,7 +509,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			var restart bool
 			restart, err = r.orm.StoreRun(postgres.UnwrapGormDB(r.orm.DB()), run)
 			if err != nil {
-				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+				return false, errors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
+					run.PipelineSpec.ID, run.State, run.Outputs, run.Errors, run.FinishedAt)
 			}
 
 			if restart {

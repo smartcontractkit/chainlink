@@ -136,7 +136,7 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 
 		// Suspend the run
 		run.State = RunStatusSuspended
-		if _, err = sqlx.NamedExec(tx, `UPDATE pipeline_runs SET state = :state`, run); err != nil {
+		if _, err = sqlx.NamedExec(tx, `UPDATE pipeline_runs SET state = :state WHERE id = :id`, run); err != nil {
 			return false, errors.Wrap(err, "StoreRun")
 		}
 	} else {
