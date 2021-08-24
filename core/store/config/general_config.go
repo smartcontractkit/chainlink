@@ -244,7 +244,6 @@ const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
 
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
-// FIXME: It ought to take a DB
 func NewGeneralConfig() GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v)
@@ -831,7 +830,6 @@ func (c *generalConfig) ORMMaxIdleConns() int {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c *generalConfig) LogLevel() LogLevel {
-	// FIXME: Should read from memory and not from database every time
 	if c.ORM != nil {
 		var value LogLevel
 		if err := c.ORM.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
