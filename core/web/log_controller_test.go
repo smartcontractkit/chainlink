@@ -134,21 +134,35 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			expectedSvcLevel: map[string]zapcore.Level{logger.FluxMonitor: zapcore.WarnLevel},
 		},
 		{
+			Description: "Set keeper to info",
+			logLevel:    "info",
+
+			svcName:  strings.Join([]string{logger.Keeper}, ","),
+			svcLevel: strings.Join([]string{"info"}, ","),
+
+			expectedLogLevel: zapcore.InfoLevel,
+			expectedSvcLevel: map[string]zapcore.Level{logger.Keeper: zapcore.WarnLevel},
+		},
+		{
 			Description: "Set multiple services log levels",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor}, ","),
-			svcLevel: strings.Join([]string{"debug", "warn"}, ","),
+			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor, logger.Keeper}, ","),
+			svcLevel: strings.Join([]string{"debug", "warn", "info"}, ","),
 
 			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.HeadTracker: zapcore.DebugLevel, logger.FluxMonitor: zapcore.WarnLevel},
+			expectedSvcLevel: map[string]zapcore.Level{
+				logger.HeadTracker: zapcore.DebugLevel,
+				logger.FluxMonitor: zapcore.WarnLevel,
+				logger.Keeper:      zapcore.InfoLevel,
+			},
 		},
 		{
 			Description: "Set incorrect log levels",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor}, ","),
-			svcLevel: strings.Join([]string{"debug", "warning"}, ","),
+			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor, logger.Keeper}, ","),
+			svcLevel: strings.Join([]string{"debug", "warning", "infa"}, ","),
 
 			expectedErrorCode: http.StatusInternalServerError,
 		},
@@ -156,8 +170,8 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			Description: "Set incorrect service names",
 			logLevel:    "info",
 
-			svcName:  strings.Join([]string{logger.HeadTracker, "FLUX-MONITOR"}, ","),
-			svcLevel: strings.Join([]string{"debug", "warning"}, ","),
+			svcName:  strings.Join([]string{logger.HeadTracker, "FLUX-MONITOR", "SHKEEPER"}, ","),
+			svcLevel: strings.Join([]string{"debug", "warning", "info"}, ","),
 
 			expectedErrorCode: http.StatusInternalServerError,
 		},

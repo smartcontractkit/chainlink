@@ -185,6 +185,10 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	if err != nil {
 		logger.Fatal("error starting logger for head tracker", err)
 	}
+	keeperLogger, err := globalLogger.InitServiceLevelLogger(loggerPkg.Keeper, serviceLogLevels[loggerPkg.Keeper])
+	if err != nil {
+		logger.Fatal("error starting logger for keeper", err)
+	}
 
 	var headBroadcaster httypes.HeadBroadcaster
 	var headTracker httypes.Tracker
@@ -245,7 +249,8 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 				pipelineORM,
 				ethClient,
 				store.DB,
-				cfg),
+				cfg,
+			),
 			job.Keeper: keeper.NewDelegate(
 				store.DB,
 				txManager,
@@ -254,7 +259,9 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 				ethClient,
 				headBroadcaster,
 				logBroadcaster,
-				cfg),
+				keeperLogger,
+				cfg,
+			),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -264,7 +271,8 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 				logBroadcaster,
 				headBroadcaster,
 				ethClient,
-				cfg),
+				cfg,
+			),
 		}
 	)
 

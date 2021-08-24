@@ -253,7 +253,18 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "unable to decode hex to bytes")
 	}
-	revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+
+	ln := len(revertReasonBytes)
+	for {
+		revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+		revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
+		revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
+		if ln == len(revertReasonBytes) {
+			break
+		}
+		ln = len(revertReasonBytes)
+	}
+
 	revertReason := strings.TrimSpace(string(revertReasonBytes))
 	return revertReason, nil
 }
