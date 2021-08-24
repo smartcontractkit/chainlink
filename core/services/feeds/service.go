@@ -188,6 +188,8 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 		return err
 	}
 
+	logger.Infof("Restarting connection")
+
 	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
 		logger.Info("[Feeds] Feeds Manager not connected, attempting to connect")
 	}
