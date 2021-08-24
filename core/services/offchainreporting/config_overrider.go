@@ -3,6 +3,8 @@ package offchainreporting
 import (
 	"context"
 	"math"
+	"math/big"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -10,23 +12,25 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/tevino/abool"
 )
 
 type ConfigOverriderImpl struct {
 	utils.StartStopOnce
-	logger *logger.Logger
-
+	logger          *logger.Logger
 	flags           *ContractFlags
 	contractAddress ethkey.EIP55Address
 
-	flagsUpdateInterval time.Duration
-	isHibernating       *abool.AtomicBool
+	flagsUpdateInterval      time.Duration
+	lastStateChangeTimestamp time.Time
+	isHibernating            bool
+	DeltaCFromAddress        time.Duration
 
 	// Start/Stop lifecycle
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	chDone    chan struct{}
+
+	mu sync.Mutex
 }
 
 // InitialHibernationStatus - hibernation state set until the first successful update from the chain
@@ -44,6 +48,10 @@ func NewConfigOverriderImpl(
 			"Please create the contract or remove the FLAGS_CONTRACT_ADDRESS configuration variable", contractAddress.Address())
 	}
 
+	addressBig := contractAddress.Big()
+	addressInt64 := addressBig.Mod(addressBig, big.NewInt(math.MaxInt64)).Int64()
+	deltaC := 23*time.Hour + time.Duration(addressInt64%3600)*time.Second
+
 	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{
 		utils.StartStopOnce{},
@@ -51,10 +59,13 @@ func NewConfigOverriderImpl(
 		flags,
 		contractAddress,
 		pollInterval,
-		abool.NewBool(InitialHibernationStatus),
+		time.Now(),
+		InitialHibernationStatus,
+		deltaC,
 		ctx,
 		cancel,
 		make(chan struct{}),
+		sync.Mutex{},
 	}
 
 	return &co, nil
@@ -100,24 +111,31 @@ func (c *ConfigOverriderImpl) updateFlagsStatus() error {
 	if err != nil {
 		return err
 	}
+	shouldHibernate := !isFlagLowered
 
-	isHibernating := !isFlagLowered
-	if isHibernating {
-		if c.isHibernating.SetToIf(false, true) {
-			c.logger.Infow("Setting hibernation state to 'hibernating'")
-		}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.isHibernating && shouldHibernate {
+		c.logger.Infow("Setting hibernation state to 'hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
+		c.lastStateChangeTimestamp = time.Now()
 	}
-	if !isHibernating {
-		if c.isHibernating.SetToIf(true, false) {
-			c.logger.Infow("Setting hibernation state to 'not hibernating'")
-		}
+
+	if c.isHibernating && !shouldHibernate {
+		c.logger.Infow("Setting hibernation state to 'not hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
+		c.lastStateChangeTimestamp = time.Now()
 	}
+
+	c.isHibernating = shouldHibernate
 	return nil
 }
 
 func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {
-	if c.isHibernating.IsSet() {
-		c.logger.Debugw("Returning config override")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.isHibernating {
+		c.logger.Debugw("Returning a config override")
 		return c.configOverrideInstance()
 	}
 	c.logger.Debugw("Config override returned as nil")
@@ -125,5 +143,5 @@ func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {
 }
 
 func (c *ConfigOverriderImpl) configOverrideInstance() *ocrtypes.ConfigOverride {
-	return &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: 23*time.Hour + time.Duration(c.contractAddress.Big().Int64()%3600)*time.Second}
+	return &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: c.DeltaCFromAddress}
 }

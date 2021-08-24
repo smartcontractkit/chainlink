@@ -2,6 +2,7 @@ package offchainreporting_test
 
 import (
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
@@ -10,9 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -21,17 +20,11 @@ import (
 )
 
 type configOverriderUni struct {
-	lb              *logmocks.Broadcaster
-	hb              *htmocks.HeadBroadcaster
-	ec              *mocks.Client
 	overrider       *offchainreporting.ConfigOverriderImpl
 	contractAddress ethkey.EIP55Address
 }
 
 func newConfigOverriderUni(t *testing.T, pollInterval time.Duration, flagsContract *mocks.Flags) (uni configOverriderUni) {
-	uni.lb = new(logmocks.Broadcaster)
-	uni.hb = new(htmocks.HeadBroadcaster)
-	uni.ec = cltest.NewEthClientMock(t)
 	contractAddress := cltest.NewEIP55Address()
 
 	flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
@@ -48,9 +41,6 @@ func newConfigOverriderUni(t *testing.T, pollInterval time.Duration, flagsContra
 
 	t.Cleanup(func() {
 		flagsContract.AssertExpectations(t)
-		uni.lb.AssertExpectations(t)
-		uni.hb.AssertExpectations(t)
-		uni.ec.AssertExpectations(t)
 	})
 
 	return uni
@@ -78,7 +68,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		require.NoError(t, uni.overrider.Start())
 		g.Consistently(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, time.Second, 450*time.Millisecond).Should(gomega.BeNil())
 
-		res := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: 23*time.Hour + time.Duration(uni.contractAddress.Big().Int64()%3600)*time.Second}
+		res := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
 		g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.Equal(res))
 	})
 
@@ -99,7 +89,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 
 		require.NoError(t, uni.overrider.Start())
 
-		res := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: 23*time.Hour + time.Duration(uni.contractAddress.Big().Int64()%3600)*time.Second}
+		res := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
 		g.Consistently(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, time.Second, 450*time.Millisecond).Should(gomega.Equal(res))
 
 		g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.BeNil())
@@ -116,6 +106,33 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Flags contract instance is missing, the contract does not exist")
+	})
+
+	t.Run("DeltaC should be stable per address", func(t *testing.T) {
+		flagsContract := new(mocks.Flags)
+		flagsContract.Test(t)
+		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
+			Return([]bool{true, true}, nil)
+		flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
+
+		address1, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(10000)).Hex())
+		require.NoError(t, err)
+
+		address2, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(1234567890)).Hex())
+		require.NoError(t, err)
+
+		overrider1a, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, 5*time.Second)
+		require.NoError(t, err)
+
+		overrider1b, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, 5*time.Second)
+		require.NoError(t, err)
+
+		overrider2, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address2, flags, 5*time.Second)
+		require.NoError(t, err)
+
+		require.Equal(t, overrider1a.DeltaCFromAddress, time.Duration(85600000000000))
+		require.Equal(t, overrider1b.DeltaCFromAddress, time.Duration(85600000000000))
+		require.Equal(t, overrider2.DeltaCFromAddress, time.Duration(84690000000000))
 	})
 }
 
