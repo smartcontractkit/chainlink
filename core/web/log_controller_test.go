@@ -114,7 +114,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			expectedErrorCode: http.StatusBadRequest,
 		},
 		{
-			Description: "Set head tracker to debug",
+			Description: "Set head tracker to info",
 			logLevel:    "info",
 
 			svcName:  strings.Join([]string{logger.HeadTracker}, ","),
@@ -141,7 +141,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			svcLevel: strings.Join([]string{"info"}, ","),
 
 			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.Keeper: zapcore.WarnLevel},
+			expectedSvcLevel: map[string]zapcore.Level{logger.Keeper: zapcore.InfoLevel},
 		},
 		{
 			Description: "Set multiple services log levels",
