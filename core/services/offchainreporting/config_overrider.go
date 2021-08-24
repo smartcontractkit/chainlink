@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -34,6 +35,11 @@ func NewConfigOverriderImpl(
 	flags *ContractFlags,
 	pollInterval time.Duration,
 ) (*ConfigOverriderImpl, error) {
+
+	if !flags.ContractExists() {
+		return nil, errors.Errorf("OCR: Flags contract instance is missing, the contract does not exist: %s. "+
+			"Please create the contract or remove the FLAGS_CONTRACT_ADDRESS configuration variable", contractAddress.Address())
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{

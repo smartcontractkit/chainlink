@@ -104,6 +104,19 @@ func Test_OCRConfigOverrider(t *testing.T) {
 
 		g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.BeNil())
 	})
+
+	t.Run("Errors if flags contract is missing", func(t *testing.T) {
+		contractAddress := cltest.NewEIP55Address()
+		flags := &offchainreporting.ContractFlags{FlagsInterface: nil}
+		_, err := offchainreporting.NewConfigOverriderImpl(
+			logger.Default,
+			contractAddress,
+			flags,
+			5*time.Second,
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Flags contract instance is missing, the contract does not exist")
+	})
 }
 
 func checkFlagsAddress(t *testing.T, contractAddress ethkey.EIP55Address) func(args mock.Arguments) {
