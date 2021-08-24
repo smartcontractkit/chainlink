@@ -698,7 +698,7 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 	}
 
 	if len(etxInsufficientEths) > 0 {
-		logger.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", len(etxInsufficientEths)), "blockNum", blockNum, "address", address)
+		l.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", len(etxInsufficientEths)), "blockNum", blockNum, "address", address)
 	}
 
 	etxBumps, err := FindEthTxsRequiringGasBump(db, address, blockNum, gasBumpThreshold, bumpDepth)
@@ -717,9 +717,9 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 				oldestBlocksBehind = blockNum - *oldestBlockNum
 			}
 		} else {
-			logger.Warnw("EthConfirmer: expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
+			l.Warnw("EthConfirmer: expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
-		logger.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, static.EthNodeConnectivityProblemLabel), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
+		l.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, static.EthNodeConnectivityProblemLabel), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
 
 	seen := make(map[int64]struct{})
@@ -739,7 +739,7 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 	})
 
 	if maxInFlightTransactions > 0 && len(etxs) > int(maxInFlightTransactions) {
-		logger.Warnf("EthConfirmer: %d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel)
+		l.Warnf("EthConfirmer: %d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel)
 		etxs = etxs[:maxInFlightTransactions]
 	}
 

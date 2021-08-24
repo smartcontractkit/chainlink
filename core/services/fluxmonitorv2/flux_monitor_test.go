@@ -267,6 +267,12 @@ func setHibernationState(hibernating bool) func(*setupOptions) {
 	}
 }
 
+func setFlags(flags *fmmocks.Flags) func(*setupOptions) {
+	return func(opts *setupOptions) {
+		opts.flags = flags
+	}
+}
+
 // withORM is an option to switch out the ORM during set up. Useful when you
 // want to use a database backed ORM
 func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
@@ -879,6 +885,121 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 	require.Eventually(t, func() bool { return len(pollOccured) == 3 }, 8*time.Second, 10*time.Millisecond)
 	tm.AssertExpectations(t)
+}
+
+func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	t.Parallel()
+
+	store, _, nodeAddr := setupStoreWithKey(t)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
+	flags := new(fmmocks.Flags)
+	flags.On("ContractExists").Return(true)
+	flags.On("Address").Return(common.Address{})
+	flags.On("IsLowered", mock.Anything).Return(true, nil).Once()
+
+	fm, tm := setup(t,
+		store.DB,
+		setIdleTimerPeriod(time.Second),
+		disablePollTicker(true),
+		setHibernationTickerPeriod(4*time.Second),
+		setFlags(flags),
+	)
+
+	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+
+	const fetchedAnswer = 100
+	answerBigInt := big.NewInt(fetchedAnswer)
+
+	tm.fluxAggregator.On("Address").Return(contractAddress)
+	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
+	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	tm.logBroadcaster.On("IsConnected").Return(true)
+	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
+
+	pollOccured := make(chan struct{}, 4)
+
+	err := fm.Start()
+	require.NoError(t, err)
+
+	t.Cleanup(func() { fm.Close() })
+
+	// idle ticker
+	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now(), AvailableFunds: big.NewInt(0)}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
+		pollOccured <- struct{}{}
+	})
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        1,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	select {
+	case <-pollOccured:
+	case <-time.After(3 * time.Second):
+		t.Fatalf("Poll did not occur!")
+	}
+
+	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
+		pollOccured <- struct{}{}
+	})
+
+	// Finds an error run, so that retry ticker will be kicked off
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			PipelineRunID:  corenull.NewInt64(int64(1), true),
+			Aggregator:     contractAddress,
+			RoundID:        1,
+			NumSubmissions: 1,
+		}, nil).Once()
+	finishedAt := time.Now()
+	tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
+		FinishedAt: null.TimeFrom(finishedAt),
+		Errors:     []null.String{null.StringFrom("an error to start retry ticker")},
+	}, nil)
+
+	select {
+	case <-pollOccured:
+	case <-time.After(3 * time.Second):
+		t.Fatalf("Poll did not occur!")
+	}
+
+	// ---------- Begin hibernation mode ------------
+	flags.On("IsLowered", mock.Anything).Return(false, nil)
+	fm.ExportedRespondToFlagsRaisedLog()
+
+	// hibernation ticker
+	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
+		pollOccured <- struct{}{}
+	})
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(2)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        2,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	select {
+	case <-pollOccured:
+		t.Fatalf("Poll should not occur for next few seconds because we are in hibernation mode and all other tickers should be stopped")
+	case <-time.After(2 * time.Second):
+	}
+
+	select {
+	case <-pollOccured:
+	case <-time.After(3 * time.Second):
+		t.Fatalf("Poll did not occur, though it should have via hibernation ticker")
+	}
+
+	tm.AssertExpectations(t)
+
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
