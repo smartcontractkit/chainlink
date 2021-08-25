@@ -31,6 +31,16 @@ MINIMUM_CONTRACT_PAYMENT
 
 ## [Unreleased]
 
+## [0.10.12] - 2021-08-16
+
+### Fixed
+
+- Resolved FMv2 stalling in Hibernation mode
+- Resolved rare issue when the Gas Estimator fails on start
+- Resolved the handling of nil values for gas price
+
+## [0.10.11] - 2021-08-09
+
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
 This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
 
@@ -46,7 +56,7 @@ Three new configuration variables are added for the new telemetry ingress servic
 
 **The legacy job pipeline (JSON specs) has been officially deprecated and support for these jobs will be dropped in an upcoming release.**
 
-Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead. Please contact node operator support for more details on how to do this.
+Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead.
 
 The format for V2 Webhook job specs has changed. They now allow specifying 0 or more external initiators. Example below:
 
@@ -88,10 +98,10 @@ POST http://yournode.example/v2/migrate/<job id>
 ```
 
 - VRF v1
-Automigration is not supported for VRF jobs. They must be manually converted into v2 format. Please contact node operator support for help with this.
+Automigration is not supported for VRF jobs. They must be manually converted into v2 format.
 
 - Ethlog/Runlog/Cron/web
-All other job types must also be manually converted into v2 format. Please contact node operator support for help with this.
+All other job types must also be manually converted into v2 format.
 
 #### Technical details
 
