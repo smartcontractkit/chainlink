@@ -79,6 +79,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
+  error Reentrant();
   // Just to relieve stack pressure
   struct FulfillmentParams {
     uint64 subId;
@@ -118,6 +119,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
     uint96 minimumSubscriptionBalance;
+    // Re-entrancy protection.
+    bool locked;
   }
   int256 s_fallbackWeiPerUnitLink;
   Config private s_config;
@@ -192,7 +195,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      minimumSubscriptionBalance: minimumSubscriptionBalance
+      minimumSubscriptionBalance: minimumSubscriptionBalance,
+      locked: false
     });
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
@@ -268,6 +272,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint256
     )
   {
+    if (s_config.locked) {
+      revert Reentrant();
+    }
     // Input validation using the subscription storage.
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -294,7 +301,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // we leave that out. The consequence for users is that they can send requests
     // for invalid keyhashes which will simply fail offchain
     uint256 nonce = consumer.nonce + 1;
-    uint256 requestId = uint256(keccak256(abi.encode(keyHash, msg.sender, nonce)));
+    uint256 requestId = uint256(keccak256(abi.encode(keyHash, msg.sender, subId, nonce)));
 
     s_requestCommitments[requestId] = keccak256(abi.encodePacked(
         requestId,
@@ -391,8 +398,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
+    s_config.locked = true;
     bool success = callWithExactGas(fp.callbackGasLimit, fp.sender, resp);
     emit RandomWordsFulfilled(requestId, randomWords, success);
+    s_config.locked = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
