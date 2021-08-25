@@ -182,7 +182,7 @@ func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
 
 func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) {
 	// Check if the vrf req has already been fulfilled
-	callback, err := lsn.coordinator.GetCommitment(nil, req.PreSeedAndRequestId)
+	callback, err := lsn.coordinator.GetCommitment(nil, req.RequestId)
 	if err != nil {
 		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback[:]) {
@@ -195,12 +195,12 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
-		"reqID", req.PreSeedAndRequestId.String(),
+		"reqID", req.RequestId.String(),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,
 		"blockNumber", req.Raw.BlockNumber,
 		"blockHash", req.Raw.BlockHash,
-		"seed", req.PreSeedAndRequestId)
+		"seed", req.RequestId)
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{

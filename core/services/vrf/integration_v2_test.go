@@ -425,7 +425,7 @@ func TestFulfillmentCost(t *testing.T) {
 	}
 
 	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey)
-	s, err := proof.BigToSeed(requestLog.PreSeedAndRequestId)
+	s, err := proof.BigToSeed(requestLog.RequestId)
 	require.NoError(t, err)
 	proof, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, proof.PreSeedDataV2{
 		PreSeed:          s,

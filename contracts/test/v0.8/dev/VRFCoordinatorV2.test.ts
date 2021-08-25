@@ -574,7 +574,7 @@ describe("VRFCoordinatorV2", () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(`InvalidRequestBlockConfs(0, 1, 200)`);
+      ).to.be.revertedWith(`InvalidRequestConfirmations(0, 1, 200)`);
     });
     it("below minimum balance", async function () {
       await expect(
@@ -618,7 +618,7 @@ describe("VRFCoordinatorV2", () => {
         1, // numWords
       );
       const r1Receipt = await r1.wait();
-      const seed1 = r1Receipt.events[0].args["preSeedAndRequestId"];
+      const seed1 = r1Receipt.events[0].args["requestId"];
       const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
         kh, // keyhash
         subId, // subId
@@ -627,7 +627,7 @@ describe("VRFCoordinatorV2", () => {
         1, // numWords
       );
       const r2Receipt = await r2.wait();
-      const seed2 = r2Receipt.events[0].args["preSeedAndRequestId"];
+      const seed2 = r2Receipt.events[0].args["requestId"];
       assert(seed2 != seed1);
     });
 
@@ -775,7 +775,7 @@ describe("VRFCoordinatorV2", () => {
       const reqReceipt = await tx.wait();
       // We give it the right proof length and a valid requestID (preSeed)
       // but an invalid commitment
-      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeedAndRequestId"].toHexString());
+      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["requestId"].toHexString());
       const proof = new Uint8Array(576);
       for (let i = 0; i < 32; i++) {
         // Seed is the 6th word
