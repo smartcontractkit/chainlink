@@ -16,6 +16,10 @@ var (
 	MinimumContractPayment = assets.NewLink(100)
 )
 
+const (
+	HeadSamplingIntervalInTest = 100 * time.Millisecond
+)
+
 type EVMConfigOverrides struct {
 	EvmLogBackfillBatchSize null.Int
 
@@ -87,7 +91,7 @@ func (c *TestEVMConfig) EthTxReaperThreshold() time.Duration {
 }
 
 func (c *TestEVMConfig) EthHeadTrackerSamplingInterval() time.Duration {
-	return 100 * time.Millisecond
+	return HeadSamplingIntervalInTest
 }
 
 func (c *TestEVMConfig) EvmGasBumpThreshold() uint64 {
