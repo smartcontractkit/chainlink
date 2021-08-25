@@ -72,6 +72,8 @@ type Delegate struct {
 
 var _ job.Delegate = (*Delegate)(nil)
 
+const ConfigOverriderPollInterval = 30 * time.Second
+
 func NewDelegate(
 	db *gorm.DB,
 	txm txManager,
@@ -251,26 +253,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
-		flagsContractAddress := d.config.FlagsContractAddress()
-		if flagsContractAddress != "" {
-			var flags *ContractFlags
-			flags, err = NewFlags(flagsContractAddress, d.ethClient)
-			if err != nil {
-				return nil, errors.Wrapf(err,
-					"OCR: unable to create Flags contract instance, check address: %s",
-					flagsContractAddress,
-				)
-			}
-			pollInterval := 30 * time.Second
-
-			var configOverriderImpl *ConfigOverriderImpl
-			configOverriderImpl, err = NewConfigOverriderImpl(loggerWith, concreteSpec.ContractAddress, flags, pollInterval)
-			if err != nil {
-				return nil, err
-			}
-			configOverrider = configOverriderImpl
-			services = append(services, configOverriderImpl)
+		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, concreteSpec.ContractAddress)
+		if err != nil {
+			return nil, err
 		}
+		if configOverriderService != nil {
+			services = append(services, configOverriderService)
+		}
+		configOverrider = configOverriderService
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
@@ -310,4 +300,19 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 
 	return services, nil
+}
+
+func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+	flagsContractAddress := d.config.FlagsContractAddress()
+	if flagsContractAddress != "" {
+		flags, err := NewFlags(flagsContractAddress, d.ethClient)
+		if err != nil {
+			return nil, errors.Wrapf(err,
+				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",
+				flagsContractAddress,
+			)
+		}
+		return NewConfigOverriderImpl(logger, contractAddress, flags, ConfigOverriderPollInterval)
+	}
+	return nil, nil
 }

@@ -44,13 +44,13 @@ func NewConfigOverriderImpl(
 ) (*ConfigOverriderImpl, error) {
 
 	if !flags.ContractExists() {
-		return nil, errors.Errorf("OCR: Flags contract instance is missing, the contract does not exist: %s. "+
+		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
 			"Please create the contract or remove the FLAGS_CONTRACT_ADDRESS configuration variable", contractAddress.Address())
 	}
 
 	addressBig := contractAddress.Big()
-	addressInt64 := addressBig.Mod(addressBig, big.NewInt(math.MaxInt64)).Int64()
-	deltaC := 23*time.Hour + time.Duration(addressInt64%3600)*time.Second
+	addressInt64 := addressBig.Mod(addressBig, big.NewInt(3600)).Int64()
+	deltaC := 23*time.Hour + time.Duration(addressInt64)*time.Second
 
 	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{
@@ -74,7 +74,7 @@ func NewConfigOverriderImpl(
 func (c *ConfigOverriderImpl) Start() error {
 	return c.StartOnce("OCRConfigOverrider", func() (err error) {
 		if err := c.updateFlagsStatus(); err != nil {
-			c.logger.Errorw("Error updating hibernation status at OCR job start. Will default to not hibernating, until next successful update.", "err", err)
+			c.logger.Errorw("OCRConfigOverrider: Error updating hibernation status at OCR job start. Will default to not hibernating, until next successful update.", "err", err)
 		}
 
 		go c.eventLoop()
@@ -100,7 +100,7 @@ func (c *ConfigOverriderImpl) eventLoop() {
 			return
 		case <-ticker.C:
 			if err := c.updateFlagsStatus(); err != nil {
-				c.logger.Errorw("Error updating hibernation status", "err", err)
+				c.logger.Errorw("OCRConfigOverrider: Error updating hibernation status", "err", err)
 			}
 		}
 	}
@@ -117,12 +117,12 @@ func (c *ConfigOverriderImpl) updateFlagsStatus() error {
 	defer c.mu.Unlock()
 
 	if !c.isHibernating && shouldHibernate {
-		c.logger.Infow("Setting hibernation state to 'hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
+		c.logger.Infow("OCRConfigOverrider: Setting hibernation state to 'hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
 		c.lastStateChangeTimestamp = time.Now()
 	}
 
 	if c.isHibernating && !shouldHibernate {
-		c.logger.Infow("Setting hibernation state to 'not hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
+		c.logger.Infow("OCRConfigOverrider: Setting hibernation state to 'not hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
 		c.lastStateChangeTimestamp = time.Now()
 	}
 
@@ -135,10 +135,10 @@ func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {
 	defer c.mu.Unlock()
 
 	if c.isHibernating {
-		c.logger.Debugw("Returning a config override")
+		c.logger.Debugw("OCRConfigOverrider: Returning a config override")
 		return c.configOverrideInstance()
 	}
-	c.logger.Debugw("Config override returned as nil")
+	c.logger.Debugw("OCRConfigOverrider: Config override returned as nil")
 	return nil
 }
 
