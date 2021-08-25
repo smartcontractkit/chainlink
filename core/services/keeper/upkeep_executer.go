@@ -29,12 +29,30 @@ const (
 	executionQueueSize = 10
 )
 
+// Revert reasons
+const (
+	// Debug log level
+	UpkeepNotNeededReason RevertReason = "upkeep not needed"
+	OutOfTurnReason       RevertReason = "keepers must take turns"
+
+	// Error log level
+	PerformUpkeepCallFailedReason RevertReason = "call to perform upkeep failed"
+	InactiveKeeperReason          RevertReason = "only active keepers"
+	InsufficientFundsReason       RevertReason = "insufficient funds"
+	InvalidUpkeepIDReason         RevertReason = "invalid upkeep id"
+	PaymentToBigReason            RevertReason = "payment greater than all LINK"
+)
+
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
 var (
 	_ job.Service           = (*UpkeepExecuter)(nil)
 	_ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 )
 
+// RevertReason represents the revert reason message
+type RevertReason string
+
+// UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
 	chStop          chan struct{}
 	ethClient       eth.Client
@@ -123,17 +141,17 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	// with work because processActiveUpkeeps() blocks
 	item, exists := ex.mailbox.Retrieve()
 	if !exists {
-		ex.logger.Info("UpkeepExecuter: no head to retrieve. It might have been skipped")
+		ex.logger.Info("no head to retrieve. It might have been skipped")
 		return
 	}
 
 	head, ok := item.(models.Head)
 	if !ok {
-		ex.logger.Errorf("UpkeepExecuter: expected `models.Head`, got %T", head)
+		ex.logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
 
-	ex.logger.Debugw("UpkeepExecuter: checking active upkeeps", "blockheight", head.Number)
+	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
@@ -145,7 +163,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		ex.config.KeeperMaximumGracePeriod(),
 	)
 	if err != nil {
-		ex.logger.WithError(err).Error("UpkeepExecuter: unable to load active registrations")
+		ex.logger.WithError(err).Error("unable to load active registrations")
 		return
 	}
 
@@ -173,11 +191,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	msg, err := ex.constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
-		svcLogger.WithError(err).Error("UpkeepExecuter: failed to construct check upkeep call message")
+		svcLogger.WithError(err).Error("failed to construct check upkeep call message")
 		return
 	}
 
-	svcLogger.Debug("UpkeepExecuter: checking upkeep")
+	svcLogger.Debug("checking upkeep")
 
 	ctxService, cancel := utils.ContextFromChan(ex.chStop)
 	defer cancel()
@@ -190,11 +208,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	performTxData, err := constructPerformUpkeepTxData(checkUpkeepResult, upkeep.UpkeepID)
 	if err != nil {
-		svcLogger.WithError(err).Error("UpkeepExecuter: failed to construct check upkeep call message")
+		svcLogger.WithError(err).Error("failed to construct check upkeep call message")
 		return
 	}
 
-	svcLogger.Debug("UpkeepExecuter: performing upkeep")
+	svcLogger.Debug("performing upkeep")
 
 	// Save a run indicating we performed an upkeep.
 	f := time.Now()
@@ -202,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	if err == nil {
 		runErrors = pipeline.RunErrors{null.String{}}
 	} else {
-		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "UpkeepExecuter: failed to construct upkeep txdata").Error())}
+		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "failed to construct upkeep txdata").Error())}
 	}
 
 	var etx bulletprooftxmanager.EthTx
@@ -234,12 +252,12 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			FinishedAt: null.TimeFrom(f),
 		}, false)
 		if err != nil {
-			return errors.Wrap(err, "UpkeepExecuter: failed to insert finished run")
+			return errors.Wrap(err, "failed to insert finished run")
 		}
 		return nil
 	})
 	if err != nil {
-		svcLogger.WithError(err).Error("UpkeepExecuter: failed to update database state")
+		svcLogger.WithError(err).Error("failed to update database state")
 	}
 
 	// TODO: Remove in
@@ -285,16 +303,23 @@ func (ex *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration)
 func (ex *UpkeepExecuter) logRevertReason(logger *logger.Logger, err error) {
 	revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
 	if err2 != nil {
-		logger.WithError(err).Errorf("UpkeepExecuter: checkUpkeep call failed with unknown reason, err2: %v", err2)
+		logger.WithError(err).Errorf("call failed and failed to extract revert reason, err2: %v", err2)
 		return
 	}
 
 	logger = logger.With("revertReason", revertReason)
-	switch revertReason {
-	case "upkeep not needed":
-		logger.Debug("UpkeepExecuter: checkUpkeep call failed with known reason")
+	switch RevertReason(revertReason) {
+	case UpkeepNotNeededReason,
+		OutOfTurnReason:
+		logger.Debug("checkUpkeep call failed with known reason")
+	case PerformUpkeepCallFailedReason,
+		InactiveKeeperReason,
+		InsufficientFundsReason,
+		InvalidUpkeepIDReason,
+		PaymentToBigReason:
+		logger.Error("checkUpkeep call failed with known reason")
 	default:
-		logger.Error("UpkeepExecuter: checkUpkeep call failed with known reason")
+		logger.Error("checkUpkeep call failed with unexpected reason")
 	}
 }
 

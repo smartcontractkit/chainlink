@@ -17,19 +17,19 @@ const syncUpkeepQueueSize = 10
 
 func (rs *RegistrySynchronizer) fullSync() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
-	rs.logger.Debugf("RegistrySynchronizer: fullSyncing registry %s", contractAddress.Hex())
+	rs.logger.Debugf("fullSyncing registry %s", contractAddress.Hex())
 
 	registry, err := rs.syncRegistry()
 	if err != nil {
-		rs.logger.WithError(err).Error("RegistrySynchronizer: failed to sync registry during fullSyncing registry")
+		rs.logger.WithError(err).Error("failed to sync registry during fullSyncing registry")
 		return
 	}
 	if err := rs.addNewUpkeeps(registry); err != nil {
-		rs.logger.WithError(err).Error("RegistrySynchronizer: failed to add new upkeeps during fullSyncing registry")
+		rs.logger.WithError(err).Error("failed to add new upkeeps during fullSyncing registry")
 		return
 	}
 	if err := rs.deleteCanceledUpkeeps(); err != nil {
-		rs.logger.WithError(err).Error("RegistrySynchronizer: failed to delete canceled upkeeps during fullSyncing registry")
+		rs.logger.WithError(err).Error("failed to delete canceled upkeeps during fullSyncing registry")
 		return
 	}
 }
@@ -54,17 +54,17 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	defer cancel()
 	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg.ID)
 	if err != nil {
-		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
+		return errors.Wrap(err, "unable to find next ID for registry")
 	}
 
 	countOnContractBig, err := rs.contract.GetUpkeepCount(nil)
 	if err != nil {
-		return errors.Wrapf(err, "RegistrySynchronizer: unable to get upkeep count")
+		return errors.Wrapf(err, "unable to get upkeep count")
 	}
 	countOnContract := countOnContractBig.Int64()
 
 	if nextUpkeepID > countOnContract {
-		return errors.New("RegistrySynchronizer: invariant, contract should always have at least as many upkeeps as DB")
+		return errors.New("invariant, contract should always have at least as many upkeeps as DB")
 	}
 
 	rs.batchSyncUpkeepsOnRegistry(reg, nextUpkeepID, countOnContract)
@@ -98,7 +98,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 		rs.logger.WithError(err).With(
 			"upkeepID", upkeepID,
 			"registryContract", registry.ContractAddress.Hex(),
-		).Error("RegistrySynchronizer: unable to sync upkeep on registry")
+		).Error("unable to sync upkeep on registry")
 	}
 }
 
@@ -167,7 +167,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		}
 	}
 	if keeperIndex == -1 {
-		rs.logger.Warnf("RegistrySynchronizer: unable to find %s in keeper list on registry %s", fromAddress.Hex(), contractAddress.Hex())
+		rs.logger.Warnf("unable to find %s in keeper list on registry %s", fromAddress.Hex(), contractAddress.Hex())
 	}
 
 	return Registry{

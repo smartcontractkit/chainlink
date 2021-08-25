@@ -14,7 +14,7 @@ func (rs *RegistrySynchronizer) JobID() int32 {
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	eventLog := broadcast.DecodedLog()
 	if eventLog == nil || reflect.ValueOf(eventLog).IsNil() {
-		rs.logger.Errorf("RegistrySynchronizer: HandleLog: ignoring nil value, type: %T", broadcast)
+		rs.logger.Errorf("HandleLog: ignoring nil value, type: %T", broadcast)
 		return
 	}
 
@@ -23,7 +23,7 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 		"txHash", broadcast.RawLog().TxHash.Hex(),
 	)
 
-	svcLogger.Debug("RegistrySynchronizer: received log, waiting for confirmations")
+	svcLogger.Debug("received log, waiting for confirmations")
 
 	var mailboxName string
 	var wasOverCapacity bool
@@ -48,6 +48,6 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	}
 
 	if wasOverCapacity {
-		svcLogger.With("mailboxName", mailboxName).Errorf("RegistrySynchronizer: mailbox is over capacity - dropped the oldest unprocessed item")
+		svcLogger.With("mailboxName", mailboxName).Errorf("mailbox is over capacity - dropped the oldest unprocessed item")
 	}
 }
