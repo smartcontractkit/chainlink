@@ -25,3 +25,13 @@ func (fm *FluxMonitor) ExportedRoundState() {
 func (fm *FluxMonitor) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound, broadcast log.Broadcast) {
 	fm.respondToNewRoundLog(*log, broadcast)
 }
+
+func (fm *FluxMonitor) ExportedRespondToFlagsRaisedLog() {
+	fm.respondToFlagsRaisedLog()
+	fm.rotateSelectLoop()
+}
+
+func (fm *FluxMonitor) rotateSelectLoop() {
+	// the PollRequest is sent to 'rotate' the main select loop, so that new timers will be evaluated
+	fm.pollManager.chPoll <- PollRequest{Type: PollRequestTypeUnknown}
+}
