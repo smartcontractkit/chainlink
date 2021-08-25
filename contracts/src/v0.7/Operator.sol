@@ -46,6 +46,7 @@ contract Operator is
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
+  mapping(address => bool) private s_owned;
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
 
@@ -192,6 +193,7 @@ contract Operator is
     override
     validateAuthorizedSender()
     validateRequestId(requestId)
+    validateCallbackAddress(callbackAddress)
     returns (
       bool
     )
@@ -238,6 +240,7 @@ contract Operator is
     override
     validateAuthorizedSender()
     validateRequestId(requestId)
+    validateCallbackAddress(callbackAddress)
     validateMultiWordResponseId(requestId, data)
     returns (
       bool
@@ -274,6 +277,7 @@ contract Operator is
   {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).transferOwnership(newOwner);
+      s_owned[ownable[i]] = false;
     }
   }
 
@@ -290,6 +294,7 @@ contract Operator is
   {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).acceptOwnership();
+      s_owned[ownable[i]] = true;
       emit OwnableContractAccepted(ownable[i]);
     }
   }
@@ -673,6 +678,16 @@ contract Operator is
     address to
   ) {
     require(to != address(linkToken), "Cannot call to LINK");
+    _;
+  }
+
+  /**
+   * @dev Reverts if the target address is owned by the operator
+   */
+  modifier validateCallbackAddress(
+    address callbackAddress
+  ) {
+    require(!s_owned[callbackAddress], "Cannot call owned contract");
     _;
   }
 
