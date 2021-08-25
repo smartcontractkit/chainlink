@@ -131,6 +131,9 @@ func (c *ConfigOverriderImpl) updateFlagsStatus() error {
 }
 
 func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {
+	if c == nil {
+		return nil
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
