@@ -433,13 +433,13 @@ contract Operator is
   }
 
   /**
-   * @notice Allows requesters to cancel requests sent to this oracle contract. Will transfer the LINK
-   * sent for the request back to the requester's address.
-   * @dev Given params must hash to a commitment stored on the contract in order for the request to be valid
-   * Emits CancelOracleRequest event.
+   * @notice Allows recipient to cancel requests sent to this oracle contract.
+   * Will transfer the LINK sent for the request back to the recipient address.
+   * @dev Given params must hash to a commitment stored on the contract in order
+   * for the request to be valid. Emits CancelOracleRequest event.
    * @param requestId The request ID
    * @param payment The amount of payment given (specified in wei)
-   * @param callbackFunc The requester's specified callback address
+   * @param callbackFunc The requester's specified callback function selector
    * @param expiration The time of the expiration for the request
    */
   function cancelOracleRequest(
