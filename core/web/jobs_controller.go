@@ -28,6 +28,11 @@ type JobsController struct {
 // Example:
 // "GET <application>/jobs"
 func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
+	// Temporary: if no size is passed in, use a large page size. Remove once frontend can handle pagination
+	if c.Query("size") == "" {
+		size = 1000
+	}
+
 	jobs, count, err := jc.App.JobORM().JobsV2(offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
