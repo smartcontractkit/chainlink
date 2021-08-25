@@ -70,11 +70,10 @@ type KeyStore interface {
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 var (
-	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
-	promRevertedTxCount = promauto.NewCounter(prometheus.CounterOpts{
+	promRevertedTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain",
-	})
+	}, []string{"evmChainID"})
 )
 
 var _ TxManager = &BulletproofTxManager{}

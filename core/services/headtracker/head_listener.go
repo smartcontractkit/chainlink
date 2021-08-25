@@ -19,15 +19,14 @@ import (
 )
 
 var (
-	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
-	promNumHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
+	promNumHeadsReceived = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_heads_received",
 		Help: "The total number of heads seen",
-	})
-	promEthConnectionErrors = promauto.NewCounter(prometheus.CounterOpts{
+	}, []string{"evmChainID"})
+	promEthConnectionErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_eth_connection_errors",
 		Help: "The total number of eth node connection errors",
-	})
+	}, []string{"evmChainID"})
 )
 
 type Config interface {
@@ -147,7 +146,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 				continue
 			}
 			blockHeader.EVMChainID = utils.NewBig(&hl.chainID)
-			promNumHeadsReceived.Inc()
+			promNumHeadsReceived.WithLabelValues(hl.chainID.String()).Inc()
 
 			err := handleNewHead(ctx, *blockHeader)
 			if ctx.Err() != nil {
@@ -187,7 +186,7 @@ func (hl *HeadListener) subscribe() bool {
 		case <-time.After(hl.sleeper.After()):
 			err := hl.subscribeToHead()
 			if err != nil {
-				promEthConnectionErrors.Inc()
+				promEthConnectionErrors.WithLabelValues(hl.chainID.String()).Inc()
 				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
 			} else {
 				hl.logger().Infof("HeadListener: Subscribed to heads on chain %s", hl.chainID.String())

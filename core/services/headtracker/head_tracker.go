@@ -20,16 +20,15 @@ import (
 )
 
 var (
-	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
-	promCurrentHead = promauto.NewGauge(prometheus.GaugeOpts{
+	promCurrentHead = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
-	})
+	}, []string{"evmChainID"})
 
-	promOldHead = promauto.NewCounter(prometheus.CounterOpts{
+	promOldHead = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_very_old_head",
 		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
-	})
+	}, []string{"evmChainID"})
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -343,7 +342,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	}
 
 	if prevHead == nil || head.Number > prevHead.Number {
-		promCurrentHead.Set(float64(head.Number))
+		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.Number))
 
 		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, uint(ht.config.EvmFinalityDepth()))
 		if ctx.Err() != nil {
@@ -365,7 +364,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
-			promOldHead.Inc()
+			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}

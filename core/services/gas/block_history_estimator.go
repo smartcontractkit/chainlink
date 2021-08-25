@@ -31,19 +31,18 @@ const (
 )
 
 var (
-	// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
 	promBlockHistoryEstimatorAllPercentiles = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "gas_updater_all_gas_percetiles",
 		Help: "Gas price at given percentile",
 	},
-		[]string{"percentile"},
+		[]string{"percentile", "evmChainID"},
 	)
 
 	promBlockHistoryEstimatorSetGasPrice = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "gas_updater_set_gas_price",
 		Help: "Gas updater set gas price (in Wei)",
 	},
-		[]string{"percentile"},
+		[]string{"percentile", "evmChainID"},
 	)
 )
 
@@ -218,7 +217,7 @@ func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
 		"blocks", numsInHistory,
 	)
 	b.setPercentileGasPrice(percentileGasPrice)
-	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile)).Set(float64(percentileGasPrice.Int64()))
+	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileGasPrice.Int64()))
 }
 
 func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head models.Head) error {
@@ -359,7 +358,7 @@ func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, er
 	idx := ((len(gasPrices) - 1) * percentile) / 100
 	for i := 0; i <= 100; i += 5 {
 		jdx := ((len(gasPrices) - 1) * i) / 100
-		promBlockHistoryEstimatorAllPercentiles.WithLabelValues(fmt.Sprintf("%v%%", i)).Set(float64(gasPrices[jdx].Int64()))
+		promBlockHistoryEstimatorAllPercentiles.WithLabelValues(fmt.Sprintf("%v%%", i), b.chainID.String()).Set(float64(gasPrices[jdx].Int64()))
 	}
 	return gasPrices[idx], nil
 }

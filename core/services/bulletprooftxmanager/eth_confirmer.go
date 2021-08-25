@@ -10,7 +10,16 @@ import (
 	"sync"
 	"time"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"go.uber.org/multierr"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -20,13 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	"gorm.io/gorm"
 )
 
 const (
@@ -39,6 +41,16 @@ var (
 	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
 	// This most likely happened because an external wallet used the account for this nonce
 	ErrCouldNotGetReceipt = "could not get receipt"
+
+	promNumGasBumps = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_gas_bumps",
+		Help: "Number of gas bumps",
+	}, []string{"evmChainID"})
+
+	promGasBumpExceedsLimit = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_exceeds_limit",
+		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -402,7 +414,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
 			// This is safe to increment here because we save the receipt immediately after
 			// and once its saved we do not fetch it again.
-			promRevertedTxCount.Add(1)
+			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
 		}
 
 		receipts = append(receipts, *receipt)
@@ -822,6 +834,9 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 			"previousAttemptID", previousAttempt.ID,
 		}
 		if err != nil {
+			if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
+				promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
+			}
 			ec.logger.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
@@ -829,6 +844,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 			previousAttempt.State = EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
+		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 		ec.logger.Debugw("EthConfirmer: rebroadcast bumping gas", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
 	} else {
 		ec.logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
@@ -862,8 +878,12 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// It could conceivably happen if the remote eth node changed its configuration.
 		bumpedGasPrice, bumpedGasLimit, err := ec.estimator.BumpGas(attempt.GasPrice.ToInt(), etx.GasLimit)
 		if err != nil {
+			if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
+				promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
+			}
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
+		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 		ec.logger.Errorf("gas price %v wei was rejected by the eth node for being too low. "+
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+

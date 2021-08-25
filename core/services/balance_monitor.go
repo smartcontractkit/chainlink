@@ -37,6 +37,7 @@ type (
 		logger         *logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
+		chainID        string
 		ethKeyStore    keystore.EthKeyStoreInterface
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -52,6 +53,7 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.E
 		logger,
 		db,
 		ethClient,
+		ethClient.ChainID().String(),
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
 		new(sync.RWMutex),
@@ -121,6 +123,25 @@ func (bm *balanceMonitor) GetEthBalance(address gethCommon.Address) *assets.Eth 
 	return bm.ethBalances[address]
 }
 
+var promETHBalance = promauto.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "eth_balance",
+		Help: "Each Ethereum account's balance",
+	},
+	[]string{"account", "evmChainID"},
+)
+
+func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
+	balanceFloat, err := ApproximateFloat64(balance)
+
+	if err != nil {
+		bm.logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
+		return
+	}
+
+	promETHBalance.WithLabelValues(from.Hex(), bm.chainID).Set(balanceFloat)
+}
+
 type worker struct {
 	bm *balanceMonitor
 }
@@ -175,26 +196,6 @@ func (*NullBalanceMonitor) Close() error                                        
 func (*NullBalanceMonitor) Ready() error                                            { return nil }
 func (*NullBalanceMonitor) Healthy() error                                          { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
-
-// TODO: Scope by evm_chain_id (https://app.clubhouse.io/chainlinklabs/story/15454/all-metrics-should-be-scoped-by-chainid)
-var promETHBalance = promauto.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "eth_balance",
-		Help: "Each Ethereum account's balance",
-	},
-	[]string{"account"},
-)
-
-func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
-	balanceFloat, err := ApproximateFloat64(balance)
-
-	if err != nil {
-		bm.logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
-		return
-	}
-
-	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
-}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())
