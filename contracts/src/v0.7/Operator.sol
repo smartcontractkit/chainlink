@@ -148,7 +148,7 @@ contract Operator is
     validateFromLINK()
     validateNotToLINK(callbackAddress)
   {
-    (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
+    (bytes32 requestId, uint256 expiration) = _verifyAndProcessOracleRequest(
       sender,
       payment,
       callbackAddress,
@@ -198,7 +198,7 @@ contract Operator is
       bool
     )
   {
-    _verifyOracleResponse(
+    _verifyOracleRequestAndProcessPayment(
       requestId,
       payment,
       callbackAddress,
@@ -246,7 +246,7 @@ contract Operator is
       bool
     )
   {
-    _verifyOracleResponse(
+    _verifyOracleRequestAndProcessPayment(
       requestId,
       payment,
       callbackAddress,
@@ -505,14 +505,14 @@ contract Operator is
   }
 
   /**
-   * @notice Verify the Oracle Request
+   * @notice Verify the Oracle Request and record necessary information
    * @param sender The sender of the request
    * @param payment The amount of payment given (specified in wei)
    * @param callbackAddress The callback address for the response
    * @param callbackFunctionId The callback function ID for the response
    * @param nonce The nonce sent by the requester
    */
-  function _verifyOracleRequest(
+  function _verifyAndProcessOracleRequest(
     address sender,
     uint256 payment,
     address callbackAddress,
@@ -537,14 +537,14 @@ contract Operator is
   }
 
   /**
-   * @notice Verify the Oracle Response
+   * @notice Verify the Oracle request and unlock escrowed payment
    * @param requestId The fulfillment request ID that must match the requester's
    * @param payment The payment amount that will be released for the oracle (specified in wei)
    * @param callbackAddress The callback address to call for fulfillment
    * @param callbackFunctionId The callback function ID to use for fulfillment
    * @param expiration The expiration that the node should respond by before the requester can cancel
    */
-  function _verifyOracleResponse(
+  function _verifyOracleRequestAndProcessPayment(
     bytes32 requestId,
     uint256 payment,
     address callbackAddress,
