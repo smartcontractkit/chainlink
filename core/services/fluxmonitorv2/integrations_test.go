@@ -407,7 +407,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		consumed, err := log.NewORM(db).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		return consumed
-	}, cltest.DBWaitTimeout).Should(gomega.BeTrue())
+	}, 5*time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -513,6 +513,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	run := assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
 	fa.backend.Commit()
+	// wait time larger than HeadTracker sampling interval
+	time.Sleep(configtest.HeadSamplingIntervalInTest + 20*time.Millisecond)
+	fa.backend.Commit()
 
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
@@ -549,7 +552,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 7)
+	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 8)
 
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)
@@ -557,7 +560,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
 	assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
-	assert.Greater(t, expectedMeta[k{"103", "70"}], 0, "Stored answer metadata does not contain 103 updated at 70, but contains: %v", expectedMeta)
+	assert.Greater(t, expectedMeta[k{"103", "80"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {

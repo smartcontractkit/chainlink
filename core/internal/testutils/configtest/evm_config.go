@@ -13,7 +13,8 @@ import (
 var _ config.EVMConfig = &TestEVMConfig{}
 
 var (
-	MinimumContractPayment = assets.NewLink(100)
+	MinimumContractPayment     = assets.NewLink(100)
+	HeadSamplingIntervalInTest = 100 * time.Millisecond
 )
 
 type EVMConfigOverrides struct {
@@ -87,7 +88,7 @@ func (c *TestEVMConfig) EthTxReaperThreshold() time.Duration {
 }
 
 func (c *TestEVMConfig) EthHeadTrackerSamplingInterval() time.Duration {
-	return 100 * time.Millisecond
+	return HeadSamplingIntervalInTest
 }
 
 func (c *TestEVMConfig) EvmGasBumpThreshold() uint64 {
