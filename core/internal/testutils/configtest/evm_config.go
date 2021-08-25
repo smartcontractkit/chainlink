@@ -13,7 +13,10 @@ import (
 var _ config.EVMConfig = &TestEVMConfig{}
 
 var (
-	MinimumContractPayment     = assets.NewLink(100)
+	MinimumContractPayment = assets.NewLink(100)
+)
+
+const (
 	HeadSamplingIntervalInTest = 100 * time.Millisecond
 )
 
