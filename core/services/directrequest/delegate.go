@@ -95,6 +95,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		job:                      job,
 		mbLogs:                   utils.NewMailbox(50),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
+		requesters:               concreteSpec.Requesters,
 		chStop:                   make(chan struct{}),
 	}
 	services = append(services, logListener)
@@ -119,6 +120,7 @@ type listener struct {
 	shutdownWaitGroup        sync.WaitGroup
 	mbLogs                   *utils.Mailbox
 	minIncomingConfirmations uint64
+	requesters               models.AddressCollection
 	chStop                   chan struct{}
 	utils.StartStopOnce
 }
@@ -254,6 +256,19 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
 
+	if !l.allowRequester(request.Requester) {
+		logger.Infow("Rejected run for invalid requester",
+			"requester", request.Requester,
+			"allowedRequesters", l.requesters.ToStrings(),
+		)
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+			logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
+		}
+		return
+	}
+
 	minimumContractPayment := l.config.MinimumContractPayment()
 	if minimumContractPayment != nil {
 		requestPayment := assets.Link(*request.Payment)
@@ -320,6 +335,18 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			logger.Errorw("DirectRequest: failed executing run", "err", err)
 		}
 	}()
+}
+
+func (l *listener) allowRequester(requester common.Address) bool {
+	if len(l.requesters) == 0 {
+		return true
+	}
+	for _, addr := range l.requesters {
+		if addr == requester {
+			return true
+		}
+	}
+	return false
 }
 
 // Cancels runs that haven't been started yet, with the given request ID

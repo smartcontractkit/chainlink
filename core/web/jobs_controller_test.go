@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 
 	"github.com/pelletier/go-toml"
@@ -172,7 +173,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb, "type = ?", job.DirectRequest).Error)
+				require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440004'", job.DirectRequest).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
@@ -180,6 +181,23 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
 				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
+				require.NotZero(t, jb.ExternalJobID[:])
+			},
+		},
+		{
+			name: "directrequest-with-requesters",
+			toml: testspecs.DirectRequestSpecWithRequesters,
+			assertion: func(t *testing.T, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				jb := job.Job{}
+				require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440014'", job.DirectRequest).Error)
+				resource := presenters.JobResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
+				assert.NoError(t, err)
+				assert.Equal(t, "example eth request event spec with requesters", jb.Name.ValueOrZero())
+				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				// Check requesters got saved properly
+				require.EqualValues(t, []common.Address{common.HexToAddress("0xAaAA1F8ee20f5565510b84f9353F1E333e753B7a"), common.HexToAddress("0xBbBb70f0E81c6F3430dfDc9fa02fB22bDD818c4E")}, jb.DirectRequestSpec.Requesters)
 				require.NotZero(t, jb.ExternalJobID[:])
 			},
 		},
