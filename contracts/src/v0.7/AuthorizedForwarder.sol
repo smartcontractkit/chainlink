@@ -47,7 +47,7 @@ contract AuthorizedForwarder is
     external
     validateAuthorizedSender()
   {
-    require(to != getChainlinkToken, "Cannot #forward to Link token");
+    require(to != getChainlinkToken, "Cannot forward to Link token");
     _forward(to, data);
   }
 
@@ -69,7 +69,7 @@ contract AuthorizedForwarder is
 
   /**
    * @notice Transfer ownership with instructions for recipient
-   * @param to address proposed recipeint of ownership
+   * @param to address proposed recipient of ownership
    * @param message instructions for recipient upon accepting ownership
    */
   function transferOwnershipWithMessage(
