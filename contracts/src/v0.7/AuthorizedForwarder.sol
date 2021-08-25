@@ -74,9 +74,9 @@ contract AuthorizedForwarder is
    */
   function transferOwnershipWithMessage(
     address to,
-    bytes memory message
+    bytes calldata message
   )
-    public
+    external
   {
     transferOwnership(to);
     emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);

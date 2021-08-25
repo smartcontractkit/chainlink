@@ -647,13 +647,18 @@ contract Operator is
    */
   modifier validateMultiWordResponseId(
     bytes32 requestId,
-    bytes memory data
+    bytes calldata data
   ) {
-    bytes32 firstWord;
+    bytes32 firstDataWord;
     assembly{
-      firstWord := mload(add(data, 0x20))
+      // extract the first word from data
+      // functionSelector = 4
+      // wordLength = 32
+      // dataArgumentOffset = 7 * wordLength
+      // funcSelector + dataArgumentOffset == 0xe4
+      firstDataWord := calldataload(0xe4)
     }
-    require(requestId == firstWord, "First word must be requestId");
+    require(requestId == firstDataWord, "First word must be requestId");
     _;
   }
 
