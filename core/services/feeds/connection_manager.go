@@ -93,6 +93,8 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	go gracefulpanic.WrapRecover(func() {
 		defer mgr.wgClosed.Done()
 
+		logger.Infow("[Feeds] Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
+
 		clientConn, err := wsrpc.DialWithContext(conn.ctx, opts.URI,
 			wsrpc.WithTransportCreds(opts.Privkey, ed25519.PublicKey(opts.Pubkey)),
 			wsrpc.WithBlock(),
@@ -102,6 +104,8 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 			// from a context cancel.
 			if conn.ctx.Err() == nil {
 				logger.Infof("Error connecting to Feeds Manager server: %v", err)
+			} else {
+				logger.Infof("Closing wsrpc websocket connection: %v", err)
 			}
 
 			return
