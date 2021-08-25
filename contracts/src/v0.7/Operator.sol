@@ -264,7 +264,9 @@ contract Operator is
   }
 
   /**
-   * @notice Transfer the ownership of ownable contracts
+   * @notice Transfer the ownership of ownable contracts. This is primarilly
+   * intended for Authorized Forwarders but could possibly be extended to work
+   * with future contracts.
    * @param ownable list of addresses to transfer
    * @param newOwner address to transfer ownership to
    */
@@ -282,7 +284,9 @@ contract Operator is
   }
 
   /**
-   * @notice Accept the ownership of an ownable contract
+   * @notice Accept the ownership of an ownable contract. This is primarilly
+   * intended for Authorized Forwarders but could possibly be extended to work
+   * with future contracts.
    * @dev Must be the pending owner on the contract
    * @param ownable list of addresses of Ownable contracts to accept
    */
@@ -319,7 +323,10 @@ contract Operator is
   }
 
   /**
-   * @notice Sets the fulfillment permission for
+   * @notice Accepts ownership of ownable contracts and then immediately sets
+   * the authorized sender list on each of the newly owned contracts. This is
+   * primarilly intended for Authorized Forwarders but could possibly be
+   * extended to work with future contracts.
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates
    */
@@ -412,6 +419,8 @@ contract Operator is
    * @notice Distribute funds to multiple addresses using ETH send
    * to this payable function.
    * @dev Array length must be equal, ETH sent must equal the sum of amounts.
+   * A malicious receiver could cause the distribution to revert, in which case
+   * it is expected that the address is removed from the list.
    * @param receivers list of addresses
    * @param amounts list of amounts
    */
