@@ -198,8 +198,10 @@ func (pm *PollManager) StartRetryTicker() bool {
 }
 
 // StopRetryTicker stops the retry ticker
-func (pm *PollManager) StopRetryTicker() bool {
-	return pm.retryTicker.Stop()
+func (pm *PollManager) StopRetryTicker() {
+	if pm.retryTicker.Stop() {
+		pm.logger.Debug("stopped retry ticker")
+	}
 }
 
 // Stop stops all timers/tickers
@@ -214,7 +216,7 @@ func (pm *PollManager) Stop() {
 // Hibernate sets hibernation to true, starts the hibernation timer and stops
 // all other ticker/timers
 func (pm *PollManager) Hibernate() {
-	pm.logger.Info("entering hibernation mode")
+	pm.logger.Infof("entering hibernation mode (period: %v)", pm.cfg.HibernationPollPeriod)
 
 	// Start the hibernation timer
 	pm.cfg.IsHibernating = true
@@ -225,6 +227,7 @@ func (pm *PollManager) Hibernate() {
 	pm.idleTimer.Stop()
 	pm.roundTimer.Stop()
 	pm.drumbeat.Stop()
+	pm.StopRetryTicker()
 }
 
 // Awaken sets hibernation to false, stops the hibernation timer and starts all
