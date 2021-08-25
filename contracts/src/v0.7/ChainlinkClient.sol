@@ -213,6 +213,21 @@ contract ChainlinkClient {
   }
 
   /**
+   * @notice the next request count to be used in generating a nonce
+   * @dev starts at 1 in order to ensure consistent gas cost
+   * @return returns the next request count to be used in a nonce
+   */
+  function getNextRequestCount()
+    internal
+    returns (
+      uint256
+    )
+  {
+    return requestCount;
+  }
+
+
+  /**
    * @notice Sets the stored oracle address
    * @param oracleAddress The address of the oracle contract
    */
