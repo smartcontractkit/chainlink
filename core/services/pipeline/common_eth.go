@@ -204,6 +204,11 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 		} else if srcVal.Type().Elem().Kind() != reflect.Uint8 {
 			return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), destType)
 		}
+		if destType.Kind() == reflect.Array {
+			destVal := reflect.New(destType).Elem()
+			reflect.Copy(destVal.Slice(0, length), srcVal.Slice(0, srcVal.Len()))
+			return destVal.Interface(), nil
+		}
 		destVal := reflect.MakeSlice(destType, length, length)
 		reflect.Copy(destVal.Slice(0, length), srcVal.Slice(0, srcVal.Len()))
 		return destVal.Interface(), nil
@@ -224,7 +229,11 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 			if len(s) != (length*2)+2 {
 				return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
 			}
-			return hexutil.Decode(s)
+			maybeBytes, err := hexutil.Decode(s)
+			if err != nil {
+				return nil, err
+			}
+			return convertToETHABIBytes(destType, reflect.ValueOf(maybeBytes), length)
 		}
 
 		if destType.Len() != length {
