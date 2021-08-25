@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.13] - 2021-08-25
+
+### Fixed
+
+- Resolved exiting Hibernation bug on FMv2
+
 ## [0.10.12] - 2021-08-16
 
 ### Fixed
