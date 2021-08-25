@@ -31,16 +31,8 @@ const (
 
 // Revert reasons
 const (
-	// Debug log level
 	UpkeepNotNeededReason RevertReason = "upkeep not needed"
 	OutOfTurnReason       RevertReason = "keepers must take turns"
-
-	// Error log level
-	PerformUpkeepCallFailedReason RevertReason = "call to perform upkeep failed"
-	InactiveKeeperReason          RevertReason = "only active keepers"
-	InsufficientFundsReason       RevertReason = "insufficient funds"
-	InvalidUpkeepIDReason         RevertReason = "invalid upkeep id"
-	PaymentToBigReason            RevertReason = "payment greater than all LINK"
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -312,14 +304,8 @@ func (ex *UpkeepExecuter) logRevertReason(logger *logger.Logger, err error) {
 	case UpkeepNotNeededReason,
 		OutOfTurnReason:
 		logger.Debug("checkUpkeep call failed with known reason")
-	case PerformUpkeepCallFailedReason,
-		InactiveKeeperReason,
-		InsufficientFundsReason,
-		InvalidUpkeepIDReason,
-		PaymentToBigReason:
-		logger.Error("checkUpkeep call failed with known reason")
 	default:
-		logger.Error("checkUpkeep call failed with unexpected reason")
+		logger.Error("checkUpkeep call failed with some reason")
 	}
 }
 
