@@ -39,9 +39,9 @@ contract Operator is
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
-  // oracleRequest is version 1, enabling single word responses
+  // oracleRequest is intended for version 1, enabling single word responses
   bytes4 constant private ORACLE_REQUEST_SELECTOR = this.oracleRequest.selector;
-  // requestOracleData is version 2, enabling multi-word responses
+  // requestOracleData is intended for version 2, enabling multi-word responses
   bytes4 constant private OPERATOR_REQUEST_SELECTOR = this.requestOracleData.selector;
 
   LinkTokenInterface internal immutable linkToken;
