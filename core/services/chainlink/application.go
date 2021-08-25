@@ -17,6 +17,7 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	loggerPkg "github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -76,6 +77,7 @@ type Application interface {
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
+	EVMORM() evm.ORM
 	PipelineORM() pipeline.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
@@ -109,6 +111,7 @@ type ChainlinkApplication struct {
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	ethClient                eth.Client
+	evmORM                   evm.ORM
 	Store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	EVMConfig                config.EVMConfig
@@ -140,6 +143,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	if err != nil {
 		return nil, err
 	}
+	sqlxDB := postgres.UnwrapGormDB(store.DB)
 	gormTxm := postgres.NewGormTransactionManager(store.DB)
 
 	setupConfig(cfg, store.DB)
@@ -233,6 +237,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 		pipelineORM    = pipeline.NewORM(store.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), keyStore.VRF(), txManager)
 		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
+		evmORM         = evm.NewORM(sqlxDB)
 	)
 
 	txManager.RegisterResumeCallback(pipelineRunner.ResumeRun)
@@ -346,6 +351,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
+		evmORM:                   evmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		EVMConfig:                cfg,
@@ -576,6 +582,10 @@ func (app *ChainlinkApplication) JobSpawner() job.Spawner {
 
 func (app *ChainlinkApplication) JobORM() job.ORM {
 	return app.jobORM
+}
+
+func (app *ChainlinkApplication) EVMORM() evm.ORM {
+	return app.evmORM
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {

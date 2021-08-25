@@ -9,6 +9,8 @@ import (
 
 	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
+	evm "github.com/smartcontractkit/chainlink/core/chains/evm"
+
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
 	health "github.com/smartcontractkit/chainlink/core/services/health"
@@ -73,6 +75,22 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 		r0 = rf(ctx, jobID)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EVMORM provides a mock function with given fields:
+func (_m *Application) EVMORM() evm.ORM {
+	ret := _m.Called()
+
+	var r0 evm.ORM
+	if rf, ok := ret.Get(0).(func() evm.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(evm.ORM)
+		}
 	}
 
 	return r0
