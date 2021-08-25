@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,8 +32,10 @@ const (
 
 // Revert reasons
 const (
-	UpkeepNotNeededReason RevertReason = "upkeep not needed"
-	OutOfTurnReason       RevertReason = "keepers must take turns"
+	UpkeepNotNeededReason     RevertReason = "upkeep not needed"
+	OutOfTurnReason           RevertReason = "keepers must take turns"
+	PerformUpkeepFailedReason RevertReason = "call to perform upkeep failed"
+	CheckTargetFailedReason   RevertReason = "call to check target failed"
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -43,6 +46,16 @@ var (
 
 // RevertReason represents the revert reason message
 type RevertReason string
+
+// IsOneOf returns true if the "rr" is one of the provided revert reasons.
+func (rr RevertReason) IsOneOf(revertReasons ...RevertReason) bool {
+	for _, revertReason := range revertReasons {
+		if strings.Contains(string(rr), string(revertReason)) {
+			return true
+		}
+	}
+	return false
+}
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
@@ -194,7 +207,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	checkUpkeepResult, err := ex.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		ex.logRevertReason(svcLogger, err)
+		logRevertReason(svcLogger, err)
 		return
 	}
 
@@ -292,7 +305,7 @@ func (ex *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration)
 // logRevertReason logs the given error with a log level depends on this given error context
 // Default log level is error. Mapping between a reason and its log level:
 //  - "upkeep not needed": Debug
-func (ex *UpkeepExecuter) logRevertReason(logger *logger.Logger, err error) {
+func logRevertReason(logger *logger.Logger, err error) {
 	revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
 	if err2 != nil {
 		logger.WithError(err).Errorf("call failed and failed to extract revert reason, err2: %v", err2)
@@ -300,11 +313,9 @@ func (ex *UpkeepExecuter) logRevertReason(logger *logger.Logger, err error) {
 	}
 
 	logger = logger.With("revertReason", revertReason)
-	switch RevertReason(revertReason) {
-	case UpkeepNotNeededReason,
-		OutOfTurnReason:
+	if RevertReason(revertReason).IsOneOf(UpkeepNotNeededReason, PerformUpkeepFailedReason, OutOfTurnReason) {
 		logger.Debug("checkUpkeep call failed with known reason")
-	default:
+	} else {
 		logger.Error("checkUpkeep call failed with some reason")
 	}
 }
