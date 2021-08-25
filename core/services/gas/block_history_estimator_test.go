@@ -128,9 +128,9 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = bhe.EstimateGas(make([]byte, 0), 100)
-
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
+
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
