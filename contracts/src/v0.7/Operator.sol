@@ -71,7 +71,7 @@ contract Operator is
   );
 
   event OwnableContractAccepted(
-    address indexed accpetedContract
+    address indexed acceptedContract
   );
 
   event TargetsUpdatedAuthorizedSenders(
@@ -459,7 +459,7 @@ contract Operator is
     delete s_commitments[requestId];
     emit CancelOracleRequest(requestId);
 
-    assert(linkToken.transfer(msg.sender, payment));
+    linkToken.transfer(msg.sender, payment);
   }
 
   /**
