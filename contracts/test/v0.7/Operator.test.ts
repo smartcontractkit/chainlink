@@ -1095,6 +1095,39 @@ describe("Operator", () => {
           bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
         });
       });
+
+      describe("when calling an owned contract", () => {
+        beforeEach(async () => {
+          forwarder1 = await forwarderFactory
+            .connect(roles.defaultAccount)
+            .deploy(link.address, link.address, operator.address, "0x");
+        });
+
+        it("does not allow the contract to callback to owned contracts", async () => {
+          const tx = await maliciousConsumer.requestData(specId, ethers.utils.toUtf8Bytes("whatever(bytes32,bytes32)"));
+          const receipt = await tx.wait();
+          let request = decodeRunRequest(receipt.logs?.[3]);
+          let responseParams = convertFufillParams(request, response);
+          // set the params to be the owned address
+          responseParams[2] = forwarder1.address;
+
+          //accept ownership
+          await operator.connect(roles.defaultAccount).acceptOwnableContracts([forwarder1.address]);
+
+          // do the thing
+          await evmRevert(
+            operator.connect(roles.oracleNode).fulfillOracleRequest(...responseParams),
+            "Cannot call owned contract",
+          );
+
+          await operator.connect(roles.defaultAccount).transferOwnableContracts([forwarder1.address], link.address);
+          //reverts for a different reason after transferring ownership
+          await evmRevert(
+            operator.connect(roles.oracleNode).fulfillOracleRequest(...responseParams),
+            "Params do not match request ID",
+          );
+        });
+      });
     });
   });
 
@@ -1431,6 +1464,42 @@ describe("Operator", () => {
               .connect(roles.oracleNode)
               .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
             bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+          });
+        });
+
+        describe("when calling an owned contract", () => {
+          beforeEach(async () => {
+            forwarder1 = await forwarderFactory
+              .connect(roles.defaultAccount)
+              .deploy(link.address, link.address, operator.address, "0x");
+          });
+
+          it("does not allow the contract to callback to owned contracts", async () => {
+            const tx = await maliciousConsumer.requestData(
+              specId,
+              ethers.utils.toUtf8Bytes("whatever(bytes32,bytes32)"),
+            );
+            const receipt = await tx.wait();
+            let request = decodeRunRequest(receipt.logs?.[3]);
+            let responseParams = convertFufillParams(request, response);
+            // set the params to be the owned address
+            responseParams[2] = forwarder1.address;
+
+            //accept ownership
+            await operator.connect(roles.defaultAccount).acceptOwnableContracts([forwarder1.address]);
+
+            // do the thing
+            await evmRevert(
+              operator.connect(roles.oracleNode).fulfillOracleRequest2(...responseParams),
+              "Cannot call owned contract",
+            );
+
+            await operator.connect(roles.defaultAccount).transferOwnableContracts([forwarder1.address], link.address);
+            //reverts for a different reason after transferring ownership
+            await evmRevert(
+              operator.connect(roles.oracleNode).fulfillOracleRequest(...responseParams),
+              "Params do not match request ID",
+            );
           });
         });
       });
