@@ -184,8 +184,8 @@ contract ChainlinkClient {
       req.nonce,
       argsVersion,
       req.buf.buf);
-    require(link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
     requestCount += 1;
+    require(link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
   }
 
   /**
