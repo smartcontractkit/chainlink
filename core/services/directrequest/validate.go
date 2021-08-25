@@ -3,12 +3,15 @@ package directrequest
 import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type DirectRequestToml struct {
-	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
+	ContractAddress ethkey.EIP55Address      `toml:"contractAddress"`
+	Requesters      models.AddressCollection `toml:"requesters"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
@@ -26,7 +29,7 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, err
 	}
-	jb.DirectRequestSpec = &job.DirectRequestSpec{ContractAddress: spec.ContractAddress}
+	jb.DirectRequestSpec = &job.DirectRequestSpec{Requesters: spec.Requesters, ContractAddress: spec.ContractAddress}
 
 	if jb.Type != job.DirectRequest {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
