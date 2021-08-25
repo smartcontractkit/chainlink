@@ -2,11 +2,11 @@ package web
 
 import (
 	"context"
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	uuid "github.com/satori/go.uuid"
@@ -123,7 +123,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			}
 			respondWithPipelineRun(jobRunID)
 		} else {
-			jsonAPIError(c, http.StatusUnauthorized, err2)
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID))
 		}
 		return
 	}
