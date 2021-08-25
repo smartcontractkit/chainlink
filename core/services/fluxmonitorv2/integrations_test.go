@@ -398,7 +398,7 @@ func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result f
 
 func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, pipelineSpecID int32, blockNumber uint64) {
 	t.Helper()
-	logger.Infof("Waiting for log on block: %v", blockNumber)
+	logger.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
@@ -407,7 +407,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		consumed, err := log.NewORM(db).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		return consumed
-	}, cltest.DBWaitTimeout).Should(gomega.BeTrue())
+	}, 5*time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -513,6 +513,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	run := assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
 	fa.backend.Commit()
+	// wait time larger than HeadTracker sampling interval
+	time.Sleep(configtest.HeadSamplingIntervalInTest + 20*time.Millisecond)
 	fa.backend.Commit()
 
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
@@ -543,6 +545,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		receiptBlock,
 	)
 	assertPipelineRunCreated(t, app.Store.DB, 2, float64(103))
+
+	stopMining := cltest.Mine(fa.backend, time.Second)
+	defer stopMining()
 
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause

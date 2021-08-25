@@ -50,6 +50,7 @@ func init() {
 	// TODO: re-enable savepoint emulation once gorm is removed:
 	// https://app.clubhouse.io/chainlinklabs/story/8781/remove-dependency-on-gorm
 	txdb.Register("txdb", "pgx", dbURL, txdb.SavePointOption(nil))
+	sqlx.BindDriver("txdb", sqlx.DOLLAR)
 }
 
 func NewGormDB(t *testing.T) *gorm.DB {
