@@ -535,16 +535,16 @@ describe("VRFCoordinatorV2", () => {
 
   describe("#requestRandomWords", async function () {
     let subId: number;
-    let kh: string;
+    let jid: string;
     beforeEach(async () => {
       subId = await createSubscription();
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-      kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      jid = await vrfCoordinatorV2.hashOfKey(testKey); // Just for testing use the hashOfKey as the jid.
     });
     it("invalid subId", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           12301928312, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -555,7 +555,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid consumer", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -566,7 +566,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid req confs", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           subId, // subId
           0, // minReqConf
           1000, // callbackGasLimit
@@ -577,7 +577,7 @@ describe("VRFCoordinatorV2", () => {
     it("below minimum balance", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -593,7 +593,7 @@ describe("VRFCoordinatorV2", () => {
       );
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           subId, // subId
           1, // minReqConf
           1000001, // callbackGasLimit
@@ -609,7 +609,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const r1 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
+        jid, // keyhash
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -618,7 +618,7 @@ describe("VRFCoordinatorV2", () => {
       const r1Receipt = await r1.wait();
       const seed1 = r1Receipt.events[0].args["requestId"];
       const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
+        jid, // keyhash
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -636,7 +636,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
+        jid, // keyhash
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
@@ -646,7 +646,7 @@ describe("VRFCoordinatorV2", () => {
       assert(reqReceipt.events.length == 1);
       const reqEvent = reqReceipt.events[0];
       assert(reqEvent.event == "RandomWordsRequested", "wrong event name");
-      assert(reqEvent.args["keyHash"] == kh, "wrong key hash");
+      assert(reqEvent.args["jobId"] == jid, `wrong job id ${reqEvent.args["jobId"]} ${jid}`);
       assert(reqEvent.args["subId"].toString() == subId.toString(), "wrong subId");
       assert(
         reqEvent.args["minimumRequestConfirmations"].toString() == BigNumber.from(1).toString(),
@@ -666,7 +666,7 @@ describe("VRFCoordinatorV2", () => {
       await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -686,7 +686,7 @@ describe("VRFCoordinatorV2", () => {
       // i.e. cancel should be cleaning up correctly.
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // keyhash
+          jid, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -764,9 +764,9 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      let jid = await vrfCoordinatorV2.hashOfKey(testKey);
       const tx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // keyhash
+        jid, // keyhash
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit

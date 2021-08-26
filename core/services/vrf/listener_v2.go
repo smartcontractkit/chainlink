@@ -2,7 +2,6 @@ package vrf
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -89,7 +88,9 @@ func (lsn *listenerV2) Start() error {
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
 					{
-						log.Topic(lsn.job.VRFSpec.PublicKey.MustHash()),
+						// Support either way of specifying the jobID as "bytes32".
+						log.Topic(lsn.job.ExternalIDEncodeBytesToTopic()),
+						log.Topic(lsn.job.ExternalIDEncodeStringToTopic()),
 					},
 				},
 			},
@@ -196,7 +197,6 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 	lsn.l.Infow("VRFListenerV2: received log request",
 		"log", lb.String(),
 		"reqID", req.RequestId.String(),
-		"keyHash", hex.EncodeToString(req.KeyHash[:]),
 		"txHash", req.Raw.TxHash,
 		"blockNumber", req.Raw.BlockNumber,
 		"blockHash", req.Raw.BlockHash,

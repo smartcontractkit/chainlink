@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
@@ -228,7 +230,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, jb.ExternalIDEncodeBytesToTopic(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fullfilled should fail
@@ -368,8 +370,8 @@ func TestMaliciousConsumer(t *testing.T) {
 		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 
-	_, err = uni.maliciousConsumerContract.SetKeyHash(uni.carol,
-		vrfkey.MustHash())
+	_, err = uni.maliciousConsumerContract.SetJobID(uni.carol,
+		jb.ExternalIDEncodeBytesToTopic())
 	require.NoError(t, err)
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.TestCreateSubscriptionAndFund(uni.carol,
@@ -451,12 +453,13 @@ func TestRequestCost(t *testing.T) {
 	for i := 0; i < 99; i++ {
 		addrs = append(addrs, cltest.NewAddress())
 	}
+	jobID := job.ExternalJobIDEncodeBytesToTopic(uuid.NewV4())
 	_, err = uni.consumerContract.UpdateSubscription(uni.carol,
 		addrs) // 0.1 LINK
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.consumerContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+		"testRequestRandomness", jobID, subId, uint16(2), uint32(10000), uint32(1))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
@@ -526,13 +529,14 @@ func TestFulfillmentCost(t *testing.T) {
 	gasRequested := 50000
 	nw := 1
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	jobID := job.ExternalJobIDEncodeBytesToTopic(uuid.NewV4())
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, jobID, subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()
 	}
 
-	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey)
+	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, jobID)
 	s, err := proof.BigToSeed(requestLog.RequestId)
 	require.NoError(t, err)
 	proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, proof.PreSeedDataV2{
@@ -556,10 +560,10 @@ func TestFulfillmentCost(t *testing.T) {
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract *vrf_coordinator_v2.VRFCoordinatorV2,
-	vrfkey secp256k1.PublicKey) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
+	jobID [32]byte) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{vrfkey.MustHash()}, []common.Address{})
+		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{jobID}, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)

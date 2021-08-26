@@ -1,9 +1,7 @@
 package pipeline
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -59,10 +57,6 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		return Result{Error: err}
 	}
 
-	requestKeyHash, ok := logValues["keyHash"].([32]byte)
-	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid keyHash")}
-	}
 	requestPreSeed, ok := logValues["preSeedAndRequestId"].(*big.Int)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeedAndRequestId")}
@@ -85,11 +79,6 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	}
 	var pk secp256k1.PublicKey
 	copy(pk[:], pubKey[:])
-	pkh := pk.MustHash()
-	// Validate the key against the spec
-	if !bytes.Equal(requestKeyHash[:], pkh[:]) {
-		return Result{Error: fmt.Errorf("invalid key hash %v expected %v", hex.EncodeToString(requestKeyHash[:]), hex.EncodeToString(pkh[:]))}
-	}
 	preSeed, err := proof.BigToSeed(requestPreSeed)
 	if err != nil {
 		return Result{Error: fmt.Errorf("unable to parse preseed %v", preSeed)}

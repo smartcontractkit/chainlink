@@ -61,7 +61,7 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     }
 
     function testRequestRandomness(
-        bytes32 keyHash,
+        bytes32 jobID,
         uint64 subId,
         uint16 minReqConfs,
         uint32 callbackGasLimit,
@@ -70,6 +70,6 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
         external
         returns (uint256)
     {
-        return COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
+        return COORDINATOR.requestRandomWords(jobID, subId, minReqConfs, callbackGasLimit, numWords);
     }
 }

@@ -93,7 +93,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   mapping(uint256 /* requestID */ => bytes32 /* commitment */) private s_requestCommitments;
   event NewServiceAgreement(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
-    bytes32 indexed keyHash,
+    bytes32 indexed jobId,
     uint256 requestId,
     uint64 subId,
     uint16 minimumRequestConfirmations,
@@ -147,6 +147,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
   }
 
+  /**
+   * @notice Registers a proving key to an oracle.
+   * @param oracle address of the oracle
+   * @param publicProvingKey key that oracle can use to submit vrf fulfillments
+   */
   function registerProvingKey(
     address oracle,
     uint256[2] calldata publicProvingKey
@@ -262,7 +267,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // so in the worst case where the consuming contract has to read all of them
   // from storage, it only has to read 2 words.
   function requestRandomWords(
-    bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
+    bytes32 jobID,  // Corresponds to a particular offchain job which uses a registered key for proving
     uint64  subId,
     uint16  requestConfirmations,
     uint32  callbackGasLimit,
@@ -297,12 +302,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (callbackGasLimit > s_config.maxGasLimit) {
       revert GasLimitTooBig(callbackGasLimit, s_config.maxGasLimit);
     }
-    // We could additionally check s_serviceAgreements[keyHash] != address(0)
-    // but that would require reading another word of storage. To save gas
-    // we leave that out. The consequence for users is that they can send requests
-    // for invalid keyhashes which will simply fail offchain
+    // Note we do not check whether the jobID is valid to save gas.
+    // The jobID->keyHash map is maintained offchain.
+    // The consequence for users is that they can send requests
+    // for invalid jobIDs which will simply not be fulfilled.
     uint64  nonce = consumer.nonce + 1;
-    uint256 requestId = uint256(keccak256(abi.encode(keyHash, msg.sender, subId, nonce)));
+    uint256 requestId = uint256(keccak256(abi.encode(jobID, msg.sender, subId, nonce)));
 
     s_requestCommitments[requestId] = keccak256(abi.encode(
         requestId,
@@ -311,7 +316,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         callbackGasLimit,
         numWords,
         msg.sender));
-    emit RandomWordsRequested(keyHash, requestId, subId, requestConfirmations, callbackGasLimit, numWords, msg.sender);
+    emit RandomWordsRequested(jobID, requestId, subId, requestConfirmations, callbackGasLimit, numWords, msg.sender);
     s_consumers[consumerKey].nonce = nonce;
 
     return requestId;
