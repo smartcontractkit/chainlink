@@ -259,8 +259,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 		if configOverriderService != nil {
 			services = append(services, configOverriderService)
+			configOverrider = configOverriderService
 		}
-		configOverrider = configOverriderService
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
