@@ -24,18 +24,17 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InsufficientBalance();
   error InvalidConsumer(uint64 subId, address consumer);
   error InvalidSubscription();
-  error AlreadySubscribed(uint64 subId, address consumer);
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
-  // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
   struct Subscription {
+    // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common link balance used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
-    address requestedOwner; // For safe transfering sub ownership.
+    address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:
     // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
@@ -46,7 +45,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
   struct Consumer {
     uint64  subId;
-    uint256 nonce;
+    uint64  nonce;
   }
   mapping(bytes32 /* keccak256(consumer, subId) */ => Consumer /* consumer */) private s_consumers;
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
@@ -68,6 +67,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
   uint16 constant MAX_REQUEST_CONFIRMATIONS = 200;
+  // The minimum gas limit that could be requested for a callback.
+  // Set to 5k to ensure plenty of room to make the call itself.
   uint256 constant private MINIMUM_GAS_LIMIT = 5_000;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
@@ -80,8 +81,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error Reentrant();
-  // Just to relieve stack pressure
-  struct FulfillmentParams {
+  struct RequestCommitment {
+    uint64 blockNum;
     uint64 subId;
     uint32 callbackGasLimit;
     uint32 numWords;
@@ -174,7 +175,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       bytes32
     )
   {
-    return keccak256(abi.encodePacked(publicKey));
+    return keccak256(abi.encode(publicKey));
   }
 
   function setConfig(
@@ -258,7 +259,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   // Want to ensure these arguments can fit inside of 2 words
-  // so in the worse case where the consuming contract has to read all of them
+  // so in the worst case where the consuming contract has to read all of them
   // from storage, it only has to read 2 words.
   function requestRandomWords(
     bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
@@ -300,10 +301,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // but that would require reading another word of storage. To save gas
     // we leave that out. The consequence for users is that they can send requests
     // for invalid keyhashes which will simply fail offchain
-    uint256 nonce = consumer.nonce + 1;
+    uint64  nonce = consumer.nonce + 1;
     uint256 requestId = uint256(keccak256(abi.encode(keyHash, msg.sender, subId, nonce)));
 
-    s_requestCommitments[requestId] = keccak256(abi.encodePacked(
+    s_requestCommitments[requestId] = keccak256(abi.encode(
         requestId,
         block.number,
         subId,
@@ -360,47 +361,67 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return success;
   }
 
-  // Offsets into fulfillRandomnessRequest's proof of various values
-  //
-  // Public key. Skips byte array's length prefix.
-  uint256 private constant PUBLIC_KEY_OFFSET = 0x20;
-  // Seed is 7th word in proof, plus word for length, (6+1)*0x20=0xe0
-  uint256 private constant PRESEED_OFFSET = 7*0x20;
-
   function fulfillRandomWords(
-    bytes memory proof
+    bytes memory proofBytes,
+    bytes memory requestCommitmentBytes
   )
     external
   {
+    if (proofBytes.length != PROOF_LENGTH) {
+      revert InvalidProofLength(proofBytes.length, PROOF_LENGTH);
+    }
     uint256 startGas = gasleft();
-    (
-      bytes32 keyHash,
-      uint256 requestId,
-      uint256 randomness,
-      FulfillmentParams memory fp
-    ) = getRandomnessFromProof(proof);
+    RequestCommitment memory rc = abi.decode(requestCommitmentBytes, (RequestCommitment));
+    Proof memory proof = abi.decode(proofBytes, (Proof));
+    bytes32 keyHash= hashOfKey(proof.pk);
+    bytes32 commitment = s_requestCommitments[proof.seed];
 
+    if (commitment == 0) {
+      revert NoCorrespondingRequest(proof.seed);
+    }
+    if (commitment != keccak256(abi.encode(
+      proof.seed,
+      rc.blockNum,
+      rc.subId,
+      rc.callbackGasLimit,
+      rc.numWords,
+      rc.sender)))
+    {
+      revert IncorrectCommitment();
+    }
 
-    uint256[] memory randomWords = new uint256[](fp.numWords);
-    for (uint256 i = 0; i < fp.numWords; i++) {
+    bytes32 blockHash = blockhash(rc.blockNum);
+    if (blockHash == bytes32(0)) {
+      blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
+      if (blockHash == bytes32(0)) {
+        revert BlockhashNotInStore(rc.blockNum);
+      }
+    }
+
+    // The seed actually used by the VRF machinery, mixing in the blockhash
+    uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
+    uint256 randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+
+    uint256[] memory randomWords = new uint256[](rc.numWords);
+    for (uint256 i = 0; i < rc.numWords; i++) {
       randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
     }
 
     // Prevent re-entrancy. The user callback cannot call fulfillRandomWords again
     // with the same proof because this getRandomnessFromProof will revert because the requestId
     // is gone.
-    delete s_requestCommitments[requestId];
+    delete s_requestCommitments[proof.seed];
     VRFConsumerBaseV2 v;
-    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
+    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, proof.seed, randomWords);
     uint256 gasPreCallback = gasleft();
-    if (gasPreCallback < fp.callbackGasLimit) {
-      revert InsufficientGasForConsumer(gasPreCallback, fp.callbackGasLimit);
+    if (gasPreCallback < rc.callbackGasLimit) {
+      revert InsufficientGasForConsumer(gasPreCallback, rc.callbackGasLimit);
     }
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     s_config.locked = true;
-    bool success = callWithExactGas(fp.callbackGasLimit, fp.sender, resp);
-    emit RandomWordsFulfilled(requestId, randomWords, success);
+    bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
+    emit RandomWordsFulfilled(proof.seed, randomWords, success);
     s_config.locked = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -410,11 +431,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Its specified in millionths of link, if s_config.fulfillmentFlatFeeLinkPPM = 1
     // 1 link / 1e6 = 1e18 juels / 1e6 = 1e12 juels.
     uint96 payment = calculatePaymentAmount(startGas, s_config.gasAfterPaymentCalculation, s_config.fulfillmentFlatFeeLinkPPM, tx.gasprice);
-    if (s_subscriptions[fp.subId].balance < payment) {
+    if (s_subscriptions[rc.subId].balance < payment) {
       revert InsufficientBalance();
     }
-    s_subscriptions[fp.subId].balance -= payment;
+    s_subscriptions[rc.subId].balance -= payment;
     s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
+
   }
 
   // Get the amount of gas used for fulfillment
@@ -442,74 +464,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     return uint96(paymentNoFee+fee);
-  }
-
-  function getRandomnessFromProof(
-    bytes memory proof
-  )
-    private
-    view 
-    returns (
-      bytes32 currentKeyHash,
-      uint256 requestId, 
-      uint256 randomness, 
-      FulfillmentParams memory fp
-    ) 
-  {
-    // blockNum follows proof, which follows length word (only direct-number
-    // constants are allowed in assembly, so have to compute this in code)
-    uint256 blockNumOffset = 0x20 + PROOF_LENGTH;
-    // Note that proof.length skips the initial length word.
-    // We expect the total length to be proof + 6 words
-    // (blocknum, subId, callbackLimit, nw, sender)
-    if (proof.length != PROOF_LENGTH + 0x20*5) {
-      revert InvalidProofLength(proof.length, PROOF_LENGTH + 0x20*5);
-    }
-    uint256[2] memory publicKey;
-    uint256 blockNum;
-    address sender;
-    assembly { // solhint-disable-line no-inline-assembly
-      publicKey := add(proof, PUBLIC_KEY_OFFSET)
-      requestId := mload(add(proof, PRESEED_OFFSET))
-      blockNum := mload(add(proof, blockNumOffset))
-      // We use a struct to limit local variables to avoid stack depth errors.
-      mstore(fp, mload(add(add(proof, blockNumOffset), 0x20))) // subId
-      mstore(add(fp, 0x20), mload(add(add(proof, blockNumOffset), 0x40))) // callbackGasLimit
-      mstore(add(fp, 0x40), mload(add(add(proof, blockNumOffset), 0x60))) // numWords
-      sender := mload(add(add(proof, blockNumOffset), 0x80))
-    }
-    currentKeyHash = hashOfKey(publicKey);
-    bytes32 commitment = s_requestCommitments[requestId];
-    if (commitment == 0) {
-      revert NoCorrespondingRequest(requestId);
-    }
-    if (commitment != keccak256(abi.encodePacked(
-        requestId,
-        blockNum,
-        fp.subId,
-        fp.callbackGasLimit,
-        fp.numWords,
-        sender)))
-    {
-      revert IncorrectCommitment();
-    }
-    fp.sender = sender;
-
-    bytes32 blockHash = blockhash(blockNum);
-    if (blockHash == bytes32(0)) {
-      blockHash = BLOCKHASH_STORE.getBlockhash(blockNum);
-      if (blockHash == bytes32(0)) {
-        revert BlockhashNotInStore(blockNum);
-      }
-    }
-    // The seed actually used by the VRF machinery, mixing in the blockhash
-    uint256 actualSeed = uint256(keccak256(abi.encodePacked(requestId, blockHash)));
-    // solhint-disable-next-line no-inline-assembly
-    assembly { // Construct the actual proof from the remains of proof
-      mstore(add(proof, PRESEED_OFFSET), actualSeed)
-      mstore(proof, PROOF_LENGTH)
-    }
-    randomness = VRF.randomValueFromVRFProof(proof); // Reverts on failure
   }
 
   function getFeedData()
@@ -614,6 +568,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       consumers: consumers
     });
     for (uint256 i; i < consumers.length; i++) {
+      // Note since we just created this sub, its not possible that a consumer
+      // already exists at this consumer key.
       s_consumers[keccak256(abi.encode(consumers[i], currentSubId))] = Consumer({
         subId: currentSubId,
         nonce: 0
@@ -671,8 +627,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
-        // Storage write removed element to the end
-        s_subscriptions[subId].consumers[lastConsumerIndex] = consumers[i];
         // Storage write to preserve last element
         s_subscriptions[subId].consumers[i] = last;
         // Storage remove last element
@@ -696,9 +650,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert TooManyConsumers();
     }
     bytes32 consumerKey = keccak256(abi.encode(consumer, subId));
-    // Must explicitly remove a consumer before changing its subscription.
     if (s_consumers[consumerKey].subId != 0) {
-      revert AlreadySubscribed(subId, consumer);
+      // Idempotence - do nothing if already added.
+      return;
     }
     s_consumers[consumerKey] = Consumer({
       subId: subId,

@@ -511,6 +511,18 @@ contract VRF {
     64 + // sHashWitness
     32; // zInv  (Leave Output out, because that can be efficiently calculated)
 
+    struct Proof {
+        uint256[2] pk;
+        uint256[2] gamma;
+        uint256 c;
+        uint256 s;
+        uint256 seed;
+        address uWitness;
+        uint256[2] cGammaWitness;
+        uint256[2] sHashWitness;
+        uint256 zInv;
+    }
+
     /* ***************************************************************************
      * @notice Returns proof's output, if proof is valid. Otherwise reverts
 
@@ -521,32 +533,19 @@ contract VRF {
      * ***************************************************************************
      * @dev See the calculation of PROOF_LENGTH for the binary layout of proof.
      */
-    function randomValueFromVRFProof(bytes memory proof)
+    function randomValueFromVRFProof(Proof memory proof, uint256 seed)
     internal view returns (uint256 output) {
-        require(proof.length == PROOF_LENGTH, "wrong proof length");
-
-        uint256[2] memory pk; // parse proof contents into these variables
-        uint256[2] memory gamma;
-        // c, s and seed combined (prevents "stack too deep" compilation error)
-        uint256[3] memory cSSeed;
-        address uWitness;
-        uint256[2] memory cGammaWitness;
-        uint256[2] memory sHashWitness;
-        uint256 zInv;
-        (pk, gamma, cSSeed, uWitness, cGammaWitness, sHashWitness, zInv) = abi.decode(
-            proof, (uint256[2], uint256[2], uint256[3], address, uint256[2],
-            uint256[2], uint256));
         verifyVRFProof(
-            pk,
-            gamma,
-            cSSeed[0], // c
-            cSSeed[1], // s
-            cSSeed[2], // seed
-            uWitness,
-            cGammaWitness,
-            sHashWitness,
-            zInv
+            proof.pk,
+            proof.gamma,
+            proof.c,
+            proof.s,
+            seed,
+            proof.uWitness,
+            proof.cGammaWitness,
+            proof.sHashWitness,
+            proof.zInv
         );
-        output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, gamma)));
+        output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, proof.gamma)));
     }
 }

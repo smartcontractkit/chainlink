@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,7 +19,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -1245,39 +1243,6 @@ func MustParseURL(input string) *url.URL {
 		logger.Panic(err)
 	}
 	return u
-}
-
-// GenericEncode eth encodes values based on the provided types
-func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
-	if len(values) != len(types) {
-		return nil, errors.New("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func MustGenericEncode(types []string, values ...interface{}) []byte {
-	if len(values) != len(types) {
-		panic("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
-	if err != nil {
-		panic(err)
-	}
-	return out
 }
 
 func MakeRoundStateReturnData(

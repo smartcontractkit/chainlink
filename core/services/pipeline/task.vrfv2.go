@@ -71,10 +71,6 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid subId")}
 	}
-	//minReqConf, ok := logValues["minimumRequestConfirmations"].(uint16)
-	//if !ok {
-	//	return Result{Error: errors.Wrapf(ErrBadInput, "invalid minimumRequestConfirmations")}
-	//}
 	callbackGasLimit, ok := logValues["callbackGasLimit"].(uint32)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid callbackGasLimit")}
@@ -112,12 +108,13 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if err != nil {
 		return Result{Error: err}
 	}
-	onChainProof, err := proof.GenerateProofResponseFromProofV2(p, preSeedData)
+	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2(p, preSeedData)
 	if err != nil {
 		return Result{Error: err}
 	}
 	results := make(map[string]interface{})
 	results["proof"] = hexutil.Encode(onChainProof[:])
+	results["requestCommitment"] = hexutil.Encode(rc[:])
 	results["requestID"] = hexutil.Encode([]byte(requestPreSeed.String()))
 	return Result{Value: results}
 }

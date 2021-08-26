@@ -33,7 +33,7 @@ const (
 		2*2100 - // cold read oracle address and oracle balance
 		4800 + // request delete refund, note pre-london fork was 15k
 		21000 + // base cost of the transaction
-		7748 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		4926 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 var (
