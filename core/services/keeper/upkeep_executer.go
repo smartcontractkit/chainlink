@@ -36,6 +36,18 @@ const (
 	OutOfTurnReason           RevertReason = "keepers must take turns"
 	PerformUpkeepFailedReason RevertReason = "call to perform upkeep failed"
 	CheckTargetFailedReason   RevertReason = "call to check target failed"
+	InsufficientFundsReason   RevertReason = "insufficient funds"
+)
+
+var (
+	// debugRevertReasons contains revert reasons that should be logged with the debug log level
+	debugRevertReasons = []RevertReason{
+		UpkeepNotNeededReason,
+		OutOfTurnReason,
+		PerformUpkeepFailedReason,
+		CheckTargetFailedReason,
+		InsufficientFundsReason,
+	}
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -313,7 +325,7 @@ func logRevertReason(logger *logger.Logger, err error) {
 	}
 
 	logger = logger.With("revertReason", revertReason)
-	if RevertReason(revertReason).IsOneOf(UpkeepNotNeededReason, PerformUpkeepFailedReason, OutOfTurnReason) {
+	if RevertReason(revertReason).IsOneOf(debugRevertReasons...) {
 		logger.Debug("checkUpkeep call failed with known reason")
 	} else {
 		logger.Error("checkUpkeep call failed with some reason")
