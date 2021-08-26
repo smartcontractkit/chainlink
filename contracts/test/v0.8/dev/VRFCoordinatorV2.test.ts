@@ -544,7 +544,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid subId", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           12301928312, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -555,7 +555,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid consumer", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -566,7 +566,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid req confs", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           subId, // subId
           0, // minReqConf
           1000, // callbackGasLimit
@@ -577,7 +577,7 @@ describe("VRFCoordinatorV2", () => {
     it("below minimum balance", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -593,7 +593,7 @@ describe("VRFCoordinatorV2", () => {
       );
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           subId, // subId
           1, // minReqConf
           1000001, // callbackGasLimit
@@ -609,7 +609,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const r1 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // keyhash
+        jid, // jid
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -618,7 +618,7 @@ describe("VRFCoordinatorV2", () => {
       const r1Receipt = await r1.wait();
       const seed1 = r1Receipt.events[0].args["requestId"];
       const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // keyhash
+        jid, // jid
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -636,7 +636,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // keyhash
+        jid, // jid
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
@@ -666,7 +666,7 @@ describe("VRFCoordinatorV2", () => {
       await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -686,7 +686,7 @@ describe("VRFCoordinatorV2", () => {
       // i.e. cancel should be cleaning up correctly.
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // keyhash
+          jid, // jid
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -766,7 +766,7 @@ describe("VRFCoordinatorV2", () => {
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
       let jid = await vrfCoordinatorV2.hashOfKey(testKey);
       const tx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // keyhash
+        jid, // jid
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
