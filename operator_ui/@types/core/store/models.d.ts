@@ -510,6 +510,9 @@ declare module 'core/store/models' {
       idleTimerPeriod: string
       pollTimerDisabled: false
       pollTimerPeriod: string
+      drumbeatEnabled:     boolean
+      drumbeatSchedule?:    string
+      drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
     }
