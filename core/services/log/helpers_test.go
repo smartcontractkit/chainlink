@@ -35,16 +35,17 @@ import (
 )
 
 type broadcasterHelper struct {
-	t       *testing.T
+	t *testing.T
+
 	lb      log.Broadcaster
 	db      *gorm.DB
 	mockEth *mockEth
 	config  *configtest.TestEVMConfig
 
 	// each received channel corresponds to one eth subscription
-	chchRawLogs chan chan<- types.Log
-
-	toUnsubscribe []func()
+	chchRawLogs     chan chan<- types.Log
+	getLogPoolCount func() int
+	toUnsubscribe   []func()
 }
 
 func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *broadcasterHelper {
@@ -65,13 +66,14 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	lb := log.NewBroadcaster(dborm, mockEth.ethClient, cfg, logger.Default, nil)
 	cfg.Overrides.EvmFinalityDepth = null.IntFrom(10)
 	return &broadcasterHelper{
-		t:             t,
-		lb:            lb,
-		db:            db,
-		config:        cfg,
-		mockEth:       mockEth,
-		chchRawLogs:   chchRawLogs,
-		toUnsubscribe: make([]func(), 0),
+		t:               t,
+		lb:              lb,
+		db:              db,
+		config:          cfg,
+		mockEth:         mockEth,
+		chchRawLogs:     chchRawLogs,
+		getLogPoolCount: lb.ExportedGetPoolCount(),
+		toUnsubscribe:   make([]func(), 0),
 	}
 }
 
@@ -83,11 +85,12 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	lb := log.NewBroadcaster(orm, ethClient, cfg, logger.Default, highestSeenHead)
 
 	return &broadcasterHelper{
-		t:             t,
-		lb:            lb,
-		db:            db,
-		config:        cfg,
-		toUnsubscribe: make([]func(), 0),
+		t:               t,
+		lb:              lb,
+		db:              db,
+		config:          cfg,
+		getLogPoolCount: lb.ExportedGetPoolCount(),
+		toUnsubscribe:   make([]func(), 0),
 	}
 }
 

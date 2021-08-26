@@ -522,6 +522,8 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	t.Parallel()
 
+	g := gomega.NewGomegaWithT(t)
+
 	const blockHeight int64 = 10
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(1)
@@ -547,8 +549,17 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	helper.register(listener1, contract1, 0)
 	helper.register(listener2, contract1, 0)
 
+	chRawLogs := <-helper.chchRawLogs
+
+	for _, log := range addr1SentLogs {
+		chRawLogs <- log
+	}
+
+	// wait for all logs to be in the pool before sending heads
+	g.Eventually(helper.getLogPoolCount, 10*time.Second).Should(gomega.Equal(3))
+
 	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-		StartBlock:     0,
+		StartBlock:     4,
 		EndBlock:       9,
 		BackfillDepth:  10,
 		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
@@ -556,12 +567,6 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		Interval:       250 * time.Millisecond,
 	})
 	defer cleanup()
-
-	chRawLogs := <-helper.chchRawLogs
-
-	for _, log := range addr1SentLogs {
-		chRawLogs <- log
-	}
 
 	// 3 because only one listeners is marking logs as consumed
 	requireBroadcastCount(t, helper.db, 3)
