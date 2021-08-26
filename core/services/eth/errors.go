@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -255,14 +256,21 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	}
 
 	ln := len(revertReasonBytes)
+	breaker := time.After(time.Second * 5)
+cleanup:
 	for {
-		revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
-		revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
-		revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
-		if ln == len(revertReasonBytes) {
-			break
+		select {
+		case <-breaker:
+			break cleanup
+		default:
+			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
+			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
+			revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
+			if ln == len(revertReasonBytes) {
+				break cleanup
+			}
+			ln = len(revertReasonBytes)
 		}
-		ln = len(revertReasonBytes)
 	}
 
 	revertReason := strings.TrimSpace(string(revertReasonBytes))
