@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- FMv2 spec now contains DrumbeatRandomDelay parameter that can be used to introduce variation between round of submits of different oracles, if drumbeat ticker is enabled.
+
+
 ## [0.10.13] - 2021-08-25
 
 ### Fixed

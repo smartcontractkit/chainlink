@@ -130,13 +130,13 @@ func (client *client) Dial(ctx context.Context) error {
 		return nil
 	}
 	if err := client.primary.Dial(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "Failed to dial primary client")
 	}
 
 	for _, s := range client.secondaries {
 		err := s.Dial()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Failed to dial secondary client: %v", s.uri)
 		}
 	}
 	return nil
