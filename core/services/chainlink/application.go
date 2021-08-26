@@ -189,6 +189,10 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	if err != nil {
 		logger.Fatal("error starting logger for head tracker", err)
 	}
+	keeperLogger, err := globalLogger.InitServiceLevelLogger(loggerPkg.Keeper, serviceLogLevels[loggerPkg.Keeper])
+	if err != nil {
+		logger.Fatal("error starting logger for keeper", err)
+	}
 
 	var headBroadcaster httypes.HeadBroadcaster
 	var headTracker httypes.Tracker
@@ -245,12 +249,14 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
+				logger,
 				logBroadcaster,
 				pipelineRunner,
 				pipelineORM,
 				ethClient,
 				store.DB,
-				cfg),
+				cfg,
+			),
 			job.Keeper: keeper.NewDelegate(
 				store.DB,
 				txManager,
@@ -259,7 +265,9 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 				ethClient,
 				headBroadcaster,
 				logBroadcaster,
-				cfg),
+				keeperLogger,
+				cfg,
+			),
 			job.VRF: vrf.NewDelegate(
 				store.DB,
 				txManager,
@@ -269,7 +277,8 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 				logBroadcaster,
 				headBroadcaster,
 				ethClient,
-				cfg),
+				cfg,
+			),
 		}
 	)
 
@@ -407,6 +416,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		app.HeadTracker.SetLogger(newL)
 	case loggerPkg.FluxMonitor:
 		// TODO: Set FMv2?
+	case loggerPkg.Keeper:
 	default:
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
