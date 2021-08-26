@@ -2,6 +2,7 @@ package offchainreporting
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -20,15 +21,16 @@ type ConfigOverriderImpl struct {
 	flags           *ContractFlags
 	contractAddress ethkey.EIP55Address
 
-	flagsUpdateInterval      time.Duration
+	pollTicker               utils.TickerBase
 	lastStateChangeTimestamp time.Time
 	isHibernating            bool
 	DeltaCFromAddress        time.Duration
 
 	// Start/Stop lifecycle
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	chDone    chan struct{}
+	ctx            context.Context
+	ctxCancel      context.CancelFunc
+	chDone         chan struct{}
+	chStateUpdated chan bool
 
 	mu sync.RWMutex
 }
@@ -40,7 +42,7 @@ func NewConfigOverriderImpl(
 	logger *logger.Logger,
 	contractAddress ethkey.EIP55Address,
 	flags *ContractFlags,
-	pollInterval time.Duration,
+	pollTicker utils.TickerBase,
 ) (*ConfigOverriderImpl, error) {
 
 	if !flags.ContractExists() {
@@ -49,8 +51,8 @@ func NewConfigOverriderImpl(
 	}
 
 	addressBig := contractAddress.Big()
-	addressInt64 := addressBig.Mod(addressBig, big.NewInt(3600)).Int64()
-	deltaC := 23*time.Hour + time.Duration(addressInt64)*time.Second
+	addressSeconds := addressBig.Mod(addressBig, big.NewInt(3600)).Uint64()
+	deltaC := 23*time.Hour + time.Duration(addressSeconds)*time.Second
 
 	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{
@@ -58,13 +60,14 @@ func NewConfigOverriderImpl(
 		logger,
 		flags,
 		contractAddress,
-		pollInterval,
+		pollTicker,
 		time.Now(),
 		InitialHibernationStatus,
 		deltaC,
 		ctx,
 		cancel,
 		make(chan struct{}),
+		make(chan bool, 1),
 		sync.RWMutex{},
 	}
 
@@ -92,13 +95,13 @@ func (c *ConfigOverriderImpl) Close() error {
 
 func (c *ConfigOverriderImpl) eventLoop() {
 	defer close(c.chDone)
-	ticker := time.NewTicker(utils.WithJitter(c.flagsUpdateInterval))
-	defer ticker.Stop()
+	c.pollTicker.Resume()
+	defer c.pollTicker.Destroy()
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
-		case <-ticker.C:
+		case <-c.pollTicker.Ticks():
 			if err := c.updateFlagsStatus(); err != nil {
 				c.logger.Errorw("OCRConfigOverrider: Error updating hibernation status", "err", err)
 			}
@@ -116,18 +119,34 @@ func (c *ConfigOverriderImpl) updateFlagsStatus() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if !c.isHibernating && shouldHibernate {
-		c.logger.Infow("OCRConfigOverrider: Setting hibernation state to 'hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
+	wasUpdated := (!c.isHibernating && shouldHibernate) || (c.isHibernating && !shouldHibernate)
+	if wasUpdated {
+		c.logger.Infow(
+			fmt.Sprintf("OCRConfigOverrider: Setting hibernation state to '%v'", shouldHibernate),
+			"elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp),
+		)
 		c.lastStateChangeTimestamp = time.Now()
+		c.isHibernating = shouldHibernate
+		c.sendStateUpdate(shouldHibernate)
 	}
-
-	if c.isHibernating && !shouldHibernate {
-		c.logger.Infow("OCRConfigOverrider: Setting hibernation state to 'not hibernating'", "elapsedSinceLastChange", time.Since(c.lastStateChangeTimestamp))
-		c.lastStateChangeTimestamp = time.Now()
-	}
-
-	c.isHibernating = shouldHibernate
 	return nil
+}
+
+func (c *ConfigOverriderImpl) sendStateUpdate(hibernating bool) {
+	// empty the channel
+	select {
+	case <-c.chStateUpdated:
+	default:
+	}
+	// send newest state
+	select {
+	case c.chStateUpdated <- hibernating:
+	default:
+	}
+}
+
+func (c *ConfigOverriderImpl) StateUpdates() chan bool {
+	return c.chStateUpdated
 }
 
 func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {

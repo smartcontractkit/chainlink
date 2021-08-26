@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -312,7 +313,9 @@ func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, contractAdd
 				flagsContractAddress,
 			)
 		}
-		return NewConfigOverriderImpl(logger, contractAddress, flags, ConfigOverriderPollInterval)
+
+		ticker := utils.NewPausableTicker(ConfigOverriderPollInterval)
+		return NewConfigOverriderImpl(logger, contractAddress, flags, &ticker)
 	}
 	return nil, nil
 }

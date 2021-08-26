@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,7 +23,7 @@ type configOverriderUni struct {
 	contractAddress ethkey.EIP55Address
 }
 
-func newConfigOverriderUni(t *testing.T, pollInterval time.Duration, flagsContract *mocks.Flags) (uni configOverriderUni) {
+func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsContract *mocks.Flags) (uni configOverriderUni) {
 	contractAddress := cltest.NewEIP55Address()
 
 	flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
@@ -33,7 +32,7 @@ func newConfigOverriderUni(t *testing.T, pollInterval time.Duration, flagsContra
 		logger.Default,
 		contractAddress,
 		flags,
-		pollInterval,
+		pollITicker,
 	)
 	require.NoError(t, err)
 
@@ -48,12 +47,13 @@ func newConfigOverriderUni(t *testing.T, pollInterval time.Duration, flagsContra
 
 func Test_OCRConfigOverrider(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
 
 	t.Run("Before first tick returns nil override, later does return a specific override when hibernating", func(t *testing.T) {
 		flagsContract := new(mocks.Flags)
 		flagsContract.Test(t)
-		uni := newConfigOverriderUni(t, 2*time.Second, flagsContract)
+
+		ticker := NewFakeTicker()
+		uni := newConfigOverriderUni(t, ticker, flagsContract)
 
 		// not hibernating, because one of the flags is lowered
 		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
@@ -66,16 +66,26 @@ func Test_OCRConfigOverrider(t *testing.T) {
 			Return([]bool{true, true}, nil)
 
 		require.NoError(t, uni.overrider.Start())
-		g.Consistently(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, time.Second, 450*time.Millisecond).Should(gomega.BeNil())
 
-		res := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
-		g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.Equal(res))
+		// not hibernating initially
+		require.Nil(t, uni.overrider.ConfigOverride())
+
+		// force update state
+		ticker.SimulateTick()
+
+		hibernatingStateAfter := <-uni.overrider.StateUpdates()
+		require.Equal(t, true, hibernatingStateAfter)
+
+		expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
+		require.Equal(t, expectedOverride, uni.overrider.ConfigOverride())
 	})
 
 	t.Run("Before first tick is hibernating, later exists hibernation", func(t *testing.T) {
 		flagsContract := new(mocks.Flags)
 		flagsContract.Test(t)
-		uni := newConfigOverriderUni(t, 2*time.Second, flagsContract)
+
+		ticker := NewFakeTicker()
+		uni := newConfigOverriderUni(t, ticker, flagsContract)
 
 		// hibernating
 		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
@@ -89,10 +99,18 @@ func Test_OCRConfigOverrider(t *testing.T) {
 
 		require.NoError(t, uni.overrider.Start())
 
-		res := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
-		g.Consistently(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, time.Second, 450*time.Millisecond).Should(gomega.Equal(res))
+		// initially enters hibernation
+		hibernatingStateBefore := <-uni.overrider.StateUpdates()
+		require.Equal(t, true, hibernatingStateBefore)
+		expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
+		require.Equal(t, expectedOverride, uni.overrider.ConfigOverride())
 
-		g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.BeNil())
+		// force update state
+		ticker.SimulateTick()
+
+		hibernatingStateAfter := <-uni.overrider.StateUpdates()
+		require.Equal(t, false, hibernatingStateAfter)
+		require.Nil(t, uni.overrider.ConfigOverride())
 	})
 
 	t.Run("Errors if flags contract is missing", func(t *testing.T) {
@@ -102,7 +120,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 			logger.Default,
 			contractAddress,
 			flags,
-			5*time.Second,
+			nil,
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Flags contract instance is missing, the contract does not exist")
@@ -121,13 +139,13 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		address2, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(1234567890)).Hex())
 		require.NoError(t, err)
 
-		overrider1a, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, 5*time.Second)
+		overrider1a, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider1b, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, 5*time.Second)
+		overrider1b, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider2, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address2, flags, 5*time.Second)
+		overrider2, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address2, flags, nil)
 		require.NoError(t, err)
 
 		require.Equal(t, overrider1a.DeltaCFromAddress, time.Duration(85600000000000))
@@ -144,3 +162,25 @@ func checkFlagsAddress(t *testing.T, contractAddress ethkey.EIP55Address) func(a
 		}, args.Get(1).([]common.Address))
 	}
 }
+
+type FakeTicker struct {
+	ticks chan time.Time
+}
+
+func NewFakeTicker() *FakeTicker {
+	return &FakeTicker{
+		ticks: make(chan time.Time, 0),
+	}
+}
+
+func (t *FakeTicker) SimulateTick() {
+	t.ticks <- time.Now()
+}
+
+func (t FakeTicker) Ticks() <-chan time.Time {
+	return t.ticks
+}
+
+func (t *FakeTicker) Pause()   {}
+func (t *FakeTicker) Resume()  {}
+func (t *FakeTicker) Destroy() {}
