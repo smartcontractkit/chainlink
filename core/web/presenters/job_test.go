@@ -89,6 +89,8 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": {
 							"contractAddress": "%s",
 							"minIncomingConfirmations": null,
+							"minContractPaymentLinkJuels": null,
+							"requesters": null,
 							"initiator": "runlog",
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"

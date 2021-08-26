@@ -194,16 +194,22 @@ func (js *spawner) startUnclaimedServices() {
 			logger.Errorw("Job type has not been registered with job.Spawner", "type", spec.Type, "jobID", spec.ID)
 			continue
 		}
+		// We always add the active job in the activeJob map, even in the case
+		// that it fails to start. That way we have access to the delegate to call
+		// OnJobDeleted before deleting. However, the activeJob will only have services
+		// that it was able to start without an error.
+		aj := activeJob{delegate: delegate, spec: spec}
+
 		services, err := delegate.ServicesForSpec(spec)
 		if err != nil {
 			logger.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)
 			js.orm.RecordError(ctx, spec.ID, err.Error())
+			js.activeJobs[spec.ID] = aj
 			continue
 		}
 
 		logger.Debugw("JobSpawner: Starting services for job", "jobID", spec.ID, "count", len(services))
 
-		aj := activeJob{delegate: delegate, spec: spec}
 		for _, service := range services {
 			err := service.Start()
 			if err != nil {

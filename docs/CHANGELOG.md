@@ -28,6 +28,22 @@ GAS_UPDATER_TRANSACTION_PERCENTILE
 MINIMUM_CONTRACT_PAYMENT
 ```
 
+#### Requesters
+
+V2 direct request specs now support "Requesters" key which allows to whitelist requesters. For example:
+
+```toml
+type                = "directrequest"
+schemaVersion       = 1
+requesters          = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
+name                = "example eth request event spec with requesters"
+contractAddress     = "..."
+externalJobID     =  "..."
+observationSource   = """
+...
+"""
+```
+
 
 ## [Unreleased]
 
