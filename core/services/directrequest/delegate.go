@@ -109,6 +109,7 @@ func (d *Delegate) ServicesForSpec(jobObj job.Job) ([]job.Service, error) {
 		mbLogs:                   utils.NewMailbox(50),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
 		requesters:               concreteSpec.Requesters,
+		minContractPayment:       concreteSpec.MinContractPayment,
 		chStop:                   make(chan struct{}),
 	}
 	var services []job.Service
@@ -136,6 +137,7 @@ type listener struct {
 	mbLogs                   *utils.Mailbox
 	minIncomingConfirmations uint64
 	requesters               models.AddressCollection
+	minContractPayment       *assets.Link
 	chStop                   chan struct{}
 	utils.StartStopOnce
 }
@@ -284,12 +286,17 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		return
 	}
 
-	minimumContractPayment := l.config.MinimumContractPayment()
-	if minimumContractPayment != nil {
+	var minContractPayment *assets.Link
+	if l.minContractPayment != nil {
+		minContractPayment = l.minContractPayment
+	} else {
+		minContractPayment = l.config.MinimumContractPayment()
+	}
+	if minContractPayment != nil {
 		requestPayment := assets.Link(*request.Payment)
-		if minimumContractPayment.Cmp(&requestPayment) > 0 {
+		if minContractPayment.Cmp(&requestPayment) > 0 {
 			l.logger.Infow("DirectRequest: Rejected run for insufficient payment",
-				"minimumContractPayment", minimumContractPayment.String(),
+				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
 			ctx, cancel := postgres.DefaultQueryCtx()

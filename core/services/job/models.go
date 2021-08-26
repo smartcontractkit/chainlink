@@ -237,6 +237,7 @@ type DirectRequestSpec struct {
 	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
 	Requesters               models.AddressCollection `toml:"requesters"`
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
+	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
 }
