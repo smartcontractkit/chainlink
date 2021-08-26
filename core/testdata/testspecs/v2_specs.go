@@ -41,6 +41,20 @@ observationSource   = """
     ds1 -> ds1_parse -> ds1_multiply;
 """
 `
+	DirectRequestSpecWithRequesters = `
+type                = "directrequest"
+schemaVersion       = 1
+requesters			= ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
+name                = "example eth request event spec with requesters"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID		= "123e4567-e89b-12d3-a456-426655440014"
+observationSource   = """
+    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+    ds1_parse    [type=jsonparse path="USD"];
+    ds1_multiply [type=multiply times=100];
+    ds1 -> ds1_parse -> ds1_multiply;
+"""
+`
 	FluxMonitorSpec = `
 type              = "fluxmonitor"
 schemaVersion       = 1
