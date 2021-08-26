@@ -5,6 +5,7 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -34,11 +35,13 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress          ethkey.EIP55Address `json:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
-	Initiator                string              `json:"initiator"`
-	CreatedAt                time.Time           `json:"createdAt"`
-	UpdatedAt                time.Time           `json:"updatedAt"`
+	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
+	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
+	Requesters               models.AddressCollection `json:"requesters"`
+	Initiator                string                   `json:"initiator"`
+	CreatedAt                time.Time                `json:"createdAt"`
+	UpdatedAt                time.Time                `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
@@ -47,6 +50,8 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
 		ContractAddress:          spec.ContractAddress,
 		MinIncomingConfirmations: spec.MinIncomingConfirmations,
+		MinContractPayment:       spec.MinContractPayment,
+		Requesters:               spec.Requesters,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",
