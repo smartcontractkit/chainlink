@@ -25,7 +25,8 @@ CREATE UNIQUE INDEX idx_job_proposals_job_id on job_proposals (job_id);
 CREATE INDEX idx_job_proposals_feeds_manager_id on job_proposals (feeds_manager_id);
 `
 const down42 = `
-	DROP TABLE job_proposals
+	DROP TABLE job_proposals;
+	DROP TYPE job_proposal_status;
 `
 
 func init() {
