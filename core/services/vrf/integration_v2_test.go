@@ -226,7 +226,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// By requesting 500k callback with a configured eth gas limit default of 500k,
 	// we ensure that the job is indeed adjusting the gaslimit to suit the users request.
 	gasRequested := 500000
-	nw := 1
+	nw := 10
 	requestedIncomingConfs := 3
 	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// which should be fixed in this test.
 	ga, err := uni.consumerContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(764))
+	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(1556))
 	assert.Equal(t, 0, gaDecoding.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", gaDecoding, gasRequested)
 	t.Log("gas available", ga.String())
 
@@ -478,7 +478,6 @@ func TestMaxConsumersCost(t *testing.T) {
 	uni.backend.Commit()
 	subId, err := uni.consumerContract.SSubId(nil)
 	require.NoError(t, err)
-	t.Log(subId)
 	var addrs []common.Address
 	for i := 0; i < 98; i++ {
 		addrs = append(addrs, cltest.NewAddress())
@@ -569,27 +568,6 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 	latest := len(rf) - 1
 	return rf[latest]
-}
-
-func FindLatestRandomnessRequestedLogN(t *testing.T,
-	coordContract *vrf_coordinator_v2.VRFCoordinatorV2,
-	vrfkey secp256k1.PublicKey, n int) []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
-	var rfFinal []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
-		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, nil, nil)
-		require.NoError(t, err2, "failed to logs")
-		for rfIterator.Next() {
-			rf = append(rf, rfIterator.Event)
-		}
-		if len(rf) == n {
-			rfFinal = rf
-			return true
-		}
-		return false
-	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
-	//latest := len(rf) - 1
-	return rfFinal
 }
 
 func AssertLinkBalances(t *testing.T, linkContract *link_token_interface.LinkToken, addresses []common.Address, balances []*big.Int) {
