@@ -7,6 +7,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +38,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minIncomingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
+	delegate := directrequest.NewDelegate(logger.Default, broadcaster, runner, nil, ethClient, store.DB, config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -80,7 +81,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig, specF
 		jobORM.Close()
 	}
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
+	delegate := directrequest.NewDelegate(logger.Default, broadcaster, runner, orm, gethClient, store.DB, drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()

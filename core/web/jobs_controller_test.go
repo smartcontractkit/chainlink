@@ -185,8 +185,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			},
 		},
 		{
-			name: "directrequest-with-requesters",
-			toml: testspecs.DirectRequestSpecWithRequesters,
+			name: "directrequest-with-requesters-and-min-contract-payment",
+			toml: testspecs.DirectRequestSpecWithRequestersAndMinContractPayment,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
@@ -194,10 +194,13 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
-				assert.Equal(t, "example eth request event spec with requesters", jb.Name.ValueOrZero())
+				assert.Equal(t, "example eth request event spec with requesters and min contract payment", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				assert.NotNil(t, resource.DirectRequestSpec.Requesters)
+				assert.Equal(t, "1000000000000000000000", resource.DirectRequestSpec.MinContractPayment.String())
 				// Check requesters got saved properly
 				require.EqualValues(t, []common.Address{common.HexToAddress("0xAaAA1F8ee20f5565510b84f9353F1E333e753B7a"), common.HexToAddress("0xBbBb70f0E81c6F3430dfDc9fa02fB22bDD818c4E")}, jb.DirectRequestSpec.Requesters)
+				require.Equal(t, "1000000000000000000000", jb.DirectRequestSpec.MinContractPayment.String())
 				require.NotZero(t, jb.ExternalJobID[:])
 			},
 		},
