@@ -14,13 +14,13 @@ schemaVersion   = 1
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-externalJobID     =  "123e4567-e89b-12d3-a456-426655440002"
+externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
 `
 	CronSpec = `
-type            = "cron"
-schemaVersion   = 1
-schedule        = "CRON_TZ=UTC * 0 0 1 1 *"
-externalJobID     =  "123e4567-e89b-12d3-a456-426655440003"
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
+externalJobID       =  "123e4567-e89b-12d3-a456-426655440003"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
@@ -33,7 +33,7 @@ type                = "directrequest"
 schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID     =  "123e4567-e89b-12d3-a456-426655440004"
+externalJobID       =  "123e4567-e89b-12d3-a456-426655440004"
 observationSource   = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];
@@ -41,14 +41,15 @@ observationSource   = """
     ds1 -> ds1_parse -> ds1_multiply;
 """
 `
-	DirectRequestSpecWithRequesters = `
-type                = "directrequest"
-schemaVersion       = 1
-requesters			= ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
-name                = "example eth request event spec with requesters"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID		= "123e4567-e89b-12d3-a456-426655440014"
-observationSource   = """
+	DirectRequestSpecWithRequestersAndMinContractPayment = `
+type                         = "directrequest"
+schemaVersion                = 1
+requesters                   = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
+minContractPaymentLinkJuels  = "1000000000000000000000"
+name                         = "example eth request event spec with requesters and min contract payment"
+contractAddress              = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID                = "123e4567-e89b-12d3-a456-426655440014"
+observationSource            = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];
     ds1_multiply [type=multiply times=100];
@@ -56,11 +57,11 @@ observationSource   = """
 """
 `
 	FluxMonitorSpec = `
-type              = "fluxmonitor"
+type                = "fluxmonitor"
 schemaVersion       = 1
 name                = "example flux monitor spec"
-contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-externalJobID     =  "123e4567-e89b-12d3-a456-426655440005"
+contractAddress     = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+externalJobID       =  "123e4567-e89b-12d3-a456-426655440005"
 threshold = 0.5
 absoluteThreshold = 0.0 # optional
 
@@ -132,7 +133,7 @@ decode_log   [type=ethabidecodelog
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
 vrf          [type=vrf 
-			  publicKey="$(jobSpec.publicKey)" 
+              publicKey="$(jobSpec.publicKey)" 
               requestBlockHash="$(jobRun.logBlockHash)" 
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
@@ -266,7 +267,7 @@ func GenerateWebhookSpec(params WebhookSpecParams) (ws WebhookSpec) {
 type            = "webhook"
 schemaVersion   = 1
 externalInitiators = [
-	%s
+    %s
 ]
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
