@@ -253,17 +253,6 @@ func TestIntegrationVRFV2(t *testing.T) {
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
-	//requestLog := FindLatestRandomnessRequestedLogN(t, uni.rootContract, vrfkey, 2)
-	//t.Logf("request log\n keyhash %v %v\n subId %v %v\n seed %v %v\n cb %v %v\n nw %v %v\n sender %v %v\n txhash %v %v\n",
-	//	vrfkey.MustHash(), hexutil.Encode(requestLog[1].KeyHash[:]),
-	//	requestLog[0].SubId, requestLog[1].SubId,
-	//	requestLog[0].RequestId, requestLog[1].RequestId,
-	//	requestLog[0].CallbackGasLimit, requestLog[1].CallbackGasLimit,
-	//	requestLog[0].NumWords, requestLog[1].NumWords,
-	//	requestLog[0].Sender, requestLog[1].Sender,
-	//	requestLog[0].Raw.TxHash, requestLog[1].Raw.TxHash)
-	//
-
 	// Wait for the request to be fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -294,7 +283,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// which should be fixed in this test.
 	ga, err := uni.consumerContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	//assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1556)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(764))
+	assert.Equal(t, 0, gaDecoding.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", gaDecoding, gasRequested)
 	t.Log("gas available", ga.String())
 
 	// Assert that we were only charged for how much gas we actually used.
@@ -318,7 +308,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// wei/link * link / wei/gas = wei / (wei/gas) = gas
 	gasDiff := linkCharged.Sub(expected).Mul(weiPerUnitLink).Div(gasPrice).Abs().IntPart()
 	t.Log("gasDiff", gasDiff)
-	//assert.Less(t, gasDiff, int64(200))
+	assert.Less(t, gasDiff, int64(200))
 
 	// Oracle tries to withdraw move than it was paid should fail
 	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, linkWeiCharged.Add(decimal.NewFromInt(1)).BigInt())

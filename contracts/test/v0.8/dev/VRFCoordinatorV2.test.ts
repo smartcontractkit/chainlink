@@ -743,17 +743,11 @@ describe("VRFCoordinatorV2", () => {
 
   describe("#fulfillRandomWords", async function () {
     it("invalid proof length", async function () {
-      // const proof = new Uint8Array([0, 0, 0, 0]);
       const proof = new Uint8Array(415);
       const rc = new Uint8Array(160);
-      // proof[32*6] = 10;
       await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
-        `InvalidProofLength(4, 576)`,
+        `InvalidProofLength(415, 416)`,
       );
-      // const reqTx = await vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc);
-      // const reqReceipt = await reqTx.wait();
-      // const reqEvent = reqReceipt.events[0];
-      // console.log(reqEvent)
     });
     it("no corresponding request", async function () {
       const proof = new Uint8Array(416);
@@ -789,7 +783,9 @@ describe("VRFCoordinatorV2", () => {
       }
       const p = utils.solidityPack(["bytes"], [proof]);
       const rc = new Uint8Array(160);
-      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(p, rc)).to.be.revertedWith(`IncorrectCommitment()`);
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(p, rc)).to.be.revertedWith(
+        `IncorrectCommitment()`,
+      );
     });
   });
 

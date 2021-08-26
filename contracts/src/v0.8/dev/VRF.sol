@@ -526,7 +526,8 @@ contract VRF {
     /* ***************************************************************************
      * @notice Returns proof's output, if proof is valid. Otherwise reverts
 
-     * @param proof A binary-encoded proof, as output by vrf.Proof.MarshalForSolidityVerifier
+     * @param proof vrf proof components
+     * @param seed  seed used to generate the vrf output
      *
      * Throws if proof is invalid, otherwise:
      * @return output i.e., the random output implied by the proof

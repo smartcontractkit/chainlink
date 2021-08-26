@@ -148,7 +148,7 @@ encode_tx    [type=ethabiencode
               data=<{"proof": $(vrf.proof), "requestCommitment": $(vrf.requestCommitment)}>]
 estimate_gas [type=estimategaslimit
 			  to="%s"
-              multiplier="1.1"
+              multiplier="1"
               data="$(encode_tx)"]
 submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"

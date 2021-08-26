@@ -436,7 +436,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     s_subscriptions[rc.subId].balance -= payment;
     s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
-
   }
 
   // Get the amount of gas used for fulfillment
