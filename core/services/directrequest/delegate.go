@@ -88,9 +88,9 @@ func (d *Delegate) ServicesForSpec(jobObj job.Job) ([]job.Service, error) {
 		minIncomingConfirmations = concreteSpec.MinIncomingConfirmations.Uint32
 	}
 
-	svcLogger := logger.CreateLogger(d.logger.Named("DirectRequest")).
+	svcLogger := d.logger.
+		Named("DirectRequest").
 		With(
-			"id", "directrequest",
 			"contract", concreteSpec.ContractAddress.Address().String(),
 			"jobName", jobObj.PipelineSpec.JobName,
 			"jobID", jobObj.PipelineSpec.JobID,
