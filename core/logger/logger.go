@@ -60,7 +60,7 @@ func (l *Logger) With(args ...interface{}) *Logger {
 
 // Named creates a new named logger with the given name
 func (l *Logger) Named(name string) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.Named(name))
+	newLogger := CreateLogger(l.SugaredLogger.Named(name).With("id", name))
 	newLogger.Orm = l.Orm
 	newLogger.lvl = l.lvl
 	newLogger.dir = l.dir
