@@ -30,7 +30,7 @@ type ConfigOverriderImpl struct {
 	ctxCancel context.CancelFunc
 	chDone    chan struct{}
 
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 // InitialHibernationStatus - hibernation state set until the first successful update from the chain
@@ -65,7 +65,7 @@ func NewConfigOverriderImpl(
 		ctx,
 		cancel,
 		make(chan struct{}),
-		sync.Mutex{},
+		sync.RWMutex{},
 	}
 
 	return &co, nil
@@ -134,8 +134,8 @@ func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {
 	if c == nil {
 		return nil
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	if c.isHibernating {
 		c.logger.Debugw("OCRConfigOverrider: Returning a config override")
