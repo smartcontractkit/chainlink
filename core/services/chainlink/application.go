@@ -249,6 +249,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
+				logger,
 				logBroadcaster,
 				pipelineRunner,
 				pipelineORM,
