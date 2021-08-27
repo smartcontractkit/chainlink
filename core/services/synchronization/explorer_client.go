@@ -324,7 +324,7 @@ func (ec *explorerClient) connect(ctx context.Context) error {
 
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, ec.url.String(), authHeader)
 	if ctx.Err() != nil {
-		return fmt.Errorf("websocketStatsPusher#connect context canceled: %v", ctx.Err())
+		return fmt.Errorf("websocketStatsPusher#connect context canceled: %w", ctx.Err())
 	} else if err != nil {
 		return fmt.Errorf("websocketStatsPusher#connect: %v", err)
 	}
