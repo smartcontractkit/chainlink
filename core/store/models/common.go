@@ -380,7 +380,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	if s == "" {
 		return nil
@@ -392,7 +392,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 
 	_, err = CronParser.Parse(s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	*c = Cron(s)
 	return nil
@@ -485,6 +485,10 @@ func (d Duration) Value() (driver.Value, error) {
 
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
+
+func (i Interval) Duration() time.Duration {
+	return time.Duration(i)
+}
 
 // MarshalText implements the text.Marshaler interface.
 func (i Interval) MarshalText() ([]byte, error) {

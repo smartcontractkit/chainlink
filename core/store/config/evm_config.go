@@ -53,7 +53,7 @@ type EVMOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
-	OCRContractConfirmations(override uint16) uint16
+	OCRContractConfirmations() uint16
 	SetEvmGasPriceDefault(value *big.Int) error
 	Validate() error
 }
@@ -112,15 +112,14 @@ func (c *evmConfig) validate() (err error) {
 	if c.MinIncomingConfirmations() < 1 {
 		err = multierr.Combine(err, errors.New("MIN_INCOMING_CONFIRMATIONS must be greater than or equal to 1"))
 	}
-	var override time.Duration
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      c.OCRBlockchainTimeout(override),
-		ContractConfigConfirmations:            c.OCRContractConfirmations(0),
-		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(override),
-		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(override),
+		BlockchainTimeout:                      c.OCRBlockchainTimeout(),
+		ContractConfigConfirmations:            c.OCRContractConfirmations(),
+		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(),
+		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(),
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
-		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+		DataSourceTimeout:                      c.OCRObservationTimeout(),
 		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
@@ -352,7 +351,13 @@ func (c *evmConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 	if ok {
 		size = val.(uint32)
 	} else {
-		size = c.chainSpecificConfig.BlockHistoryEstimatorBatchSize
+		val, ok = lookupEnv("GAS_UPDATER_BATCH_SIZE", parseUint32)
+		if ok {
+			logger.Warn("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead")
+			size = val.(uint32)
+		} else {
+			size = c.chainSpecificConfig.BlockHistoryEstimatorBatchSize
+		}
 	}
 	if size > 0 {
 		return size
@@ -372,6 +377,11 @@ func (c *evmConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 	if ok {
 		return val.(uint16)
 	}
+	val, ok = lookupEnv("GAS_UPDATER_BLOCK_DELAY", parseUint16)
+	if ok {
+		logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead")
+		return val.(uint16)
+	}
 	return c.chainSpecificConfig.BlockHistoryEstimatorBlockDelay
 }
 
@@ -380,6 +390,11 @@ func (c *evmConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 func (c *evmConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	val, ok := lookupEnv("BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE", parseUint16)
 	if ok {
+		return val.(uint16)
+	}
+	val, ok = lookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE", parseUint16)
+	if ok {
+		logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead")
 		return val.(uint16)
 	}
 	return c.chainSpecificConfig.BlockHistoryEstimatorBlockHistorySize
@@ -391,6 +406,11 @@ func (c *evmConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 func (c *evmConfig) BlockHistoryEstimatorTransactionPercentile() uint16 {
 	val, ok := lookupEnv("BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE", parseUint16)
 	if ok {
+		return val.(uint16)
+	}
+	val, ok = lookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE", parseUint16)
+	if ok {
+		logger.Warn("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATORBLOCK_HISTORY_ESTIMATOR_PERCENTILE instead")
 		return val.(uint16)
 	}
 	return c.chainSpecificConfig.BlockHistoryEstimatorTransactionPercentile
@@ -405,6 +425,15 @@ func (c *evmConfig) GasEstimatorMode() string {
 	if ok {
 		return val.(string)
 	}
+	enabled, ok := lookupEnv("GAS_UPDATER_ENABLED", parseBool)
+	if ok {
+		if enabled.(bool) {
+			logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead")
+			return "BlockHistory"
+		}
+		logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead")
+		return "FixedPrice"
+	}
 	return c.chainSpecificConfig.GasEstimatorMode
 }
 
@@ -418,10 +447,7 @@ func (c *evmConfig) LinkContractAddress() string {
 	return c.chainSpecificConfig.LinkContractAddress
 }
 
-func (c *evmConfig) OCRContractConfirmations(override uint16) uint16 {
-	if override != uint16(0) {
-		return override
-	}
+func (c *evmConfig) OCRContractConfirmations() uint16 {
 	val, ok := lookupEnv("OCR_CONTRACT_CONFIRMATIONS", parseUint16)
 	if ok {
 		return val.(uint16)
@@ -461,6 +487,20 @@ func (c *evmConfig) MinimumContractPayment() *assets.Link {
 	val, ok := lookupEnv("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", parseLink)
 	if ok {
 		return val.(*assets.Link)
+	}
+	// TODO: Remove when implementing
+	// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
+	val, ok = lookupEnv("MINIMUM_CONTRACT_PAYMENT", parseString)
+	if ok {
+		logger.Warn("MINIMUM_CONTRACT_PAYMENT is deprecated, please use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead")
+		str := val.(string)
+		value, ok := new(assets.Link).SetString(str, 10)
+		if ok {
+			return value
+		}
+		logger.Errorw(
+			"Invalid value provided for MINIMUM_CONTRACT_PAYMENT, falling back to default.",
+			"value", str)
 	}
 	return c.chainSpecificConfig.MinimumContractPayment
 }

@@ -128,18 +128,8 @@ func (s *PostgresLockingStrategy) tryAdvisoryLock(timeout models.Duration) (bool
 		ctx, cancel = context.WithTimeout(ctx, timeout.Duration())
 		defer cancel()
 	}
-	rows, err := s.conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID)
-	if err != nil {
-		return false, err
-	}
 	var gotLock bool
-	for rows.Next() {
-		err := rows.Scan(&gotLock)
-		if err != nil {
-			return false, multierr.Combine(err, rows.Close())
-		}
-	}
-	if err := rows.Close(); err != nil {
+	if err := s.conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID).Scan(&gotLock); err != nil {
 		return false, err
 	}
 	return gotLock, nil

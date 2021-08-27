@@ -424,7 +424,7 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 		}
 		for i := range jobs {
 			if jobs[i].OffchainreportingOracleSpec != nil {
-				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+				jobs[i].OffchainreportingOracleSpec = LoadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
 			}
 		}
 		return nil
@@ -432,24 +432,32 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 	return jobs, int(count), err
 }
 
-func loadDynamicConfigVars(cfg Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+type OCRSpecConfig interface {
+	OCRBlockchainTimeout() time.Duration
+	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
+	OCRObservationTimeout() time.Duration
+}
+
+func LoadDynamicConfigVars(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	// Load dynamic variables
-	return &OffchainReportingOracleSpec{
-		ID:                                     os.ID,
-		ContractAddress:                        os.ContractAddress,
-		P2PPeerID:                              os.P2PPeerID,
-		P2PBootstrapPeers:                      os.P2PBootstrapPeers,
-		IsBootstrapPeer:                        os.IsBootstrapPeer,
-		EncryptedOCRKeyBundleID:                os.EncryptedOCRKeyBundleID,
-		TransmitterAddress:                     os.TransmitterAddress,
-		ObservationTimeout:                     models.Interval(cfg.OCRObservationTimeout(time.Duration(os.ObservationTimeout))),
-		BlockchainTimeout:                      models.Interval(cfg.OCRBlockchainTimeout(time.Duration(os.BlockchainTimeout))),
-		ContractConfigTrackerSubscribeInterval: models.Interval(cfg.OCRContractSubscribeInterval(time.Duration(os.ContractConfigTrackerSubscribeInterval))),
-		ContractConfigTrackerPollInterval:      models.Interval(cfg.OCRContractPollInterval(time.Duration(os.ContractConfigTrackerPollInterval))),
-		ContractConfigConfirmations:            cfg.OCRContractConfirmations(os.ContractConfigConfirmations),
-		CreatedAt:                              os.CreatedAt,
-		UpdatedAt:                              os.UpdatedAt,
+	if os.ObservationTimeout == 0 {
+		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
 	}
+	if os.BlockchainTimeout == 0 {
+		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
+	}
+	if os.ContractConfigTrackerSubscribeInterval == 0 {
+		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
+	}
+	if os.ContractConfigTrackerPollInterval == 0 {
+		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
+	}
+	if os.ContractConfigConfirmations == 0 {
+		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
+	}
+	return &os
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -476,7 +484,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	}
 
 	if jb.OffchainreportingOracleSpec != nil {
-		jb.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
+		jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
 	}
 	return jb, nil
 }
