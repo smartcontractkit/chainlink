@@ -2,6 +2,7 @@ package offchainreporting
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,7 +24,7 @@ func NewFlags(addrHex string, ethClient eth.Client) (*ContractFlags, error) {
 	contractAddr := common.HexToAddress(addrHex)
 	contract, err := flags_wrapper.NewFlags(contractAddr, ethClient)
 	if err != nil {
-		return flags, err
+		return flags, errors.Wrap(err, "Failed to create flags wrapper")
 	}
 	flags.FlagsInterface = contract
 	return flags, nil
@@ -50,7 +51,7 @@ func (f *ContractFlags) IsLowered(contractAddr common.Address) (bool, error) {
 		[]common.Address{utils.ZeroAddress, contractAddr},
 	)
 	if err != nil {
-		return true, err
+		return true, errors.Wrap(err, "Failed to call GetFlags in the contract")
 	}
 
 	return !flags[0] || !flags[1], nil
