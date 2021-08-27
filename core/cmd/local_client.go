@@ -17,7 +17,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"go.uber.org/zap/zapcore"
 
 	gormpostgres "gorm.io/driver/postgres"
@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -429,12 +430,14 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrations.Current(orm.DB)
+	db := postgres.UnwrapGormDB(orm.DB).DB
+
+	version, err := migrate.Current(db)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
-	logger.Infof("Database version: %v", version.ID)
+	logger.Infof("Database version: %v", version)
 	return nil
 }
 
@@ -472,19 +475,9 @@ func migrateDB(config config.GeneralConfig) error {
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
-	from, err := migrations.Current(orm.DB)
-	if err != nil {
-		from = &migrations.Migration{
-			ID: "(none)",
-		}
-	}
+	db := postgres.UnwrapGormDB(orm.DB).DB
 
-	to := migrations.Migrations[len(migrations.Migrations)-1]
-
-	logger.Infof("Migrating from %v to %v", from.ID, to.ID)
-
-	err = migrations.Migrate(orm.DB)
-	if err != nil {
+	if err = migrate.Migrate(db); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements())
