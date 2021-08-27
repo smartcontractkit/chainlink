@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,6 +46,31 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 	return uni
 }
 
+func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	flagsContract := new(mocks.Flags)
+	flagsContract.Test(t)
+
+	ticker := utils.NewPausableTicker(3 * time.Second)
+	uni := newConfigOverriderUni(t, &ticker, flagsContract)
+
+	// not hibernating, because one of the flags is lowered
+	flagsContract.On("GetFlags", mock.Anything, mock.Anything).
+		Run(checkFlagsAddress(t, uni.contractAddress)).
+		Return([]bool{false, true}, nil).Once()
+
+	// hibernating
+	flagsContract.On("GetFlags", mock.Anything, mock.Anything).
+		Run(checkFlagsAddress(t, uni.contractAddress)).
+		Return([]bool{true, true}, nil)
+
+	require.NoError(t, uni.overrider.Start())
+
+	expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
+	g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.Equal(expectedOverride))
+}
+
 func Test_OCRConfigOverrider(t *testing.T) {
 	t.Parallel()
 
@@ -70,11 +96,8 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		// not hibernating initially
 		require.Nil(t, uni.overrider.ConfigOverride())
 
-		// force update state
-		ticker.SimulateTick()
-
-		hibernatingStateAfter := <-uni.overrider.StateUpdates()
-		require.Equal(t, true, hibernatingStateAfter)
+		// update state by getting flags
+		require.NoError(t, uni.overrider.ExportedUpdateFlagsStatus())
 
 		expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
 		require.Equal(t, expectedOverride, uni.overrider.ConfigOverride())
@@ -100,16 +123,13 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		require.NoError(t, uni.overrider.Start())
 
 		// initially enters hibernation
-		hibernatingStateBefore := <-uni.overrider.StateUpdates()
-		require.Equal(t, true, hibernatingStateBefore)
 		expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
 		require.Equal(t, expectedOverride, uni.overrider.ConfigOverride())
 
-		// force update state
-		ticker.SimulateTick()
+		// update state by getting flags
+		require.NoError(t, uni.overrider.ExportedUpdateFlagsStatus())
 
-		hibernatingStateAfter := <-uni.overrider.StateUpdates()
-		require.Equal(t, false, hibernatingStateAfter)
+		// should exit hibernation
 		require.Nil(t, uni.overrider.ConfigOverride())
 	})
 

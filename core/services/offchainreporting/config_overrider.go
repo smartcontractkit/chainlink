@@ -27,10 +27,9 @@ type ConfigOverriderImpl struct {
 	DeltaCFromAddress        time.Duration
 
 	// Start/Stop lifecycle
-	ctx            context.Context
-	ctxCancel      context.CancelFunc
-	chDone         chan struct{}
-	chStateUpdated chan bool
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	chDone    chan struct{}
 
 	mu sync.RWMutex
 }
@@ -67,7 +66,6 @@ func NewConfigOverriderImpl(
 		ctx,
 		cancel,
 		make(chan struct{}),
-		make(chan bool, 1),
 		sync.RWMutex{},
 	}
 
@@ -127,26 +125,8 @@ func (c *ConfigOverriderImpl) updateFlagsStatus() error {
 		)
 		c.lastStateChangeTimestamp = time.Now()
 		c.isHibernating = shouldHibernate
-		c.sendStateUpdate(shouldHibernate)
 	}
 	return nil
-}
-
-func (c *ConfigOverriderImpl) sendStateUpdate(hibernating bool) {
-	// empty the channel
-	select {
-	case <-c.chStateUpdated:
-	default:
-	}
-	// send newest state
-	select {
-	case c.chStateUpdated <- hibernating:
-	default:
-	}
-}
-
-func (c *ConfigOverriderImpl) StateUpdates() chan bool {
-	return c.chStateUpdated
 }
 
 func (c *ConfigOverriderImpl) ConfigOverride() *ocrtypes.ConfigOverride {
