@@ -47,7 +47,7 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 	if len(pk) != secp256k1.CompressedPublicKeyLength {
 		panic(fmt.Errorf("public key %x has wrong length", pk))
 	}
-	if l := copy(sk.PublicKey[:], pk[:]); l != secp256k1.CompressedPublicKeyLength {
+	if l := copy(sk.PublicKey[:], pk); l != secp256k1.CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
 	}
 	return sk, nil
