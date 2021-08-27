@@ -2195,6 +2195,30 @@ describe("Operator", () => {
         });
       });
     });
+
+    describe("when the response data is too short", () => {
+      const response = "Hi mom!";
+      const responseTypes = ["bytes32"];
+      const responseValues = [toBytes32String(response)];
+
+      it("reverts", async () => {
+        let basicConsumer = await basicConsumerFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address, operator.address, specId);
+        const paymentAmount = toWei("1");
+        await link.transfer(basicConsumer.address, paymentAmount);
+        const tx = await basicConsumer.requestEthereumPrice("USD", paymentAmount);
+        const receipt = await tx.wait();
+        let request = decodeRunRequest(receipt.logs?.[3]);
+
+        const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
+        fulfillParams[5] = "0x"; // overwrite the data to be of lenght 0
+        await evmRevert(
+          operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams),
+          "Response must be > 32 bytes",
+        );
+      });
+    });
   });
 
   describe("#withdraw", () => {
