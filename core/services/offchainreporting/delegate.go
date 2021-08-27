@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -37,21 +38,22 @@ type DelegateConfig interface {
 	Dev() bool
 	EvmGasLimitDefault() uint64
 	JobPipelineResultWriteQueueDepth() uint64
-	OCRBlockchainTimeout(time.Duration) time.Duration
-	OCRContractConfirmations(uint16) uint16
-	OCRContractPollInterval(time.Duration) time.Duration
-	OCRContractSubscribeInterval(time.Duration) time.Duration
+	OCRBlockchainTimeout() time.Duration
+	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
-	OCRKeyBundleID(*models.Sha256Hash) (models.Sha256Hash, error)
+	OCRKeyBundleID() (models.Sha256Hash, error)
 	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout(time.Duration) time.Duration
+	OCRObservationTimeout() time.Duration
 	OCRTraceLogging() bool
-	OCRTransmitterAddress(*ethkey.EIP55Address) (ethkey.EIP55Address, error)
-	P2PBootstrapPeers([]string) ([]string, error)
-	P2PPeerID(*p2pkey.PeerID) (p2pkey.PeerID, error)
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
+	P2PBootstrapPeers() ([]string, error)
+	P2PPeerID() (p2pkey.PeerID, error)
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	FlagsContractAddress() string
 }
 
 type Delegate struct {
@@ -70,6 +72,8 @@ type Delegate struct {
 }
 
 var _ job.Delegate = (*Delegate)(nil)
+
+const ConfigOverriderPollInterval = 30 * time.Second
 
 func NewDelegate(
 	db *gorm.DB,
@@ -112,7 +116,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if jobSpec.OffchainreportingOracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
-	concreteSpec := jobSpec.OffchainreportingOracleSpec
+	concreteSpec := *job.LoadDynamicConfigVars(d.config, *jobSpec.OffchainreportingOracleSpec)
 
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -150,9 +154,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	)
 	services = append(services, tracker)
 
-	peerID, err := d.config.P2PPeerID(concreteSpec.P2PPeerID)
-	if err != nil {
-		return nil, err
+	var peerID p2pkey.PeerID
+	if concreteSpec.P2PPeerID != nil {
+		peerID = *concreteSpec.P2PPeerID
+	} else {
+		peerID, err = d.config.P2PPeerID()
+		if err != nil {
+			return nil, err
+		}
 	}
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
@@ -162,9 +171,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	} else if peerWrapper.PeerID != peerID {
 		return nil, errors.Errorf("given peer with ID '%s' does not match OCR configured peer with ID: %s", peerWrapper.PeerID.String(), peerID.String())
 	}
-	bootstrapPeers, err := d.config.P2PBootstrapPeers(concreteSpec.P2PBootstrapPeers)
-	if err != nil {
-		return nil, err
+	var bootstrapPeers []string
+	if concreteSpec.P2PBootstrapPeers != nil {
+		bootstrapPeers = concreteSpec.P2PBootstrapPeers
+	} else {
+		bootstrapPeers, err = d.config.P2PBootstrapPeers()
+		if err != nil {
+			return nil, err
+		}
 	}
 	v2BootstrapPeers := d.config.P2PV2Bootstrappers()
 
@@ -177,29 +191,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
-	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
-		ContractConfigConfirmations:            d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
-		SkipContractConfigConfirmations:        d.config.Chain().IsL2(),
-		ContractConfigTrackerPollInterval:      d.config.OCRContractPollInterval(time.Duration(concreteSpec.ContractConfigTrackerPollInterval)),
-		ContractConfigTrackerSubscribeInterval: d.config.OCRContractSubscribeInterval(time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval)),
-		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
-		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
-		DataSourceGracePeriod:                  d.config.OCRObservationGracePeriod(),
-	}
-	if d.config.Dev() {
-		// Skips config validation so we can use any config parameters we want.
-		// For example to lower contractConfigTrackerPollInterval to speed up tests.
-		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
-	}
-	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+	lc := NewLocalConfig(d.config, concreteSpec)
+	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
 	if concreteSpec.IsBootstrapPeer {
-		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
+		var bootstrapper *ocr.BootstrapNode
+		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			V1Bootstrappers:       bootstrapPeers,
 			ContractConfigTracker: tracker,
@@ -215,9 +215,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		if len(bootstrapPeers) < 1 {
 			return nil, errors.New("need at least one bootstrap peer")
 		}
-		kb, err := d.config.OCRKeyBundleID(concreteSpec.EncryptedOCRKeyBundleID)
-		if err != nil {
-			return nil, err
+		var kb models.Sha256Hash
+		if concreteSpec.EncryptedOCRKeyBundleID != nil {
+			kb = *concreteSpec.EncryptedOCRKeyBundleID
+		} else {
+			kb, err = d.config.OCRKeyBundleID()
+			if err != nil {
+				return nil, err
+			}
 		}
 		ocrkey, exists := d.keyStore.DecryptedOCRKey(kb)
 		if !exists {
@@ -228,9 +233,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		ta, err := d.config.OCRTransmitterAddress(concreteSpec.TransmitterAddress)
-		if err != nil {
-			return nil, err
+		var ta ethkey.EIP55Address
+		if concreteSpec.TransmitterAddress != nil {
+			ta = *concreteSpec.TransmitterAddress
+		} else {
+			ta, err = d.config.OCRTransmitterAddress()
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, d.config.OCRDefaultTransactionQueueDepth())
@@ -248,6 +258,26 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		runResults := make(chan pipeline.Run, d.config.JobPipelineResultWriteQueueDepth())
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
+
+		var configOverrider ocrtypes.ConfigOverrider
+		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, concreteSpec.ContractAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to create ConfigOverrider")
+		}
+
+		// NOTE: conditional assigning to `configOverrider` is necessary due to the unfortunate fact that assigning `nil` to an
+		// interface variable causes `x == nil` checks to always return false, so methods on the interface cannot be safely called then.
+		//
+		// the problematic case would be:
+		//    configOverriderService, err := d.maybeCreateConfigOverrider(...)
+		//	  if err != nil { return ... }
+		//	  configOverrider = configOverriderService // contract might be `nil`
+		//    assert.False(configOverrider != nil) // even if 'contract' was nil, this check will return true, unexpectedly
+		if configOverriderService != nil {
+			services = append(services, configOverriderService)
+			configOverrider = configOverriderService
+		}
+
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
 			Datasource: &dataSource{
@@ -266,6 +296,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			V1Bootstrappers:              bootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.Address()),
+			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
@@ -285,4 +316,21 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 
 	return services, nil
+}
+
+func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+	flagsContractAddress := d.config.FlagsContractAddress()
+	if flagsContractAddress != "" {
+		flags, err := NewFlags(flagsContractAddress, d.ethClient)
+		if err != nil {
+			return nil, errors.Wrapf(err,
+				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",
+				flagsContractAddress,
+			)
+		}
+
+		ticker := utils.NewPausableTicker(ConfigOverriderPollInterval)
+		return NewConfigOverriderImpl(logger, contractAddress, flags, &ticker)
+	}
+	return nil, nil
 }

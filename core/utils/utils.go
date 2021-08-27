@@ -109,7 +109,7 @@ func FormatJSON(v interface{}) ([]byte, error) {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	return strings.ReplaceAll(uuid.NewV4().String(), "-", "")
 }
 
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The
@@ -762,6 +762,13 @@ func DebugPanic() {
 		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
 		panic(err)
 	}
+}
+
+type TickerBase interface {
+	Resume()
+	Pause()
+	Destroy()
+	Ticks() <-chan time.Time
 }
 
 // PausableTicker stores a ticker with a duration

@@ -313,13 +313,13 @@ func EVMWordBigInt(val *big.Int) ([]byte, error) {
 
 func Bytes32FromString(s string) [32]byte {
 	var b32 [32]byte
-	copy(b32[:], s[:])
+	copy(b32[:], s)
 	return b32
 }
 
 func Bytes4FromString(s string) [4]byte {
 	var b4 [4]byte
-	copy(b4[:], s[:])
+	copy(b4[:], s)
 	return b4
 }
 

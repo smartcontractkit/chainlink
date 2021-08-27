@@ -188,9 +188,7 @@ func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal
 	if cfg.MigrateDatabase() {
 		dbOrm.SetLogging(cfg.LogSQLStatements() || cfg.LogSQLMigrations())
 
-		err = dbOrm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-			return migrations.Migrate(db)
-		})
+		err = dbOrm.RawDBWithAdvisoryLock(migrations.Migrate)
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}

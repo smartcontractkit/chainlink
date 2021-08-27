@@ -5,6 +5,7 @@ linters:
     - revive
     - goimports
     - gosec
+    - rowserrcheck
   disable:
     # Disable these default linters so we match our current lint set up
     - deadcode
