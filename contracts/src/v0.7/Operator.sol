@@ -679,6 +679,7 @@ contract Operator is
     bytes32 requestId,
     bytes calldata data
   ) {
+    require(data.length >= 32, "Response must be > 32 bytes");
     bytes32 firstDataWord;
     assembly{
       // extract the first word from data
