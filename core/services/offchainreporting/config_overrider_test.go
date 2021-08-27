@@ -71,7 +71,9 @@ func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 	require.Nil(t, uni.overrider.ConfigOverride())
 
 	expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
-	g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.Equal(expectedOverride))
+
+	// timeout needs to be longer than the poll interval of 3 seconds
+	g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 10*time.Second, 450*time.Millisecond).Should(gomega.Equal(expectedOverride))
 }
 
 func Test_OCRConfigOverrider(t *testing.T) {
