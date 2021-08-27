@@ -265,7 +265,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.Wrap(err, "Failed to create ConfigOverrider")
 		}
 
-		// NOT: conditional assigning to `configOverrider` is necessary due to the unfortunate fact that assigning `nil` to an
+		// NOTE: conditional assigning to `configOverrider` is necessary due to the unfortunate fact that assigning `nil` to an
 		// interface variable causes `x == nil` checks to always return false, so methods on the interface cannot be safely called then.
 		//
 		// the problematic case would be:
