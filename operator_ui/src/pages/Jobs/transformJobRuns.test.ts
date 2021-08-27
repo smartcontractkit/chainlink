@@ -22,6 +22,7 @@ describe('transformPipelineJobRun', () => {
     fetch -> parse -> multiply;
 `,
         ID: 1,
+        jobId: '1',
       },
       status: 'errored',
       taskRuns: [
