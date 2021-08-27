@@ -27,12 +27,12 @@ type NetworkingConfig interface {
 	OCRTraceLogging() bool
 	P2PAnnounceIP() net.IP
 	P2PAnnouncePort() uint16
-	P2PBootstrapPeers([]string) ([]string, error)
+	P2PBootstrapPeers() ([]string, error)
 	P2PDHTAnnouncementCounterUserPrefix() uint32
 	P2PListenIP() net.IP
 	P2PListenPort() uint16
 	P2PNetworkingStack() ocrnetworking.NetworkingStack
-	P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error)
+	P2PPeerID() (p2pkey.PeerID, error)
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
@@ -92,7 +92,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		var key p2pkey.Key
 		var matched bool
 		checkedKeys := []string{}
-		configuredPeerID, err := p.config.P2PPeerID(nil)
+		configuredPeerID, err := p.config.P2PPeerID()
 		if err != nil {
 			return errors.Wrap(err, "failed to start peer wrapper")
 		}

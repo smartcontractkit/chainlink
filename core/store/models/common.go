@@ -486,6 +486,10 @@ func (d Duration) Value() (driver.Value, error) {
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
+func (i Interval) Duration() time.Duration {
+	return time.Duration(i)
+}
+
 // MarshalText implements the text.Marshaler interface.
 func (i Interval) MarshalText() ([]byte, error) {
 	return []byte(time.Duration(i).String()), nil

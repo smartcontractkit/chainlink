@@ -15,10 +15,10 @@ type Service interface {
 type Config interface {
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseURL() url.URL
-	OCRBlockchainTimeout(time.Duration) time.Duration
-	OCRContractConfirmations(uint16) uint16
-	OCRContractPollInterval(time.Duration) time.Duration
-	OCRContractSubscribeInterval(time.Duration) time.Duration
-	OCRObservationTimeout(time.Duration) time.Duration
+	OCRBlockchainTimeout() time.Duration
+	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
+	OCRObservationTimeout() time.Duration
 	TriggerFallbackDBPollInterval() time.Duration
 }
