@@ -45,11 +45,9 @@ const fetchJobs = async (pageSize: number) => {
 }
 
 const fetchRuns = async (size: number) => {
-  const runs = await v2.runs.getAllJobRuns({ page: 1, size })
+  const response = await v2.runs.getAllJobRuns({ page: 1, size })
 
-  console.log(runs)
-
-  return { runs: [], count: 0 }
+  return { runs: response.data, count: response.meta.count }
 }
 
 export const Index = ({
