@@ -181,7 +181,7 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 			continue
 		}
 		var reqID [32]byte
-		copy(reqID[:], b[:])
+		copy(reqID[:], b)
 		respCounts[reqID] = uint64(c.Count)
 	}
 	return respCounts
