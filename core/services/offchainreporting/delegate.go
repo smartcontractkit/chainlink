@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -52,6 +53,7 @@ type DelegateConfig interface {
 	P2PBootstrapPeers() ([]string, error)
 	P2PPeerID() (p2pkey.PeerID, error)
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	FlagsContractAddress() string
 }
 
 type Delegate struct {
@@ -70,6 +72,8 @@ type Delegate struct {
 }
 
 var _ job.Delegate = (*Delegate)(nil)
+
+const ConfigOverriderPollInterval = 30 * time.Second
 
 func NewDelegate(
 	db *gorm.DB,
@@ -254,6 +258,26 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		runResults := make(chan pipeline.Run, d.config.JobPipelineResultWriteQueueDepth())
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
+
+		var configOverrider ocrtypes.ConfigOverrider
+		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, concreteSpec.ContractAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to create ConfigOverrider")
+		}
+
+		// NOTE: conditional assigning to `configOverrider` is necessary due to the unfortunate fact that assigning `nil` to an
+		// interface variable causes `x == nil` checks to always return false, so methods on the interface cannot be safely called then.
+		//
+		// the problematic case would be:
+		//    configOverriderService, err := d.maybeCreateConfigOverrider(...)
+		//	  if err != nil { return ... }
+		//	  configOverrider = configOverriderService // contract might be `nil`
+		//    assert.False(configOverrider != nil) // even if 'contract' was nil, this check will return true, unexpectedly
+		if configOverriderService != nil {
+			services = append(services, configOverriderService)
+			configOverrider = configOverriderService
+		}
+
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
 			Datasource: &dataSource{
@@ -272,6 +296,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			V1Bootstrappers:              bootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.Address()),
+			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
@@ -291,4 +316,21 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 
 	return services, nil
+}
+
+func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+	flagsContractAddress := d.config.FlagsContractAddress()
+	if flagsContractAddress != "" {
+		flags, err := NewFlags(flagsContractAddress, d.ethClient)
+		if err != nil {
+			return nil, errors.Wrapf(err,
+				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",
+				flagsContractAddress,
+			)
+		}
+
+		ticker := utils.NewPausableTicker(ConfigOverriderPollInterval)
+		return NewConfigOverriderImpl(logger, contractAddress, flags, &ticker)
+	}
+	return nil, nil
 }
