@@ -380,7 +380,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	if s == "" {
 		return nil
@@ -392,7 +392,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 
 	_, err = CronParser.Parse(s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	*c = Cron(s)
 	return nil
