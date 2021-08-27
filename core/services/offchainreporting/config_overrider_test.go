@@ -67,6 +67,9 @@ func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 
 	require.NoError(t, uni.overrider.Start())
 
+	// not hibernating initially
+	require.Nil(t, uni.overrider.ConfigOverride())
+
 	expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
 	g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 5*time.Second, 450*time.Millisecond).Should(gomega.Equal(expectedOverride))
 }
