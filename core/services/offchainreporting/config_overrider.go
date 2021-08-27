@@ -110,7 +110,7 @@ func (c *ConfigOverriderImpl) eventLoop() {
 func (c *ConfigOverriderImpl) updateFlagsStatus() error {
 	isFlagLowered, err := c.flags.IsLowered(c.contractAddress.Address())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to check if flag is lowered")
 	}
 	shouldHibernate := !isFlagLowered
 

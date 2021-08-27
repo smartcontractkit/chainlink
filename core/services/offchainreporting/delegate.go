@@ -262,7 +262,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, concreteSpec.ContractAddress)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to create ConfigOverrider")
 		}
 
 		// NOT: conditional assigning to `configOverrider` is necessary due to the unfortunate fact that assigning `nil` to an
