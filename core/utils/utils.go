@@ -764,6 +764,13 @@ func DebugPanic() {
 	}
 }
 
+type TickerBase interface {
+	Resume()
+	Pause()
+	Destroy()
+	Ticks() <-chan time.Time
+}
+
 // PausableTicker stores a ticker with a duration
 type PausableTicker struct {
 	ticker   *time.Ticker

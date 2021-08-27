@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/consumer_wrapper"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -32,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
@@ -435,7 +435,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	assert.Equal(t, big.NewInt(61464), v)
 }
 
-func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator) {
+func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
 	owner := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
@@ -473,8 +473,12 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	require.NoError(t, err)
 	_, err = linkContract.Transfer(owner, ocrContractAddress, big.NewInt(1000))
 	require.NoError(t, err)
+
+	flagsContractAddress, _, flagsContract, err := flags_wrapper.DeployFlags(owner, b, owner.From)
+	require.NoError(t, err, "failed to deploy flags contract to simulated ethereum blockchain")
+
 	b.Commit()
-	return owner, b, ocrContractAddress, ocrContract
+	return owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, *configtest.TestEVMConfig, func()) {
@@ -518,8 +522,8 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 
 func TestIntegration_OCR(t *testing.T) {
 	t.Parallel()
-
-	owner, b, ocrContractAddress, ocrContract := setupOCRContracts(t)
+	g := gomega.NewGomegaWithT(t)
+	owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
@@ -541,6 +545,7 @@ func TestIntegration_OCR(t *testing.T) {
 		cfg.GeneralConfig.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
 		// GracePeriod < ObservationTimeout
 		cfg.GeneralConfig.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
+		cfg.Overrides.FlagsContractAddress = null.StringFrom(flagsContractAddress.String())
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
@@ -597,6 +602,14 @@ isBootstrapPeer    = true
 	require.NoError(t, err)
 	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
 	require.NoError(t, err)
+
+	// Raising flags to initiate hibernation
+	_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
+	require.NoError(t, err, "failed to raise flag for ocrContractAddress")
+	_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
+	require.NoError(t, err, "failed to raise flag for ZeroAddress")
+
+	b.Commit()
 
 	var jids []int32
 	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
@@ -699,7 +712,7 @@ observationSource = """
 	wg.Wait()
 
 	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
-	gomega.NewGomegaWithT(t).Eventually(func() string {
+	g.Eventually(func() string {
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
