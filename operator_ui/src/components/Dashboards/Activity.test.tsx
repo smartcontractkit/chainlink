@@ -1,22 +1,24 @@
 import React from 'react'
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
-import { JobRun } from 'operator_ui'
 import mountWithTheme from '../../../support/test-helpers/mountWithTheme'
 import Activity from '../../../src/components/Dashboards/Activity'
+import { JobRunV2 } from 'core/store/models'
 
 const CREATED_AT = '2019-06-11T14:37:42.077995-07:00'
 
 describe('components/Dashboards/Activity', () => {
   it('displays the given runs', () => {
-    const runs = [partialAsFull<JobRun>({ id: 'runA', createdAt: CREATED_AT })]
+    const runs = [
+      partialAsFull<JobRunV2>({ id: 'runA', createdAt: CREATED_AT }),
+    ]
     const component = mountWithTheme(<Activity runs={runs} pageSize={1} />)
     expect(component.text()).toContain('Run: runA')
   })
 
   it('displays a "View More" link when there is more than 1 page of runs', () => {
     const runs = [
-      partialAsFull<JobRun>({ id: 'runA', createdAt: CREATED_AT }),
-      partialAsFull<JobRun>({ id: 'runB', createdAt: CREATED_AT }),
+      partialAsFull<JobRunV2>({ id: 'runA', createdAt: CREATED_AT }),
+      partialAsFull<JobRunV2>({ id: 'runB', createdAt: CREATED_AT }),
     ]
 
     const componentWithMore = mountWithTheme(
