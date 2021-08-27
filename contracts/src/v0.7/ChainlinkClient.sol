@@ -25,12 +25,12 @@ contract ChainlinkClient {
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
   address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
 
-  ENSInterface private ens;
-  bytes32 private ensNode;
-  LinkTokenInterface private link;
-  OperatorInterface private oracle;
-  uint256 private requestCount = 1;
-  mapping(bytes32 => address) private pendingRequests;
+  ENSInterface private s_ens;
+  bytes32 private s_ensNode;
+  LinkTokenInterface private s_link;
+  OperatorInterface private s_oracle;
+  uint256 private s_requestCount = 1;
+  mapping(bytes32 => address) private s_pendingRequests;
 
   event ChainlinkRequested(
     bytes32 indexed id
@@ -80,7 +80,7 @@ contract ChainlinkClient {
       bytes32
     )
   {
-    return sendChainlinkRequestTo(address(oracle), req, payment);
+    return sendChainlinkRequestTo(address(s_oracle), req, payment);
   }
 
   /**
@@ -103,7 +103,7 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    return rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION, oracle.oracleRequest.selector);
+    return _rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION, ChainlinkRequestInterface.oracleRequest.selector);
   }
 
   /**
@@ -123,7 +123,7 @@ contract ChainlinkClient {
       bytes32
     )
   {
-    return requestOracleDataFrom(address(oracle), req, payment);
+    return requestOracleDataFrom(address(s_oracle), req, payment);
   }
 
   /**
@@ -147,7 +147,7 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    return rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION, oracle.requestOracleData.selector);
+    return _rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION, OperatorInterface.requestOracleData.selector);
   }
 
   /**
@@ -158,7 +158,7 @@ contract ChainlinkClient {
    * @param argsVersion The version of data support (single word, multi word)
    * @return requestId The request ID
    */
-  function rawRequest(
+  function _rawRequest(
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment,
@@ -170,9 +170,9 @@ contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    requestId = keccak256(abi.encodePacked(this, requestCount));
-    req.nonce = requestCount;
-    pendingRequests[requestId] = oracleAddress;
+    requestId = keccak256(abi.encodePacked(this, s_requestCount));
+    req.nonce = s_requestCount;
+    s_pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
     bytes memory encodedData = abi.encodeWithSelector(
       funcSelector,
@@ -184,8 +184,8 @@ contract ChainlinkClient {
       req.nonce,
       argsVersion,
       req.buf.buf);
-    requestCount += 1;
-    require(link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
+    s_requestCount += 1;
+    require(s_link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
   }
 
   /**
@@ -206,8 +206,8 @@ contract ChainlinkClient {
   )
     internal
   {
-    OperatorInterface requested = OperatorInterface(pendingRequests[requestId]);
-    delete pendingRequests[requestId];
+    OperatorInterface requested = OperatorInterface(s_pendingRequests[requestId]);
+    delete s_pendingRequests[requestId];
     emit ChainlinkCancelled(requestId);
     requested.cancelOracleRequest(requestId, payment, callbackFunc, expiration);
   }
@@ -223,7 +223,7 @@ contract ChainlinkClient {
       uint256
     )
   {
-    return requestCount;
+    return s_requestCount;
   }
 
 
@@ -236,7 +236,7 @@ contract ChainlinkClient {
   )
     internal
   {
-    oracle = OperatorInterface(oracleAddress);
+    s_oracle = OperatorInterface(oracleAddress);
   }
 
   /**
@@ -248,7 +248,7 @@ contract ChainlinkClient {
   )
     internal
   {
-    link = LinkTokenInterface(linkAddress);
+    s_link = LinkTokenInterface(linkAddress);
   }
 
   /**
@@ -272,7 +272,7 @@ contract ChainlinkClient {
       address
     )
   {
-    return address(link);
+    return address(s_link);
   }
 
   /**
@@ -286,7 +286,7 @@ contract ChainlinkClient {
       address
     )
   {
-    return address(oracle);
+    return address(s_oracle);
   }
 
   /**
@@ -302,7 +302,7 @@ contract ChainlinkClient {
     internal
     notPendingRequest(requestId)
   {
-    pendingRequests[requestId] = oracleAddress;
+    s_pendingRequests[requestId] = oracleAddress;
   }
 
   /**
@@ -317,10 +317,10 @@ contract ChainlinkClient {
   )
     internal
   {
-    ens = ENSInterface(ensAddress);
-    ensNode = node;
-    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
-    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(linkSubnode));
+    s_ens = ENSInterface(ensAddress);
+    s_ensNode = node;
+    bytes32 linkSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_TOKEN_SUBNAME));
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(linkSubnode));
     setChainlinkToken(resolver.addr(linkSubnode));
     updateChainlinkOracleWithENS();
   }
@@ -332,8 +332,8 @@ contract ChainlinkClient {
   function updateChainlinkOracleWithENS()
     internal
   {
-    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
-    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(oracleSubnode));
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_ORACLE_SUBNAME));
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(oracleSubnode));
     setChainlinkOracle(resolver.addr(oracleSubnode));
   }
 
@@ -359,9 +359,9 @@ contract ChainlinkClient {
     bytes32 requestId
   )
   {
-    require(msg.sender == pendingRequests[requestId],
+    require(msg.sender == s_pendingRequests[requestId],
             "Source must be the oracle of the request");
-    delete pendingRequests[requestId];
+    delete s_pendingRequests[requestId];
     emit ChainlinkFulfilled(requestId);
     _;
   }
@@ -374,7 +374,7 @@ contract ChainlinkClient {
     bytes32 requestId
   )
   {
-    require(pendingRequests[requestId] == address(0), "Request is already pending");
+    require(s_pendingRequests[requestId] == address(0), "Request is already pending");
     _;
   }
 }
