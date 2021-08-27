@@ -113,35 +113,35 @@ type GeneralConfig interface {
 	LogSQLStatements() bool
 	LogToDisk() bool
 	MigrateDatabase() bool
-	OCRBlockchainTimeout(override time.Duration) time.Duration
+	OCRBlockchainTimeout() time.Duration
 	OCRBootstrapCheckInterval() time.Duration
-	OCRContractPollInterval(override time.Duration) time.Duration
-	OCRContractSubscribeInterval(override time.Duration) time.Duration
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDHTLookupInterval() int
 	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
 	OCRIncomingMessageBufferSize() int
-	OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error)
-	OCRMonitoringEndpoint(override string) string
+	OCRKeyBundleID() (models.Sha256Hash, error)
+	OCRMonitoringEndpoint() string
 	OCRNewStreamTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout(override time.Duration) time.Duration
+	OCRObservationTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
 	OCRTraceLogging() bool
-	OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error)
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
 	P2PAnnounceIP() net.IP
 	P2PAnnouncePort() uint16
-	P2PBootstrapPeers(override []string) ([]string, error)
+	P2PBootstrapPeers() ([]string, error)
 	P2PDHTAnnouncementCounterUserPrefix() uint32
 	P2PListenIP() net.IP
 	P2PListenPort() uint16
 	P2PListenPortRaw() string
 	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
 	P2PNetworkingStackRaw() string
-	P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error)
+	P2PPeerID() (p2pkey.PeerID, error)
 	P2PPeerIDRaw() string
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
@@ -256,23 +256,23 @@ func (c *generalConfig) Validate() error {
 		logger.Warn("MINIMUM_CONTRACT_PAYMENT is now deprecated and will be removed from a future release, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
 	}
 
-	if _, err := c.P2PPeerID(nil); errors.Cause(err) == ErrInvalid {
+	if _, err := c.P2PPeerID(); errors.Cause(err) == ErrInvalid {
 		return err
 	}
-	if _, err := c.OCRKeyBundleID(nil); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(nil); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRTransmitterAddress(); errors.Cause(err) == ErrInvalid {
 		return err
 	}
-	if peers, err := c.P2PBootstrapPeers(nil); err == nil {
+	if peers, err := c.P2PBootstrapPeers(); err == nil {
 		for i := range peers {
 			if _, err := multiaddr.NewMultiaddr(peers[i]); err != nil {
 				return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
 			}
 		}
 	}
-	if me := c.OCRMonitoringEndpoint(""); me != "" {
+	if me := c.OCRMonitoringEndpoint(); me != "" {
 		if _, err := url.Parse(me); err != nil {
 			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
@@ -684,31 +684,28 @@ func (c *generalConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
 	return c.getWithFallback("OCRContractTransmitterTransmitTimeout", parseDuration).(time.Duration)
 }
 
-func (c *generalConfig) getDurationWithOverride(override time.Duration, field string) time.Duration {
-	if override != time.Duration(0) {
-		return override
-	}
+func (c *generalConfig) getDuration(field string) time.Duration {
 	return c.getWithFallback(field, parseDuration).(time.Duration)
 }
 
-func (c *generalConfig) OCRObservationTimeout(override time.Duration) time.Duration {
-	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+func (c *generalConfig) OCRObservationTimeout() time.Duration {
+	return c.getDuration("OCRObservationTimeout")
 }
 
 func (c *generalConfig) OCRObservationGracePeriod() time.Duration {
 	return c.getWithFallback("OCRObservationGracePeriod", parseDuration).(time.Duration)
 }
 
-func (c *generalConfig) OCRBlockchainTimeout(override time.Duration) time.Duration {
-	return c.getDurationWithOverride(override, "OCRBlockchainTimeout")
+func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
+	return c.getDuration("OCRBlockchainTimeout")
 }
 
-func (c *generalConfig) OCRContractSubscribeInterval(override time.Duration) time.Duration {
-	return c.getDurationWithOverride(override, "OCRContractSubscribeInterval")
+func (c *generalConfig) OCRContractSubscribeInterval() time.Duration {
+	return c.getDuration("OCRContractSubscribeInterval")
 }
 
-func (c *generalConfig) OCRContractPollInterval(override time.Duration) time.Duration {
-	return c.getDurationWithOverride(override, "OCRContractPollInterval")
+func (c *generalConfig) OCRContractPollInterval() time.Duration {
+	return c.getDuration("OCRContractPollInterval")
 }
 
 func (c *generalConfig) OCRDatabaseTimeout() time.Duration {
@@ -737,10 +734,7 @@ func (c *generalConfig) OCRTraceLogging() bool {
 	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
 }
 
-func (c *generalConfig) OCRMonitoringEndpoint(override string) string {
-	if override != "" {
-		return override
-	}
+func (c *generalConfig) OCRMonitoringEndpoint() string {
 	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
 }
 
@@ -750,10 +744,7 @@ func (c *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("OCRDefaultTransactionQueueDepth"))
 }
 
-func (c *generalConfig) OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error) {
-	if override != nil {
-		return *override, nil
-	}
+func (c *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
 	if taStr != "" {
 		ta, err := ethkey.NewEIP55Address(taStr)
@@ -765,10 +756,7 @@ func (c *generalConfig) OCRTransmitterAddress(override *ethkey.EIP55Address) (et
 	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS")
 }
 
-func (c *generalConfig) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error) {
-	if override != nil {
-		return *override, nil
-	}
+func (c *generalConfig) OCRKeyBundleID() (models.Sha256Hash, error) {
 	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
 	if kbStr != "" {
 		kb, err := models.Sha256HashFromHex(kbStr)
@@ -914,10 +902,7 @@ func (c *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c *generalConfig) P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error) {
-	if override != nil {
-		return *override, nil
-	}
+func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 	func() {
 		c.p2ppeerIDmtx.Lock()
 		defer c.p2ppeerIDmtx.Unlock()
@@ -960,10 +945,7 @@ func (c *generalConfig) P2PPeerIDRaw() string {
 	return c.viper.GetString(EnvVarName("P2PPeerID"))
 }
 
-func (c *generalConfig) P2PBootstrapPeers(override []string) ([]string, error) {
-	if override != nil {
-		return override, nil
-	}
+func (c *generalConfig) P2PBootstrapPeers() ([]string, error) {
 	if c.viper.IsSet(EnvVarName("P2PBootstrapPeers")) {
 		bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
 		if bps != nil {

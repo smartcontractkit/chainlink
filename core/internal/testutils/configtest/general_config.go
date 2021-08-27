@@ -181,10 +181,7 @@ func (c *TestGeneralConfig) P2PListenPort() uint16 {
 	return 12345
 }
 
-func (c *TestGeneralConfig) P2PPeerID(override *p2pkey.PeerID) (p2pkey.PeerID, error) {
-	if override != nil {
-		return *override, nil
-	}
+func (c *TestGeneralConfig) P2PPeerID() (p2pkey.PeerID, error) {
 	if c.Overrides.P2PPeerIDError != nil {
 		return "", c.Overrides.P2PPeerIDError
 	}
@@ -284,15 +281,11 @@ func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
 	return c.GeneralConfig.OCRObservationGracePeriod()
 }
 
-func (c *TestGeneralConfig) OCRObservationTimeout(override time.Duration) time.Duration {
-	if override != 0 {
-		return override
-	}
-
+func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
 	if c.Overrides.OCRObservationTimeout != nil {
 		return *c.Overrides.OCRObservationTimeout
 	}
-	return c.GeneralConfig.OCRObservationTimeout(override)
+	return c.GeneralConfig.OCRObservationTimeout()
 }
 
 func (c *TestGeneralConfig) LogToDisk() bool {
@@ -323,34 +316,25 @@ func (c *TestGeneralConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
 	return c.GeneralConfig.DefaultHTTPAllowUnrestrictedNetworkAccess()
 }
 
-func (c *TestGeneralConfig) P2PBootstrapPeers(override []string) ([]string, error) {
-	if override != nil {
-		return override, nil
-	}
+func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
 	if c.Overrides.P2PBootstrapPeers != nil {
 		return c.Overrides.P2PBootstrapPeers, nil
 	}
-	return c.GeneralConfig.P2PBootstrapPeers(override)
+	return c.GeneralConfig.P2PBootstrapPeers()
 }
 
-func (c *TestGeneralConfig) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error) {
-	if override != nil {
-		return *override, nil
-	}
+func (c *TestGeneralConfig) OCRKeyBundleID() (models.Sha256Hash, error) {
 	if c.Overrides.OCRKeyBundleID != nil {
 		return *c.Overrides.OCRKeyBundleID, nil
 	}
-	return c.GeneralConfig.OCRKeyBundleID(override)
+	return c.GeneralConfig.OCRKeyBundleID()
 }
 
-func (c *TestGeneralConfig) OCRTransmitterAddress(override *ethkey.EIP55Address) (ethkey.EIP55Address, error) {
-	if override != nil {
-		return *override, nil
-	}
+func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	if c.Overrides.OCRTransmitterAddress != nil {
 		return *c.Overrides.OCRTransmitterAddress, nil
 	}
-	return c.GeneralConfig.OCRTransmitterAddress(override)
+	return c.GeneralConfig.OCRTransmitterAddress()
 }
 
 // CreateProductionLogger returns a custom logger for the config's root
