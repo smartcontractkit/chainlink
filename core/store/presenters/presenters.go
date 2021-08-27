@@ -107,7 +107,7 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
 	}
-	p2pBootstrapPeers, _ := config.P2PBootstrapPeers(nil)
+	p2pBootstrapPeers, _ := config.P2PBootstrapPeers()
 	ethereumHTTPURL := ""
 	if config.EthereumHTTPURL() != nil {
 		ethereumHTTPURL = config.EthereumHTTPURL().String()

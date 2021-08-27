@@ -53,7 +53,7 @@ type EVMOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
-	OCRContractConfirmations(override uint16) uint16
+	OCRContractConfirmations() uint16
 	SetEvmGasPriceDefault(value *big.Int) error
 	Validate() error
 }
@@ -112,15 +112,14 @@ func (c *evmConfig) validate() (err error) {
 	if c.MinIncomingConfirmations() < 1 {
 		err = multierr.Combine(err, errors.New("MIN_INCOMING_CONFIRMATIONS must be greater than or equal to 1"))
 	}
-	var override time.Duration
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      c.OCRBlockchainTimeout(override),
-		ContractConfigConfirmations:            c.OCRContractConfirmations(0),
-		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(override),
-		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(override),
+		BlockchainTimeout:                      c.OCRBlockchainTimeout(),
+		ContractConfigConfirmations:            c.OCRContractConfirmations(),
+		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(),
+		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(),
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
-		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+		DataSourceTimeout:                      c.OCRObservationTimeout(),
 		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
@@ -418,10 +417,7 @@ func (c *evmConfig) LinkContractAddress() string {
 	return c.chainSpecificConfig.LinkContractAddress
 }
 
-func (c *evmConfig) OCRContractConfirmations(override uint16) uint16 {
-	if override != uint16(0) {
-		return override
-	}
+func (c *evmConfig) OCRContractConfirmations() uint16 {
 	val, ok := lookupEnv("OCR_CONTRACT_CONFIRMATIONS", parseUint16)
 	if ok {
 		return val.(uint16)
