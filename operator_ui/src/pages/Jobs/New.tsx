@@ -123,8 +123,12 @@ export const New = ({
 
   // Update the job spec value
   function handleValueChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setValue(event.target.value)
-    storage.set(`${PERSIST_SPEC}`, event.target.value)
+    const noWhiteSpaceValue = event.target.value.replace(
+      /[\u200B-\u200D\uFEFF]/g,
+      '',
+    )
+    setValue(noWhiteSpaceValue)
+    storage.set(`${PERSIST_SPEC}`, noWhiteSpaceValue)
     setValid(true)
   }
 
