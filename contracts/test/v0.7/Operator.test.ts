@@ -14,6 +14,7 @@ import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 import type { providers } from "ethers";
 import {
   convertCancelParams,
+  convertCancelByRequesterParams,
   convertFufillParams,
   convertFulfill2Params,
   decodeRunRequest,
@@ -83,6 +84,7 @@ describe("Operator", () => {
       "acceptAuthorizedReceivers",
       "acceptOwnableContracts",
       "cancelOracleRequest",
+      "cancelOracleRequestByRequester",
       "distributeFunds",
       "fulfillOracleRequest",
       "fulfillOracleRequest2",
@@ -2456,6 +2458,105 @@ describe("Operator", () => {
         it("transfers the tokens", async () => {
           bigNumEquals(requesterBalanceBefore.sub(requesterBalanceAfter), payment);
           bigNumEquals(receiverBalanceAfter.sub(receiverBalanceBefore), payment);
+        });
+      });
+    });
+  });
+
+  describe("#cancelOracleRequestByRequester", () => {
+    const nonce = 17;
+
+    describe("with no pending requests", () => {
+      it("fails", async () => {
+        const fakeRequest: RunRequest = {
+          requestId: ethers.utils.formatBytes32String("1337"),
+          payment: "0",
+          callbackFunc: getterSetterFactory.interface.getSighash("requestedBytes32"),
+          expiration: "999999999999",
+
+          callbackAddr: "",
+          data: Buffer.from(""),
+          dataVersion: 0,
+          specId: "",
+          requester: "",
+          topic: "",
+        };
+        await increaseTime5Minutes(ethers.provider);
+
+        await evmRevert(
+          operator
+            .connect(roles.stranger)
+            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(fakeRequest, nonce)),
+        );
+      });
+    });
+
+    describe("with a pending request", () => {
+      const startingBalance = 100;
+      let request: ReturnType<typeof decodeRunRequest>;
+      let receipt: providers.TransactionReceipt;
+
+      beforeEach(async () => {
+        const requestAmount = 20;
+
+        await link.transfer(await roles.consumer.getAddress(), startingBalance);
+
+        const args = encodeOracleRequest(specId, await roles.consumer.getAddress(), fHash, nonce, constants.HashZero);
+        const tx = await link.connect(roles.consumer).transferAndCall(operator.address, requestAmount, args);
+        receipt = await tx.wait();
+
+        assert.equal(3, receipt.logs?.length);
+        request = decodeRunRequest(receipt.logs?.[2]);
+
+        // pre conditions
+        const oracleBalance = await link.balanceOf(operator.address);
+        bigNumEquals(request.payment, oracleBalance);
+
+        const consumerAmount = await link.balanceOf(await roles.consumer.getAddress());
+        assert.equal(startingBalance - Number(request.payment), consumerAmount.toNumber());
+      });
+
+      describe("from a stranger", () => {
+        it("fails", async () => {
+          await evmRevert(
+            operator
+              .connect(roles.consumer)
+              .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce)),
+          );
+        });
+      });
+
+      describe("from the requester", () => {
+        it("refunds the correct amount", async () => {
+          await increaseTime5Minutes(ethers.provider);
+          await operator
+            .connect(roles.consumer)
+            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce));
+          const balance = await link.balanceOf(await roles.consumer.getAddress());
+
+          assert.equal(startingBalance, balance.toNumber()); // 100
+        });
+
+        it("triggers a cancellation event", async () => {
+          await increaseTime5Minutes(ethers.provider);
+          const tx = await operator
+            .connect(roles.consumer)
+            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce));
+          const receipt = await tx.wait();
+
+          assert.equal(receipt.logs?.length, 2);
+          assert.equal(request.requestId, receipt.logs?.[0].topics[1]);
+        });
+
+        it("fails when called twice", async () => {
+          await increaseTime5Minutes(ethers.provider);
+          await operator
+            .connect(roles.consumer)
+            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce));
+
+          await evmRevert(
+            operator.connect(roles.consumer).cancelOracleRequestByRequester(...convertCancelParams(request)),
+          );
         });
       });
     });

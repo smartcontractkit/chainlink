@@ -460,7 +460,37 @@ contract Operator is
     external
     override
   {
-    bytes31 paramsHash = _buildFunctionHash(payment, msg.sender, callbackFunc, expiration);
+    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
+    // solhint-disable-next-line not-rely-on-time
+    require(expiration <= block.timestamp, "Request is not expired");
+
+    delete s_commitments[requestId];
+    emit CancelOracleRequest(requestId);
+
+    linkToken.transfer(msg.sender, payment);
+  }
+
+  /**
+   * @notice Allows requester to cancel requests sent to this oracle contract.
+   * Will transfer the LINK sent for the request back to the recipient address.
+   * @dev Given params must hash to a commitment stored on the contract in order
+   * for the request to be valid. Emits CancelOracleRequest event.
+   * @param nonce The nonce used to generate the request ID
+   * @param payment The amount of payment given (specified in wei)
+   * @param callbackFunc The requester's specified callback function selector
+   * @param expiration The time of the expiration for the request
+   */
+  function cancelOracleRequestByRequester(
+    uint256 nonce,
+    uint256 payment,
+    bytes4 callbackFunc,
+    uint256 expiration
+  )
+    external
+  {
+    bytes32 requestId = keccak256(abi.encodePacked(msg.sender, nonce));
+    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
@@ -530,7 +560,7 @@ contract Operator is
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     expiration = block.timestamp.add(getExpiryTime);
-    bytes31 paramsHash = _buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
+    bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, _safeCastToUint8(dataVersion));
     s_tokensInEscrow = s_tokensInEscrow.add(payment);
     return (requestId, expiration);
@@ -554,7 +584,7 @@ contract Operator is
   )
     internal
   {
-    bytes31 paramsHash = _buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
+    bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     require(s_commitments[requestId].dataVersion <= _safeCastToUint8(dataVersion), "Data versions must match");
     s_tokensInEscrow = s_tokensInEscrow.sub(payment);
@@ -562,14 +592,14 @@ contract Operator is
   }
 
   /**
-   * @notice Build the bytes31 function hash from the payment, callback and expiration.
+   * @notice Build the bytes31 hash from the payment, callback and expiration.
    * @param payment The payment amount that will be released for the oracle (specified in wei)
    * @param callbackAddress The callback address to call for fulfillment
    * @param callbackFunctionId The callback function ID to use for fulfillment
    * @param expiration The expiration that the node should respond by before the requester can cancel
    * @return hash bytes31
    */
-  function _buildFunctionHash(
+  function _buildParamsHash(
     uint256 payment,
     address callbackAddress,
     bytes4 callbackFunctionId,

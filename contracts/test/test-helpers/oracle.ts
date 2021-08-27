@@ -206,6 +206,30 @@ export function convertCancelParams(
 }
 
 /**
+ * Convert the javascript format of the parameters needed to call the
+ * ```solidity
+ *  function cancelOracleRequestByRequester(
+ *    uint256 nonce,
+ *    uint256 _payment,
+ *    bytes4 _callbackFunc,
+ *    uint256 _expiration
+ *  )
+ * ```
+ * method on an Oracle.sol contract.
+ *
+ * @param nonce The nonce used to generate the request ID
+ * @param runRequest The run request to flatten into the correct order to perform the `cancelOracleRequest` function
+ * @param txOpts Additional ethereum tx options
+ */
+export function convertCancelByRequesterParams(
+  runRequest: RunRequest,
+  nonce: number,
+  txOpts: TxOptions = {},
+): [number, string, string, string, TxOptions] {
+  return [nonce, runRequest.payment, runRequest.callbackFunc, runRequest.expiration, txOpts];
+}
+
+/**
  * Abi encode parameters to call the `oracleRequest` method on the Oracle.sol contract.
  * ```solidity
  *  function oracleRequest(
