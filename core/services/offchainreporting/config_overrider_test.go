@@ -17,6 +17,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 type configOverriderUni struct {
@@ -25,12 +26,13 @@ type configOverriderUni struct {
 }
 
 func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsContract *mocks.Flags) (uni configOverriderUni) {
+	var testLogger = logger.CreateTestLogger(zapcore.DebugLevel)
 	contractAddress := cltest.NewEIP55Address()
 
 	flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
 	var err error
 	uni.overrider, err = offchainreporting.NewConfigOverriderImpl(
-		logger.Default,
+		testLogger,
 		contractAddress,
 		flags,
 		pollITicker,
@@ -139,10 +141,11 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("Errors if flags contract is missing", func(t *testing.T) {
+		var testLogger = logger.CreateTestLogger(zapcore.DebugLevel)
 		contractAddress := cltest.NewEIP55Address()
 		flags := &offchainreporting.ContractFlags{FlagsInterface: nil}
 		_, err := offchainreporting.NewConfigOverriderImpl(
-			logger.Default,
+			testLogger,
 			contractAddress,
 			flags,
 			nil,
@@ -152,6 +155,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("DeltaC should be stable per address", func(t *testing.T) {
+		var testLogger = logger.CreateTestLogger(zapcore.DebugLevel)
 		flagsContract := new(mocks.Flags)
 		flagsContract.Test(t)
 		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
@@ -164,13 +168,13 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		address2, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(1234567890)).Hex())
 		require.NoError(t, err)
 
-		overrider1a, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, nil)
+		overrider1a, err := offchainreporting.NewConfigOverriderImpl(testLogger, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider1b, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address1, flags, nil)
+		overrider1b, err := offchainreporting.NewConfigOverriderImpl(testLogger, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider2, err := offchainreporting.NewConfigOverriderImpl(logger.Default, address2, flags, nil)
+		overrider2, err := offchainreporting.NewConfigOverriderImpl(testLogger, address2, flags, nil)
 		require.NoError(t, err)
 
 		require.Equal(t, overrider1a.DeltaCFromAddress, time.Duration(85600000000000))

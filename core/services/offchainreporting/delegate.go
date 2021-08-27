@@ -264,6 +264,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		if err != nil {
 			return nil, err
 		}
+
+		// NOT: conditional assigning to `configOverrider` is necessary due to the unfortunate fact that assigning `nil` to an
+		// interface variable causes `x == nil` checks to always return false, so methods on the interface cannot be safely called then.
+		//
+		// the problematic case would be:
+		//    configOverriderService, err := d.maybeCreateConfigOverrider(...)
+		//	  if err != nil { return ... }
+		//	  configOverrider = configOverriderService // contract might be `nil`
+		//    assert.False(configOverrider != nil) // even if 'contract' was nil, this check will return true, unexpectedly
 		if configOverriderService != nil {
 			services = append(services, configOverriderService)
 			configOverrider = configOverriderService
