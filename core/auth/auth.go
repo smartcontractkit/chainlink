@@ -3,9 +3,7 @@ package auth
 import (
 	"encoding/hex"
 	"fmt"
-
 	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
 )
@@ -20,20 +18,20 @@ var (
 // Token is used for API authentication.
 type Token struct {
 	AccessKey string `json:"accessKey"`
-	Secret    string `json:"secret"`
+	SecretKey string `json:"secretKey"`
 }
 
-// GetID returns the ID of this structure for jsonapi serialization.
+// GetID returns the ID of the Token struct for jsonapi serialization.
 func (ta *Token) GetID() string {
 	return ta.AccessKey
 }
 
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
+// GetName returns the pluralized "type" of Token struct for jsonapi serialization.
 func (ta *Token) GetName() string {
 	return "auth_tokens"
 }
 
-// SetID returns the ID of this structure for jsonapi serialization.
+// SetID returns the ID of Token struct for jsonapi serialization.
 func (ta *Token) SetID(id string) error {
 	ta.AccessKey = id
 	return nil
@@ -43,19 +41,20 @@ func (ta *Token) SetID(id string) error {
 func NewToken() *Token {
 	return &Token{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    utils.NewSecret(utils.DefaultSecretSize),
+		SecretKey: utils.NewSecret(utils.DefaultSecretSize),
 	}
 }
 
-func hashInput(ta *Token, salt string) []byte {
-	return []byte(fmt.Sprintf("v0-%s-%s-%s", ta.AccessKey, ta.Secret, salt))
+// HashInput gets both access key and secret key with additional salt for HashedSecret function
+func HashInput(ta *Token, salt string) []byte {
+	return []byte(fmt.Sprintf("v0-%s-%s-%s", ta.AccessKey, ta.SecretKey, salt))
 }
 
 // HashedSecret generates a hashed password for an external initiator
 // authentication
 func HashedSecret(ta *Token, salt string) (string, error) {
 	hasher := sha3.New256()
-	_, err := hasher.Write(hashInput(ta, salt))
+	_, err := hasher.Write(HashInput(ta, salt))
 	if err != nil {
 		return "", errors.Wrap(err, "error writing external initiator authentication to hasher")
 	}
