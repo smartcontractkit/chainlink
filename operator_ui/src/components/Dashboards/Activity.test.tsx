@@ -9,16 +9,19 @@ const CREATED_AT = '2019-06-11T14:37:42.077995-07:00'
 describe('components/Dashboards/Activity', () => {
   it('displays the given runs', () => {
     const runs = [
-      partialAsFull<JobRunV2>({
+      {
         id: 'runA',
-        createdAt: CREATED_AT,
-        pipelineSpec: {
-          jobId: '1',
-          ID: 1,
-          dotDagSource: 'dot',
-          CreatedAt: '1',
-        },
-      }),
+        type: 'RUN',
+        attributes: partialAsFull<JobRunV2>({
+          createdAt: CREATED_AT,
+          pipelineSpec: {
+            jobID: '1',
+            ID: 1,
+            dotDagSource: 'dot',
+            CreatedAt: '1',
+          },
+        }),
+      },
     ]
     const component = mountWithTheme(<Activity runs={runs} pageSize={1} />)
     expect(component.text()).toContain('Run: runA')
@@ -26,26 +29,32 @@ describe('components/Dashboards/Activity', () => {
 
   it('displays a "View More" link when there is more than 1 page of runs', () => {
     const runs = [
-      partialAsFull<JobRunV2>({
-        id: 'runA',
-        createdAt: CREATED_AT,
-        pipelineSpec: {
-          jobId: '1',
-          ID: 1,
-          dotDagSource: 'dot',
-          CreatedAt: '1',
-        },
-      }),
-      partialAsFull<JobRunV2>({
+      {
         id: 'runB',
-        createdAt: CREATED_AT,
-        pipelineSpec: {
-          jobId: '1',
-          ID: 1,
-          dotDagSource: 'dot',
-          CreatedAt: '1',
-        },
-      }),
+        type: 'RUN',
+        attributes: partialAsFull<JobRunV2>({
+          createdAt: CREATED_AT,
+          pipelineSpec: {
+            jobID: '1',
+            ID: 1,
+            dotDagSource: 'dot',
+            CreatedAt: '1',
+          },
+        }),
+      },
+      {
+        id: 'runC',
+        type: 'RUN',
+        attributes: partialAsFull<JobRunV2>({
+          createdAt: CREATED_AT,
+          pipelineSpec: {
+            jobID: '1',
+            ID: 1,
+            dotDagSource: 'dot',
+            CreatedAt: '1',
+          },
+        }),
+      },
     ]
 
     const componentWithMore = mountWithTheme(
