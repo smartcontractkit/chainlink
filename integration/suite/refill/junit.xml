@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-  <testsuite name="Refill suite" tests="1" failures="0" errors="0" time="105.273">
-      <testcase name="FluxAggregator ETH Refill with FluxAggregator should refill and await the next round" classname="Refill suite" time="105.267074803"></testcase>
-  </testsuite>

@@ -1,10 +1,11 @@
 package refill
 
 import (
-	"github.com/smartcontractkit/integrations-framework/config"
-	"github.com/smartcontractkit/integrations-framework/tools"
 	"os"
 	"testing"
+
+	"github.com/smartcontractkit/integrations-framework/config"
+	"github.com/smartcontractkit/integrations-framework/tools"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -21,6 +22,6 @@ func TestContracts(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("junit.xml")
+	junitReporter := reporters.NewJUnitReporter("../logs/refill.xml")
 	RunSpecsWithDefaultAndCustomReporters(t, "Refill suite", []Reporter{junitReporter})
 }
