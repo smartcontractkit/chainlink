@@ -131,7 +131,7 @@ type TaskRunResult struct {
 }
 
 func (result *TaskRunResult) IsPending() bool {
-	return !result.FinishedAt.Valid && result.Result == Result{}
+	return !result.FinishedAt.Valid
 }
 
 func (result *TaskRunResult) IsTerminal() bool {

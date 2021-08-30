@@ -205,7 +205,6 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"jobID":                 ex.job.ID,
-			"externalJobID":         ex.job.ExternalJobID,
 			"fromAddress":           upkeep.Registry.FromAddress.String(),
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID,
