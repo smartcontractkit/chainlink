@@ -63,6 +63,7 @@ type EnvPrinter struct {
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
+	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
