@@ -108,7 +108,8 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		Sender:           sender,
 	}
 	finalSeed := proof.FinalSeedV2(preSeedData)
-	p, err := t.keyStore.GenerateProof(pk, finalSeed)
+	id := hexutil.Encode(pk[:])
+	p, err := t.keyStore.GenerateProof(id, finalSeed)
 	if err != nil {
 		return Result{Error: err}
 	}

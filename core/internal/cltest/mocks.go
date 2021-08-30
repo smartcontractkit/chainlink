@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -157,30 +156,6 @@ type noopStopApplication struct {
 func (a noopStopApplication) Stop() error {
 	return nil
 }
-
-// CallbackAuthenticator contains a call back authenticator method
-type CallbackAuthenticator struct {
-	Callback func(*keystore.Eth, string) (string, error)
-}
-
-// Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd string) (string, error) {
-	return a.Callback(ethKeyStore, pwd)
-}
-
-func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd string) error {
-	return nil
-}
-
-func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, string) error {
-	return nil
-}
-
-func (a CallbackAuthenticator) AuthenticateCSAKey(*keystore.CSA, string) error {
-	return nil
-}
-
-var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
 
 // BlockedRunner is a Runner that blocks until its channel is posted to
 type BlockedRunner struct {

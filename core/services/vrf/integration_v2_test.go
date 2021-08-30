@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -66,10 +65,8 @@ var (
 	weiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
 
-func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Universe {
-	k, err := keystore.DecryptKey(key.JSON[:], cltest.Password)
-	require.NoError(t, err)
-	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
+func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Universe {
+	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
 	var (
 		sergey  = newIdentity(t)
 		neil    = newIdentity(t)
@@ -169,9 +166,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
-	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().CreateKey()
+	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
 	jid := uuid.NewV4()
@@ -181,7 +176,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		Name:               "vrf-primary",
 		CoordinatorAddress: uni.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
-		PublicKey:          vrfkey.String(),
+		PublicKey:          vrfkey.PublicKey.String(),
 		V2:                 true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
@@ -190,7 +185,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a proving key associated with the VRF job.
-	p, err := vrfkey.Point()
+	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
 		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
@@ -231,7 +226,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gasRequested := 500000
 	nw := 10
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
 	// Oracle tries to withdraw before its fullfilled should fail
@@ -343,9 +338,9 @@ func TestMaliciousConsumer(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
+	err := app.GetKeyStore().Unlock(cltest.Password)
 	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().CreateKey()
+	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
 	jid := uuid.NewV4()
@@ -355,7 +350,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		Name:               "vrf-primary",
 		CoordinatorAddress: uni.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
-		PublicKey:          vrfkey.String(),
+		PublicKey:          vrfkey.PublicKey.String(),
 		V2:                 true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
@@ -365,14 +360,14 @@ func TestMaliciousConsumer(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Register a proving key associated with the VRF job.
-	p, err := vrfkey.Point()
+	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
 		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 
 	_, err = uni.maliciousConsumerContract.SetKeyHash(uni.carol,
-		vrfkey.MustHash())
+		vrfkey.PublicKey.MustHash())
 	require.NoError(t, err)
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.TestCreateSubscriptionAndFund(uni.carol,
@@ -433,11 +428,9 @@ func TestRequestCost(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
+	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().CreateKey()
-	require.NoError(t, err)
-	p, err := vrfkey.Point()
+	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
 		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
@@ -459,7 +452,7 @@ func TestRequestCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.consumerContractAddress, uni.consumerABI,
-		"testRequestRandomness", vrfkey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+		"testRequestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
 	t.Log(estimate)
 	// V2 should be at least (87000-134000)/134000 = 35% cheaper
 	// Note that a second call drops further to 68998 gas, but would also drop in V1.
@@ -509,11 +502,9 @@ func TestFulfillmentCost(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	_, err := app.GetKeyStore().VRF().Unlock(cltest.Password)
+	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	vrfkey, err := app.GetKeyStore().VRF().CreateKey()
-	require.NoError(t, err)
-	p, err := vrfkey.Point()
+	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = uni.rootContract.RegisterProvingKey(
 		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
@@ -529,16 +520,16 @@ func TestFulfillmentCost(t *testing.T) {
 	gasRequested := 50000
 	nw := 1
 	requestedIncomingConfs := 3
-	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
+	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 	for i := 0; i < requestedIncomingConfs; i++ {
 		uni.backend.Commit()
 	}
 
-	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.MustHash())
+	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
 	s, err := proof.BigToSeed(requestLog.PreSeed)
 	require.NoError(t, err)
-	proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey, proof.PreSeedDataV2{
+	proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
 		PreSeed:          s,
 		BlockHash:        requestLog.Raw.BlockHash,
 		BlockNum:         requestLog.Raw.BlockNumber,

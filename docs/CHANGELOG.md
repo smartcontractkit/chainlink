@@ -17,17 +17,6 @@ For more information on migrating, see [the docs](https://docs.chain.link/chainl
 
 This release will DROP legacy job tables so please take a backup before upgrading.
 
-The following ENV vars have been _removed_ and no longer have any effect:
-
-```
-GAS_UPDATER_ENABLED
-GAS_UPDATER_BATCH_SIZE
-GAS_UPDATER_BLOCK_DELAY
-GAS_UPDATER_BLOCK_HISTORY_SIZE
-GAS_UPDATER_TRANSACTION_PERCENTILE
-MINIMUM_CONTRACT_PAYMENT
-```
-
 #### Requesters
 
 V2 direct request specs now support "Requesters" key which allows to whitelist requesters. For example:
@@ -44,6 +33,10 @@ observationSource   = """
 """
 ```
 
+#### Misc
+
+- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs, 
+  regardless of the head frequency from the chain.
 
 ## [Unreleased]
 
@@ -127,9 +120,15 @@ To give some background, the legacy job pipeline has been around since before Ch
 
 The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
 
+#### KeyStore changes
+
+* Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
+
 ## [0.10.10] - 2021-07-19
 
-### Changed 
+### Changed
 
 This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
 

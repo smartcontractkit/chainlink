@@ -67,7 +67,7 @@ type Application interface {
 	// TODO: Remove this after multichain
 	// See: https://app.clubhouse.io/chainlinklabs/story/12739/generalise-necessary-models-tables-on-the-send-side-to-support-the-concept-of-multiple-chains
 	GetEVMConfig() config.EVMConfig
-	GetKeyStore() *keystore.Master
+	GetKeyStore() keystore.Master
 	GetHeadBroadcaster() httypes.HeadBroadcasterRegistry
 	WakeSessionReaper()
 	NewBox() packr.Box
@@ -115,7 +115,7 @@ type ChainlinkApplication struct {
 	Store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	EVMConfig                config.EVMConfig
-	KeyStore                 *keystore.Master
+	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
@@ -240,7 +240,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	var (
 		pipelineORM    = pipeline.NewORM(store.DB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, ethClient, keyStore.Eth(), keyStore.VRF(), txManager)
-		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker)
+		jobORM         = job.NewORM(store.ORM.DB, cfg, pipelineORM, eventBroadcaster, advisoryLocker, keyStore)
 		evmORM         = evm.NewORM(sqlxDB)
 	)
 
@@ -308,7 +308,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore.OCR(), cfg, store.DB)
+		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, store.DB)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			store.DB,
@@ -426,7 +426,6 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 
 func setupConfig(cfg config.GeneralConfig, db *gorm.DB) {
 	cfg.SetDB(db)
-
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -574,7 +573,7 @@ func (app *ChainlinkApplication) GetEVMConfig() config.EVMConfig {
 	return app.EVMConfig
 }
 
-func (app *ChainlinkApplication) GetKeyStore() *keystore.Master {
+func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 

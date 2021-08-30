@@ -45,7 +45,7 @@ func (NoopTelemetryIngressClient) Unsafe_SetTelemClient(telemPb.TelemClient) boo
 type telemetryIngressClient struct {
 	utils.StartStopOnce
 	url             *url.URL
-	ks              keystore.CSAKeystoreInterface
+	ks              keystore.CSA
 	serverPubKeyHex string
 
 	telemClient telemPb.TelemClient
@@ -65,7 +65,7 @@ type TelemPayload struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSAKeystoreInterface, logging bool) TelemetryIngressClient {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool) TelemetryIngressClient {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
@@ -171,7 +171,7 @@ func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPaylo
 // getCSAPrivateKey gets the client's CSA private key
 func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error) {
 	// Fetch the client's public key
-	keys, err := tc.ks.ListCSAKeys()
+	keys, err := tc.ks.GetAll()
 	if err != nil {
 		return privkey, err
 	}
@@ -179,12 +179,7 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 		return privkey, errors.New("CSA key does not exist")
 	}
 
-	privkey, err = tc.ks.Unsafe_GetUnlockedPrivateKey(keys[0].PublicKey)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return privkey, nil
+	return keys[0].Raw(), nil
 }
 
 // Send sends telemetry to the ingress server using wsrpc if the client is ready.
