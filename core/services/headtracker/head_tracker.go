@@ -41,7 +41,7 @@ type HeadTracker struct {
 	config          Config
 
 	backfillMB   utils.Mailbox
-	samplingMB   utils.Mailbox
+	callbackMB   utils.Mailbox
 	muLogger     sync.RWMutex
 	headListener *HeadListener
 	headSaver    *HeadSaver
@@ -70,7 +70,7 @@ func NewHeadTracker(
 		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
-		samplingMB:      *utils.NewMailbox(1),
+		callbackMB:      *utils.NewMailbox(1),
 		chStop:          chStop,
 		wgDone:          &wgDone,
 		headListener:    NewHeadListener(l, ethClient, config, chStop, &wgDone, sleepers...),
@@ -131,7 +131,7 @@ func (ht *HeadTracker) Start() error {
 		ht.wgDone.Add(3)
 		go ht.headListener.ListenForNewHeads(ht.handleNewHead)
 		go ht.backfiller()
-		go ht.headSampler()
+		go ht.headCallbackLoop()
 
 		return nil
 	})
@@ -179,32 +179,49 @@ func (ht *HeadTracker) Connected() bool {
 	return ht.headListener.Connected()
 }
 
-func (ht *HeadTracker) headSampler() {
+func (ht *HeadTracker) headCallbackLoop() {
 	defer ht.wgDone.Done()
 
-	debounceHead := time.NewTicker(ht.config.EvmHeadTrackerSamplingInterval())
-	defer debounceHead.Stop()
+	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
+	if samplingInterval > 0 {
+		ht.logger().Infof("Head sampling interval is set to: %v", samplingInterval)
+		debounceHead := time.NewTicker(samplingInterval)
+		defer debounceHead.Stop()
+		for {
+			select {
+			case <-ht.chStop:
+				return
+			case <-debounceHead.C:
+				ht.callbackOnLatestHead()
+			}
+		}
+	} else {
+		ht.logger().Info("Head sampling is disabled - callback will be called on every head")
+		for {
+			select {
+			case <-ht.chStop:
+				return
+			case <-ht.callbackMB.Notify():
+				ht.callbackOnLatestHead()
+			}
+		}
+	}
+}
 
+func (ht *HeadTracker) callbackOnLatestHead() {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	for {
-		select {
-		case <-ht.chStop:
-			return
-		case <-debounceHead.C:
-			item, exists := ht.samplingMB.Retrieve()
-			if !exists {
-				continue
-			}
-			head, ok := item.(models.Head)
-			if !ok {
-				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
-			}
-
-			ht.headBroadcaster.OnNewLongestChain(ctx, head)
-		}
+	item, exists := ht.callbackMB.Retrieve()
+	if !exists {
+		return
 	}
+	head, ok := item.(models.Head)
+	if !ok {
+		panic(fmt.Sprintf("expected `models.Head`, got %T", item))
+	}
+
+	ht.headBroadcaster.OnNewLongestChain(ctx, head)
 }
 
 func (ht *HeadTracker) backfiller() {
@@ -351,7 +368,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 
 		ht.backfillMB.Deliver(headWithChain)
-		ht.samplingMB.Deliver(headWithChain)
+		ht.callbackMB.Deliver(headWithChain)
 		return nil
 	}
 	if head.Number == prevHead.Number {
