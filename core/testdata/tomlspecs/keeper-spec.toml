@@ -10,6 +10,7 @@ encode_check_upkeep_tx   [type=ethabiencode
                           abi="checkUpkeep(uint256 id, address from)"
                           data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
 check_upkeep_tx          [type=ethcall
+                          failEarly=true
                           contract="$(jobSpec.contractAddress)"
                           gas="$(jobSpec.checkUpkeepGasLimit)"
                           data="$(encode_check_upkeep_tx)"]

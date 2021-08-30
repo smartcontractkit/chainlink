@@ -430,7 +430,7 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
 }
 
-// ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
+// ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
