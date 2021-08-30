@@ -77,7 +77,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error KeyHashAlreadyRegistered(bytes32 keyHash);
   error InvalidFeedResponse(int256 linkWei);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
-  error InvalidProofLength(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);

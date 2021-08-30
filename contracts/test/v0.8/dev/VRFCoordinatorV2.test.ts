@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { Signer, Contract, BigNumber, utils } from "ethers";
+import { Signer, Contract, BigNumber } from "ethers";
 import { assert, expect } from "chai";
 import { defaultAbiCoder } from "ethers/utils";
-import { publicAbi, hexToBuf } from "../../test-helpers/helpers";
+import { publicAbi } from "../../test-helpers/helpers";
 import { randomAddressString } from "hardhat/internal/hardhat-network/provider/fork/random";
 
 describe("VRFCoordinatorV2", () => {
@@ -544,7 +544,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid subId", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           12301928312, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -555,7 +555,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid consumer", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -566,7 +566,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid req confs", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           subId, // subId
           0, // minReqConf
           1000, // callbackGasLimit
@@ -577,7 +577,7 @@ describe("VRFCoordinatorV2", () => {
     it("below minimum balance", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -593,7 +593,7 @@ describe("VRFCoordinatorV2", () => {
       );
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           subId, // subId
           1, // minReqConf
           1000001, // callbackGasLimit
@@ -609,7 +609,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const r1 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // kh
+        kh, // keyhash
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -618,7 +618,7 @@ describe("VRFCoordinatorV2", () => {
       const r1Receipt = await r1.wait();
       const seed1 = r1Receipt.events[0].args["requestId"];
       const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // kh
+        kh, // keyhash
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -636,7 +636,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // kh
+        kh, // keyhash
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
@@ -666,7 +666,7 @@ describe("VRFCoordinatorV2", () => {
       await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -686,7 +686,7 @@ describe("VRFCoordinatorV2", () => {
       // i.e. cancel should be cleaning up correctly.
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          kh, // kh
+          kh, // keyhash
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -742,21 +742,29 @@ describe("VRFCoordinatorV2", () => {
   });
 
   describe("#fulfillRandomWords", async function () {
-    it("invalid proof length", async function () {
-      const proof = new Uint8Array(415);
-      const rc = new Uint8Array(160);
-      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
-        `InvalidProofLength(415, 416)`,
-      );
-    });
     it("no corresponding request", async function () {
-      const proof = new Uint8Array(416);
-      const rc = new Uint8Array(160);
+      const proof = [
+        [BigNumber.from("1"), BigNumber.from("2")], // pk
+        [BigNumber.from("1"), BigNumber.from("2")], // gamma
+        BigNumber.from("1"),  // c
+        BigNumber.from("1"),  // s
+        BigNumber.from("1"),  // seed
+        randomAddress, // uWitness
+        [BigNumber.from("1"), BigNumber.from("2")], // cGammaWitness
+        [BigNumber.from("1"), BigNumber.from("2")], // sHashWitness
+        BigNumber.from("1")] // 13 words in proof
+      const rc = [
+        1, // blockNum
+        2, // subId
+        3, // callbackGasLimit
+        4,  // numWords
+        randomAddress // sender
+      ]
       await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
         `NoCorrespondingRequest()`,
       );
     });
-    it("incorrect commitment", async function () {
+    it("incorrect commitment wrong blocknum", async function () {
       let subId = await createSubscription();
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
@@ -764,10 +772,9 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-      const pkBytes = hexToBuf(defaultAbiCoder.encode(["uint256[2]"], [testKey]));
       let kh = await vrfCoordinatorV2.hashOfKey(testKey);
       const tx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        kh, // kh
+        kh, // keyhash
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
@@ -776,26 +783,23 @@ describe("VRFCoordinatorV2", () => {
       const reqReceipt = await tx.wait();
       // We give it the right proof length and a valid preSeed
       // but an invalid commitment
-      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeed"].toHexString());
+      // const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeed"].toHexString());
+      const preSeedBytes = reqReceipt.events[0].args["preSeed"];
       console.log(reqReceipt.events[0].args["requestId"]);
 
       const a = await vrfCoordinatorV2.getCommitment(reqReceipt.events[0].args["requestId"]);
       console.log("comm", a);
-      const proof = new Uint8Array(416);
-      console.log(
-        utils.keccak256(defaultAbiCoder.encode(["bytes32", "uint256"], [kh, reqReceipt.events[0].args["preSeed"]])),
-      );
-      for (let i = 0; i < 64; i++) {
-        // PK is the first 2 words
-        proof[i] = pkBytes[i];
-      }
-      for (let i = 0; i < 32; i++) {
-        // Seed is the 6th word
-        proof[i + 32 * 6] = preSeedBytes[i];
-      }
-      const p = utils.solidityPack(["bytes"], [proof]);
-      const rc = new Uint8Array(160);
-      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(p, rc)).to.be.revertedWith(
+      const proof = [
+        [BigNumber.from("1"), BigNumber.from("2")],
+        [BigNumber.from("1"), BigNumber.from("2")],
+        BigNumber.from("1"), BigNumber.from("1"), preSeedBytes, randomAddress,
+        [BigNumber.from("1"), BigNumber.from("2")],
+        [BigNumber.from("1"), BigNumber.from("2")],
+        BigNumber.from("1")]
+      const rc = [
+          reqReceipt.blockNumber + 1, // Wrong blocknumber
+        subId, 1000, 1, await consumer.getAddress()]
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
         `IncorrectCommitment()`,
       );
     });
