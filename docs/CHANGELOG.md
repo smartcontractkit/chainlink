@@ -17,17 +17,6 @@ For more information on migrating, see [the docs](https://docs.chain.link/chainl
 
 This release will DROP legacy job tables so please take a backup before upgrading.
 
-The following ENV vars have been _removed_ and no longer have any effect:
-
-```
-GAS_UPDATER_ENABLED
-GAS_UPDATER_BATCH_SIZE
-GAS_UPDATER_BLOCK_DELAY
-GAS_UPDATER_BLOCK_HISTORY_SIZE
-GAS_UPDATER_TRANSACTION_PERCENTILE
-MINIMUM_CONTRACT_PAYMENT
-```
-
 #### Requesters
 
 V2 direct request specs now support "Requesters" key which allows to whitelist requesters. For example:

@@ -21,7 +21,7 @@ func Test_connectionsManager_IsConnected(t *testing.T) {
 			name: "inactive connection exists",
 			fields: fields{
 				connections: map[int64]*connection{
-					1: &connection{
+					1: {
 						connected: false,
 					},
 				},
@@ -35,7 +35,7 @@ func Test_connectionsManager_IsConnected(t *testing.T) {
 			name: "active connection exists",
 			fields: fields{
 				connections: map[int64]*connection{
-					1: &connection{
+					1: {
 						connected: true,
 					},
 				},
@@ -49,7 +49,7 @@ func Test_connectionsManager_IsConnected(t *testing.T) {
 			name: "connection does not exist",
 			fields: fields{
 				connections: map[int64]*connection{
-					1: &connection{
+					1: {
 						connected: true,
 					},
 				},
