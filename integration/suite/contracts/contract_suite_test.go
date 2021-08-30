@@ -1,10 +1,11 @@
 package contracts_test
 
 import (
-	"github.com/smartcontractkit/integrations-framework/config"
-	"github.com/smartcontractkit/integrations-framework/tools"
 	"os"
 	"testing"
+
+	"github.com/smartcontractkit/integrations-framework/config"
+	"github.com/smartcontractkit/integrations-framework/tools"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"

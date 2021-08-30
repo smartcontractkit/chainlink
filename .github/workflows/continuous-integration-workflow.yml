@@ -465,7 +465,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600
       - name: Prepare KUBECONFIG
-        run: echo "${{ secrets.KUBECONFIG }}" > /tmp/KUBECONFIG
+        run: echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
       - name: Setup go
         uses: actions/setup-go@v1
         with:
