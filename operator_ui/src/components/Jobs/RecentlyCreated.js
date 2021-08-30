@@ -55,7 +55,7 @@ const RecentlyCreated = ({ jobs, classes }) => {
                     component="span"
                     color="primary"
                   >
-                    {j.id}
+                    {j.name ? j.name : j.id}
                   </Typography>
                 </Link>
               </Grid>

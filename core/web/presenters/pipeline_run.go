@@ -75,6 +75,7 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 			errors = append(errors, nil)
 		}
 	}
+
 	return PipelineRunResource{
 		JAID:         NewJAIDInt64(pr.ID),
 		Outputs:      outputs,
