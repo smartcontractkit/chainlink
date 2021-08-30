@@ -8,9 +8,8 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { RunStatus } from 'core/store/models'
+import { JobRunV2, Resource } from 'core/store/models'
 import titleize from 'utils/titleize'
-import { PipelineTaskRunStatus } from './sharedTypes'
 
 const styles = (theme: any) =>
   createStyles({
@@ -74,12 +73,7 @@ const classFromStatus = (classes: any, status: string) => {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  runs: {
-    createdAt: string
-    id: string
-    status: RunStatus | PipelineTaskRunStatus
-    jobId: string
-  }[]
+  runs: Resource<JobRunV2>[]
 }
 
 const List = ({ runs, classes }: Props) => {
@@ -107,7 +101,11 @@ const List = ({ runs, classes }: Props) => {
             <TableRow
               key={r.id}
               style={{ cursor: 'pointer' }}
-              onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
+              onClick={() =>
+                history.push(
+                  `/jobs/${r.attributes.pipelineSpec.ID}/runs/${r.id}`,
+                )
+              }
             >
               <TableCell className={classes.idCell} scope="row">
                 <div className={classes.runDetails}>
@@ -122,7 +120,7 @@ const List = ({ runs, classes }: Props) => {
                   color="textSecondary"
                   className={classes.stamp}
                 >
-                  Created <TimeAgo tooltip>{r.createdAt}</TimeAgo>
+                  Created <TimeAgo tooltip>{r.attributes.createdAt}</TimeAgo>
                 </Typography>
               </TableCell>
               <TableCell className={classes.statusCell} scope="row">
@@ -130,10 +128,10 @@ const List = ({ runs, classes }: Props) => {
                   variant="body1"
                   className={classNames(
                     classes.status,
-                    classFromStatus(classes, r.status),
+                    classFromStatus(classes, r.attributes.state),
                   )}
                 >
-                  {titleize(r.status)}
+                  {titleize(r.attributes.state)}
                 </Typography>
               </TableCell>
             </TableRow>
