@@ -33,6 +33,10 @@ observationSource   = """
 """
 ```
 
+#### Misc
+
+- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs, 
+  regardless of the head frequency from the chain.
 
 ## [Unreleased]
 

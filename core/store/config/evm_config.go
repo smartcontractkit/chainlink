@@ -316,6 +316,7 @@ func (c *evmConfig) EvmHeadTrackerHistoryDepth() uint {
 
 // EvmHeadTrackerSamplingInterval is the interval between sampled head callbacks
 // to services that are only interested in the latest head every some time
+// Setting it to a zero duration disables sampling (every head will be delivered)
 func (c *evmConfig) EvmHeadTrackerSamplingInterval() time.Duration {
 	val, ok := lookupEnv("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", parseDuration)
 	if ok {
