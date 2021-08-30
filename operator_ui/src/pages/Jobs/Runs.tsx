@@ -5,6 +5,7 @@ import Content from 'components/Content'
 import JobRunsList from './JobRunsList'
 import TableButtons from 'components/TableButtons'
 import { JobData } from './sharedTypes'
+import { JobRunV2, Resource } from 'core/store/models'
 
 interface Props {
   ErrorComponent: React.FC
@@ -12,7 +13,7 @@ interface Props {
   error: unknown
   getJobRuns: (props: { page: number; size: number }) => Promise<void>
   job?: JobData['job']
-  recentRuns?: JobData['recentRuns']
+  recentRuns?: Resource<JobRunV2>[]
   recentRunsCount: JobData['recentRunsCount']
 }
 
