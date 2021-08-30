@@ -514,7 +514,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	fa.backend.Commit()
 	// wait time larger than HeadTracker sampling interval
-	time.Sleep(configtest.HeadSamplingIntervalInTest + 20*time.Millisecond)
+	time.Sleep(10 * configtest.HeadSamplingIntervalInTest)
 	fa.backend.Commit()
 
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
