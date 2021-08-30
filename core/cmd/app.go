@@ -613,6 +613,18 @@ func NewApp(client *Client) *cli.App {
 							Action: client.MigrateDatabase,
 							Flags:  []cli.Flag{},
 						},
+						{
+							Name:   "create-migration",
+							Usage:  "Create a new migration.",
+							Hidden: !client.Config.Dev(),
+							Action: client.CreateMigration,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "type",
+									Usage: "set to `go` to generate a .go migration (instead of .sql)",
+								},
+							},
+						},
 					},
 				},
 			},

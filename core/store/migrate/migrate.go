@@ -60,7 +60,6 @@ func ensureMigrated(db *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 func Migrate(db *sql.DB) error {
@@ -76,4 +75,8 @@ func Current(db *sql.DB) (int64, error) {
 func Status(db *sql.DB) error {
 	ensureMigrated(db)
 	return goose.Status(db, MIGRATIONS_DIR)
+}
+
+func Create(db *sql.DB, name, migrationType string) error {
+	return goose.Create(db, "core/store/migrate/migrations", name, migrationType)
 }
