@@ -10,7 +10,7 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
-	github.com/ethereum/go-ethereum v1.10.4
+	github.com/ethereum/go-ethereum v1.10.8
 	github.com/fatih/color v1.12.0
 	github.com/fxamacker/cbor/v2 v2.3.0
 	github.com/gin-contrib/cors v1.3.1
@@ -39,7 +39,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.14.0
 	github.com/pelletier/go-toml v1.9.3
-	github.com/peterh/liner v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rivo/uniseg v0.2.0 // indirect
