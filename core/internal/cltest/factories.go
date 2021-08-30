@@ -2,7 +2,6 @@ package cltest
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/json"
 	"flag"
@@ -14,12 +13,9 @@ import (
 	"testing"
 	"time"
 
-	geth_keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	googleuuid "github.com/google/uuid"
 	"github.com/lib/pq"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
@@ -43,7 +39,6 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -424,73 +419,56 @@ func MustInsertFatalErrorEthTx(t *testing.T, db *gorm.DB, fromAddress common.Add
 	return etx
 }
 
-func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore *keystore.Eth, opts ...interface{}) (ethkey.Key, common.Address) {
+func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.KeyV2, common.Address) {
 	t.Helper()
 
-	k := MustGenerateRandomKey(t, opts...)
-	MustAddKeyToKeystore(t, &k, ethKeyStore)
+	k := MustGenerateRandomKey(t)
+	MustAddKeyToKeystore(t, k, ethKeyStore)
 
 	return k, k.Address.Address()
 }
 
-func MustAddKeyToKeystore(t testing.TB, key *ethkey.Key, ethKeyStore *keystore.Eth) {
+func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, ethKeyStore keystore.Eth) {
 	t.Helper()
-
-	err := ethKeyStore.Unlock(Password)
-	require.NoError(t, err)
-	err = ethKeyStore.AddKey(key)
+	err := ethKeyStore.Add(key)
 	require.NoError(t, err)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
 // secure) key for testing
 // If using this with the keystore, it should be called before the keystore loads keys from the database
-func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) ethkey.Key {
+func MustInsertRandomKey(
+	t testing.TB,
+	keystore keystore.Eth,
+	opts ...interface{},
+) (ethkey.KeyV2, common.Address) {
 	t.Helper()
-
-	key := MustGenerateRandomKey(t, opts...)
-
-	require.NoError(t, db.Create(&key).Error)
-	return key
-}
-
-func MustGenerateRandomKey(t testing.TB, opts ...interface{}) ethkey.Key {
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
-	require.NoError(t, err)
-	//  < Geth 1.10 id type []byte
-	//  >= Geth 1.10 id type [16]byte
-	id := googleuuid.New()
-	k := &geth_keystore.Key{
-		Id:         id,
-		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
-		PrivateKey: privateKeyECDSA,
-	}
-	keyjsonbytes, err := geth_keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
-	require.NoError(t, err)
-	eip := ethkey.EIP55AddressFromAddress(k.Address)
+	key := MustGenerateRandomKey(t)
+	require.NoError(t, keystore.Add(key))
+	state, err := keystore.GetState(key.ID())
 	require.NoError(t, err)
 
-	var nextNonce int64
-	var funding bool
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case int:
-			nextNonce = int64(v)
+			state.NextNonce = int64(v)
 		case int64:
-			nextNonce = v
+			state.NextNonce = v
 		case bool:
-			funding = v
+			state.IsFunding = v
 		default:
 			t.Fatalf("unrecognised option type: %T", v)
 		}
 	}
+	err = keystore.SetState(state)
+	require.NoError(t, err)
 
-	key := ethkey.Key{
-		Address:   eip,
-		JSON:      datatypes.JSON(keyjsonbytes),
-		NextNonce: nextNonce,
-		IsFunding: funding,
-	}
+	return key, key.Address.Address()
+}
+
+func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
+	key, err := ethkey.NewV2()
+	require.NoError(t, err)
 	return key
 }
 
@@ -536,7 +514,7 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitte
 		P2PPeerID:                              &pid,
 		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
-		EncryptedOCRKeyBundleID:                &DefaultOCRKeyBundleIDSha256,
+		EncryptedOCRKeyBundleID:                null.NewString(DefaultOCRKeyBundleID, true),
 		TransmitterAddress:                     &transmitterAddress,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
@@ -587,7 +565,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from ethkey.EIP55Add
 	return specDB
 }
 
-func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore *keystore.Eth) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()

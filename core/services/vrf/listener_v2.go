@@ -62,8 +62,8 @@ type listenerV2 struct {
 	vorm            keystore.VRFORM
 	job             job.Job
 	db              *gorm.DB
-	vrfks           *keystore.VRF
-	gethks          *keystore.Eth
+	vrfks           keystore.VRF
+	gethks          keystore.Eth
 	mbLogs          *utils.Mailbox
 	chStop          chan struct{}
 	waitOnStop      chan struct{}

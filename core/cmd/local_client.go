@@ -66,13 +66,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logger.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
 	}
 
-	pwd, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
-
 	evmcfg := config.NewEVMConfig(cli.Config)
 	app, err := cli.AppFactory.NewApplication(evmcfg)
+
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -84,34 +80,29 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	store := app.GetStore()
 	keyStore := app.GetKeyStore()
-	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
-		logger.Warn(e)
-	}
-	// TODO - RYAN - authenticating the keystore should be done in one step here! with ONE password file
-	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	keyStorePwd, err := cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth(), pwd)
+	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(keyStore.OCR(), keyStorePwd); authErr != nil {
-		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
-	}
-
-	if authErr := cli.KeyStoreAuthenticator.AuthenticateCSAKey(keyStore.CSA(), keyStorePwd); authErr != nil {
-		return cli.errorOut(errors.Wrapf(authErr, "while authenticating CSA keystore"))
-	}
-
+	var vrfpwd string
+	var fileErr error
 	if len(c.String("vrfpassword")) != 0 {
-		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
+		vrfpwd, fileErr = passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
 			return cli.errorOut(errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
 				c.String("vrfpassword")))
 		}
-		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(keyStore.VRF(), vrfpwd); authErr != nil {
-			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
-		}
+	}
+
+	err = keyStore.Migrate(vrfpwd)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
+	}
+
+	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+		logger.Warn(e)
 	}
 
 	var user models.User
@@ -136,15 +127,15 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	if !store.Config.EthereumDisabled() {
-		key, currentBalance, err := setupFundingKey(context.TODO(), app.GetEthClient(), keyStore.Eth(), keyStorePwd)
+		fundingKey, currentBalance, err := ensureKeys(context.TODO(), app.GetEthClient(), keyStore.Eth())
 		if err != nil {
-			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
+			return cli.errorOut(errors.Wrap(err, "failed to generate eth keys"))
 		}
 		if store.Config.Dev() {
 			if currentBalance.Cmp(big.NewInt(0)) == 0 {
-				logger.Infow("The backup funding address does not have sufficient funds", "address", key.Address.Hex(), "balance", currentBalance)
+				logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address.Hex(), "balance", currentBalance)
 			} else {
-				logger.Infow("Funding address ready", "address", key.Address.Hex(), "current-balance", currentBalance)
+				logger.Infow("Funding address ready", "address", fundingKey.Address.Hex(), "current-balance", currentBalance)
 			}
 		}
 	}
@@ -234,22 +225,24 @@ func logConfigVariables(cfg config.GeneralConfig) error {
 	return nil
 }
 
-func setupFundingKey(ctx context.Context,
+func ensureKeys(ctx context.Context,
 	etClient eth.Client,
-	ethKeyStore *keystore.Eth,
-	pwd string,
-) (key ethkey.Key, balance *big.Int, err error) {
-	key, existed, err := ethKeyStore.EnsureFundingKey()
+	ethKeyStore keystore.Eth,
+) (key ethkey.KeyV2, balance *big.Int, err error) {
+	sendingKey, sendDidExist, fundingKey, fundDidExist, err := ethKeyStore.EnsureKeys()
 	if err != nil {
 		return key, nil, err
 	}
-	if existed {
-		// TODO How to make sure the EthClient is connected?
-		balance, ethErr := etClient.BalanceAt(ctx, key.Address.Address(), nil)
-		return key, balance, ethErr
+	if !sendDidExist {
+		logger.Infow("New sending address created", "address", sendingKey.Address.Hex(), "balance", 0)
 	}
-	logger.Infow("New funding address created", "address", key.Address.Hex(), "balance", 0)
-	return key, big.NewInt(0), nil
+	if fundDidExist {
+		// TODO How to make sure the EthClient is connected?
+		balance, ethErr := etClient.BalanceAt(ctx, fundingKey.Address.Address(), nil)
+		return fundingKey, balance, ethErr
+	}
+	logger.Infow("New funding address created", "address", fundingKey.Address.Hex(), "balance", 0)
+	return fundingKey, big.NewInt(0), nil
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of
@@ -279,6 +272,10 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, serr)
 		}
 	}()
+	pwd, err := passwordFromFile(c.String("password"))
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+	}
 	store := app.GetStore()
 	keyStore := app.GetKeyStore()
 
@@ -288,13 +285,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return err
 	}
 
-	pwd, err := passwordFromFile(c.String("password"))
+	err = keyStore.Unlock(pwd)
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
-	}
-	_, err = cli.KeyStoreAuthenticator.AuthenticateEthKey(keyStore.Eth(), pwd)
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
 	err = store.Start()
@@ -304,7 +297,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	allKeys, err := keyStore.Eth().AllKeys()
+	allKeys, err := keyStore.Eth().GetAll()
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -568,7 +561,7 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 
-	res := db.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, address)
+	res := db.Exec(`UPDATE eth_key_states SET next_nonce = ? WHERE address = ?`, nextNonce, address)
 	if res.Error != nil {
 		return cli.errorOut(err)
 	}
@@ -576,25 +569,4 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
 	}
 	return nil
-}
-
-// ImportKey imports a key to be used with the chainlink node
-// NOTE: This should not be run concurrently with a running chainlink node.
-// If you do run it concurrently, it will not take effect until the next reboot.
-func (cli *Client) ImportKey(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
-	}
-
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in filepath to key"))
-	}
-
-	srcKeyPath := c.Args().First() // e.g. ./keys/mykey
-
-	_, err = app.GetKeyStore().Eth().ImportKeyFileToDB(srcKeyPath)
-	return cli.errorOut(err)
 }

@@ -59,7 +59,7 @@ type EthConfirmer struct {
 	estimator      gas.Estimator
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
-	keys []ethkey.Key
+	keys []ethkey.KeyV2
 
 	mb        *utils.Mailbox
 	ctx       context.Context
@@ -68,7 +68,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.Key, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.KeyV2, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
 		utils.StartStopOnce{},

@@ -34,9 +34,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	_, err := app.KeyStore.VRF().Unlock(cltest.Password)
-	require.NoError(t, err)
-	vrfkey, err := app.KeyStore.VRF().CreateKey()
+	vrfkey, err := app.KeyStore.VRF().Create()
 	require.NoError(t, err)
 	// Let's use a real onchain job ID to ensure it'll work with
 	// existing contract state.
@@ -49,21 +47,21 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 		Name:               "vrf-primary",
 		CoordinatorAddress: cu.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
-		PublicKey:          vrfkey.String()}).Toml()
+		PublicKey:          vrfkey.PublicKey.String()}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
 	jb, err = app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline)
 	require.NoError(t, err)
 
-	p, err := vrfkey.Point()
+	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	_, err = cu.rootContract.RegisterProvingKey(
 		cu.neil, big.NewInt(7), cu.neil.From, pair(secp256k1.Coordinates(p)), jb.ExternalIDEncodeStringToTopic())
 	require.NoError(t, err)
 	cu.backend.Commit()
 	_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
-		vrfkey.MustHash(), big.NewInt(100))
+		vrfkey.PublicKey.MustHash(), big.NewInt(100))
 	require.NoError(t, err)
 	cu.backend.Commit()
 	t.Log("Sent test request")

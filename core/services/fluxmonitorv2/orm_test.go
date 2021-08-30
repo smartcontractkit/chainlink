@@ -81,6 +81,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	corestore, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	t.Cleanup(cleanup)
 
+	keyStore := cltest.NewKeyStore(t, corestore.DB)
+
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
 	eventBroadcaster := postgres.NewEventBroadcaster(
@@ -91,7 +93,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	pipelineORM := pipeline.NewORM(corestore.DB)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(corestore.ORM.DB, cfg, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(corestore.ORM.DB, cfg, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()
@@ -163,6 +165,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	ethKeyStore := cltest.NewKeyStore(t, corestore.DB).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
 
@@ -170,8 +173,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		txm = new(bptxmmocks.TxManager)
 		orm = fluxmonitorv2.NewORM(corestore.DB, txm, strategy)
 
-		key      = cltest.MustInsertRandomKey(t, corestore.DB, 0)
-		from     = key.Address.Address()
+		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint64(21000)

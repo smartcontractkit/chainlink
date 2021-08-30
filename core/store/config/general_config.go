@@ -122,7 +122,7 @@ type GeneralConfig interface {
 	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
 	OCRIncomingMessageBufferSize() int
-	OCRKeyBundleID() (models.Sha256Hash, error)
+	OCRKeyBundleID() (string, error)
 	OCRMonitoringEndpoint() string
 	OCRNewStreamTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
@@ -756,16 +756,15 @@ func (c *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS")
 }
 
-func (c *generalConfig) OCRKeyBundleID() (models.Sha256Hash, error) {
+func (c *generalConfig) OCRKeyBundleID() (string, error) {
 	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
 	if kbStr != "" {
-		kb, err := models.Sha256HashFromHex(kbStr)
+		_, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
-			return models.Sha256Hash{}, errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
 		}
-		return kb, nil
 	}
-	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
+	return kbStr, nil
 }
 
 func (c *generalConfig) ORMMaxOpenConns() int {

@@ -8,12 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization/mocks"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -24,14 +24,12 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 
 	// Create mocks
 	telemClient := new(mocks.TelemClient)
-	csaKeystore := new(ksmocks.CSAKeystoreInterface)
+	csaKeystore := new(ksmocks.CSA)
 
 	// Set mock handlers for keystore
-	clientPubKey, _ := crypto.PublicKeyFromHex("1111111111111111111111111111111111111111111111111111111111111111")
-	csaKeyList := []csakey.Key{{PublicKey: *clientPubKey}}
-	clientPrivKey := []byte("1111111111111111111111111111111111111111111111111111111111111111")
-	csaKeystore.On("ListCSAKeys").Return(csaKeyList, nil)
-	csaKeystore.On("Unsafe_GetUnlockedPrivateKey", *clientPubKey).Return(clientPrivKey, nil)
+	key := cltest.DefaultCSAKey
+	keyList := []csakey.KeyV2{key}
+	csaKeystore.On("GetAll").Return(keyList, nil)
 
 	// Wire up the telem ingress client
 	url := &url.URL{}
