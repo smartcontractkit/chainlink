@@ -441,6 +441,28 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 	return nil
 }
 
+// StatusDatabase migrates the database
+func (cli *Client) StatusDatabase(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	cfg := cli.Config
+	parsed := cfg.DatabaseURL()
+	if parsed.String() == "" {
+		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+	}
+
+	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+
+	db := postgres.UnwrapGormDB(orm.DB).DB
+
+	if err = migrate.Status(db); err != nil {
+		return fmt.Errorf("Status failed: %v", err)
+	}
+	return nil
+}
+
 func dropAndCreateDB(parsed url.URL) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
