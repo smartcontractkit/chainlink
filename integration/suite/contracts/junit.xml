@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuite name="Contract Suite" tests="2" failures="0" errors="0" time="150.064">
+      <testcase name="Direct request suite with DirectRequest job receives API call data on-chain" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Flux monitor external validator suite with Flux job Sets a flag when value is above threshold" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Cronjob suite with Cron job runs 5 times with no errors" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Basic Contract Interactions exercises basic contract usage" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="OCR Feed Deploy and watch an OCR feed all the same version" classname="Contract Suite" time="75.061924378"></testcase>
+      <testcase name="OCR Feed Deploy and watch an OCR feed different versions" classname="Contract Suite" time="75.002654912"></testcase>
+      <testcase name="Keeper suite with Keeper job performs upkeep of a target contract" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="VRF suite with VRF job fulfills randomness" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+      <testcase name="Flux monitor suite with Flux job performs two rounds and has withdrawable payments for oracles" classname="Contract Suite" time="0">
+          <skipped></skipped>
+      </testcase>
+  </testsuite>
