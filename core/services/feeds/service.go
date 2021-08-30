@@ -49,8 +49,8 @@ type service struct {
 
 	orm         ORM
 	verORM      versioning.ORM
-	csaKeyStore keystore.CSAKeystoreInterface
-	ethKeyStore keystore.EthKeyStoreInterface
+	csaKeyStore keystore.CSA
+	ethKeyStore keystore.Eth
 	jobSpawner  job.Spawner
 	cfg         Config
 	txm         postgres.TransactionManager
@@ -63,8 +63,8 @@ func NewService(
 	verORM versioning.ORM,
 	txm postgres.TransactionManager,
 	jobSpawner job.Spawner,
-	csaKeyStore keystore.CSAKeystoreInterface,
-	ethKeyStore keystore.EthKeyStoreInterface,
+	csaKeyStore keystore.CSA,
+	ethKeyStore keystore.Eth,
 	cfg Config,
 ) *service {
 	svc := &service{
@@ -463,20 +463,14 @@ func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
 // getCSAPrivateKey gets the server's CSA private key
 func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	// Fetch the server's public key
-	keys, err := s.csaKeyStore.ListCSAKeys()
+	keys, err := s.csaKeyStore.GetAll()
 	if err != nil {
 		return privkey, err
 	}
 	if len(keys) < 1 {
 		return privkey, errors.New("CSA key does not exist")
 	}
-
-	privkey, err = s.csaKeyStore.Unsafe_GetUnlockedPrivateKey(keys[0].PublicKey)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return privkey, nil
+	return keys[0].Raw(), nil
 }
 
 // Unsafe_SetFMSClient sets the FMSClient on the service.

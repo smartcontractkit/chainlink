@@ -98,13 +98,10 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 			key.Compressed,
 			key.Uncompressed,
 			key.Hash,
-			key.CreatedAt.String(),
-			key.UpdatedAt.String(),
-			key.FriendlyDeletedAt(),
 		})
 	}
 
-	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows, rt.Writer)
+	renderList([]string{"Compressed", "Uncompressed", "Hash"}, rows, rt.Writer)
 
 	return nil
 }
