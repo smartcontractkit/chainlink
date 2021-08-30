@@ -43,7 +43,6 @@ func ensureMigrated(db *sql.DB) {
 
 	// insert records for existing migrations
 	sql := `INSERT INTO %s (version_id, is_applied) VALUES %s;`
-
 	valueStrings := []string{}
 	for i := 1; i <= count; i++ {
 		valueStrings = append(valueStrings, fmt.Sprintf("(%v, true)", strconv.FormatInt(int64(i), 10)))

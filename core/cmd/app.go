@@ -602,6 +602,12 @@ func NewApp(client *Client) *cli.App {
 							Flags:  []cli.Flag{},
 						},
 						{
+							Name:   "status",
+							Usage:  "Display the current database migration status.",
+							Action: client.StatusDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
 							Name:   "migrate",
 							Usage:  "Migrate the database to the latest version.",
 							Action: client.MigrateDatabase,
