@@ -124,7 +124,6 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	b, err := abi.Pack("fulfillRandomWords", onChainProof, rc)
 	results := make(map[string]interface{})
 	results["output"] = hexutil.Encode(b)
-	//results["requestCommitment"] = hexutil.Encode(rc[:])
 	results["requestID"] = hexutil.Encode([]byte(requestId.String()))
 	return Result{Value: results}
 }
