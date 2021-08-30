@@ -84,7 +84,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
 						},
 						"directRequestSpec": {
 							"contractAddress": "%s",
@@ -144,7 +145,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
 						},
 						"fluxMonitorSpec": {
 							"contractAddress": "%s",
@@ -214,7 +216,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
 						},
 						"offChainReportingOracleSpec": {
 							"contractAddress": "%s",
@@ -275,7 +278,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": ""
+							"dotDagSource": "",
+							"jobID": 0
 						},
 						"keeperSpec": {
 							"contractAddress": "%s",
@@ -327,7 +331,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
                         "pipelineSpec": {
                             "id": 1,
-                            "dotDagSource": ""
+                            "dotDagSource": "",
+														"jobID": 0
                         },
                         "cronSpec": {
                             "schedule": "%s",
@@ -376,7 +381,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": ""
+							"dotDagSource": "",
+							"jobID": 0
 						},
 						"webhookSpec": {
 							"createdAt":"2000-01-01T00:00:00Z",
@@ -436,7 +442,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": ""
+							"dotDagSource": "",
+							"jobID": 0
 						},
 						"keeperSpec": {
 							"contractAddress": "%s",
