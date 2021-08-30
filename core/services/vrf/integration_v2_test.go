@@ -106,6 +106,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 		vrf_coordinator_v2.DeployVRFCoordinatorV2(
 			neil, backend, linkAddress, common.Address{} /*blockHash store*/, linkEthFeed /* linkEth*/)
 	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
+	backend.Commit()
 	// Deploy consumer it has 1 LINK
 	consumerContractAddress, _, consumerContract, err :=
 		vrf_consumer_v2.DeployVRFConsumerV2(
@@ -113,6 +114,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy malicious consumer with 1 link
 	maliciousConsumerContractAddress, _, maliciousConsumerContract, err :=
@@ -121,6 +123,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.Key) coordinatorV2Univ
 	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
+	backend.Commit()
 
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,

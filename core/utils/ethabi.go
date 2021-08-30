@@ -47,15 +47,7 @@ func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
 }
 
 func MustGenericEncode(types []string, values ...interface{}) []byte {
-	if len(values) != len(types) {
-		panic("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
+	out, err := GenericEncode(types, values)
 	if err != nil {
 		panic(err)
 	}

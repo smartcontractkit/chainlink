@@ -764,7 +764,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-      const pkBytes = hexToBuf(defaultAbiCoder.encode(["uint256[2]"], [testKey]))
+      const pkBytes = hexToBuf(defaultAbiCoder.encode(["uint256[2]"], [testKey]));
       let kh = await vrfCoordinatorV2.hashOfKey(testKey);
       const tx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
         kh, // kh
@@ -777,12 +777,14 @@ describe("VRFCoordinatorV2", () => {
       // We give it the right proof length and a valid preSeed
       // but an invalid commitment
       const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeed"].toHexString());
-      console.log(reqReceipt.events[0].args["requestId"])
+      console.log(reqReceipt.events[0].args["requestId"]);
 
       const a = await vrfCoordinatorV2.getCommitment(reqReceipt.events[0].args["requestId"]);
       console.log("comm", a);
       const proof = new Uint8Array(416);
-      console.log(utils.keccak256(defaultAbiCoder.encode(["bytes32", "uint256"], [kh, reqReceipt.events[0].args["preSeed"]])))
+      console.log(
+        utils.keccak256(defaultAbiCoder.encode(["bytes32", "uint256"], [kh, reqReceipt.events[0].args["preSeed"]])),
+      );
       for (let i = 0; i < 64; i++) {
         // PK is the first 2 words
         proof[i] = pkBytes[i];
