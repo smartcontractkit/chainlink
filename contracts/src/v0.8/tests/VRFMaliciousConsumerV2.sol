@@ -12,7 +12,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     LinkTokenInterface LINKTOKEN;
     uint64 public s_subId;
     uint256 public s_gasAvailable;
-    bytes32 s_jobID;
+    bytes32 s_keyHash;
 
     constructor(
         address vrfCoordinator,
@@ -24,8 +24,8 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
         LINKTOKEN = LinkTokenInterface(link);
     }
 
-    function setJobID(bytes32 jobID) public {
-        s_jobID = jobID;
+    function setKeyHash(bytes32 keyHash) public {
+        s_keyHash = keyHash;
     }
 
     function fulfillRandomWords(
@@ -39,7 +39,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
         s_randomWords = randomWords;
         s_requestId = requestId;
         // Should revert
-        COORDINATOR.requestRandomWords(s_jobID, s_subId, 1, 200000, 1);
+        COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 200000, 1);
     }
 
     function testCreateSubscriptionAndFund(
@@ -71,7 +71,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
         external
         returns (uint256)
     {
-        return COORDINATOR.requestRandomWords(s_jobID, s_subId, 1, 500000, 1);
+        return COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 500000, 1);
     }
 }
 

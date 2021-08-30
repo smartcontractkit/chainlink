@@ -535,16 +535,16 @@ describe("VRFCoordinatorV2", () => {
 
   describe("#requestRandomWords", async function () {
     let subId: number;
-    let jid: string;
+    let kh: string;
     beforeEach(async () => {
       subId = await createSubscription();
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-      jid = await vrfCoordinatorV2.hashOfKey(testKey); // Just for testing use the hashOfKey as the jid.
+      kh = await vrfCoordinatorV2.hashOfKey(testKey);
     });
     it("invalid subId", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // jid
+          kh, // kh
           12301928312, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -555,7 +555,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid consumer", async function () {
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // jid
+          kh, // kh
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -566,7 +566,7 @@ describe("VRFCoordinatorV2", () => {
     it("invalid req confs", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          jid, // jid
+          kh, // kh
           subId, // subId
           0, // minReqConf
           1000, // callbackGasLimit
@@ -577,7 +577,7 @@ describe("VRFCoordinatorV2", () => {
     it("below minimum balance", async function () {
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          jid, // jid
+          kh, // kh
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -593,7 +593,7 @@ describe("VRFCoordinatorV2", () => {
       );
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          jid, // jid
+          kh, // kh
           subId, // subId
           1, // minReqConf
           1000001, // callbackGasLimit
@@ -609,7 +609,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const r1 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // jid
+        kh, // kh
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -618,7 +618,7 @@ describe("VRFCoordinatorV2", () => {
       const r1Receipt = await r1.wait();
       const seed1 = r1Receipt.events[0].args["requestId"];
       const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // jid
+        kh, // kh
         subId, // subId
         1, // minReqConf
         1000000, // callbackGasLimit
@@ -636,7 +636,7 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // jid
+        kh, // kh
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
@@ -646,7 +646,7 @@ describe("VRFCoordinatorV2", () => {
       assert(reqReceipt.events.length == 1);
       const reqEvent = reqReceipt.events[0];
       assert(reqEvent.event == "RandomWordsRequested", "wrong event name");
-      assert(reqEvent.args["jobId"] == jid, `wrong job id ${reqEvent.args["jobId"]} ${jid}`);
+      assert(reqEvent.args["keyHash"] == kh, `wrong kh ${reqEvent.args["keyHash"]} ${kh}`);
       assert(reqEvent.args["subId"].toString() == subId.toString(), "wrong subId");
       assert(
         reqEvent.args["minimumRequestConfirmations"].toString() == BigNumber.from(1).toString(),
@@ -666,7 +666,7 @@ describe("VRFCoordinatorV2", () => {
       await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // jid
+          kh, // kh
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -686,7 +686,7 @@ describe("VRFCoordinatorV2", () => {
       // i.e. cancel should be cleaning up correctly.
       await expect(
         vrfCoordinatorV2.connect(random).requestRandomWords(
-          jid, // jid
+          kh, // kh
           subId, // subId
           1, // minReqConf
           1000, // callbackGasLimit
@@ -753,7 +753,7 @@ describe("VRFCoordinatorV2", () => {
       const proof = new Uint8Array(416);
       const rc = new Uint8Array(160);
       await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
-        `NoCorrespondingRequest(0)`,
+        `NoCorrespondingRequest()`,
       );
     });
     it("incorrect commitment", async function () {
@@ -764,19 +764,29 @@ describe("VRFCoordinatorV2", () => {
         defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
-      let jid = await vrfCoordinatorV2.hashOfKey(testKey);
+      const pkBytes = hexToBuf(defaultAbiCoder.encode(["uint256[2]"], [testKey]))
+      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
       const tx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-        jid, // jid
+        kh, // kh
         subId, // subId
         1, // minReqConf
         1000, // callbackGasLimit
         1, // numWords
       );
       const reqReceipt = await tx.wait();
-      // We give it the right proof length and a valid requestID (preSeed)
+      // We give it the right proof length and a valid preSeed
       // but an invalid commitment
-      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["requestId"].toHexString());
+      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeed"].toHexString());
+      console.log(reqReceipt.events[0].args["requestId"])
+
+      const a = await vrfCoordinatorV2.getCommitment(reqReceipt.events[0].args["requestId"]);
+      console.log("comm", a);
       const proof = new Uint8Array(416);
+      console.log(utils.keccak256(defaultAbiCoder.encode(["bytes32", "uint256"], [kh, reqReceipt.events[0].args["preSeed"]])))
+      for (let i = 0; i < 64; i++) {
+        // PK is the first 2 words
+        proof[i] = pkBytes[i];
+      }
       for (let i = 0; i < 32; i++) {
         // Seed is the 6th word
         proof[i + 32 * 6] = preSeedBytes[i];

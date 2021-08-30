@@ -32,7 +32,7 @@ const (
 		2*2100 - // cold read oracle address and oracle balance
 		4800 + // request delete refund, note pre-london fork was 15k
 		21000 + // base cost of the transaction
-		5677 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		5677 + 6937 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 var (
@@ -88,9 +88,7 @@ func (lsn *listenerV2) Start() error {
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
 					{
-						// Support either way of specifying the jobID as "bytes32".
-						log.Topic(lsn.job.ExternalIDEncodeBytesToTopic()),
-						log.Topic(lsn.job.ExternalIDEncodeStringToTopic()),
+						log.Topic(lsn.job.VRFSpec.PublicKey.MustHash()),
 					},
 				},
 			},

@@ -33,8 +33,8 @@ interface VRFCoordinatorV2Interface {
 
   /**
    * @notice Request a set of random words.
-   * @param jobID - Corresponds to a particular oracle job which will
-   * generating the VRF proof/value. Different jobID's have different gas price
+   * @param keyHash - Corresponds to a particular oracle job which uses
+   * that key for generating the VRF proof. Different keyHash's have different gas price
    * ceilings, so you can select a specific one to bound your maximum per request cost.
    * @param subId  - The ID of the VRF subscription. Must be funded
    * with at least minimumSubscriptionBalance (see getConfig) LINK
@@ -56,7 +56,7 @@ interface VRFCoordinatorV2Interface {
    * a request to a response in fulfillRandomWords.
    */
   function requestRandomWords(
-    bytes32 jobID,
+    bytes32 keyHash,
     uint64  subId,
     uint16  minimumRequestConfirmations,
     uint32  callbackGasLimit,

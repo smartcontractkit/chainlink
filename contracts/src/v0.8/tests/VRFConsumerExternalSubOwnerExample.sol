@@ -14,7 +14,7 @@ contract VRFConsumerExternalSubOwnerExample is VRFConsumerBaseV2 {
         uint32 callbackGasLimit;
         uint16 requestConfirmations;
         uint32 numWords;
-        bytes32 jobID;
+        bytes32 keyHash;
     }
     RequestConfig s_requestConfig;
     uint256[] s_randomWords;
@@ -25,7 +25,8 @@ contract VRFConsumerExternalSubOwnerExample is VRFConsumerBaseV2 {
         address link,
         uint32 callbackGasLimit,
         uint16 requestConfirmations,
-        uint32 numWords
+        uint32 numWords,
+        bytes32 keyHash
     )
     VRFConsumerBaseV2(vrfCoordinator)
     {
@@ -36,7 +37,7 @@ contract VRFConsumerExternalSubOwnerExample is VRFConsumerBaseV2 {
             callbackGasLimit: callbackGasLimit,
             requestConfirmations: requestConfirmations,
             numWords: numWords,
-            jobID: bytes32(0) // Initially unset
+            keyHash: keyHash
         });
     }
 
@@ -56,7 +57,7 @@ contract VRFConsumerExternalSubOwnerExample is VRFConsumerBaseV2 {
         RequestConfig memory rc = s_requestConfig;
         // Will revert if subscription is not set and funded.
         s_requestId = COORDINATOR.requestRandomWords(
-            rc.jobID,
+            rc.keyHash,
             rc.subId,
             rc.requestConfirmations,
             rc.callbackGasLimit,
@@ -69,15 +70,5 @@ contract VRFConsumerExternalSubOwnerExample is VRFConsumerBaseV2 {
         public
     {
         s_requestConfig.subId = subId;
-    }
-
-    // Allows users to dynamically select jobs with particular
-    // gas price ceilings.
-    function setJobID(
-        bytes32 jobID
-    )
-        public
-    {
-        s_requestConfig.jobID = jobID;
     }
 }
